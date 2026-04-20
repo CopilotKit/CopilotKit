@@ -2,14 +2,14 @@
 
 [[package]]
 name = "ag-ui-langgraph"
-version = "0.0.32"
+version = "0.0.33"
 description = "Implementation of the AG-UI protocol for LangGraph."
 optional = false
 python-versions = "<3.14,>=3.10"
 groups = ["main"]
 files = [
-    {file = "ag_ui_langgraph-0.0.32-py3-none-any.whl", hash = "sha256:0268c49bde67b22872408e350b162ac3a8571fecbd4342698fb1abb96f0fa986"},
-    {file = "ag_ui_langgraph-0.0.32.tar.gz", hash = "sha256:3b20a9272a52ffd34f07acae8de43b44cd070c91d7fa7d835e2de566e86d1449"},
+    {file = "ag_ui_langgraph-0.0.33-py3-none-any.whl", hash = "sha256:3fa8c5c46659d6d3730d91d698afc93541b949fb5f8e8f88abd367b1e154ad50"},
+    {file = "ag_ui_langgraph-0.0.33.tar.gz", hash = "sha256:8f6c9b9a47be24a2b08f161b74ef98e5e69107cdcc4e7ba651c0e54fb3b3994f"},
 ]
 
 [package.dependencies]
@@ -25,14 +25,14 @@ fastapi = ["fastapi (>=0.115.12)"]
 
 [[package]]
 name = "ag-ui-protocol"
-version = "0.1.14"
+version = "0.1.15"
 description = ""
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "ag_ui_protocol-0.1.14-py3-none-any.whl", hash = "sha256:ec072e6a45e0d45b8714e6d54919cc9bde3d097fdc36f7e82953b2f21f1cdbef"},
-    {file = "ag_ui_protocol-0.1.14.tar.gz", hash = "sha256:d8e86b308f86a6cf6a5e18ca7154d7642895de2fe94cd2cece57723cdbba6406"},
+    {file = "ag_ui_protocol-0.1.15-py3-none-any.whl", hash = "sha256:85cde077023ccbc37b5ce2ad953537883c262d210320f201fc2ec4e85408b06a"},
+    {file = "ag_ui_protocol-0.1.15.tar.gz", hash = "sha256:5e23c1042c7d4e364d685e68d2fb74d37c16bc83c66d270102d8eaedce56ad82"},
 ]
 
 [package.dependencies]
@@ -5887,4 +5887,4 @@ crewai = ["crewai"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.13"
-content-hash = "dd03eb5d0be948eee6895e67c759fba1e23239ff7c009f680f5c7b2aa2740d81"
+content-hash = "5b201c50c1c6f315ad2fdf61d262e7bbc86c0cf628b99d322b9c0305c173777c"

@@ -25,10 +25,20 @@ env:
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
   NX_CI_EXECUTION_ENV: "E2E Examples"
 
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   examples:
     name: ${{ matrix.example }}
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 20
     strategy:
       fail-fast: false

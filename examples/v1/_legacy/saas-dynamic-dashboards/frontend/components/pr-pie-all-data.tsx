@@ -22,7 +22,6 @@ export function PRPieData({ args }: PieDataProps) {
     console.log(JSON.stringify(args), "argsarhs");
 
     if (args?.items) {
-      debugger;
       setChartData(args?.items);
     }
   }, [args?.items]);

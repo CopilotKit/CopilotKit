@@ -27,6 +27,7 @@ function createAgent(graphId: string = "sample_agent") {
 // Each demo specifies an agent ID; they all route to the same LangGraph graph.
 const agentNames = [
   "agentic_chat",
+  "frontend_tools",
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
@@ -58,6 +59,7 @@ export const POST = async (req: NextRequest) => {
       endpoint: "/api/copilotkit",
       serviceAdapter: new ExperimentalEmptyAdapter(),
       runtime: new CopilotRuntime({
+        // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
       }),
     });

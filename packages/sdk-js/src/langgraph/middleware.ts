@@ -185,7 +185,7 @@ const middlewareInput = {
     return {
       messages: updatedMessages,
       copilotkit: {
-        ...(state["copilotkit"] ?? {}),
+        ...state["copilotkit"],
         interceptedToolCalls: undefined,
         originalAIMessageId: undefined,
       },
@@ -228,7 +228,7 @@ const middlewareInput = {
     return {
       messages: [...state.messages.slice(0, -1), updatedAIMessage],
       copilotkit: {
-        ...(state["copilotkit"] ?? {}),
+        ...state["copilotkit"],
         interceptedToolCalls: frontendToolCalls,
         originalAIMessageId: lastMessage.id,
       },

@@ -3,5 +3,4 @@ node_modules
 .git
 .env
 .env.local
-apps/web/node_modules
-apps/agent/node_modules
+agent/node_modules

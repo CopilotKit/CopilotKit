@@ -10,6 +10,7 @@ import {
   runHttpRequest,
   transformHttpEventStream,
 } from "@ag-ui/client";
+import type { AgentCapabilities } from "@ag-ui/core";
 import { Observable, EMPTY, defer, from } from "rxjs";
 import { catchError, switchMap } from "rxjs/operators";
 import {
@@ -18,6 +19,7 @@ import {
   type IntelligenceRuntimeInfo,
   type RuntimeInfo,
   type RuntimeMode,
+  type ResolvedDebugConfig,
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
 import { CopilotRuntimeTransport } from "./types";
@@ -79,6 +81,8 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   credentials?: RequestCredentials;
   runtimeMode?: ResolvedRuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
+  capabilities?: AgentCapabilities;
+  debug?: ResolvedDebugConfig;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -88,6 +92,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
   private intelligence?: IntelligenceRuntimeInfo;
+  private _capabilities?: AgentCapabilities;
   private delegate?: AbstractAgent;
   private runtimeInfoPromise?: Promise<void>;
 
@@ -116,9 +121,21 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.transport = transport;
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
+    this._capabilities = config.capabilities;
+    if (config.debug) {
+      this.debug = config.debug;
+    }
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
     }
+  }
+
+  get capabilities(): AgentCapabilities | undefined {
+    return this._capabilities;
+  }
+
+  async getCapabilities(): Promise<AgentCapabilities> {
+    return this._capabilities ?? {};
   }
 
   override async detachActiveRun(): Promise<void> {
@@ -241,7 +258,12 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       onRunFinalized: () => {
         this.isRunning = false;
       },
+      // Local exception (network error, deserialization failure, etc.)
       onRunFailed: () => {
+        this.isRunning = false;
+      },
+      // Protocol-level RUN_ERROR event from the backend
+      onRunErrorEvent: () => {
         this.isRunning = false;
       },
     });
@@ -353,6 +375,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       transport: this.transport,
       runtimeMode: this.runtimeMode,
       intelligence: this.intelligence,
+      capabilities: this._capabilities,
+      debug: this.debug,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

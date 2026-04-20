@@ -123,7 +123,6 @@ export function PRLineChartData({ args }: any) {
 
 const CustomPieTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
-    debugger;
     const { week, count } = payload[0].payload;
     return (
       <div className="bg-white p-2 rounded shadow text-black">

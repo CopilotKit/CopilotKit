@@ -44,6 +44,7 @@ export interface Integration {
     description?: string;
     github_url?: string;
     demo_url?: string;
+    clone_command?: string;
   };
   features: string[];
   demos: Demo[];

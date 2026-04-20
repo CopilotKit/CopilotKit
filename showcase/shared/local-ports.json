@@ -1,0 +1,19 @@
+{
+  "langgraph-python": 3100,
+  "langgraph-typescript": 3101,
+  "langgraph-fastapi": 3102,
+  "google-adk": 3103,
+  "mastra": 3104,
+  "crewai-crews": 3105,
+  "pydantic-ai": 3106,
+  "claude-sdk-python": 3107,
+  "claude-sdk-typescript": 3108,
+  "agno": 3109,
+  "ag2": 3110,
+  "llamaindex": 3111,
+  "strands": 3112,
+  "langroid": 3113,
+  "ms-agent-python": 3114,
+  "ms-agent-dotnet": 3115,
+  "spring-ai": 3116
+}

@@ -17,9 +17,6 @@ node_modules
 .next/
 /out/
 
-# turbo
-.turbo
-
 # production
 /build
 
@@ -44,8 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# lock files
-package-lock.json
-pnpm-lock.yaml
-yarn.lock
-bun.lockb
+
+# LangGraph API
+.langgraph_api

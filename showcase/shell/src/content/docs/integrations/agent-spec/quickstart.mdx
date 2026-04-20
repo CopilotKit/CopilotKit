@@ -4,7 +4,6 @@ description: Set up Agent Spec + AG‑UI and connect a CopilotKit UI. Includes p
 icon: "lucide/Play"
 hideTOC: true
 ---
-
 ## Prerequisites
 
 - Node.js 20+
@@ -13,133 +12,442 @@ hideTOC: true
 ## Getting started
 
 <Steps>
-    <Step>
-        ### Install the Agent Spec AG‑UI adapter (backend)
+  <TailoredContent
+    className="step"
+    id="agent-spec-quickstart-path"
+    header={
+      <div>
+        <p className="text-xl font-semibold">Choose your starting point</p>
+        <p className="text-base">
+          You can either start fresh with our starter template or connect CopilotKit to an existing Agent Spec agent.
+        </p>
+      </div>
+    }
+  >
+    <TailoredContentOption
+      id="starter"
+      title="Start from scratch"
+      description="Get started quickly with our ready-to-go Agent Spec starter."
+    >
+      <Step>
+          ### Install the Agent Spec AG‑UI adapter (backend) 
 
-        The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. Here's how to install it:
+          The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. You will need it to activate your agent environment in the starter. Here's how to install it:
 
-        ```bash
-        # Clone the adapter and move into the Python package
-        git clone https://github.com/ag-ui-protocol/ag-ui.git
-        cd ag-ui/integrations/agent-spec/python
+          ```bash
+          # Clone the adapter and move into the Python package
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/ag-ui-protocol/ag-ui.git
+          cd ag-ui
+          git sparse-checkout set integrations/agent-spec/python
+          cd integrations/agent-spec/python
+          ```
+
+          This will setup AG-UI integration which will be used by the starter repository to install starter templates agent. This is only for agent environment setup
+          As this integration package uses `uv` as the package manager, you can easily install it with:
+
+          ```bash
+          uv sync
+          ```
+
+          Agent Spec is a specification language that declares the structure of your agents and workflows. Agent Spec agents can be run on various agent frameworks. Currently, we support LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
+          Here are the different installation options depending on which agent framework you want to execute your Agent Spec agent on:
+
+          ```bash
+          uv sync --extra langgraph                         # for LangGraph
+          uv sync --extra wayflow                           # for WayFlow
+          uv sync --extra langgraph --extra wayflow         # for both
+          ```
+
+          Alternatively, you can use `pip`:
+
+          ```bash
+          pip install -e .[wayflow]
+          pip install -e .[langgraph]
+          pip install -e .[wayflow,langgraph]
+          ```
+
+          Note: these commands would install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) packages from source (i.e. the respective GitHub repos).
+          Instead, you can install these packages from PyPI separately:
+
+          ```bash
+          pip install pyagentspec[langgraph]
+          pip install wayflowcore
+          ```
+
+          or you can also use uv (In case you encounter any issues with pip installation)
+
+          ```bash
+          uv add pyagentspec[langgraph]
+          uv add wayflowcore
+          ```
+        
+      </Step>
+      <Step>
+          ### Configure your environment
+
+          ```bash
+          export OPENAI_API_KEY=...
+          export OPENAI_MODEL=gpt-5.4
+          ```
+
+          Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
+
+          Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
+      </Step>
+      <Step>
+          ### Scaffold the UI 
+
+          Use our starter repo template: https://github.com/CopilotKit/with-agent-spec. It includes an example definition of an Agent Spec agent [here](https://github.com/CopilotKit/with-agent-spec/blob/main/agent/src/agentspec_agent.py). Run the following commands
+
+          Go to your root directory
+
+          ```bash
+          # If you are in the path integrations/agent-spec/python, then run the following command to go to root
+          cd ../../../../
+          ```
+          Clone the starter template
+
+          ```bash
+          # If you are in the path integrations/agent-spec/python, then run the following command to go to root
+          git clone https://github.com/CopilotKit/with-agent-spec.git
+          cd with-agent-spec
+          ```
+
+      </Step>
+      <Step>
+          ### Install Dependencies
+
+          Run the following commands to install your dependencies in the start repository
+
+          ```bash
+          pnpm install
+          ```
+          
+      </Step>
+      <Step>
+          ### Run your project
+
+          ```bash
+          pnpm dev
+          # or npm run dev / yarn dev / bun dev
+          ```
+      </Step>
+      <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+        ```
+        Can you tell me a joke?
         ```
 
-        As this integration package uses `uv` as the package manager, you can easily install it with:
-
-        ```bash
-        uv sync
+        ```
+        Can you help me understand AI?
         ```
 
-        Agent Spec is a specification language that declares the structure of your agents and workflows. Agent Spec agents can be run on various agent frameworks. Currently, we support LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
-        Here are the different installation options depending on which agent framework you want to execute your Agent Spec agent on:
-
-        ```bash
-        uv sync --extra langgraph                         # for LangGraph
-        uv sync --extra wayflow                           # for WayFlow
-        uv sync --extra langgraph --extra wayflow         # for both
+        ```
+        What do you think about React?
         ```
 
-        Alternatively, you can use `pip`:
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your agent is running on port 8000
+                - Check that your OpenAI API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
+            </Accordion>
+        </Accordions>
 
-        ```bash
-        pip install -e .[wayflow]
-        pip install -e .[langgraph]
-        pip install -e .[wayflow,langgraph]
-        ```
-
-        Note: these commands would install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) packages from source (i.e. the respective GitHub repos).
-        Instead, you can install these packages from PyPI separately:
-
-        ```bash
-        pip install pyagentspec[langgraph]
-        pip install wayflowcore
-        ```
     </Step>
-    <Step>
-        ### Configure your environment
+      
+    </TailoredContentOption>
+    <TailoredContentOption
+      id="bring-your-own"
+      title="Use an existing agent"
+      description="I already have an Agent Spec setup and want to connect CopilotKit UI."
+    >
+      <Step>
+          ### Install the Agent Spec AG‑UI adapter (backend)
 
-        ```bash
-        export OPENAI_API_KEY=...
-        export OPENAI_MODEL=gpt-5.2
+          The AG‑UI integration for Agent Spec lives in `ag-ui/integrations/agent-spec/python`. Here's how to install it:
+
+          ```bash
+          # Clone the adapter and move into the Python package
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/ag-ui-protocol/ag-ui.git
+          cd ag-ui
+          git sparse-checkout set integrations/agent-spec/python
+          cd integrations/agent-spec/python
+          ```
+
+          As this integration package uses `uv` as the package manager, you can easily install it with:
+
+          ```bash
+          uv sync
+          ```
+
+          Agent Spec is a specification language that declares the structure of your agents and workflows. Agent Spec agents can be run on various agent frameworks. Currently, we support LangGraph and WayFlow (Oracle's reference agent framework, with native support for Agent Spec).
+          Here are the different installation options depending on which agent framework you want to execute your Agent Spec agent on:
+
+          ```bash
+          uv sync --extra langgraph                         # for LangGraph
+          uv sync --extra wayflow                           # for WayFlow
+          uv sync --extra langgraph --extra wayflow         # for both
+          ```
+
+          Alternatively, you can use `pip`:
+
+          ```bash
+          pip install -e .[wayflow]
+          pip install -e .[langgraph]
+          pip install -e .[wayflow,langgraph]
+          ```
+
+          Note: these commands would install [`pyagentspec`](https://github.com/oracle/agent-spec) and [`wayflowcore`](https://github.com/oracle/wayflow) packages from source (i.e. the respective GitHub repos).
+          Instead, you can install these packages from PyPI separately:
+
+          ```bash
+          pip install pyagentspec[langgraph]
+          pip install wayflowcore
+          ```
+
+           or you can also use uv (In case you encounter any issues with pip installation)
+
+          ```bash
+          uv add pyagentspec[langgraph]
+          uv add wayflowcore
+          ```
+      </Step>
+      <Step>
+          ### Configure your environment
+
+          ```bash
+          export OPENAI_API_KEY=...
+          export OPENAI_MODEL=gpt-5.4
+          ```
+
+          Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
+
+          Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
+      </Step>
+      <Step>
+          ### Set up your Agent
+
+          Go to ag_ui_agentspec directory
+
+          ```bash
+          cd ag_ui_agentspec
+          ```
+
+          create a main.py file in the ag_ui_agentspec directory 
+
+
+          ```bash
+          #file path: ag-ui/integrations/agent-spec/python/ag_ui_agentspec/main.py
+          from pyagentspec.agent import Agent
+          from pyagentspec.llms import OpenAiCompatibleConfig
+          from pyagentspec.serialization import AgentSpecSerializer
+          from fastapi import FastAPI
+          from ag_ui_agentspec.agent import AgentSpecAgent
+          from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
+          import uvicorn
+
+          agentspec_agent = Agent(
+              name="AgentSpecAgent",
+              description="A starter Agent that can call tools.",
+              system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
+              llm_config=OpenAiCompatibleConfig(
+                  name="my-llm",
+                  model_id="gpt-5.4",
+                  url="https://api.openai.com/v1",
+              ),
+          )
+
+          agent_spec_config = AgentSpecSerializer().to_json(agentspec_agent)
+
+
+          #OR you can specify your own agent_spec_config like below
+          #agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
+          
+          runtime = "langgraph"  # or "wayflow"
+
+          app = FastAPI()
+          agent = AgentSpecAgent(agent_spec_config=agent_spec_config, runtime=runtime)
+          add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
+
+          if __name__ == "__main__":
+              uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+          ```
+      </Step>
+      <Step>
+          ### Create your frontend
+
+          CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+          Go to your root directory, then create a Next.js project
+
+          ```bash
+          npx create-next-app@latest my-copilot-app
+          cd my-copilot-app
+          ```
+      </Step>
+      <Step>
+          ### Install CopilotKit packages
+
+          ```npm
+          npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+          ```
+      </Step>
+      <Step>
+          ### Setup Copilot Runtime
+
+          Create an API route to connect CopilotKit to your Pydantic AI agent:
+
+          ```tsx title="app/api/copilotkit/route.ts"
+          import {
+            CopilotRuntime,
+            ExperimentalEmptyAdapter,
+            copilotRuntimeNextJSAppRouterEndpoint,
+          } from "@copilotkit/runtime";
+          import { HttpAgent } from "@ag-ui/client";
+          import { NextRequest } from "next/server";
+
+          const serviceAdapter = new ExperimentalEmptyAdapter();
+
+          const runtime = new CopilotRuntime({
+            agents: {
+              my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+            }
+          });
+
+          export const POST = async (req: NextRequest) => {
+            const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+              runtime,
+              serviceAdapter,
+              endpoint: "/api/copilotkit",
+            });
+
+            return handleRequest(req);
+          };
+          ```
+      </Step>
+      <Step>
+          ### Configure CopilotKit Provider
+
+          Wrap your application with the CopilotKit provider:
+
+          ```tsx title="app/layout.tsx"
+          import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+          import "@copilotkit/react-ui/v2/styles.css";
+          import './globals.css';
+
+          // ...
+
+          export default function RootLayout({ children }: {children: React.ReactNode}) {
+            return (
+              <html lang="en">
+                <body>
+                  {/* [!code highlight:3] */}
+                  <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                    {children}
+                  </CopilotKit>
+                </body>
+              </html>
+            );
+          }
+          ```
+      </Step>
+      <Step>
+        ### Add the chat interface
+
+        Add the CopilotSidebar component to your page:
+
+        ```tsx title="app/page.tsx"
+        import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+
+        export default function Page() {
+          return (
+            <main>
+              <h1>Your App</h1>
+              {/* [!code highlight:1] */}
+              <CopilotSidebar />
+            </main>
+          );
+         }
+        ```
+       </Step>
+       <Step>
+          ### Start your agent
+
+           From your agent directory, start the agent server:
+
+          ```bash
+          cd ..
+          cd ag-ui/integrations/agent-spec/python/ag_ui_agentspec
+          uv run main.py
+          ```
+
+          Your agent will be available at `http://localhost:8000`.
+       </Step>
+       <Step>
+           ### Start your UI
+
+           In a separate terminal, navigate to your frontend directory and start the development server:
+
+           <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+              <Tab value="npm">
+                   ```bash
+                  cd my-copilot-app
+                  npm run dev
+                  ```
+              </Tab>
+              <Tab value="pnpm">
+                   ```bash
+                   cd my-copilot-app
+                   pnpm dev
+                   ```
+               </Tab>
+               <Tab value="yarn">
+                   ```bash
+                   cd my-copilot-app
+                   yarn dev
+                   ```
+               </Tab>
+               <Tab value="bun">
+                   ```bash
+                   cd my-copilot-app
+                   bun dev
+                   ```
+               </Tab>
+           </Tabs>
+      </Step>
+      <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+        ```
+        Can you tell me a joke?
         ```
 
-        Note that these environment variables can point to any OpenAI-compatible LLM provider (e.g., local vLLM server, Together AI), but the variable names need to be `OPENAI_API_KEY` and `OPENAI_MODEL`.
-
-        Reference: Agent Spec docs AG‑UI tutorial at https://oracle.github.io/agent-spec/26.1.0/howtoguides/howto_ag_ui.html.
-    </Step>
-    <Step>
-        ### Scaffold the UI
-
-        Use our starter repo template: https://github.com/CopilotKit/with-agent-spec. It includes an example definition of an Agent Spec agent [here](https://github.com/CopilotKit/with-agent-spec/blob/main/agent/src/agentspec_agent.py).
-
-        #### Minimal starter Agent Spec agent definition
-
-        ```python agentspec_agent.py
-        from pyagentspec.agent import Agent
-        from pyagentspec.llms import OpenAiCompatibleConfig
-        from pyagentspec.serialization import AgentSpecSerializer
-
-        agentspec_agent = Agent(
-            name="AgentSpecAgent",
-            description="A starter Agent that can call tools.",
-            system_prompt="You are a helpful assistant, named Specky, that speaks a lot.",
-            llm_config=OpenAiCompatibleConfig(
-                name="my-llm",
-                model_id="gpt-5.2",
-                url="https://api.openai.com/v1",
-            ),
-        )
-
-        agent_spec_config = AgentSpecSerializer().to_json(agentspec_agent)
         ```
-    </Step>
-    <Step>
-        ### Add a minimal FastAPI endpoint (backend)
-
-        Create a FastAPI app that loads your Agent Spec file and exposes an AG‑UI FastAPI endpoint. Replace the `runtime` to match your adapter (`langgraph` or `wayflow`).
-
-        ```python src/main.py
-        from fastapi import FastAPI
-        from ag_ui_agentspec.agent import AgentSpecAgent
-        from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
-
-        agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
-        runtime = "langgraph"  # or "wayflow"
-
-        app = FastAPI()
-        agent = AgentSpecAgent(agent_spec_config=agent_spec_config, runtime=runtime)
-        add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
-
-        if __name__ == "__main__":
-            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        Can you help me understand AI?
         ```
 
-        Here, we use the `add_agentspec_fastapi_endpoint` utility from the integration package. It sets up the endpoint and the wiring of Agent Spec Tracing events to AG-UI events.
-
-        To run the backend agent:
-
-        ```bash
-        uv run src/main.py
         ```
-    </Step>
-    <Step>
-        ### Connect the UI to your frontend server
-
-        Make sure the frontend UI server knows what host/port the backend agent is running on. In this tutorial, we use http://localhost:8000/ as the host/port.
-    </Step>
-    <Step>
-        ### Run Next.js
-
-        From the root directory of [our starter repo](https://github.com/CopilotKit/with-agent-spec/), run:
-
-        ```bash
-        pnpm dev
-        # or npm run dev / yarn dev / bun dev
+        What do you think about React?
         ```
 
-        Note that this command also launches the agent backend in `agent/src`. Now, open http://localhost:3000 and start chatting with your agent.
-    </Step>
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your agent is running on port 8000
+                - Check that your OpenAI API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
+            </Accordion>
+        </Accordions>
 
+    </Step>
+    </TailoredContentOption>
+  </TailoredContent>
 </Steps>
 
 ## Tools and tool registry

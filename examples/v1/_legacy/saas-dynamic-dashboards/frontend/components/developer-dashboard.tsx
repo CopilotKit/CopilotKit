@@ -357,7 +357,6 @@ export function DeveloperDashboard() {
             <Select
               value={filterParams.status}
               onValueChange={(e) => {
-                debugger;
                 setFilterParams({ ...filterParams, status: e });
               }}
             >
@@ -375,7 +374,6 @@ export function DeveloperDashboard() {
             <Select
               value={filterParams.author}
               onValueChange={(e) => {
-                debugger;
                 setFilterParams({ ...filterParams, author: e });
               }}
             >

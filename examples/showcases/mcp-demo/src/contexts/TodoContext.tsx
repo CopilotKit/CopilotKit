@@ -158,7 +158,6 @@ export const TodoProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const toggleSubtask = (parentId: number, subtaskId: number) => {
-    debugger;
     setTodos(
       todos.map((todo) => {
         if (todo.id === parentId) {

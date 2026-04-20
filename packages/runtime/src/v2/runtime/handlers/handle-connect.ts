@@ -29,7 +29,7 @@ export async function handleConnectAgent({
   });
 
   try {
-    const agent = await cloneAgentForRequest(runtime, agentId);
+    const agent = await cloneAgentForRequest(runtime, agentId, request);
     if (agent instanceof Response) {
       return agent;
     }

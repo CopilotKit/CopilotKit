@@ -108,5 +108,53 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "agent/stop", agentId, threadId };
   }
 
+  // /threads/subscribe (2 segments)
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "subscribe"
+  ) {
+    return { method: "threads/subscribe" };
+  }
+
+  // /threads/:threadId/messages (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "messages"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/messages", threadId };
+  }
+
+  // /threads/:threadId/archive (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "archive"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/archive", threadId };
+  }
+
+  // /threads/:threadId (2 segments) — update or delete
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] !== "subscribe"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 1]!);
+    if (!threadId) return null;
+    // Disambiguated by HTTP method in the handler
+    return { method: "threads/update", threadId };
+  }
+
+  // /threads (1 segment) — list
+  if (len >= 1 && segments[len - 1] === "threads") {
+    return { method: "threads/list" };
+  }
+
   return null;
 }

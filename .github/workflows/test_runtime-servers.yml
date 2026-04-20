@@ -19,10 +19,20 @@ on:
         default: "main"
         type: string
 
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   node:
     name: "runtime / node"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -59,7 +69,7 @@ jobs:
 
   bun:
     name: "runtime / bun"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     steps:
       - name: Checkout

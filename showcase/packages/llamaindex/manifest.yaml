@@ -12,19 +12,29 @@ deployed: true
 sort_order: 110
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
+  - sidebar
+  - embedded
   - chat
 starter:
-  path: examples/integrations/llamaindex
-  name: Investment Analyst (LlamaIndex)
-  description: Investment analysis agent using LlamaIndex for data retrieval and analysis
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex
-  demo_url: https://showcase-starter-llamaindex-production.up.railway.app
+  path: showcase/starters/llamaindex
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/llamaindex
+  demo_url: https://showcase-starter-llamaindex-production-78fe.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app
 features:
   - agentic-chat
+  - hitl-in-chat
   - tool-rendering
-  - hitl
   - gen-ui-tool-based
+  - gen-ui-agent
+  - shared-state-read
+  - shared-state-write
+  - shared-state-streaming
+  - subagents
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -33,6 +43,13 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+  - id: hitl-in-chat
+    name: In-Chat Human in the Loop
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url:
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -40,17 +57,45 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
-  - id: hitl
-    name: Human in the Loop
-    description: User approves agent actions before execution
-    tags:
-      - interactivity
-    route: /demos/hitl
-    animated_preview_url:
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
     tags:
       - generative-ui
     route: /demos/gen-ui-tool-based
+    animated_preview_url:
+  - id: gen-ui-agent
+    name: Agentic Generative UI
+    description: Long-running agent tasks with generated UI
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-agent
+    animated_preview_url:
+  - id: shared-state-read
+    name: Shared State (Reading)
+    description: Reading agent state from UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-read
+    animated_preview_url:
+  - id: shared-state-write
+    name: Shared State (Writing)
+    description: Writing to agent state from UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-write
+    animated_preview_url:
+  - id: shared-state-streaming
+    name: State Streaming
+    description: Per-token state delta streaming from agent to UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-streaming
+    animated_preview_url:
+  - id: subagents
+    name: Sub-Agents
+    description: Multiple agents with visible task delegation
+    tags:
+      - multi-agent
+    route: /demos/subagents
     animated_preview_url:

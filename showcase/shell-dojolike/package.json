@@ -13,7 +13,9 @@
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-syntax-highlighter": "^15.6.0"
+    "react-syntax-highlighter": "^15.6.0",
+    "recharts": "^2.15.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

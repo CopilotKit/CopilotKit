@@ -7,18 +7,16 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/demos_preview.yml"
-      - ".github/workflows/release.yml"
-      - "packages/**/package.json"
-      - "packages/**/CHANGELOG.md"
-      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".changeset/**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NODE_OPTIONS: "--max-old-space-size=4096"
@@ -30,10 +28,15 @@ jobs:
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -41,7 +44,7 @@ jobs:
           version: "10.13.1"
 
       - name: Use Node.js 20
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -50,15 +53,40 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run format check
-        run: pnpm run check-format
+      - name: Run formatter (check on push, fix on PR)
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            if ! pnpm run format; then
+              echo "::warning::Formatter exited with error — auto-fix may be incomplete"
+            fi
+            if [ -n "$(git diff --name-only)" ]; then
+              echo "format_fixed=true" >> $GITHUB_ENV
+            fi
+          fi
+          pnpm run check-format
+
+      - name: Commit formatting fixes
+        if: >-
+          env.format_fixed == 'true' &&
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+        run: |
+          if [ -z "$(git diff --name-only)" ]; then
+            echo "No formatting changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git diff --name-only -z | xargs -0 git add
+          git commit -m "style: auto-fix formatting"
+          git push
 
   oxlint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -66,7 +94,7 @@ jobs:
           version: "10.13.1"
 
       - name: Use Node.js 20
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -83,7 +111,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -91,7 +119,7 @@ jobs:
           version: "10.13.1"
 
       - name: Use Node.js 20
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20.x
           cache: "pnpm"
@@ -109,3 +137,76 @@ jobs:
 
       - name: Run publint and attw
         run: pnpm run check:packages
+
+  commitlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: "pnpm"
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate current commit (last commit) with commitlint
+        if: github.event_name == 'push'
+        run: npx commitlint --last --verbose
+
+      - name: Validate PR commits with commitlint
+        id: commitlint
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose 2>&1 | tee /tmp/commitlint-output.txt
+
+      - name: Post fix suggestion on failure
+        if: github.event_name == 'pull_request' && steps.commitlint.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.readFileSync('/tmp/commitlint-output.txt', 'utf8');
+            const body = `### ❌ Commitlint failed\n\nCommit messages must follow [Conventional Commits](https://www.conventionalcommits.org/).\n\n**Valid prefixes:** \`feat:\`, \`fix:\`, \`docs:\`, \`style:\`, \`refactor:\`, \`test:\`, \`chore:\`, \`ci:\`, \`perf:\`, \`build:\`\n\n**Example:** \`feat: add user authentication\`\n\n<details><summary>Full output</summary>\n\n\`\`\`\n${output}\n\`\`\`\n</details>\n\nTo fix, amend your commit messages:\n\`\`\`bash\ngit rebase -i HEAD~N  # N = number of commits to fix\n# Change 'pick' to 'reword' for bad commits\n\`\`\``;
+
+            // Find existing comment to update
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes('Commitlint failed'));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail if commitlint failed
+        if: github.event_name == 'pull_request' && steps.commitlint.outcome == 'failure'
+        run: exit 1

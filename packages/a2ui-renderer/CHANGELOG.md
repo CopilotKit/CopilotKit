@@ -1,5 +1,13 @@
 # @copilotkit/a2ui-renderer
 
+## 1.55.2
+
+### Patch Changes
+
+- 62c6042: Bumping the a2ui-middleware underneath the a2ui renderer
+
+## 1.55.2-next.1
+
 ## 1.55.2-next.0
 
 ### Patch Changes

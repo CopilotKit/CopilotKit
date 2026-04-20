@@ -1,0 +1,151 @@
+name: release / publish
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  NX_VERBOSE_LOGGING: true
+
+jobs:
+  publish:
+    # Only run when a release PR is merged (not just closed)
+    if: >
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/publish/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Extract scope from branch
+        id: meta
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          # Branch format: release/publish/<scope>/v<version>
+          SCOPE=$(echo "$BRANCH" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
+          echo "scope=$SCOPE" >> $GITHUB_OUTPUT
+          echo "Detected scope: $SCOPE"
+
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          registry-url: https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Configure npm auth
+        run: |
+          npm config set "//registry.npmjs.org/:_authToken" "${NPM_TOKEN}"
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Publish to npm
+        id: publish
+        run: pnpm tsx scripts/release/publish-release.ts --scope ${{ steps.meta.outputs.scope }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+
+      - name: Configure git user
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Check for pre-existing tags
+        run: |
+          SCOPE="${{ steps.meta.outputs.scope }}"
+          VERSION="${{ steps.publish.outputs.version }}"
+          if [ "$SCOPE" == "monorepo" ]; then
+            TAG="v${VERSION}"
+          else
+            TAG="${SCOPE}/v${VERSION}"
+          fi
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "ERROR: Tag $TAG already exists" >&2
+            exit 1
+          fi
+
+      - name: Create and push git tag
+        run: |
+          SCOPE="${{ steps.meta.outputs.scope }}"
+          VERSION="${{ steps.publish.outputs.version }}"
+          if [ "$SCOPE" == "monorepo" ]; then
+            TAG="v${VERSION}"
+          else
+            TAG="${SCOPE}/v${VERSION}"
+          fi
+          git tag -a "$TAG" -m "Release ${SCOPE} ${VERSION}"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+        id: tag
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_SCOPE: ${{ steps.meta.outputs.scope }}
+          RELEASE_VERSION: ${{ steps.publish.outputs.version }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require("fs");
+            const { owner, repo } = context.repo;
+            const tag = process.env.RELEASE_TAG;
+            const scope = process.env.RELEASE_SCOPE;
+            const version = process.env.RELEASE_VERSION;
+            const name = scope === "monorepo" ? `v${version}` : `${scope}/v${version}`;
+
+            let body = "";
+            try {
+              body = fs.readFileSync("./release-notes.md", "utf8");
+            } catch {
+              body = `Release ${name}`;
+            }
+
+            try {
+              const existing = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+              await github.rest.repos.updateRelease({
+                owner, repo,
+                release_id: existing.data.id,
+                tag_name: tag, name, body,
+                draft: false, prerelease: false,
+              });
+            } catch (error) {
+              if (error.status !== 404) throw error;
+              await github.rest.repos.createRelease({
+                owner, repo,
+                tag_name: tag, name, body,
+                draft: false, prerelease: false,
+              });
+            }
+
+      - name: Release summary
+        run: |
+          echo "## Release Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Scope:** ${{ steps.meta.outputs.scope }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.publish.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** ${{ steps.tag.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
