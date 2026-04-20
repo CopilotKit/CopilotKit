@@ -130,8 +130,16 @@ describe("AgentCoreRunner e2e", () => {
     const runRequest: AgentRunnerRunRequest = {
       threadId,
       agent: new ScriptedAgent([
-        { type: EventType.TEXT_MESSAGE_START, messageId: "m-1", role: "assistant" },
-        { type: EventType.TEXT_MESSAGE_CONTENT, messageId: "m-1", delta: "hello" },
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "m-1",
+          role: "assistant",
+        },
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "m-1",
+          delta: "hello",
+        },
         { type: EventType.TEXT_MESSAGE_END, messageId: "m-1" },
       ] as BaseEvent[]),
       input: makeRunInput(threadId, "run-0", [
@@ -148,63 +156,59 @@ describe("AgentCoreRunner e2e", () => {
     expect(runEvents.at(-1)?.type).toBe(EventType.RUN_FINISHED);
   });
 
-  it(
-    "synthesises TOOL_CALL_RESULT events before replayed MESSAGES_SNAPSHOT on reconnect",
-    async () => {
-      const runner = new AgentCoreRunner();
-      const threadId = "thread-replay";
+  it("synthesises TOOL_CALL_RESULT events before replayed MESSAGES_SNAPSHOT on reconnect", async () => {
+    const runner = new AgentCoreRunner();
+    const threadId = "thread-replay";
 
-      // Simulate AgentCore's memory replay: during run(), the remote emits a
-      // MESSAGES_SNAPSHOT that contains assistant messages with toolCalls,
-      // but *no* corresponding TOOL_CALL_RESULT events. This is the exact
-      // shape the runner is designed to compensate for.
-      const replayedSnapshot: MessagesSnapshotEvent = {
-        type: EventType.MESSAGES_SNAPSHOT,
-        messages: [
-          { id: "u-1", role: "user", content: "what is the weather?" },
-          {
-            id: "a-1",
-            role: "assistant",
-            content: "",
-            toolCalls: [
-              {
-                id: "tc-1",
-                type: "function",
-                function: { name: "getWeather", arguments: "{}" },
-              },
-            ],
-          },
-        ] as Message[],
-      };
+    // Simulate AgentCore's memory replay: during run(), the remote emits a
+    // MESSAGES_SNAPSHOT that contains assistant messages with toolCalls,
+    // but *no* corresponding TOOL_CALL_RESULT events. This is the exact
+    // shape the runner is designed to compensate for.
+    const replayedSnapshot: MessagesSnapshotEvent = {
+      type: EventType.MESSAGES_SNAPSHOT,
+      messages: [
+        { id: "u-1", role: "user", content: "what is the weather?" },
+        {
+          id: "a-1",
+          role: "assistant",
+          content: "",
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function",
+              function: { name: "getWeather", arguments: "{}" },
+            },
+          ],
+        },
+      ] as Message[],
+    };
 
-      await collect(
-        runner.run({
-          threadId,
-          agent: new ScriptedAgent([replayedSnapshot as BaseEvent]),
-          input: makeRunInput(threadId, "run-0"),
-        }),
-      );
+    await collect(
+      runner.run({
+        threadId,
+        agent: new ScriptedAgent([replayedSnapshot as BaseEvent]),
+        input: makeRunInput(threadId, "run-0"),
+      }),
+    );
 
-      const connectEvents = await collect(runner.connect({ threadId }));
+    const connectEvents = await collect(runner.connect({ threadId }));
 
-      const snapshotIndex = connectEvents.findIndex(
-        (e) => e.type === EventType.MESSAGES_SNAPSHOT,
-      );
-      expect(snapshotIndex).toBeGreaterThan(-1);
+    const snapshotIndex = connectEvents.findIndex(
+      (e) => e.type === EventType.MESSAGES_SNAPSHOT,
+    );
+    expect(snapshotIndex).toBeGreaterThan(-1);
 
-      const toolResults = connectEvents.filter(
-        (e): e is ToolCallResultEvent =>
-          e.type === EventType.TOOL_CALL_RESULT,
-      );
-      expect(toolResults).toHaveLength(1);
-      expect(toolResults[0].toolCallId).toBe("tc-1");
+    const toolResults = connectEvents.filter(
+      (e): e is ToolCallResultEvent => e.type === EventType.TOOL_CALL_RESULT,
+    );
+    expect(toolResults).toHaveLength(1);
+    expect(toolResults[0].toolCallId).toBe("tc-1");
 
-      const toolResultIndex = connectEvents.findIndex(
-        (e) => e.type === EventType.TOOL_CALL_RESULT,
-      );
-      expect(toolResultIndex).toBeLessThan(snapshotIndex);
-    },
-  );
+    const toolResultIndex = connectEvents.findIndex(
+      (e) => e.type === EventType.TOOL_CALL_RESULT,
+    );
+    expect(toolResultIndex).toBeLessThan(snapshotIndex);
+  });
 
   it("does not synthesise TOOL_CALL_RESULT events for assistant messages without tool calls", async () => {
     const runner = new AgentCoreRunner();
