@@ -6,7 +6,7 @@
 //                   → check shell/src/content/docs/<path>.mdx (or index.mdx).
 //                     file exists = "ok", else "notfound". No network.
 //
-// Writes shell/src/data/docs-status.json. The shell-internal UI reads it
+// Writes shell/src/data/docs-status.json. The shell-dashboard UI reads it
 // so green ✓ / red ✗ reflect actual reachability, not just "field present."
 //
 // Intended to run on `pnpm dev` (via predev hook) and CI. Safe to run
