@@ -101,10 +101,7 @@ export interface CopilotChatInputSlotProps {
 export interface CopilotChatSuggestionViewSlotProps {
   suggestions: Suggestion[];
   loadingIndexes: ReadonlyArray<number>;
-  onSelectSuggestion: (
-    suggestion: Suggestion,
-    index: number,
-  ) => void;
+  onSelectSuggestion: (suggestion: Suggestion, index: number) => void;
 }
 
 export interface CopilotChatSuggestionViewSuggestionSlotProps {
@@ -352,10 +349,7 @@ export interface CopilotSidebarWelcomeScreenInputSlotProps {
 export interface CopilotSidebarWelcomeScreenSuggestionViewSlotProps {
   suggestions: Suggestion[];
   loadingIndexes: ReadonlyArray<number>;
-  onSelectSuggestion: (
-    suggestion: Suggestion,
-    index: number,
-  ) => void;
+  onSelectSuggestion: (suggestion: Suggestion, index: number) => void;
 }
 
 export interface CopilotSidebarWelcomeScreenLayoutSlotProps

@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, inject, provide, ref } from 'vue';
-import type { ComputedRef } from 'vue';
+import { computed, getCurrentInstance, inject, provide, ref } from "vue";
+import type { ComputedRef } from "vue";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import { CopilotChatConfigurationKey } from "./keys";
-import { CopilotChatDefaultLabels } from './types';
-import type { CopilotChatConfigurationValue, CopilotChatLabels } from './types';
+import { CopilotChatDefaultLabels } from "./types";
+import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
 
 const props = withDefaults(

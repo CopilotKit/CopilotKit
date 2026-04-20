@@ -1,5 +1,12 @@
-import { AbstractAgent, EventType } from '@ag-ui/client';
-import type { AgentSubscriber, BaseEvent, Message, RunAgentInput, RunAgentParameters, RunAgentResult } from '@ag-ui/client';
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  Message,
+  RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
 import type { Suggestion } from "@copilotkit/core";
 import { randomUUID } from "@copilotkit/shared";
 

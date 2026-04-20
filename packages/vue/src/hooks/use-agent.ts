@@ -1,9 +1,12 @@
-import { computed, shallowRef, toValue, triggerRef, watch } from 'vue';
-import type { MaybeRefOrGetter } from 'vue';
+import { computed, shallowRef, toValue, triggerRef, watch } from "vue";
+import type { MaybeRefOrGetter } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import type { AbstractAgent } from "@ag-ui/client";
-import { ProxiedCopilotRuntimeAgent, CopilotKitCoreRuntimeConnectionStatus } from '@copilotkit/core';
-import type { CopilotRuntimeTransport } from '@copilotkit/core';
+import {
+  ProxiedCopilotRuntimeAgent,
+  CopilotKitCoreRuntimeConnectionStatus,
+} from "@copilotkit/core";
+import type { CopilotRuntimeTransport } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
 export enum UseAgentUpdate {

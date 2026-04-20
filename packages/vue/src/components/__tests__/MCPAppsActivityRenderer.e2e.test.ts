@@ -7,8 +7,8 @@ import {
 } from "@testing-library/vue";
 import { defineComponent, nextTick } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AbstractAgent, EventType } from '@ag-ui/client';
-import type { BaseEvent, RunAgentInput, RunAgentResult } from '@ag-ui/client';
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput, RunAgentResult } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 import CopilotChat from "../chat/CopilotChat.vue";
 import CopilotKitProvider from "../../providers/CopilotKitProvider.vue";

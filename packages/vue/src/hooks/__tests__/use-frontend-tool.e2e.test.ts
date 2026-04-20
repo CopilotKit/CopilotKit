@@ -1,12 +1,17 @@
-import { computed, defineComponent, onMounted, ref, watch } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, onMounted, ref, watch } from "vue";
+import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AssistantMessage, Message } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import { AbstractAgent, EventType } from '@ag-ui/client';
-import type { AgentSubscriber, BaseEvent, RunAgentInput, RunAgentParameters } from '@ag-ui/client';
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  RunAgentInput,
+  RunAgentParameters,
+} from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { useFrontendTool } from "../use-frontend-tool";
 import type { VueFrontendTool } from "../../types";

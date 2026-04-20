@@ -112,7 +112,10 @@ export const WithEditButton: Story = {
   render: (args: Story["args"]) => ({
     components: { CopilotChatUserMessage },
     setup() {
-      return { args, handleEditMessage: handleEditMessage("Edit message clicked!") };
+      return {
+        args,
+        handleEditMessage: handleEditMessage("Edit message clicked!"),
+      };
     },
     template: `<CopilotChatUserMessage v-bind="args" @edit-message="handleEditMessage" />`,
   }),

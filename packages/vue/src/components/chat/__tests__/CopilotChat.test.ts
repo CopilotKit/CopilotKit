@@ -63,7 +63,8 @@ describe("CopilotChat", () => {
   }
 
   beforeEach(() => {
-    globalThis.MediaRecorder = MediaRecorderMock as unknown as typeof MediaRecorder;
+    globalThis.MediaRecorder =
+      MediaRecorderMock as unknown as typeof MediaRecorder;
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 

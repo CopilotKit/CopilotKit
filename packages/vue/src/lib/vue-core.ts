@@ -5,8 +5,12 @@ import type {
   VueCustomMessageRenderer,
 } from "../types";
 import type { InterruptRenderProps } from "../types/interrupt";
-import { CopilotKitCore } from '@copilotkit/core';
-import type { CopilotKitCoreConfig, CopilotKitCoreSubscriber, CopilotKitCoreSubscription } from '@copilotkit/core';
+import { CopilotKitCore } from "@copilotkit/core";
+import type {
+  CopilotKitCoreConfig,
+  CopilotKitCoreSubscriber,
+  CopilotKitCoreSubscription,
+} from "@copilotkit/core";
 
 export interface CopilotKitCoreVueConfig extends CopilotKitCoreConfig {
   renderToolCalls?: VueToolCallRenderer<unknown>[];

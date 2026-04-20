@@ -1,5 +1,5 @@
-import { h } from 'vue';
-import type { Component, VNodeChild } from 'vue';
+import { h } from "vue";
+import type { Component, VNodeChild } from "vue";
 import type { VueToolCallRendererRenderProps } from "../types";
 
 /**

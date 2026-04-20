@@ -1,6 +1,6 @@
 import { cleanup, render } from "@testing-library/vue";
-import { defineComponent, nextTick, ref, watchEffect } from 'vue';
-import type { Component, PropType } from 'vue';
+import { defineComponent, nextTick, ref, watchEffect } from "vue";
+import type { Component, PropType } from "vue";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import type { VueFrontendTool } from "../../types";

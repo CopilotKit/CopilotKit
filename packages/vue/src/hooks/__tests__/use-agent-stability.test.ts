@@ -1,5 +1,5 @@
-import { defineComponent, ref, watchEffect, nextTick } from 'vue';
-import type { Ref } from 'vue';
+import { defineComponent, ref, watchEffect, nextTick } from "vue";
+import type { Ref } from "vue";
 import { render, cleanup } from "@testing-library/vue";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";

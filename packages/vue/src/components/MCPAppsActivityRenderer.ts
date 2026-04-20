@@ -1,5 +1,5 @@
-import { computed, defineComponent, h, ref, watch } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, h, ref, watch } from "vue";
+import type { PropType } from "vue";
 import { z } from "zod";
 import type { AbstractAgent, RunAgentResult } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";

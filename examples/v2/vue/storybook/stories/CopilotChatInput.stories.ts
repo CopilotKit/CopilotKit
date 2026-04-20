@@ -1,7 +1,10 @@
 import { onMounted, onUnmounted, ref } from "vue";
 import type { Meta, StoryObj } from "@storybook/vue3-vite";
-import { CopilotChatConfigurationProvider, CopilotChatInput } from '@copilotkitnext/vue';
-import type { ToolsMenuItem } from '@copilotkitnext/vue';
+import {
+  CopilotChatConfigurationProvider,
+  CopilotChatInput,
+} from "@copilotkitnext/vue";
+import type { ToolsMenuItem } from "@copilotkitnext/vue";
 
 const extractValue = (event: Event) =>
   (event.target as HTMLTextAreaElement).value;

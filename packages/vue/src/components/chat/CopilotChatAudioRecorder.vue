@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, useAttrs, watch } from "vue";
-import { AudioRecorderError } from './audioRecorder';
-import type { AudioRecorderState } from './audioRecorder';
+import { AudioRecorderError } from "./audioRecorder";
+import type { AudioRecorderState } from "./audioRecorder";
 
 defineOptions({ inheritAttrs: false });
 
@@ -168,12 +168,12 @@ function drawFrame() {
   const barWidth = 2;
   const barGap = 1;
   const barSpacing = barWidth + barGap;
-    const maxBars = Math.floor(rect.width / barSpacing) + 2;
+  const maxBars = Math.floor(rect.width / barSpacing) + 2;
 
-    if (analyserRef.value && recorderState.value === "recording") {
-      if (amplitudeHistoryRef.value.length === 0) {
-        amplitudeHistoryRef.value = Array.from({ length: maxBars }, () => 0);
-      }
+  if (analyserRef.value && recorderState.value === "recording") {
+    if (amplitudeHistoryRef.value.length === 0) {
+      amplitudeHistoryRef.value = Array.from({ length: maxBars }, () => 0);
+    }
 
     if (fadeOpacityRef.value < 1) {
       fadeOpacityRef.value = Math.min(1, fadeOpacityRef.value + 0.03);

@@ -1,5 +1,5 @@
-import { computed, defineComponent } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent } from "vue";
+import type { PropType } from "vue";
 import { screen, fireEvent, waitFor, cleanup } from "@testing-library/vue";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Message } from "@ag-ui/core";

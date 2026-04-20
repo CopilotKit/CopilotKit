@@ -63,10 +63,7 @@ defineEmits<{
   "submit-message": [value: string];
   stop: [];
   "input-change": [value: string];
-  "select-suggestion": [
-    suggestion: Suggestion,
-    index: number,
-  ];
+  "select-suggestion": [suggestion: Suggestion, index: number];
   "add-file": [];
   "start-transcribe": [];
   "cancel-transcribe": [];

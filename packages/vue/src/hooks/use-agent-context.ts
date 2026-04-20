@@ -1,5 +1,5 @@
-import { computed, toValue, watch } from 'vue';
-import type { MaybeRefOrGetter } from 'vue';
+import { computed, toValue, watch } from "vue";
+import type { MaybeRefOrGetter } from "vue";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
 export type JsonSerializable =

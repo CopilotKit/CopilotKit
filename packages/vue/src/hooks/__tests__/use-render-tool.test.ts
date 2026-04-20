@@ -2,8 +2,8 @@ import { render } from "@testing-library/vue";
 import { defineComponent } from "vue";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { z } from "zod";
-import { useRenderTool } from '../use-render-tool';
-import type { RenderToolProps } from '../use-render-tool';
+import { useRenderTool } from "../use-render-tool";
+import type { RenderToolProps } from "../use-render-tool";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import type { VueToolCallRenderer } from "../../types/vue-tool-call-renderer";
 
@@ -118,9 +118,9 @@ describe("useRenderTool", () => {
     const renderer = core.renderToolCalls.find((item) => item.name === "*");
     expect(renderer).toBeDefined();
     expect(typeof renderer?.render).toBe("function");
-    const wildcardArgs =
-      renderer?.args as { safeParse: (v: unknown) => { success: boolean } } |
-      undefined;
+    const wildcardArgs = renderer?.args as
+      | { safeParse: (v: unknown) => { success: boolean } }
+      | undefined;
     expect(wildcardArgs).toBeDefined();
     expect(wildcardArgs!.safeParse({ arbitrary: true }).success).toBe(true);
   });

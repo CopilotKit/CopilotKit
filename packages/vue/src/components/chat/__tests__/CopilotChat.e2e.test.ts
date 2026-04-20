@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/vue";
-import { computed, defineComponent, onMounted } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, onMounted } from "vue";
+import type { PropType } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { useConfigureSuggestions } from "../../../hooks/use-configure-suggestions";

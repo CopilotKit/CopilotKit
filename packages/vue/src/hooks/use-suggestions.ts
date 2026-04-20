@@ -1,5 +1,5 @@
-import { computed, ref, toValue, watch } from 'vue';
-import type { MaybeRefOrGetter, Ref } from 'vue';
+import { computed, ref, toValue, watch } from "vue";
+import type { MaybeRefOrGetter, Ref } from "vue";
 import type { Suggestion } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";

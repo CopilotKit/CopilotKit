@@ -1,5 +1,5 @@
-import { computed, onScopeDispose, shallowRef, watch } from 'vue';
-import type { ComputedRef, Ref } from 'vue';
+import { computed, onScopeDispose, shallowRef, watch } from "vue";
+import type { ComputedRef, Ref } from "vue";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useAgent } from "./use-agent";
 import type {

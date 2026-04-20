@@ -5,14 +5,14 @@ import {
   waitFor,
   cleanup,
 } from "@testing-library/vue";
-import { computed, defineComponent, nextTick } from 'vue';
-import type { PropType } from 'vue';
+import { computed, defineComponent, nextTick } from "vue";
+import type { PropType } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { AssistantMessage, Message, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
-import { AbstractAgent, EventType } from '@ag-ui/client';
-import type { BaseEvent, RunAgentInput } from '@ag-ui/client';
+import { AbstractAgent, EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, Subject } from "rxjs";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";

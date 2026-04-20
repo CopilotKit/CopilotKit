@@ -1,7 +1,7 @@
-import { mount } from '@vue/test-utils';
-import type { VueWrapper } from '@vue/test-utils';
-import { defineComponent, h } from 'vue';
-import type { VNode } from 'vue';
+import { mount } from "@vue/test-utils";
+import type { VueWrapper } from "@vue/test-utils";
+import { defineComponent, h } from "vue";
+import type { VNode } from "vue";
 import type { AbstractAgent } from "@ag-ui/client";
 import CopilotKitProvider from "../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
