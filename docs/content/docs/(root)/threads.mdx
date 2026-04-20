@@ -7,6 +7,8 @@ doc_type: how-to
 
 import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
+<ThreadsEarlyAccess>
+
 ## What is this?
 
 CopilotKit threads enable persistent, resumable multi-turn conversations. The `useThreads` hook lists, creates, renames, archives, and deletes threads with realtime synchronization via WebSocket. Threads work with any agent framework — the Intelligence Platform stores conversation history server-side, so users can close their browser and pick up where they left off. Thread metadata updates (renames, archives, new threads) are pushed to all connected clients in realtime without polling.
@@ -21,7 +23,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 ## Prerequisites
 
 - A working CopilotKit setup — see [Quickstart](/quickstart) if you're starting fresh
-- The CopilotKit Intelligence Platform (available via [Copilot Cloud](https://cloud.copilotkit.ai) or self-hosted Enterprise)
+- The CopilotKit Intelligence Platform (available via [Copilot Cloud](https://cloud.copilotkit.ai) or [self-hosted on your own Kubernetes cluster](/premium/self-hosting))
 - `@copilotkit/react-core` v1.50+
 
 ## Implementation
@@ -50,7 +52,7 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
     });
     ```
 
-    If you're using Copilot Cloud, thread storage is handled automatically. For self-hosted Enterprise, configure your database connection per the Enterprise setup guide.
+    If you're using Copilot Cloud, thread storage is handled automatically. For self-hosted deployments, see [Self-Hosting Intelligence](/premium/self-hosting) for the Helm chart install and database configuration.
 
     **Thread lock options:** When an agent run starts, the runtime acquires a lock on the thread to prevent concurrent runs. You can tune this behavior:
 
@@ -161,3 +163,5 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
 - **Tutorial:** [Build a Multi-Conversation Chat App](/learn/tutorials/multi-conversation-chat) — end-to-end walkthrough building a chat app with thread history
+
+</ThreadsEarlyAccess>

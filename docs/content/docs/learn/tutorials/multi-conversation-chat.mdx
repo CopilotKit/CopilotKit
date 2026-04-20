@@ -5,6 +5,8 @@ icon: "lucide/MessageSquareMore"
 doc_type: tutorial
 ---
 
+<ThreadsEarlyAccess>
+
 ## What you'll build
 
 A chat application with a thread sidebar — similar to ChatGPT or Claude's conversation list. Users can create new conversations, switch between them, rename them, and archive old ones. All thread metadata syncs in realtime across tabs.
@@ -20,7 +22,7 @@ A chat application with a thread sidebar — similar to ChatGPT or Claude's conv
 ## Prerequisites
 
 - Node.js 20+
-- A CopilotKit project with the Intelligence Platform configured (via [Copilot Cloud](https://cloud.copilotkit.ai) or self-hosted Enterprise)
+- A CopilotKit project with the Intelligence Platform configured (via [Copilot Cloud](https://cloud.copilotkit.ai) or [self-hosted](/premium/self-hosting))
 - `@copilotkit/react-core` v1.50+
 
 ## Steps
@@ -266,3 +268,5 @@ You now have a working multi-conversation chat app with persistent threads. Thre
 - **Step-by-step guide:** [Threads](/threads) — the concise how-to for thread management
 - **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
 - **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
+
+</ThreadsEarlyAccess>
