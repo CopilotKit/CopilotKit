@@ -27,20 +27,21 @@ const DISTINCT_ID_COOKIE = "ph_distinct_id";
 // ~2 years — long enough to meaningfully track returning visitors.
 const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
 
-let posthogKeyWarned = false;
+// Warn once per isolate at module load if the key is missing. Edge runtime
+// module globals are per-isolate and short-lived, so a request-scoped
+// warn-once flag is unreliable; module-load is the cleanest available hook.
+const POSTHOG_PROJECT_KEY = process.env.POSTHOG_PROJECT_KEY;
+if (!POSTHOG_PROJECT_KEY && typeof process !== "undefined") {
+  console.warn(
+    "[middleware] POSTHOG_PROJECT_KEY is not set — analytics disabled",
+  );
+}
 
 function capturePageView(
   pathname: string,
   distinctId: string,
 ): Promise<unknown> {
-  const apiKey = process.env.POSTHOG_PROJECT_KEY;
-  if (!apiKey) {
-    if (!posthogKeyWarned) {
-      console.warn(
-        "[middleware] POSTHOG_PROJECT_KEY is not set — analytics disabled",
-      );
-      posthogKeyWarned = true;
-    }
+  if (!POSTHOG_PROJECT_KEY) {
     return Promise.resolve();
   }
 
@@ -48,15 +49,17 @@ function capturePageView(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      api_key: apiKey,
+      api_key: POSTHOG_PROJECT_KEY,
       event: "docs_pageview",
       distinct_id: distinctId,
       properties: {
         path: pathname,
       },
     }),
-  }).catch(() => {
-    // Silently ignore tracking failures — don't block navigation
+  }).catch((err) => {
+    // Surface capture failures (401/403/5xx, DNS, etc.) so operators can
+    // diagnose — swallowing errors silently hides real outages.
+    console.warn("[middleware] posthog capture failed", err);
   });
 }
 
@@ -94,7 +97,9 @@ export function middleware(
 
 export const config = {
   matcher: [
-    // Skip static assets and Next.js internals.
-    "/((?!api|_next/static|_next/image|favicon\\.ico|previews/).*)",
+    // Skip static assets, Next.js internals, and well-known static paths.
+    // Note the trailing `/` on `api/` so this does not match `/apidocs`
+    // and friends.
+    "/((?!api/|_next/static|_next/image|favicon\\.ico|previews/|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|\\.well-known/).*)",
   ],
 };
