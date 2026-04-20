@@ -38,7 +38,10 @@ describe("jsonSchemaToFormSchema", () => {
       type: "object",
       properties: { color: { type: "string", enum: ["red", "blue"] } },
     });
-    expect(out.fields[0]).toMatchObject({ kind: "string", enum: ["red", "blue"] });
+    expect(out.fields[0]).toMatchObject({
+      kind: "string",
+      enum: ["red", "blue"],
+    });
   });
 
   it("maps array of primitives", () => {

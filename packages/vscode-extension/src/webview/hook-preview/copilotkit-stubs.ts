@@ -41,10 +41,7 @@ function captureHook(hookName: string) {
 
 // Components that must render children through (user source likely wraps
 // other UI in these). Everything else rendered by the stub is a null element.
-const PASS_THROUGH_COMPONENTS = new Set([
-  "CopilotKit",
-  "CopilotKitProvider",
-]);
+const PASS_THROUGH_COMPONENTS = new Set(["CopilotKit", "CopilotKitProvider"]);
 
 function stubComponent(name: string) {
   if (PASS_THROUGH_COMPONENTS.has(name)) {

@@ -44,8 +44,9 @@ function createRequireShim() {
 
 export function executeBundle(code: string): unknown {
   // Reset captured-hooks registry so a new load starts clean.
-  (window as unknown as { __copilotkit_captured?: unknown[] })
-    .__copilotkit_captured = [];
+  (
+    window as unknown as { __copilotkit_captured?: unknown[] }
+  ).__copilotkit_captured = [];
   (window as unknown as { __copilotkit_deps: unknown }).__copilotkit_deps = {
     React,
     ReactDOM,

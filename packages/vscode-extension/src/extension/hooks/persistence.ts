@@ -58,9 +58,6 @@ export class HookControlsStore {
     name: string | null,
     line?: number,
   ): Promise<void> {
-    await this.memento.update(
-      this.key(filePath, hook, name, line),
-      undefined,
-    );
+    await this.memento.update(this.key(filePath, hook, name, line), undefined);
   }
 }

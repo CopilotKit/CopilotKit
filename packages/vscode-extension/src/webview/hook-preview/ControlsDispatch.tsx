@@ -68,18 +68,14 @@ export function ControlsDispatch({
       return (
         <CustomMessageControls
           values={values as ControlsByKind["custom-messages"]}
-          onChange={
-            onChange as (v: ControlsByKind["custom-messages"]) => void
-          }
+          onChange={onChange as (v: ControlsByKind["custom-messages"]) => void}
         />
       );
     case "activity-message":
       return (
         <ActivityMessageControls
           values={values as ControlsByKind["activity-message"]}
-          onChange={
-            onChange as (v: ControlsByKind["activity-message"]) => void
-          }
+          onChange={onChange as (v: ControlsByKind["activity-message"]) => void}
         />
       );
   }

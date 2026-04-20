@@ -7,7 +7,13 @@ const schema: FormSchema = {
     { kind: "string", name: "text", label: "text", required: true },
     { kind: "number", name: "count", label: "count", required: false },
     { kind: "boolean", name: "done", label: "done", required: true },
-    { kind: "string", name: "color", label: "color", required: true, enum: ["red", "blue"] },
+    {
+      kind: "string",
+      name: "color",
+      label: "color",
+      required: true,
+      enum: ["red", "blue"],
+    },
   ],
 };
 
@@ -28,7 +34,12 @@ describe("defaultsForSchema", () => {
           name: "tags",
           label: "tags",
           required: true,
-          items: { kind: "string", name: "item", label: "item", required: true },
+          items: {
+            kind: "string",
+            name: "item",
+            label: "item",
+            required: true,
+          },
         },
         {
           kind: "object",
@@ -37,7 +48,12 @@ describe("defaultsForSchema", () => {
           required: true,
           fields: [
             { kind: "string", name: "id", label: "id", required: true },
-            { kind: "boolean", name: "active", label: "active", required: false },
+            {
+              kind: "boolean",
+              name: "active",
+              label: "active",
+              required: false,
+            },
           ],
         },
         {

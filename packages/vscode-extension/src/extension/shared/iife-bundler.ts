@@ -260,7 +260,10 @@ function cssCollectorPlugin(cssChunks: string[]) {
       };
     },
     load(id: string) {
-      if (!id.startsWith(CSS_VIRTUAL_PREFIX) || !id.endsWith(CSS_VIRTUAL_SUFFIX)) {
+      if (
+        !id.startsWith(CSS_VIRTUAL_PREFIX) ||
+        !id.endsWith(CSS_VIRTUAL_SUFFIX)
+      ) {
         return null;
       }
       const realPath = id.slice(

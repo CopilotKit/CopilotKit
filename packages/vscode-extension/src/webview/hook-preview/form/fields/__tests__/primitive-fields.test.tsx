@@ -24,7 +24,13 @@ describe("StringField", () => {
     const onChange = vi.fn();
     render(
       <StringField
-        field={{ kind: "string", name: "c", label: "Color", required: true, enum: ["red", "blue"] }}
+        field={{
+          kind: "string",
+          name: "c",
+          label: "Color",
+          required: true,
+          enum: ["red", "blue"],
+        }}
         value="red"
         onChange={onChange}
       />,

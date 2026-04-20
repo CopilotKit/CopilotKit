@@ -43,7 +43,13 @@ describe("stub-based capture → render invocation", () => {
         description: "Add a todo item",
         parameters: [{ name: "text", type: "string", required: true }],
         available: "frontend",
-        render: ({ args, status }: { args?: { text?: string }; status: string }) => (
+        render: ({
+          args,
+          status,
+        }: {
+          args?: { text?: string };
+          status: string;
+        }) => (
           <div data-testid="add-todo-render">
             Add: {args?.text} ({status})
           </div>

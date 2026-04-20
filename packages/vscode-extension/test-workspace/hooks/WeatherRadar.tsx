@@ -26,7 +26,9 @@ export function WeatherRadar() {
             zoom {parameters.zoom ?? 6}
           </span>
         </div>
-        <h3 className="mt-2 text-xl font-semibold">{parameters.region ?? "—"}</h3>
+        <h3 className="mt-2 text-xl font-semibold">
+          {parameters.region ?? "—"}
+        </h3>
         <div className="mt-4 grid grid-cols-12 grid-rows-6 gap-px rounded-md bg-black/60 p-0.5 font-mono text-[10px]">
           {Array.from({ length: 72 }).map((_, i) => {
             const intensity = (Math.sin(i / 3) + 1) / 2;

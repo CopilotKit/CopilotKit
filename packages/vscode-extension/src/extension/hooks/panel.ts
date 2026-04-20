@@ -235,7 +235,12 @@ export class HookPreviewPanel {
   private html(nonce: string): string {
     if (!this.panel) return "";
     const scriptUri = this.panel.webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "hook-preview.js"),
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        "dist",
+        "webview",
+        "hook-preview.js",
+      ),
     );
     // CSP notes:
     //  - `script-src 'nonce-${nonce}'` keeps scripts strictly nonced.

@@ -7,10 +7,7 @@ import { bundleHookSite } from "../hook-bundler";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const fixturesDir = path.resolve(
-  __dirname,
-  "../../../../test-workspace/hooks",
-);
+const fixturesDir = path.resolve(__dirname, "../../../../test-workspace/hooks");
 
 describe("hooks integration", () => {
   it("scans the fixture workspace and finds the expected hook sites", () => {
@@ -18,9 +15,7 @@ describe("hooks integration", () => {
     const hooks = sites
       .map((s) => ({ hook: s.hook, name: s.name }))
       .sort((a, b) =>
-        `${a.hook}:${a.name ?? ""}`.localeCompare(
-          `${b.hook}:${b.name ?? ""}`,
-        ),
+        `${a.hook}:${a.name ?? ""}`.localeCompare(`${b.hook}:${b.name ?? ""}`),
       );
     expect(hooks).toEqual([
       { hook: "useCoAgentStateRender", name: "forecast_agent" },

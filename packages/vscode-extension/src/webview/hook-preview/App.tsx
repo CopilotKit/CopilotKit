@@ -1,10 +1,4 @@
-import {
-  Component,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { Component, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Harness } from "./harness/Harness";
 import { invokeRender } from "./adapters";
 import type { ControlsByKind } from "./adapters/types";
@@ -75,8 +69,8 @@ class PreviewErrorBoundary extends Component<
           </pre>
           <p className="max-w-[52ch] text-xs text-white/50">
             Pick a different hook from the sidebar — the preview will reset
-            automatically. If this keeps happening, check the webview
-            devtools console for the full stack.
+            automatically. If this keeps happening, check the webview devtools
+            console for the full stack.
           </p>
         </div>
       );
@@ -116,7 +110,6 @@ function findConfig(
       );
   }
 }
-
 
 function controlsFor(
   kind: keyof ControlsByKind,
@@ -158,12 +151,11 @@ function controlsFor(
     case "custom-messages":
     case "activity-message":
       return {
-        message:
-          (persisted?.message as any) ?? {
-            id: "m1",
-            role: "assistant",
-            content: "",
-          },
+        message: (persisted?.message as any) ?? {
+          id: "m1",
+          role: "assistant",
+          content: "",
+        },
       };
   }
 }
@@ -254,8 +246,9 @@ function AppInner() {
     // because rolldown's IIFE emits `var __copilotkit_hookSite = …` at the
     // top level, which binds a non-configurable property on `window` — so
     // we assign `undefined` and treat that as "not set" in the read below.
-    (window as unknown as { __copilotkit_hookSite?: unknown })
-      .__copilotkit_hookSite = undefined;
+    (
+      window as unknown as { __copilotkit_hookSite?: unknown }
+    ).__copilotkit_hookSite = undefined;
     try {
       executeBundle(payload.bundleCode);
     } catch (err) {
@@ -382,8 +375,8 @@ function AppInner() {
           captured during mount.
         </p>
         <p className="m-0 max-w-[46ch] text-neutral-400/70 text-xs">
-          The containing component may not have executed the hook&apos;s
-          branch, or it errored before reaching the call.
+          The containing component may not have executed the hook&apos;s branch,
+          or it errored before reaching the call.
         </p>
       </div>
     );

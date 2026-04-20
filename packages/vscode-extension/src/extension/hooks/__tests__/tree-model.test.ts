@@ -106,8 +106,12 @@ describe("groupSitesByHook", () => {
     const names = registered.map((g) => g.hook);
     expect(names).toContain("useCopilotAction");
     expect(names).toContain("useCopilotReadable");
-    expect(registered.find((g) => g.hook === "useCopilotAction")!.sites).toHaveLength(2);
-    expect(registered.find((g) => g.hook === "useCopilotReadable")!.sites).toHaveLength(1);
+    expect(
+      registered.find((g) => g.hook === "useCopilotAction")!.sites,
+    ).toHaveLength(2);
+    expect(
+      registered.find((g) => g.hook === "useCopilotReadable")!.sites,
+    ).toHaveLength(1);
   });
 
   it("puts render groups before data groups", () => {

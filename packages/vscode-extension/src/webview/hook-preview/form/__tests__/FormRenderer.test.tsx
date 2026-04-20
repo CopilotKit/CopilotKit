@@ -11,9 +11,7 @@ const schema: FormSchema = {
       name: "user",
       label: "User",
       required: true,
-      fields: [
-        { kind: "string", name: "id", label: "id", required: true },
-      ],
+      fields: [{ kind: "string", name: "id", label: "id", required: true }],
     },
     {
       kind: "array",
@@ -35,7 +33,9 @@ describe("FormRenderer", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByLabelText("Text"), { target: { value: "bye" } });
+    fireEvent.change(screen.getByLabelText("Text"), {
+      target: { value: "bye" },
+    });
     expect(onChange).toHaveBeenCalledWith({
       text: "bye",
       user: { id: "u1" },
@@ -91,7 +91,9 @@ describe("FormRenderer", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByLabelText(/^count/), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(/^count/), {
+      target: { value: "" },
+    });
     expect(onChange).toHaveBeenCalledWith({});
   });
 });

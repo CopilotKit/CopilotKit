@@ -7,8 +7,9 @@ import type { CapturedRegistry } from "../registry";
 // Reproduces what `executeBundle` does at runtime: installs the stub
 // object whose captured side effects feed into RegistryReader.
 function installStubs() {
-  (window as unknown as { __copilotkit_captured?: unknown[] })
-    .__copilotkit_captured = [];
+  (
+    window as unknown as { __copilotkit_captured?: unknown[] }
+  ).__copilotkit_captured = [];
   return createCopilotkitStubs() as Record<string, (config: unknown) => void>;
 }
 

@@ -11,7 +11,13 @@ describe("v1ParametersToFormSchema", () => {
     expect(out.fields).toEqual([
       { kind: "string", name: "a", label: "a", required: true },
       { kind: "number", name: "b", label: "b", required: false },
-      { kind: "boolean", name: "c", label: "c", required: true, description: "flag" },
+      {
+        kind: "boolean",
+        name: "c",
+        label: "c",
+        required: true,
+        description: "flag",
+      },
     ]);
   });
 
@@ -20,7 +26,11 @@ describe("v1ParametersToFormSchema", () => {
       { name: "color", type: "string", enum: ["red", "blue"], required: true },
     ]);
     expect(out.fields[0]).toEqual({
-      kind: "string", name: "color", label: "color", enum: ["red", "blue"], required: true,
+      kind: "string",
+      name: "color",
+      label: "color",
+      enum: ["red", "blue"],
+      required: true,
     });
   });
 
@@ -30,10 +40,14 @@ describe("v1ParametersToFormSchema", () => {
       { name: "scores", type: "number[]", required: false },
     ]);
     expect(out.fields[0]).toMatchObject({
-      kind: "array", name: "tags", items: { kind: "string" },
+      kind: "array",
+      name: "tags",
+      items: { kind: "string" },
     });
     expect(out.fields[1]).toMatchObject({
-      kind: "array", name: "scores", items: { kind: "number" },
+      kind: "array",
+      name: "scores",
+      items: { kind: "number" },
     });
   });
 

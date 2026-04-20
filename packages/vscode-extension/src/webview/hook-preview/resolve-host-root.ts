@@ -15,7 +15,5 @@ export function resolveHostRootFn(
     return mod.default as () => ReactNode;
   }
   const firstFn = Object.values(mod).find((v) => typeof v === "function");
-  return typeof firstFn === "function"
-    ? (firstFn as () => ReactNode)
-    : null;
+  return typeof firstFn === "function" ? (firstFn as () => ReactNode) : null;
 }

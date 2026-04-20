@@ -10,7 +10,12 @@ export interface V1Parameter {
 }
 
 function baseFor(p: V1Parameter, required: boolean) {
-  const out: { name: string; label: string; required: boolean; description?: string } = {
+  const out: {
+    name: string;
+    label: string;
+    required: boolean;
+    description?: string;
+  } = {
     name: p.name,
     label: p.name,
     required,
@@ -24,7 +29,10 @@ function paramToField(p: V1Parameter): FormField {
   const base = baseFor(p, required);
 
   if (p.type === "string") {
-    const field: Extract<FormField, { kind: "string" }> = { kind: "string", ...base };
+    const field: Extract<FormField, { kind: "string" }> = {
+      kind: "string",
+      ...base,
+    };
     if (p.enum !== undefined) field.enum = p.enum;
     return field;
   }

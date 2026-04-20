@@ -25,8 +25,12 @@ describe("ActionControls", () => {
     expect((screen.getByLabelText("Status") as HTMLSelectElement).value).toBe(
       "complete",
     );
-    expect((screen.getByLabelText("text") as HTMLInputElement).value).toBe("hi");
-    expect((screen.getByLabelText("Result") as HTMLInputElement).value).toBe("ok");
+    expect((screen.getByLabelText("text") as HTMLInputElement).value).toBe(
+      "hi",
+    );
+    expect((screen.getByLabelText("Result") as HTMLInputElement).value).toBe(
+      "ok",
+    );
   });
 
   it("disables result field when status is not complete", () => {
@@ -34,7 +38,12 @@ describe("ActionControls", () => {
     render(
       <ActionControls
         schema={schema}
-        values={{ args: {}, status: "executing", result: "", onRespond: () => {} }}
+        values={{
+          args: {},
+          status: "executing",
+          result: "",
+          onRespond: () => {},
+        }}
         onChange={onChange}
       />,
     );
@@ -48,7 +57,12 @@ describe("ActionControls", () => {
     render(
       <ActionControls
         schema={schema}
-        values={{ args: {}, status: "inProgress", result: "", onRespond: () => {} }}
+        values={{
+          args: {},
+          status: "inProgress",
+          result: "",
+          onRespond: () => {},
+        }}
         onChange={onChange}
       />,
     );

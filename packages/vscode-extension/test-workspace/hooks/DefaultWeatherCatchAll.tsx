@@ -10,9 +10,7 @@ export function DefaultWeatherCatchAll() {
     description:
       "Catch-all handler shown when the agent invokes a tool we haven't registered a dedicated renderer for.",
     render: ({ args, status }) => {
-      const entries = Object.entries(
-        (args ?? {}) as Record<string, unknown>,
-      );
+      const entries = Object.entries((args ?? {}) as Record<string, unknown>);
       return (
         <div className="overflow-hidden rounded-2xl border border-amber-400/20 bg-gradient-to-b from-amber-950/40 to-black p-5 text-white shadow-xl">
           <div className="flex items-center gap-3">
@@ -49,11 +47,7 @@ export function DefaultWeatherCatchAll() {
                 args
               </div>
               <pre className="whitespace-pre-wrap break-words px-3 py-2 text-amber-100/90">
-                {JSON.stringify(
-                  Object.fromEntries(entries),
-                  null,
-                  2,
-                )}
+                {JSON.stringify(Object.fromEntries(entries), null, 2)}
               </pre>
             </div>
           )}

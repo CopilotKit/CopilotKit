@@ -37,7 +37,8 @@ function matchesKind(field: FormField, value: unknown): boolean {
       if (typeof value !== "string") return false;
       // Empty enum is treated as "no constraint" — a required string field
       // with enum: [] would otherwise be stuck rejecting every value.
-      if (field.enum && field.enum.length > 0) return field.enum.includes(value);
+      if (field.enum && field.enum.length > 0)
+        return field.enum.includes(value);
       return true;
     case "number":
       return typeof value === "number";
@@ -49,7 +50,9 @@ function matchesKind(field: FormField, value: unknown): boolean {
     case "array":
       return Array.isArray(value);
     case "object":
-      return value !== null && typeof value === "object" && !Array.isArray(value);
+      return (
+        value !== null && typeof value === "object" && !Array.isArray(value)
+      );
     case "raw-json":
       return true;
   }

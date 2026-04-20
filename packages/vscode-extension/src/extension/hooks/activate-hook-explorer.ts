@@ -195,8 +195,7 @@ export function activateHookExplorer(
     vscode.commands.registerCommand(
       "copilotkit.hooks.openSource",
       async (site?: HookCallSite) => {
-        const target =
-          site ?? (await pickSite("any", "Pick a hook to open"));
+        const target = site ?? (await pickSite("any", "Pick a hook to open"));
         if (!target) return;
         await openSourceSite(target);
       },
@@ -220,12 +219,8 @@ export function activateHookExplorer(
       },
     ),
     vscode.commands.registerCommand("copilotkit.hooks.focusPanel", async () => {
-      const target = await pickSite(
-        "render",
-        "Pick a render hook to preview",
-      );
+      const target = await pickSite("render", "Pick a render hook to preview");
       if (target) await previewSite(target);
     }),
   );
-
 }

@@ -28,9 +28,9 @@ describe("HookControlsStore", () => {
   it("uses file:line when name is null", async () => {
     const store = new HookControlsStore(fakeMemento() as any, "/ws");
     await store.save("/ws/b.tsx", "useLangGraphInterrupt", null, { v: 1 }, 42);
-    expect(
-      store.load("/ws/b.tsx", "useLangGraphInterrupt", null, 42),
-    ).toEqual({ v: 1 });
+    expect(store.load("/ws/b.tsx", "useLangGraphInterrupt", null, 42)).toEqual({
+      v: 1,
+    });
   });
 
   it("reset clears a stored entry", async () => {

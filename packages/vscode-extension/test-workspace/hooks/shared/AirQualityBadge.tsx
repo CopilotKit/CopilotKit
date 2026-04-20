@@ -7,11 +7,24 @@ export interface AirQualityProps {
 }
 
 const LEVEL = (aqi: number) => {
-  if (aqi <= 50) return { label: "Good", from: "from-emerald-500", to: "to-green-600" };
-  if (aqi <= 100) return { label: "Moderate", from: "from-yellow-500", to: "to-amber-600" };
-  if (aqi <= 150) return { label: "Unhealthy for sensitive", from: "from-orange-500", to: "to-orange-700" };
-  if (aqi <= 200) return { label: "Unhealthy", from: "from-rose-500", to: "to-red-700" };
-  if (aqi <= 300) return { label: "Very unhealthy", from: "from-purple-600", to: "to-fuchsia-800" };
+  if (aqi <= 50)
+    return { label: "Good", from: "from-emerald-500", to: "to-green-600" };
+  if (aqi <= 100)
+    return { label: "Moderate", from: "from-yellow-500", to: "to-amber-600" };
+  if (aqi <= 150)
+    return {
+      label: "Unhealthy for sensitive",
+      from: "from-orange-500",
+      to: "to-orange-700",
+    };
+  if (aqi <= 200)
+    return { label: "Unhealthy", from: "from-rose-500", to: "to-red-700" };
+  if (aqi <= 300)
+    return {
+      label: "Very unhealthy",
+      from: "from-purple-600",
+      to: "to-fuchsia-800",
+    };
   return { label: "Hazardous", from: "from-red-700", to: "to-black" };
 };
 

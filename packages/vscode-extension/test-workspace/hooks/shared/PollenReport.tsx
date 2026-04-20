@@ -9,7 +9,15 @@ export interface PollenReportProps {
   status?: string;
 }
 
-function Bar({ label, value, hue }: { label: string; value: number; hue: string }) {
+function Bar({
+  label,
+  value,
+  hue,
+}: {
+  label: string;
+  value: number;
+  hue: string;
+}) {
   const pct = Math.min(100, value * 10);
   return (
     <div>
