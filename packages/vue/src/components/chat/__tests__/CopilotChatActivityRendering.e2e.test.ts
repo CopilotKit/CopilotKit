@@ -1,7 +1,9 @@
 import { cleanup, fireEvent, screen, waitFor } from "@testing-library/vue";
-import { defineComponent } from "vue";
+import { defineComponent, ref, toRaw } from "vue";
 import { afterEach, describe, expect, it } from "vitest";
+import type { AbstractAgent } from "@ag-ui/client";
 import CopilotChat from "../CopilotChat.vue";
+import { getThreadClone } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
 import {
   activitySnapshotEvent,
@@ -148,5 +150,63 @@ describe("CopilotChat activity message rendering", () => {
     });
 
     expect(screen.getByTestId("copilotkit-probe").textContent).toBe("true");
+  });
+
+  it("passes the per-thread clone (not the registry agent) to activity message renderers", async () => {
+    const agent = new MockStepwiseAgent();
+    const agentId = "action-agent";
+    agent.agentId = agentId;
+    const threadId = "thread-for-action-test";
+    const capturedAgent = ref<AbstractAgent | undefined>();
+
+    const Host = defineComponent({
+      components: { CopilotChat },
+      setup() {
+        const captureAgent = (nextAgent: AbstractAgent | undefined) => {
+          capturedAgent.value = nextAgent;
+          return "";
+        };
+        return {
+          captureAgent,
+        };
+      },
+      template: `
+        <CopilotChat :welcome-screen="false">
+          <template #activity-button-action="{ content, agent }">
+            <button data-testid="action-button">
+              {{ String(content?.label ?? "") }}{{ captureAgent(agent) }}
+            </button>
+          </template>
+        </CopilotChat>
+      `,
+    });
+
+    renderWithCopilotKit({
+      agent,
+      agentId,
+      threadId,
+      children: Host,
+    });
+
+    await submitMessageAndWaitForUserMessage("show me buttons");
+
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      activitySnapshotEvent({
+        messageId: testId("activity-action"),
+        activityType: "button-action",
+        content: { label: "Click Me" },
+      }),
+    );
+    await agent.emit(runFinishedEvent());
+
+    await waitFor(() => {
+      expect(screen.getByTestId("action-button")).toBeDefined();
+    });
+
+    const clone = getThreadClone(agent, threadId);
+    expect(clone).toBeDefined();
+    expect(toRaw(capturedAgent.value!)).toBe(clone);
+    expect(toRaw(capturedAgent.value!)).not.toBe(agent);
   });
 });

@@ -116,7 +116,10 @@ const resolvedThreadId = computed(
 );
 const resolvedLabels = computed(() => props.labels);
 
-const { agent } = useAgent({ agentId: resolvedAgentId });
+const { agent } = useAgent({
+  agentId: resolvedAgentId,
+  threadId: resolvedThreadId,
+});
 const { suggestions: autoSuggestions } = useSuggestions({
   agentId: resolvedAgentId,
 });
@@ -170,19 +173,6 @@ watch(
 );
 
 watch(
-  [() => agent.value, resolvedThreadId],
-  ([currentAgent, threadId]) => {
-    if (!currentAgent) {
-      return;
-    }
-    if (currentAgent.threadId !== threadId) {
-      currentAgent.threadId = threadId;
-    }
-  },
-  { immediate: true },
-);
-
-watch(
   [() => copilotkit.value, resolvedAgentId, () => props.onError],
   ([core, agentId, onError], _old, onCleanup) => {
     if (!onError) {
@@ -233,10 +223,6 @@ watch(
       inspectableAgent.connectAgent !== abstractAgentPrototype.connectAgent;
     if (!hasCustomConnect && !hasCustomConnectAgent) {
       return;
-    }
-
-    if (currentAgent.threadId !== threadId) {
-      currentAgent.threadId = threadId;
     }
 
     const existingCycle = activeConnectCycle.value;
@@ -326,9 +312,6 @@ async function runCurrentAgent() {
   }
 
   try {
-    if (currentAgent.threadId !== resolvedThreadId.value) {
-      currentAgent.threadId = resolvedThreadId.value;
-    }
     const activeCycle = activeConnectCycle.value;
     if (
       activeCycle &&

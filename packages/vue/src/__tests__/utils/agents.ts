@@ -57,6 +57,10 @@ export class StateCapturingAgent extends AbstractAgent {
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));
+    cloned.isRunning = this.isRunning;
+    cloned.lastRunInput = this.lastRunInput
+      ? JSON.parse(JSON.stringify(this.lastRunInput))
+      : undefined;
     return cloned;
   }
 
@@ -134,6 +138,7 @@ export class SuggestionsProviderAgent extends AbstractAgent {
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));
+    cloned.isRunning = this.isRunning;
     return cloned;
   }
 
@@ -215,6 +220,7 @@ export class SequencedRunAgent extends AbstractAgent {
     cloned.threadId = this.threadId;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
     cloned.state = JSON.parse(JSON.stringify(this.state));
+    cloned.isRunning = this.isRunning;
     return cloned;
   }
 
@@ -289,8 +295,18 @@ export class MockStepwiseAgent extends AbstractAgent {
   }
 
   override clone(): MockStepwiseAgent {
-    // Tests need deterministic control over event ordering; keep one instance.
-    return this;
+    const cloned = new (this.constructor as new () => MockStepwiseAgent)();
+    cloned.agentId = this.agentId;
+    (
+      cloned as unknown as {
+        streamSubscribers: Set<{
+          next?: (event: BaseEvent) => void;
+          error?: (error: unknown) => void;
+          complete?: () => void;
+        }>;
+      }
+    ).streamSubscribers = this.streamSubscribers;
+    return cloned;
   }
 
   override run(_input: RunAgentInput): any {

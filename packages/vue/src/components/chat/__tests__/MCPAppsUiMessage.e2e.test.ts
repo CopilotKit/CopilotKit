@@ -25,6 +25,11 @@ class MockMCPProxyAgent extends AbstractAgent {
   private readonly subject = new Subject<BaseEvent>();
   private bufferedEvents: BaseEvent[] = [];
   public runAgentCalls: Array<{ input: Partial<RunAgentInput> }> = [];
+  public addMessageCalls: Array<{
+    id: string;
+    role: string;
+    content: unknown;
+  }> = [];
   private readonly runAgentResponses = new Map<string, unknown>();
 
   setRunAgentResponse(method: string, response: unknown): void {
@@ -49,7 +54,71 @@ class MockMCPProxyAgent extends AbstractAgent {
   }
 
   clone(): MockMCPProxyAgent {
-    return this;
+    const cloned = new MockMCPProxyAgent();
+    cloned.agentId = this.agentId;
+    type Internal = {
+      subject: Subject<BaseEvent>;
+      bufferedEvents: BaseEvent[];
+      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
+      addMessageCalls: Array<{ id: string; role: string; content: unknown }>;
+      runAgentResponses: Map<string, unknown>;
+    };
+    (cloned as unknown as Internal).subject = (
+      this as unknown as Internal
+    ).subject;
+    (cloned as unknown as Internal).bufferedEvents = (
+      this as unknown as Internal
+    ).bufferedEvents;
+    (cloned as unknown as Internal).runAgentCalls = (
+      this as unknown as Internal
+    ).runAgentCalls;
+    (cloned as unknown as Internal).addMessageCalls = (
+      this as unknown as Internal
+    ).addMessageCalls;
+    (cloned as unknown as Internal).runAgentResponses = (
+      this as unknown as Internal
+    ).runAgentResponses;
+
+    const registry = this;
+    Object.defineProperty(cloned, "isRunning", {
+      get() {
+        return registry.isRunning;
+      },
+      set(v: boolean) {
+        registry.isRunning = v;
+      },
+      configurable: true,
+      enumerable: true,
+    });
+
+    const proto = MockMCPProxyAgent.prototype;
+    cloned.runAgent = async function (
+      input?: Partial<RunAgentInput>,
+    ): Promise<RunAgentResult> {
+      const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
+      if (proxiedRequest) {
+        return registry.runAgent(input);
+      }
+      return proto.runAgent.call(cloned, input);
+    };
+
+    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
+      return registry.run(input);
+    };
+
+    const originalAddMessage = cloned.addMessage.bind(cloned);
+    cloned.addMessage = function (
+      message: Parameters<AbstractAgent["addMessage"]>[0],
+    ) {
+      registry.addMessageCalls.push({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+      });
+      return originalAddMessage(message);
+    };
+
+    return cloned;
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
@@ -256,7 +325,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
       content: [{ type: "text", text: "Hello from MCP app" }],
     });
 
-    const added = agent.messages.some(
+    const added = agent.addMessageCalls.some(
       (message) =>
         message.role === "user" && message.content === "Hello from MCP app",
     );
@@ -277,7 +346,7 @@ describe("MCP Apps ui/message followUp behavior", () => {
       content: [{ type: "text", text: "Assistant message from MCP app" }],
     });
 
-    const added = agent.messages.some(
+    const added = agent.addMessageCalls.some(
       (message) =>
         message.role === "assistant" &&
         message.content === "Assistant message from MCP app",

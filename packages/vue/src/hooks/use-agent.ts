@@ -1,13 +1,14 @@
 import { computed, shallowRef, toValue, triggerRef, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import type { AbstractAgent } from "@ag-ui/client";
+import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
 import type { CopilotRuntimeTransport } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
+import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
 
 export enum UseAgentUpdate {
   OnMessagesChanged = "OnMessagesChanged",
@@ -23,12 +24,73 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 
 export interface UseAgentProps {
   agentId?: MaybeRefOrGetter<string | undefined>;
+  threadId?: MaybeRefOrGetter<string | undefined>;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (ms) for `OnMessagesChanged` refreshes.
    * Falls back to provider `defaultThrottleMs` when omitted.
    */
   throttleMs?: MaybeRefOrGetter<number | undefined>;
+}
+
+function cloneForThread(
+  source: AbstractAgent,
+  threadId: string,
+  headers: Record<string, string>,
+): AbstractAgent {
+  const clone = source.clone();
+  if (clone === source) {
+    throw new Error(
+      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
+        "clone() must return a new, independent object.",
+    );
+  }
+
+  clone.threadId = threadId;
+  clone.setMessages([]);
+  clone.setState({});
+  if (clone instanceof HttpAgent) {
+    clone.headers = { ...headers };
+  }
+  return clone;
+}
+
+export const globalThreadCloneMap = new WeakMap<
+  AbstractAgent,
+  Map<string, AbstractAgent>
+>();
+
+export function getThreadClone(
+  registryAgent: AbstractAgent | undefined | null,
+  threadId: string | undefined | null,
+): AbstractAgent | undefined {
+  if (!registryAgent || !threadId) return undefined;
+  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
+}
+
+function getOrCreateThreadClone(
+  source: AbstractAgent,
+  threadId: string,
+  headers: Record<string, string>,
+): AbstractAgent {
+  let byThread = globalThreadCloneMap.get(source);
+  if (!byThread) {
+    byThread = new Map();
+    globalThreadCloneMap.set(source, byThread);
+  }
+
+  const existing = byThread.get(threadId);
+  if (existing) {
+    existing.threadId = threadId;
+    if (existing instanceof HttpAgent) {
+      existing.headers = { ...headers };
+    }
+    return existing;
+  }
+
+  const clone = cloneForThread(source, threadId, headers);
+  byThread.set(threadId, clone);
+  return clone;
 }
 
 /**
@@ -45,6 +107,10 @@ export interface UseAgentProps {
  */
 export function useAgent(props: UseAgentProps = {}) {
   const agentId = computed(() => toValue(props.agentId) ?? DEFAULT_AGENT_ID);
+  const chatConfig = useCopilotChatConfiguration();
+  const threadId = computed(
+    () => toValue(props.threadId) ?? chatConfig.value?.threadId,
+  );
   const { copilotkit } = useCopilotKit();
   const updateFlags = computed(() => props.updates ?? ALL_UPDATES);
   const providerThrottleMs = computed(() => copilotkit.value.defaultThrottleMs);
@@ -86,13 +152,20 @@ export function useAgent(props: UseAgentProps = {}) {
 
   const resolveAgent = () => {
     const id = agentId.value;
+    const resolvedThreadId = threadId.value;
+    const cacheKey = resolvedThreadId ? `${id}:${resolvedThreadId}` : id;
     const core = copilotkit.value;
     const existing = core.getAgent(id);
     if (existing) {
+      provisionalAgentCache.delete(cacheKey);
       provisionalAgentCache.delete(id);
-      const shouldForceUpdate = agent.value === existing;
-      agent.value = existing;
-      subscriptionAgent.value = existing;
+
+      const resolvedAgent = resolvedThreadId
+        ? getOrCreateThreadClone(existing, resolvedThreadId, core.headers)
+        : existing;
+      const shouldForceUpdate = agent.value === resolvedAgent;
+      agent.value = resolvedAgent;
+      subscriptionAgent.value = resolvedAgent;
       if (shouldForceUpdate) {
         triggerRef(agent);
       }
@@ -107,9 +180,12 @@ export function useAgent(props: UseAgentProps = {}) {
       (status === CopilotKitCoreRuntimeConnectionStatus.Disconnected ||
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
-      const cached = provisionalAgentCache.get(id);
+      const cached = provisionalAgentCache.get(cacheKey);
       if (cached) {
         cached.headers = { ...core.headers };
+        if (resolvedThreadId) {
+          cached.threadId = resolvedThreadId;
+        }
         agent.value = cached;
         subscriptionAgent.value = cached;
         return;
@@ -121,7 +197,10 @@ export function useAgent(props: UseAgentProps = {}) {
         core.runtimeTransport,
         core.headers,
       );
-      provisionalAgentCache.set(id, provisional);
+      if (resolvedThreadId) {
+        provisional.threadId = resolvedThreadId;
+      }
+      provisionalAgentCache.set(cacheKey, provisional);
       agent.value = provisional;
       subscriptionAgent.value = provisional;
       return;
@@ -131,13 +210,29 @@ export function useAgent(props: UseAgentProps = {}) {
       isRuntimeConfigured &&
       status === CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
-      agent.value = createProvisionalAgent(
+      const cached = provisionalAgentCache.get(cacheKey);
+      if (cached) {
+        cached.headers = { ...core.headers };
+        if (resolvedThreadId) {
+          cached.threadId = resolvedThreadId;
+        }
+        agent.value = cached;
+        subscriptionAgent.value = cached;
+        return;
+      }
+
+      const provisional = createProvisionalAgent(
         id,
         core.runtimeUrl!,
         core.runtimeTransport,
         core.headers,
       );
-      subscriptionAgent.value = agent.value;
+      if (resolvedThreadId) {
+        provisional.threadId = resolvedThreadId;
+      }
+      provisionalAgentCache.set(cacheKey, provisional);
+      agent.value = provisional;
+      subscriptionAgent.value = provisional;
       return;
     }
 
@@ -162,8 +257,19 @@ export function useAgent(props: UseAgentProps = {}) {
       () => copilotkit.value.runtimeUrl,
       () => copilotkit.value.runtimeTransport,
       () => JSON.stringify(copilotkit.value.headers),
+      threadId,
     ],
     resolveAgent,
+    { immediate: true },
+  );
+
+  watch(
+    [subscriptionAgent, () => JSON.stringify(copilotkit.value.headers)],
+    ([currentAgent]) => {
+      if (currentAgent instanceof HttpAgent) {
+        currentAgent.headers = { ...copilotkit.value.headers };
+      }
+    },
     { immediate: true },
   );
 

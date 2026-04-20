@@ -14,6 +14,7 @@ import type {
   InterruptRenderProps,
   VueCustomMessageRendererProps,
 } from "../../types";
+import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { A2UIActivityContentSchema, A2UISurfaceActivityType } from "../a2ui";
@@ -107,12 +108,25 @@ const stateTick = ref(0);
 const interruptState = ref<InterruptSlotProps | null>(null);
 const componentSlots = useSlots() as Record<string, (props?: any) => unknown>;
 const forwardedSlotNames = computed(() => Object.keys(componentSlots));
+const resolvedAgentId = computed(
+  () => config.value?.agentId ?? DEFAULT_AGENT_ID,
+);
+const resolvedThreadAgent = computed(() => {
+  const agentId = resolvedAgentId.value;
+  const registryAgent = copilotkit.value.getAgent(agentId);
+  return getThreadClone(registryAgent, config.value?.threadId) ?? registryAgent;
+});
 
 watch(
-  [() => config.value?.agentId, () => copilotkit.value],
-  ([agentId], _prev, onCleanup) => {
-    if (!agentId) return;
-    const agent = copilotkit.value.getAgent(agentId);
+  [
+    resolvedAgentId,
+    () => config.value?.threadId,
+    () => copilotkit.value,
+    () => copilotkit.value.runtimeConnectionStatus,
+  ],
+  ([_agentId, threadId], _prev, onCleanup) => {
+    const registryAgent = copilotkit.value.getAgent(resolvedAgentId.value);
+    const agent = getThreadClone(registryAgent, threadId) ?? registryAgent;
     if (!agent) return;
 
     const sub = agent.subscribe({
@@ -144,10 +158,6 @@ watch(
   { immediate: true },
 );
 
-const resolvedAgentId = computed(
-  () => config.value?.agentId ?? DEFAULT_AGENT_ID,
-);
-
 function deduplicateMessages(messages: Message[]): Message[] {
   const byId = new Map<string, Message>();
   for (const message of messages) {
@@ -172,7 +182,9 @@ function deduplicateMessages(messages: Message[]): Message[] {
   return [...byId.values()];
 }
 
-const deduplicatedMessages = computed(() => deduplicateMessages(props.messages));
+const deduplicatedMessages = computed(() =>
+  deduplicateMessages(props.messages),
+);
 const lastMessage = computed(() => props.messages[props.messages.length - 1]);
 const showCursor = computed(
   () => props.isRunning && lastMessage.value?.role !== "reasoning",
@@ -206,7 +218,7 @@ function getMeta(
     core.getRunIdsForThread(agentId, threadId).slice(-1)[0];
   const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
 
-  const agent = core.getAgent(agentId);
+  const agent = resolvedThreadAgent.value ?? core.getAgent(agentId);
 
   const messageIdsInRun =
     resolvedRunId && agent
@@ -390,14 +402,14 @@ function resolveToolMessage(
         :activity-type="message.activityType"
         :content="message.content"
         :message="message"
-        :agent="copilotkit.getAgent(resolvedAgentId)"
+        :agent="resolvedThreadAgent"
       >
         <slot
           name="activity-message"
           :activity-type="message.activityType"
           :content="message.content"
           :message="message"
-          :agent="copilotkit.getAgent(resolvedAgentId)"
+          :agent="resolvedThreadAgent"
         >
           <A2UISurfaceActivityRenderer
             v-if="
@@ -408,7 +420,7 @@ function resolveToolMessage(
             :activity-type="A2UISurfaceActivityType"
             :content="parseA2UIContent(message.content)!"
             :message="message"
-            :agent="copilotkit.getAgent(resolvedAgentId)"
+            :agent="resolvedThreadAgent"
             :theme="a2uiTheme"
           />
           <MCPAppsActivityRenderer
@@ -419,7 +431,7 @@ function resolveToolMessage(
             :activity-type="MCPAppsActivityType"
             :content="parseMCPContent(message.content)!"
             :message="message"
-            :agent="copilotkit.getAgent(resolvedAgentId)"
+            :agent="resolvedThreadAgent"
           />
         </slot>
       </slot>

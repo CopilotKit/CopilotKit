@@ -1,7 +1,13 @@
 import { render } from "@testing-library/vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
 import { AbstractAgent, EventType } from "@ag-ui/client";
-import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type {
+  AgentSubscriber,
+  BaseEvent,
+  RunAgentInput,
+  RunAgentParameters,
+  RunAgentResult,
+} from "@ag-ui/client";
 import { Observable, Subject, from, delay } from "rxjs";
 import { defineComponent, nextTick } from "vue";
 import type { Component } from "vue";
@@ -13,6 +19,17 @@ export class MockStepwiseAgent extends AbstractAgent {
   private readonly subject = new Subject<BaseEvent>();
   private bufferedEvents: BaseEvent[] = [];
   private bufferedComplete = false;
+  private deliveryState: { chain: Promise<void> } = {
+    chain: Promise.resolve(),
+  };
+
+  private enqueueDelivery(task: () => Promise<void> | void): Promise<void> {
+    const run = this.deliveryState.chain.then(async () => {
+      await task();
+    });
+    this.deliveryState.chain = run.catch(() => undefined);
+    return run;
+  }
 
   async emit(event: BaseEvent): Promise<void> {
     if (event.type === EventType.RUN_STARTED) {
@@ -23,44 +40,158 @@ export class MockStepwiseAgent extends AbstractAgent {
     ) {
       this.isRunning = false;
     }
-    if (this.subject.observers.length === 0) {
-      this.bufferedEvents.push(event);
-    } else {
-      this.subject.next(event);
-    }
-    await flushVueUpdates();
+    await this.enqueueDelivery(async () => {
+      if (this.subject.observers.length === 0) {
+        this.bufferedEvents.push(event);
+      } else {
+        this.subject.next(event);
+      }
+      await flushVueUpdates();
+    });
   }
 
   async complete(): Promise<void> {
     this.isRunning = false;
-    if (this.subject.observers.length === 0) {
-      this.bufferedComplete = true;
-    } else {
-      this.subject.complete();
-    }
-    await flushVueUpdates();
+    await this.enqueueDelivery(async () => {
+      if (this.subject.observers.length === 0) {
+        this.bufferedComplete = true;
+      } else {
+        this.subject.complete();
+      }
+      await flushVueUpdates();
+    });
   }
 
   clone(): MockStepwiseAgent {
-    return this;
+    const cloned = new (this.constructor as new () => MockStepwiseAgent)();
+    cloned.agentId = this.agentId;
+    const registry = this;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).subject = this.subject;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).bufferedEvents = this.bufferedEvents;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).bufferedComplete = this.bufferedComplete;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).deliveryState = this.deliveryState;
+
+    Object.defineProperties(cloned, {
+      threadId: {
+        get() {
+          return registry.threadId;
+        },
+        set(v: string) {
+          registry.threadId = v;
+        },
+        configurable: true,
+      },
+      messages: {
+        get() {
+          return registry.messages;
+        },
+        set(v: BaseEvent[]) {
+          (registry as unknown as { messages: BaseEvent[] }).messages = v;
+        },
+        configurable: true,
+      },
+      state: {
+        get() {
+          return registry.state;
+        },
+        set(v: Record<string, unknown>) {
+          registry.state = v;
+        },
+        configurable: true,
+      },
+      isRunning: {
+        get() {
+          return registry.isRunning;
+        },
+        set(v: boolean) {
+          registry.isRunning = v;
+        },
+        configurable: true,
+      },
+    });
+
+    const internalKeys = new Set([
+      "subject",
+      "bufferedEvents",
+      "bufferedComplete",
+      "deliveryState",
+      "agentId",
+      "threadId",
+      "messages",
+      "state",
+      "isRunning",
+    ]);
+    for (const key of Object.keys(registry as Record<string, unknown>)) {
+      if (internalKeys.has(key)) continue;
+      Object.defineProperty(cloned, key, {
+        get() {
+          return (registry as Record<string, unknown>)[key];
+        },
+        set(v: unknown) {
+          (registry as Record<string, unknown>)[key] = v;
+        },
+        configurable: true,
+      });
+    }
+
+    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
+      return registry.run(input);
+    };
+    cloned.emit = function (event: BaseEvent): Promise<void> {
+      return registry.emit(event);
+    };
+    cloned.complete = function (): Promise<void> {
+      return registry.complete();
+    };
+    return cloned;
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
-      if (this.bufferedEvents.length > 0) {
-        for (const event of this.bufferedEvents) {
-          observer.next(event);
-        }
-        this.bufferedEvents = [];
-      }
-
-      if (this.bufferedComplete) {
-        this.bufferedComplete = false;
-        observer.complete();
-        return;
-      }
-
       const subscription = this.subject.subscribe(observer);
+      void this.enqueueDelivery(async () => {
+        if (this.bufferedEvents.length > 0) {
+          for (const event of this.bufferedEvents) {
+            observer.next(event);
+          }
+          this.bufferedEvents = [];
+        }
+
+        if (this.bufferedComplete) {
+          this.bufferedComplete = false;
+          observer.complete();
+        }
+
+        await flushVueUpdates();
+      });
       return () => subscription.unsubscribe();
     });
   }
@@ -71,6 +202,17 @@ export class MockReconnectableAgent extends AbstractAgent {
   private readonly storedEvents: BaseEvent[] = [];
   private bufferedEvents: BaseEvent[] = [];
   private bufferedComplete = false;
+  private deliveryState: { chain: Promise<void> } = {
+    chain: Promise.resolve(),
+  };
+
+  private enqueueDelivery(task: () => Promise<void> | void): Promise<void> {
+    const run = this.deliveryState.chain.then(async () => {
+      await task();
+    });
+    this.deliveryState.chain = run.catch(() => undefined);
+    return run;
+  }
 
   async emit(event: BaseEvent): Promise<void> {
     if (event.type === EventType.RUN_STARTED) {
@@ -81,51 +223,183 @@ export class MockReconnectableAgent extends AbstractAgent {
     ) {
       this.isRunning = false;
     }
-    this.storedEvents.push(event);
-    if (this.subject.observers.length === 0) {
-      this.bufferedEvents.push(event);
-    } else {
-      this.subject.next(event);
-    }
-    await flushVueUpdates();
+    await this.enqueueDelivery(async () => {
+      this.storedEvents.push(event);
+      if (this.subject.observers.length === 0) {
+        this.bufferedEvents.push(event);
+      } else {
+        this.subject.next(event);
+      }
+      await flushVueUpdates();
+    });
   }
 
   async complete(): Promise<void> {
     this.isRunning = false;
-    if (this.subject.observers.length === 0) {
-      this.bufferedComplete = true;
-    } else {
-      this.subject.complete();
-    }
-    await flushVueUpdates();
+    await this.enqueueDelivery(async () => {
+      if (this.subject.observers.length === 0) {
+        this.bufferedComplete = true;
+      } else {
+        this.subject.complete();
+      }
+      await flushVueUpdates();
+    });
   }
 
   reset() {
     this.subject = new Subject<BaseEvent>();
     this.bufferedEvents = [];
     this.bufferedComplete = false;
+    this.deliveryState = { chain: Promise.resolve() };
   }
 
   clone(): MockReconnectableAgent {
-    return this;
+    const cloned = new MockReconnectableAgent();
+    cloned.agentId = this.agentId;
+    const registry = this;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).subject = this.subject;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).storedEvents = this.storedEvents;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).bufferedEvents = this.bufferedEvents;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).bufferedComplete = this.bufferedComplete;
+    (
+      cloned as unknown as {
+        subject: Subject<BaseEvent>;
+        storedEvents: BaseEvent[];
+        bufferedEvents: BaseEvent[];
+        bufferedComplete: boolean;
+        deliveryState: { chain: Promise<void> };
+      }
+    ).deliveryState = this.deliveryState;
+
+    Object.defineProperties(cloned, {
+      threadId: {
+        get() {
+          return registry.threadId;
+        },
+        set(v: string) {
+          registry.threadId = v;
+        },
+        configurable: true,
+      },
+      messages: {
+        get() {
+          return registry.messages;
+        },
+        set(v: BaseEvent[]) {
+          (registry as unknown as { messages: BaseEvent[] }).messages = v;
+        },
+        configurable: true,
+      },
+      state: {
+        get() {
+          return registry.state;
+        },
+        set(v: Record<string, unknown>) {
+          registry.state = v;
+        },
+        configurable: true,
+      },
+      isRunning: {
+        get() {
+          return registry.isRunning;
+        },
+        set(v: boolean) {
+          registry.isRunning = v;
+        },
+        configurable: true,
+      },
+    });
+
+    const internalKeys = new Set([
+      "subject",
+      "storedEvents",
+      "bufferedEvents",
+      "bufferedComplete",
+      "deliveryState",
+      "agentId",
+      "threadId",
+      "messages",
+      "state",
+      "isRunning",
+    ]);
+    for (const key of Object.keys(registry as Record<string, unknown>)) {
+      if (internalKeys.has(key)) continue;
+      Object.defineProperty(cloned, key, {
+        get() {
+          return (registry as Record<string, unknown>)[key];
+        },
+        set(v: unknown) {
+          (registry as Record<string, unknown>)[key] = v;
+        },
+        configurable: true,
+      });
+    }
+
+    cloned.run = function (input: RunAgentInput): Observable<BaseEvent> {
+      return registry.run(input);
+    };
+    cloned.connect = function (input: RunAgentInput): Observable<BaseEvent> {
+      return registry.connect(input);
+    };
+    cloned.emit = function (event: BaseEvent): Promise<void> {
+      return registry.emit(event);
+    };
+    cloned.complete = function (): Promise<void> {
+      return registry.complete();
+    };
+    return cloned;
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {
     return new Observable<BaseEvent>((observer) => {
-      if (this.bufferedEvents.length > 0) {
-        for (const event of this.bufferedEvents) {
-          observer.next(event);
-        }
-        this.bufferedEvents = [];
-      }
-
-      if (this.bufferedComplete) {
-        this.bufferedComplete = false;
-        observer.complete();
-        return;
-      }
-
       const subscription = this.subject.subscribe(observer);
+      void this.enqueueDelivery(async () => {
+        if (this.bufferedEvents.length > 0) {
+          for (const event of this.bufferedEvents) {
+            observer.next(event);
+          }
+          this.bufferedEvents = [];
+        }
+
+        if (this.bufferedComplete) {
+          this.bufferedComplete = false;
+          observer.complete();
+        }
+
+        await flushVueUpdates();
+      });
       return () => subscription.unsubscribe();
     });
   }
@@ -430,4 +704,5 @@ export function testId(prefix: string): string {
 async function flushVueUpdates(): Promise<void> {
   await nextTick();
   await new Promise((resolve) => setTimeout(resolve, 0));
+  await nextTick();
 }

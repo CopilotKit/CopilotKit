@@ -56,7 +56,7 @@ class MockStepwiseAgent extends AbstractAgent {
   }
 
   clone(): MockStepwiseAgent {
-    return this;
+    return Object.assign(new MockStepwiseAgent(), this);
   }
 
   run(_input: RunAgentInput): Observable<BaseEvent> {

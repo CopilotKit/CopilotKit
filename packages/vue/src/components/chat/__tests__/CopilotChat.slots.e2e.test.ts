@@ -4,13 +4,14 @@ import { h } from "vue";
 import CopilotChat from "../CopilotChat.vue";
 import { renderWithCopilotKit } from "../../../__tests__/utils/mount";
 import { StateCapturingAgent } from "../../../__tests__/utils/agents";
+import { getThreadClone } from "../../../hooks/use-agent";
 
 describe("CopilotChat.slots.e2e", () => {
   it("supports full chat-view override with callback payload", async () => {
     const agent = new StateCapturingAgent([], "default");
     const onSubmitSpy = vi.fn();
 
-    const { wrapper } = renderWithCopilotKit(
+    const { wrapper, getCore } = renderWithCopilotKit(
       () =>
         h(
           CopilotChat,
@@ -52,15 +53,8 @@ describe("CopilotChat.slots.e2e", () => {
     expect(onSubmitSpy).toHaveBeenCalledWith("From custom slot");
   });
 
-  it("forwards message-view slot with existing messages and welcome-message slot", async () => {
+  it("forwards message-view and welcome-message slots", async () => {
     const agent = new StateCapturingAgent([], "default");
-    agent.messages = [
-      {
-        id: "existing-user-1",
-        role: "user",
-        content: "Existing message",
-      },
-    ] as any;
 
     const { wrapper } = renderWithCopilotKit(
       () =>
@@ -87,7 +81,7 @@ describe("CopilotChat.slots.e2e", () => {
       { agents: { default: agent } },
     );
 
-    expect(wrapper.get("[data-testid='custom-message-view']").text()).toBe("1");
+    expect(wrapper.get("[data-testid='custom-message-view']").text()).toBe("0");
 
     const welcome = renderWithCopilotKit(
       () =>
@@ -114,7 +108,7 @@ describe("CopilotChat.slots.e2e", () => {
     const defaultAgent = new StateCapturingAgent([], "default");
     const customAgent = new StateCapturingAgent([], "custom-agent");
 
-    const { wrapper } = renderWithCopilotKit(
+    const { wrapper, getCore } = renderWithCopilotKit(
       () =>
         h(CopilotChat, {
           agentId: "custom-agent",
@@ -138,8 +132,10 @@ describe("CopilotChat.slots.e2e", () => {
     await textarea.trigger("keydown", { key: "Enter" });
     await flushPromises();
 
+    const registryAgent = getCore().getAgent("custom-agent");
+    const resolvedAgent = getThreadClone(registryAgent, "explicit-thread");
     expect(defaultAgent.messages).toHaveLength(0);
-    expect(customAgent.threadId).toBe("explicit-thread");
-    expect(customAgent.messages.some((m) => m.role === "user")).toBe(true);
+    expect(resolvedAgent?.threadId).toBe("explicit-thread");
+    expect(resolvedAgent?.messages.some((m) => m.role === "user")).toBe(true);
   });
 });

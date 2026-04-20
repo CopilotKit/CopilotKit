@@ -103,7 +103,28 @@ export function useConfigureSuggestions(
       rawConsumerAgentId.value === undefined ||
       rawConsumerAgentId.value === "*",
   );
+  const pendingGlobalReload = ref(false);
+  const pendingReloadTimer = ref<ReturnType<typeof setTimeout> | null>(null);
   const previousSerializedConfig = ref<string | null>(null);
+
+  const flushPendingGlobalReload = () => {
+    if (!pendingGlobalReload.value || !isGlobalConfig.value) {
+      return;
+    }
+    const hasRunning = Object.values(copilotkit.value.agents ?? {}).some(
+      (entry) => !!entry.agentId && entry.isRunning,
+    );
+    if (hasRunning) {
+      pendingReloadTimer.value = setTimeout(() => {
+        pendingReloadTimer.value = null;
+        flushPendingGlobalReload();
+      }, 0);
+      return;
+    }
+
+    pendingGlobalReload.value = false;
+    requestReload();
+  };
 
   const requestReload = () => {
     if (!normalizedConfig.value) {
@@ -111,6 +132,7 @@ export function useConfigureSuggestions(
     }
 
     if (isGlobalConfig.value) {
+      let skippedBecauseRunning = false;
       const agents = Object.values(copilotkit.value.agents ?? {});
       for (const entry of agents) {
         const aid = entry.agentId;
@@ -119,7 +141,16 @@ export function useConfigureSuggestions(
         }
         if (!entry.isRunning) {
           copilotkit.value.reloadSuggestions(aid);
+        } else {
+          skippedBecauseRunning = true;
         }
+      }
+      pendingGlobalReload.value = skippedBecauseRunning;
+      if (skippedBecauseRunning && pendingReloadTimer.value === null) {
+        pendingReloadTimer.value = setTimeout(() => {
+          pendingReloadTimer.value = null;
+          flushPendingGlobalReload();
+        }, 0);
       }
       return;
     }
@@ -174,6 +205,47 @@ export function useConfigureSuggestions(
         return;
       }
       requestReload();
+    },
+    { immediate: true },
+  );
+
+  watch(
+    [() => copilotkit.value, pendingGlobalReload],
+    (_vals, _old, onCleanup) => {
+      onCleanup(() => {
+        if (pendingReloadTimer.value !== null) {
+          clearTimeout(pendingReloadTimer.value);
+          pendingReloadTimer.value = null;
+        }
+      });
+    },
+    { immediate: true },
+  );
+
+  watch(
+    [() => copilotkit.value, isGlobalConfig],
+    ([core, global], _old, onCleanup) => {
+      if (!global) {
+        return;
+      }
+
+      const agentSubscriptions = Object.values(core.agents ?? {})
+        .filter((agent): agent is NonNullable<typeof agent> => !!agent)
+        .map((agent) =>
+          agent.subscribe({
+            onRunStartedEvent: flushPendingGlobalReload,
+            onRunFinishedEvent: flushPendingGlobalReload,
+            onRunFinalized: flushPendingGlobalReload,
+            onRunFailed: flushPendingGlobalReload,
+            onRunErrorEvent: flushPendingGlobalReload,
+          }),
+        );
+
+      onCleanup(() => {
+        for (const sub of agentSubscriptions) {
+          sub.unsubscribe();
+        }
+      });
     },
     { immediate: true },
   );

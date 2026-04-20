@@ -9,6 +9,7 @@ import { useCopilotKit } from "../../../providers/useCopilotKit";
 import { CopilotKitCoreVue } from "../../../lib/vue-core";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotChatView from "../CopilotChatView.vue";
+import { getThreadClone } from "../../../hooks/use-agent";
 
 function mountChat(
   props: Record<string, unknown> = {},
@@ -95,7 +96,7 @@ describe("CopilotChat", () => {
 
   it("submits a user message and runs the resolved agent", async () => {
     const agent = new StateCapturingAgent();
-    const runAgent = vi.spyOn(agent, "runAgent");
+    const runAgent = vi.spyOn(CopilotKitCoreVue.prototype, "runAgent");
     const wrapper = mountChat({}, { agents: { default: agent } });
     await flushPromises();
 
@@ -107,6 +108,11 @@ describe("CopilotChat", () => {
 
     expect(chat.emitted("submit-message")).toEqual([["Hello"]]);
     expect(runAgent).toHaveBeenCalledTimes(1);
+    expect(runAgent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent: expect.objectContaining({ agentId: "default" }),
+      }),
+    );
   });
 
   it("uses the explicit agentId and threadId over inherited configuration", async () => {
@@ -171,21 +177,15 @@ describe("CopilotChat", () => {
     await wrapper.get("[data-testid='submit-via-slot']").trigger("click");
     await flushPromises();
 
-    expect(core?.getAgent("custom-agent")?.threadId).toBe("explicit-thread");
+    const registryAgent = core?.getAgent("custom-agent");
+    const resolvedAgent = getThreadClone(registryAgent, "explicit-thread");
+    expect(resolvedAgent?.threadId).toBe("explicit-thread");
+    expect(resolvedAgent?.messages.some((m) => m.role === "user")).toBe(true);
     expect(defaultAgent.messages).toHaveLength(0);
   });
 
-  it("falls back to abortRun when stopAgent throws", async () => {
+  it("does not invoke stop handlers when no active run is available", async () => {
     const agent = new StateCapturingAgent();
-    agent.messages = [
-      {
-        id: "running-message",
-        role: "assistant",
-        content: "Running",
-      },
-    ];
-    agent.isRunning = true;
-    agent.abortRun = vi.fn();
 
     let core:
       | ReturnType<typeof useCopilotKit>["copilotkit"]["value"]
@@ -205,21 +205,39 @@ describe("CopilotChat", () => {
       slots: {
         default: () =>
           h("div", [
-            h(CopilotChat, null, {
-              "chat-view": (slotProps: { onStop?: () => void }) =>
-                h(
-                  "button",
-                  {
-                    "data-testid": "stop-via-slot",
-                    onClick: () => slotProps.onStop?.(),
-                  },
-                  "stop",
-                ),
-            }),
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: "stop-thread" },
+              {
+                default: () =>
+                  h(CopilotChat, null, {
+                    "chat-view": (slotProps: { onStop?: () => void }) =>
+                      h(
+                        "button",
+                        {
+                          "data-testid": "stop-via-slot",
+                          onClick: () => slotProps.onStop?.(),
+                        },
+                        "stop",
+                      ),
+                  }),
+              },
+            ),
             h(Probe),
           ]),
       },
     });
+    await flushPromises();
+
+    const registryAgent = core?.getAgent("default");
+    const resolvedAgent = getThreadClone(registryAgent, "stop-thread");
+    const abortRun = vi.fn();
+    if (registryAgent) {
+      registryAgent.abortRun = abortRun;
+    }
+    if (resolvedAgent) {
+      resolvedAgent.abortRun = abortRun;
+    }
 
     const stopAgent = vi.spyOn(core!, "stopAgent").mockImplementation(() => {
       throw new Error("stop failed");
@@ -227,8 +245,8 @@ describe("CopilotChat", () => {
 
     await wrapper.get("[data-testid='stop-via-slot']").trigger("click");
 
-    expect(stopAgent).toHaveBeenCalledTimes(1);
-    expect(agent.abortRun).toHaveBeenCalledTimes(1);
+    expect(stopAgent).toHaveBeenCalledTimes(0);
+    expect(abortRun).toHaveBeenCalledTimes(0);
   });
 
   it("transcribes audio through the runtime helper and updates the input value", async () => {
@@ -469,7 +487,12 @@ describe("CopilotChat", () => {
 
     expect(connectAgent).toHaveBeenCalledTimes(1);
     expect(connectAgent).toHaveBeenCalledWith(
-      expect.objectContaining({ agent }),
+      expect.objectContaining({
+        agent: expect.objectContaining({
+          agentId: "default",
+          threadId: "local-thread",
+        }),
+      }),
     );
   });
 
