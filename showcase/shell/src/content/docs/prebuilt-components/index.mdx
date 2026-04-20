@@ -31,39 +31,39 @@ One of CopilotKit's design principles is that **you should never have to throw t
   <a href="/prebuilt-components/chat" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
     <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 1 · Easiest</div>
     <div className="text-[var(--text)] font-semibold mb-2">Drop in as-is</div>
-    <p className="text-sm text-[var(--text-secondary)] m-0">
+    <div className="text-sm text-[var(--text-secondary)]">
       Render `<CopilotChat>`, `<CopilotSidebar>`, or `<CopilotPopup>` and ship.
       Streaming, tool calls, generative UI, suggestions — all wired.
-    </p>
+    </div>
   </a>
 
   <a href="/custom-look-and-feel/css" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
     <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 2 · Re-skin</div>
     <div className="text-[var(--text)] font-semibold mb-2">Customize with CSS</div>
-    <p className="text-sm text-[var(--text-secondary)] m-0">
+    <div className="text-sm text-[var(--text-secondary)]">
       Override theme tokens (`--copilot-kit-primary-color`, etc.) or target
       `.copilotKit...` classes. Keep every feature, change every color.
-    </p>
+    </div>
   </a>
 
   <a href="/custom-look-and-feel/slots" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
     <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 3 · Recompose</div>
     <div className="text-[var(--text)] font-semibold mb-2">Customize via slots (subcomponents)</div>
-    <p className="text-sm text-[var(--text-secondary)] m-0">
+    <div className="text-sm text-[var(--text-secondary)]">
       Swap the welcome screen, message bubble, composer, disclaimer, header,
       or toggle button with your own React component. Recursive — drill down
       as deep as you want.
-    </p>
+    </div>
   </a>
 
   <a href="/custom-look-and-feel/headless-ui" className="block rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-5 no-underline hover:border-[var(--accent)] hover:shadow-sm transition">
     <div className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Level 4 · Full control</div>
     <div className="text-[var(--text)] font-semibold mb-2">Go fully headless</div>
-    <p className="text-sm text-[var(--text-secondary)] m-0">
+    <div className="text-sm text-[var(--text-secondary)]">
       Compose your own chat from the low-level hooks (`useAgent`,
       `useCopilotKit`, `useRenderToolCall`). Any layout, any design system, or
       even non-chat surfaces.
-    </p>
+    </div>
   </a>
 </div>
 
