@@ -62,6 +62,36 @@ export const myDefinitions = {
       action: z.any().optional(),
     }),
   },
+
+  PieChart: {
+    description:
+      "A pie/donut chart with a brand-coloured legend. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for part-of-whole breakdowns (sales by region, traffic sources, portfolio allocation).",
+    props: z.object({
+      title: z.string(),
+      description: z.string(),
+      data: z.array(
+        z.object({
+          label: z.string(),
+          value: z.number(),
+        }),
+      ),
+    }),
+  },
+
+  BarChart: {
+    description:
+      "A vertical bar chart built on Recharts. Provide `title`, `description`, and `data` as an array of `{ label, value }` objects. Great for comparing series across categories (quarterly revenue, headcount by team, signups per month).",
+    props: z.object({
+      title: z.string(),
+      description: z.string(),
+      data: z.array(
+        z.object({
+          label: z.string(),
+          value: z.number(),
+        }),
+      ),
+    }),
+  },
 } satisfies CatalogDefinitions;
 // @endregion[definitions-zod]
 

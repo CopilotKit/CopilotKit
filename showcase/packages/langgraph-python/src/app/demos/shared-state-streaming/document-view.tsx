@@ -27,24 +27,24 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
   return (
     <div
       data-testid="document-view"
-      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden"
     >
-      <div className="flex items-center justify-between px-6 py-3 border-b bg-gradient-to-r from-blue-50 to-purple-50">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC]">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-gray-800">Document</span>
+          <span className="text-lg font-semibold text-[#010507]">Document</span>
           {isStreaming && (
             <span
               data-testid="document-live-badge"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold tracking-wide"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#FA5F67] text-white text-[10px] font-semibold uppercase tracking-[0.14em]"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              LIVE
+              Live
             </span>
           )}
         </div>
         <span
           data-testid="document-char-count"
-          className="text-xs text-gray-500 font-mono"
+          className="text-xs text-[#838389] font-mono"
         >
           {charCount} chars
         </span>
@@ -52,18 +52,18 @@ export function DocumentView({ content, isStreaming }: DocumentViewProps) {
 
       <div className="flex-1 overflow-y-auto p-6">
         {content.length === 0 && !isStreaming ? (
-          <p className="text-gray-400 italic">
+          <p className="text-[#838389] italic">
             Ask the agent to write something — its output will stream here token
             by token.
           </p>
         ) : (
           <div
             data-testid="document-content"
-            className="whitespace-pre-wrap text-gray-800 leading-relaxed font-serif"
+            className="whitespace-pre-wrap text-[#010507] leading-relaxed font-serif"
           >
             {content}
             {isStreaming && (
-              <span className="inline-block w-2 h-5 bg-blue-500 ml-0.5 align-text-bottom animate-pulse" />
+              <span className="inline-block w-2 h-5 bg-[#010507] ml-0.5 align-text-bottom animate-pulse" />
             )}
           </div>
         )}

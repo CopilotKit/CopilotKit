@@ -61,7 +61,7 @@ export function MessageList({
     >
       <div className="space-y-3">
         {renderedMessages.length === 0 && (
-          <div className="text-center text-sm text-gray-400 mt-8">
+          <div className="text-center text-sm text-[#838389] mt-8">
             Try weather, a stock, a highlighted note, or an Excalidraw sketch.
           </div>
         )}

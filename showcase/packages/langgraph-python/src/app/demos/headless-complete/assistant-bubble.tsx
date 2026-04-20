@@ -22,7 +22,7 @@ export function AssistantBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-start">
       <div className="max-w-[85%] flex flex-col gap-2">
-        <div className="rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900 px-4 py-2 text-sm">
+        <div className="rounded-2xl rounded-bl-sm bg-[#F0F0F4] text-[#010507] px-4 py-2 text-sm">
           {children}
         </div>
       </div>

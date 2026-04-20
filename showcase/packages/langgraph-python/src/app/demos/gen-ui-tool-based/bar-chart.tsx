@@ -38,12 +38,12 @@ export function BarChart({ title, description, data }: BarChartProps) {
 
   const TOOLTIP_STYLE = {
     backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "10px",
+    border: "1px solid #DBDBE5",
+    borderRadius: "12px",
     padding: "10px 14px",
-    color: "#0f172a",
+    color: "#010507",
     fontSize: "13px",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+    boxShadow: "0 4px 12px rgba(1,5,7,0.06)",
   };
 
   // Track which bars have already been rendered so only newly-arriving ones animate.
@@ -56,10 +56,10 @@ export function BarChart({ title, description, data }: BarChartProps) {
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
-      <div className="max-w-2xl mx-auto my-4 rounded-xl border border-slate-200 bg-white p-6">
-        <div className="font-semibold text-slate-900">{title}</div>
-        <div className="text-sm text-slate-500">{description}</div>
-        <p className="text-slate-400 text-center py-8 text-sm">
+      <div className="max-w-2xl mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm">
+        <div className="font-semibold text-[#010507]">{title}</div>
+        <div className="text-sm text-[#57575B]">{description}</div>
+        <p className="text-[#AFAFB7] text-center py-8 text-sm">
           No data available
         </p>
       </div>
@@ -67,7 +67,7 @@ export function BarChart({ title, description, data }: BarChartProps) {
   }
 
   return (
-    <div className="max-w-2xl mx-auto my-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="max-w-2xl mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm">
       <style>{`
         @keyframes barSlideIn {
           from { transform: translateY(40px); opacity: 0; }
@@ -76,8 +76,8 @@ export function BarChart({ title, description, data }: BarChartProps) {
         }
       `}</style>
       <div className="p-4 pb-2">
-        <div className="font-semibold text-slate-900">{title}</div>
-        <div className="text-sm text-slate-500">{description}</div>
+        <div className="font-semibold text-[#010507]">{title}</div>
+        <div className="text-sm text-[#57575B]">{description}</div>
       </div>
       <div className="px-4 pb-4">
         <ResponsiveContainer width="100%" height={280}>
@@ -87,25 +87,25 @@ export function BarChart({ title, description, data }: BarChartProps) {
           >
             <CartesianGrid
               strokeDasharray="3 3"
-              stroke="#e2e8f0"
+              stroke="#E9E9EF"
               vertical={false}
             />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 12, fill: "#64748b" }}
-              stroke="#e2e8f0"
+              tick={{ fontSize: 12, fill: "#838389" }}
+              stroke="#E9E9EF"
               tickLine={false}
               axisLine={false}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: "#64748b" }}
-              stroke="#e2e8f0"
+              tick={{ fontSize: 12, fill: "#838389" }}
+              stroke="#E9E9EF"
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               contentStyle={TOOLTIP_STYLE}
-              cursor={{ fill: "#f1f5f9", opacity: 0.5 }}
+              cursor={{ fill: "#F0F0F4", opacity: 0.5 }}
             />
             <Bar
               isAnimationActive={false}

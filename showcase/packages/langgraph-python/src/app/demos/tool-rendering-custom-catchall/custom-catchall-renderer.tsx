@@ -27,16 +27,16 @@ export function CustomCatchallRenderer({
       data-testid="custom-catchall-card"
       data-tool-name={name}
       data-status={status}
-      className="my-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+      className="my-3 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm"
     >
-      <div className="flex items-center justify-between bg-gradient-to-r from-slate-900 to-slate-700 px-4 py-2 text-white">
+      <div className="flex items-center justify-between border-b border-[#E9E9EF] bg-[#FAFAFC] px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-xs uppercase tracking-wider text-slate-300">
+          <span className="text-[10px] uppercase tracking-[0.14em] text-[#838389]">
             Tool
           </span>
           <span
             data-testid="custom-catchall-tool-name"
-            className="font-mono text-sm"
+            className="font-mono text-sm text-[#010507]"
           >
             {name}
           </span>
@@ -48,7 +48,7 @@ export function CustomCatchallRenderer({
         <Section label="Arguments">
           <pre
             data-testid="custom-catchall-args"
-            className="overflow-x-auto rounded bg-slate-50 p-2 font-mono text-xs text-slate-800"
+            className="overflow-x-auto rounded-lg border border-[#E9E9EF] bg-[#FAFAFC] p-2.5 font-mono text-xs text-[#010507]"
           >
             {safeStringify(parameters)}
           </pre>
@@ -58,14 +58,14 @@ export function CustomCatchallRenderer({
           {done ? (
             <pre
               data-testid="custom-catchall-result"
-              className="overflow-x-auto rounded bg-emerald-50 p-2 font-mono text-xs text-emerald-900"
+              className="overflow-x-auto rounded-lg border border-[#85ECCE4D] bg-[#85ECCE]/10 p-2.5 font-mono text-xs text-[#010507]"
             >
               {parsedResult !== undefined
                 ? safeStringify(parsedResult)
                 : "(empty)"}
             </pre>
           ) : (
-            <p className="text-xs italic text-slate-500">
+            <p className="text-xs italic text-[#838389]">
               waiting for tool to finish…
             </p>
           )}
@@ -84,7 +84,7 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-medium uppercase tracking-wider text-slate-500">
+      <div className="mb-1.5 text-[10px] font-medium uppercase tracking-[0.14em] text-[#838389]">
         {label}
       </div>
       {children}
@@ -97,7 +97,7 @@ function StatusBadge({ status }: { status: CatchallToolStatus }) {
   return (
     <span
       data-testid="custom-catchall-status"
-      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${tone}`}
+      className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.14em] ${tone}`}
     >
       {label}
     </span>
@@ -111,18 +111,18 @@ function describeStatus(status: CatchallToolStatus): {
   switch (status) {
     case "inProgress":
       return {
-        label: "streaming args",
-        tone: "bg-amber-200 text-amber-900",
+        label: "streaming",
+        tone: "border border-[#FFAC4D33] bg-[#FFAC4D]/15 text-[#57575B]",
       };
     case "executing":
       return {
         label: "running",
-        tone: "bg-blue-200 text-blue-900",
+        tone: "border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507]",
       };
     case "complete":
       return {
         label: "done",
-        tone: "bg-emerald-200 text-emerald-900",
+        tone: "border border-[#85ECCE4D] bg-[#85ECCE]/20 text-[#189370]",
       };
   }
 }

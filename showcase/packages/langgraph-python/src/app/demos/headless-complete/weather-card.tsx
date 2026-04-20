@@ -22,22 +22,22 @@ export function WeatherCard({
   conditions,
 }: WeatherCardProps) {
   return (
-    <div className="mt-2 mb-2 max-w-xs rounded-lg border border-blue-200 bg-gradient-to-br from-blue-500 to-sky-600 p-3 text-white shadow-sm">
+    <div className="mt-2 mb-2 max-w-xs rounded-xl border border-[#DBDBE5] bg-[#EDEDF5] p-3 text-[#010507] shadow-sm">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide text-white/80">
+          <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
             {loading ? "Fetching weather" : "Weather"}
           </div>
-          <div className="truncate text-sm font-semibold capitalize">
+          <div className="truncate text-sm font-semibold capitalize text-[#010507]">
             {location || "Unknown"}
           </div>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold leading-none">
+          <div className="text-2xl font-semibold leading-none text-[#010507] tracking-tight">
             {loading ? "..." : temperature != null ? `${temperature}°` : "--"}
           </div>
           {!loading && (
-            <div className="mt-0.5 text-[11px] capitalize text-white/80">
+            <div className="mt-0.5 text-[11px] capitalize text-[#57575B]">
               {conditions ?? ""}
             </div>
           )}

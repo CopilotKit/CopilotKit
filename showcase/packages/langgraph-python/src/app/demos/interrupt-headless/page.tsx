@@ -1,24 +1,16 @@
 "use client";
 
-// Headless Interrupt cell — no <CopilotChat>, no `useInterrupt` render prop.
+// Headless Interrupt cell — hello-world use-case for `useHeadlessInterrupt`.
 //
-// As of this commit, the v2 surface does not expose a render-less variant of
-// `useInterrupt` (the `render` callback is required in `UseInterruptConfig`),
-// nor does `useAgent({ agentId })` surface the current interrupt state or a
-// `respond()` helper — it only returns `{ agent }`.
-//
-// What IS exposed, however, are the lower-level primitives that `useInterrupt`
-// composes internally:
-//   * `agent.subscribe({ onCustomEvent, onRunStartedEvent, onRunFinalized, onRunFailed })`
-//     — AG-UI agent event subscription, available on every `AbstractAgent`.
-//   * `copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })`
-//     — the same call `useInterrupt`'s `resolve()` uses to resume the paused run.
-//
-// This cell demonstrates using those primitives directly to build a headless
-// interrupt resolver: a plain button grid listens for the `on_interrupt` custom
-// event, stores the payload, and resolves with the user's chosen slot.
+// Single button kicks off the agent. The backend calls `schedule_meeting`
+// (LangGraph `interrupt()`), which `useHeadlessInterrupt` surfaces via
+// `pending`. A centered modal (portal'd to <body>, outside any chat
+// surface) offers 4 slots + Cancel. Selecting one calls `resolve(...)`,
+// resumes the agent, closes the modal, and shows the final result in a
+// small card below the kick-off button.
 
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 const INTERRUPT_EVENT_NAME = "on_interrupt";
@@ -45,10 +37,8 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 export default function InterruptHeadlessDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
-      <div className="flex justify-center items-start min-h-screen w-full p-6 bg-gray-50">
-        <div className="w-full max-w-3xl">
-          <HeadlessInterruptPanel />
-        </div>
+      <div className="flex min-h-screen w-full items-center justify-center bg-[#FAFAFC] p-6">
+        <HeadlessInterruptPanel />
       </div>
     </CopilotKit>
   );
@@ -118,13 +108,17 @@ function HeadlessInterruptPanel() {
   const { copilotkit } = useCopilotKit();
   const { agent } = useAgent({ agentId: "interrupt-headless" });
   const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
+  const [runId, setRunId] = useState(0);
 
-  const kickOff = (prompt: string) => {
+  const kickOff = () => {
     if (agent.isRunning) return;
+    // Reset the transcript so re-runs start from a clean slate.
+    agent.setMessages([]);
+    setRunId((n) => n + 1);
     agent.addMessage({
       id: crypto.randomUUID(),
       role: "user",
-      content: prompt,
+      content: "Schedule a meeting with the team.",
     });
     void copilotkit.runAgent({ agent }).catch(() => {});
   };
@@ -135,120 +129,144 @@ function HeadlessInterruptPanel() {
     | { content: string }
     | undefined;
 
+  const busy = agent.isRunning || pending !== null;
+
   return (
-    <div className="flex flex-col gap-4">
-      <header>
-        <h1 className="text-xl font-semibold text-gray-900">
-          Headless Interrupt (no chat, no render prop)
+    <div className="w-full max-w-md">
+      <div
+        className="rounded-2xl border border-[#DBDBE5] bg-white p-8 shadow-sm"
+        data-testid="interrupt-headless-panel"
+      >
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+          Headless interrupt
+        </div>
+        <h1 className="mb-2 text-xl font-semibold text-[#010507]">
+          Schedule a meeting
         </h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Trigger the backend <code>schedule_meeting</code> tool, then resolve
-          its <code>interrupt()</code> from the button grid below.
+        <p className="mb-6 text-sm text-[#57575B]">
+          Click the button below. The agent will pause on a LangGraph{" "}
+          <code className="rounded bg-[#F0F0F4] px-1 py-0.5 font-mono text-xs text-[#010507]">
+            interrupt()
+          </code>{" "}
+          and the popup will ask you to pick a time — no chat needed.
         </p>
-      </header>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-gray-900">
-          1. Kick off a run
-        </h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            onClick={() =>
-              kickOff(
-                "Book an intro call with the sales team to discuss pricing.",
-              )
-            }
-            disabled={agent.isRunning || pending !== null}
-          >
-            Book sales intro
-          </button>
-          <button
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-            onClick={() =>
-              kickOff("Schedule a 1:1 with Alice next week to review Q2 goals.")
-            }
-            disabled={agent.isRunning || pending !== null}
-          >
-            Schedule 1:1 with Alice
-          </button>
-        </div>
-      </section>
+        <button
+          type="button"
+          data-testid="interrupt-headless-kickoff"
+          onClick={kickOff}
+          disabled={busy}
+          className="w-full rounded-xl bg-[#010507] px-4 py-3 text-sm font-medium uppercase tracking-[0.12em] text-white transition-colors hover:bg-[#2B2B2B] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {agent.isRunning && !pending
+            ? "Working…"
+            : pending
+              ? "Awaiting your choice…"
+              : "Schedule meeting"}
+        </button>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-gray-900">
-          2. Resolve the interrupt
-        </h2>
-        {pending ? (
-          <>
-            <p className="mt-1 text-xs text-gray-500">
-              Interrupt received for{" "}
-              <span className="font-medium text-gray-800">
-                {pending.value.topic ?? "a call"}
-              </span>
-              {pending.value.attendee ? (
-                <>
-                  {" "}
-                  with{" "}
-                  <span className="font-medium text-gray-800">
-                    {pending.value.attendee}
-                  </span>
-                </>
-              ) : null}
-              . Pick a slot to resume the run.
-            </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {DEFAULT_SLOTS.map((slot) => (
-                <button
-                  key={slot.iso}
-                  className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 hover:bg-gray-50"
-                  onClick={() =>
-                    resolve({
-                      chosen_time: slot.iso,
-                      chosen_label: slot.label,
-                    })
-                  }
-                >
-                  {slot.label}
-                </button>
-              ))}
-              <button
-                className="col-span-2 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                onClick={() => resolve({ cancelled: true })}
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : (
-          <p className="mt-1 text-xs text-gray-500">
-            No interrupt pending. Kick off a run above.
-          </p>
-        )}
-      </section>
+        {runId > 0 && !pending && lastAssistant?.content ? (
+          <ResultCard content={lastAssistant.content} />
+        ) : null}
+      </div>
 
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <h2 className="text-sm font-semibold text-gray-900">3. Result</h2>
-        <div className="mt-2 text-xs text-gray-500">
-          Status:{" "}
-          <span className="font-medium text-gray-800">
-            {agent.isRunning
-              ? "running"
-              : pending
-                ? "awaiting interrupt"
-                : "idle"}
-          </span>
-        </div>
-        {lastAssistant?.content ? (
-          <div className="mt-2 rounded-lg bg-gray-100 p-3 text-sm text-gray-900 whitespace-pre-wrap">
-            {lastAssistant.content}
-          </div>
-        ) : (
-          <div className="mt-2 text-xs text-gray-400">
-            Agent response will appear here once the interrupt is resolved.
-          </div>
-        )}
-      </section>
+      {pending ? (
+        <TimeSlotModal
+          payload={pending.value}
+          onPick={(slot) =>
+            resolve({ chosen_time: slot.iso, chosen_label: slot.label })
+          }
+          onCancel={() => resolve({ cancelled: true })}
+        />
+      ) : null}
     </div>
   );
+}
+
+function ResultCard({ content }: { content: string }) {
+  return (
+    <div
+      data-testid="interrupt-headless-result"
+      className="mt-6 rounded-xl border border-[#E9E9EF] bg-[#FAFAFC] p-4"
+    >
+      <div className="mb-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[#189370]">
+        Result
+      </div>
+      <div className="whitespace-pre-wrap text-sm text-[#010507]">
+        {content}
+      </div>
+    </div>
+  );
+}
+
+type TimeSlotModalProps = {
+  payload: InterruptPayload;
+  onPick: (slot: TimeSlot) => void;
+  onCancel: () => void;
+};
+
+function TimeSlotModal({ payload, onPick, onCancel }: TimeSlotModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  const content = (
+    <div
+      data-testid="interrupt-headless-modal-overlay"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#010507]/40 p-4 backdrop-blur-sm"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-testid="interrupt-headless-modal"
+        className="w-full max-w-md rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm"
+      >
+        <div className="mb-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[#57575B]">
+          Pick a time
+        </div>
+        <h2 className="mb-1 text-lg font-semibold text-[#010507]">
+          {payload.topic ?? "Meeting"}
+        </h2>
+        {payload.attendee ? (
+          <p className="mb-5 text-sm text-[#57575B]">
+            with{" "}
+            <span className="font-medium text-[#010507]">
+              {payload.attendee}
+            </span>
+          </p>
+        ) : (
+          <div className="mb-5" />
+        )}
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {DEFAULT_SLOTS.map((slot) => (
+            <button
+              key={slot.iso}
+              type="button"
+              data-testid={`interrupt-headless-slot-${slot.iso}`}
+              onClick={() => onPick(slot)}
+              className="rounded-xl border border-[#DBDBE5] bg-white px-3 py-3 text-sm font-medium text-[#010507] transition-colors hover:border-[#BEC2FF] hover:bg-[#BEC2FF1A]"
+            >
+              {slot.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          data-testid="interrupt-headless-cancel"
+          onClick={onCancel}
+          className="mt-4 w-full rounded-xl border border-[#DBDBE5] bg-white px-3 py-2 text-xs font-medium uppercase tracking-[0.12em] text-[#57575B] transition-colors hover:bg-[#FAFAFC]"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+
+  return createPortal(content, document.body);
 }

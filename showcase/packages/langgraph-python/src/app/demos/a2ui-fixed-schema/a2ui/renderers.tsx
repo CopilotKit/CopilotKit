@@ -45,10 +45,10 @@ function ActionButton({
       style={{
         width: "100%",
         padding: "10px 16px",
-        borderRadius: "10px",
-        border: done ? "1px solid #bbf7d0" : "1px solid transparent",
-        background: done ? "#ecfdf5" : "#2563eb",
-        color: done ? "#059669" : "#ffffff",
+        borderRadius: "12px",
+        border: done ? "1px solid #85ECCE4D" : "1px solid transparent",
+        background: done ? "rgba(133, 236, 206, 0.15)" : "#010507",
+        color: done ? "#189370" : "#ffffff",
         fontSize: "0.9rem",
         fontWeight: 600,
         cursor: done ? "default" : "pointer",
@@ -72,7 +72,7 @@ function ActionButton({
           height="16"
           viewBox="0 0 24 24"
           fill="none"
-          stroke="#059669"
+          stroke="#189370"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -93,8 +93,8 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
       <div
         style={{
           fontSize: "1.15rem",
-          fontWeight: 700,
-          color: "#111827",
+          fontWeight: 600,
+          color: "#010507",
         }}
       >
         {props.text}
@@ -108,15 +108,16 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
         style={{
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontSize: "1.5rem",
-          fontWeight: 700,
+          fontWeight: 600,
           letterSpacing: "0.05em",
+          color: "#010507",
         }}
       >
         {props.code}
       </span>
     );
   },
-  Arrow: () => <span style={{ color: "#9ca3af", fontSize: "1.5rem" }}>→</span>,
+  Arrow: () => <span style={{ color: "#AFAFB7", fontSize: "1.5rem" }}>→</span>,
   AirlineBadge: ({ props: rawProps }) => {
     const props = rawProps as Record<string, any>;
     return (
@@ -124,11 +125,14 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
         style={{
           display: "inline-block",
           padding: "2px 10px",
-          background: "#eef2ff",
-          color: "#4338ca",
+          background: "rgba(190, 194, 255, 0.15)",
+          color: "#010507",
+          border: "1px solid #BEC2FF",
           borderRadius: 999,
-          fontSize: "0.85rem",
+          fontSize: "0.75rem",
           fontWeight: 600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
         }}
       >
         {props.name}
@@ -140,9 +144,10 @@ export const flightRenderers: CatalogRenderers<FlightDefinitions> = {
     return (
       <span
         style={{
-          fontWeight: 700,
+          fontWeight: 600,
           fontSize: "1.1rem",
-          color: "#047857",
+          color: "#189370",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
         }}
       >
         {props.amount}

@@ -32,7 +32,7 @@ export function InlineAgentStateCard({
   return (
     <div
       data-testid="agent-state-card"
-      className="my-3 mx-4 rounded-xl border border-gray-200 bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 p-4 shadow-sm"
+      className="my-3 mx-4 rounded-2xl border border-[#DBDBE5] bg-white p-4 shadow-sm"
     >
       <div className="flex items-center gap-2">
         {status === "inProgress" && done < total ? (
@@ -40,7 +40,7 @@ export function InlineAgentStateCard({
         ) : (
           <CheckIcon />
         )}
-        <span className="text-sm font-semibold text-gray-800">{headline}</span>
+        <span className="text-sm font-semibold text-[#010507]">{headline}</span>
       </div>
 
       {steps.length > 0 && (
@@ -57,10 +57,10 @@ export function InlineAgentStateCard({
                 className={
                   "text-xs leading-5 " +
                   (step.status === "completed"
-                    ? "text-gray-500 line-through"
+                    ? "text-[#838389] line-through"
                     : step.status === "in_progress"
-                      ? "text-indigo-700 font-medium"
-                      : "text-gray-700")
+                      ? "text-[#010507] font-medium"
+                      : "text-[#57575B]")
                 }
               >
                 {step.title}
@@ -82,7 +82,7 @@ function StepMarker({
 }) {
   if (status === "completed") {
     return (
-      <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-emerald-500 text-white">
+      <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-[#85ECCE] text-[#010507]">
         <svg
           className="h-3 w-3"
           fill="none"
@@ -101,7 +101,7 @@ function StepMarker({
   }
   if (status === "in_progress") {
     return (
-      <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-indigo-500 text-white">
+      <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-[#BEC2FF] text-[#010507]">
         <svg
           className="h-3 w-3 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
@@ -126,7 +126,7 @@ function StepMarker({
     );
   }
   return (
-    <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full border border-gray-300 bg-white text-[10px] font-semibold text-gray-500">
+    <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full border border-[#DBDBE5] bg-white text-[10px] font-semibold text-[#838389]">
       {index + 1}
     </span>
   );
@@ -135,7 +135,7 @@ function StepMarker({
 function SpinnerIcon() {
   return (
     <svg
-      className="w-4 h-4 animate-spin text-indigo-600"
+      className="w-4 h-4 animate-spin text-[#010507]"
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
@@ -160,7 +160,7 @@ function SpinnerIcon() {
 function CheckIcon() {
   return (
     <svg
-      className="w-4 h-4 text-emerald-600"
+      className="w-4 h-4 text-[#189370]"
       fill="none"
       stroke="currentColor"
       viewBox="0 0 24 24"

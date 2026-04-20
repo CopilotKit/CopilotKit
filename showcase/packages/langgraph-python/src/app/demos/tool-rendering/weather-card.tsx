@@ -22,42 +22,51 @@ export function WeatherCard({
   return (
     <div
       data-testid="weather-card"
-      className="rounded-xl mt-4 mb-4 max-w-md w-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-lg"
+      className="rounded-2xl mt-4 mb-4 max-w-md w-full bg-[#EDEDF5] border border-[#DBDBE5] text-[#010507] shadow-sm"
     >
-      <div className="p-4">
-        <div className="flex items-center justify-between">
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-4">
           <div>
+            <div className="text-[10px] uppercase tracking-[0.14em] text-[#57575B] mb-1">
+              Current weather
+            </div>
             <h3
               data-testid="weather-city"
-              className="text-xl font-bold capitalize"
+              className="text-xl font-semibold capitalize text-[#010507]"
             >
               {location || "Weather"}
             </h3>
-            <p className="text-white/80 text-sm">
-              {loading ? "Fetching weather..." : "Current Weather"}
+            <p className="text-[#57575B] text-sm mt-0.5">
+              {loading ? "Fetching weather..." : conditions || "—"}
             </p>
           </div>
-          <div className="text-4xl" aria-hidden>
+          <div className="text-4xl leading-none" aria-hidden>
             {loading ? "..." : conditionsEmoji(conditions)}
           </div>
         </div>
 
         {!loading && (
           <>
-            <div className="mt-4 text-3xl font-bold">
-              {temperature ?? "--"}&deg; F
-              <span className="ml-2 text-sm font-normal capitalize text-white/80">
-                {conditions}
-              </span>
+            <div className="mt-5 text-4xl font-semibold text-[#010507] tracking-tight">
+              {temperature ?? "--"}&deg;
+              <span className="ml-1 text-lg font-normal text-[#57575B]">F</span>
             </div>
-            <div className="mt-4 pt-4 border-t border-white/30 grid grid-cols-2 gap-2 text-center text-sm">
+            <div className="mt-5 pt-4 border-t border-[#DBDBE5] grid grid-cols-2 gap-3 text-sm">
               <div data-testid="weather-humidity">
-                <p className="text-white/70 text-xs">Humidity</p>
-                <p className="font-medium">{humidity ?? "--"}%</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
+                  Humidity
+                </p>
+                <p className="mt-1 font-medium text-[#010507]">
+                  {humidity ?? "--"}%
+                </p>
               </div>
               <div data-testid="weather-wind">
-                <p className="text-white/70 text-xs">Wind</p>
-                <p className="font-medium">{windSpeed ?? "--"} mph</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[#57575B]">
+                  Wind
+                </p>
+                <p className="mt-1 font-medium text-[#010507]">
+                  {windSpeed ?? "--"} mph
+                </p>
               </div>
             </div>
           </>

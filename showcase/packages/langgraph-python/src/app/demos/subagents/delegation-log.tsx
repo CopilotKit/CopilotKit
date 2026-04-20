@@ -27,17 +27,17 @@ const SUB_AGENT_STYLE: Record<
 > = {
   research_agent: {
     label: "Research",
-    color: "bg-blue-100 text-blue-800 border-blue-300",
+    color: "bg-[#BEC2FF1A] text-[#010507] border-[#BEC2FF]",
     emoji: "🔎",
   },
   writing_agent: {
     label: "Writing",
-    color: "bg-purple-100 text-purple-800 border-purple-300",
+    color: "bg-[#85ECCE]/15 text-[#189370] border-[#85ECCE4D]",
     emoji: "✍️",
   },
   critique_agent: {
     label: "Critique",
-    color: "bg-amber-100 text-amber-800 border-amber-300",
+    color: "bg-[#FFAC4D]/12 text-[#010507] border-[#FFAC4D33]",
     emoji: "🧐",
   },
 };
@@ -55,26 +55,26 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
   return (
     <div
       data-testid="delegation-log"
-      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden"
+      className="w-full h-full flex flex-col bg-white rounded-2xl shadow-sm border border-[#DBDBE5] overflow-hidden"
     >
-      <div className="flex items-center justify-between px-6 py-3 border-b bg-gradient-to-r from-indigo-50 to-purple-50">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-[#E9E9EF] bg-[#FAFAFC]">
         <div className="flex items-center gap-3">
-          <span className="text-lg font-semibold text-gray-800">
-            Sub-Agent Delegations
+          <span className="text-lg font-semibold text-[#010507]">
+            Sub-agent delegations
           </span>
           {isRunning && (
             <span
               data-testid="supervisor-running"
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500 text-white text-[10px] font-bold tracking-wide"
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-[#BEC2FF] bg-[#BEC2FF1A] text-[#010507] text-[10px] font-semibold uppercase tracking-[0.12em]"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-              SUPERVISOR RUNNING
+              <span className="w-1.5 h-1.5 rounded-full bg-[#010507] animate-pulse" />
+              Supervisor running
             </span>
           )}
         </div>
         <span
           data-testid="delegation-count"
-          className="text-xs font-mono text-gray-500"
+          className="text-xs font-mono text-[#838389]"
         >
           {delegations.length} calls
         </span>
@@ -82,7 +82,7 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {delegations.length === 0 ? (
-          <p className="text-gray-400 italic text-sm">
+          <p className="text-[#838389] italic text-sm">
             Ask the supervisor to complete a task. Every sub-agent it calls will
             appear here.
           </p>
@@ -93,29 +93,29 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
               <div
                 key={d.id}
                 data-testid="delegation-entry"
-                className="border border-gray-200 rounded-xl p-3 bg-gray-50/60"
+                className="border border-[#E9E9EF] rounded-xl p-3 bg-[#FAFAFC]"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-gray-400">
+                    <span className="text-xs font-mono text-[#AFAFB7]">
                       #{idx + 1}
                     </span>
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${style.color}`}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-[0.1em] border ${style.color}`}
                     >
                       <span>{style.emoji}</span>
                       <span>{style.label}</span>
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase tracking-wide font-bold text-green-600">
+                  <span className="text-[10px] uppercase tracking-[0.12em] font-semibold text-[#189370]">
                     {d.status}
                   </span>
                 </div>
-                <div className="text-xs text-gray-500 mb-1">
-                  <span className="font-semibold text-gray-600">Task: </span>
+                <div className="text-xs text-[#57575B] mb-2">
+                  <span className="font-semibold text-[#010507]">Task: </span>
                   {d.task}
                 </div>
-                <div className="text-sm text-gray-800 whitespace-pre-wrap bg-white rounded p-2 border border-gray-200">
+                <div className="text-sm text-[#010507] whitespace-pre-wrap bg-white rounded-lg p-2.5 border border-[#E9E9EF]">
                   {d.result}
                 </div>
               </div>

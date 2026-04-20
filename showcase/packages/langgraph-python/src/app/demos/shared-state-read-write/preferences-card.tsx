@@ -56,35 +56,37 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
   return (
     <div
       data-testid="preferences-card"
-      className="w-full max-w-md p-6 bg-white rounded-2xl shadow-lg border border-gray-100 space-y-5"
+      className="w-full max-w-md p-6 bg-white rounded-2xl shadow-sm border border-[#DBDBE5] space-y-5"
     >
       <div>
-        <h2 className="text-xl font-bold text-gray-800">Your Preferences</h2>
-        <p className="text-xs text-gray-500 mt-1">
+        <h2 className="text-xl font-semibold text-[#010507]">
+          Your preferences
+        </h2>
+        <p className="text-xs text-[#57575B] mt-1">
           These are written into agent state. The agent reads them on every
           turn.
         </p>
       </div>
 
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Name</span>
+        <span className="text-sm font-medium text-[#57575B]">Name</span>
         <input
           data-testid="pref-name"
           type="text"
           value={value.name}
           onChange={(e) => set("name", e.target.value)}
           placeholder="e.g. Atai"
-          className="mt-1 w-full border rounded px-3 py-2 text-sm"
+          className="mt-1 w-full border border-[#DBDBE5] rounded-xl px-3 py-2 text-sm text-[#010507] focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33]"
         />
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Tone</span>
+        <span className="text-sm font-medium text-[#57575B]">Tone</span>
         <select
           data-testid="pref-tone"
           value={value.tone}
           onChange={(e) => set("tone", e.target.value as Preferences["tone"])}
-          className="mt-1 w-full border rounded px-3 py-2 text-sm"
+          className="mt-1 w-full border border-[#DBDBE5] rounded-xl px-3 py-2 text-sm text-[#010507] bg-white focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33]"
         >
           <option value="formal">Formal</option>
           <option value="casual">Casual</option>
@@ -93,12 +95,12 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
       </label>
 
       <label className="block">
-        <span className="text-sm font-medium text-gray-700">Language</span>
+        <span className="text-sm font-medium text-[#57575B]">Language</span>
         <select
           data-testid="pref-language"
           value={value.language}
           onChange={(e) => set("language", e.target.value)}
-          className="mt-1 w-full border rounded px-3 py-2 text-sm"
+          className="mt-1 w-full border border-[#DBDBE5] rounded-xl px-3 py-2 text-sm text-[#010507] bg-white focus:border-[#BEC2FF] focus:outline-none focus:ring-2 focus:ring-[#BEC2FF33]"
         >
           <option>English</option>
           <option>Spanish</option>
@@ -109,7 +111,7 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
       </label>
 
       <div>
-        <span className="text-sm font-medium text-gray-700">Interests</span>
+        <span className="text-sm font-medium text-[#57575B]">Interests</span>
         <div className="mt-2 flex flex-wrap gap-2">
           {INTEREST_OPTIONS.map((interest) => {
             const selected = value.interests.includes(interest);
@@ -120,8 +122,8 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
                 onClick={() => toggleInterest(interest)}
                 className={`px-3 py-1 rounded-full text-xs border transition-colors ${
                   selected
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    ? "bg-[#BEC2FF1A] text-[#010507] border-[#BEC2FF]"
+                    : "bg-white text-[#57575B] border-[#DBDBE5] hover:bg-[#FAFAFC]"
                 }`}
               >
                 {interest}
@@ -131,13 +133,13 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
         </div>
       </div>
 
-      <div className="pt-3 border-t border-gray-100">
-        <div className="text-[11px] uppercase tracking-wide text-gray-400 mb-1">
-          Shared State
+      <div className="pt-3 border-t border-[#E9E9EF]">
+        <div className="text-[10px] uppercase tracking-[0.14em] text-[#838389] mb-1.5">
+          Shared state
         </div>
         <pre
           data-testid="pref-state-json"
-          className="bg-gray-50 rounded p-2 text-xs text-gray-700 overflow-x-auto"
+          className="bg-[#FAFAFC] border border-[#E9E9EF] rounded-lg p-2.5 text-xs text-[#010507] overflow-x-auto font-mono"
         >
           {JSON.stringify(value, null, 2)}
         </pre>
