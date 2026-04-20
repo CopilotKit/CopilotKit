@@ -3,7 +3,7 @@
 // Reads shared/feature-registry.json; for each feature:
 //   - og_docs_url   → HTTP HEAD. 2xx = "ok", else "notfound" / "error".
 //   - shell_docs_url (relative path like "/docs/features/agentic-chat")
-//                   → check shell/src/content/docs/<path>.mdx (or index.mdx).
+//                   → check shell-docs/src/content/docs/<path>.mdx (or index.mdx).
 //                     file exists = "ok", else "notfound". No network.
 //
 // Writes shell/src/data/docs-status.json. The shell-dashboard UI reads it
@@ -21,7 +21,18 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
-const SHELL_DOCS_ROOT = path.join(ROOT, "shell", "src", "content", "docs");
+// MDX docs content now lives in shell-docs (it owns the docs hostname).
+// docs-status.json is still consumed only by shell-dashboard, so it keeps
+// emitting under shell/data for the dashboard to read. The CONTENT scan
+// source is shell-docs — the "shell_docs_url" field points at paths that
+// now serve from docs.showcase.copilotkit.ai.
+const SHELL_DOCS_ROOT = path.join(
+  ROOT,
+  "shell-docs",
+  "src",
+  "content",
+  "docs",
+);
 const OUTPUT_PATH = path.join(ROOT, "shell", "src", "data", "docs-status.json");
 
 type DocState = "ok" | "missing" | "notfound" | "error";
