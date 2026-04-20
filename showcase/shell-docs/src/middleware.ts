@@ -67,6 +67,21 @@ export function middleware(
   request: NextRequest,
   event: NextFetchEvent,
 ): NextResponse {
+  // Skip non-GET (HEAD, POST, etc.) and Next.js router prefetches —
+  // these are not real pageviews and would pollute analytics. Next.js
+  // prefetches links via low-priority fetches that still hit middleware,
+  // so we filter on both the \`next-router-prefetch\` header (App Router)
+  // and the generic \`purpose: prefetch\` header.
+  if (request.method !== "GET") {
+    return NextResponse.next();
+  }
+  if (request.headers.get("next-router-prefetch") === "1") {
+    return NextResponse.next();
+  }
+  if (request.headers.get("purpose") === "prefetch") {
+    return NextResponse.next();
+  }
+
   const { pathname } = request.nextUrl;
 
   // Read existing distinct_id cookie, or mint a new one for first-time
