@@ -64,7 +64,16 @@ export const docsComponents = {
     const reg = getRegistry();
     const int = reg.integrations.find((i) => i.slug === integration);
     if (!int || !int.deployed) return null;
+    // Iframe the integration demo directly (its own backend host). The
+    // demo-detail page (<integrations/.../[demo]>) is only served by the
+    // SHELL host (showcase.copilotkit.ai), so the "Open full demo" link
+    // must point at the shell host rather than an in-place relative URL —
+    // otherwise it'd 404 on docs.showcase.copilotkit.ai which has no
+    // /integrations route.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
+    const shellHost =
+      process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
+    const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
     return (
       <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
@@ -72,7 +81,7 @@ export const docsComponents = {
             Live Demo: {int.name} — {demo}
           </span>
           <a
-            href={`/integrations/${integration}?demo=${demo}`}
+            href={profileUrl}
             className="text-xs text-[var(--accent)] hover:underline"
           >
             Open full demo →
