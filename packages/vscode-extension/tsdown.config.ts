@@ -12,6 +12,15 @@ const workspaceSourceAliases: Record<string, string> = {
     import.meta.dirname,
     "../a2ui-renderer/src/index.ts",
   ),
+  // @copilotkit/shared ships a CJS dist (e.g. utils/clipboard.cjs) that
+  // rolldown wraps in __commonJSMin. Those wrappers trigger TDZ errors
+  // ("Cannot access 'require_clipboard' before initialization") when the
+  // bundle has circular imports through the markdown/chat chain. Resolving
+  // to TS source dodges the CJS wrapper entirely.
+  "@copilotkit/shared": path.resolve(
+    import.meta.dirname,
+    "../shared/src/index.ts",
+  ),
 };
 
 /**
