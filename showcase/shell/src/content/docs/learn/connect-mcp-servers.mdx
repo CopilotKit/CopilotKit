@@ -4,17 +4,6 @@ description: "Integrate Model Context Protocol (MCP) servers into your React app
 icon: "lucide/Network"
 ---
 
-TailoredContent,
-TailoredContentOption,
-} from "@/components/react/tailored-content.tsx";
-Database,
-Code,
-Server,
-Bot,
-SquareTerminal,
-SquareChartGantt,
-} from "lucide-react";
-
 ## Introduction
 
 The Model Context Protocol is an open standard that enables developers to build secure, two-way connections between their data sources and AI-powered tools. With MCP, you can:
@@ -328,7 +317,7 @@ export default function MCPToolCall({
   state. You can self-host it or use{" "}
   <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
   (recommended). Learn more in our [Self-Hosting
-  Guide](/built-in-agent/copilot-runtime).
+  Guide](/unselected/copilot-runtime).
 </Callout>
 
 To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:

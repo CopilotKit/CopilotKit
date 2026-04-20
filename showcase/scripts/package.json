@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "generate-registry": "tsx generate-registry.ts",
+    "probe-docs": "tsx probe-docs.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
     "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",

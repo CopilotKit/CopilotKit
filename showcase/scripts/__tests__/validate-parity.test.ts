@@ -2157,7 +2157,7 @@ Object.freeze = function(o) {
           expectedDir: "chat",
         }),
       ).toBe(
-        "demo 'chat' declared in manifest but no src/app/demos/chat/ directory",
+        "demo 'chat' declared in manifest but no demos/chat/ (or legacy src/app/demos/chat/) directory",
       );
     });
 
@@ -2169,7 +2169,7 @@ Object.freeze = function(o) {
           expectedDir: "hitl",
         }),
       ).toBe(
-        "demo 'hitl-in-chat' declared in manifest but no src/app/demos/hitl/ directory (resolved from route)",
+        "demo 'hitl-in-chat' declared in manifest but no demos/hitl/ (or legacy src/app/demos/hitl/) directory (resolved from route)",
       );
     });
 

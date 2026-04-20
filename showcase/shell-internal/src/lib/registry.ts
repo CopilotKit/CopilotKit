@@ -1,11 +1,16 @@
 import registryData from "../../../shell/src/data/registry.json";
 import { sortOrder } from "./sort-order";
 
+export type FeatureKind = "primary" | "testing";
+
 export interface Feature {
   id: string;
   name: string;
   category: string;
   description: string;
+  kind?: FeatureKind;
+  og_docs_url?: string;
+  shell_docs_url?: string;
 }
 
 export interface FeatureCategory {
@@ -18,8 +23,14 @@ export interface Demo {
   name: string;
   description: string;
   tags: string[];
-  route: string;
+  route?: string;
   animated_preview_url?: string | null;
+  /**
+   * Informational demos (e.g. `cli-start`) have no runnable route — they just
+   * surface a copy-pasteable shell command. When `command` is set, the shell
+   * renders a code block with a copy button instead of Demo/Code links.
+   */
+  command?: string;
 }
 
 export interface Integration {
@@ -35,6 +46,21 @@ export interface Integration {
   sort_order?: number;
   features: string[];
   demos: Demo[];
+  /**
+   * Per-column docs link overrides sourced from
+   * `showcase/packages/<slug>/docs-links.json`. The `shell_docs_path` is a
+   * path relative to the shell root; callers combine it with the framework
+   * slug to build framework-scoped URLs.
+   */
+  docs_links?: {
+    features: Record<
+      string,
+      {
+        og_docs_url: string | null;
+        shell_docs_path: string | null;
+      }
+    >;
+  };
 }
 
 export interface Registry {

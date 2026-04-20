@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx ../scripts/generate-registry.ts && tsx ../scripts/generate-status.ts && tsx ../scripts/probe-docs.ts && tsx ../scripts/bundle-demo-content.ts",
     "dev": "next dev --turbopack --port 3002",
-    "build": "tsx ../scripts/generate-registry.ts && next build",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/probe-docs.ts && tsx ../scripts/bundle-demo-content.ts && next build",
     "start": "next start --port 3002"
   },
   "dependencies": {

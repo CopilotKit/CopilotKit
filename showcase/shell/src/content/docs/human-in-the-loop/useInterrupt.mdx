@@ -1,0 +1,137 @@
+---
+title: useInterrupt (LangGraph)
+icon: "lucide/CirclePause"
+description: Pause an agent run with LangGraph's interrupt() and resolve it from the client via a render prop.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: gen-ui-interrupt
+---
+
+## What is this?
+
+LangGraph ships a first-class [`interrupt()`](https://docs.langchain.com/oss/python/langgraph/interrupts)
+primitive that lets a running node suspend itself and hand control to
+the client. The run is frozen server-side until the client resolves the
+interrupt with a payload, at which point the node resumes as if
+`interrupt()` had simply returned that payload.
+
+CopilotKit's `useInterrupt` is the frontend half of that contract: it
+subscribes to the paused run, renders whatever component you give it,
+and calls the agent back with the user's answer.
+
+<InlineDemo integration="langgraph-python" demo="gen-ui-interrupt" />
+
+## When should I use this?
+
+Reach for `useInterrupt` when the pause is a **graph-enforced
+checkpoint** — the code path _must_ stop and wait for a human — rather
+than an LLM-initiated tool call. Typical cases:
+
+- A sensitive action (payments, irreversible writes) must be approved
+- A required piece of state isn't known and can only be collected from the user
+- The agent explicitly reaches an approval node in a longer workflow
+- You want the server-side contract to be `interrupt(...)` and resume with a payload
+
+For LLM-initiated pauses — where the model decides on the fly to ask
+the user — prefer [`useHumanInTheLoop`](../human-in-the-loop).
+
+## The backend: `interrupt()` inside a tool
+
+The showcase `gen-ui-interrupt` cell exposes a `schedule_meeting` tool.
+When the model calls it, the tool issues a `langgraph.interrupt(...)`
+with the meeting context. The run freezes here until the client
+resolves — the resolution becomes the return value of `interrupt()`,
+which the tool then turns into a final string for the model:
+
+<Snippet region="backend-interrupt-tool" title="backend/agent.py — schedule_meeting interrupt tool" />
+
+Two things to note:
+
+- The payload (`{"topic": topic, "attendee": attendee}`) is what the
+  frontend receives as `event.value`. Keep it a plain, serializable
+  object — it's the "pause-time context" the UI needs to render.
+- The return-side contract (`{chosen_label, chosen_time}` or
+  `{cancelled: true}`) is entirely yours. The client can send anything
+  as the resolve payload; the tool is the one that gives it meaning.
+
+## The frontend: `useInterrupt` render prop
+
+On the client you register a `useInterrupt` hook per agent. When the
+paused run arrives, its payload is handed to `render` as `event.value`,
+and `resolve(...)` is how you resume the run:
+
+<Snippet region="frontend-useinterrupt-render" title="frontend/src/app/page.tsx — useInterrupt" />
+
+Whatever you pass to `resolve` is round-tripped back to the agent as
+the return value of the matching `interrupt(...)` call.
+
+### Key props
+
+- **`agentId`** — must match a runtime-registered agent. If omitted, the
+  hook assumes `"default"`. A mismatch means the interrupt never fires.
+- **`render`** — receives `{ event, resolve }`. `event.value` is the
+  payload you passed to `interrupt(...)` on the server.
+- **`renderInChat`** — when `true` (as above), the picker appears inline
+  in the chat transcript, between the paused assistant turn and the
+  still-pending continuation.
+
+## Multiple interrupts? Add a type and gate with `enabled`
+
+If your graph issues more than one kind of interrupt (e.g. `"ask"` vs
+`"approval"`), tag each with a `type` field on the payload and install
+one `useInterrupt` per shape, each gated by an `enabled` predicate:
+
+```tsx
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  enabled: ({ eventValue }) => eventValue.type === "ask",
+  render: ({ event, resolve }) => (
+    <AskCard question={event.value.content} onAnswer={resolve} />
+  ),
+});
+
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  enabled: ({ eventValue }) => eventValue.type === "approval",
+  render: ({ event, resolve }) => (
+    <ApproveCard content={event.value.content} onAnswer={resolve} />
+  ),
+});
+```
+
+## Preprocess with `handler`
+
+For cases where the interrupt can sometimes be resolved _without_ user
+input (e.g. the current user already has permission), pass a `handler`
+that runs before `render`. The handler can call `resolve(...)` itself
+to short-circuit the UI, or return a value that `render` receives as
+`result`:
+
+```tsx
+useInterrupt({
+  agentId: "gen-ui-interrupt",
+  handler: async ({ event, resolve }) => {
+    const dept = await lookupUserDepartment();
+    if (event.value.accessDepartment === dept || dept === "admin") {
+      resolve({ code: "AUTH_BY_DEPARTMENT" });
+      return; // skip render
+    }
+    return { dept };
+  },
+  render: ({ result, event, resolve }) => (
+    <RequestAccessCard
+      dept={result.dept}
+      onRequest={() => resolve({ code: "REQUEST_AUTH" })}
+      onCancel={() => resolve({ code: "CANCEL" })}
+    />
+  ),
+});
+```
+
+## Going further
+
+- [Tool-based HITL with `useHumanInTheLoop`](../human-in-the-loop) — for
+  LLM-initiated pauses.
+- [Headless interrupts](./headless) — compose the lower-level primitives
+  (`useAgent`, `agent.subscribe`, `copilotkit.runAgent`) to resolve
+  interrupts outside a chat surface.

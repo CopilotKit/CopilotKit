@@ -27,10 +27,10 @@ export function PieChart({ title, description, data }: PieChartProps) {
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     return (
-      <div className="max-w-lg mx-auto my-4 rounded-xl border border-slate-200 bg-white p-6">
-        <div className="font-semibold text-slate-900">{title}</div>
-        <div className="text-sm text-slate-500">{description}</div>
-        <p className="text-slate-400 text-center py-8 text-sm">
+      <div className="max-w-lg mx-auto my-4 rounded-2xl border border-[#DBDBE5] bg-white p-6 shadow-sm">
+        <div className="font-semibold text-[#010507]">{title}</div>
+        <div className="text-sm text-[#57575B]">{description}</div>
+        <p className="text-[#AFAFB7] text-center py-8 text-sm">
           No data available
         </p>
       </div>
@@ -62,10 +62,10 @@ export function PieChart({ title, description, data }: PieChartProps) {
   });
 
   return (
-    <div className="max-w-lg mx-auto my-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="max-w-lg mx-auto my-4 overflow-hidden rounded-2xl border border-[#DBDBE5] bg-white shadow-sm">
       <div className="p-4 pb-0">
-        <div className="font-semibold text-slate-900">{title}</div>
-        <div className="text-sm text-slate-500">{description}</div>
+        <div className="font-semibold text-[#010507]">{title}</div>
+        <div className="text-sm text-[#57575B]">{description}</div>
       </div>
       <div className="px-4 pb-4 pt-4">
         <svg
@@ -79,7 +79,7 @@ export function PieChart({ title, description, data }: PieChartProps) {
             cy={center}
             r={radius}
             fill="none"
-            stroke="#f1f5f9"
+            stroke="#F0F0F4"
             strokeWidth={strokeWidth}
           />
           {slices.map((slice, i) => (
@@ -111,13 +111,13 @@ export function PieChart({ title, description, data }: PieChartProps) {
                     backgroundColor: CHART_COLORS[index % CHART_COLORS.length],
                   }}
                 />
-                <span className="flex-1 text-slate-900 truncate">
+                <span className="flex-1 text-[#010507] truncate">
                   {item.label}
                 </span>
-                <span className="text-slate-500 tabular-nums">
+                <span className="text-[#57575B] tabular-nums">
                   {val.toLocaleString()}
                 </span>
-                <span className="text-slate-500 text-sm w-10 text-right tabular-nums">
+                <span className="text-[#57575B] text-sm w-10 text-right tabular-nums">
                   {pct}%
                 </span>
               </div>
