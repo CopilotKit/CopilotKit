@@ -1,0 +1,21 @@
+{
+  "name": "@copilotkit/showcase-cell-claude-sdk-typescript-shared-state-streaming-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "tsx agent.ts"
+  },
+  "dependencies": {
+    "@ag-ui/core": "^0.0.48",
+    "@ag-ui/encoder": "^0.0.48",
+    "@anthropic-ai/sdk": "^0.57.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.21.0",
+    "tsx": "^4.19.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

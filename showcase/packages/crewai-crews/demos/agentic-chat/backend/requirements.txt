@@ -1,0 +1,7 @@
+crewai>=0.130.0
+ag-ui-crewai>=0.1.4,<0.1.6
+ag-ui-protocol>=0.1.5
+python-dotenv>=1.0.1
+uvicorn>=0.34.3
+crewai-tools>=0.38.1
+fastapi>=0.115.0

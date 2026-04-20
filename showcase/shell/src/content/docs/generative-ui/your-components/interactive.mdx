@@ -9,10 +9,17 @@ hideTOC: true
 
 Interactive generative UI extends display components with user interaction. Your agent renders components that users can click, type into, or manipulate — and the results flow back to the agent.
 
+<InlineDemo integration="langgraph-python" demo="hitl-in-chat" />
+
+<Snippet
+  cell="hitl-in-chat"
+  region="hitl-hook"
+  title="page.tsx — useHumanInTheLoop"
+/>
+
 ## When should I use this?
 
 Use interactive generative UI when you want to:
-
 - Let users confirm or modify agent suggestions inline
 - Build form-like interactions within the chat
 - Create approval workflows where users can accept/reject agent actions

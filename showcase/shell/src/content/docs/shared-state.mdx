@@ -3,31 +3,446 @@ title: Shared State
 description: Create a two-way connection between your UI and agent state.
 icon: "lucide/Repeat"
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: shared-state-read-write
 ---
 
-## What is shared state?
+<InlineDemo integration="langgraph-python" demo="shared-state-read-write" />
 
-Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+<Callout type="info">
+  This example demonstrates reading from and writing to shared state in the showcase.
+</Callout>
 
-- Display the agent's current progress and intermediate results
-- Update the agent's state through UI interactions
-- React to state changes in real-time across your application
+## Reading agent state
 
-<ImageZoom
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
-  alt="Shared State Demo"
-  width={1000}
-  height={1000}
-  className="rounded-lg shadow-lg border mt-0"
-/>
+### What is this?
 
-<InlineDemo integration="langgraph-python" demo="shared-state-read" />
+You can easily use the realtime agent state not only in the chat UI, but also in the native application UX.
 
-## When should I use this?
+### When should I use this?
 
-Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways — the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
+You can use this when you want to provide the user with feedback about your agent's state. As your agent's
+state updates, you can reflect these updates natively in your application.
 
-<FeatureIntegrations feature="shared-state-read" />
+### Implementation
+
+<Steps>
+  <Step>
+    ### Define the Agent State
+    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
+
+        class AgentState(CopilotKitState):
+            language: Literal["english", "spanish"] = "english"
+
+        def chat_node(state: AgentState, config: RunnableConfig):
+          # If language is not defined, set a value.
+          # this is because a default value in a state class is not read on runtime
+          language = state.get("language", "english")
+
+          # ... add the rest of the node implementation and use the language variable
+
+          return {
+            # ... add the rest of state to return
+            # return the language to make it available for the next nodes & frontend to read
+            "language": language
+          }
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        export const AgentStateAnnotation = Annotation.Root({
+            language: Annotation<"english" | "spanish">,
+            ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          // If language is not defined, use a default value.
+          const language = state.language ?? 'english'
+
+          // ... add the rest of the node implementation and use the language variable
+
+          return {
+            // ... add the rest of state to return
+            // return the language to make it available for the next nodes & frontend to read
+            language
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Use the `useAgent` Hook
+    With your agent connected and running all that is left is to call the `useAgent` hook, pass the agent's ID, and
+    read the state.
+
+    <Snippet region="use-agent-read" title="frontend/src/app/page.tsx — useAgent subscription" />
+
+    <Callout type="info">
+      The `agent.state` is reactive and will automatically update when the agent's state changes.
+    </Callout>
+  </Step>
+  <Step>
+    ### Give it a try!
+    As the agent state updates, your `state` variable will automatically update with it! In this case, you'll see the
+    language set to "english" as that's the initial state we set.
+
+    <Snippet region="notes-card-render" title="frontend/src/app/notes-card.tsx — render agent-authored notes" />
+  </Step>
+</Steps>
+
+### Rendering agent state in the chat
+
+You can also render the agent's state in the chat UI using `useRenderTool` or by accessing `agent.state` from `useAgent`. The state is reactive and updates automatically.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function YourMainContent() {
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "sample_agent",
+  });
+
+  const language = (agent.state.language as string) ?? "english";
+
+  return (
+    <div>
+      <p>Language: {language}</p>
+    </div>
+  );
+}
+```
+
+### Intermediately Stream and Render Agent State
+By default, the LangChain agent state will only update *between* LangGraph node transitions --
+which means state updates will be discontinuous and delayed.
+
+You likely want to render the agent state as it updates **continuously.**
+
+See **[emit intermediate state](/docs/shared-state/streaming).**
+
+## Writing agent state
+
+### What is this?
+
+This guide shows you how to write to your agent's state from your application.
+
+### When should I use this?
+
+You can use this when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+### Implementation
+
+<Steps>
+  <Step>
+    ### Define the Agent State
+    LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+    let's assume that our agent state looks something like this.
+
+    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
+
+        class AgentState(CopilotKitState):
+            language: Literal["english", "spanish"] = "english"
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent-js/src/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        export const AgentStateAnnotation = Annotation.Root({
+            language: Annotation<"english" | "spanish">,
+            ...CopilotKitStateAnnotation.spec,
+        });
+        export type AgentState = typeof AgentStateAnnotation.State;
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Use the `useAgent` hook to read and write state
+    `useAgent` gives you access to the agent, including its state. You can update state by calling `agent.setState`.
+
+    <Snippet region="use-agent-write" title="frontend/src/app/page.tsx — write to agent state" />
+  </Step>
+  <Step>
+    ### Give it a try!
+    You can now use the `setState` function to update the agent state and `state` to read it. Try toggling the language button
+    and talking to your agent. You'll see the language change to match the agent's state.
+
+    <Snippet region="preferences-card-render" title="frontend/src/app/preferences-card.tsx — preferences form" />
+  </Step>
+</Steps>
+
+### Advanced Usage
+
+#### Re-run the agent with updated state
+
+The new agent state will be used next time the agent runs.
+If you want to re-run it manually, use `agent.runAgent` after updating state.
+
+```tsx title="ui/app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+// ...
+
+function YourMainContent() {
+  const { agent } = useAgent({
+    agentId: "sample_agent",
+  });
+
+  const language = (agent.state.language as string) ?? "english";
+
+  // setup to be called when some event in the app occurs
+  const toggleLanguage = () => {
+    const newLanguage = language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
+
+    // [!code highlight:2]
+    // re-run the agent with updated state
+    agent.runAgent();
+  };
+
+  return (
+    // ...
+  );
+}
+```
+
+#### Intermediately Stream and Render Agent State
+By default, the LangChain agent state will only update *between* LangGraph node transitions --
+which means state updates will be discontinuous and delayed.
+
+You likely want to render the agent state as it updates **continuously.**
+
+See **[predictive state updates](/docs/shared-state/streaming).**
+
+## Input/Output Schemas
+
+### What is this?
+
+Not all state properties are relevant for frontend-backend sharing.
+This guide shows how to ensure only the right portion of state is communicated back and forth.
+
+This guide is based on [LangGraph's Input/Output Schema feature](https://docs.langchain.com/oss/python/langgraph/use-graph-api#define-input-and-output-schemas)
+
+### When should I use this?
+
+Depending on your implementation, some properties are meant to be processed internally, while some others are the way for the UI to communicate user input.
+In addition, some state properties contain a lot of information. Syncing them back and forth between the agent and UI can be costly, while it might not have any practical benefit.
+
+### Implementation
+
+<Steps>
+  <Step>
+      ### Examine our old state
+      LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
+      let's assume that the state our agent should be using, can be described like this:
+      <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+        <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
+        from typing import Literal
+
+        class AgentState(CopilotKitState):
+            question: str
+            answer: str
+            resources: List[str]
+        ```
+        </Tab>
+        <Tab value="TypeScript">
+        ```typescript title="agent-js/sample_agent/agent.ts"
+        import { Annotation } from "@langchain/langgraph";
+        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+        const AgentState = Annotation.Root({
+          ...CopilotKitStateAnnotation.spec,
+          question: Annotation<string>,
+          answer: Annotation<string>,
+          resources: Annotation<string[]>,
+        })
+        ```
+        </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Divide state to Input and Output
+    Our example case lists several state properties, which with its own purpose:
+      - The question is being asked by the user, expecting the llm to answer
+      - The answer is what the LLM returns
+      - The resources list will be used by the LLM to answer the question, and should not be communicated to the user, or set by them.
+
+      <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+          <Tab value="Python">
+          ```python title="agent.py"
+          from copilotkit import CopilotKitState
+          from typing import Literal
+
+          # Divide the state to 3 parts
+
+          # Input schema for inputs you are willing to accept from the frontend
+          class InputState(CopilotKitState):
+            question: str
+
+          # Output schema for output you are willing to pass to the frontend
+          class OutputState(CopilotKitState):
+            answer: str
+
+          # The full schema, including the inputs, outputs and internal state ("resources" in our case)
+          class OverallState(InputState, OutputState):
+            resources: List[str]
+
+          async def answer_node(state: OverallState, config: RunnableConfig):
+            """
+            Standard chat node, meant to answer general questions.
+            """
+
+            model = ChatOpenAI()
+
+            # add the input question in the system prompt so it's passed to the LLM
+            system_message = SystemMessage(
+              content=f"You are a helpful assistant. Answer the question: {state.get('question')}"
+            )
+
+            response = await model.ainvoke([
+              system_message,
+              *state["messages"],
+            ], config)
+
+            # ...add the rest of the agent implementation
+
+            # extract the answer, which will be assigned to the state soon
+            answer = response.content
+
+            return {
+               "messages": response,
+                # include the answer in the returned state
+               "answer": answer
+            }
+
+
+          # finally, before compiling the graph, we define the 3 state components
+          builder = StateGraph(OverallState, input=InputState, output=OutputState)
+
+          # add all the different nodes and edges and compile the graph
+          builder.add_node("answer_node", answer_node)
+          builder.add_edge(START, "answer_node")
+          builder.add_edge("answer_node", END)
+          graph = builder.compile()
+          ```
+          </Tab>
+          <Tab value="TypeScript">
+            <Callout type="warn">
+              While we work on adding Zod schema support for LangChain TypeScript, a workaround is required to ignore a typescript error when defining "full state".
+
+              You can see this at the very end of the TypeScript implementation snippet.
+            </Callout>
+            ```typescript title="agent-js/sample_agent/agent.ts"
+              import { Annotation } from "@langchain/langgraph";
+              import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+
+              // Divide the state to 3 parts
+
+              // An input schema for inputs you are willing to accept from the frontend
+              const InputAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                question: Annotation<string>,
+              });
+
+              // Output schema for output you are willing to pass to the frontend
+              const OutputAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                answer: Annotation<string>,
+              });
+
+              // The full schema, including the inputs, outputs and internal state ("resources" in our case)
+              export const AgentStateAnnotation = Annotation.Root({
+                ...CopilotKitStateAnnotation.spec,
+                ...OutputAnnotation.spec,
+                ...InputAnnotation.spec,
+                resources: Annotation<string[]>,
+              });
+
+              // Define a typed state that supports the entire
+              export type AgentState = typeof AgentStateAnnotation.State;
+
+              async function answerNode(state: AgentState, config: RunnableConfig) {
+                const model = new ChatOpenAI()
+
+                const systemMessage = new SystemMessage({
+                  content: `You are a helpful assistant. Answer the question: ${state.question}.`,
+                });
+
+                const response = await modelWithTools.invoke(
+                  [systemMessage, ...state.messages],
+                  config
+                );
+
+                // ...add the rest of the agent implementation
+                // extract the answer, which will be assigned to the state soon
+                const answer = response.content
+
+                return {
+                  messages: response,
+                  // include the answer in the returned state
+                  answer,
+                }
+              }
+
+              // finally, before compiling the graph, we define the 3 state components
+              const workflow = new StateGraph({
+                input: InputAnnotation,
+                output: OutputAnnotation,
+                // @ts-expect-error -- LangGraph does not expect a "full schema with internal properties".
+                stateSchema: AgentStateAnnotation,
+              })
+                .addNode("answer_node", answerNode) // add all the different nodes and edges and compile the graph
+                .addEdge(START, "answer_node")
+                .addEdge("answer_node", END)
+              export const graph = workflow.compile()
+            ```
+          </Tab>
+      </Tabs>
+  </Step>
+  <Step>
+    ### Give it a try!
+    Now that we know which state properties our agent emits, we can inspect the state and expect the following to happen:
+    - While we are able to provide a question, we will not receive it back from the agent. If we are using it in our UI, we need to remember the UI is the source of truth for it
+    - Answer will change once it's returned back from the agent
+    - The UI has no access to resources.
+
+    ```tsx
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+    const { agent } = useAgent({
+      agentId: "sample_agent",
+    });
+
+    const answer = agent.state.answer as string;
+
+    console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
+    ```
+  </Step>
+</Steps>
+
+<FeatureIntegrations feature="shared-state-read-write" />
 
 ## Get started by choosing your AI backend
 

@@ -13,6 +13,7 @@
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
   --ok: #059669;
+  --amber: #d97706;
   --danger: #dc2626;
 }
 
@@ -35,4 +36,7 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
 }

@@ -5,19 +5,207 @@ description: Render your agent's tool calls with custom UI components.
 hideTOC: true
 ---
 
+<InlineDemo integration="langgraph-python" demo="tool-rendering" />
+
+<Callout>
+  This example demonstrates the [implementation](#implementation) section applied in the <a href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat" target="_blank">CopilotKit feature viewer</a>.
+</Callout>
+
 ## What is this?
 
-Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool execution, you can render custom React components that display tool arguments, progress, and results.
+Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
+as a custom component, which we call **Generative UI**.
 
 ## When should I use this?
 
-Use tool rendering when you want to:
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
 
-- Show users what tools your agent is calling and with what arguments
-- Display progress indicators while tools execute
-- Render custom results when tools complete
-- Create a polished, transparent agent experience
+## Implementation
 
-## Choose your AI backend
+<Steps>
+  <Step>
+    ### Run and connect your agent
 
-<IntegrationGrid path="generative-ui/tool-rendering" />
+    You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+    If you don't already have CopilotKit and your agent connected, choose one of the following options:
+
+    <Accordions>
+      <Accordion title="I already have an agent">
+        You can follow the instructions in the [quickstart](/langgraph/quickstart) guide.
+      </Accordion>
+      <Accordion title="I want to start from scratch">
+        Run the following command to create a brand new project with a pre-configured agent:
+
+        <Tabs items={['Python', 'TypeScript']}>
+          <Tab value="Python">
+            ```bash
+            npx copilotkit@latest create -f langgraph-py
+            ```
+          </Tab>
+          <Tab value="TypeScript">
+            ```bash
+            npx copilotkit@latest create -f langgraph-js
+            ```
+          </Tab>
+        </Tabs>
+      </Accordion>
+    </Accordions>
+  </Step>
+  <Step>
+    ### Give your agent a tool to call
+
+    <Tabs items={['Python', 'TypeScript']}>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from langchain_openai import ChatOpenAI
+        from langchain.tools import tool
+        # ...
+
+        # [!code highlight:6]
+        @tool
+        def get_weather(location: str):
+            """
+            Get the weather for a given location.
+            """
+            return f"The weather for {location} is 70 degrees."
+
+        # ...
+
+        async def chat_node(state: AgentState, config: RunnableConfig):
+            model = ChatOpenAI(model="gpt-5.4")
+            model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
+
+            response = await model_with_tools.ainvoke([
+                SystemMessage(content=f"You are a helpful assistant."),
+                *state["messages"],
+            ], config)
+
+            # ...
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```typescript title="agent-js/src/agent.ts"
+        import { ChatOpenAI } from "@langchain/openai";
+        import { tool } from "@langchain/core/tools";
+        import { z } from "zod";
+
+        // [!code highlight:12]
+        const get_weather = tool(
+          (args) => {
+            return `The weather for ${args.location} is 70 degrees.`;
+          },
+          {
+            name: "get_weather",
+            description: "Get the weather for a given location.",
+            schema: z.object({
+              location: z.string().describe("The location to get weather for"),
+            }),
+          }
+        );
+
+        async function chat_node(state: AgentState, config: RunnableConfig) {
+          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
+          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
+
+          const response = await modelWithTools.invoke([
+            new SystemMessage("You are a helpful assistant."),
+            ...state.messages,
+          ], config);
+
+          // ...
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step>
+    ### Render the tool call in your frontend
+    At this point, your agent will be able to call the `get_weather` tool. Now
+    we just need to add a `useRenderTool` hook to render the tool call in
+    the UI.
+
+    <Callout type="info" title="Important">
+      In order to render a tool call in the UI, the name must match the name of the tool.
+    </Callout>
+
+    ```tsx title="app/page.tsx"
+    import { useRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { z } from "zod";
+    // ...
+
+    const weatherParams = z.object({
+      location: z.string().describe("The location to get weather for"),
+    });
+
+    const YourMainContent = () => {
+      // ...
+      // [!code highlight:14]
+      useRenderTool({
+        name: "get_weather",
+        parameters: weatherParams,
+        render: ({ status, parameters }) => {
+          return (
+            <p className="text-gray-500 mt-2">
+              {status !== "complete" && "Calling weather API..."}
+              {status === "complete" && `Called the weather API for ${parameters.location}.`}
+            </p>
+          );
+        },
+      });
+      // ...
+    }
+    ```
+
+  </Step>
+  <Step>
+    ### Give it a try!
+
+    Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+    render the tool call and display the arguments that were passed to the tool.
+
+  </Step>
+</Steps>
+
+## Default Tool Rendering
+
+`useDefaultRenderTool` provides a catch-all renderer for **any tool** that doesn't have a specific `useRenderToolCall` defined. This is useful for:
+
+- Displaying all tool calls during development
+- Rendering MCP (Model Context Protocol) tools
+- Providing a generic fallback UI for unexpected tools
+
+```tsx title="app/page.tsx"
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2"; // [!code highlight]
+// ...
+
+const YourMainContent = () => {
+  // ...
+  // [!code highlight:15]
+  useDefaultRenderTool({
+    render: ({ name, args, status, result }) => {
+      return (
+        <div style={{ color: "black" }}>
+          <span>
+            {status === "complete" ? "✓" : "⏳"}
+            {name}
+          </span>
+          {status === "complete" && result && (
+            <pre>{JSON.stringify(result, null, 2)}</pre>
+          )}
+        </div>
+      );
+    },
+  });
+  // ...
+}
+```
+
+<Callout type="info">
+  Unlike `useRenderToolCall`, which targets a specific tool by name, `useDefaultRenderTool` catches **all** tools that don't have a dedicated renderer.
+</Callout>
+
+<Callout type="info">
+  In v2, use [`useDefaultRenderTool`](/reference/v2/hooks/useDefaultRenderTool) for wildcard fallback rendering, and [`useRenderTool`](/reference/v2/hooks/useRenderTool) for named or wildcard renderer registration.
+</Callout>

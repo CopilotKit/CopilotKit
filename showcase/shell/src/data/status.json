@@ -1,0 +1,2853 @@
+{
+  "generated_at": "2026-04-19T05:21:51.938Z",
+  "integrations": {
+    "langgraph-python": {
+      "demos": {
+        "beautiful-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "cli-start": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-09T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "agentic-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-22T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "chat-customization-css": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering-default-catchall": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering-custom-catchall": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering-frontend-tools": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "frontend-tools": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-09T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-13T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-13T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "readonly-state-agent-context": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "prebuilt-sidebar": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-20T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "prebuilt-popup": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-13T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "chat-slots": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "headless-simple": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "headless-complete": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T07:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "agentic-chat-reasoning": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-interrupt": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-02T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "declarative-gen-ui": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "declarative-gen-ui-hardcoded": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "a2ui-fixed-schema": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-20T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "mcp-apps": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-31T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "open-gen-ui": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "open-gen-ui-advanced": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "reasoning-default-render": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T00:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-12T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "interrupt-headless": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-05T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering-reasoning-chain": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-03T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "langgraph-typescript": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T11:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-29T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-05T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-14T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T00:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": null,
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "langgraph-fastapi": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-13T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-12T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T00:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-24T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-13T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "google-adk": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-10T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-20T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": null,
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "mastra": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-14T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-12T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-09T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-15T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "crewai-crews": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T21:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "pydantic-ai": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-04T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-15T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-02T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "claude-sdk-python": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T00:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T11:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-27T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T00:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-09T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "claude-sdk-typescript": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-14T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T15:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-25T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-25T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-23T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-23T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "agno": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-04T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-30T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-12T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "ag2": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T07:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-17T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-24T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-29T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "llamaindex": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-30T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-25T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-04T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-30T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "strands": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-05T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T23:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-24T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-15T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-27T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-07T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "langroid": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T07:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T09:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-21T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-02T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T01:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-08T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "ms-agent-python": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-12T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-17T11:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-22T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T17:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T11:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-21T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-17T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-05T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T22:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-06T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-18T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "ms-agent-dotnet": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T18:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-23T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T05:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-09T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T03:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-16T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-18T06:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T13:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-14T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-03-27T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T10:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-15T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-16T14:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-18T02:21:51.937Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-03T05:21:51.937Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "unknown",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    },
+    "spring-ai": {
+      "demos": {
+        "agentic-chat": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T13:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-18T11:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-18T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "hitl-in-chat": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T01:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-07T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "tool-rendering": {
+          "e2e": null,
+          "smoke": {
+            "status": "fail",
+            "ran_at": "2026-04-17T18:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": {
+            "reviewed_at": "2026-04-11T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-tool-based": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-18T17:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-16T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "gen-ui-agent": {
+          "e2e": null,
+          "smoke": {
+            "status": "pass",
+            "ran_at": "2026-04-19T04:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "qa": null,
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-read-write": {
+          "e2e": {
+            "status": "pass",
+            "ran_at": "2026-04-19T02:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-04-15T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "up",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "shared-state-streaming": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-17T01:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-31T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        },
+        "subagents": {
+          "e2e": {
+            "status": "fail",
+            "ran_at": "2026-04-16T09:21:51.938Z",
+            "url": "https://github.com/CopilotKit/CopilotKit/actions"
+          },
+          "smoke": null,
+          "qa": {
+            "reviewed_at": "2026-03-26T05:21:51.938Z",
+            "url": "https://copilotkit.notion.site"
+          },
+          "health": {
+            "status": "down",
+            "checked_at": "2026-04-19T05:21:51.935Z"
+          }
+        }
+      }
+    }
+  }
+}

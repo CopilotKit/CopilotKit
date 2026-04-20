@@ -21,7 +21,8 @@ services:
     container_name: showcase-langgraph-python
     env_file: .env
     ports:
-      - "3100:10000"
+      # 30 cells → external 3200-3229 mapped to internal 10000-10029
+      - "3200-3229:10000-10029"
     restart: unless-stopped
 
   langgraph-typescript:
@@ -166,4 +167,1233 @@ services:
     env_file: .env
     ports:
       - "3116:10000"
+    restart: unless-stopped
+
+  # ── Per-cell containers ──────────────────────────────────────────
+  google-adk-agentic-chat:
+    build: ./packages/google-adk/demos/agentic-chat
+    image: showcase-cell-google-adk-agentic-chat:local
+    container_name: showcase-cell-google-adk-agentic-chat
+    env_file: .env
+    ports:
+      - "3260:10000"
+    restart: unless-stopped
+
+  google-adk-hitl:
+    build: ./packages/google-adk/demos/hitl
+    image: showcase-cell-google-adk-hitl:local
+    container_name: showcase-cell-google-adk-hitl
+    env_file: .env
+    ports:
+      - "3261:10000"
+    restart: unless-stopped
+
+  google-adk-tool-rendering:
+    build: ./packages/google-adk/demos/tool-rendering
+    image: showcase-cell-google-adk-tool-rendering:local
+    container_name: showcase-cell-google-adk-tool-rendering
+    env_file: .env
+    ports:
+      - "3262:10000"
+    restart: unless-stopped
+
+  google-adk-gen-ui-tool-based:
+    build: ./packages/google-adk/demos/gen-ui-tool-based
+    image: showcase-cell-google-adk-gen-ui-tool-based:local
+    container_name: showcase-cell-google-adk-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3263:10000"
+    restart: unless-stopped
+
+  google-adk-gen-ui-agent:
+    build: ./packages/google-adk/demos/gen-ui-agent
+    image: showcase-cell-google-adk-gen-ui-agent:local
+    container_name: showcase-cell-google-adk-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3264:10000"
+    restart: unless-stopped
+
+  google-adk-shared-state-read:
+    build: ./packages/google-adk/demos/shared-state-read
+    image: showcase-cell-google-adk-shared-state-read:local
+    container_name: showcase-cell-google-adk-shared-state-read
+    env_file: .env
+    ports:
+      - "3265:10000"
+    restart: unless-stopped
+
+  google-adk-shared-state-write:
+    build: ./packages/google-adk/demos/shared-state-write
+    image: showcase-cell-google-adk-shared-state-write:local
+    container_name: showcase-cell-google-adk-shared-state-write
+    env_file: .env
+    ports:
+      - "3266:10000"
+    restart: unless-stopped
+
+  google-adk-shared-state-streaming:
+    build: ./packages/google-adk/demos/shared-state-streaming
+    image: showcase-cell-google-adk-shared-state-streaming:local
+    container_name: showcase-cell-google-adk-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3267:10000"
+    restart: unless-stopped
+
+  google-adk-subagents:
+    build: ./packages/google-adk/demos/subagents
+    image: showcase-cell-google-adk-subagents:local
+    container_name: showcase-cell-google-adk-subagents
+    env_file: .env
+    ports:
+      - "3268:10000"
+    restart: unless-stopped
+
+  crewai-crews-agentic-chat:
+    build: ./packages/crewai-crews/demos/agentic-chat
+    image: showcase-cell-crewai-crews-agentic-chat:local
+    container_name: showcase-cell-crewai-crews-agentic-chat
+    env_file: .env
+    ports:
+      - "3300:10000"
+    restart: unless-stopped
+
+  crewai-crews-hitl:
+    build: ./packages/crewai-crews/demos/hitl
+    image: showcase-cell-crewai-crews-hitl:local
+    container_name: showcase-cell-crewai-crews-hitl
+    env_file: .env
+    ports:
+      - "3301:10000"
+    restart: unless-stopped
+
+  crewai-crews-tool-rendering:
+    build: ./packages/crewai-crews/demos/tool-rendering
+    image: showcase-cell-crewai-crews-tool-rendering:local
+    container_name: showcase-cell-crewai-crews-tool-rendering
+    env_file: .env
+    ports:
+      - "3302:10000"
+    restart: unless-stopped
+
+  crewai-crews-gen-ui-tool-based:
+    build: ./packages/crewai-crews/demos/gen-ui-tool-based
+    image: showcase-cell-crewai-crews-gen-ui-tool-based:local
+    container_name: showcase-cell-crewai-crews-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3303:10000"
+    restart: unless-stopped
+
+  crewai-crews-gen-ui-agent:
+    build: ./packages/crewai-crews/demos/gen-ui-agent
+    image: showcase-cell-crewai-crews-gen-ui-agent:local
+    container_name: showcase-cell-crewai-crews-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3304:10000"
+    restart: unless-stopped
+
+  crewai-crews-shared-state-read:
+    build: ./packages/crewai-crews/demos/shared-state-read
+    image: showcase-cell-crewai-crews-shared-state-read:local
+    container_name: showcase-cell-crewai-crews-shared-state-read
+    env_file: .env
+    ports:
+      - "3305:10000"
+    restart: unless-stopped
+
+  crewai-crews-shared-state-write:
+    build: ./packages/crewai-crews/demos/shared-state-write
+    image: showcase-cell-crewai-crews-shared-state-write:local
+    container_name: showcase-cell-crewai-crews-shared-state-write
+    env_file: .env
+    ports:
+      - "3306:10000"
+    restart: unless-stopped
+
+  crewai-crews-shared-state-streaming:
+    build: ./packages/crewai-crews/demos/shared-state-streaming
+    image: showcase-cell-crewai-crews-shared-state-streaming:local
+    container_name: showcase-cell-crewai-crews-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3307:10000"
+    restart: unless-stopped
+
+  crewai-crews-subagents:
+    build: ./packages/crewai-crews/demos/subagents
+    image: showcase-cell-crewai-crews-subagents:local
+    container_name: showcase-cell-crewai-crews-subagents
+    env_file: .env
+    ports:
+      - "3308:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-agentic-chat:
+    build: ./packages/langgraph-typescript/demos/agentic-chat
+    image: showcase-cell-langgraph-typescript-agentic-chat:local
+    container_name: showcase-cell-langgraph-typescript-agentic-chat
+    env_file: .env
+    ports:
+      - "3220:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-hitl:
+    build: ./packages/langgraph-typescript/demos/hitl
+    image: showcase-cell-langgraph-typescript-hitl:local
+    container_name: showcase-cell-langgraph-typescript-hitl
+    env_file: .env
+    ports:
+      - "3221:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-tool-rendering:
+    build: ./packages/langgraph-typescript/demos/tool-rendering
+    image: showcase-cell-langgraph-typescript-tool-rendering:local
+    container_name: showcase-cell-langgraph-typescript-tool-rendering
+    env_file: .env
+    ports:
+      - "3222:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-gen-ui-tool-based:
+    build: ./packages/langgraph-typescript/demos/gen-ui-tool-based
+    image: showcase-cell-langgraph-typescript-gen-ui-tool-based:local
+    container_name: showcase-cell-langgraph-typescript-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3223:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-gen-ui-agent:
+    build: ./packages/langgraph-typescript/demos/gen-ui-agent
+    image: showcase-cell-langgraph-typescript-gen-ui-agent:local
+    container_name: showcase-cell-langgraph-typescript-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3224:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-shared-state-read:
+    build: ./packages/langgraph-typescript/demos/shared-state-read
+    image: showcase-cell-langgraph-typescript-shared-state-read:local
+    container_name: showcase-cell-langgraph-typescript-shared-state-read
+    env_file: .env
+    ports:
+      - "3225:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-shared-state-write:
+    build: ./packages/langgraph-typescript/demos/shared-state-write
+    image: showcase-cell-langgraph-typescript-shared-state-write:local
+    container_name: showcase-cell-langgraph-typescript-shared-state-write
+    env_file: .env
+    ports:
+      - "3226:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-shared-state-streaming:
+    build: ./packages/langgraph-typescript/demos/shared-state-streaming
+    image: showcase-cell-langgraph-typescript-shared-state-streaming:local
+    container_name: showcase-cell-langgraph-typescript-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3227:10000"
+    restart: unless-stopped
+
+  langgraph-typescript-subagents:
+    build: ./packages/langgraph-typescript/demos/subagents
+    image: showcase-cell-langgraph-typescript-subagents:local
+    container_name: showcase-cell-langgraph-typescript-subagents
+    env_file: .env
+    ports:
+      - "3228:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-agentic-chat:
+    build: ./packages/langgraph-fastapi/demos/agentic-chat
+    image: showcase-cell-langgraph-fastapi-agentic-chat:local
+    container_name: showcase-cell-langgraph-fastapi-agentic-chat
+    env_file: .env
+    ports:
+      - "3240:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-tool-rendering:
+    build: ./packages/langgraph-fastapi/demos/tool-rendering
+    image: showcase-cell-langgraph-fastapi-tool-rendering:local
+    container_name: showcase-cell-langgraph-fastapi-tool-rendering
+    env_file: .env
+    ports:
+      - "3241:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-hitl:
+    build: ./packages/langgraph-fastapi/demos/hitl
+    image: showcase-cell-langgraph-fastapi-hitl:local
+    container_name: showcase-cell-langgraph-fastapi-hitl
+    env_file: .env
+    ports:
+      - "3242:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-gen-ui-tool-based:
+    build: ./packages/langgraph-fastapi/demos/gen-ui-tool-based
+    image: showcase-cell-langgraph-fastapi-gen-ui-tool-based:local
+    container_name: showcase-cell-langgraph-fastapi-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3243:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-gen-ui-agent:
+    build: ./packages/langgraph-fastapi/demos/gen-ui-agent
+    image: showcase-cell-langgraph-fastapi-gen-ui-agent:local
+    container_name: showcase-cell-langgraph-fastapi-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3244:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-shared-state-read:
+    build: ./packages/langgraph-fastapi/demos/shared-state-read
+    image: showcase-cell-langgraph-fastapi-shared-state-read:local
+    container_name: showcase-cell-langgraph-fastapi-shared-state-read
+    env_file: .env
+    ports:
+      - "3245:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-shared-state-write:
+    build: ./packages/langgraph-fastapi/demos/shared-state-write
+    image: showcase-cell-langgraph-fastapi-shared-state-write:local
+    container_name: showcase-cell-langgraph-fastapi-shared-state-write
+    env_file: .env
+    ports:
+      - "3246:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-shared-state-streaming:
+    build: ./packages/langgraph-fastapi/demos/shared-state-streaming
+    image: showcase-cell-langgraph-fastapi-shared-state-streaming:local
+    container_name: showcase-cell-langgraph-fastapi-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3247:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi-subagents:
+    build: ./packages/langgraph-fastapi/demos/subagents
+    image: showcase-cell-langgraph-fastapi-subagents:local
+    container_name: showcase-cell-langgraph-fastapi-subagents
+    env_file: .env
+    ports:
+      - "3248:10000"
+    restart: unless-stopped
+
+  ag2-agentic-chat:
+    build: ./packages/ag2/demos/agentic-chat
+    image: showcase-cell-ag2-agentic-chat:local
+    container_name: showcase-cell-ag2-agentic-chat
+    env_file: .env
+    ports:
+      - "3400:10000"
+    restart: unless-stopped
+
+  ag2-hitl:
+    build: ./packages/ag2/demos/hitl
+    image: showcase-cell-ag2-hitl:local
+    container_name: showcase-cell-ag2-hitl
+    env_file: .env
+    ports:
+      - "3401:10000"
+    restart: unless-stopped
+
+  ag2-tool-rendering:
+    build: ./packages/ag2/demos/tool-rendering
+    image: showcase-cell-ag2-tool-rendering:local
+    container_name: showcase-cell-ag2-tool-rendering
+    env_file: .env
+    ports:
+      - "3402:10000"
+    restart: unless-stopped
+
+  ag2-gen-ui-tool-based:
+    build: ./packages/ag2/demos/gen-ui-tool-based
+    image: showcase-cell-ag2-gen-ui-tool-based:local
+    container_name: showcase-cell-ag2-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3403:10000"
+    restart: unless-stopped
+
+  ag2-gen-ui-agent:
+    build: ./packages/ag2/demos/gen-ui-agent
+    image: showcase-cell-ag2-gen-ui-agent:local
+    container_name: showcase-cell-ag2-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3404:10000"
+    restart: unless-stopped
+
+  ag2-shared-state-read:
+    build: ./packages/ag2/demos/shared-state-read
+    image: showcase-cell-ag2-shared-state-read:local
+    container_name: showcase-cell-ag2-shared-state-read
+    env_file: .env
+    ports:
+      - "3405:10000"
+    restart: unless-stopped
+
+  ag2-shared-state-write:
+    build: ./packages/ag2/demos/shared-state-write
+    image: showcase-cell-ag2-shared-state-write:local
+    container_name: showcase-cell-ag2-shared-state-write
+    env_file: .env
+    ports:
+      - "3406:10000"
+    restart: unless-stopped
+
+  ag2-shared-state-streaming:
+    build: ./packages/ag2/demos/shared-state-streaming
+    image: showcase-cell-ag2-shared-state-streaming:local
+    container_name: showcase-cell-ag2-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3407:10000"
+    restart: unless-stopped
+
+  ag2-subagents:
+    build: ./packages/ag2/demos/subagents
+    image: showcase-cell-ag2-subagents:local
+    container_name: showcase-cell-ag2-subagents
+    env_file: .env
+    ports:
+      - "3408:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-agentic-chat:
+    build: ./packages/claude-sdk-typescript/demos/agentic-chat
+    image: showcase-cell-claude-sdk-typescript-agentic-chat:local
+    container_name: showcase-cell-claude-sdk-typescript-agentic-chat
+    env_file: .env
+    ports:
+      - "3360:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-hitl:
+    build: ./packages/claude-sdk-typescript/demos/hitl
+    image: showcase-cell-claude-sdk-typescript-hitl:local
+    container_name: showcase-cell-claude-sdk-typescript-hitl
+    env_file: .env
+    ports:
+      - "3361:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-tool-rendering:
+    build: ./packages/claude-sdk-typescript/demos/tool-rendering
+    image: showcase-cell-claude-sdk-typescript-tool-rendering:local
+    container_name: showcase-cell-claude-sdk-typescript-tool-rendering
+    env_file: .env
+    ports:
+      - "3362:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-gen-ui-tool-based:
+    build: ./packages/claude-sdk-typescript/demos/gen-ui-tool-based
+    image: showcase-cell-claude-sdk-typescript-gen-ui-tool-based:local
+    container_name: showcase-cell-claude-sdk-typescript-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3363:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-gen-ui-agent:
+    build: ./packages/claude-sdk-typescript/demos/gen-ui-agent
+    image: showcase-cell-claude-sdk-typescript-gen-ui-agent:local
+    container_name: showcase-cell-claude-sdk-typescript-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3364:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-shared-state-read:
+    build: ./packages/claude-sdk-typescript/demos/shared-state-read
+    image: showcase-cell-claude-sdk-typescript-shared-state-read:local
+    container_name: showcase-cell-claude-sdk-typescript-shared-state-read
+    env_file: .env
+    ports:
+      - "3365:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-shared-state-write:
+    build: ./packages/claude-sdk-typescript/demos/shared-state-write
+    image: showcase-cell-claude-sdk-typescript-shared-state-write:local
+    container_name: showcase-cell-claude-sdk-typescript-shared-state-write
+    env_file: .env
+    ports:
+      - "3366:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-shared-state-streaming:
+    build: ./packages/claude-sdk-typescript/demos/shared-state-streaming
+    image: showcase-cell-claude-sdk-typescript-shared-state-streaming:local
+    container_name: showcase-cell-claude-sdk-typescript-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3367:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript-subagents:
+    build: ./packages/claude-sdk-typescript/demos/subagents
+    image: showcase-cell-claude-sdk-typescript-subagents:local
+    container_name: showcase-cell-claude-sdk-typescript-subagents
+    env_file: .env
+    ports:
+      - "3368:10000"
+    restart: unless-stopped
+
+  llamaindex-agentic-chat:
+    build: ./packages/llamaindex/demos/agentic-chat
+    image: showcase-cell-llamaindex-agentic-chat:local
+    container_name: showcase-cell-llamaindex-agentic-chat
+    env_file: .env
+    ports:
+      - "3420:10000"
+    restart: unless-stopped
+
+  llamaindex-hitl-in-chat:
+    build: ./packages/llamaindex/demos/hitl-in-chat
+    image: showcase-cell-llamaindex-hitl-in-chat:local
+    container_name: showcase-cell-llamaindex-hitl-in-chat
+    env_file: .env
+    ports:
+      - "3421:10000"
+    restart: unless-stopped
+
+  llamaindex-tool-rendering:
+    build: ./packages/llamaindex/demos/tool-rendering
+    image: showcase-cell-llamaindex-tool-rendering:local
+    container_name: showcase-cell-llamaindex-tool-rendering
+    env_file: .env
+    ports:
+      - "3422:10000"
+    restart: unless-stopped
+
+  llamaindex-gen-ui-tool-based:
+    build: ./packages/llamaindex/demos/gen-ui-tool-based
+    image: showcase-cell-llamaindex-gen-ui-tool-based:local
+    container_name: showcase-cell-llamaindex-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3423:10000"
+    restart: unless-stopped
+
+  llamaindex-gen-ui-agent:
+    build: ./packages/llamaindex/demos/gen-ui-agent
+    image: showcase-cell-llamaindex-gen-ui-agent:local
+    container_name: showcase-cell-llamaindex-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3424:10000"
+    restart: unless-stopped
+
+  llamaindex-shared-state-read:
+    build: ./packages/llamaindex/demos/shared-state-read
+    image: showcase-cell-llamaindex-shared-state-read:local
+    container_name: showcase-cell-llamaindex-shared-state-read
+    env_file: .env
+    ports:
+      - "3425:10000"
+    restart: unless-stopped
+
+  llamaindex-shared-state-write:
+    build: ./packages/llamaindex/demos/shared-state-write
+    image: showcase-cell-llamaindex-shared-state-write:local
+    container_name: showcase-cell-llamaindex-shared-state-write
+    env_file: .env
+    ports:
+      - "3426:10000"
+    restart: unless-stopped
+
+  llamaindex-shared-state-streaming:
+    build: ./packages/llamaindex/demos/shared-state-streaming
+    image: showcase-cell-llamaindex-shared-state-streaming:local
+    container_name: showcase-cell-llamaindex-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3427:10000"
+    restart: unless-stopped
+
+  llamaindex-subagents:
+    build: ./packages/llamaindex/demos/subagents
+    image: showcase-cell-llamaindex-subagents:local
+    container_name: showcase-cell-llamaindex-subagents
+    env_file: .env
+    ports:
+      - "3428:10000"
+    restart: unless-stopped
+
+  strands-agentic-chat:
+    build: ./packages/strands/demos/agentic-chat
+    image: showcase-cell-strands-agentic-chat:local
+    container_name: showcase-cell-strands-agentic-chat
+    env_file: .env
+    ports:
+      - "3440:10000"
+    restart: unless-stopped
+
+  strands-hitl:
+    build: ./packages/strands/demos/hitl
+    image: showcase-cell-strands-hitl:local
+    container_name: showcase-cell-strands-hitl
+    env_file: .env
+    ports:
+      - "3441:10000"
+    restart: unless-stopped
+
+  strands-tool-rendering:
+    build: ./packages/strands/demos/tool-rendering
+    image: showcase-cell-strands-tool-rendering:local
+    container_name: showcase-cell-strands-tool-rendering
+    env_file: .env
+    ports:
+      - "3442:10000"
+    restart: unless-stopped
+
+  strands-gen-ui-tool-based:
+    build: ./packages/strands/demos/gen-ui-tool-based
+    image: showcase-cell-strands-gen-ui-tool-based:local
+    container_name: showcase-cell-strands-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3443:10000"
+    restart: unless-stopped
+
+  strands-gen-ui-agent:
+    build: ./packages/strands/demos/gen-ui-agent
+    image: showcase-cell-strands-gen-ui-agent:local
+    container_name: showcase-cell-strands-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3444:10000"
+    restart: unless-stopped
+
+  strands-shared-state-read:
+    build: ./packages/strands/demos/shared-state-read
+    image: showcase-cell-strands-shared-state-read:local
+    container_name: showcase-cell-strands-shared-state-read
+    env_file: .env
+    ports:
+      - "3445:10000"
+    restart: unless-stopped
+
+  strands-shared-state-write:
+    build: ./packages/strands/demos/shared-state-write
+    image: showcase-cell-strands-shared-state-write:local
+    container_name: showcase-cell-strands-shared-state-write
+    env_file: .env
+    ports:
+      - "3446:10000"
+    restart: unless-stopped
+
+  strands-shared-state-streaming:
+    build: ./packages/strands/demos/shared-state-streaming
+    image: showcase-cell-strands-shared-state-streaming:local
+    container_name: showcase-cell-strands-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3447:10000"
+    restart: unless-stopped
+
+  strands-subagents:
+    build: ./packages/strands/demos/subagents
+    image: showcase-cell-strands-subagents:local
+    container_name: showcase-cell-strands-subagents
+    env_file: .env
+    ports:
+      - "3448:10000"
+    restart: unless-stopped
+
+  ms-agent-dotnet-agentic-chat:
+    build: ./packages/ms-agent-dotnet/demos/agentic-chat
+    image: showcase-cell-ms-agent-dotnet-agentic-chat:local
+    container_name: showcase-cell-ms-agent-dotnet-agentic-chat
+    env_file: .env
+    ports:
+      - "3500:10000"
+    restart: unless-stopped
+
+  mastra-agentic-chat:
+    build: ./packages/mastra/demos/agentic-chat
+    image: showcase-cell-mastra-agentic-chat:local
+    container_name: showcase-cell-mastra-agentic-chat
+    env_file: .env
+    ports:
+      - "3280:10000"
+    restart: unless-stopped
+
+  mastra-hitl-in-chat:
+    build: ./packages/mastra/demos/hitl-in-chat
+    image: showcase-cell-mastra-hitl-in-chat:local
+    container_name: showcase-cell-mastra-hitl-in-chat
+    env_file: .env
+    ports:
+      - "3281:10000"
+    restart: unless-stopped
+
+  mastra-tool-rendering:
+    build: ./packages/mastra/demos/tool-rendering
+    image: showcase-cell-mastra-tool-rendering:local
+    container_name: showcase-cell-mastra-tool-rendering
+    env_file: .env
+    ports:
+      - "3282:10000"
+    restart: unless-stopped
+
+  mastra-gen-ui-tool-based:
+    build: ./packages/mastra/demos/gen-ui-tool-based
+    image: showcase-cell-mastra-gen-ui-tool-based:local
+    container_name: showcase-cell-mastra-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3283:10000"
+    restart: unless-stopped
+
+  mastra-gen-ui-agent:
+    build: ./packages/mastra/demos/gen-ui-agent
+    image: showcase-cell-mastra-gen-ui-agent:local
+    container_name: showcase-cell-mastra-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3284:10000"
+    restart: unless-stopped
+
+  mastra-shared-state-read:
+    build: ./packages/mastra/demos/shared-state-read
+    image: showcase-cell-mastra-shared-state-read:local
+    container_name: showcase-cell-mastra-shared-state-read
+    env_file: .env
+    ports:
+      - "3285:10000"
+    restart: unless-stopped
+
+  mastra-shared-state-write:
+    build: ./packages/mastra/demos/shared-state-write
+    image: showcase-cell-mastra-shared-state-write:local
+    container_name: showcase-cell-mastra-shared-state-write
+    env_file: .env
+    ports:
+      - "3286:10000"
+    restart: unless-stopped
+
+  mastra-shared-state-streaming:
+    build: ./packages/mastra/demos/shared-state-streaming
+    image: showcase-cell-mastra-shared-state-streaming:local
+    container_name: showcase-cell-mastra-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3287:10000"
+    restart: unless-stopped
+
+  mastra-subagents:
+    build: ./packages/mastra/demos/subagents
+    image: showcase-cell-mastra-subagents:local
+    container_name: showcase-cell-mastra-subagents
+    env_file: .env
+    ports:
+      - "3288:10000"
+    restart: unless-stopped
+
+  langroid-agentic-chat:
+    build: ./packages/langroid/demos/agentic-chat
+    image: showcase-cell-langroid-agentic-chat:local
+    container_name: showcase-cell-langroid-agentic-chat
+    env_file: .env
+    ports:
+      - "3460:10000"
+    restart: unless-stopped
+
+  langroid-hitl:
+    build: ./packages/langroid/demos/hitl
+    image: showcase-cell-langroid-hitl:local
+    container_name: showcase-cell-langroid-hitl
+    env_file: .env
+    ports:
+      - "3461:10000"
+    restart: unless-stopped
+
+  langroid-tool-rendering:
+    build: ./packages/langroid/demos/tool-rendering
+    image: showcase-cell-langroid-tool-rendering:local
+    container_name: showcase-cell-langroid-tool-rendering
+    env_file: .env
+    ports:
+      - "3462:10000"
+    restart: unless-stopped
+
+  langroid-gen-ui-tool-based:
+    build: ./packages/langroid/demos/gen-ui-tool-based
+    image: showcase-cell-langroid-gen-ui-tool-based:local
+    container_name: showcase-cell-langroid-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3463:10000"
+    restart: unless-stopped
+
+  langroid-gen-ui-agent:
+    build: ./packages/langroid/demos/gen-ui-agent
+    image: showcase-cell-langroid-gen-ui-agent:local
+    container_name: showcase-cell-langroid-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3464:10000"
+    restart: unless-stopped
+
+  langroid-shared-state-read:
+    build: ./packages/langroid/demos/shared-state-read
+    image: showcase-cell-langroid-shared-state-read:local
+    container_name: showcase-cell-langroid-shared-state-read
+    env_file: .env
+    ports:
+      - "3465:10000"
+    restart: unless-stopped
+
+  langroid-shared-state-write:
+    build: ./packages/langroid/demos/shared-state-write
+    image: showcase-cell-langroid-shared-state-write:local
+    container_name: showcase-cell-langroid-shared-state-write
+    env_file: .env
+    ports:
+      - "3466:10000"
+    restart: unless-stopped
+
+  langroid-shared-state-streaming:
+    build: ./packages/langroid/demos/shared-state-streaming
+    image: showcase-cell-langroid-shared-state-streaming:local
+    container_name: showcase-cell-langroid-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3467:10000"
+    restart: unless-stopped
+
+  langroid-subagents:
+    build: ./packages/langroid/demos/subagents
+    image: showcase-cell-langroid-subagents:local
+    container_name: showcase-cell-langroid-subagents
+    env_file: .env
+    ports:
+      - "3468:10000"
+    restart: unless-stopped
+
+  # ── Spring AI per-cell containers ────────────────────────────────
+  spring-ai-agentic-chat:
+    build: ./packages/spring-ai/demos/agentic-chat
+    image: showcase-cell-spring-ai-agentic-chat:local
+    container_name: showcase-cell-spring-ai-agentic-chat
+    env_file: .env
+    ports:
+      - "3520:10000"
+    restart: unless-stopped
+
+  spring-ai-hitl:
+    build: ./packages/spring-ai/demos/hitl
+    image: showcase-cell-spring-ai-hitl:local
+    container_name: showcase-cell-spring-ai-hitl
+    env_file: .env
+    ports:
+      - "3521:10000"
+    restart: unless-stopped
+
+  spring-ai-tool-rendering:
+    build: ./packages/spring-ai/demos/tool-rendering
+    image: showcase-cell-spring-ai-tool-rendering:local
+    container_name: showcase-cell-spring-ai-tool-rendering
+    env_file: .env
+    ports:
+      - "3522:10000"
+    restart: unless-stopped
+
+  spring-ai-gen-ui-tool-based:
+    build: ./packages/spring-ai/demos/gen-ui-tool-based
+    image: showcase-cell-spring-ai-gen-ui-tool-based:local
+    container_name: showcase-cell-spring-ai-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3523:10000"
+    restart: unless-stopped
+
+  spring-ai-gen-ui-agent:
+    build: ./packages/spring-ai/demos/gen-ui-agent
+    image: showcase-cell-spring-ai-gen-ui-agent:local
+    container_name: showcase-cell-spring-ai-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3524:10000"
+    restart: unless-stopped
+
+  spring-ai-shared-state-read:
+    build: ./packages/spring-ai/demos/shared-state-read
+    image: showcase-cell-spring-ai-shared-state-read:local
+    container_name: showcase-cell-spring-ai-shared-state-read
+    env_file: .env
+    ports:
+      - "3525:10000"
+    restart: unless-stopped
+
+  spring-ai-shared-state-write:
+    build: ./packages/spring-ai/demos/shared-state-write
+    image: showcase-cell-spring-ai-shared-state-write:local
+    container_name: showcase-cell-spring-ai-shared-state-write
+    env_file: .env
+    ports:
+      - "3526:10000"
+    restart: unless-stopped
+
+  spring-ai-shared-state-streaming:
+    build: ./packages/spring-ai/demos/shared-state-streaming
+    image: showcase-cell-spring-ai-shared-state-streaming:local
+    container_name: showcase-cell-spring-ai-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3527:10000"
+    restart: unless-stopped
+
+  spring-ai-subagents:
+    build: ./packages/spring-ai/demos/subagents
+    image: showcase-cell-spring-ai-subagents:local
+    container_name: showcase-cell-spring-ai-subagents
+    env_file: .env
+    ports:
+      - "3528:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-agentic-chat:
+    build: ./packages/claude-sdk-python/demos/agentic-chat
+    image: showcase-cell-claude-sdk-python-agentic-chat:local
+    container_name: showcase-cell-claude-sdk-python-agentic-chat
+    env_file: .env
+    ports:
+      - "3340:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-hitl-in-chat:
+    build: ./packages/claude-sdk-python/demos/hitl-in-chat
+    image: showcase-cell-claude-sdk-python-hitl-in-chat:local
+    container_name: showcase-cell-claude-sdk-python-hitl-in-chat
+    env_file: .env
+    ports:
+      - "3341:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-tool-rendering:
+    build: ./packages/claude-sdk-python/demos/tool-rendering
+    image: showcase-cell-claude-sdk-python-tool-rendering:local
+    container_name: showcase-cell-claude-sdk-python-tool-rendering
+    env_file: .env
+    ports:
+      - "3342:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-gen-ui-tool-based:
+    build: ./packages/claude-sdk-python/demos/gen-ui-tool-based
+    image: showcase-cell-claude-sdk-python-gen-ui-tool-based:local
+    container_name: showcase-cell-claude-sdk-python-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3343:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-gen-ui-agent:
+    build: ./packages/claude-sdk-python/demos/gen-ui-agent
+    image: showcase-cell-claude-sdk-python-gen-ui-agent:local
+    container_name: showcase-cell-claude-sdk-python-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3344:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-shared-state-read:
+    build: ./packages/claude-sdk-python/demos/shared-state-read
+    image: showcase-cell-claude-sdk-python-shared-state-read:local
+    container_name: showcase-cell-claude-sdk-python-shared-state-read
+    env_file: .env
+    ports:
+      - "3345:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-shared-state-write:
+    build: ./packages/claude-sdk-python/demos/shared-state-write
+    image: showcase-cell-claude-sdk-python-shared-state-write:local
+    container_name: showcase-cell-claude-sdk-python-shared-state-write
+    env_file: .env
+    ports:
+      - "3346:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-shared-state-streaming:
+    build: ./packages/claude-sdk-python/demos/shared-state-streaming
+    image: showcase-cell-claude-sdk-python-shared-state-streaming:local
+    container_name: showcase-cell-claude-sdk-python-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3347:10000"
+    restart: unless-stopped
+
+  claude-sdk-python-subagents:
+    build: ./packages/claude-sdk-python/demos/subagents
+    image: showcase-cell-claude-sdk-python-subagents:local
+    container_name: showcase-cell-claude-sdk-python-subagents
+    env_file: .env
+    ports:
+      - "3348:10000"
+    restart: unless-stopped
+
+  # ── Agno per-cell containers ─────────────────────────────────────
+  agno-agentic-chat:
+    build: ./packages/agno/demos/agentic-chat
+    image: showcase-cell-agno-agentic-chat:local
+    container_name: showcase-cell-agno-agentic-chat
+    env_file: .env
+    ports:
+      - "3380:10000"
+    restart: unless-stopped
+
+  agno-hitl-in-chat:
+    build: ./packages/agno/demos/hitl-in-chat
+    image: showcase-cell-agno-hitl-in-chat:local
+    container_name: showcase-cell-agno-hitl-in-chat
+    env_file: .env
+    ports:
+      - "3381:10000"
+    restart: unless-stopped
+
+  agno-tool-rendering:
+    build: ./packages/agno/demos/tool-rendering
+    image: showcase-cell-agno-tool-rendering:local
+    container_name: showcase-cell-agno-tool-rendering
+    env_file: .env
+    ports:
+      - "3382:10000"
+    restart: unless-stopped
+
+  agno-gen-ui-tool-based:
+    build: ./packages/agno/demos/gen-ui-tool-based
+    image: showcase-cell-agno-gen-ui-tool-based:local
+    container_name: showcase-cell-agno-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3383:10000"
+    restart: unless-stopped
+
+  agno-gen-ui-agent:
+    build: ./packages/agno/demos/gen-ui-agent
+    image: showcase-cell-agno-gen-ui-agent:local
+    container_name: showcase-cell-agno-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3384:10000"
+    restart: unless-stopped
+
+  agno-shared-state-read:
+    build: ./packages/agno/demos/shared-state-read
+    image: showcase-cell-agno-shared-state-read:local
+    container_name: showcase-cell-agno-shared-state-read
+    env_file: .env
+    ports:
+      - "3385:10000"
+    restart: unless-stopped
+
+  agno-shared-state-write:
+    build: ./packages/agno/demos/shared-state-write
+    image: showcase-cell-agno-shared-state-write:local
+    container_name: showcase-cell-agno-shared-state-write
+    env_file: .env
+    ports:
+      - "3386:10000"
+    restart: unless-stopped
+
+  agno-shared-state-streaming:
+    build: ./packages/agno/demos/shared-state-streaming
+    image: showcase-cell-agno-shared-state-streaming:local
+    container_name: showcase-cell-agno-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3387:10000"
+    restart: unless-stopped
+
+  agno-subagents:
+    build: ./packages/agno/demos/subagents
+    image: showcase-cell-agno-subagents:local
+    container_name: showcase-cell-agno-subagents
+    env_file: .env
+    ports:
+      - "3388:10000"
+    restart: unless-stopped
+
+  # ── PydanticAI per-cell containers (ports 3320–3339) ─────────────
+  pydantic-ai-agentic-chat:
+    build: ./packages/pydantic-ai/demos/agentic-chat
+    image: showcase-cell-pydantic-ai-agentic-chat:local
+    container_name: showcase-cell-pydantic-ai-agentic-chat
+    env_file: .env
+    ports:
+      - "3320:10000"
+    restart: unless-stopped
+
+  pydantic-ai-hitl-in-chat:
+    build: ./packages/pydantic-ai/demos/hitl-in-chat
+    image: showcase-cell-pydantic-ai-hitl-in-chat:local
+    container_name: showcase-cell-pydantic-ai-hitl-in-chat
+    env_file: .env
+    ports:
+      - "3321:10000"
+    restart: unless-stopped
+
+  pydantic-ai-tool-rendering:
+    build: ./packages/pydantic-ai/demos/tool-rendering
+    image: showcase-cell-pydantic-ai-tool-rendering:local
+    container_name: showcase-cell-pydantic-ai-tool-rendering
+    env_file: .env
+    ports:
+      - "3322:10000"
+    restart: unless-stopped
+
+  pydantic-ai-gen-ui-tool-based:
+    build: ./packages/pydantic-ai/demos/gen-ui-tool-based
+    image: showcase-cell-pydantic-ai-gen-ui-tool-based:local
+    container_name: showcase-cell-pydantic-ai-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3323:10000"
+    restart: unless-stopped
+
+  pydantic-ai-gen-ui-agent:
+    build: ./packages/pydantic-ai/demos/gen-ui-agent
+    image: showcase-cell-pydantic-ai-gen-ui-agent:local
+    container_name: showcase-cell-pydantic-ai-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3324:10000"
+    restart: unless-stopped
+
+  pydantic-ai-shared-state-read:
+    build: ./packages/pydantic-ai/demos/shared-state-read
+    image: showcase-cell-pydantic-ai-shared-state-read:local
+    container_name: showcase-cell-pydantic-ai-shared-state-read
+    env_file: .env
+    ports:
+      - "3325:10000"
+    restart: unless-stopped
+
+  pydantic-ai-shared-state-write:
+    build: ./packages/pydantic-ai/demos/shared-state-write
+    image: showcase-cell-pydantic-ai-shared-state-write:local
+    container_name: showcase-cell-pydantic-ai-shared-state-write
+    env_file: .env
+    ports:
+      - "3326:10000"
+    restart: unless-stopped
+
+  pydantic-ai-shared-state-streaming:
+    build: ./packages/pydantic-ai/demos/shared-state-streaming
+    image: showcase-cell-pydantic-ai-shared-state-streaming:local
+    container_name: showcase-cell-pydantic-ai-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3327:10000"
+    restart: unless-stopped
+
+  pydantic-ai-subagents:
+    build: ./packages/pydantic-ai/demos/subagents
+    image: showcase-cell-pydantic-ai-subagents:local
+    container_name: showcase-cell-pydantic-ai-subagents
+    env_file: .env
+    ports:
+      - "3328:10000"
+    restart: unless-stopped
+
+  # ── MS Agent Framework (Python) per-cell containers (ports 3480–3499) ─
+  ms-agent-python-agentic-chat:
+    build: ./packages/ms-agent-python/demos/agentic-chat
+    image: showcase-cell-ms-agent-python-agentic-chat:local
+    container_name: showcase-cell-ms-agent-python-agentic-chat
+    env_file: .env
+    ports:
+      - "3480:10000"
+    restart: unless-stopped
+
+  ms-agent-python-hitl:
+    build: ./packages/ms-agent-python/demos/hitl
+    image: showcase-cell-ms-agent-python-hitl:local
+    container_name: showcase-cell-ms-agent-python-hitl
+    env_file: .env
+    ports:
+      - "3481:10000"
+    restart: unless-stopped
+
+  ms-agent-python-tool-rendering:
+    build: ./packages/ms-agent-python/demos/tool-rendering
+    image: showcase-cell-ms-agent-python-tool-rendering:local
+    container_name: showcase-cell-ms-agent-python-tool-rendering
+    env_file: .env
+    ports:
+      - "3482:10000"
+    restart: unless-stopped
+
+  ms-agent-python-gen-ui-tool-based:
+    build: ./packages/ms-agent-python/demos/gen-ui-tool-based
+    image: showcase-cell-ms-agent-python-gen-ui-tool-based:local
+    container_name: showcase-cell-ms-agent-python-gen-ui-tool-based
+    env_file: .env
+    ports:
+      - "3483:10000"
+    restart: unless-stopped
+
+  ms-agent-python-gen-ui-agent:
+    build: ./packages/ms-agent-python/demos/gen-ui-agent
+    image: showcase-cell-ms-agent-python-gen-ui-agent:local
+    container_name: showcase-cell-ms-agent-python-gen-ui-agent
+    env_file: .env
+    ports:
+      - "3484:10000"
+    restart: unless-stopped
+
+  ms-agent-python-shared-state-read:
+    build: ./packages/ms-agent-python/demos/shared-state-read
+    image: showcase-cell-ms-agent-python-shared-state-read:local
+    container_name: showcase-cell-ms-agent-python-shared-state-read
+    env_file: .env
+    ports:
+      - "3485:10000"
+    restart: unless-stopped
+
+  ms-agent-python-shared-state-write:
+    build: ./packages/ms-agent-python/demos/shared-state-write
+    image: showcase-cell-ms-agent-python-shared-state-write:local
+    container_name: showcase-cell-ms-agent-python-shared-state-write
+    env_file: .env
+    ports:
+      - "3486:10000"
+    restart: unless-stopped
+
+  ms-agent-python-shared-state-streaming:
+    build: ./packages/ms-agent-python/demos/shared-state-streaming
+    image: showcase-cell-ms-agent-python-shared-state-streaming:local
+    container_name: showcase-cell-ms-agent-python-shared-state-streaming
+    env_file: .env
+    ports:
+      - "3487:10000"
+    restart: unless-stopped
+
+  ms-agent-python-subagents:
+    build: ./packages/ms-agent-python/demos/subagents
+    image: showcase-cell-ms-agent-python-subagents:local
+    container_name: showcase-cell-ms-agent-python-subagents
+    env_file: .env
+    ports:
+      - "3488:10000"
     restart: unless-stopped

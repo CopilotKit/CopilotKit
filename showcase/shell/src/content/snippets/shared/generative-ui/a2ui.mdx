@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Image from "next/image"
 
 # A2UI - Google's Generative UI Spec
 
@@ -31,37 +31,33 @@ A2UI is a declarative generative UI specification launched by Google. It's desig
 ## Why A2UI?
 
 ### Declarative Approach
-
 A2UI allows agents to describe UI components declaratively, making it easier for LLMs to generate dynamic interfaces without needing to understand implementation details.
 
 ### Streaming Support
-
 Built with streaming in mind, A2UI enables progressive rendering as the agent generates responses, providing a better user experience.
 
 ### Platform Agnostic
-
 A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
+
 
 ## Setup with CopilotKit
 
 ### Backend
 
-Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
+Enable A2UI in `CopilotRuntime` and inject a rendering tool (`render_a2ui`) into your agent so it can produce A2UI surfaces:
 
 ```ts title="app/api/copilotkit/route.ts"
-import {
-  CopilotRuntime,
-  ExperimentalEmptyAdapter,
-  copilotRuntimeNextJSAppRouterEndpoint,
-} from "@copilotkit/runtime";
+import { CopilotRuntime } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: {},
+  a2ui: {
+    injectA2UITool: true,
+  },
 });
 ```
 
-This automatically applies `A2UIMiddleware` to all registered agents. To scope it to specific agents, you can specify agents with the `agents` property: `a2ui: { agents: ["my-agent"] }`.
+This applies `A2UIMiddleware` to all registered agents and adds `render_a2ui` to the agent's tool list, along with usage guidelines so the LLM knows how to call it. Scope to specific agents with `a2ui: { injectA2UITool: true, agents: ["my-agent"] }`.
 
 Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
 
@@ -70,15 +66,109 @@ Once configured, any A2UI output returned from your agent will automatically be 
 The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
 
 ```tsx
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
 import { myCustomTheme } from "@copilotkit/a2ui-renderer";
 
-<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+<CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
   {children}
-</CopilotKit>;
+</CopilotKitProvider>
 ```
 
-The `a2ui` prop on `<CopilotKit>` is only needed if you want to override the default theme provided.
+The `a2ui` prop on `<CopilotKitProvider>` is only needed if you want to override defaults.
+
+## Custom Components (BYOC)
+
+A2UI ships with a built-in catalog of basic components (Text, Image, Card, etc.). You can extend it with your own components that match your app's design.
+
+### 1. Define component schemas
+
+Create platform-agnostic definitions using Zod. These tell the agent what components and props are available:
+
+```ts title="lib/a2ui/definitions.ts"
+import { z } from "zod";
+
+export const myDefinitions = {
+  StatusBadge: {
+    description: "A colored status badge.",
+    props: z.object({
+      text: z.string(),
+      variant: z.enum(["success", "warning", "error"]).optional(),
+    }),
+  },
+  Metric: {
+    description: "A key metric with label and value.",
+    props: z.object({
+      label: z.string(),
+      value: z.string(),
+      trend: z.enum(["up", "down"]).optional(),
+    }),
+  },
+};
+
+export type MyDefinitions = typeof myDefinitions;
+```
+
+### 2. Create React renderers
+
+Map each definition to a React component. Props are type-checked against the Zod schemas:
+
+```tsx title="lib/a2ui/renderers.tsx"
+"use client";
+
+import { createCatalog, type CatalogRenderers } from "@copilotkit/a2ui-renderer";
+import { myDefinitions, type MyDefinitions } from "./definitions";
+
+const myRenderers: CatalogRenderers<MyDefinitions> = {
+  StatusBadge: ({ props }) => {
+    const colors = {
+      success: { bg: "#dcfce7", text: "#166534" },
+      warning: { bg: "#fef3c7", text: "#92400e" },
+      error: { bg: "#fee2e2", text: "#991b1b" },
+    };
+    const c = colors[props.variant ?? "success"];
+    return (
+      <span style={{ padding: "2px 8px", borderRadius: 9999, fontSize: "0.75rem", background: c.bg, color: c.text }}>
+        {props.text}
+      </span>
+    );
+  },
+
+  Metric: ({ props }) => (
+    <div>
+      <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>{props.label}</div>
+      <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+        {props.value} {props.trend === "up" ? "↑" : props.trend === "down" ? "↓" : ""}
+      </div>
+    </div>
+  ),
+};
+
+export const myCatalog = createCatalog(myDefinitions, myRenderers, {
+  catalogId: "my-app-catalog",
+  includeBasicCatalog: true, // merges with built-in components
+});
+```
+
+### 3. Pass the catalog to CopilotKit
+
+```tsx title="app/layout.tsx"
+"use client";
+
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import { myCatalog } from "@/lib/a2ui/renderers";
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ catalog: myCatalog }}>
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+That's it — agents will now see your custom components alongside the built-in ones and can use them in A2UI surfaces.
 
 ## Using A2UI with CopilotKit
 

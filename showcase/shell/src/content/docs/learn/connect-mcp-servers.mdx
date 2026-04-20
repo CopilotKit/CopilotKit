@@ -4,15 +4,19 @@ description: "Integrate Model Context Protocol (MCP) servers into your React app
 icon: "lucide/Network"
 ---
 
-TailoredContent,
-TailoredContentOption,
+import Image from "next/image"
+import {
+  TailoredContent,
+  TailoredContentOption,
 } from "@/components/react/tailored-content.tsx";
-Database,
-Code,
-Server,
-Bot,
-SquareTerminal,
-SquareChartGantt,
+import Link from "next/link";
+import {
+  Database,
+  Code,
+  Server,
+  Bot,
+  SquareTerminal,
+  SquareChartGantt,
 } from "lucide-react";
 
 ## Introduction
@@ -26,28 +30,25 @@ The Model Context Protocol is an open standard that enables developers to build 
 For further reading, check out the [Model Context Protocol](https://modelcontextprotocol.io/introduction) website.
 
 <Callout type="info" title="Looking for MCP Apps?">
-  If you want MCP servers to return **interactive UI components** that render
-  directly in the chat, check out [MCP
-  Apps](/learn/generative-ui/specs/mcp-apps).
+  If you want MCP servers to return **interactive UI components** that render directly in the chat, check out [MCP Apps](/learn/generative-ui/specs/mcp-apps).
 </Callout>
 
-<Image
-  src="/images/any-agentic-backend-light.png"
-  alt="CopilotKit with Agentic Protocols"
-  width={4096}
+<Image 
+  src="/images/any-agentic-backend-light.png" 
+  alt="CopilotKit with Agentic Protocols" 
+  width={4096} 
   height={2304}
   className="block dark:hidden w-full mx-auto"
 />
-<Image
-  src="/images/any-agentic-backend-dark.png"
-  alt="CopilotKit with Agentic Protocols"
-  width={4096}
+<Image 
+  src="/images/any-agentic-backend-dark.png" 
+  alt="CopilotKit with Agentic Protocols" 
+  width={4096} 
   height={2304}
   className="hidden dark:block w-full mx-auto"
 />
 <div className="text-center text-sm text-muted-foreground mt-2 mb-8 w-3/5 mx-auto">
-  MCP is one of three prominent [agentic protocols](/agentic-protocols)
-  CopilotKit supports to connect agents to user-facing frontends
+  MCP is one of three prominent [agentic protocols](/agentic-protocols) CopilotKit supports to connect agents to user-facing frontends
 </div>
 
 ## Quickstart with CopilotKit
@@ -115,6 +116,7 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```tsx
         "use client";
 
+        import { CopilotKit } from "@copilotkit/react-core";
 
         export default function App() {
           return (
@@ -133,6 +135,8 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```tsx
         "use client";
 
+        import { useCopilotKit } from "@copilotkit/react-core/v2";
+        import { useEffect } from "react";
 
         function McpServerManager() {
           const { setMcpServers } = useCopilotKit();
@@ -161,6 +165,8 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```tsx
         "use client";
 
+        import { CopilotChat } from "@copilotkit/react-core/v2";
+        import McpServerManager from "./McpServerManager";
 
         export default function ChatInterface() {
           return (
@@ -182,9 +188,11 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```tsx
         "use client";
 
+        import {
           useFrontendTool,
           CatchAllActionRenderProps,
         } from "@copilotkit/react-core/v2";
+        import McpToolCall from "./McpToolCall";
 
         export function ToolRenderer() {
           useFrontendTool({
@@ -208,6 +216,10 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
         ```tsx
         "use client";
 
+        import { CopilotKit } from "@copilotkit/react-core";
+        import { CopilotChat } from "@copilotkit/react-core/v2";
+        import McpServerManager from "./McpServerManager";
+        import { ToolRenderer } from "./ToolRenderer";
 
         export default function Page() {
           return (
@@ -238,6 +250,8 @@ For further reading, check out the [Model Context Protocol](https://modelcontext
 
 ```tsx
 "use client";
+
+import * as React from "react";
 
 interface ToolCallProps {
   status: "complete" | "inProgress" | "executing";
@@ -283,8 +297,8 @@ export default function MCPToolCall({
               status === "complete"
                 ? "bg-gray-300"
                 : status === "inProgress" || status === "executing"
-                  ? "bg-gray-500 animate-pulse"
-                  : "bg-gray-700"
+                ? "bg-gray-500 animate-pulse"
+                : "bg-gray-700"
             }`}
           />
         </div>
@@ -327,15 +341,14 @@ export default function MCPToolCall({
   The Copilot Runtime handles communication with LLMs, message history, and
   state. You can self-host it or use{" "}
   <LinkToCopilotCloud asButton={false}>Copilot Cloud</LinkToCopilotCloud>{" "}
-  (recommended). Learn more in our [Self-Hosting
-  Guide](/built-in-agent/copilot-runtime).
+  (recommended). Learn more in our [Self-Hosting Guide](/built-in-agent/copilot-runtime).
 </Callout>
 
 To configure your self-hosted runtime with MCP servers, you'll need to implement the `createMCPClient` function that matches this interface:
 
 ```typescript
 type CreateMCPClientFunction = (
-  config: MCPEndpointConfig,
+  config: MCPEndpointConfig
 ) => Promise<MCPClient>;
 ```
 
@@ -344,10 +357,12 @@ For detailed implementation guidance, refer to the [official MCP SDK documentati
 Here's a basic example of configuring the runtime:
 
 ```tsx
+import {
   CopilotRuntime,
   OpenAIAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
+import { NextRequest } from "next/server";
 
 const serviceAdapter = new OpenAIAdapter();
 

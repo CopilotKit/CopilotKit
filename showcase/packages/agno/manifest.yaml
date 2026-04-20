@@ -4,8 +4,9 @@ category: emerging
 language: python
 logo: /logos/agno.svg
 description: >-
-  CopilotKit integration with Agno. Supports the full range of CopilotKit features
-  including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.
+  CopilotKit integration with Agno. Supports the full range of CopilotKit
+  features including generative UI, shared state, human-in-the-loop, sub-agents,
+  and streaming.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/agno
 copilotkit_version: 2.0.0
@@ -33,8 +34,7 @@ features:
   - tool-rendering
   - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read
-  - shared-state-write
+  - shared-state-read-write
   - shared-state-streaming
   - subagents
 demos:
@@ -45,6 +45,10 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
@@ -52,6 +56,10 @@ demos:
       - interactivity
     route: /demos/hitl
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -59,6 +67,10 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
@@ -66,6 +78,10 @@ demos:
       - generative-ui
     route: /demos/gen-ui-tool-based
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -73,20 +89,21 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-  - id: shared-state-read
-    name: Shared State (Reading)
-    description: Reading agent state from UI
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
       - agent-state
-    route: /demos/shared-state-read
+    route: /demos/shared-state-read-write
     animated_preview_url:
-  - id: shared-state-write
-    name: Shared State (Writing)
-    description: Writing to agent state from UI
-    tags:
-      - agent-state
-    route: /demos/shared-state-write
-    animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -94,6 +111,10 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -101,6 +122,10 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+    highlight:
+      - backend/agent_server.py
+      - frontend/src/app/page.tsx
+      - frontend/src/app/api/copilotkit/route.ts
 managed_platform:
   name: Agent OS
   url: https://os.agno.com

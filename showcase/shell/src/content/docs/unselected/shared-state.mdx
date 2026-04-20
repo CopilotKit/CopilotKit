@@ -1,0 +1,129 @@
+---
+title: "Shared State"
+icon: "lucide/Repeat"
+description: "Bidirectional state sharing between your app and the Built-in Agent."
+---
+
+Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and the agent can update state that your UI reacts to in real time.
+
+## What is this?
+
+Shared state lets your frontend and agent stay in sync. The agent can update state (like adding items to a list or changing a setting), and your React components re-render automatically. Your app can also write state that the agent can read.
+
+## When should I use this?
+
+- The agent should be able to modify your app's UI (add items, update fields, toggle settings)
+- You want real-time UI updates as the agent works
+- Your app needs to read what the agent is doing (progress indicators, intermediate results)
+
+## Reading agent state
+
+Use the `useAgent` hook to access the agent's current state:
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function TaskBoard() {
+  // [!code highlight:3]
+  const { agent } = useAgent({
+    agentId: "default",
+  });
+
+  // Read state set by the agent // [!code highlight]
+  const tasks = (agent.state.tasks as any[]) ?? [];
+
+  return (
+    <div>
+      <h2>Tasks</h2>
+      <ul>
+        {tasks.map((task, i) => (
+          <li key={i}>
+            {task.title} — {task.status}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+<Callout type="info">
+  `agent.state` is reactive — your component re-renders automatically when the agent updates state.
+</Callout>
+
+## Writing state from the frontend
+
+You can also push state from the frontend to the agent:
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function SettingsPanel() {
+  const { agent } = useAgent({
+    agentId: "default",
+  });
+
+  const handleThemeChange = (theme: string) => {
+    agent.setState({ // [!code highlight]
+      ...agent.state, // [!code highlight]
+      userPreferences: { theme }, // [!code highlight]
+    }); // [!code highlight]
+  };
+
+  return (
+    <div>
+      <button onClick={() => handleThemeChange("dark")}>Dark Mode</button>
+      <button onClick={() => handleThemeChange("light")}>Light Mode</button>
+    </div>
+  );
+}
+```
+
+## How it works
+
+The Built-in Agent automatically has access to state tools (`AGUISendStateSnapshot` and `AGUISendStateDelta`) through the AG-UI protocol. When the agent calls these tools:
+
+1. The agent sends a state update (full snapshot or delta)
+2. The CopilotKit runtime delivers the update to the frontend via SSE
+3. Your `useAgent` hook receives the update and triggers a re-render
+
+No additional backend configuration is required — state tools are available to the Built-in Agent by default.
+
+## Example: collaborative todo list
+
+Here's a complete example where the agent can add and manage tasks:
+
+```tsx title="app/page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function TodoApp() {
+  const { agent } = useAgent({
+    agentId: "default",
+  });
+
+  const todos = (agent.state.todos as any[]) ?? [];
+
+  return (
+    <div style={{ display: "flex", gap: "1rem" }}>
+      <div>
+        <h2>My Todos</h2>
+        <ul>
+          {todos.map((todo, i) => (
+            <li key={i} style={{ textDecoration: todo.done ? "line-through" : "none" }}>
+              {todo.text}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <CopilotChat
+        labels={{
+          welcomeMessageText: "I can help manage your todos. Try 'Add a task to buy groceries'.",
+        }}
+      />
+    </div>
+  );
+}
+```
+
+When you tell the agent "Add a task to buy groceries", it updates the shared state and your todo list renders the new item immediately.

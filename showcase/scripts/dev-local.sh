@@ -31,6 +31,16 @@ stage_shared() {
       rsync -a --delete "$src_ts/" "$pkg_dir/shared_typescript/tools/"
     fi
   done
+  # Per-cell: packages/<integration>/demos/<cell>/
+  for cell_dir in "$SHOWCASE_DIR"/packages/*/demos/*/; do
+    if [ -d "$src_py" ] && grep -q "shared_python" "$cell_dir/Dockerfile" 2>/dev/null; then
+      rsync -a --delete "$src_py/" "$cell_dir/shared_python/"
+    fi
+    if [ -d "$src_ts" ] && grep -q "shared_typescript" "$cell_dir/Dockerfile" 2>/dev/null; then
+      mkdir -p "$cell_dir/shared_typescript"
+      rsync -a --delete "$src_ts/" "$cell_dir/shared_typescript/tools/"
+    fi
+  done
 }
 
 require_env() {

@@ -3,33 +3,25 @@ title: Human-in-the-Loop
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: hitl-in-chat
 ---
+import { IntegrationGrid } from "@/components/content/integration-grid";
 
 ## What is this?
 
 Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more reliable and trustworthy. This pattern is essential when building AI applications that need to handle complex decisions or actions that require human judgment.
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/images/langgraph/human-in-the-loop-example.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
+<video src="https://cdn.copilotkit.ai/docs/copilotkit/images/langgraph/human-in-the-loop-example.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
 
 ## When should I use this?
 
 Use HITL when you need:
-
 - **Quality Control** — Human oversight at critical decision points
 - **Edge Cases** — Graceful handling of low-confidence situations
 - **Expert Input** — Leverage human expertise when needed
 - **Reliability** — More robust system for real-world use
 
-<FeatureIntegrations feature="hitl" />
-
 ## Get started by choosing your AI backend
 
-<IntegrationGrid path="human-in-the-loop" />
+<IntegrationGrid path="human-in-the-loop"/>

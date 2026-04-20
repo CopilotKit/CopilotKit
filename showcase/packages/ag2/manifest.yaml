@@ -4,8 +4,9 @@ category: emerging
 language: python
 logo: /logos/ag2.svg
 description: >-
-  CopilotKit integration with AG2. Supports the full range of CopilotKit features
-  including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.
+  CopilotKit integration with AG2. Supports the full range of CopilotKit
+  features including generative UI, shared state, human-in-the-loop, sub-agents,
+  and streaming.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ag2
 copilotkit_version: 2.0.0
@@ -26,8 +27,7 @@ features:
   - tool-rendering
   - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read
-  - shared-state-write
+  - shared-state-read-write
   - shared-state-streaming
   - subagents
 demos:
@@ -66,19 +66,12 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-  - id: shared-state-read
-    name: Shared State (Reading)
-    description: Reading agent state from UI
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
       - agent-state
-    route: /demos/shared-state-read
-    animated_preview_url:
-  - id: shared-state-write
-    name: Shared State (Writing)
-    description: Writing to agent state from UI
-    tags:
-      - agent-state
-    route: /demos/shared-state-write
+    route: /demos/shared-state-read-write
     animated_preview_url:
   - id: shared-state-streaming
     name: State Streaming

@@ -376,12 +376,22 @@ describe("Template Generator", () => {
       expect(feature.description).toBeTruthy();
     }
 
-    // Registry should have all expected categories
+    // Registry should have all expected categories. The former catch-all
+    // "generative-ui" was split into 4 axes (controlled / declarative /
+    // open / operational) — assert presence of at least one of them so
+    // the test doesn't lock the split granularity.
     const categories = new Set(
       featureRegistry.categories.map((c: any) => c.id),
     );
     expect(categories.has("chat-ui")).toBe(true);
-    expect(categories.has("generative-ui")).toBe(true);
+    const hasAnyGenUi = [
+      "generative-ui",
+      "controlled-generative-ui",
+      "declarative-generative-ui",
+      "open-generative-ui",
+      "operational-generative-ui",
+    ].some((id) => categories.has(id));
+    expect(hasAnyGenUi).toBe(true);
     expect(categories.has("agent-state")).toBe(true);
     expect(categories.has("interactivity")).toBe(true);
     expect(categories.has("multi-agent")).toBe(true);

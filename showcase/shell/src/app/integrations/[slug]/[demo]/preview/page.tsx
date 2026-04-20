@@ -33,8 +33,13 @@ export default function StandalonePreviewPage() {
     const raw = process.env.NEXT_PUBLIC_LOCAL_BACKENDS;
     if (raw) localBackends = JSON.parse(raw);
   } catch {}
-  const base = localBackends[integration.slug] ?? integration.backend_url;
-  const src = `${base}${demo.route}`;
+  // Prefer a per-cell URL (its own container, route "/"). Fall back to the
+  // per-integration container with the demo's sub-route.
+  const cellKey = `${integration.slug}::${demo.id}`;
+  const cellBase = localBackends[cellKey];
+  const src = cellBase
+    ? `${cellBase}/`
+    : `${localBackends[integration.slug] ?? integration.backend_url}${demo.route}`;
 
   return (
     <div className="h-[calc(100vh-52px)] w-full">

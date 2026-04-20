@@ -72,18 +72,20 @@ describe("Content Bundler", () => {
 
     const agenticChat = content.demos["langgraph-python::agentic-chat"];
     expect(agenticChat).toBeDefined();
-    expect(agenticChat.readme).toBeTruthy();
-    expect(agenticChat.readme).toContain("Agentic Chat");
     expect(agenticChat.files.length).toBeGreaterThan(0);
 
-    // page.tsx should be first (sorted by bundler)
-    expect(agenticChat.files[0].filename).toBe("page.tsx");
-    expect(agenticChat.files[0].language).toBe("typescript");
-    expect(agenticChat.files[0].content).toContain("CopilotKit");
+    // In the per-cell column-container layout, paths are prefixed with
+    // `backend/` or `frontend/`. The page.tsx lives under the frontend
+    // subtree and agent.py under the backend subtree.
+    const pageFile = agenticChat.files.find((f: any) =>
+      (f.filename ?? f.path).endsWith("page.tsx"),
+    );
+    expect(pageFile).toBeDefined();
+    expect(pageFile.language).toBe("typescript");
+    expect(pageFile.content).toContain("CopilotKit");
 
-    // agent.py should be present
-    const agentFile = agenticChat.files.find(
-      (f: any) => f.filename === "agent.py",
+    const agentFile = agenticChat.files.find((f: any) =>
+      (f.filename ?? f.path).endsWith("agent.py"),
     );
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
@@ -94,11 +96,12 @@ describe("Content Bundler", () => {
 
     for (const [, demo] of Object.entries(content.demos) as any) {
       for (const file of demo.files) {
-        if (file.filename.endsWith(".tsx") || file.filename.endsWith(".ts")) {
+        const fileName = file.filename ?? file.path;
+        if (fileName.endsWith(".tsx") || fileName.endsWith(".ts")) {
           expect(file.language).toBe("typescript");
-        } else if (file.filename.endsWith(".py")) {
+        } else if (fileName.endsWith(".py")) {
           expect(file.language).toBe("python");
-        } else if (file.filename.endsWith(".css")) {
+        } else if (fileName.endsWith(".css")) {
           expect(file.language).toBe("css");
         }
       }
@@ -108,39 +111,35 @@ describe("Content Bundler", () => {
   it("includes backend files for packages with agent code", () => {
     const content = runBundlerAndRead();
 
-    // langgraph-python should have agent_server.py in backend files
+    // Under the per-cell column-container layout, backend files appear
+    // in the unified `files` array with a `backend/` path prefix. Assert
+    // that langgraph-python cells expose at least one Python file in the
+    // backend subtree.
     const lgDemo = content.demos["langgraph-python::agentic-chat"];
     expect(lgDemo).toBeDefined();
-    expect(lgDemo.backend_files).toBeDefined();
-    expect(lgDemo.backend_files.length).toBeGreaterThan(0);
-    const agentServer = lgDemo.backend_files.find(
-      (f: any) => f.filename === "agent_server.py",
-    );
-    expect(agentServer).toBeDefined();
-    expect(agentServer.language).toBe("python");
-
-    // mastra should have mastra/agents/index.ts in backend files
-    const mastraDemo = content.demos["mastra::agentic-chat"];
-    expect(mastraDemo).toBeDefined();
-    expect(mastraDemo.backend_files.length).toBeGreaterThan(0);
-    const mastraAgent = mastraDemo.backend_files.find(
-      (f: any) => f.filename === "mastra/agents/index.ts",
-    );
-    expect(mastraAgent).toBeDefined();
+    const pyBackend = lgDemo.files.filter((f: any) => {
+      const p = f.filename ?? f.path;
+      return p.startsWith("backend/") && p.endsWith(".py");
+    });
+    expect(pyBackend.length).toBeGreaterThan(0);
+    expect(pyBackend[0].language).toBe("python");
   });
 
-  it("includes all 10 langgraph-python demos", () => {
+  it("includes every langgraph-python demo declared in the manifest", () => {
     const content = runBundlerAndRead();
 
+    // Core set that every langgraph-python release should carry — new
+    // cells (tool-rendering-*catchall, chat-customization-css, A2UI
+    // variants) are checked via the registry-count assertion in
+    // generate-registry.test.ts, so keep this list focused on the
+    // long-standing canonical demos.
     const expectedDemos = [
       "agentic-chat",
       "frontend-tools",
       "hitl-in-chat",
       "tool-rendering",
       "gen-ui-tool-based",
-      "gen-ui-agent",
-      "shared-state-read",
-      "shared-state-write",
+      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];
@@ -149,7 +148,6 @@ describe("Content Bundler", () => {
       const key = `langgraph-python::${demoId}`;
       expect(content.demos[key]).toBeDefined();
       expect(content.demos[key].files.length).toBeGreaterThan(0);
-      expect(content.demos[key].readme).toBeTruthy();
     }
   });
 

@@ -1,0 +1,134 @@
+---
+title: "Model Selection"
+icon: "lucide/Cpu"
+description: "Choose and configure models for your Built-in Agent."
+---
+
+The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from OpenAI, Anthropic, and Google — plus the ability to use any custom AI SDK model.
+
+## Supported Models
+
+Specify a model using the `"provider:model"` format (or `"provider/model"` — both work).
+
+### OpenAI
+
+| Model | Specifier |
+|-------|-----------|
+| GPT-5 | `openai:gpt-5` |
+| GPT-5 Mini | `openai:gpt-5-mini` |
+| GPT-4.1 | `openai:gpt-4.1` |
+| GPT-4.1 Mini | `openai:gpt-4.1-mini` |
+| GPT-4.1 Nano | `openai:gpt-4.1-nano` |
+| GPT-4o | `openai:gpt-5.4` |
+| GPT-4o Mini | `openai:gpt-5.4-mini` |
+| o3 | `openai:o3` |
+| o3-mini | `openai:o3-mini` |
+| o4-mini | `openai:o4-mini` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-4.1",
+});
+```
+
+### Anthropic
+
+| Model | Specifier |
+|-------|-----------|
+| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4-5` |
+| Claude Sonnet 4 | `anthropic:claude-sonnet-4` |
+| Claude 3.7 Sonnet | `anthropic:claude-3-7-sonnet` |
+| Claude Opus 4.1 | `anthropic:claude-opus-4-1` |
+| Claude Opus 4 | `anthropic:claude-opus-4` |
+| Claude 3.5 Haiku | `anthropic:claude-3-5-haiku` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "anthropic:claude-sonnet-4-5",
+});
+```
+
+### Google
+
+| Model | Specifier |
+|-------|-----------|
+| Gemini 2.5 Pro | `google:gemini-2.5-pro` |
+| Gemini 2.5 Flash | `google:gemini-2.5-flash` |
+| Gemini 2.5 Flash Lite | `google:gemini-2.5-flash-lite` |
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "google:gemini-2.5-pro",
+});
+```
+
+## Environment Variables
+
+Set the API key for your chosen provider:
+
+```bash
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Google
+GOOGLE_API_KEY=...
+```
+
+Alternatively, pass the API key directly in your configuration:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-4.1",
+  apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
+});
+```
+
+## Custom Models (AI SDK)
+
+For models not in the built-in list, you can pass any Vercel AI SDK `LanguageModel` instance directly:
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
+
+const customProvider = createOpenAI({ // [!code highlight]
+  apiKey: process.env.MY_API_KEY, // [!code highlight]
+  baseURL: "https://my-proxy.example.com/v1", // [!code highlight]
+}); // [!code highlight]
+
+const agent = new BuiltInAgent({
+  model: customProvider("my-fine-tuned-model"), // [!code highlight]
+});
+```
+
+This works with any AI SDK provider — Azure OpenAI, AWS Bedrock, Ollama, or any OpenAI-compatible endpoint:
+
+```typescript
+import { createAzure } from "@ai-sdk/azure";
+
+const azure = createAzure({
+  resourceName: "my-resource",
+  apiKey: process.env.AZURE_API_KEY,
+});
+
+const agent = new BuiltInAgent({
+  model: azure("my-deployment"),
+});
+```
+
+## How It Works
+
+Under the hood, the Built-in Agent resolves model strings to AI SDK provider instances:
+
+- `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
+- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4-5")`
+- `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
+
+Both `"provider:model"` and `"provider/model"` separators are supported and work identically.
+
+<Callout type="info" title="Need a different AI SDK or full control?">
+  The [Custom Agent](/built-in-agent/custom-agent) lets you bring your own AI SDK, TanStack AI, or any custom LLM backend — while CopilotKit handles the rest.
+</Callout>

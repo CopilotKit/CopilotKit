@@ -1,0 +1,183 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Create frontend tools and use them within your LangChain agent.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: frontend-tools
+---
+
+<InlineDemo integration="langgraph-python" demo="frontend-tools" />
+
+## What is this?
+Frontend tools enable you to define client-side functions that your LangChain agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
+the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be utilized to let your agent control the UI, for generative UI, or for Human-in-the-loop interactions.
+
+In this guide, we cover the use of frontend tools driving and interacting with the UI.
+
+## When should I use this?
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+- Reading or modifying React component state
+- Accessing browser APIs like localStorage, sessionStorage, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+    <Step>
+        ### Run and connect your agent
+
+        You'll need to run your agent and connect it to CopilotKit before proceeding.
+
+        If you don't already have CopilotKit and your agent connected, choose one of the following options:
+
+        <Accordions>
+          <Accordion title="I already have an agent">
+            You can follow the instructions in the [quickstart](/langgraph/quickstart) guide.
+          </Accordion>
+          <Accordion title="I want to start from scratch">
+            Run the following command to create a brand new project with a pre-configured agent:
+
+            <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+              <Tab value="Python">
+                ```bash
+                npx copilotkit@latest create -f langgraph-py
+                ```
+              </Tab>
+              <Tab value="TypeScript">
+               ```bash
+               npx copilotkit@latest create -f langgraph-js
+               ```
+             </Tab>
+            </Tabs>
+          </Accordion>
+        </Accordions>
+    </Step>
+
+    <Step>
+        ### Create a frontend tool
+
+        First, you'll need to create a frontend tool using the [useFrontendTool](/reference/v2/hooks/useFrontendTool) hook. Here's a simple one to get you started
+        that says hello to the user.
+
+        ```tsx title="page.tsx"
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
+
+        export function Page() {
+          // ...
+
+          // [!code highlight:12]
+          useFrontendTool({
+            name: "sayHello",
+            description: "Say hello to the user",
+            parameters: z.object({
+              name: z.string().describe("The name of the user to say hello to"),
+            }),
+            handler: async ({ name }) => {
+              alert(`Hello, ${name}!`);
+              return `Said hello to ${name}!`;
+            },
+          });
+
+          // ...
+        }
+        ```
+    </Step>
+    <Step>
+        ### Install the CopilotKit SDK
+
+        Now, we'll need to modify the agent to access these frontend tools. In your terminal, navigate to your agent's folder and continue from there!
+
+        Any LangChain agent can be used with CopilotKit. However, creating deep agentic
+        experiences with CopilotKit requires our LangChain SDK.
+
+        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+          <Tab value="Python">
+            ```bash
+            pip install copilotkit
+            ```
+          </Tab>
+          <Tab value="TypeScript">
+            ```bash
+            npm install @copilotkit/sdk-js
+            ```
+          </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### Inheriting from CopilotKitState
+
+        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                from copilotkit import CopilotKitState # [!code highlight]
+
+                class YourAgentState(CopilotKitState): # [!code highlight]
+                    your_additional_properties: str
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                import { Annotation } from "@langchain/langgraph";
+                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+                export const YourAgentStateAnnotation = Annotation.Root({
+                    yourAdditionalProperty: Annotation<string>,
+                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                });
+                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+                ```
+            </Tab>
+        </Tabs>
+
+        By doing this, your agent's state will include the `copilotkit` property, which contains the frontend tools that can be accessed and invoked.
+    </Step>
+    <Step>
+        ### Accessing Frontend Tools
+
+        Once your agent's state includes the `copilotkit` property, you can access the frontend tools and utilize them within your agent's logic.
+
+        Here's how you can call a frontend tool from your agent:
+
+        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+            <Tab value="Python">
+                ```python title="agent.py"
+                async def agent_node(state: YourAgentState, config: RunnableConfig):
+                # Access the tools from the copilotkit property
+
+                tools = state.get("copilotkit", {}).get("actions", []) # [!code highlight]
+                model = ChatOpenAI(model="gpt-5.4").bind_tools(tools)
+
+                # ...
+                ```
+            </Tab>
+            <Tab value="TypeScript">
+                ```typescript title="agent-js/src/agent.ts"
+                async function agentNode(state: YourAgentState, config: RunnableConfig): Promise<YourAgentState> {
+                // Access the tools from the copilotkit property
+
+                const tools = state.copilotkit?.actions; // [!code highlight]
+                const model = ChatOpenAI({ model: 'gpt-5.4' }).bindTools(tools);
+
+                // ...
+                }
+                ```
+            </Tab>
+        </Tabs>
+
+        These tools are automatically populated by CopilotKit and are compatible with LangChain's tool call definitions, making it straightforward to integrate them into your agent's workflow.
+    </Step>
+    <Step>
+        ### Give it a try!
+        You've now given your agent the ability to directly call any frontend tools you've defined. These tools will be available to the agent where they can be used as needed.
+
+        <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
+    </Step>
+</Steps>

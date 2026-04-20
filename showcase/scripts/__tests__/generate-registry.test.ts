@@ -74,8 +74,12 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    expect(langgraph.features.length).toBe(10);
-    expect(langgraph.demos.length).toBe(10);
+    // Assert structural shape rather than a fixed count — demo fleet
+    // grows over time (A2UI split, tool-rendering 3-way progression,
+    // chat-customization-css, etc.). A minimum bound catches regressions
+    // (e.g. registry collapse to zero) without pinning the count.
+    expect(langgraph.features.length).toBeGreaterThanOrEqual(20);
+    expect(langgraph.demos.length).toBe(langgraph.features.length);
   });
 
   it("sorts integrations by sort_order", () => {

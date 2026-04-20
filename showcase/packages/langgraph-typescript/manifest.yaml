@@ -4,8 +4,8 @@ category: popular
 language: typescript
 logo: /logos/langgraph-typescript.svg
 description: >-
-  TypeScript variant of the LangGraph integration. Uses @langchain/langgraph
-  to define a graph-based agent with tool calling, shared state, and memory,
+  TypeScript variant of the LangGraph integration. Uses @langchain/langgraph to
+  define a graph-based agent with tool calling, shared state, and memory,
   connected to CopilotKit via the LangGraph AG-UI adapter.
 partner_docs: https://docs.copilotkit.ai/integrations/langgraph
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/langgraph-typescript
@@ -30,15 +30,16 @@ starter:
   description: Full-featured sales pipeline with 5 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-typescript
   demo_url: https://showcase-starter-langgraph-typescript-production-25ca.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app
+  clone_command: npx degit
+    CopilotKit/CopilotKit/showcase/starters/langgraph-typescript
+    my-copilotkit-app
 features:
   - agentic-chat
   - hitl-in-chat
   - tool-rendering
   - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read
-  - shared-state-write
+  - shared-state-read-write
   - shared-state-streaming
   - subagents
 demos:
@@ -54,7 +55,7 @@ demos:
     description: User approves agent actions before execution
     tags:
       - interactivity
-    route: /demos/hitl
+    route: /demos/hitl-in-chat
     animated_preview_url:
   - id: tool-rendering
     name: Tool Rendering
@@ -77,19 +78,12 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-  - id: shared-state-read
-    name: Shared State (Reading)
-    description: Reading agent state from UI
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
     tags:
       - agent-state
-    route: /demos/shared-state-read
-    animated_preview_url:
-  - id: shared-state-write
-    name: Shared State (Writing)
-    description: Writing to agent state from UI
-    tags:
-      - agent-state
-    route: /demos/shared-state-write
+    route: /demos/shared-state-read-write
     animated_preview_url:
   - id: shared-state-streaming
     name: State Streaming

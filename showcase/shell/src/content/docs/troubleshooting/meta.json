@@ -1,9 +1,10 @@
 {
   "pages": [
-    "migrate-to-v2",
-    "error-debugging",
-    "observability-connectors",
     "common-issues",
+    "error-debugging",
+    "debug-mode",
+    "observability-connectors",
+    "migrate-to-v2",
     "migrate-to-1.10.X",
     "migrate-to-1.8.2"
   ]

@@ -39,6 +39,64 @@ function loadFeatureRegistry() {
   return JSON.parse(raw);
 }
 
+type DocsLinkEntry = {
+  og_docs_url: string | null;
+  shell_docs_path: string | null;
+};
+
+type DocsLinks = {
+  features: Record<string, DocsLinkEntry>;
+};
+
+/**
+ * Load per-package docs-links.json. Returns best-effort normalized overrides
+ * ({ features: { <feature_id>: { og_docs_url, shell_docs_path } } }).
+ *
+ * Missing file -> empty overrides. A file with the older shape (e.g. using
+ * `shell_docs_url` instead of `shell_docs_path`) is treated as stale: we
+ * still merge what we can without erroring. Completely malformed JSON is
+ * logged and treated as empty.
+ */
+function loadDocsLinks(packageDir: string): DocsLinks {
+  const docsLinksPath = path.join(packageDir, "docs-links.json");
+  if (!fs.existsSync(docsLinksPath)) {
+    return { features: {} };
+  }
+
+  try {
+    const raw = fs.readFileSync(docsLinksPath, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      features?: Record<string, Record<string, unknown>>;
+    };
+
+    const features: Record<string, DocsLinkEntry> = {};
+    const rawFeatures = parsed?.features ?? {};
+    for (const [featureId, entry] of Object.entries(rawFeatures)) {
+      if (!entry || typeof entry !== "object") continue;
+      const og =
+        typeof entry.og_docs_url === "string" ? entry.og_docs_url : null;
+      // Preferred key is `shell_docs_path`; fall back to legacy
+      // `shell_docs_url` so older files still contribute something.
+      const shellPath =
+        typeof entry.shell_docs_path === "string"
+          ? entry.shell_docs_path
+          : typeof entry.shell_docs_url === "string"
+            ? entry.shell_docs_url
+            : null;
+      features[featureId] = {
+        og_docs_url: og,
+        shell_docs_path: shellPath,
+      };
+    }
+    return { features };
+  } catch (e) {
+    console.warn(
+      `  WARN: failed to parse ${docsLinksPath}, treating as empty: ${e}`,
+    );
+    return { features: {} };
+  }
+}
+
 function findManifests(): string[] {
   if (!fs.existsSync(PACKAGES_DIR)) {
     return [];
@@ -144,6 +202,14 @@ function main() {
 
     integrations.push(manifest);
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
+  }
+
+  // Merge per-package docs-links.json overrides onto each integration *after*
+  // schema validation, since `docs_links` isn't part of the manifest schema.
+  // Best-effort: missing file or stale shapes are tolerated and don't error.
+  for (const manifest of integrations) {
+    const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
+    manifest.docs_links = loadDocsLinks(pkgDir);
   }
 
   // Constraint validation

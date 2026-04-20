@@ -4,6 +4,34 @@
 // and produces a JSON bundle for the shell's Code and Docs tabs.
 //
 // Usage: npx tsx showcase/scripts/bundle-demo-content.ts
+//
+// -----------------------------------------------------------------------------
+// Named-region markers (inline, Option A)
+// -----------------------------------------------------------------------------
+// Authors can tag contiguous spans of a source file with a name so the shell's
+// docs pages can pull in a specific snippet without hardcoding line numbers.
+//
+// Syntax (recognised in any comment style — // or # or <!-- -->):
+//
+//     // @region[provider-setup]
+//     ... lines belonging to the region ...
+//     // @endregion[provider-setup]
+//
+// Rules:
+//  - Regions may nest (e.g. `@region[outer]` can contain `@region[inner]`).
+//  - Region names must be `[a-z0-9][a-z0-9-]*`; any marker with a malformed
+//    name is left untouched and the bundler errors out.
+//  - When the same region name appears in multiple files inside a cell, the
+//    bundler concatenates their bodies in the stable file order. This makes
+//    a "multi-file region" a natural consequence of marker placement rather
+//    than special syntax.
+//  - The markers themselves are stripped from the bundled file content so the
+//    `/code` viewer doesn't show them. The stripped content is what's stored
+//    in `files[].content`; the original region bodies are stored separately
+//    in `regions[<name>]`.
+//  - Start/end line numbers reflect post-strip positions (i.e. the line
+//    numbers an MDX page would show if it rendered the cleaned file).
+// -----------------------------------------------------------------------------
 
 import fs from "fs";
 import path from "path";
@@ -27,12 +55,35 @@ interface DemoFile {
   filename: string;
   language: string;
   content: string;
+  highlighted?: boolean;
+}
+
+interface Region {
+  /** Source file (relative to the demo root) the region was extracted from. */
+  file: string;
+  /** 1-based line number of the first line inside the region (post strip). */
+  startLine: number;
+  /** 1-based inclusive line number of the last line inside the region. */
+  endLine: number;
+  /** The region's code, markers stripped. */
+  code: string;
+  /** Highlight-friendly language hint, propagated from the file extension. */
+  language: string;
 }
 
 interface DemoContent {
   readme: string | null;
   files: DemoFile[];
+  // Retained for JSON shape back-compat; always empty under the new rule
+  // that `/code` shows only the demo folder's actual contents.
   backend_files: DemoFile[];
+  /**
+   * Named regions extracted from `// @region[name] … // @endregion[name]`
+   * markers inside the cell's source files. Keyed by region name.
+   * Multi-file regions (same name in multiple files) are concatenated in
+   * the same stable order as `files`.
+   */
+  regions: Record<string, Region>;
 }
 
 interface BundledContent {
@@ -59,104 +110,225 @@ function detectLanguage(filename: string): string {
   return map[ext] || "text";
 }
 
-const BACKEND_EXTENSIONS = new Set([".py", ".ts", ".js", ".cs"]);
-const SKIP_FILES = new Set(["__init__.py"]);
-const SKIP_EXTENSIONS = new Set([".pyc"]);
+// Skip generated/OS noise. Everything else in the demo folder is shown.
+const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
+const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
 
-function isBackendFile(filename: string): boolean {
-  if (SKIP_FILES.has(filename)) return false;
-  const ext = path.extname(filename).toLowerCase();
-  if (SKIP_EXTENSIONS.has(ext)) return false;
-  return BACKEND_EXTENSIONS.has(ext);
+// ---------------------------------------------------------------------------
+// Region extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Matches a start marker in any line-comment flavour:
+ *   `// @region[name]`      (JS/TS/Java/C#)
+ *   `# @region[name]`       (Python/YAML/Bash)
+ *   `<!-- @region[name] -->`  (HTML/MDX)  — only `@region[name]` token matters
+ *   `/* @region[name] *\/`  (C-style block)
+ *
+ * We don't mandate a prefix because anything before `@region[` is noise:
+ * comment tokens, whitespace, etc. The whole line is dropped on strip.
+ */
+const REGION_START_RE = /@region\[([a-z0-9][a-z0-9-]*)\]/;
+const REGION_END_RE = /@endregion\[([a-z0-9][a-z0-9-]*)\]/;
+
+/**
+ * A loose detector for ANY `@region[...]` or `@endregion[...]` marker,
+ * including malformed names. We use this to reject bad syntax early instead
+ * of silently leaving a stray marker in the bundled output.
+ */
+const REGION_ANY_RE = /@(?:end)?region\[[^\]]*\]/;
+
+interface ExtractedRegion {
+  startLine: number; // 1-based, post-strip
+  endLine: number; // 1-based, post-strip, inclusive
+  lines: string[];
 }
 
-function readFilesFromDir(dir: string, prefix: string): DemoFile[] {
-  if (!fs.existsSync(dir)) return [];
-  const results: DemoFile[] = [];
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-    if (entry.isFile() && isBackendFile(entry.name)) {
-      results.push({
-        filename: prefix ? `${prefix}/${entry.name}` : entry.name,
+/**
+ * Strip region markers from a file and return:
+ *  - `cleaned`: the file contents with all marker lines removed
+ *  - `regions`: a map of region name → extracted slice(s) of `cleaned`
+ *
+ * Nested regions are supported. A region whose start has no matching end
+ * (or vice-versa) throws — bundling should fail loudly rather than produce
+ * a silently-broken snippet.
+ */
+function extractRegions(
+  source: string,
+  fileLabel: string,
+): { cleaned: string; regions: Record<string, ExtractedRegion[]> } {
+  const srcLines = source.split("\n");
+  const cleaned: string[] = [];
+  // Stack of active regions: name → start line (1-based index into cleaned).
+  const stack: Array<{ name: string; startLine: number }> = [];
+  const regions: Record<string, ExtractedRegion[]> = {};
+  // While a region is open we accumulate its body lines here (indexed by
+  // position in `stack` so nested regions each get their own buffer).
+  const buffers: string[][] = [];
+
+  for (const rawLine of srcLines) {
+    const startMatch = rawLine.match(REGION_START_RE);
+    const endMatch = rawLine.match(REGION_END_RE);
+
+    if (startMatch && endMatch) {
+      throw new Error(
+        `${fileLabel}: same line contains both @region and @endregion — that's not supported.`,
+      );
+    }
+
+    if (startMatch) {
+      const name = startMatch[1];
+      stack.push({ name, startLine: cleaned.length + 1 });
+      buffers.push([]);
+      continue;
+    }
+
+    if (endMatch) {
+      const name = endMatch[1];
+      const top = stack.pop();
+      const buf = buffers.pop();
+      if (!top || !buf) {
+        throw new Error(
+          `${fileLabel}: @endregion[${name}] without a matching @region[...].`,
+        );
+      }
+      if (top.name !== name) {
+        throw new Error(
+          `${fileLabel}: @endregion[${name}] does not match innermost open region @region[${top.name}].`,
+        );
+      }
+      const startLine = top.startLine;
+      const endLine = cleaned.length; // last line pushed into `cleaned`
+      if (endLine < startLine) {
+        // Empty region — still record, but as a zero-line span.
+        (regions[name] ||= []).push({
+          startLine,
+          endLine: startLine - 1,
+          lines: [],
+        });
+      } else {
+        (regions[name] ||= []).push({ startLine, endLine, lines: buf });
+      }
+      continue;
+    }
+
+    // Reject any stray, malformed marker that didn't match the strict regex.
+    if (REGION_ANY_RE.test(rawLine)) {
+      throw new Error(
+        `${fileLabel}: malformed region marker "${rawLine.trim()}". Use @region[kebab-case-name] / @endregion[kebab-case-name].`,
+      );
+    }
+
+    cleaned.push(rawLine);
+    // Push this line into every currently-open region buffer.
+    for (const buf of buffers) buf.push(rawLine);
+  }
+
+  if (stack.length > 0) {
+    const unclosed = stack.map((s) => s.name).join(", ");
+    throw new Error(`${fileLabel}: unclosed @region[${unclosed}].`);
+  }
+
+  return { cleaned: cleaned.join("\n"), regions };
+}
+
+function collectDemoFiles(
+  demoDir: string,
+  demoKey: string,
+): {
+  readme: string | null;
+  files: DemoFile[];
+  regions: Record<string, Region>;
+} {
+  const out: DemoFile[] = [];
+  let readme: string | null = null;
+  // Raw per-file region extractions, keyed by file path. We collapse them
+  // into the public `regions` map (one entry per name) after sorting files
+  // into their final display order, so multi-file regions concatenate in
+  // the same order as the `/code` viewer lists them.
+  const perFile: Record<string, Record<string, ExtractedRegion[]>> = {};
+
+  const walk = (absDir: string, relPrefix: string) => {
+    const entries = fs.readdirSync(absDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (SKIP_EXACT.has(entry.name)) continue;
+      const abs = path.join(absDir, entry.name);
+      const rel = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        walk(abs, rel);
+        continue;
+      }
+      if (!entry.isFile()) continue;
+      const raw = fs.readFileSync(abs, "utf-8");
+      // Extract & strip region markers before anything else sees the text.
+      // This keeps the /code viewer clean and lets docs reference specific
+      // named slices. A bad marker aborts the whole bundle.
+      const { cleaned, regions: fileRegions } = extractRegions(
+        raw,
+        `${demoKey}:${rel}`,
+      );
+      if (entry.name === "README.md" || entry.name === "README.mdx") {
+        // Use the root-level README as the demo readme; nested README files
+        // just show up as regular files.
+        if (!relPrefix && readme === null) {
+          readme = cleaned;
+          if (Object.keys(fileRegions).length > 0) {
+            perFile[rel] = fileRegions;
+          }
+          continue;
+        }
+      }
+      out.push({
+        filename: rel,
         language: detectLanguage(entry.name),
-        content: fs.readFileSync(fullPath, "utf-8"),
+        content: cleaned,
       });
-    } else if (entry.isDirectory() && entry.name !== "__pycache__") {
-      // Recurse one level into subdirectories
-      const subEntries = fs.readdirSync(fullPath, { withFileTypes: true });
-      for (const sub of subEntries) {
-        if (sub.isFile() && isBackendFile(sub.name)) {
-          const subPath = path.join(fullPath, sub.name);
-          results.push({
-            filename: prefix
-              ? `${prefix}/${entry.name}/${sub.name}`
-              : `${entry.name}/${sub.name}`,
-            language: detectLanguage(sub.name),
-            content: fs.readFileSync(subPath, "utf-8"),
-          });
+      if (Object.keys(fileRegions).length > 0) {
+        perFile[rel] = fileRegions;
+      }
+    }
+  };
+
+  walk(demoDir, "");
+
+  // Stable, friendly order: page first, then everything else lexicographic.
+  out.sort((a, b) => {
+    const aPage = a.filename.startsWith("page.");
+    const bPage = b.filename.startsWith("page.");
+    if (aPage !== bPage) return aPage ? -1 : 1;
+    return a.filename.localeCompare(b.filename);
+  });
+
+  // Collapse per-file regions into the public map in file-order. For
+  // multi-file regions we concatenate bodies with a blank separator and
+  // use the FIRST file's line span (there's no single coherent range
+  // across files — this is a best-effort pointer for tooling).
+  const regions: Record<string, Region> = {};
+  const fileOrder = out.map((f) => f.filename);
+  for (const filename of fileOrder) {
+    const fileRegs = perFile[filename];
+    if (!fileRegs) continue;
+    for (const [name, slices] of Object.entries(fileRegs)) {
+      for (const slice of slices) {
+        if (regions[name]) {
+          // Multi-file or duplicate region — append with separator.
+          regions[name].code =
+            regions[name].code + "\n\n" + slice.lines.join("\n");
+        } else {
+          regions[name] = {
+            file: filename,
+            startLine: slice.startLine,
+            endLine: slice.endLine,
+            code: slice.lines.join("\n"),
+            language: detectLanguage(filename),
+          };
         }
       }
     }
   }
-  return results;
-}
 
-function discoverBackendFiles(pkgRoot: string): DemoFile[] {
-  const files: DemoFile[] = [];
-  const srcDir = path.join(pkgRoot, "src");
-
-  // Pattern 1: src/agent_server.py or src/agent_server.ts
-  for (const serverFile of ["agent_server.py", "agent_server.ts"]) {
-    const serverPath = path.join(srcDir, serverFile);
-    if (fs.existsSync(serverPath)) {
-      files.push({
-        filename: serverFile,
-        language: detectLanguage(serverFile),
-        content: fs.readFileSync(serverPath, "utf-8"),
-      });
-    }
-  }
-
-  // Pattern 2: src/agents/ directory
-  files.push(...readFilesFromDir(path.join(srcDir, "agents"), "agents"));
-
-  // Pattern 3: src/mastra/ — index.ts + agents/ + tools/
-  const mastraDir = path.join(srcDir, "mastra");
-  if (fs.existsSync(mastraDir)) {
-    const mastraIndex = path.join(mastraDir, "index.ts");
-    if (fs.existsSync(mastraIndex)) {
-      files.push({
-        filename: "mastra/index.ts",
-        language: "typescript",
-        content: fs.readFileSync(mastraIndex, "utf-8"),
-      });
-    }
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "agents"), "mastra/agents"),
-    );
-    files.push(
-      ...readFilesFromDir(path.join(mastraDir, "tools"), "mastra/tools"),
-    );
-  }
-
-  // Pattern 4: src/agent/ directory (e.g. langgraph-typescript)
-  files.push(...readFilesFromDir(path.join(srcDir, "agent"), "agent"));
-
-  // Pattern 5: agent/ at package root (e.g. ms-agent-dotnet)
-  files.push(...readFilesFromDir(path.join(pkgRoot, "agent"), "agent"));
-
-  // Deduplicate by filename (patterns may overlap for agent/ at root vs src)
-  const seen = new Set<string>();
-  const deduped: DemoFile[] = [];
-  for (const f of files) {
-    if (!seen.has(f.filename)) {
-      seen.add(f.filename);
-      deduped.push(f);
-    }
-  }
-
-  return deduped;
+  return { readme, files: out, regions };
 }
 
 function main() {
@@ -188,14 +360,19 @@ function main() {
       const demos = (manifest.demos || []) as Array<{
         id: string;
         route: string;
+        highlight?: string[];
       }>;
 
-      const pkgRoot = path.join(PACKAGES_DIR, pkgDir);
-      const backendFiles = discoverBackendFiles(pkgRoot);
-
       for (const demo of demos) {
+        // Informational-only demos (e.g. cli-start) have no route/folder.
+        if (!demo.route) continue;
+        // Prefer the per-cell folder (packages/<pkg>/demos/<id>/) if it
+        // exists — that's the target layout where each demo is a fully
+        // independent container. Fall back to the in-integration folder
+        // (packages/<pkg>/src/app/demos/<routeDir>/) for un-migrated demos.
         const routeDir = demo.route.replace(/^\/demos\//, "");
-        const demoDir = path.join(
+        const cellDir = path.join(PACKAGES_DIR, pkgDir, "demos", demo.id);
+        const legacyDir = path.join(
           PACKAGES_DIR,
           pkgDir,
           "src",
@@ -203,51 +380,46 @@ function main() {
           "demos",
           routeDir,
         );
-        if (!fs.existsSync(demoDir)) continue;
+        const demoDir = fs.existsSync(cellDir) ? cellDir : legacyDir;
+        if (!fs.existsSync(demoDir)) {
+          throw new Error(
+            `${slug}::${demo.id}: neither ${cellDir} nor ${legacyDir} exists.`,
+          );
+        }
 
         const key = `${slug}::${demo.id}`;
-        const content: DemoContent = {
-          readme: null,
-          files: [],
-          backend_files: [],
-        };
+        const { readme, files, regions } = collectDemoFiles(demoDir, key);
 
-        const entries = fs.readdirSync(demoDir);
-        for (const entry of entries) {
-          const filePath = path.join(demoDir, entry);
-          if (!fs.statSync(filePath).isFile()) continue;
-
-          const fileContent = fs.readFileSync(filePath, "utf-8");
-
-          if (entry === "README.md" || entry === "README.mdx") {
-            content.readme = fileContent;
-          } else {
-            content.files.push({
-              filename: entry,
-              language: detectLanguage(entry),
-              content: fileContent,
-            });
+        // Apply `highlight` from the manifest: mark listed files as
+        // relevant. Error if a listed path doesn't exist in the bundle —
+        // highlighting a ghost file would silently mislead readers.
+        const highlightSet = new Set(demo.highlight ?? []);
+        if (highlightSet.size > 0) {
+          const bundled = new Set(files.map((f) => f.filename));
+          for (const h of highlightSet) {
+            if (!bundled.has(h)) {
+              throw new Error(
+                `${key}: manifest.highlight lists "${h}" but that file isn't in the demo folder.`,
+              );
+            }
+          }
+          for (const f of files) {
+            if (highlightSet.has(f.filename)) f.highlighted = true;
           }
         }
 
-        // Sort files: page.tsx first, then agent files, then others
-        content.files.sort((a, b) => {
-          if (a.filename.startsWith("page")) return -1;
-          if (b.filename.startsWith("page")) return 1;
-          if (a.filename.startsWith("agent")) return -1;
-          if (b.filename.startsWith("agent")) return 1;
-          return a.filename.localeCompare(b.filename);
-        });
-
-        content.backend_files = [...backendFiles];
-
-        bundle.demos[key] = content;
+        bundle.demos[key] = { readme, files, backend_files: [], regions };
+        const hlCount = files.filter((f) => f.highlighted).length;
+        const regionCount = Object.keys(regions).length;
         console.log(
-          `  ${key}: ${content.files.length} files, ${content.backend_files.length} backend, readme: ${content.readme ? "yes" : "no"}`,
+          `  ${key}: ${files.length} files${hlCount ? ` (${hlCount} highlighted)` : ""}${readme ? " + README" : ""}${regionCount ? ` + ${regionCount} regions` : ""}`,
         );
       }
     } catch (err) {
-      console.error(`[bundle] Error processing package "${pkgDir}":`, err);
+      // Propagate: a broken manifest must fail the bundle, not silently skip.
+      throw new Error(
+        `[bundle] Failed while processing package "${pkgDir}": ${(err as Error).message}`,
+      );
     }
   }
 
@@ -258,7 +430,12 @@ function main() {
   );
 }
 
-main();
+try {
+  main();
+} catch (err) {
+  console.error((err as Error).message);
+  process.exit(1);
+}
 
 if (process.argv.includes("--watch")) {
   let timer: NodeJS.Timeout | null = null;
@@ -275,9 +452,13 @@ if (process.argv.includes("--watch")) {
   console.log("[watch] watching packages/ for changes...\n");
   fs.watch(PACKAGES_DIR, { recursive: true }, (_event, filename) => {
     if (!filename) return;
-    // Only rebundle for demo sources, agent sources, and READMEs
+    // Rebundle for demo sources, agent sources, READMEs, and — critically —
+    // manifest.yaml edits. Without the manifest match a demo's backend_files
+    // change wouldn't propagate and /code would keep showing stale files.
     if (
-      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$)/.test(filename)
+      /(\/demos\/|\/agents\/|\/agent\/|\/mastra\/|README\.md$|manifest\.yaml$)/.test(
+        filename,
+      )
     ) {
       rebundle();
     }

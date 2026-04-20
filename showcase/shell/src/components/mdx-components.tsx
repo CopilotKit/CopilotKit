@@ -55,6 +55,7 @@ export function Card({
   title,
   description,
   href,
+  icon,
 }: {
   title: string;
   description?: string;
@@ -63,14 +64,32 @@ export function Card({
   className?: string;
   children?: React.ReactNode;
 }) {
+  // When the MDX author supplies an icon (often a Lucide component or
+  // an emoji shim from the MDX registry), render it as a small leading
+  // glyph alongside the title — matches the reference docs' gallery
+  // layout without needing a separate "icon-card" variant.
   const content = (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors">
-      <div className="font-semibold text-[var(--text)] text-sm">{title}</div>
-      {description && (
-        <div className="text-xs text-[var(--text-muted)] mt-1">
-          {description}
+      <div className="flex items-start gap-2">
+        {icon ? (
+          <span
+            aria-hidden
+            className="text-base leading-none mt-0.5 shrink-0 text-[var(--accent)]"
+          >
+            {icon}
+          </span>
+        ) : null}
+        <div className="min-w-0">
+          <div className="font-semibold text-[var(--text)] text-sm">
+            {title}
+          </div>
+          {description && (
+            <div className="text-xs text-[var(--text-muted)] mt-1">
+              {description}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 

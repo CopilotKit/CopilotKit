@@ -4,4 +4,168 @@ icon: "lucide/Server"
 description: The Copilot Runtime is the backend that connects your frontend to your AI agents, providing authentication, middleware, routing, and more.
 ---
 
-<CopilotRuntime />
+The Copilot Runtime is the backend layer that connects your frontend application to your AI agents. It's set up during the [quickstart](/quickstart) and is the recommended way to use CopilotKit.
+
+## Setting Up the Runtime
+
+The runtime is a lightweight server endpoint that you add to your backend. Here's a minimal example using Next.js:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    // your agents go here
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+Then point your frontend at the endpoint:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKit>
+```
+
+For setup with other backend frameworks (Express, NestJS, Node.js HTTP), see the [quickstart](/quickstart).
+
+## Agents
+
+The runtime supports multiple agent types. `BuiltInAgent` is the primary agent class:
+
+- **Simple mode** — pass a model string, CopilotKit handles everything. Best for quick setup. See [Quickstart](/built-in-agent/quickstart).
+- **Factory mode** — bring your own AI SDK, TanStack AI, or custom LLM backend. Best when you need full control. See [Factory Mode](/built-in-agent/custom-agent).
+
+## The Default Agent
+
+If you register an agent with the name `"default"`, CopilotKit's prebuilt UI components will use it automatically without any additional configuration on the frontend. This is useful when you have one primary agent and don't want to specify an `agentId` everywhere.
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // This agent will be used automatically by CopilotPopup, CopilotSidebar, etc.
+    "default": new HttpAgent({ url: "https://my-agent.example.com" }),
+  },
+});
+```
+
+When you register multiple agents, the `"default"` agent is what powers the chat unless a specific agent is selected. Other agents can still be used by passing their `agentId` to `useAgent` or the prebuilt components.
+
+## What the Runtime Provides
+
+### Authentication and Security
+
+The runtime runs on your server, which means agent communication stays server-side. This gives you a trusted environment to enforce authentication, validate requests, and keep API keys secure. When you use the runtime, safe defaults are put in place so your agent endpoints are not exposed to unauthenticated access.
+
+### AG-UI Middleware
+
+The [AG-UI protocol](/ag-ui-protocol) supports a middleware layer (`agent.use`) for logging, guardrails, request transformation, and more. Because the runtime runs server-side, this middleware executes in a trusted environment where it cannot be tampered with by the client.
+
+### Agent Routing
+
+When you register multiple agents with the runtime, it handles discovery and routing automatically. Your frontend doesn't need to know the details of where each agent lives or how to reach it.
+
+### Premium Features
+
+Features like [threads](/premium/threads), [observability](/premium/observability), and the [inspector](/premium/inspector) are provided through the runtime. These give you conversation persistence, monitoring, and debugging capabilities out of the box.
+
+## Built-in Middleware
+
+The runtime supports two first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent manually.
+
+### A2UI
+
+Pass `a2ui: {}` to automatically apply `A2UIMiddleware` to all registered agents:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {},  // enables A2UI rendering for all agents
+});
+```
+
+To scope it to specific agents only, pass an `agents` list:
+
+```ts
+a2ui: { agents: ["my-agent"] }
+```
+
+On the frontend, the A2UI renderer activates automatically — no extra configuration needed. If you want to override the default theme, pass an `a2ui` prop to `<CopilotKit>`:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+  {children}
+</CopilotKit>
+```
+
+### mcpApps
+
+Pass `mcpApps` to configure MCP servers for all agents from a single place:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  mcpApps: {
+    servers: [
+      { type: "http", url: "http://localhost:3108/mcp", serverId: "my-server" },
+    ],
+  },
+});
+```
+
+Each server entry optionally accepts an `agentId` field to scope that server to a single agent. Without it, the server is available to all agents.
+
+## What If I Want to Connect to My AG-UI Agent Directly?
+
+CopilotKit is built on the [AG-UI protocol](/ag-ui-protocol), which is an open standard. If you want to connect your frontend directly to an AG-UI-compatible agent without the runtime, you can do so by passing agent instances directly to the `CopilotKit` provider:
+
+```tsx
+import { HttpAgent } from "@ag-ui/client";
+
+const myAgent = new HttpAgent({
+  url: "https://my-agent.example.com",
+});
+
+<CopilotKit agents__unsafe_dev_only={{ "my-agent": myAgent }}>
+  <YourApp />
+</CopilotKit>
+```
+
+<Callout type="warn">
+Direct agent connections are intended for development and prototyping. This approach is not recommended for production unless you are confident in your setup, and is not officially supported by CopilotKit. If you run into issues with a direct connection, you will need to troubleshoot on your own.
+</Callout>
+
+There are important things to understand before going this route:
+
+1. **Authentication is your responsibility.** When you use the Copilot Runtime, safe defaults are put in place so that your agent endpoints are not exposed to unauthenticated access. When you connect directly, it is entirely up to you to secure your agent endpoint and manage authentication.
+
+2. **Many ecosystem features won't work.** The AG-UI protocol supports a middleware layer designed to run on the backend. Many features in the CopilotKit ecosystem depend on this server-side middleware. Without the runtime, these features — including [threads](/premium/threads), [observability](/premium/observability), and other capabilities — will not be available.
+
+### Comparison
+
+| | With Runtime | Direct Connection |
+|---|---|---|
+| **Authentication** | Safe defaults provided | You manage it |
+| **AG-UI Middleware** | Runs server-side | Not available |
+| **Agent Routing** | Automatic | Manual |
+| **Ecosystem Features** | Full support | Limited |
+| **CopilotKit Support** | Supported | Not supported |
+| **Setup** | Requires a backend endpoint | Frontend-only |

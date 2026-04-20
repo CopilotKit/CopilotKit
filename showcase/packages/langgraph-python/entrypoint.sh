@@ -1,79 +1,60 @@
 #!/bin/bash
-set -e
+# Launch one langgraph server + one Next.js server per cell, each on its
+# own internal port. All processes share /app/.venv (Python) and
+# /app/node_modules (Node) — installed once at build time via workspaces.
+set -u
 
-echo "========================================="
-echo "[entrypoint] Starting showcase: langgraph-python"
-echo "[entrypoint] Time: $(date -u)"
-echo "[entrypoint] PWD: $(pwd)"
-echo "[entrypoint] PORT=${PORT:-not set}"
-echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
-echo "========================================="
+echo "[entrypoint] column: langgraph-python"
+echo "[entrypoint] OPENAI_API_KEY: ${OPENAI_API_KEY:+set}"
+echo "[entrypoint] LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:+set}"
 
-# Check critical env vars
-echo "[entrypoint] Checking environment variables..."
-if [ -z "$OPENAI_API_KEY" ]; then
-  echo "[entrypoint] WARNING: OPENAI_API_KEY is not set! Agent will fail."
-else
-  echo "[entrypoint] OPENAI_API_KEY: set (${#OPENAI_API_KEY} chars)"
-fi
+pids=()
+i=0
 
-if [ -z "$ANTHROPIC_API_KEY" ]; then
-  echo "[entrypoint] INFO: ANTHROPIC_API_KEY is not set"
-else
-  echo "[entrypoint] ANTHROPIC_API_KEY: set (${#ANTHROPIC_API_KEY} chars)"
-fi
+# Sort cell names (without trailing slash) so ASCII '/' doesn't reorder
+# hyphenated prefixes like agentic-chat vs agentic-chat-reasoning.
+# Must match sync-lgp-ports.mjs (JS string sort without slashes).
+for cell in $(ls demos/ | LC_ALL=C sort); do
+  next_port=$((10000 + i))
+  lg_port=$((8123 + i))
 
-if [ -z "$LANGSMITH_API_KEY" ]; then
-  echo "[entrypoint] INFO: LANGSMITH_API_KEY is not set (tracing disabled)"
-else
-  echo "[entrypoint] LANGSMITH_API_KEY: set (${#LANGSMITH_API_KEY} chars)"
-fi
+  echo "[entrypoint] $cell → Next.js :$next_port, langgraph :$lg_port"
 
-# Verify files exist
-echo "[entrypoint] Checking files..."
-ls -la langgraph.json 2>/dev/null && echo "[entrypoint] langgraph.json: OK" || echo "[entrypoint] ERROR: langgraph.json missing!"
-ls -la src/agents/main.py 2>/dev/null && echo "[entrypoint] src/agents/main.py: OK" || echo "[entrypoint] ERROR: src/agents/main.py missing!"
-ls -la src/agents/tools.py 2>/dev/null && echo "[entrypoint] src/agents/tools.py: OK" || echo "[entrypoint] ERROR: src/agents/tools.py missing!"
-ls -la .next/server 2>/dev/null > /dev/null && echo "[entrypoint] .next/server: OK" || echo "[entrypoint] ERROR: .next build missing!"
+  # langgraph — shared /app/.venv. Wrapped in a forever-loop so an OOM-kill
+  # (common with 50 concurrent dev processes in a memory-constrained VM)
+  # respawns the process instead of silently leaving a cell blank.
+  (
+    cd "/app/demos/$cell/backend"
+    while true; do
+      python -m langgraph_cli dev \
+        --config langgraph.json \
+        --host 0.0.0.0 \
+        --port "$lg_port" \
+        --no-browser 2>&1 | sed "s|^|[$cell-lg] |"
+      echo "[$cell-lg] exited with $? — respawning in 2s"
+      sleep 2
+    done
+  ) &
+  pids+=("$!")
 
-echo "[entrypoint] langgraph.json contents:"
-cat langgraph.json
+  # Next.js — shared /app/node_modules via npm workspaces. Same respawn loop.
+  (
+    cd "/app/demos/$cell/frontend"
+    while true; do
+      LANGGRAPH_DEPLOYMENT_URL="http://localhost:$lg_port" \
+        npx next dev -p "$next_port" 2>&1 | sed "s|^|[$cell-next] |"
+      echo "[$cell-next] exited with $? — respawning in 2s"
+      sleep 2
+    done
+  ) &
+  pids+=("$!")
 
-echo "========================================="
-echo "[entrypoint] Starting LangGraph agent server on port 8123..."
-echo "========================================="
+  i=$((i + 1))
+done
 
-python -m langgraph_cli dev \
-  --config langgraph.json \
-  --host 0.0.0.0 \
-  --port 8123 \
-  --no-browser 2>&1 | sed 's/^/[langgraph] /' &
-LANGGRAPH_PID=$!
-
-# Give langgraph a moment to start
-sleep 3
-
-# Check if langgraph is still running
-if kill -0 $LANGGRAPH_PID 2>/dev/null; then
-  echo "[entrypoint] LangGraph agent server started (PID: $LANGGRAPH_PID)"
-else
-  echo "[entrypoint] ERROR: LangGraph agent server failed to start!"
-  echo "[entrypoint] Continuing with Next.js only (demos will show agent errors)"
-fi
-
-echo "========================================="
-echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
-echo "========================================="
-
-PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
-NEXTJS_PID=$!
-
-echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
-echo "[entrypoint] Both processes running. Waiting..."
-
-# Wait for either process to exit
-wait -n
-EXIT_CODE=$?
-echo "[entrypoint] A process exited with code $EXIT_CODE"
-exit $EXIT_CODE
+echo "[entrypoint] ${#pids[@]} processes launched. Waiting..."
+# `wait` (no -n) keeps the container alive as long as any child process
+# lives. Using `wait -n` would tear the whole container down the moment a
+# single cell's Next/langgraph process exited — including clean exits.
+wait
+echo "[entrypoint] all child processes exited"
