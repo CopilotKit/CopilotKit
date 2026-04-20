@@ -3,12 +3,14 @@
 import React from "react";
 
 /**
- * Step shape matches the `Step` TypedDict emitted by the Python agent.
- * Status transitions: pending -> running -> completed.
+ * Step shape matches the `Step` TypedDict emitted by the Python deep agent's
+ * custom `set_steps` tool (see `src/agents/gen_ui_agent.py`).
+ * Status transitions: pending -> in_progress -> completed.
  */
 export type Step = {
-  description: string;
-  status: "pending" | "running" | "completed";
+  id: string;
+  title: string;
+  status: "pending" | "in_progress" | "completed";
 };
 
 export function InlineAgentStateCard({
@@ -45,7 +47,7 @@ export function InlineAgentStateCard({
         <ol className="mt-3 space-y-2">
           {steps.map((step, idx) => (
             <li
-              key={idx}
+              key={step.id ?? idx}
               data-testid="agent-step"
               data-status={step.status}
               className="flex items-start gap-3"
@@ -56,12 +58,12 @@ export function InlineAgentStateCard({
                   "text-xs leading-5 " +
                   (step.status === "completed"
                     ? "text-gray-500 line-through"
-                    : step.status === "running"
+                    : step.status === "in_progress"
                       ? "text-indigo-700 font-medium"
                       : "text-gray-700")
                 }
               >
-                {step.description}
+                {step.title}
               </span>
             </li>
           ))}
@@ -97,7 +99,7 @@ function StepMarker({
       </span>
     );
   }
-  if (status === "running") {
+  if (status === "in_progress") {
     return (
       <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-indigo-500 text-white">
         <svg

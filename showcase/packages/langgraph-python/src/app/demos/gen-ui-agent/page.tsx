@@ -14,11 +14,12 @@ import { InlineAgentStateCard, type Step } from "./InlineAgentStateCard";
 /**
  * Agentic Generative UI — v1 In-Chat State Rendering
  *
- * The agent plans and executes a multi-step task, publishing a structured
- * `steps` list to its LangGraph state via `copilotkit_emit_state`. The
- * v1 `useCoAgentStateRender` hook subscribes to that state and renders an
- * inline progress tracker inside the chat transcript — no `messageView`
- * plumbing, no manual `useAgent` subscription.
+ * A minimal deep agent defines its OWN state schema (`steps: list[Step]`) on
+ * the backend and exposes a custom `set_steps` tool that the model calls to
+ * mutate that state. Every `set_steps` call streams the updated `steps` to
+ * the client. The v1 `useCoAgentStateRender` hook subscribes to that state
+ * and renders an inline progress tracker inside the chat transcript — no
+ * `messageView` plumbing, no manual `useAgent` subscription.
  *
  * Reference: https://docs.copilotkit.ai/reference/v1/hooks/useCoAgentStateRender
  */
@@ -34,7 +35,8 @@ export default function GenUiAgentDemo() {
   );
 }
 
-// State shape mirrors the Python agent's `AgentState.steps` field.
+// State shape mirrors the deep agent's explicit `steps` field, declared in
+// `GenUiAgentState` on the backend and mutated by the custom `set_steps` tool.
 type AgentState = {
   steps?: Step[];
 };
@@ -60,11 +62,11 @@ function Chat() {
   });
 
   // @region[use-coagent-state-render]
-  // Subscribe to the agent's `steps` state. Every time the Python agent
-  // calls `copilotkit_emit_state({"steps": ...})`, this `render` function
-  // re-runs with the fresh state and an updated `status`
-  // ("inProgress" while the agent is running, "complete" when the node
-  // finishes). Returning a React element inlines the card into the chat.
+  // Subscribe to the deep agent's `steps` state. The custom `set_steps` tool
+  // updates it every time the model advances a step, streaming each
+  // transition to the UI where this `render` callback re-runs with the
+  // fresh state and an updated `status` ("inProgress" while the agent is
+  // running, "complete" when done).
   useCoAgentStateRender<AgentState>({
     name: "gen-ui-agent",
     render: ({ state, status }) => {
