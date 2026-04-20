@@ -206,7 +206,7 @@ export async function DocsPageView({
                     ...docsComponents,
                     Snippet: (props: Record<string, unknown>) => (
                       <Snippet
-                        {...(props as { region: string })}
+                        {...(props as Record<string, string | undefined>)}
                         defaultFramework={defaultFramework}
                         defaultCell={defaultCell}
                       />

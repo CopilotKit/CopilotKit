@@ -1,24 +1,39 @@
-// <Snippet> — server component that resolves a named region from the
-// showcase's demo-content bundle and renders it as a code block.
+// <Snippet> — server component that resolves code from the showcase's
+// demo-content bundle and renders it as a code block.
 //
-// Usage in MDX:
+// Two lookup modes:
 //
-//     <Snippet region="provider-setup" framework="langgraph-python" cell="agentic-chat" />
+//   1) Named region (preferred when a region marker exists):
 //
-// The bundle (`shell/src/data/demo-content.json`) is produced by
-// `showcase/scripts/bundle-demo-content.ts` and contains, per demo, a
-// `regions` map keyed by region name. Each region records its source file,
-// line range, language, and extracted code. Region markers
-// (`// @region[...]`, `// @endregion[...]`) are stripped from the bundled
-// file contents before they reach the `/code` viewer.
+//        <Snippet region="provider-setup" cell="agentic-chat" />
+//
+//      Pulls the extracted code for `@region[provider-setup]` inside the
+//      cell's source. Regions are authored in the cell with matching
+//      `// @region[name]` / `// @endregion[name]` comments and baked into
+//      `shell/src/data/demo-content.json` by
+//      `showcase/scripts/bundle-demo-content.ts`.
+//
+//   2) File + optional line range (for arbitrary files, no marker required):
+//
+//        <Snippet cell="chat-customization-css"
+//                 file="src/app/demos/chat-customization-css/theme.css"
+//                 lines="1-40" />
+//
+//      Looks the path up in the bundled `files[]` list and slices to the
+//      requested line range. If `lines` is omitted the whole file is shown.
+//      Line numbers are 1-indexed and inclusive on both ends. Single-line
+//      ranges may be written as `lines="12"`.
+//
+// If `region` is provided it always wins — `file`/`lines` are ignored in that
+// case (this keeps existing call sites working unchanged).
 //
 // `framework` defaults logic:
 //   1. Explicit `framework` prop (highest priority — any page can override)
 //   2. `defaultFramework` inferred from the doc page's URL (set by the
 //      page renderer via the `FrameworkProvider` context).
 //
-// When a region can't be found we render a visible warning box rather than
-// throwing — docs pages should degrade gracefully while authors iterate.
+// When a region/file can't be found we render a visible warning box rather
+// than throwing — docs pages should degrade gracefully while authors iterate.
 
 import React from "react";
 import hljs from "highlight.js";
@@ -33,8 +48,18 @@ interface Region {
   language: string;
 }
 
+interface DemoFile {
+  filename: string;
+  language: string;
+  content: string;
+  // `highlighted` is whatever the bundler produced — sometimes a string of
+  // pre-rendered HTML, sometimes a boolean flag. We don't consume it here.
+  highlighted?: unknown;
+}
+
 interface DemoRecord {
   regions?: Record<string, Region>;
+  files?: DemoFile[];
 }
 
 const demos: Record<string, DemoRecord> = (
@@ -43,7 +68,17 @@ const demos: Record<string, DemoRecord> = (
 
 interface SnippetProps {
   /** Region name declared via `@region[<name>]` in the cell's source. */
-  region: string;
+  region?: string;
+  /**
+   * Path to a bundled file in the cell (matches `files[i].filename` in
+   * `demo-content.json`). Ignored when `region` is also passed.
+   */
+  file?: string;
+  /**
+   * Line range within the file — e.g. `"10-20"`, or a single line `"5"`.
+   * Applied only when `file` is set. Omit to render the full file.
+   */
+  lines?: string;
   /**
    * Integration slug — e.g. `langgraph-python`, `mastra`, `pydantic-ai`.
    * When omitted, the component falls back to `defaultFramework` (see below),
@@ -97,8 +132,80 @@ function resolveHljsLanguage(lang: string): string | null {
   return map[lang] ?? null;
 }
 
+/**
+ * Parse a `lines` prop like `"10-20"` or `"5"` into `[start, end]` (1-indexed,
+ * inclusive on both ends). Returns null on invalid input.
+ */
+function parseLineRange(input: string | undefined): [number, number] | null {
+  if (!input) return null;
+  const trimmed = input.trim();
+  const dash = trimmed.match(/^(\d+)\s*[-\u2013]\s*(\d+)$/);
+  if (dash) {
+    const start = parseInt(dash[1], 10);
+    const end = parseInt(dash[2], 10);
+    if (start > 0 && end >= start) return [start, end];
+    return null;
+  }
+  const single = trimmed.match(/^(\d+)$/);
+  if (single) {
+    const n = parseInt(single[1], 10);
+    if (n > 0) return [n, n];
+  }
+  return null;
+}
+
+/**
+ * Build a synthetic Region from a DemoFile + optional line range. Used by the
+ * file+lines lookup path so the rest of the render pipeline is unchanged.
+ */
+function regionFromFile(
+  file: DemoFile,
+  lines?: string,
+): Region | WarningMessage {
+  const allLines = file.content.split("\n");
+  if (!lines) {
+    return {
+      file: file.filename,
+      startLine: 1,
+      endLine: allLines.length,
+      code: file.content.replace(/\n$/, ""),
+      language: file.language,
+    };
+  }
+  const range = parseLineRange(lines);
+  if (!range) {
+    return {
+      warning: `Invalid lines="${lines}" — expected "A-B" or single line "A".`,
+    };
+  }
+  const [start, end] = range;
+  if (start > allLines.length) {
+    return {
+      warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
+    };
+  }
+  const slice = allLines.slice(start - 1, end).join("\n");
+  return {
+    file: file.filename,
+    startLine: start,
+    endLine: Math.min(end, allLines.length),
+    code: slice,
+    language: file.language,
+  };
+}
+
+interface WarningMessage {
+  warning: string;
+}
+
+function isWarning(v: Region | WarningMessage): v is WarningMessage {
+  return (v as WarningMessage).warning !== undefined;
+}
+
 export function Snippet({
   region,
+  file,
+  lines,
   framework,
   cell,
   defaultFramework,
@@ -109,11 +216,22 @@ export function Snippet({
   const resolvedFramework = framework ?? defaultFramework;
   const resolvedCell = cell ?? defaultCell;
 
+  if (!region && !file) {
+    return (
+      <WarningBox>
+        <code>&lt;Snippet /&gt;</code> needs either <code>region</code> or{" "}
+        <code>file</code>. Use <code>region="my-region"</code> for tagged blocks
+        in the source, or <code>file="src/..." lines="10-20"</code> to pull an
+        arbitrary file.
+      </WarningBox>
+    );
+  }
+
   if (!resolvedFramework || !resolvedCell) {
     return (
       <WarningBox>
-        <code>{`<Snippet region="${region}" />`}</code> was rendered without a
-        framework + cell (resolved framework:{" "}
+        <code>{`<Snippet ${region ? `region="${region}"` : `file="${file}"`} />`}</code>{" "}
+        was rendered without a framework + cell (resolved framework:{" "}
         <code>{resolvedFramework ?? "—"}</code>, cell:{" "}
         <code>{resolvedCell ?? "—"}</code>). Pass them explicitly or configure a
         page default.
@@ -132,21 +250,49 @@ export function Snippet({
     );
   }
 
-  const reg = demo.regions?.[region];
-  if (!reg) {
-    const available = Object.keys(demo.regions ?? {});
-    return (
-      <WarningBox>
-        Region <code>{region}</code> not found in <code>{key}</code>. Tag the
-        relevant source lines with <code>{`// @region[${region}]`}</code> /{" "}
-        <code>{`// @endregion[${region}]`}</code>.
-        {available.length > 0 && (
-          <div className="mt-1 text-xs text-[var(--text-muted)]">
-            Available: {available.join(", ")}
-          </div>
-        )}
-      </WarningBox>
-    );
+  // Resolve region — two modes share the same downstream render path.
+  let reg: Region;
+  if (region) {
+    const found = demo.regions?.[region];
+    if (!found) {
+      const available = Object.keys(demo.regions ?? {});
+      return (
+        <WarningBox>
+          Region <code>{region}</code> not found in <code>{key}</code>. Tag the
+          relevant source lines with <code>{`// @region[${region}]`}</code> /{" "}
+          <code>{`// @endregion[${region}]`}</code>.
+          {available.length > 0 && (
+            <div className="mt-1 text-xs text-[var(--text-muted)]">
+              Available: {available.join(", ")}
+            </div>
+          )}
+        </WarningBox>
+      );
+    }
+    reg = found;
+  } else {
+    // file+lines mode
+    const demoFile = demo.files?.find((f) => f.filename === file);
+    if (!demoFile) {
+      const available = (demo.files ?? []).map((f) => f.filename);
+      return (
+        <WarningBox>
+          File <code>{file}</code> not bundled in <code>{key}</code>. Check the
+          path (relative to the cell root).
+          {available.length > 0 && (
+            <div className="mt-1 text-xs text-[var(--text-muted)]">
+              Available: {available.slice(0, 6).join(", ")}
+              {available.length > 6 ? ` (+${available.length - 6} more)` : ""}
+            </div>
+          )}
+        </WarningBox>
+      );
+    }
+    const result = regionFromFile(demoFile, lines);
+    if (isWarning(result)) {
+      return <WarningBox>{result.warning}</WarningBox>;
+    }
+    reg = result;
   }
 
   const hljsLang = resolveHljsLanguage(reg.language);
