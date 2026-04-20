@@ -2,40 +2,32 @@ import Link from "next/link";
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-
-const CONTENT_DIR = path.join(process.cwd(), "src/content/reference");
-
-type RefItem = { slug: string; title: string; description?: string };
-
-function loadItems(subdir: string): RefItem[] {
-  const dir = path.join(CONTENT_DIR, subdir);
-  if (!fs.existsSync(dir)) return [];
-  return fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".mdx"))
-    .map((f) => {
-      const raw = fs.readFileSync(path.join(dir, f), "utf-8");
-      const { data } = matter(raw);
-      return {
-        slug: `${subdir}/${f.replace(/\.mdx$/, "")}`,
-        title: (data.title as string) || f.replace(/\.mdx$/, ""),
-        description: data.description as string | undefined,
-      };
-    });
-}
+import {
+  REFERENCE_CONTENT_DIR,
+  loadReferenceItems,
+} from "@/lib/reference-items";
 
 export default function ReferencePage() {
-  const components = loadItems("components");
-  const hooks = loadItems("hooks");
+  const components = loadReferenceItems("components");
+  const hooks = loadReferenceItems("hooks");
 
-  // Also load the index page frontmatter for the intro
-  let intro = "";
-  const indexPath = path.join(CONTENT_DIR, "index.mdx");
+  // Also load the index page frontmatter for the intro. Guarded so a
+  // malformed frontmatter block falls back to a default rather than
+  // crashing the whole index page.
+  let intro = "API Reference for the next-generation CopilotKit React API.";
+  const indexPath = path.join(REFERENCE_CONTENT_DIR, "index.mdx");
   if (fs.existsSync(indexPath)) {
-    const { data } = matter(fs.readFileSync(indexPath, "utf-8"));
-    intro =
-      (data.description as string) ||
-      "API Reference for the next-generation CopilotKit React API.";
+    try {
+      const { data } = matter(fs.readFileSync(indexPath, "utf-8"));
+      if (typeof data.description === "string" && data.description.length > 0) {
+        intro = data.description;
+      }
+    } catch (err) {
+      console.error(
+        `[reference] Failed to parse frontmatter in ${indexPath}:`,
+        err,
+      );
+    }
   }
 
   return (

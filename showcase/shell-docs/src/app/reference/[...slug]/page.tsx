@@ -13,30 +13,11 @@ import {
   Accordion,
 } from "@/components/mdx-components";
 import { SidebarNav } from "@/components/sidebar-nav";
-
-const CONTENT_DIR = path.join(process.cwd(), "src/content/reference");
-
-type NavItem = { slug: string; title: string; category: string };
-
-function getAllItems(): NavItem[] {
-  const items: NavItem[] = [];
-
-  for (const subdir of ["components", "hooks"]) {
-    const dir = path.join(CONTENT_DIR, subdir);
-    if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
-      const raw = fs.readFileSync(path.join(dir, f), "utf-8");
-      const { data } = matter(raw);
-      items.push({
-        slug: `${subdir}/${f.replace(/\.mdx$/, "")}`,
-        title: (data.title as string) || f.replace(/\.mdx$/, ""),
-        category: subdir === "components" ? "Components" : "Hooks",
-      });
-    }
-  }
-
-  return items;
-}
+import {
+  REFERENCE_CONTENT_DIR,
+  loadAllReferenceItems,
+  referenceStaticParams,
+} from "@/lib/reference-items";
 
 // next-mdx-remote components map
 const mdxComponents = {
@@ -49,18 +30,38 @@ const mdxComponents = {
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
 
-export function generateStaticParams() {
-  const params: { slug: string[] }[] = [];
-
-  for (const subdir of ["components", "hooks"]) {
-    const dir = path.join(CONTENT_DIR, subdir);
-    if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
-      params.push({ slug: [subdir, f.replace(/\.mdx$/, "")] });
+// Strip leading `import …` lines from the top of an MDX source without
+// touching `import …` lines that appear inside fenced code blocks. The
+// previous implementation filtered any line matching /^import\s+/, which
+// silently mangled doc code samples like `import os` inside Python fences.
+// TODO(dedup): hoist into a shared helper once the ag-ui page and this
+// one both import it (both already have near-identical copies).
+function stripImportsFenceAware(source: string): string {
+  const lines = source.split("\n");
+  const out: string[] = [];
+  let inFence = false;
+  let fenceMarker = "";
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
+    if (fenceMatch) {
+      if (!inFence) {
+        inFence = true;
+        fenceMarker = fenceMatch[1];
+      } else if (line.trim().startsWith(fenceMarker)) {
+        inFence = false;
+        fenceMarker = "";
+      }
+      out.push(line);
+      continue;
     }
+    if (!inFence && /^import\s+/.test(line)) continue;
+    out.push(line);
   }
+  return out.join("\n");
+}
 
-  return params;
+export function generateStaticParams() {
+  return referenceStaticParams();
 }
 
 export default async function ReferenceSlugPage({
@@ -70,24 +71,43 @@ export default async function ReferenceSlugPage({
 }) {
   const { slug } = await params;
   const slugPath = slug.join("/");
-  const filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
+  const filePath = path.join(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
 
   if (!fs.existsSync(filePath)) {
     notFound();
   }
 
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const { content, data } = matter(raw);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[reference] Failed to read ${filePath}:`, err);
+    notFound();
+  }
 
-  // Strip import lines — next-mdx-remote doesn't support them
-  const cleanedContent = content
-    .split("\n")
-    .filter((line) => !line.match(/^import\s+/))
-    .join("\n");
+  let content = "";
+  let data: Record<string, unknown> = {};
+  try {
+    const parsed = matter(raw);
+    content = parsed.content;
+    data = parsed.data;
+  } catch (err) {
+    console.error(
+      `[reference] Failed to parse frontmatter in ${filePath}:`,
+      err,
+    );
+    notFound();
+  }
 
-  const allItems = getAllItems();
-  const title = (data.title as string) || slug[slug.length - 1];
-  const description = data.description as string | undefined;
+  const cleanedContent = stripImportsFenceAware(content);
+
+  const allItems = loadAllReferenceItems();
+  const title =
+    typeof data.title === "string" && data.title.length > 0
+      ? data.title
+      : slug[slug.length - 1];
+  const description =
+    typeof data.description === "string" ? data.description : undefined;
 
   return (
     <div className="flex min-h-[calc(100vh-53px)]">
