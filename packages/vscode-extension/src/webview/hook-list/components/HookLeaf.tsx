@@ -9,7 +9,6 @@ interface Props {
   workspaceRoot: string | null;
   onPreview(site: HookCallSite): void;
   onOpenSource(site: HookCallSite): void;
-  onCopyIdentity(site: HookCallSite): void;
 }
 
 /**
@@ -72,7 +71,6 @@ export function HookLeaf({
   workspaceRoot,
   onPreview,
   onOpenSource,
-  onCopyIdentity,
 }: Props) {
   const badge = statusBadge(status);
   const label = site.name ?? `line:${site.loc.line}`;
@@ -98,8 +96,8 @@ export function HookLeaf({
       <span className="truncate text-[11px] text-[var(--vscode-descriptionForeground)]">
         {location}
       </span>
-      <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        {category === "render" && (
+      {category === "render" && (
+        <span className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             onClick={(e) => {
@@ -111,19 +109,8 @@ export function HookLeaf({
           >
             {"\u25B7"}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCopyIdentity(site);
-          }}
-          title="Copy hook identity"
-          className="text-[10px] px-1 py-0.5 rounded hover:bg-[var(--vscode-toolbar-hoverBackground)]"
-        >
-          {"\u29C9"}
-        </button>
-      </span>
+        </span>
+      )}
     </div>
   );
 }

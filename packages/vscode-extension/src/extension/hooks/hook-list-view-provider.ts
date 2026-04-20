@@ -14,7 +14,6 @@ import { getNonce } from "../utils";
 export interface HookListCallbacks {
   onPreview(site: HookCallSite): void | Promise<void>;
   onOpenSource(site: HookCallSite): void | Promise<void>;
-  onCopyIdentity(site: HookCallSite): void | Promise<void>;
   onRefresh(): void | Promise<void>;
 }
 
@@ -93,9 +92,6 @@ export class HookListViewProvider implements vscode.WebviewViewProvider {
         break;
       case "openSource":
         void this.callbacks.onOpenSource(msg.site);
-        break;
-      case "copyIdentity":
-        void this.callbacks.onCopyIdentity(msg.site);
         break;
       case "refresh":
         void this.callbacks.onRefresh();

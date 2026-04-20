@@ -56,8 +56,6 @@ export function App() {
     vscode.postMessage({ type: "preview", site });
   const onOpenSource = (site: HookCallSite) =>
     vscode.postMessage({ type: "openSource", site });
-  const onCopyIdentity = (site: HookCallSite) =>
-    vscode.postMessage({ type: "copyIdentity", site });
   const onRefresh = () => vscode.postMessage({ type: "refresh" });
 
   const hasRegistered = grouped.registered.length > 0;
@@ -92,7 +90,6 @@ export function App() {
                 workspaceRoot={workspaceRoot}
                 onPreview={onPreview}
                 onOpenSource={onOpenSource}
-                onCopyIdentity={onCopyIdentity}
               />
             ))}
           </div>

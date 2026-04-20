@@ -22,5 +22,4 @@ export type HookListFromWebviewMessage =
   | { type: "ready" }
   | { type: "preview"; site: HookCallSite }
   | { type: "openSource"; site: HookCallSite }
-  | { type: "copyIdentity"; site: HookCallSite }
   | { type: "refresh" };

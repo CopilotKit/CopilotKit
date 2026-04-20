@@ -97,7 +97,6 @@ export function activateHookExplorer(
     {
       onPreview: previewSite,
       onOpenSource: openSourceSite,
-      onCopyIdentity: copyIdentity,
       onRefresh: () => doScan(),
     },
   );

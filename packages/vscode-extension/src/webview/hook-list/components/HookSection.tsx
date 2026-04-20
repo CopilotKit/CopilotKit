@@ -12,7 +12,6 @@ interface Props {
   workspaceRoot: string | null;
   onPreview(site: HookCallSite): void;
   onOpenSource(site: HookCallSite): void;
-  onCopyIdentity(site: HookCallSite): void;
 }
 
 export function HookSection({
@@ -21,7 +20,6 @@ export function HookSection({
   workspaceRoot,
   onPreview,
   onOpenSource,
-  onCopyIdentity,
 }: Props) {
   const [expanded, setExpanded] = useState(true);
   const count = group.sites.length;
@@ -56,7 +54,6 @@ export function HookSection({
               workspaceRoot={workspaceRoot}
               onPreview={onPreview}
               onOpenSource={onOpenSource}
-              onCopyIdentity={onCopyIdentity}
             />
           ))}
         </div>
