@@ -114,6 +114,25 @@ describe("metrics registry", () => {
     );
   });
 
+  // HF-A5: `internal_backup_failures_total` is a first-class counter —
+  // distinct series from probe_runs so backup failures don't pollute the
+  // probe-run dashboards. Must register in COUNTER_NAMES (typecheck
+  // enforces caller correctness) and must render in the Prometheus output.
+  it("exposes internal_backup_failures_total as a dedicated counter", () => {
+    const reg = createMetricsRegistry();
+    reg.inc("internal_backup_failures_total");
+    reg.inc("internal_backup_failures_total");
+    const text = renderPrometheus(reg);
+    expect(text).toContain(
+      "# TYPE showcase_ops_internal_backup_failures_total counter",
+    );
+    expect(text).toMatch(
+      /^showcase_ops_internal_backup_failures_total\s+2$/m,
+    );
+    // Must not have leaked into probe_runs.
+    expect(text).toMatch(/^showcase_ops_probe_runs 0$/m);
+  });
+
   it("emits mixed label sets consistently across empty and populated series", () => {
     // Two histograms in one registry: one with observations, the other
     // empty (N/A today but guards against a future second histogram).

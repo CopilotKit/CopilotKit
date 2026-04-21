@@ -50,6 +50,14 @@ const COUNTER_NAMES = [
   "rule_reloads",
   "webhook_rejections",
   "hmac_failures",
+  // HF-A5: distinct counter for `internal.backup.failed` bus events. Pre-fix
+  // the orchestrator folded backup failures into `probe_runs` under a fake
+  // `dimension=internal_backup` label, which polluted the probe-run
+  // dashboards (probes that never actually ran inflated the probe_runs
+  // series) and made alert rules keying on `probe_runs{dimension=~...}`
+  // see phantom signal. Backup failures are a first-class, low-volume
+  // counter on their own series.
+  "internal_backup_failures_total",
 ] as const;
 type CounterName = (typeof COUNTER_NAMES)[number];
 
@@ -69,6 +77,8 @@ const COUNTER_HELP: Record<CounterName, string> = {
     "Total webhook request rejections grouped by reason (HMAC verify + payload validation).",
   hmac_failures:
     "DEPRECATED. Alias of webhook_rejections filtered to HMAC-verification reasons. Prefer webhook_rejections{reason=...}.",
+  internal_backup_failures_total:
+    "Total internal.backup.failed bus emissions (S3 backup producer/uploader failures).",
 };
 
 const HISTOGRAM_HELP: Record<HistogramName, string> = {

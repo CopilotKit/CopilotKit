@@ -20,7 +20,7 @@ import { deployEventToProbeResult } from "./probes/deploy-result.js";
 import { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } from "./probes/redirect-decommission.js";
 import { aimockWiringProbe } from "./probes/aimock-wiring.js";
 import { logger, reloadLogLevel } from "./logger.js";
-import type { Target } from "./types/index.js";
+import type { State, StatusRecord, Target } from "./types/index.js";
 
 export interface BootOptions {
   configDir?: string;
@@ -62,13 +62,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
       }),
     ),
   );
-  // Backup failures are first-class signals: increment a dimension-labelled
-  // probe_runs series so the existing dashboards/alert rules can catch them
-  // via the same `dimension=` grouping used for every other signal, and
-  // emit a warn log for human-visible triage.
+  // HF-A5: backup failures get their own dedicated counter
+  // (`internal_backup_failures_total`) rather than sharing the `probe_runs`
+  // series with a synthetic `dimension=internal_backup` label. Pre-fix,
+  // backup failures inflated probe-run dashboards and alert rules keying
+  // on `probe_runs{dimension=~...}` saw phantom signal from events that
+  // never actually ran a probe. Keep the bus emit so alert rules subscribed
+  // to `internal.backup.failed` still fire, and keep the human-readable
+  // warn log for log-alerts pipelines.
   busUnsubs.push(
     bus.on("internal.backup.failed", (payload) => {
-      metrics.inc("probe_runs", { dimension: "internal_backup" });
+      metrics.inc("internal_backup_failures_total");
       logger.warn("orchestrator.backup-failed", { err: payload.err });
     }),
   );
@@ -94,6 +98,22 @@ export async function boot(opts: BootOptions = {}): Promise<{
     },
   });
 
+  // HF-A1: give the alert engine a thin reader over the `status` collection
+  // so `dispatchCronAlert` can thread the real prior state into the
+  // synthesized WriteOutcome. Failures inside here flow up as rejections —
+  // the engine's own catch logs a warn and falls back to `previousState:
+  // null`. Keep the implementation inline (rather than another module) so
+  // the dependency surface stays trivially auditable.
+  const statusReader = {
+    async getStateByKey(key: string): Promise<State | null> {
+      const row = await pb.getFirst<StatusRecord>(
+        "status",
+        `key = ${JSON.stringify(key)}`,
+      );
+      return row?.state ?? null;
+    },
+  };
+
   const engine = createAlertEngine({
     bus,
     renderer,
@@ -107,6 +127,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
       repo: process.env.REPO ?? "CopilotKit/CopilotKit",
     },
     bootstrapWindowMs: opts.bootstrapWindowMs,
+    statusReader,
   });
   engine.start();
 
