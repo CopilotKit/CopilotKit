@@ -226,6 +226,56 @@ describe("createS3Backup", () => {
     expect(uploads[0]!.contentType).toBe("application/octet-stream");
   });
 
+  it("re-throws when readSource (producer) rejects — does NOT upload (B10)", async () => {
+    // Regression (B10): we test the upload-side rejection but never the
+    // producer-side rejection. If `pb.createBackup` or
+    // `pb.downloadBackup` fails, the failure must propagate — the
+    // scheduler needs to see the error AND we must not attempt a
+    // zero-byte upload or a partial object on S3. Assert: the upload
+    // is skipped entirely (uploader never called), the error is logged
+    // at error, the failure-emitter fires, and the error re-throws to
+    // the scheduler.
+    const logger = fakeLogger();
+    const uploaderCalls: number[] = [];
+    const uploader: S3Uploader = {
+      async putObject() {
+        uploaderCalls.push(Date.now());
+      },
+    };
+    const events: Array<{ event: string; payload: unknown }> = [];
+    const backup = createS3Backup({
+      bucket: "b",
+      region: "us-east-1",
+      readSource: async () => {
+        throw new Error("pb createBackup failed: 500");
+      },
+      uploader,
+      logger,
+      now: () => new Date("2026-04-20T00:00:00Z"),
+      onFailure: {
+        emit(event, payload) {
+          events.push({ event, payload });
+        },
+      },
+    });
+    await expect(backup.run()).rejects.toThrow(/pb createBackup failed/);
+    // Crucially, the uploader was NEVER called — a failed producer
+    // must not result in a partial/empty object on S3.
+    expect(uploaderCalls).toHaveLength(0);
+    // Failure-emit fired so the alert engine can catch it.
+    expect(events).toHaveLength(1);
+    expect(events[0]!.event).toBe("internal.backup.failed");
+    expect((events[0]!.payload as { err: string }).err).toContain(
+      "pb createBackup failed",
+    );
+    // Error log carries the failure reason.
+    expect(
+      logger.records.some(
+        (r) => r.level === "error" && r.msg === "s3-backup.failed",
+      ),
+    ).toBe(true);
+  });
+
   it("is disabled when bucket is empty — run() no-ops and logs at info", async () => {
     const logger = fakeLogger();
     const uploader: S3Uploader = { putObject: vi.fn() };

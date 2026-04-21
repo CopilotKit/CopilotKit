@@ -69,6 +69,15 @@ const MAX_AUTH_RETRIES = 1;
 // fall back to exponential backoff.
 const DEFAULT_RETRY_AFTER_MS = 500;
 
+// Minimum floor applied when a caller-provided Retry-After parses to 0
+// (`Retry-After: 0`). Historically the loop short-circuited `waitMs <= 0`
+// which returned the 429 immediately without retrying. Intent is "retry
+// right away, with a small floor so we don't spin." B1: apply
+// MIN_RETRY_AFTER_MS instead of short-circuiting on a zero-valued header;
+// the only legitimate short-circuit is when the outer retry budget is
+// exhausted (`remainingBudgetMs() <= 0`).
+const MIN_RETRY_AFTER_MS = 100;
+
 // PB returns a 400 with a body containing "validation_not_unique" on unique-
 // index violations. Shape of the error body varies across versions, so we
 // match the string fragment rather than parsing JSON.
@@ -185,8 +194,25 @@ export function createPbClient(config: PbClientConfig): PbClient {
     if (header) {
       const seconds = Number(header);
       if (Number.isFinite(seconds) && seconds >= 0) {
-        return Math.min(seconds * 1000, RETRY_AFTER_MAX_MS);
+        // B1: `Retry-After: 0` is a valid directive from the server
+        // ("retry immediately"). Before the floor, seconds=0 returned 0
+        // and the retry loop short-circuited on `waitMs <= 0`, treating
+        // the 429 as terminal. Apply MIN_RETRY_AFTER_MS so we retry
+        // without spinning.
+        const ms = Math.max(seconds * 1000, MIN_RETRY_AFTER_MS);
+        return Math.min(ms, RETRY_AFTER_MAX_MS);
       }
+      // B2: HTTP-date form (RFC 7231 §7.1.3) is legal but pb-client only
+      // honors the seconds-only form. PB itself emits seconds, but a CDN
+      // (Cloudflare, Fastly) in front of PB can rewrite to HTTP-date —
+      // when that happens we can't parse the wall-clock offset here and
+      // fall through to exponential backoff. Warn once-per-request so
+      // operators notice the mismatch and can either drop the CDN
+      // Retry-After rewrite or port this parser to RFC 7231.
+      logger.warn("pb-client.retry-after-unparseable", {
+        header,
+        hint: "only Retry-After: <seconds> is honored; HTTP-date form falls back to exponential backoff",
+      });
     }
     // Fall back to exponential backoff when no parseable header.
     return Math.max(DEFAULT_RETRY_AFTER_MS, 2 ** attempt * 100);
@@ -282,48 +308,67 @@ export function createPbClient(config: PbClientConfig): PbClient {
         if (authToken) headers.set("authorization", authToken);
         continue;
       }
+      // Helper: drain the body so the underlying connection can be
+      // reused by the runtime's HTTP agent — otherwise some fetch
+      // implementations will leave the socket half-consumed and open a
+      // fresh one on every retry. Log drain errors at debug so
+      // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence isn't lost
+      // (F2.3) — callers rarely need this, but it's invaluable when
+      // diagnosing socket-level flakiness.
+      const drainBody = async (): Promise<void> => {
+        await res.text().catch((drainErr: unknown) => {
+          logger.debug("pb-client.body-drain-failed", {
+            path,
+            status: res.status,
+            err: String(drainErr),
+          });
+        });
+      };
       if (res.status === 429 && attempts < maxAttempts) {
         const waitMs = Math.min(
           parseRetryAfterMs(res, attempts),
           remainingBudgetMs(),
         );
-        if (waitMs <= 0) return res;
+        if (waitMs <= 0) {
+          // B3: budget exhausted → caller gets this 429 back. Drain the
+          // body so non-reading callers don't leak the socket.
+          await drainBody();
+          return res;
+        }
         logger.debug("pb-client.rate-limited", {
           path,
           attempt: attempts,
           waitMs,
         });
-        // Drain the body before retrying so the underlying connection can
-        // be reused by the runtime's HTTP agent — otherwise some fetch
-        // implementations will leave the socket half-consumed and open a
-        // fresh one on every retry. Log drain errors at debug so
-        // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence isn't lost
-        // (F2.3) — callers rarely need this, but it's invaluable when
-        // diagnosing socket-level flakiness.
-        await res.text().catch((drainErr: unknown) => {
-          logger.debug("pb-client.body-drain-failed", {
-            path,
-            status: res.status,
-            err: String(drainErr),
-          });
-        });
+        await drainBody();
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
       if (res.status >= 500 && attempts < maxAttempts) {
         const waitMs = Math.min(2 ** attempts * 100, remainingBudgetMs());
-        if (waitMs <= 0) return res;
+        if (waitMs <= 0) {
+          // B3: budget exhausted on 5xx — drain before surrendering the
+          // response to the caller.
+          await drainBody();
+          return res;
+        }
         // Same reasoning as the 429 branch: drain before backing off,
         // and surface drain errors at debug (F2.3).
-        await res.text().catch((drainErr: unknown) => {
-          logger.debug("pb-client.body-drain-failed", {
-            path,
-            status: res.status,
-            err: String(drainErr),
-          });
-        });
+        await drainBody();
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
+      }
+      // B3: final-attempt 429/5xx (retry loop exhausted) — drain the
+      // body before returning so callers that don't `.text()` / `.json()`
+      // the response don't leak the socket. Non-retryable responses
+      // (including 2xx/3xx/4xx-other) are left intact: callers read 2xx
+      // bodies; 4xx callers typically do read the body to surface the
+      // error; and we'd otherwise consume a body the caller still needs.
+      if (
+        attempts >= maxAttempts &&
+        (res.status === 429 || res.status >= 500)
+      ) {
+        await drainBody();
       }
       return res;
     }

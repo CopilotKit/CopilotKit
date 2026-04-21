@@ -37,6 +37,14 @@ function assertSafeKey(field: string, value: string): void {
 }
 
 function filterFor(ruleId: string, dedupeKey: string): string {
+  // Defense in depth (B9): callers (`get`, `record`) already run both
+  // args through `assertSafeKey`, which rejects C0/C1 control characters
+  // before we ever build a filter string. JSON.stringify then quotes the
+  // value correctly for PB's current DSL. If PB's filter DSL ever gains
+  // placeholder syntax (e.g. `${…}` interpolation) or changes its
+  // escaping rules, the control-char rejection in `assertSafeKey` is the
+  // belt-and-braces we fall back to — but the right long-term fix is a
+  // PB-side parameterized filter API, not string-level escaping here.
   return `rule_id = ${JSON.stringify(ruleId)} && dedupe_key = ${JSON.stringify(dedupeKey)}`;
 }
 

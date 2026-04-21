@@ -1,4 +1,7 @@
-import type { TypedEventBus } from "../events/event-bus.js";
+import type {
+  TypedEventBus,
+  WriterFailureReason,
+} from "../events/event-bus.js";
 import { detectTransition } from "../events/transition-detector.js";
 import type { PbClient } from "../storage/pb-client.js";
 import type {
@@ -9,6 +12,171 @@ import type {
   StatusRecord,
   WriteOutcome,
 } from "../types/index.js";
+
+/**
+ * SINGLE-WRITER INVARIANT (B5)
+ * ---------------------------------------------------------------------
+ * Per-key writes are serialized by `makeKeyedMutex()` below, so for any
+ * given `result.key` the DB row's persisted state matches the
+ * `statusRecord` this writer computed on the very last successful
+ * `pb.upsertByField` call. Consumers of `status.changed` can therefore
+ * treat the payload's `outcome` as the write intent AND the durable
+ * state after emit — we do NOT re-read the row to confirm, because under
+ * the single-writer invariant no other process mutates `status` rows.
+ *
+ * If that invariant is ever broken (a second writer, a manual PB admin
+ * edit, an out-of-band migration), the `outcome.previousState` /
+ * `outcome.failCount` emitted here can diverge from the row persisted
+ * in PB. The B5 finding flagged this; keeping the invariant documented
+ * here lets reviewers catch future code that would violate it.
+ *
+ * The error-path already guards this correctly (F2.2): `status.changed`
+ * is only emitted when the observed_at write persisted. The success
+ * path doesn't need the same guard because the upsert's throw bubbles
+ * out of `doWrite` before we reach the emit — so there's no silent
+ * bus/DB divergence even on failure.
+ */
+
+// Bound on the warn-dedupe Sets so a broken probe producing a stream of
+// distinct keys (thousands of one-shot probe-keys) can't OOM the process
+// over its lifetime. The malformed-key set is drop-oldest (LRU-ish
+// insertion order); the legacy-failure set uses TTL so a red→green→red
+// cycle re-warns the operator on the second red. (B4, B8)
+const MAX_WARNED_KEYS = 1024;
+const LEGACY_WARN_TTL_MS = 60 * 60 * 1000; // 1h
+
+// See PocketBase error shape — PB emits validation errors as
+// `{ data: { <field>: { code, message } } }` on 400s. Bare String(err)
+// collapses the object to "[object Object]" and erases the reason.
+interface MaybePbError {
+  message?: unknown;
+  status?: unknown;
+  data?: unknown;
+}
+
+export interface WriterErrorInfo {
+  message: string;
+  status?: number;
+  /** Preserved only when PB returns a validation shape (400). */
+  data?: Record<string, unknown>;
+}
+
+/**
+ * Best-effort extractor for PB error bodies (B7). Returns a structured
+ * descriptor carrying the useful parts (message, HTTP status, validation
+ * payload) so downstream emitters don't have to string-match.
+ */
+export function errorInfo(err: unknown): WriterErrorInfo {
+  if (err instanceof Error) {
+    const { message } = err;
+    const maybe = err as unknown as MaybePbError;
+    const info: WriterErrorInfo = { message };
+    if (typeof maybe.status === "number") info.status = maybe.status;
+    if (
+      maybe.data &&
+      typeof maybe.data === "object" &&
+      !Array.isArray(maybe.data)
+    ) {
+      info.data = maybe.data as Record<string, unknown>;
+    }
+    return info;
+  }
+  if (typeof err === "string") return { message: err };
+  if (err && typeof err === "object") {
+    const maybe = err as MaybePbError;
+    const info: WriterErrorInfo = {
+      message:
+        typeof maybe.message === "string"
+          ? maybe.message
+          : safeJson(err) ?? String(err),
+    };
+    if (typeof maybe.status === "number") info.status = maybe.status;
+    if (
+      maybe.data &&
+      typeof maybe.data === "object" &&
+      !Array.isArray(maybe.data)
+    ) {
+      info.data = maybe.data as Record<string, unknown>;
+    }
+    return info;
+  }
+  return { message: String(err) };
+}
+
+function safeJson(v: unknown): string | undefined {
+  try {
+    return JSON.stringify(v);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Serialize a WriterErrorInfo into a single string for the `err` field
+ * on WriterFailedEvent — keeps backward compat with subscribers that
+ * treat `err` as opaque text, while still carrying the structured
+ * payload. Consumers that need the structure can re-parse this JSON.
+ */
+function serializeErr(info: WriterErrorInfo): string {
+  const payload: Record<string, unknown> = { message: info.message };
+  if (info.status !== undefined) payload.status = info.status;
+  if (info.data !== undefined) payload.data = info.data;
+  return safeJson(payload) ?? info.message;
+}
+
+/**
+ * Map a WriterErrorInfo onto a WriterFailureReason (B6). We map on
+ * HTTP status first (the primary classifier) and fall back to message
+ * inspection for network-level errors that never reached PB.
+ */
+export function classifyWriterError(
+  info: WriterErrorInfo,
+): WriterFailureReason {
+  const { status, message, data } = info;
+  if (status === 401) return "pb_auth_error";
+  if (status === 403) return "pb_permission";
+  if (status === 429) return "pb_rate_limited";
+  if (status !== undefined && status >= 500 && status < 600) {
+    return "pb_server_error";
+  }
+  if (status === 400) {
+    // PB validation shape (missing/invalid column, bad field type, etc).
+    if (data) return "pb_schema_error";
+    return "pb_schema_error";
+  }
+  // No HTTP status — fetch-level error or thrown from outside PB.
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("fetch failed") ||
+    lower.includes("econn") ||
+    lower.includes("abort") ||
+    lower.includes("enotfound") ||
+    lower.includes("network")
+  ) {
+    return "network_error";
+  }
+  if (lower.includes("validation_not_unique") || lower.includes("is not unique")) {
+    return "pb_schema_error";
+  }
+  return "unknown";
+}
+
+/**
+ * Bounded set that drops the oldest entry on overflow. `Set<string>`
+ * iterates in insertion order, so `next().value` on keys() is the
+ * oldest — same LRU-ish pattern as useLastTransition.ts's rowCache.
+ * Not a true LRU (no move-to-end on re-insertion) because we only
+ * `add` keys we haven't seen, so each key enters the set exactly once
+ * before being evicted.
+ */
+function boundedAdd(set: Set<string>, key: string, max: number): void {
+  while (set.size >= max) {
+    const oldest = set.values().next().value;
+    if (oldest === undefined) break;
+    set.delete(oldest);
+  }
+  set.add(key);
+}
 
 export interface StatusWriter {
   write(result: ProbeResult<unknown>): Promise<WriteOutcome>;
@@ -52,22 +220,49 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
 
   // Once-per-key dedupe for the malformed-key warn so a persistently
   // broken probe doesn't fill logs with the same message each tick.
+  // Bounded (B4): drop-oldest on overflow so a pathological probe
+  // emitting a stream of distinct malformed keys can't OOM us.
   const warnedMalformedKeys = new Set<string>();
   // Same dedupe for the legacy-missing-first-failure warn — legacy rows
   // can persist for days until a red_to_green cycle clears them, and a
-  // per-tick warn would drown operators.
-  const warnedLegacyFailureKeys = new Set<string>();
+  // per-tick warn would drown operators. Value is the firstSeenAt
+  // timestamp so we can TTL-evict (B8); a red→green→red cycle after
+  // the TTL re-warns on the second red so recurring structural issues
+  // don't go silent.
+  const warnedLegacyFailureKeys = new Map<string, number>();
   function deriveDimensionWithWarn(key: string): string {
     const idx = key.indexOf(":");
     if (idx > 0) return key.slice(0, idx);
     if (!warnedMalformedKeys.has(key)) {
-      warnedMalformedKeys.add(key);
+      boundedAdd(warnedMalformedKeys, key, MAX_WARNED_KEYS);
       logger.warn("status-writer.malformed-key", {
         key,
         hint: "expected <dimension>:<slug> — dimension will be recorded as 'unknown'",
       });
     }
     return "unknown";
+  }
+
+  /** B8: TTL helper — returns true if the warn should fire (and records it). */
+  function shouldWarnLegacy(key: string, now: number): boolean {
+    const firstSeenAt = warnedLegacyFailureKeys.get(key);
+    if (firstSeenAt !== undefined && now - firstSeenAt < LEGACY_WARN_TTL_MS) {
+      return false;
+    }
+    // Bound the Map the same way as warnedMalformedKeys so this can't
+    // grow without limit either (B4 sibling).
+    while (warnedLegacyFailureKeys.size >= MAX_WARNED_KEYS) {
+      const oldest = warnedLegacyFailureKeys.keys().next().value;
+      if (oldest === undefined) break;
+      warnedLegacyFailureKeys.delete(oldest);
+    }
+    warnedLegacyFailureKeys.set(key, now);
+    return true;
+  }
+
+  /** B8: green transition clears any legacy-warn entry so the next red re-warns. */
+  function clearLegacyWarn(key: string): void {
+    warnedLegacyFailureKeys.delete(key);
   }
 
   async function doWrite(result: ProbeResult<unknown>): Promise<WriteOutcome> {
@@ -96,10 +291,13 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
           history as unknown as Record<string, unknown>,
         );
       } catch (err) {
+        const info = errorInfo(err);
         bus.emit("writer.failed", {
           key: result.key,
           phase: "history_create",
-          err: String(err),
+          err: serializeErr(info),
+          reason: classifyWriterError(info),
+          status: info.status,
           observedAt: result.observedAt,
         });
         throw err;
@@ -142,15 +340,21 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
           // still emit writer.failed but swallow the throw so callers
           // don't see an error for a non-critical field update. Leave
           // `persisted=false` so we skip the status.changed emit below.
+          const info = errorInfo(err);
+          const reason = classifyWriterError(info);
           bus.emit("writer.failed", {
             key: result.key,
             phase: "status_upsert",
-            err: String(err),
+            err: serializeErr(info),
+            reason,
+            status: info.status,
             observedAt: result.observedAt,
           });
           logger.warn("status-writer.error-observed-at-update-failed", {
             key: result.key,
-            err: String(err),
+            err: info.message,
+            status: info.status,
+            reason,
           });
         }
       }
@@ -196,15 +400,21 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
       // not now. Leave it null and log so operators can spot the
       // orphaned legacy row; the dashboard's "red for N minutes" widget
       // will render blank until a red_to_green cycle resets the row.
-      // Rate-limited per key so a long-lived legacy row doesn't flood
-      // logs every tick.
-      if (!warnedLegacyFailureKeys.has(result.key)) {
-        warnedLegacyFailureKeys.add(result.key);
+      // Rate-limited per key with a 1h TTL (B8) so recurring legacy
+      // cycles (red → green → red) re-warn on the second red once the
+      // TTL lapses — the old unbounded Set suppressed forever.
+      if (shouldWarnLegacy(result.key, Date.now())) {
         logger.warn("status-writer.legacy-missing-first-failure", {
           key: result.key,
           observedAt: result.observedAt,
         });
       }
+    }
+
+    // B8: any green transition clears the legacy warn so the next red
+    // on this key re-emits the warn.
+    if (transition === "red_to_green" || (!nowRed && wasRed)) {
+      clearLegacyWarn(result.key);
     }
 
     const transitionedAt =
@@ -244,10 +454,13 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
         history as unknown as Record<string, unknown>,
       );
     } catch (err) {
+      const info = errorInfo(err);
       bus.emit("writer.failed", {
         key: result.key,
         phase: "history_create",
-        err: String(err),
+        err: serializeErr(info),
+        reason: classifyWriterError(info),
+        status: info.status,
         observedAt: result.observedAt,
       });
       throw err;
@@ -261,10 +474,13 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
         statusRecord as unknown as Record<string, unknown>,
       );
     } catch (err) {
+      const info = errorInfo(err);
       bus.emit("writer.failed", {
         key: result.key,
         phase: "status_upsert",
-        err: String(err),
+        err: serializeErr(info),
+        reason: classifyWriterError(info),
+        status: info.status,
         observedAt: result.observedAt,
       });
       throw err;

@@ -682,6 +682,175 @@ describe("pb-client", () => {
     expect(deleteCalls).toBe(5);
   });
 
+  it("Retry-After: 0 retries with a minimum floor (B1) — does NOT short-circuit", async () => {
+    // Regression (B1): `Retry-After: 0` is a valid server directive for
+    // "retry immediately". parseRetryAfterMs(0) returned 0, and the
+    // loop's `waitMs <= 0` short-circuit treated the 429 as terminal —
+    // the request was never retried and the caller got a 429 that
+    // would've succeeded on the next attempt. The fix applies a small
+    // floor (MIN_RETRY_AFTER_MS) so we retry without spinning, while
+    // leaving the budget-exhausted short-circuit intact.
+    let attempts = 0;
+    const waits: number[] = [];
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      ms?: number,
+    ) => {
+      waits.push(ms ?? 0);
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      const fetchImpl = makeFetch(() => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("", {
+            status: 429,
+            headers: { "retry-after": "0" },
+          });
+        }
+        return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
+      });
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      const out = await pb.getOne<{ id: string }>("status", "x");
+      expect(out?.id).toBe("ok");
+      // Retried — two attempts means the floor engaged rather than
+      // short-circuiting to return the 429.
+      expect(attempts).toBe(2);
+      // And the scheduled wait was non-zero (the floor).
+      const nonzero = waits.filter((w) => w > 0);
+      expect(nonzero.length).toBeGreaterThan(0);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("HTTP-date Retry-After falls back to exponential backoff with a warn (B2)", async () => {
+    // Regression (B2): PB itself emits `Retry-After: <seconds>`, but a
+    // CDN (Cloudflare/Fastly) in front of PB can rewrite to HTTP-date
+    // (RFC 7231 §7.1.3). The parser is seconds-only, so HTTP-date silently
+    // fell through to exponential backoff. We now warn once per
+    // unparseable header so operators notice the CDN rewrite, rather
+    // than letting it flow through invisibly.
+    const warnCalls: Array<{ msg: string; obj?: unknown }> = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string, obj?: unknown) => warnCalls.push({ msg, obj }),
+      error: () => {},
+      debug: () => {},
+    };
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      _ms?: number,
+    ) => {
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      let attempts = 0;
+      const fetchImpl = makeFetch(() => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("", {
+            status: 429,
+            headers: {
+              "retry-after": "Wed, 21 Oct 2026 07:28:00 GMT",
+            },
+          });
+        }
+        return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
+      });
+      const pb = createPbClient({
+        url: "http://pb",
+        logger: customLogger,
+        fetchImpl,
+      });
+      const out = await pb.getOne<{ id: string }>("status", "x");
+      expect(out?.id).toBe("ok");
+      const unparseable = warnCalls.filter(
+        (w) => w.msg === "pb-client.retry-after-unparseable",
+      );
+      expect(unparseable.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("final-attempt 429 drains the body before returning (B3)", async () => {
+    // Regression (B3): the retry loop only drained the body on branches
+    // that were about to re-fetch. When all attempts were exhausted and
+    // the 429 was returned to the caller, the body was left unconsumed —
+    // callers that don't read leak the socket. Verify the final-attempt
+    // response had its body drained (observable via a `.text()` that
+    // tracks consumption).
+    let drainedOnFinal = false;
+    const fetchImpl = makeFetch(() => {
+      return {
+        status: 429,
+        ok: false,
+        headers: new Headers(),
+        text: async () => {
+          drainedOnFinal = true;
+          return "rate limited";
+        },
+        json: async () => ({}),
+      } as unknown as Response;
+    });
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      _ms?: number,
+    ) => {
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      // getOne throws on non-ok non-404 — the body-drain must have
+      // happened BEFORE the throw / return to the caller.
+      await expect(pb.getOne("status", "x")).rejects.toThrow(
+        /pb getOne failed: 429/,
+      );
+      expect(drainedOnFinal).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("final-attempt 5xx drains the body before returning (B3)", async () => {
+    // Same as above but on the 5xx exhaustion path. getOne sees the
+    // final 5xx and throws; the body must have been drained.
+    let drainCount = 0;
+    const fetchImpl = makeFetch(() => {
+      return {
+        status: 503,
+        ok: false,
+        headers: new Headers(),
+        text: async () => {
+          drainCount += 1;
+          return "server down";
+        },
+        json: async () => ({}),
+      } as unknown as Response;
+    });
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      _ms?: number,
+    ) => {
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      await expect(pb.getOne("status", "x")).rejects.toThrow(
+        /pb getOne failed: 503/,
+      );
+      // Drains on each retry (2 drains pre-sleep) + 1 final-attempt drain = 3.
+      expect(drainCount).toBeGreaterThanOrEqual(3);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("deleteByFilter logs progress every 10 iterations (F2.5)", async () => {
     // F2.5: long retention runs against large collections used to
     // proceed silently until the iteration cap tripped or the loop

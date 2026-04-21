@@ -1,5 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { createStatusWriter } from "./status-writer.js";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import {
+  classifyWriterError,
+  createStatusWriter,
+  errorInfo,
+} from "./status-writer.js";
 import { createEventBus } from "../events/event-bus.js";
 import type { PbClient } from "../storage/pb-client.js";
 import { logger } from "../logger.js";
@@ -582,6 +586,374 @@ describe("status-writer", () => {
     );
     expect(malformedWarns).toHaveLength(1);
     expect((malformedWarns[0]!.obj as { key: string }).key).toBe("noColonHere");
+  });
+
+  it("warnedMalformedKeys is bounded — drop-oldest on overflow (B4)", async () => {
+    // Regression (B4): `warnedMalformedKeys` was an unbounded Set. A
+    // probe emitting a stream of distinct malformed keys (>10k) would
+    // grow it without limit → slow OOM over process lifetime. The fix
+    // caps at MAX_WARNED_KEYS (1024) and drops the oldest entry on
+    // overflow. We can't observe the internal Set directly, but we CAN
+    // observe that the first-inserted key re-warns after being evicted
+    // (the dedupe forgot about it).
+    const warnCalls: string[] = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string, obj?: unknown) => {
+        if (msg === "status-writer.malformed-key") {
+          warnCalls.push((obj as { key: string }).key);
+        }
+      },
+      error: () => {},
+      debug: () => {},
+    };
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger: customLogger,
+    });
+    // First write — "firstKey" should warn once.
+    await writer.write({
+      key: "firstKey",
+      state: "green",
+      signal: {},
+      observedAt: "2026-04-20T00:00:00Z",
+    });
+    expect(warnCalls).toContain("firstKey");
+    warnCalls.length = 0;
+    // Now flood with 1024 distinct malformed keys → fills the cap and
+    // evicts firstKey (FIFO drop-oldest).
+    for (let i = 0; i < 1024; i += 1) {
+      await writer.write({
+        key: `floodKey${i}`,
+        state: "green",
+        signal: {},
+        observedAt: "2026-04-20T00:00:00Z",
+      });
+    }
+    // Each new flood key warned exactly once.
+    expect(warnCalls.length).toBe(1024);
+    warnCalls.length = 0;
+    // Re-observe "firstKey" — it was evicted, so it re-warns.
+    await writer.write({
+      key: "firstKey",
+      state: "green",
+      signal: {},
+      observedAt: "2026-04-20T00:00:00Z",
+    });
+    expect(warnCalls).toContain("firstKey");
+  });
+
+  it("writer.failed carries structured PB validation error (B7)", async () => {
+    // Regression (B7): PB rejects invalid payloads with
+    // `{ message, status, data: { field: { code, message } } }`. The old
+    // code did `String(err)` which collapsed the object to
+    // "[object Object]" — the reason for the failure was erased before
+    // it reached the bus. Now errorInfo() extracts message/status/data
+    // and the emitted err payload preserves the validation shape.
+    class PbError extends Error {
+      status = 400;
+      data = {
+        key: { code: "validation_required", message: "Missing required value" },
+      };
+    }
+    const pb: PbClient = {
+      async getOne() {
+        return null;
+      },
+      async getFirst() {
+        return null;
+      },
+      async list() {
+        return { page: 1, perPage: 0, totalPages: 0, totalItems: 0, items: [] };
+      },
+      async create<T>(_c: string, r: unknown): Promise<T> {
+        return r as T;
+      },
+      async update<T>(_c: string, _i: string, r: unknown): Promise<T> {
+        return r as T;
+      },
+      async upsertByField(): Promise<never> {
+        throw new PbError("Failed to create record.");
+      },
+      async delete() {},
+      async deleteByFilter() {
+        return 0;
+      },
+      async health() {
+        return true;
+      },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
+    };
+    const bus = createEventBus();
+    const failed: Array<{
+      err: string;
+      reason?: string;
+      status?: number;
+    }> = [];
+    bus.on("writer.failed", (e) =>
+      failed.push({ err: e.err, reason: e.reason, status: e.status }),
+    );
+    const writer = createStatusWriter({ pb, bus, logger });
+    await expect(writer.write(probeResult("green"))).rejects.toThrow();
+    expect(failed).toHaveLength(1);
+    // err is a JSON payload — parse and confirm it carries the PB shape.
+    const parsed = JSON.parse(failed[0]!.err) as {
+      message: string;
+      status: number;
+      data: { key: { code: string; message: string } };
+    };
+    expect(parsed.message).toBe("Failed to create record.");
+    expect(parsed.status).toBe(400);
+    expect(parsed.data.key.code).toBe("validation_required");
+    expect(failed[0]!.status).toBe(400);
+    expect(failed[0]!.reason).toBe("pb_schema_error");
+  });
+
+  it("writer.failed carries reason classification (B6)", async () => {
+    // Regression (B6): auth/schema/permission failures all collapsed
+    // into a single "warn + continue" with no classification — alert
+    // routing couldn't distinguish transient (auth blip) from
+    // structural (schema drift). The fix attaches a WriterFailureReason
+    // to every emit. Verify the 401 branch → "pb_auth_error".
+    class AuthError extends Error {
+      status = 401;
+    }
+    const pb: PbClient = {
+      async getOne() {
+        return null;
+      },
+      async getFirst<T>(): Promise<T | null> {
+        // Existing row — error path hits the observed_at update branch.
+        return {
+          id: "row-1",
+          key: "smoke:mastra",
+          dimension: "smoke",
+          state: "red",
+          signal: {},
+          observed_at: "2026-04-20T00:00:00Z",
+          transitioned_at: "2026-04-20T00:00:00Z",
+          fail_count: 1,
+          first_failure_at: "2026-04-20T00:00:00Z",
+        } as unknown as T;
+      },
+      async list() {
+        return { page: 1, perPage: 0, totalPages: 0, totalItems: 0, items: [] };
+      },
+      async create<T>(_c: string, r: unknown): Promise<T> {
+        return r as T;
+      },
+      async update(): Promise<never> {
+        throw new AuthError("invalid token");
+      },
+      async upsertByField<T>(
+        _c: string,
+        _f: string,
+        _v: string,
+        r: unknown,
+      ): Promise<T> {
+        return r as T;
+      },
+      async delete() {},
+      async deleteByFilter() {
+        return 0;
+      },
+      async health() {
+        return true;
+      },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
+    };
+    const bus = createEventBus();
+    const failed: Array<{ reason?: string; status?: number }> = [];
+    bus.on("writer.failed", (e) =>
+      failed.push({ reason: e.reason, status: e.status }),
+    );
+    const writer = createStatusWriter({ pb, bus, logger });
+    // Error path swallows the update error — no throw to the caller.
+    await writer.write(probeResult("error"));
+    expect(failed).toHaveLength(1);
+    expect(failed[0]!.status).toBe(401);
+    expect(failed[0]!.reason).toBe("pb_auth_error");
+  });
+
+  it("legacy-missing-first_failure_at warn re-fires after TTL (B8)", async () => {
+    // Regression (B8): the warn dedupe was a process-lifetime Set —
+    // a red→green→red cycle on a legacy row would warn on the first
+    // red, go silent forever. Ops would never see a recurrence. Fix:
+    // TTL-evict the warn entry and clear-on-green so the second red
+    // re-warns. Verified here via a red tick that clears the warn via
+    // a subsequent green, then a second red tick re-fires.
+    const warnCalls: Array<{ key: string }> = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string, obj?: unknown) => {
+        if (msg === "status-writer.legacy-missing-first-failure") {
+          warnCalls.push(obj as { key: string });
+        }
+      },
+      error: () => {},
+      debug: () => {},
+    };
+    // Seed a legacy row (red, no first_failure_at).
+    env.rows.set("smoke:mastra", {
+      id: "legacy-1",
+      key: "smoke:mastra",
+      dimension: "smoke",
+      state: "red",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 5,
+      first_failure_at: null,
+    });
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger: customLogger,
+    });
+    // First red tick against the legacy row — warns once.
+    await writer.write({
+      ...probeResult("red"),
+      observedAt: "2026-04-20T00:05:00Z",
+    });
+    expect(warnCalls).toHaveLength(1);
+    warnCalls.length = 0;
+    // Green tick (recovery) — should clear the legacy-warn entry and
+    // also clear `first_failure_at`.
+    await writer.write({
+      ...probeResult("green"),
+      observedAt: "2026-04-20T00:06:00Z",
+    });
+    // Set the row back to a legacy (null first_failure_at) state to
+    // simulate a second red after the green — the green path above
+    // cleared the warn entry, so the next red must re-warn.
+    env.rows.set("smoke:mastra", {
+      id: "legacy-1",
+      key: "smoke:mastra",
+      dimension: "smoke",
+      state: "red",
+      signal: {},
+      observed_at: "2026-04-20T00:07:00Z",
+      transitioned_at: "2026-04-20T00:07:00Z",
+      fail_count: 1,
+      first_failure_at: null,
+    });
+    await writer.write({
+      ...probeResult("red"),
+      observedAt: "2026-04-20T00:08:00Z",
+    });
+    // Re-warned after the green cleared the entry.
+    expect(warnCalls).toHaveLength(1);
+  });
+
+  it("legacy warn dedupe is TTL-bounded — re-fires after 1h (B8)", async () => {
+    // Complement to the clear-on-green test: when green never arrives
+    // (persistent legacy row), the TTL ensures we still re-warn every
+    // hour rather than warning exactly once per process lifetime.
+    const warnCalls: number[] = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string) => {
+        if (msg === "status-writer.legacy-missing-first-failure") {
+          warnCalls.push(Date.now());
+        }
+      },
+      error: () => {},
+      debug: () => {},
+    };
+    env.rows.set("smoke:mastra", {
+      id: "legacy-1",
+      key: "smoke:mastra",
+      dimension: "smoke",
+      state: "red",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 5,
+      first_failure_at: null,
+    });
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger: customLogger,
+    });
+    const realDateNow = Date.now;
+    let simulatedNow = 1_000_000_000;
+    const nowSpy = vi
+      .spyOn(Date, "now")
+      .mockImplementation(() => simulatedNow);
+    try {
+      await writer.write({
+        ...probeResult("red"),
+        observedAt: "2026-04-20T00:00:00Z",
+      });
+      expect(warnCalls).toHaveLength(1);
+      // Advance < 1h → still dedupes.
+      simulatedNow += 30 * 60 * 1000;
+      await writer.write({
+        ...probeResult("red"),
+        observedAt: "2026-04-20T00:30:00Z",
+      });
+      expect(warnCalls).toHaveLength(1);
+      // Advance past 1h → re-warns.
+      simulatedNow += 35 * 60 * 1000;
+      await writer.write({
+        ...probeResult("red"),
+        observedAt: "2026-04-20T01:05:00Z",
+      });
+      expect(warnCalls).toHaveLength(2);
+    } finally {
+      nowSpy.mockRestore();
+      Date.now = realDateNow;
+    }
+  });
+
+  it("errorInfo extracts PB validation payload + HTTP status (B7)", () => {
+    class PbError extends Error {
+      status = 400;
+      data = { key: { code: "validation_required" } };
+    }
+    const info = errorInfo(new PbError("boom"));
+    expect(info.message).toBe("boom");
+    expect(info.status).toBe(400);
+    expect(info.data).toEqual({ key: { code: "validation_required" } });
+  });
+
+  it("errorInfo handles string errors", () => {
+    const info = errorInfo("plain string");
+    expect(info.message).toBe("plain string");
+    expect(info.status).toBeUndefined();
+    expect(info.data).toBeUndefined();
+  });
+
+  it("classifyWriterError maps status codes to reasons (B6)", () => {
+    expect(classifyWriterError({ message: "", status: 401 })).toBe(
+      "pb_auth_error",
+    );
+    expect(classifyWriterError({ message: "", status: 403 })).toBe(
+      "pb_permission",
+    );
+    expect(classifyWriterError({ message: "", status: 429 })).toBe(
+      "pb_rate_limited",
+    );
+    expect(classifyWriterError({ message: "", status: 503 })).toBe(
+      "pb_server_error",
+    );
+    expect(classifyWriterError({ message: "", status: 400 })).toBe(
+      "pb_schema_error",
+    );
+    expect(classifyWriterError({ message: "fetch failed" })).toBe(
+      "network_error",
+    );
+    expect(classifyWriterError({ message: "" })).toBe("unknown");
   });
 
   it("emits writer.failed when history_create throws (non-error path)", async () => {
