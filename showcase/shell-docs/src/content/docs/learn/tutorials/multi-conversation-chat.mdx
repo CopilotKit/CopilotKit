@@ -1,0 +1,271 @@
+---
+title: "Tutorial: Build a Multi-Conversation Chat App"
+description: "Build a chat application with persistent conversation threads using useThreads and CopilotChat — create, switch, rename, and archive conversations with realtime sync."
+icon: "lucide/MessageSquareMore"
+doc_type: tutorial
+---
+<ThreadsEarlyAccess>
+
+## What you'll build
+
+A chat application with a thread sidebar — similar to ChatGPT or Claude's conversation list. Users can create new conversations, switch between them, rename them, and archive old ones. All thread metadata syncs in realtime across tabs.
+
+## What you'll learn
+
+- How to list and manage threads with `useThreads`
+- How to wire thread selection into `CopilotChat` via `threadId`
+- How to create new threads by clearing the active thread
+- How to add rename and archive actions to each thread
+- How pagination works for users with many conversations
+
+## Prerequisites
+
+- Node.js 20+
+- A CopilotKit project with the Intelligence Platform configured (via [Copilot Cloud](https://cloud.copilotkit.ai) or [self-hosted](/premium/self-hosting))
+- `@copilotkit/react-core` v1.50+
+
+## Steps
+
+<Steps>
+  <Step>
+    ### Scaffold the layout
+
+    Create a two-panel layout: a sidebar for the thread list on the left, and the chat area on the right. We'll use a simple flexbox layout.
+
+    ```tsx title="App.tsx"
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+
+    export default function App() {
+      return (
+        <CopilotKit runtimeUrl="/api/copilotkit">
+          <div className="flex h-screen">
+            <aside className="w-72 border-r overflow-y-auto">
+              <ThreadSidebar />
+            </aside>
+            <main className="flex-1">
+              <ChatPanel />
+            </main>
+          </div>
+        </CopilotKit>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Build the thread sidebar
+
+    Use `useThreads` to fetch the thread list and render it. Each thread shows its name (or "New conversation" if unnamed) and the time it was last updated.
+
+    ```tsx title="ThreadSidebar.tsx"
+    import { useThreads } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useState } from "react";
+
+    export function ThreadSidebar() {
+      const { // [!code highlight:5]
+        threads,
+        isLoading,
+        renameThread,
+        archiveThread,
+      } = useThreads({ agentId: "my-agent" });
+
+      if (isLoading) {
+        return <div className="p-4 text-sm text-gray-500">Loading...</div>;
+      }
+
+      return (
+        <div className="flex flex-col">
+          <button
+            className="m-3 p-2 rounded bg-blue-600 text-white text-sm"
+            onClick={() => {
+              // Clear active thread to start a new conversation
+              window.dispatchEvent(new CustomEvent("new-thread"));
+            }}
+          >
+            New conversation
+          </button>
+
+          {threads.map((thread) => (
+            <ThreadRow
+              key={thread.id}
+              thread={thread}
+              onRename={(name) => renameThread(thread.id, name)}
+              onArchive={() => archiveThread(thread.id)}
+            />
+          ))}
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Add thread row with actions
+
+    Each row needs a click handler to select the thread, plus rename and archive actions. We'll use a simple inline editing pattern for rename.
+
+    ```tsx title="ThreadRow.tsx"
+    import { useState } from "react";
+    import type { Thread } from "@copilotkit/react-core/v2";
+
+    interface ThreadRowProps {
+      thread: Thread;
+      onRename: (name: string) => void;
+      onArchive: () => void;
+    }
+
+    export function ThreadRow({ thread, onRename, onArchive }: ThreadRowProps) {
+      const [isEditing, setIsEditing] = useState(false);
+      const [editName, setEditName] = useState(thread.name ?? "");
+
+      const displayName = thread.name || "New conversation";
+      const timeAgo = new Date(thread.updatedAt).toLocaleDateString();
+
+      return (
+        <div
+          className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 cursor-pointer group"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent("select-thread", { detail: thread.id })
+            );
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <input
+                className="w-full text-sm border rounded px-1"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                onBlur={() => {
+                  onRename(editName);
+                  setIsEditing(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onRename(editName);
+                    setIsEditing(false);
+                  }
+                }}
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <>
+                <div className="text-sm truncate">{displayName}</div>
+                <div className="text-xs text-gray-400">{timeAgo}</div>
+              </>
+            )}
+          </div>
+
+          <div className="hidden group-hover:flex gap-1 ml-2">
+            <button
+              className="text-xs text-gray-500 hover:text-gray-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+            >
+              Rename
+            </button>
+            <button
+              className="text-xs text-gray-500 hover:text-red-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                onArchive();
+              }}
+            >
+              Archive
+            </button>
+          </div>
+        </div>
+      );
+    }
+    ```
+  </Step>
+
+  <Step>
+    ### Wire up the chat panel
+
+    The chat panel listens for thread selection events and passes the active `threadId` to `CopilotChat`. When no thread is selected, starting a conversation creates a new thread automatically.
+
+    ```tsx title="ChatPanel.tsx"
+    import { CopilotChat } from "@copilotkit/react-core/v2"; // [!code highlight]
+    import { useState, useEffect } from "react";
+
+    export function ChatPanel() {
+      const [activeThreadId, setActiveThreadId] = useState<string | undefined>();
+
+      useEffect(() => {
+        const handleSelect = (e: CustomEvent) => setActiveThreadId(e.detail);
+        const handleNew = () => setActiveThreadId(undefined);
+
+        window.addEventListener("select-thread", handleSelect as EventListener);
+        window.addEventListener("new-thread", handleNew);
+
+        return () => {
+          window.removeEventListener("select-thread", handleSelect as EventListener);
+          window.removeEventListener("new-thread", handleNew);
+        };
+      }, []);
+
+      return (
+        <CopilotChat
+          threadId={activeThreadId} {/* [!code highlight] */}
+          className="h-full"
+        />
+      );
+    }
+    ```
+
+    When `threadId` is `undefined`, the chat starts a fresh conversation. When set to an existing thread ID, it loads that thread's message history and reconnects to any active agent stream.
+  </Step>
+
+  <Step>
+    ### Add pagination (optional)
+
+    If your users accumulate many conversations, add a "Load more" button at the bottom of the sidebar using the `limit` parameter.
+
+    ```tsx title="ThreadSidebar.tsx"
+    const {
+      threads,
+      isLoading,
+      hasMoreThreads, // [!code highlight]
+      isFetchingMoreThreads, // [!code highlight]
+      fetchMoreThreads, // [!code highlight]
+      renameThread,
+      archiveThread,
+    } = useThreads({
+      agentId: "my-agent",
+      limit: 25, // [!code highlight]
+    });
+
+    // At the bottom of the thread list:
+    {hasMoreThreads && (
+      <button
+        className="m-3 p-2 text-sm text-gray-500 hover:text-gray-700"
+        onClick={fetchMoreThreads}
+        disabled={isFetchingMoreThreads}
+      >
+        {isFetchingMoreThreads ? "Loading..." : "Load older conversations"}
+      </button>
+    )}
+    ```
+  </Step>
+</Steps>
+
+## What's next
+
+You now have a working multi-conversation chat app with persistent threads. Thread names are auto-generated by the LLM after the first message — you'll see them appear in the sidebar automatically. Here are some ideas for extending further:
+
+- **Search** — add a search input that filters threads by name
+- **Unread indicators** — track which threads have new messages since the user last viewed them
+- **Drag to reorder** — let users pin important threads to the top
+- **Archive view** — add a toggle to show archived threads using `includeArchived: true`
+
+## Next steps
+
+- **Step-by-step guide:** [Threads](/threads) — the concise how-to for thread management
+- **Understand how it works:** [How Threads & Persistence Work](/learn/threads) — architecture, event replay model, and WebSocket sync
+- **API reference:** [useThreads](/reference/v2/hooks/useThreads) — parameters, return values, types
+
+</ThreadsEarlyAccess>
