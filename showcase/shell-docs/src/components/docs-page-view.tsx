@@ -111,15 +111,10 @@ export async function DocsPageView({
     }
     if (node.type === "page") {
       const isActive = node.slug === slugPath;
-      const scope: "docs" | "framework" = slugHrefPrefix.startsWith("/docs")
-        ? "docs"
-        : "framework";
       return (
         <div style={{ paddingLeft: `${indent}px` }} key={node.slug}>
           <SidebarLink
             slug={node.slug}
-            scope={scope}
-            fallbackHref={`${slugHrefPrefix}/${node.slug}`}
             active={isActive}
             className={`block py-[5px] text-[13px] transition-colors ${
               isActive
