@@ -231,7 +231,10 @@ export async function DocsPageView({
                       const InlineDemoComp = docsComponents.InlineDemo;
                       return (
                         <InlineDemoComp
-                          {...(props as { integration?: string; demo?: string })}
+                          {...(props as {
+                            integration?: string;
+                            demo?: string;
+                          })}
                           integration={
                             defaultFramework ??
                             (props.integration as string | undefined)
