@@ -47,6 +47,9 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     // UI banner immediately so operators see the actual root cause rather
     // than a generic DNS failure.
     if (pbIsMisconfigured) {
+      // Clear any previously-cached rows so downstream consumers (resolveCell)
+      // don't render stale-green lies behind an offline banner (spec §5.3).
+      setRows([]);
       setStatus("error");
       setError(PB_MISCONFIG_MESSAGE);
       return;
@@ -79,8 +82,19 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       if (cancel) {
         try {
           cancel();
-        } catch {
-          // swallow: best-effort cleanup
+        } catch (err) {
+          // Best-effort cleanup: the SDK's unsubscribe can reject if the
+          // socket is already torn down, Node is shutting down, etc. We
+          // don't want to re-throw here (that would crash the component on
+          // unmount), but the silent `catch {}` that previously stood here
+          // hid real SDK errors (e.g., an unsubscribe implementation bug)
+          // from everyone. Debug-level log preserves the evidence without
+          // polluting the default console.
+          // eslint-disable-next-line no-console
+          console.debug(
+            "[useLiveStatus] unsubscribe failed (best-effort)",
+            { topic: dimension ?? "<all>", err },
+          );
         }
         cancel = null;
       }
@@ -221,6 +235,12 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         }
         attempts += 1;
         if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+          // Clear cached rows on terminal error transition: downstream
+          // consumers must not render stale-green lies behind the offline
+          // banner (spec §5.3, F5.2). resolveCell's connection="error"
+          // branch flips rollup to `error`, but per-badge tones would still
+          // come from the stale rows if we left them in state.
+          setRows([]);
           setStatus("error");
           setError(err instanceof Error ? err.message : String(err));
           // Terminal failure: the reconnect chain has given up.

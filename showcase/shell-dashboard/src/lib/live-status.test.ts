@@ -178,6 +178,21 @@ describe("resolveCell — per-spec §5.4 multi-dim precedence", () => {
     expect(c.rollup).toBe("green");
   });
 
+  it("all-green rows + connection=error: rollup is error, NOT stale-green (R5 F5.1)", () => {
+    // Regression guard for the stale-green lie (spec §5.3): if the SSE
+    // stream has gone dark, any cached green rows are by definition stale
+    // and MUST NOT be presented as authoritative "all good". `allGreen`
+    // must be gated on `connection !== "error"`.
+    const live = mapOf([
+      row("smoke:a/b", "smoke", "green"),
+      row("health:a", "health", "green"),
+      row("e2e:a/b", "e2e", "green"),
+    ]);
+    const c = resolveCell(live, "a", "b", { connection: "error" });
+    expect(c.rollup).toBe("error");
+    expect(c.rollup).not.toBe("green");
+  });
+
   it("red row + connection=error: red wins over the hook error tone (C5 F14)", () => {
     // Locks the precedence clause — a genuine red signal must NOT be
     // hidden behind an "error" rollup when the stream is also down.

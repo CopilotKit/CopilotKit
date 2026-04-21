@@ -208,6 +208,53 @@ describe("useLiveStatus", () => {
     expect(result.current.error).toContain("pb-unreachable");
   }, 20000);
 
+  it("clears cached rows on terminal error transition (R5 F5.2)", async () => {
+    // Seed an initial green row so it's cached in hook state, then drive
+    // repeated heartbeat failures until the reconnect chain exhausts and
+    // the hook flips to status="error". Downstream consumers (resolveCell)
+    // must not see stale green rows after that transition — the offline
+    // banner would otherwise hide a silent stale-green lie (spec §5.3).
+    vi.useFakeTimers();
+    try {
+      mockState.initial = [
+        {
+          id: "1",
+          key: "smoke:a/b",
+          dimension: "smoke",
+          state: "green",
+          signal: {},
+          observed_at: "2026-04-20T00:00:00Z",
+          transitioned_at: "2026-04-20T00:00:00Z",
+          fail_count: 0,
+          first_failure_at: null,
+        },
+      ];
+      const { result } = renderHook(() => useLiveStatus("smoke"));
+      await vi.waitFor(() => expect(result.current.status).toBe("live"));
+      expect(result.current.rows).toHaveLength(1);
+
+      // Arm failures for every subsequent reconnect attempt. Initial fetch
+      // succeeded; now drive heartbeat failure + all retry initial fetches
+      // to fail so the reconnect chain hits MAX_RECONNECT_ATTEMPTS=3.
+      mockState.heartbeatFailRemaining = 1;
+      mockState.failRemaining = 10;
+
+      // Advance past heartbeat (30s) → startReconnect → connect() fails
+      // repeatedly with 1s / 2s backoff → terminal error after MAX attempts.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(31_000);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      await vi.waitFor(() => expect(result.current.status).toBe("error"));
+      // Rows MUST be cleared — this is the core F5.2 guarantee.
+      expect(result.current.rows).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
+  }, 20000);
+
   it("tears down the old subscription when `dimension` prop changes", async () => {
     const { result, rerender } = renderHook(
       ({ dim }: { dim: string }) => useLiveStatus(dim),

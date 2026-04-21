@@ -151,7 +151,15 @@ export function resolveCell(
   const toneSet = contributors.map(rowTone);
   const hasAnyRed = toneSet.includes("red");
   const hasAnyAmber = toneSet.includes("amber");
+  // `allGreen` is gated on `connection !== "error"` to avoid the stale-green
+  // lie (spec §5.3): when the SSE stream has gone dark, any cached green
+  // rows are by definition stale and must NOT be presented as authoritative
+  // "all good". Red still wins (a real red signal must surface even if the
+  // stream is down — see the C5 F14 test), but a cell that would otherwise
+  // read green becomes `error` tone so operators see the offline banner
+  // rather than a misleading green check.
   const allGreen =
+    connection !== "error" &&
     smokeRow?.state === "green" &&
     healthRow?.state === "green" &&
     (e2eRow === null || e2eRow.state === "green");
