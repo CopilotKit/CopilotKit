@@ -1,0 +1,24 @@
+id: aimock-wiring-drift
+name: "aimock-universal invariant drift (spec §6.4)"
+owner: "@oss"
+severity: error
+
+signal:
+  dimension: aimock_wiring
+
+triggers:
+  - set_drifted
+  - red_to_green
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#trigger.set_drifted}}:warning: *aimock wiring drift — {{signal.unwiredCount}} {{signal.unwiredNoun}} bypassing showcase-aimock:*
+    {{#signal.unwired}}• `{{.}}`
+    {{/signal.unwired}}
+    Fix: set `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL` for claude-sdk) on each service to the aimock production URL.
+    <{{env.dashboardUrl}}|Dashboard>{{#event.runUrl}} | <{{.}}|Run>{{/event.runUrl}}{{/trigger.set_drifted}}
+    {{#trigger.red_to_green}}:white_check_mark: *aimock wiring recovered* — all services route through showcase-aimock again. <{{env.dashboardUrl}}|Dashboard>{{#event.runUrl}} | <{{.}}|Run>{{/event.runUrl}}{{/trigger.red_to_green}}

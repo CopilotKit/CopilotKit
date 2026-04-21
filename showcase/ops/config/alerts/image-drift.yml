@@ -1,0 +1,30 @@
+id: image-drift
+name: "GHCR image drift vs showcase/ or examples/integrations/ HEAD"
+owner: "@oss"
+
+signal:
+  dimension: image_drift
+
+triggers:
+  - set_changed
+
+conditions:
+  guards:
+    - minDeployAgeMin: 20
+
+actions:
+  - kind: rebuild
+    target: railway_redeploy
+    forEach: "{{signal.staleServices}}"
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#signal.rebuildFailures.length}}:package: *Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered, {{signal.rebuildFailures.length}} failed:*
+    {{#signal.rebuildFailures}}:x: *{{slug}}* — {{reason}}
+    {{/signal.rebuildFailures}}
+    <{{event.runUrl}}|Run>{{/signal.rebuildFailures.length}}
+    {{^signal.rebuildFailures.length}}:package: Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered (<{{event.runUrl}}|run>){{/signal.rebuildFailures.length}}

@@ -1,0 +1,27 @@
+id: version-drift-weekly
+name: "Weekly version-drift report (node/python)"
+owner: "@oss"
+
+signal:
+  dimension: version_drift
+
+triggers:
+  - cron_only:
+      schedule: "0 9 * * 1"
+
+conditions:
+  rate_limit: null
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#signal.driftType.stable}}:white_check_mark: *Showcase version-drift (weekly)*: no drift | <{{event.runUrl}}|Run>{{/signal.driftType.stable}}
+    {{#signal.driftType.npmDrift}}:package: *Showcase version-drift (weekly)*: npm drift detected — {{signal.npmSummary}} | <{{event.runUrl}}|Run>{{/signal.driftType.npmDrift}}
+    {{#signal.driftType.pythonDrift}}:snake: *Showcase version-drift (weekly)*: python drift detected — {{signal.pythonSummary}} | <{{event.runUrl}}|Run>{{/signal.driftType.pythonDrift}}
+
+on_error:
+  template:
+    text: ":x: *Showcase version-drift*: job failed | <{{event.runUrl}}|Run>"

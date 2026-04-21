@@ -1,0 +1,24 @@
+id: e2e-smoke-failure
+name: "Showcase E2E smoke suite failed"
+owner: "@oss"
+
+signal:
+  dimension: e2e_smoke
+
+triggers:
+  - green_to_red
+  - sustained_red
+  - red_to_green
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#trigger.isRedTick}}:x: *Showcase E2E suite failed*
+    <{{event.runUrl}}|View run> · <{{event.jobUrl}}|View job>
+    ```
+    {{ signal.failureSummary | stripAnsi | truncateUtf8 200 }}
+    ```{{/trigger.isRedTick}}
+    {{#trigger.red_to_green}}:white_check_mark: *Showcase E2E suite recovered* | <{{event.runUrl}}|run>{{/trigger.red_to_green}}

@@ -1,0 +1,21 @@
+id: redirect-decommission-monthly
+name: "Monthly SEO redirect decommission candidates"
+owner: "@growth"
+
+signal:
+  dimension: redirect_decommission
+
+triggers:
+  - cron_only:
+      schedule: "0 9 1 * *"
+
+conditions:
+  suppress:
+    when: signal.hasCandidates != true
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: "{{{ signal.body }}}"

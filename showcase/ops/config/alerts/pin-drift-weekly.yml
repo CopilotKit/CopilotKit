@@ -1,0 +1,24 @@
+id: pin-drift-weekly
+name: "Weekly pin-drift report (FAIL count vs baseline)"
+owner: "@oss"
+
+signal:
+  dimension: pin_drift
+
+triggers:
+  - cron_only:
+      schedule: "0 10 * * 1"
+
+conditions:
+  rate_limit: null
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} (baseline {{signal.baselineCount}}) [{{signal.setStatus}}] | <{{event.runUrl}}|Run>"
+
+on_error:
+  template:
+    text: ":x: *Showcase drift report*: job failed | <{{event.runUrl}}|Run>"
