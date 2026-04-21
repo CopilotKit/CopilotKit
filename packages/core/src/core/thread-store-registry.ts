@@ -8,6 +8,9 @@ export class ThreadStoreRegistry {
   constructor(private core: CopilotKitCore) {}
 
   register(agentId: string, store: ɵThreadStore): void {
+    if (agentId in this._stores) {
+      void this.notifyUnregistered(agentId);
+    }
     this._stores[agentId] = store;
     void this.notifyRegistered(agentId, store);
   }

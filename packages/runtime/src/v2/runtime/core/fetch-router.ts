@@ -139,11 +139,21 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/archive", threadId };
   }
 
+  // /threads/clear (2 segments) — wipe in-memory thread history
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "clear"
+  ) {
+    return { method: "threads/clear" };
+  }
+
   // /threads/:threadId (2 segments) — update or delete
   if (
     len >= 2 &&
     segments[len - 2] === "threads" &&
-    segments[len - 1] !== "subscribe"
+    segments[len - 1] !== "subscribe" &&
+    segments[len - 1] !== "clear"
   ) {
     const threadId = safeDecodeURIComponent(segments[len - 1]!);
     if (!threadId) return null;

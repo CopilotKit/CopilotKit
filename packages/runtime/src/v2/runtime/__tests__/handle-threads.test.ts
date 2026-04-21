@@ -439,6 +439,55 @@ describe("thread handlers", () => {
 
       expect(response.status).toBe(422);
     });
+
+    it("maps tool-call and tool-result messages from the in-memory runner without as-never casts", async () => {
+      const runner = new InMemoryAgentRunner();
+      const messages = [
+        {
+          id: "m1",
+          role: "assistant" as const,
+          toolCalls: [
+            {
+              id: "tc-1",
+              type: "function" as const,
+              function: { name: "get_weather", arguments: '{"city":"Paris"}' },
+            },
+          ],
+        },
+        {
+          id: "m2",
+          role: "tool" as const,
+          toolCallId: "tc-1",
+          content: '{"temp":18}',
+        },
+      ];
+      vi.spyOn(runner, "getThreadMessages").mockReturnValue(messages);
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/messages"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.messages).toHaveLength(2);
+
+      const assistantMsg = body.messages[0];
+      expect(assistantMsg.role).toBe("assistant");
+      expect(assistantMsg.toolCalls).toHaveLength(1);
+      expect(assistantMsg.toolCalls[0]).toMatchObject({
+        id: "tc-1",
+        name: "get_weather",
+        args: '{"city":"Paris"}',
+      });
+
+      const toolResultMsg = body.messages[1];
+      expect(toolResultMsg.role).toBe("tool");
+      expect(toolResultMsg.toolCallId).toBe("tc-1");
+      expect(toolResultMsg.content).toBe('{"temp":18}');
+    });
   });
 
   it("returns 422 when intelligence is not configured for thread subscription", async () => {

@@ -47,6 +47,7 @@ import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import {
+  handleClearThreads,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
@@ -314,6 +315,8 @@ function dispatchRoute(
       return handleGetRuntimeInfo({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
+    case "threads/clear":
+      return Promise.resolve(handleClearThreads({ runtime, request }));
     case "threads/list":
       return handleListThreads({ runtime, request });
     case "threads/subscribe":

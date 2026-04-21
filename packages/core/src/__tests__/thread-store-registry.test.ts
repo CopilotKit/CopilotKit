@@ -59,12 +59,36 @@ describe("ThreadStoreRegistry", () => {
     expect(all["agent-2"]).toBe(storeB);
   });
 
-  it("second register for the same agentId replaces the first", () => {
+  it("second register for the same agentId replaces the first and fires unregistered then registered", async () => {
+    const onRegistered = vi.fn();
+    const onUnregistered = vi.fn();
+    const subscriber: CopilotKitCoreSubscriber = {
+      onThreadStoreRegistered: onRegistered,
+      onThreadStoreUnregistered: onUnregistered,
+    };
+    (
+      core as unknown as { subscribe: (s: CopilotKitCoreSubscriber) => unknown }
+    ).subscribe(subscriber);
+
     const first = makeStore("first");
     const second = makeStore("second");
     registry.register("agent-1", first);
+    await Promise.resolve();
+    expect(onRegistered).toHaveBeenCalledTimes(1);
+    expect(onUnregistered).not.toHaveBeenCalled();
+
     registry.register("agent-1", second);
+    await Promise.resolve();
+
     expect(registry.get("agent-1")).toBe(second);
+    expect(onUnregistered).toHaveBeenCalledTimes(1);
+    expect(onUnregistered).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: "agent-1" }),
+    );
+    expect(onRegistered).toHaveBeenCalledTimes(2);
+    expect(onRegistered).toHaveBeenLastCalledWith(
+      expect.objectContaining({ agentId: "agent-1", store: second }),
+    );
   });
 
   it("unregister removes the store", () => {
