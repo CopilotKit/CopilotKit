@@ -190,12 +190,26 @@ function main() {
     },
   );
 
+  // Track which scan roots exist so a misconfigured checkout produces a
+  // loud empty-index rather than a tiny silent one. Missing all three
+  // means the script is running outside a prepared tree (e.g. shell-docs
+  // wasn't built into the expected layout) — fail the run so CI catches
+  // the regression instead of shipping a crippled search modal.
+  const scanDirsMissing: string[] = [];
+  const scanDirsPresent: string[] = [];
+
   // CopilotKit Reference
   const refDir = path.join(CONTENT_ROOT, "content", "reference");
   if (fs.existsSync(refDir)) {
     const refEntries = scanMdxDir(refDir, "/reference", "reference");
     entries.push(...refEntries);
     console.log(`  Reference: ${refEntries.length} entries`);
+    scanDirsPresent.push(refDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${refDir} — reference entries will be empty`,
+    );
+    scanDirsMissing.push(refDir);
   }
 
   // AG-UI docs — only index pages that are published in the AG-UI sidebar nav
@@ -257,6 +271,12 @@ function main() {
     );
     entries.push(...aguiEntries);
     console.log(`  AG-UI: ${aguiEntries.length} entries`);
+    scanDirsPresent.push(aguiDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${aguiDir} — ag-ui entries will be empty`,
+    );
+    scanDirsMissing.push(aguiDir);
   }
 
   // CopilotKit Docs
@@ -265,6 +285,19 @@ function main() {
     const docsEntries = scanMdxDir(docsDir, "/docs", "page");
     entries.push(...docsEntries);
     console.log(`  Docs: ${docsEntries.length} entries`);
+    scanDirsPresent.push(docsDir);
+  } else {
+    console.warn(
+      `[generate-search-index] scan dir missing: ${docsDir} — docs entries will be empty`,
+    );
+    scanDirsMissing.push(docsDir);
+  }
+
+  if (scanDirsPresent.length === 0) {
+    console.error(
+      `[generate-search-index] all scan directories missing — refusing to emit a near-empty index. Missing: ${scanDirsMissing.join(", ")}`,
+    );
+    process.exit(1);
   }
 
   // Write (dual-emit to shell-docs + shell)
