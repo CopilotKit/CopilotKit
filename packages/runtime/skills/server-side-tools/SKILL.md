@@ -159,9 +159,11 @@ import { z } from "zod";
 useComponent({
   name: "showOrderDetails",
   parameters: z.object({ orderId: z.string(), status: z.string() }),
-  render: ({ args }) => (
+  // Schema fields arrive DIRECTLY as props (InferRenderProps<TSchema>) —
+  // no { args } wrapper. See packages/react-core/src/v2/hooks/use-component.tsx.
+  render: ({ orderId, status }) => (
     <div className="modal">
-      Order {args.orderId} — {args.status}
+      Order {orderId} — {status}
     </div>
   ),
 });

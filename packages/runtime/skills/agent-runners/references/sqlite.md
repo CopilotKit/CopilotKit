@@ -32,7 +32,7 @@ loses data at restart. Always set a file path in production.
 
 ## Schema
 
-Two tables are created on first use:
+Three tables are created on first use (`packages/sqlite-runner/src/sqlite-runner.ts:75-109`):
 
 ```sql
 CREATE TABLE IF NOT EXISTS agent_runs (
@@ -51,12 +51,18 @@ CREATE TABLE IF NOT EXISTS run_state (
   current_run_id TEXT,
   updated_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS schema_version (
+  version INTEGER PRIMARY KEY,
+  applied_at INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_thread_id ON agent_runs(thread_id);
 CREATE INDEX IF NOT EXISTS idx_parent_run_id ON agent_runs(parent_run_id);
 ```
 
-`run_state` gates concurrent runs (the `"Thread already running"` check). `agent_runs` is
-append-only — one row per completed run, full event log in the `events` column.
+`agent_runs` is append-only — one row per completed run, full event log in the `events`
+column. `run_state` gates concurrent runs (the `"Thread already running"` check).
+`schema_version` tracks applied migrations so future releases can upgrade existing
+databases in place.
 
 ## Retention
 

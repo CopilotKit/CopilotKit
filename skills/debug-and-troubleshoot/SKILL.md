@@ -135,15 +135,23 @@ connection isn't being buffered (proxies, compression).
 
 ### Deprecated-alias cheat sheet
 
+Safe aliases — mechanical find/replace, behavior unchanged:
+
 | Deprecated / alias                                         | Canonical                                                                    |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `publicLicenseKey` (alias)                                 | `publicApiKey` (canonical; resolution is `publicApiKey ?? publicLicenseKey`) |
 | `agents__unsafe_dev_only`                                  | (no prod alias — use `runtimeUrl` or `publicApiKey`)                         |
 | `selfManagedAgents`                                        | (no prod alias — same as above)                                              |
-| `imageUploadsEnabled`                                      | `attachments={{ enabled: true }}`                                            |
 | `createCopilotEndpoint*` aliases (still accepted)          | `createCopilotRuntimeHandler`                                                |
 | `createCopilotExpressHandler` / `createCopilotHonoHandler` | mount `createCopilotRuntimeHandler` in the framework's native route          |
-| `beforeRequestMiddleware` / `afterRequestMiddleware`       | `hooks.onRequest` / `hooks.onBeforeHandler`                                  |
+| `beforeRequestMiddleware`                                  | `hooks.onRequest` (both run pre-dispatch, before route resolution)           |
+| `afterRequestMiddleware`                                   | `hooks.onResponse` (both run post-handler, on the outbound Response)         |
+
+Renamed props (breaking — semantics changed, not just names):
+
+| Old prop               | New prop                          | Why it's breaking                                                                                                               |
+| ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `imageUploadsEnabled`  | `attachments={{ enabled: true }}` | `attachments` covers the broader file/paste/drag surface, not just image uploads; the shape is an object, not a boolean.        |
 
 ## Common Mistakes
 

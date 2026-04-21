@@ -109,7 +109,7 @@ import {
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
 } from "@copilotkit/runtime/v2";
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
 
 const agent = new BuiltInAgent({
@@ -122,7 +122,7 @@ const agent = new BuiltInAgent({
       messages,
       tools,
       abortSignal,
-      stopWhen: ({ steps }) => steps.length >= 5,
+      stopWhen: stepCountIs(5),
     });
   },
 });
@@ -239,7 +239,8 @@ Wrong:
 new BuiltInAgent({
   model: "openai/gpt-4o",
   tools: [searchTool],
-  // maxSteps defaults to 1 → tool results never fed back
+  // maxSteps defaults to undefined → AI SDK stops after one generation; tool results
+  // are never fed back. Set maxSteps: N to enable the tool-call loop.
 });
 ```
 
@@ -253,8 +254,10 @@ new BuiltInAgent({
 });
 ```
 
-`maxSteps` defaults to `1`. `streamText` stops after the first turn, the tool call happens,
-but results are never fed back for a second turn.
+`maxSteps` defaults to `undefined`, so `stopWhen` is `undefined` and the AI SDK's own
+default applies — `streamText` stops after a single generation, the tool call happens,
+but results are never fed back for a second turn. Set `maxSteps: N` to install
+`stepCountIs(N)` and enable the tool-call loop up to N steps.
 
 Source: `packages/runtime/src/agent/index.ts:988-990`.
 
@@ -326,24 +329,34 @@ new BuiltInAgent({
 // Frontend uses useAgent + shared state — but no state-tool calls come back
 ```
 
-Correct:
+Correct (AI SDK factory — `defineTool` output converts via
+`convertToolDefinitionsToVercelAITools`):
 
 ```typescript
-import { defineTool } from "@copilotkit/runtime/v2";
+import {
+  BuiltInAgent,
+  convertMessagesToVercelAISDKMessages,
+  convertToolDefinitionsToVercelAITools,
+  defineTool,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 const sendStateSnapshot = defineTool({
   name: "AGUISendStateSnapshot",
-  description: "Send a full state snapshot to the frontend.",
-  parameters: z.object({ snapshot: z.any() }),
+  description: "Replace the entire application state with a new snapshot",
+  parameters: z.object({
+    snapshot: z.any().describe("The complete new state object"),
+  }),
   execute: async ({ snapshot }) => ({ success: true, snapshot }),
 });
 const sendStateDelta = defineTool({
   name: "AGUISendStateDelta",
   description:
     "Apply incremental updates to application state using JSON Patch operations",
-  // MUST mirror the Simple-Mode auto-injected schema or the frontend's state
-  // handler won't recognize the payload.
+  // MUST mirror the Simple-Mode auto-injected schema (src/agent/index.ts:1140-1176)
+  // or the frontend's state handler won't recognize the payload.
   parameters: z.object({
     delta: z
       .array(
@@ -359,25 +372,29 @@ const sendStateDelta = defineTool({
 });
 // If you don't want to hand-wire this, use Simple Mode — it auto-injects both
 // AGUISendStateSnapshot and AGUISendStateDelta with the correct JSON Patch schema.
-// Source: packages/runtime/src/agent/index.ts:1150-1176
+// Source: packages/runtime/src/agent/index.ts:1140-1176
 
 new BuiltInAgent({
-  type: "tanstack",
-  factory: ({ input, abortController }) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(input);
-    return chat({
-      adapter: openaiText("gpt-4o"),
-      messages,
-      systemPrompts,
-      tools: [sendStateSnapshot, sendStateDelta],
-      abortController,
-    });
-  },
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools: convertToolDefinitionsToVercelAITools([
+        sendStateSnapshot,
+        sendStateDelta,
+      ]),
+      abortSignal,
+    }),
 });
 ```
 
 Only Simple Mode auto-injects the AG-UI state tools. In Factory Mode you must register
-them by hand or shared-state updates never reach the LLM.
+them by hand or shared-state updates never reach the LLM. `defineTool` produces a Standard
+Schema V1 + `execute` shape — use `convertToolDefinitionsToVercelAITools([...])` to adapt
+it to the AI SDK's `streamText({ tools })`. TanStack AI factories cannot consume
+`defineTool` output directly; either redefine the tools with `toolDefinition()` from
+`@tanstack/ai`, or switch to the AI SDK factory above.
 
 Source: `docs/snippets/shared/backend/custom-agent.mdx:495-588`.
 

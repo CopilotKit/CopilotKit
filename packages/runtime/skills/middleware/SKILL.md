@@ -206,10 +206,13 @@ new CopilotRuntime({
 });
 ```
 
-The middleware contract returns `Request | void`; returned Responses are ignored silently.
-Responses must be `throw`n to short-circuit.
+The middleware contract returns `Request | void`. Returning a Response corrupts the
+request object — `fetch-handler.ts:140-147` assigns any truthy return value back to
+`request`, so the router then tries to read `request.method` / `request.headers.get(...)`
+from the Response and downstream handling blows up. Always `throw` a Response to
+short-circuit; never return one.
 
-Source: `packages/runtime/src/v2/runtime/core/fetch-handler.ts:148-156`.
+Source: `packages/runtime/src/v2/runtime/core/fetch-handler.ts:140-156`.
 
 ### MEDIUM Defaulting to beforeRequestMiddleware when hooks are preferred
 

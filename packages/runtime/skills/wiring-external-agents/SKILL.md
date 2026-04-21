@@ -35,7 +35,7 @@ ready-made subclass you construct and hand to `agents: { ... }`.
 
 | Framework                 | Package                     | Construct                                                               |
 | ------------------------- | --------------------------- | ----------------------------------------------------------------------- |
-| Mastra                    | `@ag-ui/mastra`             | `MastraAgent.getLocalAgents({ mastra, resourceId })` (returns a record) |
+| Mastra                    | `@ag-ui/mastra`             | `MastraAgent.getLocalAgents({ mastra, resourceId? })` (record; `resourceId` required only when the agent has Memory enabled) |
 | LangGraph                 | `@ag-ui/langgraph`          | `new LangGraphAgent({ deploymentUrl, graphId })`                        |
 | CrewAI Crews              | `@ag-ui/crewai`             | `new CrewAIAgent({ url })`                                              |
 | CrewAI Flows              | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
@@ -90,8 +90,11 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { mastra } from "./mastra";
 
 const runtime = new CopilotRuntime({
-  // resourceId is required by @ag-ui/mastra — it scopes Mastra Memory's
-  // working-memory buckets. See references/mastra.md for why.
+  // resourceId scopes Mastra Memory's working-memory buckets. Required when
+  // the Mastra agent has Memory enabled (the runtime always supplies a
+  // threadId, so Memory-enabled agents effectively always need it). Agents
+  // without Memory can omit it — `examples/integrations/mastra` calls
+  // `getLocalAgents({ mastra })` with no resourceId. See references/mastra.md.
   agents: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
 });
 

@@ -98,8 +98,10 @@ Place your renderer for the same `activityType` — user renderers are
 evaluated before built-ins.
 
 ```tsx
+import { MCPAppsActivityType } from "@copilotkit/react-core/v2";
+
 const customMcpRenderer: ReactActivityMessageRenderer<unknown> = {
-  activityType: "mcp-app", // MCPAppsActivityType
+  activityType: MCPAppsActivityType, // "mcp-apps" — must match the exported constant
   content: z.unknown(),
   render: ({ content, message }) => <CustomMCPCard payload={content} />,
 };

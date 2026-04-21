@@ -248,9 +248,13 @@ function getHandler(env: Env) {
   if (cachedHandler) return cachedHandler;
   const runtime = new CopilotRuntime({
     agents: {
-      // Simple Mode: the runtime wires the adapter and reads the API key
-      // from the `OPENAI_API_KEY` env binding.
-      default: new BuiltInAgent({ model: "openai/gpt-4o" }),
+      // Simple Mode: thread the API key through the `apiKey` option — on
+      // Workers `process.env` is undefined, so BuiltInAgent's env-var
+      // fallback never fires. Wire env.OPENAI_API_KEY explicitly.
+      default: new BuiltInAgent({
+        model: "openai/gpt-4o",
+        apiKey: env.OPENAI_API_KEY,
+      }),
     },
   });
   cachedHandler = createCopilotRuntimeHandler({

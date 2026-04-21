@@ -238,7 +238,14 @@ let cachedHandler: ((r: Request) => Response | Promise<Response>) | null = null;
 function getHandler(env: Env) {
   if (cachedHandler) return cachedHandler;
   const runtime = new CopilotRuntime({
-    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) },
+    agents: {
+      // Thread env.OPENAI_API_KEY explicitly — `process.env` is undefined on
+      // Workers, so BuiltInAgent's env-var fallback never fires.
+      default: new BuiltInAgent({
+        model: "openai/gpt-4o",
+        apiKey: env.OPENAI_API_KEY,
+      }),
+    },
   });
   cachedHandler = createCopilotRuntimeHandler({
     runtime,

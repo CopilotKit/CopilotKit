@@ -268,10 +268,14 @@ Correct:
 ```
 
 The `/threads`, `/threads/subscribe`, `PATCH /threads/:id`, `POST /threads/:id/archive`,
-`DELETE /threads/:id`, and `/threads/:id/messages` routes only register when the runtime
-is an `IntelligenceRuntime`. In SSE mode they return 404.
+`DELETE /threads/:id`, and `/threads/:id/messages` routes always resolve in the router,
+but the handlers call `requireIntelligenceRuntime(runtime)` first and return HTTP 422
+("Missing CopilotKitIntelligence configuration. Thread operations require a
+CopilotKitIntelligence instance to be provided in CopilotRuntime options.") when the
+runtime isn't an `IntelligenceRuntime`.
 
-Source: `dev-docs/architecture/setup-intelligence.md:173-188`.
+Source: `packages/runtime/src/v2/runtime/handlers/intelligence/threads.ts:37-48`;
+route table in `dev-docs/architecture/setup-intelligence.md:179-183`.
 
 ### LOW Over-clamping lockTtlSeconds
 

@@ -44,4 +44,8 @@ CrewAI ships two products:
 The `url` for `CrewAIAgent` traditionally ends with a trailing slash
 (`http://localhost:8000/`). Follow whatever your CrewAI server exposes — don't strip it.
 
-Source: `docs/content/docs/integrations/crewai-flows/quickstart.mdx`.
+Source: `@ag-ui/crewai` package types (`CrewAIAgent` constructor);
+`docs/content/docs/reference/v1/sdk/python/CrewAIAgent.mdx` for v1 Python-side
+reference. The v2 integrations docs currently ship only a Flows quickstart at
+`docs/content/docs/integrations/crewai-flows/quickstart.mdx` — there is no dedicated
+Crews quickstart yet.

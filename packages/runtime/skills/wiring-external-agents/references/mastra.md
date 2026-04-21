@@ -26,9 +26,14 @@ const mastra = new Mastra({
 const runtime = new CopilotRuntime({
   agents: MastraAgent.getLocalAgents({
     mastra,
-    // Required — Mastra Memory scopes working-memory buckets by resourceId.
-    // Passing an empty string throws AGENT_MEMORY_MISSING_RESOURCE_ID on every
-    // turn when the runtime supplies a threadId (which it always does).
+    // Required ONLY when your Mastra agent has Memory enabled AND a threadId
+    // is supplied (the runtime always supplies a threadId, so Memory-enabled
+    // agents effectively always need this). Passing an empty string throws
+    // AGENT_MEMORY_MISSING_RESOURCE_ID on every turn. Agents without Memory
+    // can omit resourceId — e.g. the in-tree `examples/integrations/mastra`
+    // quickstart calls `MastraAgent.getLocalAgents({ mastra })` with no
+    // resourceId. Pick a stable per-user identifier in production; a literal
+    // "default" is fine as a placeholder for single-tenant demos.
     resourceId: "default",
   }),
 });

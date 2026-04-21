@@ -34,7 +34,7 @@ modify yet.
 ```bash
 # v1 provider + hooks from root:
 grep -rnE "from ['\"]@copilotkit/react-core['\"]" src/
-grep -rnE "\bCopilotKit[^P]" src/
+grep -rnE "\bCopilotKit\b" src/ | grep -vE "CopilotKit(Provider|CoreErrorCode|ErrorCode)"
 grep -rnE "useCopilotAction|useCopilotReadable|useCoAgent|useCopilotChatSuggestions" src/
 
 # react-ui chat components:

@@ -72,7 +72,7 @@ import {
   convertMessagesToVercelAISDKMessages,
   convertToolsToVercelAITools,
 } from "@copilotkit/runtime/v2";
-import { streamText } from "ai";
+import { streamText, stepCountIs } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 new BuiltInAgent({
@@ -87,7 +87,7 @@ new BuiltInAgent({
       messages,
       tools,
       abortSignal,
-      stopWhen: ({ steps }) => steps.length >= 5,
+      stopWhen: stepCountIs(5),
     });
   },
 });
@@ -151,29 +151,34 @@ new BuiltInAgent({
 ## Manual state-tool wiring (Factory Mode only)
 
 Simple Mode auto-injects `AGUISendStateSnapshot` / `AGUISendStateDelta`. In Factory Mode
-you must register them by hand for shared-state updates to reach the LLM:
+you must register them by hand for shared-state updates to reach the LLM. The AI SDK
+factory works out of the box because `defineTool` output adapts through
+`convertToolDefinitionsToVercelAITools`:
 
 ```typescript
 import {
-  defineTool,
   BuiltInAgent,
-  convertInputToTanStackAI,
+  convertMessagesToVercelAISDKMessages,
+  convertToolDefinitionsToVercelAITools,
+  defineTool,
 } from "@copilotkit/runtime/v2";
-import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
 
 const sendStateSnapshot = defineTool({
   name: "AGUISendStateSnapshot",
-  description: "Send a full state snapshot to the frontend.",
-  parameters: z.object({ snapshot: z.any() }),
+  description: "Replace the entire application state with a new snapshot",
+  parameters: z.object({
+    snapshot: z.any().describe("The complete new state object"),
+  }),
   execute: async ({ snapshot }) => ({ success: true, snapshot }),
 });
 const sendStateDelta = defineTool({
   name: "AGUISendStateDelta",
   description:
     "Apply incremental updates to application state using JSON Patch operations",
-  // MUST mirror the Simple-Mode auto-injected schema (src/agent/index.ts:1150-1176)
+  // MUST mirror the Simple-Mode auto-injected schema (src/agent/index.ts:1140-1176)
   // or the frontend's state handler won't recognize the payload.
   parameters: z.object({
     delta: z
@@ -190,19 +195,23 @@ const sendStateDelta = defineTool({
 });
 
 new BuiltInAgent({
-  type: "tanstack",
-  factory: ({ input, abortController }) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(input);
-    return chat({
-      adapter: openaiText("gpt-4o"),
-      messages,
-      systemPrompts,
-      tools: [sendStateSnapshot, sendStateDelta],
-      abortController,
-    });
-  },
+  type: "aisdk",
+  factory: ({ input, abortSignal }) =>
+    streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools: convertToolDefinitionsToVercelAITools([
+        sendStateSnapshot,
+        sendStateDelta,
+      ]),
+      abortSignal,
+    }),
 });
 ```
+
+For TanStack AI factories, `defineTool` output is NOT a TanStack tool — passing it to
+`chat({ tools })` does not work. Either switch to the AI SDK factory above, or redefine
+the tools with `toolDefinition()` from `@tanstack/ai`.
 
 Source: `packages/runtime/src/agent/index.ts`,
 `docs/content/docs/integrations/built-in-agent/custom-agent.mdx`.
