@@ -1,4 +1,4 @@
-// /docs/<...slug> — the framework-agnostic docs entry point.
+// /<...slug> — the framework-agnostic docs entry point.
 //
 // When a framework is already selected (URL-scoped or from localStorage
 // via <RouterPivot>'s useEffect), the user is auto-redirected to
@@ -47,9 +47,9 @@ const demos: Record<string, DemoRecord> = (
 // overview share a single source of truth.
 
 // Docs-section cards shown beneath the framework picker. Each href
-// targets the framework-agnostic route under `/docs/<slug>` — when the
-// user already has a framework stored, `<RouterPivot>` on the
-// destination page redirects them into the scoped view.
+// targets the framework-agnostic root route — when the user already
+// has a framework stored, `<RouterPivot>` on the destination page
+// redirects them into the scoped view.
 const DOCS_SECTIONS: {
   href: string;
   title: string;
@@ -57,49 +57,49 @@ const DOCS_SECTIONS: {
   category: string;
 }[] = [
   {
-    href: "/docs/quickstart",
+    href: "/quickstart",
     title: "Quickstart",
     description: "Five-minute setup for a working copilot",
     category: "Getting Started",
   },
   {
-    href: "/docs/coding-agents",
+    href: "/coding-agents",
     title: "Coding Agents",
     description: "Bootstrap with Claude Code, Cursor, Windsurf, and friends",
     category: "Getting Started",
   },
   {
-    href: "/docs/agentic-chat-ui",
+    href: "/agentic-chat-ui",
     title: "Chat Components",
     description: "Drop-in CopilotChat & CopilotSidebar for agentic chat",
     category: "Basics",
   },
   {
-    href: "/docs/custom-look-and-feel",
+    href: "/custom-look-and-feel",
     title: "Custom Look & Feel",
     description: "Theme, slot, and fully-headless chat UI",
     category: "Basics",
   },
   {
-    href: "/docs/generative-ui",
+    href: "/generative-ui",
     title: "Generative UI",
     description: "Render live React components from the agent's stream",
     category: "Generative UI",
   },
   {
-    href: "/docs/frontend-tools",
+    href: "/frontend-tools",
     title: "Frontend Tools",
     description: "Expose client-side actions to the agent",
     category: "App Control",
   },
   {
-    href: "/docs/shared-state",
+    href: "/shared-state",
     title: "Shared State",
     description: "Two-way state binding between the UI and the agent",
     category: "App Control",
   },
   {
-    href: "/docs/human-in-the-loop",
+    href: "/human-in-the-loop",
     title: "Human-in-the-Loop",
     description: "Intercept tool calls for explicit user approval",
     category: "App Control",
@@ -135,7 +135,7 @@ function DocsOverview() {
       <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <Link
-          href="/docs"
+          href="/"
           className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
         >
           CopilotKit Docs
@@ -316,7 +316,7 @@ function OverviewNavItem({
   if (node.type === "page") {
     return (
       <Link
-        href={`/docs/${node.slug}`}
+        href={`/${node.slug}`}
         className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
         style={{ paddingLeft: `${indent}px` }}
       >
@@ -375,7 +375,7 @@ export default async function DocsPage({
       frameworkMeta?.title ||
       framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
-    backLink = { label: "\u2190 Back to Docs", href: "/docs" };
+    backLink = { label: "\u2190 Back to Docs", href: "/" };
     // Integration-scoped pages are framework-specific content and
     // shouldn't be pivoted on.
     showPivot = false;
@@ -472,7 +472,7 @@ export default async function DocsPage({
   return (
     <DocsPageView
       slugPath={slugPath}
-      slugHrefPrefix="/docs"
+      slugHrefPrefix=""
       sidebarTitle={sidebarTitle}
       backLink={backLink}
       navTree={navTree}
