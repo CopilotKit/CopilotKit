@@ -36,4 +36,19 @@ describe("pin-drift probe", () => {
     expect(r.signal.setStatus).toBe("improved");
     expect(r.signal.improved).toBe(true);
   });
+
+  it("emits no_baseline on first run (baselineCount === null)", async () => {
+    // Regression: a missing baseline previously fell through to stable/regressed
+    // logic depending on implicit zero, producing misleading weekly reports.
+    const r = await pinDriftProbe.run(
+      { actualCount: 7, baselineCount: null },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.setStatus).toBe("no_baseline");
+    expect(r.signal.noBaseline).toBe(true);
+    expect(r.signal.stable).toBe(false);
+    expect(r.signal.regressed).toBe(false);
+    expect(r.signal.improved).toBe(false);
+  });
 });
