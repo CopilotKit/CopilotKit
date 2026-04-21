@@ -103,10 +103,7 @@ function getAgentTestAccess(
 }
 
 /** Collect events from the observable until it completes or errors. */
-function collectEvents(
-  agent: IntelligenceAgentInstance,
-  input = defaultInput,
-) {
+function collectEvents(agent: IntelligenceAgentInstance, input = defaultInput) {
   const events: BaseEvent[] = [];
   let completed = false;
   let error: Error | null = null;
@@ -144,15 +141,11 @@ function collectEvents(
   });
 }
 
-function getSocket(
-  agent: IntelligenceAgentInstance,
-): MockSocket | null {
+function getSocket(agent: IntelligenceAgentInstance): MockSocket | null {
   return getAgentTestAccess(agent).socket;
 }
 
-function getChannel(
-  agent: IntelligenceAgentInstance,
-): MockChannel | null {
+function getChannel(agent: IntelligenceAgentInstance): MockChannel | null {
   return getAgentTestAccess(agent).activeChannel;
 }
 
