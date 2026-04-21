@@ -6,6 +6,16 @@ set -e
 # (e.g. FATAL in ``_check_key``).
 AGENT_PID=""
 NEXT_PID=""
+WATCHDOG_PID=""
+
+# Disable Python stdout buffering so the FastAPI/uvicorn agent flushes
+# tracebacks and log lines immediately. Without this a silent crash during
+# module import can sit in Python's userspace buffer until the process
+# exits, by which point the container is already gone. Paired with `python
+# -u` on the uvicorn invocation below and `awk ... fflush()` on the log
+# prefixer — all three are belt-and-suspenders measures against pipe-
+# buffered log loss observed across Railway deploys.
+export PYTHONUNBUFFERED=1
 
 cleanup() {
     # Trap may fire from a FATAL ``exit 1`` path where ``set -e`` is still
@@ -26,6 +36,7 @@ cleanup() {
     # waiting for the container runtime to SIGKILL it.
     [ -n "$AGENT_PID" ] && kill "$AGENT_PID" 2>/dev/null
     [ -n "$NEXT_PID" ] && kill "$NEXT_PID" 2>/dev/null
+    [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null
     for _ in 1 2 3 4 5; do
         local any_alive=0
         [ -n "$AGENT_PID" ] && kill -0 "$AGENT_PID" 2>/dev/null && any_alive=1
@@ -35,6 +46,7 @@ cleanup() {
     done
     [ -n "$AGENT_PID" ] && kill -0 "$AGENT_PID" 2>/dev/null && kill -9 "$AGENT_PID" 2>/dev/null
     [ -n "$NEXT_PID" ] && kill -0 "$NEXT_PID" 2>/dev/null && kill -9 "$NEXT_PID" 2>/dev/null
+    [ -n "$WATCHDOG_PID" ] && kill -0 "$WATCHDOG_PID" 2>/dev/null && kill -9 "$WATCHDOG_PID" 2>/dev/null
     return 0
 }
 trap cleanup EXIT
@@ -281,13 +293,47 @@ fi
 # immediately, the shell still proceeds to start Next.js. We capture PIDs and
 # probe them explicitly after `wait -n` so operators can tell which process
 # died with which exit code.
-python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &
+#
+# `python -u` + `awk ... fflush()` below: unbuffered stdout at the interpreter
+# level + line-flushed awk prefixer so uvicorn request lines and tracebacks
+# reach Railway's log stream immediately rather than block-buffered in pipe
+# buffers.
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 
 # Start Next.js frontend (PORT defaults to 10000 — Railway / local compose
 # override as needed).
-npx next start --port ${PORT:-10000} &
+npx next start --port ${PORT:-10000} &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXT_PID=$!
+
+# Watchdog: Railway deploys of showcase packages have been observed to hit a
+# silent agent hang — the Python process stays alive (so `wait -n` never
+# fires and the container never restarts) but stops responding on :8000.
+# Poll the agent's /health endpoint every 30s; after 3 consecutive failures
+# (~90s of unreachable agent), kill the agent process so `wait -n` returns
+# and Railway restarts the container. Generalized from
+# showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+(
+    FAILS=0
+    while sleep 30; do
+        if ! kill -0 "$AGENT_PID" 2>/dev/null; then
+            break
+        fi
+        if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+            FAILS=0
+        else
+            FAILS=$((FAILS + 1))
+            echo "[watchdog] Agent health probe failed (count=$FAILS)" >&2
+            if [ $FAILS -ge 3 ]; then
+                echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart" >&2
+                kill -9 "$AGENT_PID" 2>/dev/null || true
+                break
+            fi
+        fi
+    done
+) &
+WATCHDOG_PID=$!
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID)" >&2
 
 # Wait for either process to exit; then figure out which one.
 # set +e for wait -n; exit code captured explicitly into EXIT_CODE. The

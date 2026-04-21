@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+cleanup() {
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# Disable Python stdout buffering so the FastAPI/uvicorn agent flushes
+# tracebacks and log lines immediately. Without this a silent crash during
+# module import can sit in Python's userspace buffer until the process
+# exits, by which point the container is already gone.
+export PYTHONUNBUFFERED=1
+
 # Disable Google ADK's progressive SSE streaming feature. With it enabled,
 # Gemini 2.5-flash occasionally returns a stream whose final event is flagged
 # `partial`, which the ADK flow aborts with a "The last event is partial"
@@ -14,6 +25,13 @@ set -e
 # env var is the primary (operator-level, ADK-wide) workaround; the callback
 # guard runs regardless. Both layers are intentional.
 export ADK_DISABLE_PROGRESSIVE_SSE_STREAMING=1
+
+echo "========================================="
+echo "[entrypoint] Starting showcase package: google-adk"
+echo "[entrypoint] Time: $(date -u)"
+echo "[entrypoint] PORT=${PORT:-not set}"
+echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
+echo "========================================="
 
 # Warn (default) or fail-fast when GOOGLE_API_KEY is missing. This package is
 # Gemini end-to-end: the primary LlmAgent uses Gemini, and the secondary
@@ -35,87 +53,79 @@ if [ -z "${GOOGLE_API_KEY:-}" ]; then
     echo "[entrypoint] WARN: GOOGLE_API_KEY not set — all Gemini-backed tools (chat + generate_a2ui) will return structured errors at request time" >&2
 fi
 
-# Start agent backend.
-# NOTE: `set -e` does not fire on backgrounded processes — if uvicorn crashes
-# immediately, the shell still proceeds to start Next.js. We capture PIDs and
-# probe them explicitly after `wait -n` so operators can tell which process
-# died with which exit code.
-python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &
+# Start agent backend on :8000 with log prefixing so its output is
+# distinguishable from Next.js in the Railway log stream.
+#
+# Belt-and-suspenders log flushing: `PYTHONUNBUFFERED=1` above exports the env
+# var, but the `-u` flag to the Python interpreter forces unbuffered
+# stdout/stderr at the interpreter level and is not overridable by user code.
+# Combined with `fflush()` inside the awk pipe below, uvicorn request lines
+# and tracebacks reach Railway's log stream line-at-a-time rather than
+# block-buffered in pipe buffers.
+echo "[entrypoint] Starting Python agent on port 8000..."
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
-
-# Start Next.js frontend (PORT defaults to 10000 — Railway / local compose
-# override as needed).
-npx next start --port ${PORT:-10000} &
-NEXT_PID=$!
-
-# Wait for either process to exit; then figure out which one.
-# set +e for wait -n; exit code captured explicitly into EXIT_CODE. The
-# subsequent `kill -0` / `echo` calls run without errexit — that is fine
-# because the final `exit "$EXIT_CODE"` uses the captured value, so the
-# container exits with the dying child's status regardless. Restoration of
-# `set -e` is intentionally omitted.
-set +e
-wait -n
-EXIT_CODE=$?
-
-# Interpret common exit codes for operators reading the log stream.
-# 0   = clean exit (shouldn't happen under `wait -n` when both are servers)
-# 127 = command-not-found (bad PATH / missing binary)
-# 137 = SIGKILL (usually OOM-killed by the cgroup / Railway / Docker)
-# 143 = SIGTERM (orderly shutdown signal from the platform)
-case "$EXIT_CODE" in
-    0)   EXIT_MEANING="clean exit (unexpected for a long-running server)" ;;
-    127) EXIT_MEANING="command not found (missing binary / bad PATH)" ;;
-    137) EXIT_MEANING="SIGKILL (likely OOM-killed or force-stopped)" ;;
-    143) EXIT_MEANING="SIGTERM (orderly shutdown from platform)" ;;
-    *)   EXIT_MEANING="(no common interpretation)" ;;
-esac
-
-# `kill -0 <pid>` returns 0 if the process is still alive, nonzero if it is
-# gone. Whichever one is gone is the one that died; log both statuses so the
-# platform's log stream carries enough info to diagnose. We also capture the
-# surviving sibling's PID so we can terminate it explicitly below — without
-# that, the survivor would be orphan-reparented to PID 1 and keep consuming
-# resources until the container runtime tears down the whole process tree.
-# This mirrors the spring-ai entrypoint pattern.
-SURVIVOR_PID=""
-if ! kill -0 "$AGENT_PID" 2>/dev/null; then
-    echo "[entrypoint] agent backend (uvicorn, pid=$AGENT_PID) exited with code $EXIT_CODE — $EXIT_MEANING" >&2
-    if kill -0 "$NEXT_PID" 2>/dev/null; then
-        SURVIVOR_PID="$NEXT_PID"
-    fi
-elif ! kill -0 "$NEXT_PID" 2>/dev/null; then
-    echo "[entrypoint] next.js frontend (pid=$NEXT_PID) exited with code $EXIT_CODE — $EXIT_MEANING" >&2
-    if kill -0 "$AGENT_PID" 2>/dev/null; then
-        SURVIVOR_PID="$AGENT_PID"
-    fi
+sleep 2
+if kill -0 $AGENT_PID 2>/dev/null; then
+  echo "[entrypoint] Agent started (PID: $AGENT_PID)"
 else
-    # `wait -n` returned but both pids still resolve. This most commonly
-    # happens when a child was reaped before we ran `kill -0` (race), which
-    # means one IS actually dead — we just can't tell which. Escalate to
-    # ERROR + exit 1 so this path does not silently mask the real death.
-    # Under no-children-dead the shell would never reach this block.
-    echo "[entrypoint] ERROR: wait -n returned exit=$EXIT_CODE ($EXIT_MEANING) but both agent ($AGENT_PID) and next.js ($NEXT_PID) appear alive — treating as fatal race; the actual dying child's status has already been reaped" >&2
-    exit 1
+  echo "[entrypoint] ERROR: Agent failed to start — exiting"
+  exit 1
 fi
 
-# Terminate the surviving sibling with a bounded grace window so it shuts
-# down cleanly rather than getting SIGKILL'd by the container runtime at
-# teardown. 5s matches the spring-ai pattern and is comfortably under the
-# typical container stop-grace (10s+).
-if [ -n "$SURVIVOR_PID" ]; then
-    echo "[entrypoint] Terminating surviving sibling (pid=${SURVIVOR_PID}) to avoid orphan-reparent" >&2
-    kill "$SURVIVOR_PID" 2>/dev/null
-    # Bounded wait: poll for up to 5s, then SIGKILL if still alive.
-    for _ in 1 2 3 4 5; do
-        kill -0 "$SURVIVOR_PID" 2>/dev/null || break
-        sleep 1
-    done
-    if kill -0 "$SURVIVOR_PID" 2>/dev/null; then
-        echo "[entrypoint] Survivor (pid=${SURVIVOR_PID}) did not exit within 5s — sending SIGKILL" >&2
-        kill -9 "$SURVIVOR_PID" 2>/dev/null
+echo "========================================="
+echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
+echo "========================================="
+
+PORT=${PORT:-10000}
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into every child process (Python agent, shell, healthchecks). `env`
+# prefix binds the value to this single exec.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
+NEXTJS_PID=$!
+
+echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
+
+# Watchdog: Railway deploys of showcase packages have been observed to hit a
+# silent agent hang — the Python process stays alive (so `wait -n` never
+# fires and the container never restarts) but stops responding on :8000.
+# Poll the agent's /health endpoint every 30s; after 3 consecutive failures
+# (90s of unreachable agent), kill the agent process so `wait -n` returns
+# and Railway restarts the container. Generalized from
+# showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+(
+  FAILS=0
+  while sleep 30; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      break
     fi
-    wait "$SURVIVOR_PID" 2>/dev/null || true
+    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+      FAILS=0
+    else
+      FAILS=$((FAILS + 1))
+      echo "[watchdog] Agent health probe failed (count=$FAILS)"
+      if [ $FAILS -ge 3 ]; then
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID)"
+echo "[entrypoint] All processes running. Waiting..."
+
+wait -n $AGENT_PID $NEXTJS_PID
+EXIT_CODE=$?
+if ! kill -0 $AGENT_PID 2>/dev/null; then
+  echo "[entrypoint] Agent (PID: $AGENT_PID) exited with code $EXIT_CODE"
+elif ! kill -0 $NEXTJS_PID 2>/dev/null; then
+  echo "[entrypoint] Next.js (PID: $NEXTJS_PID) exited with code $EXIT_CODE"
+else
+  echo "[entrypoint] A process exited with code $EXIT_CODE"
 fi
 
-exit "$EXIT_CODE"
+exit $EXIT_CODE
