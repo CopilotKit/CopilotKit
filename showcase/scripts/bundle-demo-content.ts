@@ -545,13 +545,34 @@ try {
 
 if (process.argv.includes("--watch")) {
   let timer: NodeJS.Timeout | null = null;
+  // Track the last failure so transitions are visible. The previous
+  // implementation logged a single `[watch] bundle failed` and then fell
+  // silent on both repeat failures (no news = assumed fine) and on
+  // recovery (no news = actually, it's fine again). Operators reading a
+  // dev log couldn't tell either way. Now we log on first-failure,
+  // distinguish repeat failures, and emit an explicit "recovered" note
+  // when the next successful run clears the state.
+  let lastWatchError: Error | null = null;
   const rebundle = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       try {
         main();
+        if (lastWatchError) {
+          console.log("[watch] bundle recovered");
+          lastWatchError = null;
+        }
       } catch (e) {
-        console.error("[watch] bundle failed:", e);
+        const err = e as Error;
+        if (
+          lastWatchError &&
+          lastWatchError.message === err.message
+        ) {
+          console.error(`[watch] bundle still failing: ${err.message}`);
+        } else {
+          console.error("[watch] bundle failed:", err);
+        }
+        lastWatchError = err;
       }
     }, 200);
   };
