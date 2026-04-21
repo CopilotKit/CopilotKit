@@ -117,13 +117,16 @@ describe("orchestrator /health wiring (F1.1)", () => {
     }
     if (networkErrored) {
       // Connection refused / fetch-failed / socket hang-up are all
-      // acceptable — they prove the server shut down.
+      // acceptable — they prove the server shut down. HF-A8: the old
+      // `expect(networkErrored).toBe(true)` was tautological inside this
+      // truthy branch; assert a meaningful shape of the error string so
+      // we catch regressions where `fetch()` rejects for some unrelated
+      // reason (DNS failure, bad URL, TLS error) but the port is
+      // actually still serving.
       expect(errorMessage.length).toBeGreaterThan(0);
-      // Node's undici wraps connection-refused as "fetch failed"; the
-      // underlying cause message carries ECONNREFUSED. We allow any
-      // network-family error message but explicitly disallow the silent
-      // empty-string case.
-      expect(networkErrored).toBe(true);
+      expect(errorMessage).toMatch(
+        /fetch failed|ECONNREFUSED|ECONN|network|socket|closed/i,
+      );
     } else {
       // If the port was somehow reclaimed and another process answered,
       // the body MUST NOT claim "ok". This is the real regression guard
