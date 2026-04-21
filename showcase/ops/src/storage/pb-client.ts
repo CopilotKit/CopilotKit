@@ -43,6 +43,18 @@ export interface PbClient {
   delete(collection: string, id: string): Promise<void>;
   deleteByFilter(collection: string, filter: string): Promise<number>;
   health(): Promise<boolean>;
+  /**
+   * Trigger PocketBase's built-in backup endpoint
+   * (`POST /api/backups`). PB takes a SQLite checkpoint + zips the
+   * `pb_data` directory into `<pb_data>/backups/<name>`, producing a
+   * consistent snapshot even while writes are in-flight. This replaces
+   * reading `data.db` off the live filesystem, which risks corruption.
+   */
+  createBackup(name: string): Promise<void>;
+  /** Fetch a previously-created backup's zip bytes. */
+  downloadBackup(name: string): Promise<Uint8Array>;
+  /** Delete a backup so we don't leak zips on the PB volume. */
+  deleteBackup(name: string): Promise<void>;
 }
 
 // Cap deleteByFilter at 100 pages of 200 rows = 20k rows. Guards against
@@ -353,6 +365,45 @@ export function createPbClient(config: PbClientConfig): PbClient {
         if (page.items.length < 200) break;
       }
       return deleted;
+    },
+
+    async createBackup(name: string): Promise<void> {
+      const res = await request(`/api/backups`, {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`pb createBackup failed: ${res.status} ${text}`);
+      }
+    },
+
+    async downloadBackup(name: string): Promise<Uint8Array> {
+      // PB serves the backup file at `/api/backups/<name>` for superusers
+      // (GET). The response is a binary zip. Use `request()` so the
+      // auth/retry envelope applies, then buffer into a Uint8Array for
+      // the S3 uploader (multi-GB PB DBs will eventually want streaming;
+      // see s3-backup.ts TODO).
+      const res = await request(
+        `/api/backups/${encodeURIComponent(name)}`,
+      );
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`pb downloadBackup failed: ${res.status} ${text}`);
+      }
+      const buf = await res.arrayBuffer();
+      return new Uint8Array(buf);
+    },
+
+    async deleteBackup(name: string): Promise<void> {
+      const res = await request(
+        `/api/backups/${encodeURIComponent(name)}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok && res.status !== 404) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`pb deleteBackup failed: ${res.status} ${text}`);
+      }
     },
 
     async health(): Promise<boolean> {

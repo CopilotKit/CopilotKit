@@ -1,6 +1,5 @@
 import path from "node:path";
 import url from "node:url";
-import { promises as fs } from "node:fs";
 import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
@@ -194,16 +193,41 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   // S3 backup — cron 0 3 * * * (daily 03:00 UTC). Retention handled via
   // bucket lifecycle policy (see storage/s3-backup.ts).
+  //
+  // The `readSource` producer below calls PB's `/api/backups` endpoint
+  // which takes a SQLite-checkpoint-consistent snapshot (zip) of
+  // `pb_data/`. Reading `data.db` off the live filesystem while PB is
+  // serving writes can tear the copy — hence the PB-managed path.
   const s3Bucket = process.env.S3_BACKUP_BUCKET ?? "";
   const awsRegion = process.env.AWS_REGION ?? "us-east-1";
-  const pbDataPath = process.env.PB_DATA_PATH ?? "/app/pb_data/data.db";
   if (s3Bucket) {
     try {
       const uploader = await createDefaultS3Uploader(awsRegion);
       const backup = createS3Backup({
         bucket: s3Bucket,
         region: awsRegion,
-        readSource: () => fs.readFile(pbDataPath),
+        readSource: async () => {
+          // Name includes timestamp so PB doesn't reject a duplicate,
+          // and so orphaned zips (if delete fails below) are traceable.
+          const name = `showcase-ops-${new Date()
+            .toISOString()
+            .replace(/[:.]/g, "-")}.zip`;
+          await pb.createBackup(name);
+          try {
+            return await pb.downloadBackup(name);
+          } finally {
+            // Best-effort cleanup: PB stores backups on the same volume
+            // as pb_data, so leaving them around eats disk. A failure to
+            // delete is logged but not fatal — S3 is the source of truth
+            // once the upload lands.
+            pb.deleteBackup(name).catch((err) =>
+              logger.warn("orchestrator.s3-backup-cleanup-failed", {
+                name,
+                err: String(err),
+              }),
+            );
+          }
+        },
         uploader,
         logger,
         now: () => new Date(),

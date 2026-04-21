@@ -193,6 +193,39 @@ describe("createS3Backup", () => {
     ).toBe(true);
   });
 
+  it("uploads exactly the bytes returned by the producer (PB backup-zip contract)", async () => {
+    // Guards the contract between orchestrator's PB-backup-API-backed
+    // producer and s3-backup: whatever the producer hands us goes to S3
+    // untouched. Orchestrator's producer calls pb.createBackup + downloads
+    // the zip; this test stands in as a unit-level proof that s3-backup
+    // doesn't mutate or repackage the producer output.
+    const logger = fakeLogger();
+    const zipBytes = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 0xff, 0xaa]);
+    const producerCalls: number[] = [];
+    const uploads: Array<{ body: Uint8Array; contentType?: string }> = [];
+    const uploader: S3Uploader = {
+      async putObject(params) {
+        uploads.push({ body: params.body, contentType: params.contentType });
+      },
+    };
+    const backup = createS3Backup({
+      bucket: "b",
+      region: "us-east-1",
+      readSource: async () => {
+        producerCalls.push(Date.now());
+        return zipBytes;
+      },
+      uploader,
+      logger,
+      now: () => new Date("2026-04-20T00:00:00Z"),
+    });
+    await backup.run();
+    expect(producerCalls).toHaveLength(1);
+    expect(uploads).toHaveLength(1);
+    expect(Array.from(uploads[0]!.body)).toEqual(Array.from(zipBytes));
+    expect(uploads[0]!.contentType).toBe("application/octet-stream");
+  });
+
   it("is disabled when bucket is empty — run() no-ops and logs at info", async () => {
     const logger = fakeLogger();
     const uploader: S3Uploader = { putObject: vi.fn() };

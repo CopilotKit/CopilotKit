@@ -76,6 +76,11 @@ function fakePb(): {
     async health() {
       return true;
     },
+    async createBackup() {},
+    async downloadBackup() {
+      return new Uint8Array();
+    },
+    async deleteBackup() {},
   };
   return { pb, rows, history };
 }
@@ -315,6 +320,11 @@ describe("status-writer", () => {
       async health() {
         return true;
       },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
     };
     const writer = createStatusWriter({
       pb,
@@ -357,6 +367,11 @@ describe("status-writer", () => {
       async health() {
         return true;
       },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
     };
     const bus = createEventBus();
     const failed: Array<{ phase: string; key: string }> = [];
@@ -402,6 +417,11 @@ describe("status-writer", () => {
       async health() {
         return true;
       },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
     };
     const bus = createEventBus();
     const failed: Array<{ phase: string }> = [];

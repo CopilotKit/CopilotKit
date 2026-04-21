@@ -1,8 +1,13 @@
 /**
- * Daily S3 backup of the PocketBase `data.db` file (spec §9 Phase 5).
+ * Daily S3 backup of the PocketBase database (spec §9 Phase 5).
  *
  * Wired by the orchestrator as a `cron:0 3 * * *` schedule (daily 03:00
- * UTC). Uploads to `<bucket>/pocketbase-backups/<YYYY-MM-DD>/data.db`.
+ * UTC). The orchestrator provides a `readSource` producer that calls
+ * PocketBase's `/api/backups` endpoint — PB takes a SQLite checkpoint
+ * and zips `pb_data/` into a consistent snapshot, avoiding the
+ * torn-write risk of reading `data.db` off the live filesystem while
+ * PB is serving writes. Uploads to
+ * `<bucket>/pocketbase-backups/<YYYY-MM-DD>/data-<HHMMSS>.db`.
  *
  * Retention is handled by an S3 **lifecycle policy** (NOT this code) —
  * set up once out-of-band on the bucket to expire objects under the
@@ -56,6 +61,14 @@ export interface BackupFailureEmitter {
 export interface CreateS3BackupOptions {
   bucket: string;
   region: string;
+  /**
+   * Producer that returns the bytes to upload. The orchestrator wires
+   * this to a PocketBase-backed producer that invokes
+   * `POST /api/backups` (consistent snapshot) then downloads the
+   * resulting zip. Tests inject an in-memory byte array. The contract
+   * does NOT read `data.db` off the live filesystem — torn writes are
+   * a real risk under concurrent PB activity.
+   */
   readSource: () => Promise<Uint8Array>;
   uploader: S3Uploader;
   logger: Logger;
@@ -102,11 +115,12 @@ export function createS3Backup(opts: CreateS3BackupOptions): S3Backup {
         return;
       }
       try {
-        // TODO(v2): stream the source file rather than buffering the
-        // whole DB into memory. Today the spec sizes PB at ~MB scale so
-        // a single buffered read is fine, but a multi-GB DB would OOM
-        // the container. When that day comes, pipe a Node stream into
-        // the S3 upload and drop the Uint8Array intermediate.
+        // TODO(v2): stream the PB backup zip rather than buffering the
+        // whole snapshot into memory. Today the spec sizes PB at ~MB
+        // scale so a single buffered download is fine, but a multi-GB
+        // DB would OOM the container. When that day comes, pipe the
+        // `/api/backups/<name>` response body into the S3 multipart
+        // upload and drop the Uint8Array intermediate.
         const body = await opts.readSource();
         // Attempt-suffixed key prevents same-day collisions when multiple
         // runs land on the same UTC day (retry after failure, manual

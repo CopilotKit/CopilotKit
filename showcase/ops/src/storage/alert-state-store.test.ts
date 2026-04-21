@@ -25,6 +25,9 @@ function makeFakePb(overrides: Partial<PbClient> = {}): PbClient {
     delete: async () => {},
     deleteByFilter: async () => 0,
     health: async () => true,
+    createBackup: async () => {},
+    downloadBackup: async () => new Uint8Array(),
+    deleteBackup: async () => {},
   };
   return { ...base, ...overrides };
 }

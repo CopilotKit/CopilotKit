@@ -21,6 +21,9 @@ function fakePb(healthy: boolean): PbClient {
     delete: async () => {},
     deleteByFilter: async () => 0,
     health: async () => healthy,
+    createBackup: async () => {},
+    downloadBackup: async () => new Uint8Array(),
+    deleteBackup: async () => {},
   };
 }
 
