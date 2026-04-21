@@ -91,9 +91,17 @@ for (const label of ["all-green", "mixed", "all-unknown"] as const) {
   test(`matrix-${label}`, async ({ page }) => {
     await seedPb(page, label);
     await page.goto("/");
-    // Give the client a beat to settle SSE-connect attempts into 'error'
-    // for the unknown case.
-    await page.waitForTimeout(1500);
+    // Deterministic wait: the shell-dashboard `live-indicator` carries a
+    // `data-status` attribute that settles to "offline" once the SSE
+    // connection attempt fails (our route.abort above forces this). Pre-
+    // fix this block used `waitForTimeout(1500)` — a real-clock race
+    // prone to flake under load, and that silently accepted partially-
+    // rendered screenshots. Waiting on `data-status="offline"` is the
+    // same visual end-state we screenshot.
+    await page
+      .locator('[data-testid="live-indicator"][data-status="offline"]')
+      .first()
+      .waitFor({ state: "attached", timeout: 5000 });
     await expect(page).toHaveScreenshot(`matrix-${label}.png`, {
       fullPage: true,
       maxDiffPixelRatio: 0.02,

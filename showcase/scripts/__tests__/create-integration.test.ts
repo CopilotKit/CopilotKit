@@ -24,7 +24,7 @@ import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { execOptsFor } from "./test-cleanup";
-import { SCRIPTS_DIR, WORKFLOWS_DIR as REAL_WORKFLOWS_DIR } from "./paths";
+import { SCRIPTS_DIR } from "./paths";
 
 const SCHEMA_PATH = path.resolve(
   SCRIPTS_DIR,
@@ -45,15 +45,71 @@ const TEST_SLUG = "test-integration-tmp";
 const REGRESSION_SLUG = "test-integration-tmp-regression-guard";
 const TEST_SLUGS: readonly string[] = [TEST_SLUG, REGRESSION_SLUG];
 
-// Exactly the two workflow YAMLs the generator mutates. We seed our
-// tmpdir with copies of these real files so the generator's regex-based
-// edits have the expected anchors to match against. (The former
-// showcase_drift-detection.yml was deleted in favor of showcase-ops'
-// runtime probes.)
-const WORKFLOW_BASENAMES: readonly string[] = [
-  "showcase_deploy.yml",
-  "starter-smoke.yml",
-];
+// Inline fixture workflow YAMLs — just enough structural anchors for the
+// generator's regex-based edits to match. Previously the test seeded from
+// the real `.github/workflows/*.yml` files, which meant any drift to
+// those files silently broke the test via a hidden dependency (E4). The
+// fixtures below are frozen mini-workflows: they carry only the
+// anchors documented by `showcase/scripts/create-integration/index.ts`:
+//   - `options:` list (workflow_dispatch input)
+//   - `outputs:` map with `${{ ... }}` values
+//   - `filters: |` block with at least one nested key + list item
+//   - `starter:` block sequence for starter-smoke
+// and nothing else. If the generator learns new anchors, add them here.
+const WORKFLOW_FIXTURES: Record<string, string> = {
+  "showcase_deploy.yml": `name: Showcase Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      service:
+        description: Which service to deploy
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - fixture-a
+          - fixture-b
+jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      fixture_a: \${{ steps.changes.outputs.fixture_a }}
+      fixture_b: \${{ steps.changes.outputs.fixture_b }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            fixture_a:
+              - 'showcase/packages/fixture-a/**'
+            fixture_b:
+              - 'showcase/packages/fixture-b/**'
+  check-lockfile:
+    name: Check Lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo ok
+`,
+  "starter-smoke.yml": `name: Starter Smoke
+on: { workflow_dispatch: {} }
+jobs:
+  smoke:
+    strategy:
+      matrix:
+        starter:
+          - fixture-a
+          - fixture-b
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo ok
+`,
+};
+const WORKFLOW_BASENAMES: readonly string[] = Object.keys(WORKFLOW_FIXTURES);
 
 // Lazily populated in `beforeAll` — cast via ! below because TypeScript can't
 // follow that these are always set before any test runs.
@@ -91,15 +147,14 @@ beforeAll(() => {
   fs.mkdirSync(TMP_PACKAGES_DIR, { recursive: true });
   fs.mkdirSync(TMP_WORKFLOWS_DIR, { recursive: true });
 
-  // Seed our tmp workflows dir from the real files — the generator's regex
-  // edits depend on structural anchors that only exist in the production
-  // YAMLs. A stale/crashed previous run could leave a real file drifted,
-  // but the git-lock-guarded test-cleanup healing on sibling suites will
-  // have already fixed that by the time we run.
+  // Seed our tmp workflows dir from frozen inline fixtures. Pre-fix (E4)
+  // this copied from `.github/workflows/` — any drift there silently
+  // broke the test because the regex anchors lived in a file outside
+  // this suite's control. The WORKFLOW_FIXTURES constants above carry
+  // the anchors the generator expects; the suite is now hermetic.
   for (const basename of WORKFLOW_BASENAMES) {
-    const src = path.join(REAL_WORKFLOWS_DIR, basename);
     const dst = path.join(TMP_WORKFLOWS_DIR, basename);
-    const content = fs.readFileSync(src);
+    const content = Buffer.from(WORKFLOW_FIXTURES[basename]!, "utf-8");
     fs.writeFileSync(dst, content);
     WORKFLOW_BASELINES.set(dst, content);
   }
