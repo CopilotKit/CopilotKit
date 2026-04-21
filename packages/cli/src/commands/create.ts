@@ -14,6 +14,13 @@ import {
   cloneGitHubSubdirectory,
   isValidGitHubUrl,
 } from "../lib/init/scaffold/github.js";
+import {
+  createTipEngine,
+  postCreateTips,
+  WeightedRandomStrategy,
+  MarkdownTipRenderer,
+  JsonFileTipStore,
+} from "../tips/index.js";
 
 const streamPipeline = promisify(pipeline);
 
@@ -315,6 +322,14 @@ export default class Create extends BaseCommand {
         theme.command(FRAMEWORK_DOCUMENTATION[options.agentFramework]),
     );
     this.log(theme.bottomPadding);
+
+    const tipEngine = createTipEngine({
+      tips: postCreateTips,
+      strategy: new WeightedRandomStrategy({ noRepeatCount: 3 }),
+      renderer: new MarkdownTipRenderer(),
+      store: new JsonFileTipStore(),
+    });
+    await tipEngine.show(this.log.bind(this));
   }
 
   private async promptProjectName(): Promise<string> {
