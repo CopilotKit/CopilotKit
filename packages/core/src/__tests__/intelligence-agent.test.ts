@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { EventType, BaseEvent } from "@ag-ui/client";
+import { EventType, BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { Observable } from "rxjs";
 import { MockSocket, MockChannel } from "./test-utils";
 
 vi.mock("phoenix", () => ({
@@ -8,6 +9,7 @@ vi.mock("phoenix", () => ({
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
 const { IntelligenceAgent } = await import("../intelligence-agent");
+type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -45,7 +47,7 @@ async function flushAsyncWork() {
 }
 
 async function waitForConnection(
-  agent: InstanceType<typeof IntelligenceAgent>,
+  agent: IntelligenceAgentInstance,
   attempts = 5,
 ) {
   for (let index = 0; index < attempts; index += 1) {
@@ -75,7 +77,7 @@ function createAgent() {
   });
 }
 
-const defaultInput = {
+const defaultInput: RunAgentInput = {
   threadId: "thread-1",
   runId: "run-1",
   messages: [],
@@ -83,11 +85,26 @@ const defaultInput = {
   context: [],
   state: {},
   forwardedProps: {},
-} as any;
+};
+
+interface IntelligenceAgentTestAccess {
+  activeChannel: MockChannel | null;
+  canonicalRunId: string | null;
+  config: unknown;
+  connect(input: RunAgentInput): Observable<BaseEvent>;
+  socket: MockSocket | null;
+  threadId: string | undefined;
+}
+
+function getAgentTestAccess(
+  agent: IntelligenceAgentInstance,
+): IntelligenceAgentTestAccess {
+  return agent as unknown as IntelligenceAgentTestAccess;
+}
 
 /** Collect events from the observable until it completes or errors. */
 function collectEvents(
-  agent: InstanceType<typeof IntelligenceAgent>,
+  agent: IntelligenceAgentInstance,
   input = defaultInput,
 ) {
   const events: BaseEvent[] = [];
@@ -128,15 +145,39 @@ function collectEvents(
 }
 
 function getSocket(
-  agent: InstanceType<typeof IntelligenceAgent>,
+  agent: IntelligenceAgentInstance,
 ): MockSocket | null {
-  return ((agent as any).socket as MockSocket | null) ?? null;
+  return getAgentTestAccess(agent).socket;
 }
 
 function getChannel(
-  agent: InstanceType<typeof IntelligenceAgent>,
+  agent: IntelligenceAgentInstance,
 ): MockChannel | null {
-  return ((agent as any).activeChannel as MockChannel | null) ?? null;
+  return getAgentTestAccess(agent).activeChannel;
+}
+
+function connectWithTestAccess(
+  agent: IntelligenceAgentInstance,
+  input = defaultInput,
+) {
+  return getAgentTestAccess(agent).connect(input);
+}
+
+function setThreadIdForTest(
+  agent: IntelligenceAgentInstance,
+  threadId: string,
+): void {
+  getAgentTestAccess(agent).threadId = threadId;
+}
+
+function getCanonicalRunIdForTest(
+  agent: IntelligenceAgentInstance,
+): string | null {
+  return getAgentTestAccess(agent).canonicalRunId;
+}
+
+function getConfigForTest(agent: IntelligenceAgentInstance): unknown {
+  return getAgentTestAccess(agent).config;
 }
 
 describe("IntelligenceAgent", () => {
@@ -602,7 +643,7 @@ describe("IntelligenceAgent", () => {
       );
 
       const agent = createAgent();
-      (agent as any).threadId = "thread-1";
+      setThreadIdForTest(agent, "thread-1");
 
       const reconnectPromise = agent.connectAgent({ runId: "run-1" });
       await waitForConnection(agent);
@@ -690,7 +731,7 @@ describe("IntelligenceAgent", () => {
         channel: MockChannel | null;
         socket: MockSocket | null;
       }>((resolve) => {
-        (agent as any).connect(input).subscribe({
+        connectWithTestAccess(agent, input).subscribe({
           next: (event: BaseEvent) => events.push(event),
           complete: () => {
             completed = true;
@@ -727,7 +768,7 @@ describe("IntelligenceAgent", () => {
       );
 
       const agent = createAgent();
-      (agent as any).connect(defaultInput).subscribe({
+      connectWithTestAccess(agent, defaultInput).subscribe({
         next: () => {},
         error: () => {},
       });
@@ -778,7 +819,7 @@ describe("IntelligenceAgent", () => {
         }),
       );
 
-      (agent as any).connect(defaultInput).subscribe({
+      connectWithTestAccess(agent, defaultInput).subscribe({
         next: () => {},
         error: () => {},
       });
@@ -975,7 +1016,7 @@ describe("IntelligenceAgent", () => {
           },
         },
       ]);
-      expect((agent as any).canonicalRunId).toBe("run-1");
+      expect(getCanonicalRunIdForTest(agent)).toBe("run-1");
     });
 
     it("applies event-native finished-thread bootstrap baselines with restored activity state", async () => {
@@ -1177,7 +1218,7 @@ describe("IntelligenceAgent", () => {
       );
 
       const agent = createAgent();
-      (agent as any).threadId = "thread-1";
+      setThreadIdForTest(agent, "thread-1");
 
       const result = await agent.connectAgent({ runId: "run-1" });
 
@@ -1195,7 +1236,7 @@ describe("IntelligenceAgent", () => {
           content: "hello",
         },
       ]);
-      expect((agent as any).canonicalRunId).toBe("run-1");
+      expect(getCanonicalRunIdForTest(agent)).toBe("run-1");
       expect(getSocket(agent)).toBeNull();
       expect(getChannel(agent)).toBeNull();
     });
@@ -1273,7 +1314,7 @@ describe("IntelligenceAgent", () => {
       const agent = createAgent();
       const events: BaseEvent[] = [];
 
-      (agent as any).connect(defaultInput).subscribe({
+      connectWithTestAccess(agent, defaultInput).subscribe({
         next: (event: BaseEvent) => events.push(event),
         error: () => {},
       });
@@ -1298,7 +1339,7 @@ describe("IntelligenceAgent", () => {
           ],
         },
       });
-      expect((agent as any).canonicalRunId).toBe("run-1");
+      expect(getCanonicalRunIdForTest(agent)).toBe("run-1");
     });
 
     it("errors the observable on connect fetch failure", async () => {
@@ -1308,7 +1349,7 @@ describe("IntelligenceAgent", () => {
       const result = await new Promise<{
         error: Error | null;
       }>((resolve) => {
-        (agent as any).connect(defaultInput).subscribe({
+        connectWithTestAccess(agent, defaultInput).subscribe({
           next: () => {},
           error: (error: Error) => resolve({ error }),
         });
@@ -1352,7 +1393,7 @@ describe("IntelligenceAgent", () => {
 
       const agent = createAgent();
       let error: Error | null = null;
-      (agent as any).connect(defaultInput).subscribe({
+      connectWithTestAccess(agent, defaultInput).subscribe({
         next: () => {},
         error: (err: Error) => {
           error = err;
@@ -1401,7 +1442,7 @@ describe("IntelligenceAgent", () => {
 
       expect(cloned).toBeInstanceOf(IntelligenceAgent);
       expect(cloned).not.toBe(agent);
-      expect((cloned as any).config).toEqual((agent as any).config);
+      expect(getConfigForTest(cloned)).toEqual(getConfigForTest(agent));
     });
 
     it("shares replay cursor state across clones when reconnecting with local messages", async () => {
@@ -1438,7 +1479,7 @@ describe("IntelligenceAgent", () => {
           events: [],
         }),
       );
-      (cloned as any).connect(reconnectInput).subscribe({
+      connectWithTestAccess(cloned, reconnectInput).subscribe({
         next: () => {},
         error: () => {},
       });
@@ -1475,7 +1516,7 @@ describe("IntelligenceAgent", () => {
           events: [],
         }),
       );
-      (cloned as any).connect(defaultInput).subscribe({
+      connectWithTestAccess(cloned, defaultInput).subscribe({
         next: () => {},
         error: () => {},
       });

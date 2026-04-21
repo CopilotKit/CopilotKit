@@ -124,7 +124,6 @@ describe("handleConnectAgent", () => {
 
     expect(recordedRequests).toHaveLength(1);
     expect(recordedRequests[0].threadId).toBe("thread-1");
-    expect(recordedRequests[0].runId).toBe("run-1");
     expect(recordedRequests[0].headers).toMatchObject({
       authorization: "Bearer forwarded-token",
       "x-custom": "custom-value",
@@ -184,7 +183,6 @@ describe("handleConnectAgent", () => {
     await connectInvoked;
 
     expect(recordedRequests).toHaveLength(1);
-    expect(recordedRequests[0].runId).toBe("run-1");
     expect(recordedRequests[0].headers).toEqual({});
   });
 
