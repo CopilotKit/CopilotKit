@@ -94,7 +94,10 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["open-gen-ui", "voice"]
+      "excluded": [
+        "open-gen-ui",
+        "voice"
+      ]
     }
   }
 }
