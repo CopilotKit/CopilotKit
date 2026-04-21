@@ -171,8 +171,21 @@ const sendStateSnapshot = defineTool({
 });
 const sendStateDelta = defineTool({
   name: "AGUISendStateDelta",
-  description: "Send a state delta to the frontend.",
-  parameters: z.object({ delta: z.any() }),
+  description:
+    "Apply incremental updates to application state using JSON Patch operations",
+  // MUST mirror the Simple-Mode auto-injected schema (src/agent/index.ts:1150-1176)
+  // or the frontend's state handler won't recognize the payload.
+  parameters: z.object({
+    delta: z
+      .array(
+        z.object({
+          op: z.enum(["add", "replace", "remove"]),
+          path: z.string(),
+          value: z.any().optional(),
+        }),
+      )
+      .describe("Array of JSON Patch operations"),
+  }),
   execute: async ({ delta }) => ({ success: true, delta }),
 });
 

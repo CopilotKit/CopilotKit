@@ -340,10 +340,26 @@ const sendStateSnapshot = defineTool({
 });
 const sendStateDelta = defineTool({
   name: "AGUISendStateDelta",
-  description: "Send a state delta to the frontend.",
-  parameters: z.object({ delta: z.any() }),
+  description:
+    "Apply incremental updates to application state using JSON Patch operations",
+  // MUST mirror the Simple-Mode auto-injected schema or the frontend's state
+  // handler won't recognize the payload.
+  parameters: z.object({
+    delta: z
+      .array(
+        z.object({
+          op: z.enum(["add", "replace", "remove"]),
+          path: z.string(), // JSON Pointer, e.g. "/foo/bar"
+          value: z.any().optional(), // required for add/replace, ignored for remove
+        }),
+      )
+      .describe("Array of JSON Patch operations"),
+  }),
   execute: async ({ delta }) => ({ success: true, delta }),
 });
+// If you don't want to hand-wire this, use Simple Mode — it auto-injects both
+// AGUISendStateSnapshot and AGUISendStateDelta with the correct JSON Patch schema.
+// Source: packages/runtime/src/agent/index.ts:1150-1176
 
 new BuiltInAgent({
   type: "tanstack",

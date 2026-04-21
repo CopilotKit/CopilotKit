@@ -2,8 +2,9 @@
 name: intelligence-mode
 description: >
   Enable durable threads, realtime websocket transport, and managed multi-instance durability
-  by pointing CopilotKitIntelligence at CopilotKit Cloud (api.cloud.copilotkit.ai). Intelligence
-  is a Cloud-only hosted service — it is NOT self-hostable. Covers CopilotKitIntelligence
+  by pointing CopilotKitIntelligence at the CopilotKit-managed cloud Intelligence instance.
+  Currently only the managed cloud instance runs Intelligence; self-hosting is on the roadmap
+  (organizationId is reserved for future self-hosted deployments). Covers CopilotKitIntelligence
   client config ({ apiUrl, wsUrl, apiKey, organizationId }), the required identifyUser
   callback, lockTtlSeconds / lockHeartbeatIntervalSeconds clamps (3600 / 3000), the
   generateThreadNames default (true) that triggers a naming LLM call per new thread, the
@@ -23,13 +24,33 @@ sources:
 
 # CopilotKit Intelligence Mode
 
-Intelligence is a hosted Cloud service. Pointing `apiUrl` / `wsUrl` at anything other than
-`api.cloud.copilotkit.ai` will fail — the runtime internals that back Intelligence are
-private (`ɵ`-prefixed methods). If you need on-prem durable threads, use SSE mode with a
-persistent runner (`SqliteAgentRunner` or a custom one) instead.
+Intelligence currently ships as a managed cloud service. The only supported `apiUrl` /
+`wsUrl` today is the CopilotKit-managed cloud Intelligence instance — the `ɵ`-prefixed
+runtime internals and REST/WebSocket contract that back Intelligence are still
+stabilizing and `organizationId` is reserved for future self-hosted deployments. If you
+need on-prem durable threads today, use SSE mode with a persistent runner
+(`SqliteAgentRunner` or a custom one) instead.
 
-Obtain `apiKey` and `organizationId` from the CopilotKit Cloud dashboard at
-`cloud.copilotkit.ai`.
+Obtain `apiKey` and `organizationId` from the CopilotKit Cloud dashboard.
+
+### URL format
+
+The client prepends `/api/...` and the Intelligence websocket layer derives `/runner`
+or `/client` suffixes internally. Pass the bare base URLs — do NOT append `/api`,
+`/socket`, `/runner`, or `/client` yourself:
+
+```typescript
+// Correct — bare base URLs
+apiUrl: "https://api.copilotkit.ai",
+wsUrl:  "wss://api.copilotkit.ai",
+
+// Wrong — adding /api produces /api/api/... on every REST call; /socket/runner is not a real path
+apiUrl: "https://api.copilotkit.ai/api",
+wsUrl:  "wss://api.copilotkit.ai/socket",
+```
+
+Source: `packages/runtime/src/v2/runtime/intelligence-platform/client.ts:41-46, 259,
+356-357, 437, 468, 682-708`.
 
 ## Setup
 
@@ -41,8 +62,8 @@ import {
 } from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  apiUrl: "https://api.cloud.copilotkit.ai/api",
-  wsUrl: "wss://api.cloud.copilotkit.ai/socket",
+  apiUrl: "https://api.copilotkit.ai",
+  wsUrl: "wss://api.copilotkit.ai",
   apiKey: process.env.COPILOTKIT_CLOUD_API_KEY!,
   organizationId: process.env.COPILOTKIT_CLOUD_ORG_ID!,
 });
@@ -153,14 +174,21 @@ scoped to a user ID.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts:156-160`.
 
-### CRITICAL Pointing apiUrl / wsUrl at a self-hosted server
+### CRITICAL Adding /api or /socket suffixes, or pointing at an unsupported self-hosted server
 
 Wrong:
 
 ```typescript
 new CopilotKitIntelligence({
-  apiUrl: "https://internal.myco.com/intelligence/api",
-  wsUrl: "wss://internal.myco.com/intelligence/socket",
+  apiUrl: "https://api.copilotkit.ai/api",         // double /api prefix
+  wsUrl: "wss://api.copilotkit.ai/socket",          // /socket is not a real path
+  apiKey,
+  organizationId,
+});
+
+new CopilotKitIntelligence({
+  apiUrl: "https://internal.myco.com/intelligence", // self-hosting is not yet supported
+  wsUrl: "wss://internal.myco.com/intelligence",
   apiKey,
   organizationId,
 });
@@ -170,21 +198,27 @@ Correct:
 
 ```typescript
 new CopilotKitIntelligence({
-  apiUrl: "https://api.cloud.copilotkit.ai/api",
-  wsUrl: "wss://api.cloud.copilotkit.ai/socket",
+  apiUrl: "https://api.copilotkit.ai",
+  wsUrl: "wss://api.copilotkit.ai",
   apiKey: process.env.COPILOTKIT_CLOUD_API_KEY!,
   organizationId: process.env.COPILOTKIT_CLOUD_ORG_ID!,
 });
 // For on-prem durability without Intelligence: SSE mode + SqliteAgentRunner.
 ```
 
-Intelligence is NOT self-hostable. The `ɵ`-prefixed runtime internals and REST/WebSocket
-contract are private. Self-hosting attempts will fail at handshake or WebSocket upgrade.
-The alternative for on-prem durable threads is SSE mode + `SqliteAgentRunner` (see the
-`copilotkit/agent-runners` skill).
+Two failure modes to avoid:
 
-Source: `packages/runtime/src/v2/runtime/intelligence-platform/client.ts:246-708`;
-maintainer Phase 4 (Cloud-only).
+1. The client prepends `/api/...` to every REST call (`#request` at line 356-357) and
+   the websocket layer derives `/runner` / `/client` suffixes from `wsUrl` internally.
+   Passing `apiUrl: ".../api"` produces double-prefixed `/api/api/threads`; passing
+   `wsUrl: ".../socket"` produces a broken `.../socket/runner` upgrade path.
+2. Self-hosting Intelligence is not yet supported. The `ɵ`-prefixed runtime internals
+   and REST/WebSocket contract are still stabilizing. `organizationId` is reserved for
+   future self-hosted instances. For on-prem durable threads today, use SSE mode +
+   `SqliteAgentRunner` (see `copilotkit/agent-runners`).
+
+Source: `packages/runtime/src/v2/runtime/intelligence-platform/client.ts:41-46, 68-69,
+259, 356-357, 437, 682-708`.
 
 ### HIGH Setting runner alongside intelligence
 
