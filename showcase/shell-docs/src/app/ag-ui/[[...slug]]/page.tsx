@@ -9,6 +9,7 @@ import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { docsComponents } from "@/lib/mdx-registry";
+import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -391,23 +392,27 @@ export default async function AgUiDocPage({
     return <OverviewContent />;
   }
 
-  // Doc page: sidebar + MDX content
-  let filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
+  // Doc page: sidebar + MDX content. slugPath is user-supplied (URL
+  // segments) so route every filesystem access through resolveWithinDir
+  // so a crafted path like `..%2F..%2Fsecrets` can't escape CONTENT_DIR.
+  const mdxResolved = resolveWithinDir(CONTENT_DIR, `${slugPath}.mdx`);
+  const indexResolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.join(slugPath, "index.mdx"),
+  );
 
-  if (!fs.existsSync(filePath)) {
-    const indexPath = path.join(CONTENT_DIR, slugPath, "index.mdx");
-    if (fs.existsSync(indexPath)) {
-      filePath = indexPath;
-    } else {
-      notFound();
-    }
+  let filePath: string;
+  if (mdxResolved && fs.existsSync(mdxResolved)) {
+    filePath = mdxResolved;
+  } else if (indexResolved && fs.existsSync(indexResolved)) {
+    filePath = indexResolved;
+  } else {
+    notFound();
   }
 
-  let source: string;
-  try {
-    source = fs.readFileSync(filePath, "utf-8");
-  } catch (err) {
-    console.error(`[ag-ui] Failed to read ${filePath}:`, err);
+  const source = safeReadFileSync(CONTENT_DIR, path.relative(CONTENT_DIR, filePath));
+  if (source === null) {
+    console.error(`[ag-ui] Failed to read ${filePath}`);
     notFound();
   }
 

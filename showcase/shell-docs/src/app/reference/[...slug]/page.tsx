@@ -1,9 +1,7 @@
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import matter from "gray-matter";
 import { PropertyReference } from "@/components/property-reference";
 import {
   Callout,
@@ -18,6 +16,7 @@ import {
   loadAllReferenceItems,
   referenceStaticParams,
 } from "@/lib/reference-items";
+import { safeReadFileSync } from "@/lib/safe-fs";
 
 // next-mdx-remote components map
 const mdxComponents = {
@@ -71,17 +70,14 @@ export default async function ReferenceSlugPage({
 }) {
   const { slug } = await params;
   const slugPath = slug.join("/");
-  const filePath = path.join(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
-
-  if (!fs.existsSync(filePath)) {
-    notFound();
-  }
-
-  let raw: string;
-  try {
-    raw = fs.readFileSync(filePath, "utf-8");
-  } catch (err) {
-    console.error(`[reference] Failed to read ${filePath}:`, err);
+  // slugPath is user-supplied (URL segments). Route the filesystem read
+  // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
+  // can't escape REFERENCE_CONTENT_DIR.
+  const raw = safeReadFileSync(
+    REFERENCE_CONTENT_DIR,
+    `${slugPath}.mdx`,
+  );
+  if (raw === null) {
     notFound();
   }
 
@@ -93,7 +89,7 @@ export default async function ReferenceSlugPage({
     data = parsed.data;
   } catch (err) {
     console.error(
-      `[reference] Failed to parse frontmatter in ${filePath}:`,
+      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
       err,
     );
     notFound();

@@ -55,7 +55,9 @@ export type NavNode =
  * inside the MDX body.
  */
 function extractFrontmatter(raw: string): string {
-  const fmMatch = raw.match(/^---\n([\s\S]*?)\n---/);
+  // Accept both LF and CRLF line endings so Windows-authored MDX
+  // doesn't silently bypass frontmatter extraction.
+  const fmMatch = raw.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   return fmMatch?.[1] ?? "";
 }
 
@@ -397,8 +399,11 @@ function stripLeadingImports(source: string): string {
     if (fenceMatch) {
       if (!inFence) {
         inFence = true;
-        fenceMarker = fenceMatch[1][0]; // '`' or '~'
-      } else if (fenceMarker && line.trimStart().startsWith(fenceMarker)) {
+        // Store the full fence marker (e.g. ``` or ~~~~) rather than
+        // its first character, so a single stray `\`` inside a ```
+        // fence doesn't prematurely close the block.
+        fenceMarker = fenceMatch[1];
+      } else if (fenceMarker && line.trim().startsWith(fenceMarker)) {
         inFence = false;
         fenceMarker = null;
       }
