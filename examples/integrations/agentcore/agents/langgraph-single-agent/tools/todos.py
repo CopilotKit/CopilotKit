@@ -13,6 +13,8 @@ from langgraph.types import Command
 # ToolRuntime is confirmed available at langchain.tools (langchain >= 1.2).
 # If you see an ImportError, verify your langchain version is >= 0.3.
 
+APP_MODE_MARKER = "APP_MODE_READY"
+
 
 class Todo(TypedDict):
     id: str
@@ -36,27 +38,27 @@ def _assign_ids(todos: list[dict]) -> list[dict]:
 
 @tool
 def manage_todos(
-    todos: list[Todo], app_mode_token: str, runtime: ToolRuntime
+    todos: list[Todo], app_mode_marker: str, runtime: ToolRuntime
 ) -> Command:
     """
     Manage the current todos. Replaces the entire todo list.
     Assigns a unique UUID to any todo that is missing one.
 
-    REQUIRED: app_mode_token must be the exact string returned by a prior
+    REQUIRED: app_mode_marker must be the exact string returned by a prior
     enableAppMode tool call in this conversation. Do NOT guess or fabricate
     this value. If you have not yet called enableAppMode and received its
     result, call enableAppMode first in a separate turn, wait for the
     returned token, then call manage_todos with that token.
     """
-    if app_mode_token != "APP_MODE_READY":
+    if app_mode_marker != APP_MODE_MARKER:
         return Command(
             update={
                 "messages": [
                     ToolMessage(
                         content=(
-                            "Error: invalid app_mode_token. Call enableAppMode "
+                            "Error: invalid app_mode_marker. Call enableAppMode "
                             "first (alone, in its own turn), then pass its "
-                            "returned value as app_mode_token."
+                            "returned value as app_mode_marker."
                         ),
                         tool_call_id=runtime.tool_call_id,
                     )

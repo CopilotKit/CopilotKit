@@ -27,7 +27,7 @@ function CopilotChatContent() {
   useFrontendTool({
     name: "enableAppMode",
     description:
-      "Enable app mode when working with the todo canvas. Returns an app_mode_token that MUST be passed to manage_todos. Call this ALONE first, wait for the returned token, then call manage_todos.",
+      "Enable app mode when working with the todo canvas. Returns an app_mode_marker that MUST be passed to manage_todos. Call this ALONE first, wait for the returned marker, then call manage_todos.",
     handler: async () => {
       setMode("app");
       return "APP_MODE_READY";
