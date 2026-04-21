@@ -90,7 +90,8 @@ form.append("audio", blob, "recording.webm");
 await fetch("/api/copilotkit/transcribe", { method: "POST", body: form });
 ```
 
-JSON (single-endpoint mode — `mimeType` required):
+JSON (works in both multi-route and single-endpoint modes — dispatch is by
+`Content-Type: application/json`; `mimeType` is required in the payload):
 
 ```typescript
 await fetch("/api/copilotkit/transcribe", {

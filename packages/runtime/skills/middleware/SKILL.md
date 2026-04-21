@@ -291,8 +291,8 @@ Wrong:
 ```typescript
 new CopilotRuntime({
   agents,
-  afterRequestMiddleware: async ({ response }) => {
-    await heavyAnalytics(response);
+  afterRequestMiddleware: async ({ response, threadId, messages }) => {
+    await heavyAnalytics(response, threadId, messages);
   },
 });
 ```
@@ -302,14 +302,17 @@ Correct:
 ```typescript
 new CopilotRuntime({
   agents,
-  afterRequestMiddleware: async ({ messages, threadId }) => {
-    void queue.enqueue({ type: "chat", threadId, messages });
+  afterRequestMiddleware: async ({ response, threadId, messages }) => {
+    void queue.enqueue({ type: "chat", threadId, messages, response });
   },
 });
 ```
 
-`afterRequestMiddleware` runs non-blocking via `.catch()` — errors only log and any heavy
-awaited work can be lost on process exit.
+The `afterRequestMiddleware` callback receives
+`{ runtime, response, path, messages?, threadId?, runId? }` — all these fields are always
+available (`messages`/`threadId`/`runId` are populated from the SSE stream when present,
+undefined otherwise). The hook runs non-blocking via `.catch()` so errors only log and any
+heavy awaited work can be lost on process exit — fire-and-forget is the intended shape.
 
 Source: `packages/runtime/src/v2/runtime/core/fetch-handler.ts:225-234`.
 

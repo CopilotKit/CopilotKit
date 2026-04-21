@@ -24,7 +24,13 @@ const mastra = new Mastra({
 });
 
 const runtime = new CopilotRuntime({
-  agents: MastraAgent.getLocalAgents({ mastra }),
+  agents: MastraAgent.getLocalAgents({
+    mastra,
+    // Required — Mastra Memory scopes working-memory buckets by resourceId.
+    // Passing an empty string throws AGENT_MEMORY_MISSING_RESOURCE_ID on every
+    // turn when the runtime supplies a threadId (which it always does).
+    resourceId: "default",
+  }),
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -37,16 +43,17 @@ export default { fetch: handler };
 
 ## Remote Mastra server
 
-If Mastra is running as a separate HTTP service, use `MastraAgent.getRemoteAgents`
-(API parallels `getLocalAgents`) or wire individual agents:
+If Mastra is running as a separate HTTP service, the simplest wiring is the
+generic `HttpAgent` from `@ag-ui/client` — it speaks the AG-UI protocol that
+Mastra's HTTP server already emits:
 
 ```typescript
-import { MastraAgent } from "@ag-ui/mastra";
+import { HttpAgent } from "@ag-ui/client";
 
 const runtime = new CopilotRuntime({
-  agents: MastraAgent.getRemoteAgents({
-    baseUrl: process.env.MASTRA_URL!,
-  }),
+  agents: {
+    weather: new HttpAgent({ url: `${process.env.MASTRA_URL!}/weather` }),
+  },
 });
 ```
 

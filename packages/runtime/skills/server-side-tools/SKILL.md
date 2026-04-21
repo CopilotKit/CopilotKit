@@ -356,24 +356,38 @@ new BuiltInAgent({
 Correct:
 
 ```typescript
+// Factory Mode — AI SDK factory: convert defineTool → Vercel AI SDK tools
+import {
+  BuiltInAgent,
+  convertToolDefinitionsToVercelAITools,
+  convertMessagesToVercelAISDKMessages,
+} from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
 new BuiltInAgent({
-  type: "tanstack",
-  factory: ({ input, abortController }) => {
-    const { messages, systemPrompts } = convertInputToTanStackAI(input);
-    return chat({
-      adapter: openaiText("gpt-4o"),
-      messages,
-      systemPrompts,
-      tools: [searchDocs], // TanStack AI toolDefinition() if using that API
-      abortController,
+  type: "aisdk",
+  factory: ({ input, abortSignal }) => {
+    const tools = convertToolDefinitionsToVercelAITools([searchDocs]);
+    return streamText({
+      model: openai("gpt-4o"),
+      messages: convertMessagesToVercelAISDKMessages(input.messages),
+      tools,
+      abortSignal,
     });
   },
 });
+
+// Factory Mode — TanStack AI factory: defineTool output is NOT a TanStack tool.
+// There is no built-in converter in @copilotkit/runtime for TanStack. Either
+// redefine the tool with TanStack's `toolDefinition()` API from `@tanstack/ai`,
+// or write a small adapter that translates your `defineTool` output into
+// TanStack's tool shape before passing it into `chat({ tools })`.
 ```
 
-Factory Mode ignores `config.tools`. Wire server tools through the factory's LLM call
-(inside `chat()` for TanStack AI, or via `convertToolDefinitionsToVercelAITools([...])`
-for AI SDK).
+Factory Mode ignores `config.tools`. Wire server tools through the factory's LLM call —
+AI SDK has `convertToolDefinitionsToVercelAITools([...])` out of the box; TanStack AI has
+its own `toolDefinition()` API you need to build the tools with directly.
 
 Source: `packages/runtime/src/agent/index.ts:1581-1671`.
 

@@ -6,7 +6,10 @@ SqliteAgentRunner — file-backed agent runner in `@copilotkit/sqlite-runner`. U
 pnpm add @copilotkit/sqlite-runner better-sqlite3
 ```
 
-If `better-sqlite3` is missing, the constructor throws a multi-line install hint.
+If `better-sqlite3` is missing, the `import` of `@copilotkit/sqlite-runner` itself fails
+at module load (`Cannot find module 'better-sqlite3'`). The runner's constructor has a
+friendlier multi-line install hint as a fallback, but you will see the bare resolution
+error first — install the peer before the runner import resolves.
 
 ## Configure
 
@@ -48,8 +51,8 @@ CREATE TABLE IF NOT EXISTS run_state (
   current_run_id TEXT,
   updated_at INTEGER NOT NULL
 );
-CREATE INDEX idx_thread_id ON agent_runs(thread_id);
-CREATE INDEX idx_parent_run_id ON agent_runs(parent_run_id);
+CREATE INDEX IF NOT EXISTS idx_thread_id ON agent_runs(thread_id);
+CREATE INDEX IF NOT EXISTS idx_parent_run_id ON agent_runs(parent_run_id);
 ```
 
 `run_state` gates concurrent runs (the `"Thread already running"` check). `agent_runs` is

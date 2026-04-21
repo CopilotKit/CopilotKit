@@ -159,6 +159,11 @@ export const OPTIONS = handler;
 
 ### Cloudflare Workers with env-sourced keys
 
+Workers don't expose `env` at module scope, so build the runtime + handler lazily on the
+first request and cache them in module-scoped variables. `openaiText(model, config)` does
+NOT accept an `apiKey` in its config (it auto-reads `OPENAI_API_KEY` from env) — for an
+explicit key, use `createOpenaiChat(model, apiKey, config?)`.
+
 ```typescript
 // worker.ts
 import {
@@ -168,36 +173,44 @@ import {
   convertInputToTanStackAI,
 } from "@copilotkit/runtime/v2";
 import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
+import { createOpenaiChat } from "@tanstack/ai-openai";
 
 interface Env {
   OPENAI_API_KEY: string;
 }
 
+type Handler = (request: Request) => Promise<Response>;
+let handler: Handler | undefined;
+
+function getHandler(env: Env): Handler {
+  if (handler) return handler;
+  const runtime = new CopilotRuntime({
+    agents: {
+      default: new BuiltInAgent({
+        type: "tanstack",
+        factory: ({ input, abortController }) => {
+          const { messages, systemPrompts } = convertInputToTanStackAI(input);
+          return chat({
+            adapter: createOpenaiChat("gpt-4o", env.OPENAI_API_KEY),
+            messages,
+            systemPrompts,
+            abortController,
+          });
+        },
+      }),
+    },
+  });
+  handler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  });
+  return handler;
+}
+
 export default {
   fetch(request: Request, env: Env) {
-    const runtime = new CopilotRuntime({
-      agents: {
-        default: new BuiltInAgent({
-          type: "tanstack",
-          factory: ({ input, abortController }) => {
-            const { messages, systemPrompts } = convertInputToTanStackAI(input);
-            return chat({
-              adapter: openaiText("gpt-4o", { apiKey: env.OPENAI_API_KEY }),
-              messages,
-              systemPrompts,
-              abortController,
-            });
-          },
-        }),
-      },
-    });
-    const handler = createCopilotRuntimeHandler({
-      runtime,
-      basePath: "/api/copilotkit",
-      cors: true,
-    });
-    return handler(request);
+    return getHandler(env)(request);
   },
 };
 ```

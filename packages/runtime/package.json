@@ -52,28 +52,64 @@
   },
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langgraph": {
-      "import": "./dist/langgraph.mjs",
-      "require": "./dist/langgraph.cjs"
+      "import": {
+        "types": "./dist/langgraph.d.mts",
+        "default": "./dist/langgraph.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph.d.cts",
+        "default": "./dist/langgraph.cjs"
+      }
     },
     "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.cjs"
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/v2/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/v2/index.cjs"
+      }
     },
     "./v2/express": {
-      "import": "./dist/v2/express.mjs",
-      "require": "./dist/v2/express.cjs"
+      "import": {
+        "types": "./dist/v2/express.d.mts",
+        "default": "./dist/v2/express.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/express.d.cts",
+        "default": "./dist/v2/express.cjs"
+      }
     },
     "./v2/hono": {
-      "import": "./dist/v2/hono.mjs",
-      "require": "./dist/v2/hono.cjs"
+      "import": {
+        "types": "./dist/v2/hono.d.mts",
+        "default": "./dist/v2/hono.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/hono.d.cts",
+        "default": "./dist/v2/hono.cjs"
+      }
     },
     "./v2/node": {
-      "import": "./dist/v2/node.mjs",
-      "require": "./dist/v2/node.cjs"
+      "import": {
+        "types": "./dist/v2/node.d.mts",
+        "default": "./dist/v2/node.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/node.d.cts",
+        "default": "./dist/v2/node.cjs"
+      }
     },
     "./package.json": "./package.json"
   },

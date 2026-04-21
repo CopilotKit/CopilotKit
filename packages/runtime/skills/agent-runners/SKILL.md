@@ -104,11 +104,34 @@ class MyRunner extends AgentRunner {
 ### Handle double-submit on the client
 
 Both `InMemoryAgentRunner` and `SqliteAgentRunner` throw
-`"Thread already running"` on concurrent `run()` calls for the same `threadId`. The HTTP
-handler surfaces this as an `agent_thread_locked` error.
+`"Thread already running"` on concurrent `run()` calls for the same `threadId`. How
+that surfaces to the client depends on the runtime mode:
+
+- **Intelligence mode** — the Intelligence platform returns HTTP `409` when a lock is
+  held. The client core maps this to `CopilotKitCoreErrorCode.AGENT_THREAD_LOCKED`
+  and fires `onError({ code: "agent_thread_locked", ... })`. Handle this in
+  `<CopilotKitProvider onError>`.
+- **SSE mode** (default, in-memory / SQLite runners) — the runner throws
+  synchronously and the handler returns a plain `500` JSON body like
+  `{ "error": "Failed to run agent", "message": "Thread already running" }`.
+  There is no typed `agent_thread_locked` code — match on the message text or
+  just guard on the client with a busy flag.
 
 ```tsx
-// client
+// client — Intelligence mode (typed code)
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  onError={({ code }) => {
+    if (code === "agent_thread_locked") {
+      alert("Agent is busy — wait for the current response to finish.");
+    }
+  }}
+/>;
+```
+
+```tsx
+// client — any mode: guard with a busy flag so double-submit is impossible
 import { useAgent } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
@@ -121,10 +144,6 @@ function Composer() {
     setBusy(true);
     try {
       await agent?.addMessage({ role: "user", content: text });
-    } catch (e: any) {
-      if (e?.code === "agent_thread_locked") {
-        alert("Agent is busy — wait for the current response to finish.");
-      }
     } finally {
       setBusy(false);
     }
@@ -184,9 +203,10 @@ new CopilotRuntime({
 });
 ```
 
-`CopilotIntelligenceRuntimeOptions` explicitly excludes `runner` — Intelligence mode
-auto-wires `IntelligenceAgentRunner` pointed at the Cloud socket. A user-supplied runner is
-a type error and would be ignored at runtime.
+`CopilotIntelligenceRuntimeOptions` does not declare a `runner` field — Intelligence mode
+auto-wires `IntelligenceAgentRunner` pointed at the Cloud socket. Excess-property checks will
+flag a `runner:` key on an Intelligence-shaped options object as a type error, and at runtime
+the auto-wired Intelligence runner wins regardless of what you pass.
 
 Source: `packages/runtime/src/v2/runtime/core/runtime.ts:149-173,285-294`.
 
@@ -204,10 +224,14 @@ Correct:
 pnpm add @copilotkit/sqlite-runner better-sqlite3
 ```
 
-`SqliteAgentRunner`'s constructor throws a multi-line install hint if `better-sqlite3`
-isn't resolvable. It is a peer dependency, not a direct dep.
+`@copilotkit/sqlite-runner` imports `better-sqlite3` at the top of its module, so if the peer
+is missing, `import { SqliteAgentRunner } from "@copilotkit/sqlite-runner"` itself fails at
+module load with `Cannot find module 'better-sqlite3'` — long before the constructor runs.
+(The constructor has a friendlier multi-line install hint as a belt-and-suspenders fallback,
+but in practice you will see the bare module-resolution error first.) It is a peer dependency,
+not a direct dep.
 
-Source: `packages/sqlite-runner/src/sqlite-runner.ts:57-66`.
+Source: `packages/sqlite-runner/src/sqlite-runner.ts:18`, `:55-66`.
 
 ### HIGH Default SqliteAgentRunner with :memory: dbPath
 
@@ -249,10 +273,6 @@ const [busy, setBusy] = useState(false);
     setBusy(true);
     try {
       await agent.addMessage({ role: "user", content });
-    } catch (e: any) {
-      if (e?.code === "agent_thread_locked") {
-        /* show 'Agent busy' UI */
-      }
     } finally {
       setBusy(false);
     }
@@ -262,10 +282,12 @@ const [busy, setBusy] = useState(false);
 </button>;
 ```
 
-Both runners throw `"Thread already running"` on concurrent runs. Debounce on the client
-and handle `code === "agent_thread_locked"` in `onError`.
+Both runners throw `"Thread already running"` on concurrent runs. Debounce on the client.
+In Intelligence mode you can additionally handle `code === "agent_thread_locked"` in
+`<CopilotKitProvider onError>`; SSE mode surfaces only a generic 500 with that message.
 
-Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:110`.
+Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:110`;
+`packages/core/src/intelligence-agent.ts:368-369`.
 
 ### HIGH In-memory runner + horizontal scaling
 

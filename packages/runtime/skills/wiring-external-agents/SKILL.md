@@ -35,7 +35,7 @@ ready-made subclass you construct and hand to `agents: { ... }`.
 
 | Framework                 | Package                     | Construct                                                        |
 | ------------------------- | --------------------------- | ---------------------------------------------------------------- |
-| Mastra                    | `@ag-ui/mastra`             | `MastraAgent.getLocalAgents({ mastra })` (returns a record)      |
+| Mastra                    | `@ag-ui/mastra`             | `MastraAgent.getLocalAgents({ mastra, resourceId })` (returns a record) |
 | LangGraph                 | `@ag-ui/langgraph`          | `new LangGraphAgent({ deploymentUrl, graphId })`                 |
 | CrewAI Crews              | `@ag-ui/crewai`             | `new CrewAIAgent({ url })`                                       |
 | CrewAI Flows              | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                         |
@@ -90,7 +90,9 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { mastra } from "./mastra";
 
 const runtime = new CopilotRuntime({
-  agents: MastraAgent.getLocalAgents({ mastra }),
+  // resourceId is required by @ag-ui/mastra — it scopes Mastra Memory's
+  // working-memory buckets. See references/mastra.md for why.
+  agents: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
 });
 
 const handler = createCopilotRuntimeHandler({
@@ -221,7 +223,9 @@ Wrong:
 
 ```typescript
 new CopilotRuntime({
-  agents: { mastra: MastraAgent.getLocalAgents({ mastra }) },
+  agents: {
+    mastra: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
+  },
 });
 ```
 
@@ -229,7 +233,7 @@ Correct:
 
 ```typescript
 new CopilotRuntime({
-  agents: MastraAgent.getLocalAgents({ mastra }),
+  agents: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
 });
 ```
 
@@ -339,7 +343,7 @@ import { MastraAgent } from "@ag-ui/mastra";
 import { mastra } from "./mastra";
 
 new CopilotRuntime({
-  agents: MastraAgent.getLocalAgents({ mastra }),
+  agents: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
 });
 ```
 

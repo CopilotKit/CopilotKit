@@ -145,7 +145,10 @@ export class RedisAgentRunner extends AgentRunner {
 ## Contract gotchas
 
 - `run()` must throw `Error("Thread already running")` (or let a distributed lock return a
-  non-acquired state) when a run is already active — clients rely on `agent_thread_locked`.
+  non-acquired state) when a run is already active. Intelligence mode surfaces the 409 to
+  the client as the typed `agent_thread_locked` error code; SSE mode (direct runner use)
+  only emits a generic 500 response with the error message — so clients cannot depend on
+  the typed code there, and should additionally guard with a busy flag on submit.
 - `connect()` must replay historic events so late clients can catch up on an active run.
 - `stop()` is optional to implement in the sense that returning `undefined` is allowed, but
   surface cancellations through `abortController.abort()` to the underlying agent if you can.
