@@ -57,7 +57,7 @@ is a situation where a user and an agent are working together to solve a problem
       </Tab>
       <Tab value="Python">
         ```python title="agent/src/agent.py (excerpt)"
-        from typing import Annotated, Dict
+        from typing import Annotated
         from pydantic import BaseModel, Field
 
         class SearchItem(BaseModel):
@@ -65,7 +65,7 @@ is a situation where a user and an agent are working together to solve a problem
             done: bool
 
         # JSON schema used by AG-UI to validate and forward state to the frontend
-        STATE_SCHEMA: Dict[str, object] = {
+        STATE_SCHEMA: dict[str, object] = {
             "searches": {
                 "type": "array",
                 "items": {
