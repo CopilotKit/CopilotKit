@@ -55,7 +55,7 @@ on:
           - shell-docs
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
+  group: showcase-deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
@@ -116,8 +116,16 @@ jobs:
             starter_strands: 'showcase/starters/strands/**'
             aimock: 'showcase/aimock/**'
             shell_dojo: 'showcase/shell-dojo/**'
-            shell_dashboard: 'showcase/shell-dashboard/**'
-            shell_docs: 'showcase/shell-docs/**'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
+            shell_docs:
+              - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
 
       - name: Build service matrix
         id: build-matrix
@@ -214,7 +222,7 @@ jobs:
     needs: [detect-changes, check-lockfile]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    timeout-minutes: ${{ matrix.service.timeout }}
     permissions:
       id-token: write
       contents: read
@@ -256,9 +264,16 @@ jobs:
       - name: Copy shared modules into build context
         run: |
           CONTEXT="${{ matrix.service.context }}"
-          # Starters are self-contained — skip shared module copies
-          if [[ "$CONTEXT" == showcase/starters/* ]]; then
-            echo "Starter build — skipping shared module copies"
+          # Allowlist: only the framework-integration packages under
+          # showcase/packages/* consume shared_python / shared_typescript/tools.
+          # Everything else (starters, shell-family with context=".", aimock,
+          # shell-dojo) is self-contained — their Dockerfiles never reference
+          # these paths, and copying into their contexts either pollutes the
+          # repo root (context=".") or leaves stray unused dirs in the build
+          # context. Allowlist beats denylist here since the set of consumers
+          # is small, known, and grows with package additions (easy to spot).
+          if [[ "$CONTEXT" != showcase/packages/* ]]; then
+            echo "Self-contained build context ($CONTEXT) — skipping shared module copies"
             exit 0
           fi
           if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
@@ -291,6 +306,13 @@ jobs:
         run: |
           # Capture the current deployment ID BEFORE redeploying so the verify
           # step can distinguish the fresh deployment from the prior one.
+          # Railway's `deployments` query has no explicit orderBy argument;
+          # the API's default is createdAt DESC, which is exactly what we
+          # want here (edges[0] == most recent). Confirmed against the
+          # public GraphQL schema. If Railway ever changes the default,
+          # this query needs an explicit orderBy — the `first: 1` pagination
+          # would otherwise return an arbitrary deployment and the
+          # stale-deployment guard in the verify step would break open.
           PRIOR_RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
@@ -408,7 +430,6 @@ jobs:
               # 3 times within this iteration before treating it as a genuine
               # non-200; legitimate failures still fail because all 3 tries
               # must return non-200.
-              HTTP_CODE="000"
               for probe_try in 1 2 3; do
                 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
                 if [ "$HTTP_CODE" = "200" ]; then
@@ -451,6 +472,13 @@ jobs:
       actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    env:
+      # Hoisted to job level so the step-level `if:` on "Post to Slack" can
+      # reference `env.SLACK_WEBHOOK_OSS_ALERTS`. Step-level `env:` mappings
+      # are NOT visible to the same step's `if:` — only workflow-level and
+      # job-level env are. Previously defined only at step level, which made
+      # the gate always evaluate false and silently disabled Slack posts.
+      SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
       - name: Build deploy summary
         id: summary
@@ -556,8 +584,18 @@ jobs:
           # budget so Slack single-line formatting still fits.
           truncate_csv() {
             local budget=$1 input=$2 out="" item proposed
-            # Split on single space (entries come from shell word-split),
-            # then render as comma-separated.
+            # Split on whitespace (entries come from shell word-split),
+            # then render as comma-separated. Disable globbing inside the
+            # loop so a slug containing a shell glob character (*, ?, [)
+            # can't expand against the filesystem — defense in depth even
+            # though our current slug set is controlled via the matrix.
+            local _old_glob
+            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
+            set -f
+            # Use explicit IFS so whitespace tokenisation is predictable
+            # regardless of the caller's environment.
+            local _old_ifs="$IFS"
+            IFS=$' \t\n'
             for item in $input; do
               if [ -z "$out" ]; then
                 proposed="$item"
@@ -577,6 +615,8 @@ jobs:
                 break
               fi
             done
+            IFS="$_old_ifs"
+            [ "$_old_glob" = 0 ] && set +f
             printf '%s' "$out"
           }
           succeeded_list=$(truncate_csv 200 "$succeeded")
@@ -616,6 +656,16 @@ jobs:
             # Input is comma-separated (jq join(", ")) — normalise to
             # space separation for the shell word-split below.
             ws="${input//,/ }"
+            # Disable globbing while iterating so an (unexpected) glob
+            # char in a slug can't expand against the filesystem; restore
+            # the prior setting on the way out. Also lock IFS to
+            # whitespace for deterministic word-splitting regardless of
+            # caller environment.
+            local _old_glob
+            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
+            set -f
+            local _old_ifs="$IFS"
+            IFS=$' \t\n'
             for item in $ws; do
               if [ -z "$out" ]; then
                 proposed="$item"
@@ -633,6 +683,8 @@ jobs:
                 break
               fi
             done
+            IFS="$_old_ifs"
+            [ "$_old_glob" = 0 ] && set +f
             printf '%s' "$out"
           }
           SERVICES=$(truncate_csv 200 "${{ steps.summary.outputs.services }}")
@@ -757,8 +809,6 @@ jobs:
 
       - name: Post to Slack
         if: always() && steps.payload.outputs.should_post == 'true' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
-        env:
-          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}

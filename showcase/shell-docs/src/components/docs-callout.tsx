@@ -80,6 +80,17 @@ const PALETTE: Record<
 };
 
 export function Callout({ type = "info", title, children }: CalloutProps) {
+  // Warn (dev only) when an unknown type slips past TS — e.g. from MDX
+  // authors passing a raw string. Silent fallback to `info` masks typos.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    !Object.prototype.hasOwnProperty.call(PALETTE, type)
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[docs-callout] unknown type "${type}" — falling back to "info". Known types: ${Object.keys(PALETTE).join(", ")}`,
+    );
+  }
   const palette = PALETTE[type] ?? PALETTE.info;
   const icon = ICON[type] ?? ICON.info;
   const heading = title ?? palette.title;

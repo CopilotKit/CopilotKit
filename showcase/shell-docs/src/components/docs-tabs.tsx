@@ -13,7 +13,13 @@
 
 "use client";
 
-import React, { useState, useMemo, Children, isValidElement } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  Children,
+  isValidElement,
+} from "react";
 
 interface TabsProps {
   items?: string[];
@@ -41,9 +47,53 @@ export function Tabs({ items, defaultValue, children }: TabsProps) {
   }, [children]);
 
   const labels = items ?? kids.map((k) => k.label);
+
+  // Warn (dev only) when author-supplied `items` count diverges from the
+  // number of <Tab> children — silent drops hide authoring mistakes.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    items &&
+    items.length !== kids.length
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[docs-tabs] items.length (${items.length}) !== children count (${kids.length}). Extra entries will be silently dropped.`,
+    );
+  }
+
+  // Warn (dev only) on duplicate labels — React reconciliation keys on
+  // label below, so duplicates corrupt which panel is shown.
+  if (process.env.NODE_ENV !== "production") {
+    const seen = new Set<string>();
+    for (const l of labels) {
+      if (seen.has(l)) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[docs-tabs] duplicate label "${l}" — labels must be unique.`,
+        );
+        break;
+      }
+      seen.add(l);
+    }
+  }
+
   const [active, setActive] = useState<string>(
     defaultValue ?? labels[0] ?? "Tab",
   );
+
+  // Re-sync active selection when labels change after mount (e.g. MDX
+  // author swapped tab titles, or an HMR edit changed the set). useState
+  // only seeds its initial value once, so without this effect an active
+  // tab whose label disappeared would leave the panel stuck empty.
+  const labelsKey = labels.join("|");
+  useEffect(() => {
+    if (!labels.includes(active)) {
+      setActive(defaultValue ?? labels[0] ?? "Tab");
+    }
+    // labelsKey intentionally used as a proxy for labels — avoids array
+    // identity churn every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labelsKey, defaultValue]);
 
   return (
     <div
@@ -65,11 +115,13 @@ export function Tabs({ items, defaultValue, children }: TabsProps) {
           gap: "0.25rem",
         }}
       >
-        {labels.map((label) => {
+        {labels.map((label, i) => {
           const isActive = label === active;
           return (
             <button
-              key={label}
+              // Key includes the index so duplicate labels (warned above)
+              // don't collide and break React reconciliation.
+              key={`${label}-${i}`}
               role="tab"
               aria-selected={isActive}
               onClick={() => setActive(label)}
@@ -94,11 +146,21 @@ export function Tabs({ items, defaultValue, children }: TabsProps) {
         })}
       </div>
       <div style={{ padding: "1rem" }}>
-        {kids
-          .filter((k) => k.label === active)
-          .map((k, i) => (
-            <React.Fragment key={i}>{k.content}</React.Fragment>
-          ))}
+        {(() => {
+          // Body selection is strictly positional: `labels[i]` is paired
+          // with `kids[i]` regardless of whether `labels` came from the
+          // `items` prop or was derived from child props. This avoids the
+          // items-vs-child-label-mismatch trap (author-supplied `items`
+          // rarely match each <Tab>'s `value ?? title ?? "Tab"`) and it
+          // also sidesteps duplicate-label double-render — `.find` would
+          // at least be single, but pairing by index is the actual
+          // contract MDX authors reason about.
+          const idx = labels.findIndex((l) => l === active);
+          if (idx < 0) return null;
+          const kid = kids[idx];
+          if (!kid) return null;
+          return <React.Fragment key={idx}>{kid.content}</React.Fragment>;
+        })()}
       </div>
     </div>
   );

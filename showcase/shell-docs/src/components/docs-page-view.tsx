@@ -82,7 +82,28 @@ export async function DocsPageView({
     );
   }
 
-  const rawContent = doc.source.replace(/^---[\s\S]*?---\n?/, "");
+  // Strip the YAML frontmatter block. `\r?\n?` at the tail handles both
+  // LF- and CRLF-authored MDX; otherwise Windows line endings leave the
+  // trailing `\r\n` after the closing `---` in the rendered body.
+  let rawContent = doc.source.replace(/^---[\s\S]*?---\r?\n?/, "");
+
+  // The page wrapper below renders `doc.fm.title` inside its own <h1>. If the
+  // MDX body also leads with a `# Title` heading MDXRemote renders a second
+  // h1 and the page shows two stacked titles. Strip the leading body H1 ONLY
+  // when it matches the FM title after whitespace normalization — otherwise
+  // a distinct body heading would be silently dropped. Mirrors the ag-ui
+  // route's behavior (see app/ag-ui/[[...slug]]/page.tsx). CRLF-safe: the
+  // regex uses `\r?\n` so Windows-authored MDX is handled.
+  const bodyH1Match = rawContent.match(/^(\s*\r?\n)*#\s+(.+?)\s*\r?\n/);
+  const bodyH1 = bodyH1Match ? bodyH1Match[2].trim() : null;
+  if (bodyH1) {
+    const normalizedFm = doc.fm.title.replace(/\s+/g, " ").trim();
+    const normalizedBody = bodyH1.replace(/\s+/g, " ").trim();
+    if (normalizedFm === normalizedBody) {
+      rawContent = rawContent.replace(/^(\s*\r?\n)*#\s+.+\r?\n?/, "");
+    }
+  }
+
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
 
@@ -111,15 +132,10 @@ export async function DocsPageView({
     }
     if (node.type === "page") {
       const isActive = node.slug === slugPath;
-      const scope: "docs" | "framework" = slugHrefPrefix.startsWith("/docs")
-        ? "docs"
-        : "framework";
       return (
         <div style={{ paddingLeft: `${indent}px` }} key={node.slug}>
           <SidebarLink
             slug={node.slug}
-            scope={scope}
-            fallbackHref={`${slugHrefPrefix}/${node.slug}`}
             active={isActive}
             className={`block py-[5px] text-[13px] transition-colors ${
               isActive

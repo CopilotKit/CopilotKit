@@ -41,6 +41,16 @@ export interface FrameworkContextValue {
    * without implying the current view is scoped to it.
    */
   storedFramework: string | null;
+  /**
+   * Whether the browser exposes usable localStorage. Lets consumers
+   * distinguish "user has never picked a framework" (`storedFramework`
+   * null, `storageAvailable` true) from "storage is unavailable so we
+   * can't know" (`storedFramework` null, `storageAvailable` false).
+   * Without this tri-state, a private-mode / cookies-disabled browser
+   * would look identical to a fresh visitor, and UIs that want to warn
+   * about lost persistence have no signal.
+   */
+  storageAvailable: boolean;
   /** All known framework slugs derived from the registry. */
   knownFrameworks: string[];
   /** Persist a new framework preference (does not navigate). */
@@ -58,16 +68,30 @@ const STORAGE_KEY = "selectedFramework";
 let readLogged = false;
 let writeLogged = false;
 
-function readStoredFramework(): string | null {
-  if (typeof window === "undefined") return null;
+interface ReadResult {
+  value: string | null;
+  /**
+   * False when localStorage threw (private mode, cookies disabled,
+   * storage quota blown, etc). Callers MUST treat this as a separate
+   * signal from `value === null` — the latter is "never set", the
+   * former is "we can't tell".
+   */
+  available: boolean;
+}
+
+function readStoredFramework(): ReadResult {
+  if (typeof window === "undefined") return { value: null, available: false };
   try {
-    return window.localStorage.getItem(STORAGE_KEY);
+    return {
+      value: window.localStorage.getItem(STORAGE_KEY),
+      available: true,
+    };
   } catch (err) {
     if (!readLogged) {
       console.warn("[framework-provider] localStorage read failed", err);
       readLogged = true;
     }
-    return null;
+    return { value: null, available: false };
   }
 }
 
@@ -104,11 +128,75 @@ export function FrameworkProvider({
   }, [pathname, knownFrameworks]);
 
   const [stored, setStored] = useState<string | null>(null);
+  // Start false on both server and initial client render to keep SSR
+  // and hydration output identical. Flipped to the real value in the
+  // mount effect below.
+  const [storageAvailable, setStorageAvailable] = useState<boolean>(false);
 
-  // Hydrate stored framework on client mount
+  // Hydrate stored framework on client mount.
+  //
+  // Covered by: first client render reads localStorage once and seeds
+  // both `stored` and `storageAvailable`; in private-mode browsers
+  // where the read throws, `storageAvailable` stays false so consumers
+  // can branch on "we can't persist your pick".
+  //
+  // Validate the retrieved slug against the known registry — same
+  // contract as `setStoredFramework` and the cross-tab `storage` handler.
+  // A stale localStorage entry from a framework slug that was later
+  // removed from the registry must not seed `stored`, otherwise
+  // RouterPivot would redirect users to a non-existent framework page.
+  // Clear the poisoned key so it stops haunting subsequent loads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    setStored(readStoredFramework());
+    const result = readStoredFramework();
+    setStorageAvailable(result.available);
+    if (result.value !== null && !knownFrameworks.includes(result.value)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[framework-provider] ignoring stored framework with unknown slug "${result.value}" — clearing`,
+        );
+      }
+      writeStoredFramework(null);
+      setStored(null);
+      return;
+    }
+    setStored(result.value);
   }, []);
+
+  // Cross-tab sync — when ANOTHER tab writes `selectedFramework`, our
+  // current tab's `stored` falls out of sync until a full reload.
+  // `storage` events fire on every tab EXCEPT the one that wrote, so
+  // this is safe against self-echo loops.
+  //
+  // Covered by: Tab A picks langgraph-python; Tab B (already open on
+  // /docs/foo) immediately updates its StoredFrameworkHighlight badge
+  // and RouterPivot redirects without a reload. Clearing storage in
+  // Tab A (`e.newValue === null`) likewise clears Tab B's `stored`.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return;
+      // Scoped reads can pass null for e.newValue when the key is
+      // removed; that's legitimately "cleared" and should null out
+      // our state rather than be ignored.
+      //
+      // Validate non-null values against the known registry — same
+      // contract as `setStoredFramework` below. A cross-tab write of an
+      // arbitrary string (stale tab, browser extension, dev tools) must
+      // not poison this tab's state.
+      if (e.newValue !== null && !knownFrameworks.includes(e.newValue)) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[framework-provider] ignoring cross-tab storage write with unknown slug "${e.newValue}"`,
+          );
+        }
+        return;
+      }
+      setStored(e.newValue);
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, [knownFrameworks]);
 
   // Whenever the URL asserts a framework, persist it so the preference
   // follows the user when they navigate back to /docs/*.
@@ -118,6 +206,10 @@ export function FrameworkProvider({
   // ping-pong with the state setter below). We only care about URL
   // changes as the trigger. The internal `!== stored` check short-circuits
   // the no-op case using the latest closed-over value.
+  //
+  // Covered by: navigating /docs/foo → /langgraph-python/foo persists
+  // once and does NOT re-fire when the setter updates `stored`; subsequent
+  // navigation to /langgraph-python/bar (same framework) is a no-op.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (urlFramework && urlFramework !== stored) {
@@ -149,6 +241,7 @@ export function FrameworkProvider({
   const value: FrameworkContextValue = {
     framework,
     storedFramework: stored,
+    storageAvailable,
     knownFrameworks,
     setStoredFramework,
   };

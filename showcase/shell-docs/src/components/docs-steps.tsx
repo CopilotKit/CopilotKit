@@ -9,19 +9,23 @@ import React from "react";
 
 export function Steps({ children }: { children: React.ReactNode }) {
   // Walk children and wrap each Step with its auto-assigned number.
-  const items = React.Children.toArray(children).filter((c) =>
-    React.isValidElement(c),
+  // Filter to <Step> elements specifically so nested non-Step valid
+  // elements (e.g. stray <div> spacers from MDX authors) don't receive
+  // bogus `__index`/`__total` props which React would pass straight
+  // through to the DOM and warn about.
+  const items = React.Children.toArray(children).filter(
+    (c): c is React.ReactElement<StepProps> =>
+      React.isValidElement(c) && c.type === Step,
   );
   const numbered = items.map((child, idx) =>
-    React.isValidElement(child)
-      ? React.cloneElement(child as React.ReactElement<StepProps>, {
-          __index: idx + 1,
-          __total: items.length,
-        })
-      : child,
+    React.cloneElement(child, {
+      __index: idx + 1,
+      __total: items.length,
+    }),
   );
   return (
     <div
+      role="list"
       style={{
         position: "relative",
         paddingLeft: "2rem",
@@ -47,6 +51,7 @@ export function Step({ title, children, __index, __total }: StepProps) {
     __index !== undefined && __total !== undefined && __index === __total;
   return (
     <div
+      role="listitem"
       style={{
         position: "relative",
         paddingBottom: isLast ? "0" : "1.5rem",
