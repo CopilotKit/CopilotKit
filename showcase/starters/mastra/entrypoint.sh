@@ -2,10 +2,11 @@
 # Template variables (substituted by generate-starters.ts):
 #   SLUG             — framework slug (e.g. "langgraph-python")
 #   DEV_SCRIPT_BLOCK — language-specific agent startup block
+#   WATCHDOG_BLOCK   — silent-hang watchdog (polls agent /health; kills on stall)
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
 }
 trap cleanup EXIT
 
@@ -13,7 +14,8 @@ trap cleanup EXIT
 # and log lines to awk (and the container log) the moment they're written.
 # Previously a silent crash during module import would sit in Python's
 # userspace buffer until the process exited, by which point the pipe to the
-# log prefixer had already closed and the error was lost.
+# log prefixer had already closed and the error was lost. Harmless for
+# non-Python frameworks (Java/Node/.NET ignore PYTHONUNBUFFERED).
 export PYTHONUNBUFFERED=1
 
 echo "========================================="
@@ -41,6 +43,37 @@ else
   exit 1
 fi
 
+# Watchdog: Railway deploys of showcase starters have been observed to hit a
+# silent agent hang — the agent process stays alive (so `wait -n` never
+# fires and the container never restarts) but stops responding on its health
+# endpoint. Poll every 30s; after 3 consecutive failures (~90s of
+# unreachable agent), kill the agent so `wait -n` returns and the platform
+# restarts the container. We kill the agent (not the whole script) so
+# `set -e` + `wait -n; exit $?` handles the restart through the normal
+# path rather than a forced `exit` that bypasses logging.
+(
+  FAILS=0
+  while sleep 30; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent already dead — wait -n in the main shell will handle it.
+      break
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/api > /dev/null 2>&1; then
+      FAILS=0
+    else
+      FAILS=$((FAILS + 1))
+      echo "[watchdog] Agent health probe failed (count=$FAILS)"
+      if [ $FAILS -ge 3 ]; then
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/api)"
+
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
@@ -61,8 +94,12 @@ env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] "
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
-echo "[entrypoint] Both processes running. Waiting..."
+echo "[entrypoint] All processes running. Waiting..."
 
+# Only wait on agent + next.js — NOT the watchdog. The watchdog's job is to
+# kill the agent when it hangs; if the watchdog exits first (e.g. because it
+# killed the agent), wait -n would otherwise return with the watchdog's exit
+# code and short-circuit before the agent's true exit status is observable.
 wait -n $AGENT_PID $NEXTJS_PID
 EXIT_CODE=$?
 if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -73,6 +110,6 @@ else
   echo "[entrypoint] A process exited with code $EXIT_CODE"
 fi
 
-# Clean up surviving process
-kill $AGENT_PID $NEXTJS_PID 2>/dev/null
+# Clean up surviving processes (including watchdog)
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
 exit $EXIT_CODE
