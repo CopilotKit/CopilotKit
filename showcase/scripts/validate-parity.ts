@@ -138,6 +138,7 @@ function formatErrorChain(err: unknown): string {
 
   let current: unknown = err;
   let depth = 0;
+  let truncated = false;
   while (current !== undefined && current !== null && depth < MAX_DEPTH) {
     const prefix = depth === 0 ? "" : `${"  ".repeat(depth)}caused by: `;
     lines.push(
@@ -153,11 +154,19 @@ function formatErrorChain(err: unknown): string {
 
     const next = (current as { cause?: unknown }).cause;
     if (next === undefined) break;
+    // If we're at the last allowed depth and there IS still a cause to
+    // follow, the chain is being truncated. Mark it so the emitter
+    // below fires — but don't emit when the chain ended naturally at
+    // MAX_DEPTH (cur.cause undefined), which the `break` above handles.
+    if (depth + 1 >= MAX_DEPTH) {
+      truncated = true;
+      break;
+    }
     current = next;
     depth++;
   }
 
-  if (depth === MAX_DEPTH) {
+  if (truncated) {
     lines.push(
       `${"  ".repeat(depth + 1)}[cause chain truncated at depth ${MAX_DEPTH}]`,
     );
@@ -547,14 +556,16 @@ export function auditPackage(
         ...legacyDemoDirResult.entries,
       ]),
     ),
+    // Forward ALL listing-failed warnings from both probes regardless of
+    // whether the other probe returned entries. An EACCES on one path
+    // must not be silently swallowed just because the other path
+    // happened to be readable — callers rely on these warnings to
+    // elevate to unreadable-demos-dir MUSTs. A genuinely-missing path
+    // (ENOENT) produces no warning from listDirs, so this does not add
+    // noise for columns using only one of the two layouts.
     warnings: [
-      // Only emit listing warnings if NEITHER directory is readable — a
-      // missing top-level demos/ is normal for columns still on the
-      // legacy layout, and vice versa.
-      ...(topLevelDemoDirResult.entries.length === 0 &&
-      legacyDemoDirResult.entries.length === 0
-        ? [...topLevelDemoDirResult.warnings, ...legacyDemoDirResult.warnings]
-        : []),
+      ...topLevelDemoDirResult.warnings,
+      ...legacyDemoDirResult.warnings,
     ],
   };
 
@@ -582,10 +593,24 @@ export function auditPackage(
       (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
         w.category === "listing-failed" && w.path === target,
     );
-  const demosDirUnreadable =
-    findListingFailed(demoDirResult, topLevelDemosDir) ??
-    findListingFailed(demoDirResult, legacyDemosDir);
-  const demosDirPath = demosDirUnreadable?.path ?? topLevelDemosDir;
+  const topLevelDemosUnreadable = findListingFailed(
+    demoDirResult,
+    topLevelDemosDir,
+  );
+  const legacyDemosUnreadable = findListingFailed(
+    demoDirResult,
+    legacyDemosDir,
+  );
+  // Collect all demos-dir listing failures so BOTH paths are surfaced on
+  // the MUST when both fail (previously only the first match was
+  // reported, hiding the second EACCES root cause).
+  const demosDirUnreadableAll: Extract<
+    PackageIssue,
+    { category: "listing-failed" }
+  >[] = [];
+  if (topLevelDemosUnreadable) demosDirUnreadableAll.push(topLevelDemosUnreadable);
+  if (legacyDemosUnreadable) demosDirUnreadableAll.push(legacyDemosUnreadable);
+  const demosDirUnreadable = demosDirUnreadableAll[0];
   const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
   const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
@@ -611,14 +636,19 @@ export function auditPackage(
       error: qaDirUnreadable.error,
     });
   }
-  if (!demosDirUnreadable) {
+  if (demosDirUnreadableAll.length === 0) {
     warnings.push(...demoDirResult.warnings);
   } else {
-    mustErrors.push({
-      category: "unreadable-demos-dir",
-      path: demosDirPath,
-      error: demosDirUnreadable.error,
-    });
+    // Emit one unreadable-demos-dir MUST per failing path — if BOTH the
+    // top-level and legacy demos/ directories EACCES'd, report both so
+    // operators see every root cause rather than just the first.
+    for (const failing of demosDirUnreadableAll) {
+      mustErrors.push({
+        category: "unreadable-demos-dir",
+        path: failing.path,
+        error: failing.error,
+      });
+    }
   }
 
   let manifest: Manifest | null;
@@ -1042,14 +1072,16 @@ function runParityImpl(
       : DEFAULT_PACKAGES_DIR);
 
   // Only read process.argv when invoked from the top-level
-  // CLI entrypoint (i.e. when no explicit baseline was passed). In-
-  // process callers that hand in an explicit baseline must not have
-  // their behaviour perturbed by argv they didn't write. The env var
+  // CLI entrypoint (i.e. when NEITHER packagesDir NOR baselineDemoCount
+  // was passed explicitly). In-process callers that hand in either
+  // parameter must not have their behaviour perturbed by argv they
+  // didn't write (e.g. vitest's own argv → "unrecognised argument"
+  // errors for tests passing only packagesDir). The env var
   // (VALIDATE_PARITY_BASELINE) is also skipped when the caller passes
   // an explicit value — the parameter is the highest-precedence source.
   let cliOpts: MainOptions = {};
   let envBaselineCoerced: number | null = null;
-  if (baselineDemoCount === undefined) {
+  if (packagesDir === undefined && baselineDemoCount === undefined) {
     // CLI-flag baseline overrides env default. Both --baseline= and
     // VALIDATE_PARITY_BASELINE are validated as positive integers —
     // NaN / "abc" / "0" / "-1" are rejected with a clear reason rather

@@ -394,14 +394,25 @@ export function parseManifest(
         };
       }
       if (!hasOwnProp(d, "id") || typeof d.id !== "string") {
+        // Missing key or non-string value: describe the actual type so
+        // debuggers can distinguish this from the empty-string branch
+        // below. `describeType(undefined)` covers the missing-key case
+        // (the `hasOwnProp` narrowing means `d.id` is typed as unknown
+        // only inside the branch, but at runtime an absent key reads as
+        // undefined).
+        const actual = hasOwnProp(d, "id") ? d.id : undefined;
         return {
           kind: "malformed",
           subkind: "shape",
-          error: `expected demos[${i}].id to be a non-empty string`,
+          error: `expected demos[${i}].id to be a string, got ${describeType(actual)}`,
         };
       }
       const brandedId = createDemoId(d.id);
       if (brandedId === null) {
+        // `d.id` is a string here (checked above); createDemoId only
+        // returns null for the empty-string case. Keep the "non-empty
+        // string" wording so this branch is distinct from the
+        // missing/non-string branch above.
         return {
           kind: "malformed",
           subkind: "shape",

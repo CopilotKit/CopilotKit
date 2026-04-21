@@ -726,21 +726,37 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
       // + phantom mismatch). When the state is "ok" the count is a real
       // number; "missing" implies count=0 which IS a legitimate data
       // point for parity comparison.
+      //
+      // Informational-only demos (e.g. cli-start entries with a
+      // `command:` field) live in the registry but have no on-disk
+      // folder + no spec/qa file to audit. Exclude them from the
+      // count-mismatch denominator so audit.ts agrees with
+      // validate-parity.ts on which packages are "clean" — otherwise
+      // a package that's clean per parity would spuriously flag a
+      // count mismatch here. Mirrors the `!d.command` filter in
+      // validate-parity.ts :: auditPackage (~line 723, the
+      // `auditableDemos` derivation). `demosDeclared` on the
+      // PackageAudit still carries the RAW manifest count (summary
+      // table + JSON consumers depend on that); only the parity
+      // comparison uses the filtered count.
+      const auditableDemosDeclared = manifest.demos.filter(
+        (d) => !(d as { command?: string }).command,
+      ).length;
       const specCount = countValue(specRes);
-      if (specCount !== null && specCount !== demosDeclared) {
+      if (specCount !== null && specCount !== auditableDemosDeclared) {
         anomalies.push({
           kind: "count-mismatch",
           dimension: "spec",
-          expected: demosDeclared,
+          expected: auditableDemosDeclared,
           actual: specCount,
         });
       }
       const qaCount = countValue(qaRes);
-      if (qaCount !== null && qaCount !== demosDeclared) {
+      if (qaCount !== null && qaCount !== auditableDemosDeclared) {
         anomalies.push({
           kind: "count-mismatch",
           dimension: "qa",
-          expected: demosDeclared,
+          expected: auditableDemosDeclared,
           actual: qaCount,
         });
       }
@@ -804,9 +820,21 @@ function auditPackage(slug: string, cfg: AuditConfig): PackageAudit {
   // Freeze the mutable containers BEFORE handing them out — direct
   // callers of auditPackage must not be able to push to a "readonly"
   // array that isn't actually frozen at runtime (which would let
-  // downstream consumers silently corrupt audit state).
+  // downstream consumers silently corrupt audit state). `spec`, `qa`,
+  // and `manifest` are frozen here too so the readonly semantics
+  // advertised by PackageAudit hold for direct callers of auditPackage
+  // (which is exported from the bottom of this file). The nested
+  // demos array + its entries on the "ok" manifest variant are frozen
+  // by buildReport — auditPackage does not re-traverse them here so
+  // the freeze stays O(1) per package. buildReport's subsequent freeze
+  // loop is idempotent (Object.freeze on an already-frozen object is
+  // a no-op) and is kept as defense-in-depth for consumers that only
+  // go through buildReport.
   Object.freeze(anomalies);
   Object.freeze(warnings);
+  Object.freeze(specRes);
+  Object.freeze(qaRes);
+  Object.freeze(manifestRes);
 
   return {
     slug,
@@ -1267,12 +1295,18 @@ function buildReport(
     for (const a of p.anomalies) {
       bucketSets[bucketFor(a)].add(p.slug);
     }
-    // The `missing-examples` bucket must also include packages whose
-    // `examplesSource === null` but who do NOT carry a `missing-examples`
-    // Anomaly — e.g. packages with no manifest, where the Anomaly list
-    // short-circuits before the examples check. Prior behavior derived
-    // this bucket from `p.examplesSource === null && p.manifest.kind === "ok"`;
-    // preserved here so JSON consumers relying on it don't regress.
+    // The `missing-examples` bucket derives, for packages with a
+    // READABLE manifest (`manifest.kind === "ok"`), from
+    // `examplesSource === null`. Packages whose manifest is missing,
+    // malformed, or unreadable are NOT double-counted here — they live
+    // in their own buckets (missingManifest / malformedManifest /
+    // unreadable) via the tagged-union routing above, and adding them
+    // to missingExamples as well would inflate the JSON consumers'
+    // anomaly totals. The explicit `manifest.kind === "ok"` guard
+    // below enforces that exclusion (earlier wording incorrectly
+    // claimed this bucket covered manifest-less packages too — it
+    // does not). Derived from `p.examplesSource === null &&
+    // p.manifest.kind === "ok"` to preserve the prior JSON contract.
     if (
       p.manifest.kind === "ok" &&
       p.examplesSource === null &&
@@ -1315,9 +1349,14 @@ function buildReport(
   const withAnomalies = packages.filter((p) => p.anomalies.length > 0).length;
 
   // Deep-freeze audit records so downstream consumers can't accidentally
-  // mutate them. anomalies/warnings were already frozen by auditPackage
-  // (so direct callers see an immutable view); buildReport additionally
-  // freezes the record and its remaining inner containers.
+  // mutate them. anomalies/warnings/spec/qa/manifest were already frozen
+  // by auditPackage (so direct callers see an immutable view);
+  // buildReport additionally freezes the record wrapper and the nested
+  // manifest.demos array + entries. The spec/qa/manifest freezes below
+  // are idempotent (Object.freeze on an already-frozen object is a
+  // no-op) and are kept as defense-in-depth — both for readers who only
+  // traverse buildReport's output and against future callers that might
+  // pre-populate a PackageAudit without going through auditPackage.
   for (const p of packages) {
     Object.freeze(p.spec);
     Object.freeze(p.qa);
@@ -1726,52 +1765,79 @@ function main(): void {
  * Canonicalize a path for "is this the script being run?" comparison.
  * Uses `fs.realpathSync` so a symlink to audit.ts (e.g. a globally
  * linked CLI, or a node_modules symlink hop under pnpm) on either side
- * of the comparison still matches the canonical source path. Falls back
- * to the `path.resolve`-d path when `realpathSync` fails.
+ * of the comparison still matches the canonical source path.
+ *
+ * Returns a tagged-union result rather than throwing / exiting so that
+ * merely importing this module (which loads the `isMain` guard below
+ * AND ran a prior revision's top-level `process.exit` on realpath
+ * failure) never terminates the host process. The caller (the `isMain`
+ * block) decides whether a given realpath failure should propagate as
+ * an exit code or be treated as "not main" (silent).
  *
  * Failure modes:
- * - ENOENT: silent fallback (legitimate — some test harnesses hand a
- *   synthetic argv[0] that doesn't exist on disk).
- * - Non-ENOENT errno errors (e.g. EACCES, ELOOP): emit a stderr
- *   diagnostic and terminate the process with EXIT_UNREADABLE via
- *   `process.exit`. We cannot use `process.exitCode` here because this
- *   helper runs BEFORE main() during the `isMain` guard; main() later
- *   overwrites `process.exitCode` with `report.exitCode`, which would
- *   clobber the EXIT_UNREADABLE signal. `process.exit` ensures CI still
- *   sees a distinct signal (exit 3) separable from drift (exit 1).
+ * - ENOENT: benign fallback — some test harnesses hand a synthetic
+ *   argv[0] that doesn't exist on disk. Reported as `ok: true` with
+ *   the resolved (non-canonical) path so the comparison can still run.
+ * - Non-ENOENT errno errors (e.g. EACCES, ELOOP, EIO): reported as
+ *   `ok: false` with the errno code. The caller emits the diagnostic
+ *   and decides the exit semantics.
  */
-function canonicalizeForIsMain(p: string): string {
+type CanonicalizeResult =
+  | { ok: true; path: string }
+  | { ok: false; errno: string; message: string; resolved: string };
+
+function canonicalizeForIsMain(p: string): CanonicalizeResult {
   const resolved = path.resolve(p);
   try {
-    return fs.realpathSync(resolved);
+    return { ok: true, path: fs.realpathSync(resolved) };
   } catch (e) {
     const code =
       e instanceof Error ? (e as NodeJS.ErrnoException).code : undefined;
-    if (code !== "ENOENT") {
-      process.stderr.write(
-        `[canonicalizeForIsMain] realpath failed for ${resolved}: ${e instanceof Error ? e.message : String(e)}\n`,
-      );
-      // Elevate to EXIT_UNREADABLE so CI can distinguish a genuine
-      // filesystem-access failure (EACCES/ELOOP/EIO) from benign
-      // ENOENT fallback (synthetic argv[0]) and from drift (exit 1).
-      // `process.exit` (not `process.exitCode`) so the signal survives
-      // main()'s subsequent `process.exitCode = report.exitCode` write
-      // — this helper runs pre-main during the `isMain` guard.
-      process.exit(EXIT_UNREADABLE);
+    if (code === "ENOENT") {
+      // Benign: synthetic argv[0] (test harness, etc.) — fall back to
+      // the resolved path so the string comparison can still run.
+      return { ok: true, path: resolved };
     }
-    return resolved;
+    return {
+      ok: false,
+      errno: code ?? "UNKNOWN",
+      message: e instanceof Error ? e.message : String(e),
+      resolved,
+    };
   }
 }
 
 // Only run when executed directly. Canonicalizes both sides via
 // realpathSync to match across symlinks (tsx shim, pnpm hoisting,
-// globally linked CLI, etc.).
-if (
-  process.argv[1] &&
-  canonicalizeForIsMain(process.argv[1]) ===
-    canonicalizeForIsMain(fileURLToPath(import.meta.url))
-) {
-  main();
+// globally linked CLI, etc.). Importing this module (e.g. from tests
+// or composed tooling) must NEVER terminate the host process — the
+// realpath-failure handling below is therefore scoped to this guard
+// and only propagates an exit signal when the SOURCE side fails (which
+// is programmer error: the running script cannot locate its own file).
+if (process.argv[1]) {
+  const sourceResult = canonicalizeForIsMain(fileURLToPath(import.meta.url));
+  if (!sourceResult.ok) {
+    // SOURCE-side failure: the running script cannot canonicalize its
+    // own file path. This is programmer / environment error — log and
+    // flag EXIT_UNREADABLE via `process.exitCode`, but do NOT execute
+    // main() (the audit would run against an unknown config root).
+    // `process.exitCode` is safe here because main() is skipped, so
+    // nothing downstream will overwrite it.
+    process.stderr.write(
+      `[canonicalizeForIsMain] realpath failed for ${sourceResult.resolved}: ${sourceResult.message}\n`,
+    );
+    process.exitCode = EXIT_UNREADABLE;
+  } else {
+    const argvResult = canonicalizeForIsMain(process.argv[1]);
+    // ARGV-side failure with SOURCE success: treat as "not main"
+    // (silent). A test harness importing this module will never match
+    // its own argv[0] against this script's canonical path, so
+    // suppressing the failure here is correct — and it's the condition
+    // that previously terminated importers via `process.exit`.
+    if (argvResult.ok && argvResult.path === sourceResult.path) {
+      main();
+    }
+  }
 }
 
 export {
