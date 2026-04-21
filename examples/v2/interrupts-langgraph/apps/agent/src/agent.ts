@@ -3,6 +3,7 @@
  * It defines the workflow graph, state, tools, nodes and edges.
  */
 
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
@@ -342,9 +343,13 @@ function intercept_frontend_tools(state: AgentState) {
   //       merging two different AIMessage ids into one slot would corrupt
   //       `originalAIMessageId`. The warn is the escape valve.
   //
-  // The `frontendToolCalls.length === 0` return branch is non-terminal,
-  // so it retains the unflushed slot unchanged (a later pass may still
-  // find the match).
+  // The `frontendToolCalls.length === 0` return branch applies a
+  // flush-or-clear rule: if the pre-strip flush matched (prior_flushed),
+  // the updated messages are emitted and the slot is cleared; if it
+  // didn't match but a prior stash was present, the slot is cleared
+  // with a warn (retaining it risks double-flushing onto the original
+  // AIMessage on a subsequent non-stripping turn since the AIMessage
+  // may still be in history).
   const priorIntercepted = state.interceptedToolCalls;
   const priorOriginalId = state.originalAIMessageId;
   const priorSlotPresent =
@@ -368,7 +373,7 @@ function intercept_frontend_tools(state: AgentState) {
     if (!prior_flushed) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto; retaining stash for a future intercept pass`,
+        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto (pre-strip); downstream branches will flush-or-clear.`,
       );
     }
   }
@@ -389,21 +394,61 @@ function intercept_frontend_tools(state: AgentState) {
     }
   }
 
+  // `AIMessage.id` is typed `string | undefined` in @langchain/core. If the
+  // upstream provider (or a test fixture) produced an AIMessage without an
+  // id AND this batch needs stripping, `restore_frontend_tools` would never
+  // find a matching id on the later pass — frontend-action calls would be
+  // silently dropped and the user would see nothing. Synthesize a stable
+  // id in place so the strip/stash/restore chain can match. LangChain
+  // AIMessage is mutable; the synthesized id survives `rebuildAIMessageWithToolCalls`
+  // (which copies `id` from `source.id`) and lives on the same object
+  // reference in `messages`.
+  if (
+    frontendToolCalls.length > 0 &&
+    (typeof lastMessage.id !== "string" || lastMessage.id.length === 0)
+  ) {
+    const synthesizedId = `synthesized-${randomUUID()}`;
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[intercept_frontend_tools] lastMessage.id is missing on an AIMessage with ${frontendToolCalls.length} frontend-action call(s); synthesizing id=${synthesizedId} so restore_frontend_tools can match. Upstream provider should supply stable AIMessage ids.`,
+    );
+    (lastMessage as AIMessage).id = synthesizedId;
+  }
+
   if (frontendToolCalls.length === 0) {
     // No frontend calls in the batch — nothing to strip.
     //
-    // Two prior-slot cases to distinguish:
+    // Three prior-slot cases to distinguish:
     // (a) prior_flushed === true: we reattached the stashed calls onto
     //     a matching AIMessage above; emit the updated messages and
     //     clear the slot.
     // (b) priorSlotPresent && !prior_flushed: no matching AIMessage was
-    //     found THIS pass. This node is non-terminal — leave the slot
-    //     UNCHANGED (do not emit interceptedToolCalls / originalAIMessageId
-    //     keys) so a future intercept pass can retry the flush. Emitting
-    //     `undefined` here would silently drop the stash.
+    //     found THIS pass. Over a sequence like
+    //     [mixed-stash] → [backend-only+unknown] → [pure-backend],
+    //     retaining the stash across multiple non-stripping turns would
+    //     eventually let `restore_frontend_tools` re-apply it to an
+    //     unrelated AIMessage (or let a future intercept pass
+    //     double-append onto the original AIMessage still in history).
+    //     Flush-or-clear discipline: if we had a stash and this path
+    //     isn't stripping, clear it. Emit a warn so operators can
+    //     debug the dropped frontend-action dispatch.
+    // (c) No prior slot: no-op.
     if (prior_flushed) {
       return {
         messages,
+        interceptedToolCalls: undefined,
+        originalAIMessageId: undefined,
+      } as unknown as Partial<AgentState>;
+    }
+    if (priorSlotPresent) {
+      const lostIds = priorIntercepted!
+        .map((c) => c.id ?? "<no-id>")
+        .join(", ");
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found and this path isn't stripping; clearing stash to prevent later re-application onto an unrelated AIMessage. Lost tool-call ids: [${lostIds}]`,
+      );
+      return {
         interceptedToolCalls: undefined,
         originalAIMessageId: undefined,
       } as unknown as Partial<AgentState>;
@@ -783,18 +828,20 @@ function emit_unknown_tools_notice(state: AgentState) {
         ]
       : [];
 
-  // Pure-unknown batch additionally clears any stale intercept slot
-  // from a prior turn — this node now routes to `restore_frontend_tools`
-  // on the way out, which already no-ops when the slot is empty, but
-  // being explicit here prevents a stale stash from being flushed onto
-  // an unrelated AIMessage.
-  const slotClear: Partial<AgentState> =
-    knownCalls.length === 0
-      ? {
-          interceptedToolCalls: undefined,
-          originalAIMessageId: undefined,
-        }
-      : {};
+  // Always clear any prior-turn intercept slot before routing to
+  // `restore_frontend_tools`. Gating the clear on `knownCalls.length === 0`
+  // is incorrect: in a MIXED batch (knownCalls.length > 0) the surviving
+  // frontend-action calls ride the stripped AIMessage to `restore_frontend_tools`,
+  // which consumes `interceptedToolCalls` + `originalAIMessageId`. If a stale
+  // stash from a PRIOR turn still sits in that slot, it would be grafted
+  // onto an unrelated AIMessage in THIS turn. Clearing unconditionally
+  // guarantees restore_frontend_tools only sees state stashed for the
+  // current turn (which, from this node, is always empty — no stash is
+  // written here).
+  const slotClear: Partial<AgentState> = {
+    interceptedToolCalls: undefined,
+    originalAIMessageId: undefined,
+  };
 
   // Sequence on the channel (mixed case):
   //   [...existing..., strippedAIMessage (replaces lastMessage),
