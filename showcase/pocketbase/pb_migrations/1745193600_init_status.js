@@ -14,7 +14,7 @@ migrate(
           required: true,
           options: { values: ["green", "red", "degraded"], maxSelect: 1 },
         },
-        { name: "signal", type: "json" },
+        { name: "signal", type: "json", options: { maxSize: 2_000_000 } },
         { name: "observed_at", type: "date", required: true },
         { name: "transitioned_at", type: "date", required: true },
         { name: "fail_count", type: "number", required: true },
