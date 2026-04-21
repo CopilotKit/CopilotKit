@@ -26,6 +26,16 @@ export interface SlackWebhookOptions {
  */
 const MAX_BACKOFF_MS = 30_000;
 
+/**
+ * Floor applied when a caller-provided Retry-After parses to a value
+ * below this threshold (including `Retry-After: 0`, which is legal per
+ * RFC 7231 and means "retry immediately"). Without the floor, `sleep(0)`
+ * returns on the next microtask and the retry loop spins at CPU speed,
+ * burning through `maxAttempts` in milliseconds and defeating the
+ * backoff contract. Mirrors the same floor in `storage/pb-client.ts`.
+ */
+const MIN_RETRY_AFTER_MS = 100;
+
 function exponentialBackoffMs(attempt: number): number {
   return Math.min(2 ** attempt * 100, MAX_BACKOFF_MS);
 }
@@ -35,12 +45,18 @@ function exponentialBackoffMs(attempt: number): number {
  * supported — Slack's incoming webhooks always return seconds, and a
  * date-form value from a misbehaving proxy would otherwise parse as NaN
  * and fall through to exponential backoff (acceptable).
+ *
+ * Returned value is clamped to `[MIN_RETRY_AFTER_MS, MAX_BACKOFF_MS]`:
+ * the lower floor prevents a `Retry-After: 0` directive from spinning
+ * the retry loop at CPU speed; the upper cap prevents a misbehaving
+ * upstream from stalling the alert pipeline for minutes.
  */
 function parseRetryAfterMs(header: string | null): number | null {
   if (!header) return null;
   const seconds = Number(header);
   if (!Number.isFinite(seconds) || seconds < 0) return null;
-  return Math.min(Math.floor(seconds * 1000), MAX_BACKOFF_MS);
+  const parsed = Math.min(Math.floor(seconds * 1000), MAX_BACKOFF_MS);
+  return Math.max(MIN_RETRY_AFTER_MS, parsed);
 }
 
 /**

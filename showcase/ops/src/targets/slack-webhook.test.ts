@@ -438,6 +438,63 @@ describe("slack-webhook target", () => {
     });
   });
 
+  // Bucket-(a) R15: `Retry-After: 0` is legal per RFC 7231 ("retry
+  // immediately") but `await sleep(0)` returns on the next microtask
+  // and the retry loop spins at CPU speed, burning through maxAttempts
+  // in milliseconds. Floor the parsed value at MIN_RETRY_AFTER_MS (100).
+  it("floors Retry-After: 0 at 100ms so the retry loop doesn't spin", async () => {
+    const sleeps: number[] = [];
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("slow", {
+          status: 429,
+          headers: { "retry-after": "0" },
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    expect(sleeps[0]).toBeGreaterThanOrEqual(100);
+  });
+
+  it("clamps Retry-After values under the 100ms floor up to 100ms", async () => {
+    // Retry-After is only spec'd in seconds, so a 50ms value can't be
+    // expressed — but a malformed proxy that emits fractional seconds
+    // (e.g. "0.05") could parse below the floor. Clamp it up.
+    const sleeps: number[] = [];
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("slow", {
+          status: 429,
+          headers: { "retry-after": "0.05" },
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    expect(sleeps[0]).toBe(100);
+  });
+
   it("caps a huge Retry-After value at 30s", async () => {
     const sleeps: number[] = [];
     let calls = 0;
