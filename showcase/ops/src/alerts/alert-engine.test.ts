@@ -780,6 +780,46 @@ describe("alert-engine (additional behaviors)", () => {
     expect(tgt.sent).toHaveLength(2);
   });
 
+  it("cron alert threads real probe signal.* into the template", async () => {
+    // dispatchCronAlert must prefer evt.result (a real probe outcome) over the
+    // synthetic fallback. signal.* fields from the probe must show up in the
+    // rendered template context — otherwise the weekly/monthly report rules
+    // render empty bodies.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "weekly-cron",
+        signal: { dimension: "pin_drift" },
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        stringTriggers: [],
+        template: {
+          text: "expected={{signal.expectedCount}} actual={{signal.actualCount}} drift={{signal.driftedCount}}",
+        },
+        conditions: { guards: [], escalations: [] },
+      }),
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "weekly-cron",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "red",
+        signal: {
+          expectedCount: 17,
+          actualCount: 14,
+          driftedCount: 3,
+        },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "expected=17 actual=14 drift=3",
+    );
+  });
+
   it("minDeployAgeMin guard suppresses when deploy is too young", async () => {
     const e = engine();
     e.start();
