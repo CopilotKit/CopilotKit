@@ -42,6 +42,11 @@ RUN addgroup -S pocketbase && adduser -S -G pocketbase pocketbase \
     && mkdir -p /pb_data \
     && chown -R pocketbase:pocketbase /pb_data
 COPY --from=fetch /pb/pocketbase /usr/local/bin/pocketbase
+# Migration convention: PocketBase itself prefixes migration runtime errors
+# with the filename ("failed to apply migration <file>: <err>"), so we rely
+# on that rather than hand-wrapping every up/down with a prefix helper.
+# If PB's logging ever stops including the filename, wrap each up/down
+# with `try { ... } catch (e) { throw new Error('[migration <file>] ' + e) }`.
 COPY --chown=pocketbase:pocketbase pb_migrations /pb_migrations
 VOLUME ["/pb_data"]
 EXPOSE 8090
