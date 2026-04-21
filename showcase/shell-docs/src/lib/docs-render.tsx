@@ -485,8 +485,13 @@ export function inlineSnippets(
   // systems non-overlapping: SNIPPET_MAP files get inlined as raw MDX
   // (their imports and headings are preserved), while component-map
   // entries render as React components with full prop handling.
+  // MDX authors pass component-map overrides via doubled-brace object
+  // syntax: `<SharedContent components={{ Foo: Bar }} />`. Using
+  // `[^}]*` truncates at the inner `}` and causes the whole tag to
+  // silently fail to match, so the snippet never gets inlined. Match
+  // the doubled-brace object form explicitly.
   result = result.replace(
-    /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
+    /<([A-Z]\w*)\s*(?:components=\{\{[\s\S]*?\}\}\s*)?\/>/g,
     (match, componentName) => {
       let snippetRel = SNIPPET_MAP[componentName];
 
