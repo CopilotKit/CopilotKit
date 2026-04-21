@@ -119,8 +119,6 @@ function AgUiIcon({ className }: { className?: string }) {
 
 type Brand = "copilotkit" | "ag-ui";
 
-const AG_UI_PREFIXES = ["/ag-ui"];
-
 const COPILOTKIT_LINKS = [
   { href: "/docs", label: "Docs" },
   { href: "/integrations", label: "Integrations" },
@@ -135,22 +133,15 @@ const AG_UI_LINKS = [
   { href: "/ag-ui/sdk/python/core/overview", label: "Python SDK" },
 ];
 
+// Match `/ag-ui` exactly OR `/ag-ui/...`, but NOT `/ag-ui-anything` —
+// a bare `startsWith("/ag-ui")` would incorrectly classify a hypothetical
+// `/ag-ui-foo` slug as AG-UI, which misroutes the nav.
 function activeBrandFromPath(pathname: string): Brand {
-  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
-    ? "ag-ui"
-    : "copilotkit";
+  if (pathname === "/ag-ui" || pathname.startsWith("/ag-ui/")) return "ag-ui";
+  return "copilotkit";
 }
 
-export interface BrandNavProps {
-  // Note: the framework selector previously lived in the top bar. It's
-  // now rendered at the top of the docs sidebar instead — mirroring the
-  // docs.copilotkit.ai reference. Props preserved for API compatibility
-  // with the current call site but intentionally unused here.
-  frameworkOptions?: unknown;
-  frameworkCategoryOrder?: unknown;
-}
-
-export function BrandNav(_props: BrandNavProps = {}) {
+export function BrandNav() {
   const pathname = usePathname();
   const active = activeBrandFromPath(pathname);
   const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
@@ -248,9 +239,10 @@ export function BrandNav(_props: BrandNavProps = {}) {
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          {/* Panel */}
+          {/* Panel — explicitly layered above the backdrop (z-[51] vs z-50)
+              so layering doesn't rely on DOM sibling order. */}
           <div
-            className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
+            className="fixed top-0 right-0 bottom-0 z-[51] w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
             style={{
               boxShadow: "-8px 0 30px rgba(0,0,0,0.1)",
               animation: "mobileMenuSlideIn 0.2s ease",
