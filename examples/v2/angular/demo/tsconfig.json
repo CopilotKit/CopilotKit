@@ -29,6 +29,10 @@
       "@copilotkit/web-inspector": [
         "../../packages/web-inspector/dist/index.d.ts",
         "../../packages/web-inspector/src/index.ts"
+      ],
+      "@copilotkit/web-inspector-angular": [
+        "../../packages/v2/web-inspector-angular/dist/index.d.ts",
+        "../../packages/v2/web-inspector-angular/dist/copilotkit-web-inspector-angular.mjs"
       ]
     }
   },

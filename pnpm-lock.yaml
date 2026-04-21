@@ -898,6 +898,9 @@ importers:
       '@copilotkit/web-inspector':
         specifier: workspace:*
         version: link:../../../../packages/web-inspector
+      '@copilotkit/web-inspector-angular':
+        specifier: workspace:*
+        version: link:../../../../packages/v2/web-inspector-angular
       '@copilotkitnext/angular':
         specifier: workspace:*
         version: link:../../../../packages/angular
