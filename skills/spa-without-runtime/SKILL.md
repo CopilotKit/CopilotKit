@@ -2,13 +2,13 @@
 name: spa-without-runtime
 description: >
   Build a pure-client CopilotKit v2 SPA with NO server runtime by pointing
-  CopilotKitProvider at CopilotKit Cloud via publicLicenseKey. This is the
+  CopilotKitProvider at CopilotKit Cloud via publicApiKey. This is the
   ONLY production-safe SPA path. Both agents__unsafe_dev_only and
   selfManagedAgents are dev-only aliases that leak credentials in production
   — never ship them. Covers Vite / plain React Router SPA wiring, getting a
-  publicLicenseKey from cloud.copilotkit.ai, and the SSR non-concern.
-  publicApiKey is a deprecated alias for publicLicenseKey — don't teach it
-  in new code. Load when the user has no backend and wants chat in a
+  publicApiKey from cloud.copilotkit.ai, and the SSR non-concern.
+  publicLicenseKey is an accepted alias for publicApiKey (publicApiKey wins
+  when both are set). Load when the user has no backend and wants chat in a
   pure-SPA deployment (Vite, GitHub Pages, S3, etc.).
 type: lifecycle
 library: copilotkit
@@ -24,11 +24,11 @@ sources:
 
 ## Setup
 
-Obtain a `publicLicenseKey` from cloud.copilotkit.ai. In a Vite SPA:
+Obtain a `publicApiKey` from cloud.copilotkit.ai. In a Vite SPA:
 
 ```bash
 # .env.local
-VITE_CPK_LICENSE=ck_pub_xxxxxxxxxxxxxxxxxxxx
+VITE_CPK_PUBLIC_API_KEY=ck_pub_xxxxxxxxxxxxxxxxxxxx
 ```
 
 ```tsx
@@ -46,14 +46,29 @@ function RegisterTools() {
     name: "readClipboard",
     description: "Read the clipboard contents.",
     parameters: z.object({}),
-    handler: async () => ({ text: await navigator.clipboard.readText() }),
+    handler: async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        return { text };
+      } catch (error) {
+        // navigator.clipboard.readText() rejects on denied permission,
+        // non-HTTPS origins, and lost document focus. Return a structured
+        // error so the agent (and onError for `tool_handler_failed`) can
+        // recover instead of surfacing a raw DOMException.
+        return {
+          error: "clipboard_read_failed",
+          message:
+            error instanceof Error ? error.message : "Clipboard unavailable",
+        };
+      }
+    },
   });
   return null;
 }
 
 export default function App() {
   return (
-    <CopilotKitProvider publicLicenseKey={import.meta.env.VITE_CPK_LICENSE}>
+    <CopilotKitProvider publicApiKey={import.meta.env.VITE_CPK_PUBLIC_API_KEY}>
       <RegisterTools />
       <div className="h-screen">
         <CopilotChat agentId="default" className="h-full" />
@@ -85,7 +100,12 @@ function AppTools() {
     description: "Navigate to a route",
     parameters: z.object({ path: z.string() }),
     handler: async ({ path }) => {
-      window.location.pathname = path;
+      // Use your router's navigate function; the exact API depends on
+      // your router (react-router's `useNavigate`, TanStack Router's
+      // `router.navigate`, etc.). Do NOT use `window.location.pathname = ...`
+      // — it triggers a full page reload and kills the agent stream,
+      // destroying chat state mid-run.
+      navigate(path);
       return { ok: true };
     },
   });
@@ -119,14 +139,21 @@ function Panel() {
     value: window.location.href,
   });
 
-  const { agent, isRunning } = useAgent({ agentId: "default" });
+  const { agent } = useAgent({ agentId: "default" });
   return (
     <div>
-      State: {JSON.stringify(agent?.state)} — {isRunning ? "running" : "idle"}
+      State: {JSON.stringify(agent?.state)} —{" "}
+      {agent?.isRunning ? "running" : "idle"}
     </div>
   );
 }
 ```
+
+`useAgent` returns `{ agent }` only — `agent` may be `undefined` while the
+runtime is still loading, so guard with optional chaining. Access
+`isRunning` via the agent instance itself.
+
+Source: packages/react-core/src/v2/hooks/use-agent.tsx:333-335
 
 ## Common Mistakes
 
@@ -147,7 +174,7 @@ Correct:
 
 ```tsx
 // For a SPA without a runtime, the ONLY production path is CopilotKit Cloud:
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 // If you control a backend, use a runtime instead:
 <CopilotKitProvider runtimeUrl="/api/copilotkit" />
 ```
@@ -175,7 +202,7 @@ Wrong:
 Correct:
 
 ```tsx
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 ```
 
 The `__unsafe_dev_only` suffix is a warning, not a safety belt — nothing
@@ -184,19 +211,19 @@ ends up in the bundle.
 
 Source: packages/react-core/src/v2/providers/CopilotKitProvider.tsx:136-138,393
 
-### HIGH passing both runtimeUrl and publicLicenseKey
+### HIGH passing both runtimeUrl and publicApiKey
 
 Wrong:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/x" publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider runtimeUrl="/api/x" publicApiKey="ck_pub_..." />
 ```
 
 Correct:
 
 ```tsx
 // Cloud-only SPA:
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 // Or own runtime, not both:
 <CopilotKitProvider runtimeUrl="/api/copilotkit" />
 ```
@@ -206,26 +233,21 @@ and the hardcoded public key sits in the bundle for no reason.
 
 Source: docs/snippets/shared/troubleshooting/common-issues.mdx:30-42
 
-### MEDIUM teaching publicApiKey in new SPA code
+### LOW publicApiKey vs publicLicenseKey — pick one
 
-Wrong:
+`publicApiKey` is canonical; `publicLicenseKey` is an accepted alias.
+Resolution order:
 
-```tsx
-<CopilotKitProvider publicApiKey="ck_pub_..." />
+```ts
+// packages/react-core/src/v2/providers/CopilotKitProvider.tsx:391
+const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
 ```
 
-Correct:
+`publicApiKey` wins when both are set. Prefer `publicApiKey` in new code
+for consistency with the HTTP header name (`X-CopilotCloud-Public-Api-Key`)
+and the Cloud dashboard label.
 
-```tsx
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
-```
-
-`publicApiKey` is a deprecated alias accepted for v1 backward-compat
-(`resolvedPublicKey = publicApiKey ?? publicLicenseKey`). Agents trained on
-older docs default to `publicApiKey` — new code should use
-`publicLicenseKey`.
-
-Source: packages/react-core/src/v2/providers/CopilotKitProvider.tsx:391
+Source: packages/react-core/src/v2/providers/CopilotKitProvider.tsx:122-128,391
 
 ### LOW over-configuring SSR in a pure SPA
 

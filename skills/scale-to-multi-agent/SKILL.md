@@ -49,10 +49,14 @@ const makeAgent = (system: string) =>
   new BuiltInAgent({
     type: "tanstack",
     factory: ({ input, abortController }) => {
-      const { messages } = convertInputToTanStackAI(input);
+      const { messages, systemPrompts: fromInput } =
+        convertInputToTanStackAI(input);
       return chat({
         adapter: openaiText("gpt-4o"),
-        systemPrompts: [system],
+        // Merge the runtime's system prompts (e.g. from useAgentContext)
+        // with the agent's own persona — dropping `fromInput` silently
+        // discards any client-supplied context.
+        systemPrompts: [system, ...fromInput],
         messages,
         abortController,
       });
@@ -201,32 +205,26 @@ function ThreadSidebar({ agentId }: { agentId: string }) {
 `useThreads` requires Intelligence mode on the runtime. In SSE mode it
 errors with "Runtime URL is not configured". See `copilotkit/threads`.
 
-### Agent-scoped context (rare — context is intentionally global)
+### Context is intentionally global — per-agent context is NOT supported
 
 ```tsx
-import { useEffect } from "react";
-import { useCopilotKit, useAgentContext } from "@copilotkit/react-core/v2";
+import { useAgentContext } from "@copilotkit/react-core/v2";
 
 function ResearchContext({ value }: { value: string }) {
-  // Default: context is global, every agent sees it.
+  // Context is global: every agent sees it.
   useAgentContext({ description: "Active project name", value });
   return null;
 }
-
-function ScopedContext() {
-  // Rare escape hatch for true per-agent context:
-  const { copilotkit } = useCopilotKit();
-  useEffect(() => {
-    const { id } = copilotkit.addContext({
-      agentId: "research",
-      description: "Research-only hint",
-      value: "priority=high",
-    });
-    return () => copilotkit.removeContext({ id });
-  }, [copilotkit]);
-  return null;
-}
 ```
+
+There is no supported way to scope context to a single agent in v2. The
+`ContextStore.addContext` API accepts only `{ description, value }` —
+passing an `agentId` is silently dropped (see
+`packages/core/src/core/context-store.ts:26-31`). If you need agent-specific
+information, gate it at the agent boundary instead: register distinct
+tools per `agentId`, embed the per-agent detail in the agent's system
+prompt, or swap the `value` passed to a single `useAgentContext` based on
+which agent is active.
 
 ## Common Mistakes
 
@@ -360,14 +358,17 @@ const { state, setState, running } = useCoAgent({ name: "research" });
 Correct:
 
 ```tsx
-const { agent, isRunning } = useAgent({ agentId: "research" });
-const state = agent.state;
-agent.setState({ ...agent.state, foo: "bar" });
-await copilotkit.runAgent({ agent });
+const { agent } = useAgent({ agentId: "research" });
+const state = agent?.state;
+agent?.setState({ ...agent.state, foo: "bar" });
+if (agent) await copilotkit.runAgent({ agent });
 ```
 
-v2 `useAgent` returns `{ agent, messages, state, isRunning }`. State
-mutation is via `agent.setState`; `copilotkit.runAgent({ agent })` triggers
-a run. No state-returning callback.
+v2 `useAgent` returns `{ agent }` only — `agent` can be `undefined` while
+the runtime is still loading, so guard with optional chaining. Access
+state, `isRunning`, and mutation via the agent instance itself
+(`agent.state`, `agent.isRunning`, `agent.setState(...)`).
+`copilotkit.runAgent({ agent })` triggers a run. No state-returning
+callback.
 
 Source: packages/react-core/src/v2/hooks/use-agent.tsx:11-51

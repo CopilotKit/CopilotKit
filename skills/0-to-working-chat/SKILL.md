@@ -220,44 +220,51 @@ export const POST = handler;
 
 ### Cloudflare Workers branch (edge runtime — env binding for secrets)
 
+Hoist the runtime + handler to module scope and construct them lazily on
+first request. Workers isolates reuse module globals across requests, so
+a `let`-cached instance persists in-memory runner state within the isolate
+(this does NOT span isolates — for durable cross-isolate state, pair with
+`SqliteAgentRunner` or Intelligence). Constructing `new CopilotRuntime(...)`
+inside `fetch(request, env)` on every call wastes CPU and throws away the
+in-memory thread state.
+
 ```ts
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
   BuiltInAgent,
-  convertInputToTanStackAI,
 } from "@copilotkit/runtime/v2";
-import { chat } from "@tanstack/ai";
-import { openaiText } from "@tanstack/ai-openai";
 
 interface Env {
   OPENAI_API_KEY: string;
 }
 
+// Module-scoped cache. `env` arrives per-request, so we initialize lazily
+// the first time we see it. Subsequent requests in the same isolate reuse.
+let cachedHandler:
+  | ((request: Request) => Response | Promise<Response>)
+  | null = null;
+
+function getHandler(env: Env) {
+  if (cachedHandler) return cachedHandler;
+  const runtime = new CopilotRuntime({
+    agents: {
+      // Simple Mode: the runtime wires the adapter and reads the API key
+      // from the `OPENAI_API_KEY` env binding.
+      default: new BuiltInAgent({ model: "openai/gpt-4o" }),
+    },
+  });
+  cachedHandler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  });
+  return cachedHandler;
+}
+
 export default {
   fetch(request: Request, env: Env) {
-    const runtime = new CopilotRuntime({
-      agents: {
-        default: new BuiltInAgent({
-          type: "tanstack",
-          factory: ({ input, abortController }) => {
-            const { messages, systemPrompts } = convertInputToTanStackAI(input);
-            return chat({
-              adapter: openaiText("gpt-4o", { apiKey: env.OPENAI_API_KEY }),
-              messages,
-              systemPrompts,
-              abortController,
-            });
-          },
-        }),
-      },
-    });
-    const handler = createCopilotRuntimeHandler({
-      runtime,
-      basePath: "/api/copilotkit",
-      cors: true,
-    });
-    return handler(request);
+    return getHandler(env)(request);
   },
 };
 ```
@@ -409,31 +416,22 @@ Source: packages/core/src/core/core.ts:80
 Wrong:
 
 ```ts
+// Module-scoped — `process.env` is undefined on Workers:
 const agent = new BuiltInAgent({
   type: "tanstack",
-  factory: ({ input }) => chat({
-    adapter: openaiText("gpt-4o", { apiKey: process.env.OPENAI_API_KEY }),
-    ...
-  }),
+  factory: ({ input, abortController }) =>
+    chat({
+      adapter: openaiText("gpt-4o"), // no access to process.env.OPENAI_API_KEY
+      messages: convertInputToTanStackAI(input).messages,
+      abortController,
+    }),
 });
 ```
 
-Correct:
-
-```ts
-export default {
-  fetch(request: Request, env: { OPENAI_API_KEY: string }) {
-    const agent = new BuiltInAgent({
-      type: "tanstack",
-      factory: ({ input }) => chat({
-        adapter: openaiText("gpt-4o", { apiKey: env.OPENAI_API_KEY }),
-        ...
-      }),
-    });
-    // ...
-  },
-};
-```
+Correct: use Simple Mode and let the runtime read `OPENAI_API_KEY` from
+the `env` binding (see the Cloudflare Workers branch above), or thread
+`env.OPENAI_API_KEY` in through a closure if you genuinely need Factory
+Mode.
 
 Workers don't expose `process.env`. Secrets arrive via the `env` binding
 argument to `fetch(request, env)`.
@@ -455,7 +453,11 @@ Correct:
 import { createCopilotNodeHandler } from "@copilotkit/runtime/v2/node";
 
 const node = createCopilotNodeHandler(
-  createCopilotRuntimeHandler({ runtime, cors: true }),
+  createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
 );
 server.on("request", node);
 ```

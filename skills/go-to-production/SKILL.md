@@ -4,8 +4,8 @@ description: >
   Pre-deploy checklist for CopilotKit v2 apps — persistent AgentRunner (not
   InMemory) behind horizontal scaling, CORS, showDevConsole off, debug off,
   credentials:'include' for cookie auth, env-sourced secrets on edge
-  runtimes, publicLicenseKey / licenseToken, dev-only-prop audit
-  (agents__unsafe_dev_only, selfManagedAgents, publicApiKey). Pointer skill —
+  runtimes, publicApiKey / licenseToken, dev-only-prop audit
+  (agents__unsafe_dev_only, selfManagedAgents). Pointer skill —
   does NOT teach auth, rate-limit, or observability (those are server-
   framework concerns wired via the middleware skill). Load before any first
   production deploy of a CopilotKit v2 app.
@@ -60,12 +60,13 @@ CopilotKitIntelligence (multi-host durable). See `copilotkit/agent-runners`.
 Expected:
 
 ```ts
+// Node / server runtime — `env` here is Node's `process.env`:
 new CopilotRuntime({
   agents,
   intelligence: {
     apiUrl: "https://api.cloud.copilotkit.ai",
     wsUrl: "wss://api.cloud.copilotkit.ai",
-    licenseToken: env.COPILOTKIT_LICENSE_TOKEN,
+    licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
   },
 });
 ```
@@ -183,28 +184,36 @@ observability — use your server framework's tooling. See
 
 ## License Checks
 
-### Check: publicLicenseKey is env-sourced, not hardcoded
+### Check: publicApiKey is env-sourced, not hardcoded
 
 Expected:
 
 ```tsx
-<CopilotKitProvider publicLicenseKey={import.meta.env.VITE_CPK_LICENSE} />
+<CopilotKitProvider
+  publicApiKey={import.meta.env.VITE_CPK_PUBLIC_API_KEY}
+/>
 ```
 
 Fail condition: key inlined as a string literal in committed source.
 Fix: read from build-time env (`VITE_*`, `NEXT_PUBLIC_*`, etc.) and inject
-via CI.
+via CI. `publicLicenseKey` is also accepted as an alias
+(`publicApiKey ?? publicLicenseKey`); prefer `publicApiKey` for
+consistency with the HTTP header (`X-CopilotCloud-Public-Api-Key`) and
+Cloud dashboard label.
 
 ### Check: runtime licenseToken is env-sourced
 
-Expected:
+Expected (Node / server runtime):
 
 ```ts
 new CopilotRuntime({
   agents,
-  licenseToken: env.COPILOTKIT_LICENSE_TOKEN,
+  licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
 });
 ```
+
+On Cloudflare Workers, `env` here refers to the Worker binding argument
+passed to `fetch(request, env)` — not a module-global.
 
 Fail condition: license token hardcoded in source or absent in prod.
 Fix: inject via environment variable. See `copilotkit/setup-endpoint`.
@@ -213,28 +222,51 @@ Fix: inject via environment variable. See `copilotkit/setup-endpoint`.
 
 ### Check: edge runtimes use env binding, not process.env
 
-Expected (Cloudflare Workers):
+Expected (Cloudflare Workers — runtime hoisted to module scope, lazy init):
 
 ```ts
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+  BuiltInAgent,
+} from "@copilotkit/runtime/v2";
+
+interface Env {
+  OPENAI_API_KEY: string;
+}
+
+let cachedHandler: ((r: Request) => Response | Promise<Response>) | null =
+  null;
+
+function getHandler(env: Env) {
+  if (cachedHandler) return cachedHandler;
+  const runtime = new CopilotRuntime({
+    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) },
+  });
+  cachedHandler = createCopilotRuntimeHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  });
+  return cachedHandler;
+}
+
 export default {
-  fetch(request: Request, env: { OPENAI_API_KEY: string }) {
-    const agent = new BuiltInAgent({
-      type: "tanstack",
-      factory: ({ input }) =>
-        chat({
-          adapter: openaiText("gpt-4o", { apiKey: env.OPENAI_API_KEY }),
-          // ...
-        }),
-    });
-    // ...
+  fetch(request: Request, env: Env) {
+    return getHandler(env)(request);
   },
 };
 ```
 
 Fail condition: Workers / Vercel Edge code reads `process.env.*` — those
-runtimes don't expose it.
+runtimes don't expose it. Also: constructing `new CopilotRuntime(...)`
+inside `fetch(request, env)` on every request wastes CPU and drops
+in-memory runner state.
 Fix: use the platform's env argument (Workers `env`, Vercel Edge
-`request.env`). See `copilotkit/0-to-working-chat`.
+`request.env`), and hoist the runtime + handler to module scope. Workers
+isolates reuse module globals across requests (in-isolate only — for
+cross-isolate durability pair with `SqliteAgentRunner` or Intelligence).
+See `copilotkit/0-to-working-chat`.
 
 ## Dev-Only-Prop Audit
 
@@ -259,11 +291,13 @@ Fail condition: any `selfManagedAgents={{ ... }}` prop. It's an alias of
 `agents__unsafe_dev_only` — same leak.
 Fix: same as above.
 
-### Check: no publicApiKey in new code
+### Check: publicApiKey / publicLicenseKey are env-sourced and consistent
 
-Expected: `publicLicenseKey` exclusively.
-Fail condition: `publicApiKey` prop used.
-Fix: rename to `publicLicenseKey`. See `copilotkit/v1-to-v2-migration`.
+Both props are supported — `publicApiKey` is canonical and wins when both
+are set (`resolvedPublicKey = publicApiKey ?? publicLicenseKey`). Prefer
+`publicApiKey` in new code. The only fail condition here is a hardcoded
+string literal — see "Check: publicApiKey is env-sourced, not hardcoded"
+above. See `copilotkit/v1-to-v2-migration` for v1 → v2 rename details.
 
 ## Common Production Mistakes
 
@@ -372,9 +406,10 @@ Source: examples/v2/runtime/cf-workers/src/index.ts:7-17
 - [ ] `debug` on provider and runtime is off or dev-gated
 - [ ] `credentials="include"` set if runtime is cross-origin and uses cookies
 - [ ] Auth / rate-limit / observability wired via `hooks` or middleware
-- [ ] `publicLicenseKey` / `licenseToken` sourced from env vars
+- [ ] `publicApiKey` / `licenseToken` sourced from env vars (not hardcoded)
 - [ ] Edge runtimes read secrets from env binding, not `process.env`
+- [ ] Cloudflare Workers: runtime + handler hoisted to module scope, not
+      re-created per-request
 - [ ] `agents__unsafe_dev_only` and `selfManagedAgents` absent from bundle
-- [ ] `publicApiKey` renamed to `publicLicenseKey`
 - [ ] Error codes handled: `agent_thread_locked`, `runtime_info_fetch_failed`,
       `agent_run_failed` (see `copilotkit/debug-and-troubleshoot`)
