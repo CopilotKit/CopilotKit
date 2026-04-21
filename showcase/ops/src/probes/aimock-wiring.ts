@@ -42,11 +42,26 @@ export interface AimockWiringSignal {
    * "genuinely misconfigured" from "couldn't determine".
    */
   errored: { name: string; errorDesc: string }[];
+  /**
+   * Template-friendly preview: up to `ERRORED_PREVIEW_MAX` failing services
+   * rendered as "name: errorDesc" lines. Saves operators a log-dive for the
+   * common case where one Railway API hiccup trips a single service.
+   * Truncated with "(+N more)" when erroredCount exceeds the preview cap.
+   */
+  erroredPreview: string[];
   unwiredCount: number;
   wiredCount: number;
   erroredCount: number;
   unwiredNoun: string;
+  /**
+   * Truthy when `errored` is non-empty — derived flag for templates that
+   * need to render a distinct "lookup failed" branch without counting.
+   */
+  hasErrored: boolean;
 }
+
+/** Maximum number of failing services rendered inline in alerts. */
+const ERRORED_PREVIEW_MAX = 5;
 
 function isExcluded(name: string): boolean {
   return EXCLUDE_SERVICES.has(name);
@@ -54,8 +69,13 @@ function isExcluded(name: string): boolean {
 
 /**
  * Normalize a URL for equality compare: lowercase hostname, strip trailing
- * slash on the path. Returns null if parsing fails — callers should treat
- * unparseable URLs as "not aimock".
+ * slash on the path, drop query string and fragment, normalize default ports
+ * (:80 for http, :443 for https). Returns null if parsing fails — callers
+ * should treat unparseable URLs as "not aimock".
+ *
+ * Query/fragment are dropped so `https://aimock/v1?env=prod` still compares
+ * equal to `https://aimock/v1`. Ports collapse to the default when explicit
+ * (`https://host:443/v1` == `https://host/v1`).
  *
  * NOTE: Pathname case is preserved (NOT lowercased). URL paths are
  * case-sensitive per RFC 3986 §6.2.2.1, so `/v1` and `/V1` are different
@@ -67,6 +87,17 @@ function normalizeUrl(raw: string | undefined): string | null {
   try {
     const u = new URL(raw);
     u.hostname = u.hostname.toLowerCase();
+    // Drop query string and fragment — these never affect routing to the
+    // aimock upstream and an accidental `?env=prod` must not surface as drift.
+    u.search = "";
+    u.hash = "";
+    // Normalize default ports so `:80` / `:443` collapse to the implicit form.
+    if (
+      (u.protocol === "http:" && u.port === "80") ||
+      (u.protocol === "https:" && u.port === "443")
+    ) {
+      u.port = "";
+    }
     // Strip a single trailing slash on the pathname (but not the root '/' itself).
     if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
       u.pathname = u.pathname.replace(/\/+$/, "");
@@ -105,6 +136,19 @@ function pointsAtAimock(
  *   - A single service's env-fetch failure is isolated to the `errored`
  *     bucket and does NOT reject the whole probe. State is red if either
  *     `unwired` or `errored` is non-empty.
+ *
+ * TODO (cross-cluster — rule schema + deriveSignalFlags live in Cluster 1):
+ * An errored-only result (unwired=[], errored=[...]) currently turns state
+ * red but does NOT trip `set_drifted` in deriveSignalFlags (which only keys
+ * off `signal.unwired`). Cluster 1 needs to:
+ *   1. Add `set_errored` to StringTriggerEnum in src/rules/schema.ts, AND
+ *   2. Derive it in deriveSignalFlags via `signal.errored?.length > 0`
+ *      (using hasErrored on this signal), AND
+ *   3. Update aimock-wiring-drift.yml to declare `set_errored` alongside
+ *      `set_drifted` / `red_to_green` and render an errored branch using
+ *      `signal.erroredPreview`.
+ * Without that, `hasErrored` / `erroredPreview` are available to templates
+ * but the rule itself won't fire on a pure-errored state.
  */
 export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
   dimension: "aimock_wiring",
@@ -146,14 +190,23 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
     wired.sort();
     errored.sort((a, b) => a.name.localeCompare(b.name));
 
+    const previewBase = errored
+      .slice(0, ERRORED_PREVIEW_MAX)
+      .map((e) => `${e.name}: ${e.errorDesc}`);
+    const remaining = errored.length - previewBase.length;
+    const erroredPreview =
+      remaining > 0 ? [...previewBase, `(+${remaining} more)`] : previewBase;
+
     const signal: AimockWiringSignal = {
       unwired,
       wired,
       errored,
+      erroredPreview,
       unwiredCount: unwired.length,
       wiredCount: wired.length,
       erroredCount: errored.length,
       unwiredNoun: unwired.length === 1 ? "service" : "services",
+      hasErrored: errored.length > 0,
     };
     return {
       key: "aimock_wiring:global",

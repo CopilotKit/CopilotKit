@@ -200,6 +200,51 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.wiredCount).toBe(1);
   });
 
+  it("normalizes URL: query string and fragment are ignored", async () => {
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-sales-dashboard" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: `${AIMOCK_URL}?env=prod#anchor`,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wiredCount).toBe(1);
+  });
+
+  it("normalizes URL: default http :80 and https :443 ports collapse to implicit form", async () => {
+    // Declare two services so both default-port variants are exercised in
+    // one run without crossing protocols on the aimock URL itself.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: "https://aimock.example",
+        listServices: async () => [{ name: "s-explicit-443" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "https://aimock.example:443",
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wiredCount).toBe(1);
+
+    const r2 = await aimockWiringProbe.run(
+      {
+        aimockUrl: "http://aimock.example",
+        listServices: async () => [{ name: "s-explicit-80" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: "http://aimock.example:80",
+        }),
+      },
+      ctx,
+    );
+    expect(r2.state).toBe("green");
+    expect(r2.signal.wiredCount).toBe(1);
+  });
+
   it("isolates per-service env-fetch failures to the errored bucket", async () => {
     const r = await aimockWiringProbe.run(
       {
@@ -226,5 +271,45 @@ describe("aimock-wiring probe", () => {
       errorDesc: "Railway API 500",
     });
     expect(r.signal.erroredCount).toBe(1);
+    expect(r.signal.hasErrored).toBe(true);
+    expect(r.signal.erroredPreview).toEqual([
+      "showcase-broken: Railway API 500",
+    ]);
+  });
+
+  it("caps erroredPreview at 5 entries and appends (+N more)", async () => {
+    // Regression: templates used to only see `erroredCount`, forcing operators
+    // to log-dive. Inline preview keeps context without unbounded message
+    // growth.
+    const names = Array.from({ length: 7 }, (_, i) => `svc-${i}`);
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => names.map((name) => ({ name })),
+        getServiceEnv: async (name) => {
+          throw new Error(`boom for ${name}`);
+        },
+      },
+      ctx,
+    );
+    expect(r.signal.erroredCount).toBe(7);
+    expect(r.signal.erroredPreview).toHaveLength(6); // 5 names + "(+2 more)"
+    expect(r.signal.erroredPreview[0]).toBe("svc-0: boom for svc-0");
+    expect(r.signal.erroredPreview[4]).toBe("svc-4: boom for svc-4");
+    expect(r.signal.erroredPreview[5]).toBe("(+2 more)");
+    expect(r.signal.hasErrored).toBe(true);
+  });
+
+  it("hasErrored is false when errored bucket is empty", async () => {
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-sales-dashboard" }],
+        getServiceEnv: async () => ({ OPENAI_BASE_URL: AIMOCK_URL }),
+      },
+      ctx,
+    );
+    expect(r.signal.hasErrored).toBe(false);
+    expect(r.signal.erroredPreview).toEqual([]);
   });
 });
