@@ -672,12 +672,16 @@ function shouldContinue({
     //   (a) error ToolMessages are synthesized for each unknown call,
     //       keeping the AIMessage+ToolMessage sequence well-formed for
     //       OpenAI on the next turn (no dangling tool_calls);
-    //   (b) unknown calls are stripped off the AIMessage so the frontend
-    //       runtime never sees names it can't dispatch;
+    //   (b) the AIMessage retains its unknown tool_calls alongside the
+    //       knownCalls so every errorToolMessage has a matching
+    //       preceding tool_call.id. The frontend runtime does not
+    //       re-dispatch calls that carry a matching ToolMessage result.
     //   (c) in the frontend-action + unknown mixed case, the surviving
     //       frontend-action calls still reach the frontend via the
     //       terminal restore path (emit_unknown_tools_notice goes to END
-    //       and the rebuilt AIMessage retains the known frontend calls).
+    //       and the rebuilt AIMessage retains both the known frontend
+    //       calls and the unknown calls, the latter pre-resolved by
+    //       their error ToolMessages).
     if (hasUnknown) {
       return "emit_unknown_tools_notice";
     }
@@ -703,10 +707,29 @@ function shouldContinue({
 //      `tool_call_id: ""` would itself be rejected; keeping the call on
 //      the AIMessage without a matching ToolMessage re-introduces the
 //      dangling-reference bug).
-//   2. Strip the unknown calls off the prior AIMessage using
-//      rebuildAIMessageWithToolCalls, preserving only the known calls
-//      (frontend actions). The frontend runtime then receives an
-//      AIMessage with only dispatchable names.
+//   2. Rebuild the prior AIMessage with rebuildAIMessageWithToolCalls,
+//      retaining BOTH the knownCalls AND every unknown call whose
+//      tool_call_id was retained in (1). The retained unknowns are
+//      what makes the transcript well-formed: each errorToolMessage
+//      emitted in (1) has a matching `tool_call.id` on the immediately
+//      preceding AIMessage, which is what OpenAI's chat-completions
+//      API validates on the next user turn. Stripping the unknowns
+//      here (as an earlier revision did) while still appending their
+//      error ToolMessages produced orphaned `tool_call_id`s and
+//      "tool_call_id does not match any preceding tool_calls" errors
+//      on the next turn.
+//      Dropped-id unknowns — those with no usable tool_call_id — are
+//      still omitted from tool_calls since they have no matching
+//      ToolMessage result; keeping them would reintroduce the dangling
+//      reference on the next turn.
+//      Safety for the frontend: tool_calls on the AIMessage are
+//      dispatched by the CopilotKit frontend runtime only when the
+//      model streams TOOL_CALL_START / TOOL_CALL_END events in the
+//      current turn. This node does not emit those events — it only
+//      writes to state.messages. On the next turn the frontend sees
+//      each retained unknown paired with its error ToolMessage in the
+//      snapshot; pairs that already carry a result are not
+//      re-dispatched.
 //   3. In the PURE-unknown batch (`knownCalls.length === 0`), append a
 //      user-visible AIMessage notice so the turn doesn't end silently,
 //      and clear any stale intercept slot from a prior turn.
@@ -784,14 +807,34 @@ function emit_unknown_tools_notice(state: AgentState) {
   // only `knownCalls` and we still emit the notice in the pure-unknown
   // case below (drop-only is still a reportable turn).
 
-  // Rebuild the prior AIMessage with unknown calls stripped, preserving
-  // its id + metadata. Dropped-id unknowns are ALSO stripped from
-  // tool_calls (they have no matching ToolMessage, so leaving them on
-  // the AIMessage would re-introduce the dangling-tool_call_id problem
-  // on the next turn).
+  // Rebuild the prior AIMessage preserving its id + metadata, retaining
+  // BOTH knownCalls AND unknownWithId on `tool_calls`. Retaining the
+  // unknowns is what keeps the OpenAI transcript well-formed on the
+  // next user turn: every errorToolMessage below references an id
+  // that still appears on the immediately preceding AIMessage's
+  // `tool_calls`. Stripping the unknowns while still emitting their
+  // error ToolMessages produced orphaned `tool_call_id`s — OpenAI's
+  // chat completions API rejects a ToolMessage whose `tool_call_id`
+  // does not match a preceding AIMessage `tool_call.id`, so the next
+  // user turn failed. With the unknowns retained, the AIMessage →
+  // ToolMessage(result) pairing is intact for every unknown.
+  //
+  // Safety for the frontend: the frontend action handler only
+  // dispatches a tool_call when it receives a live TOOL_CALL_START /
+  // TOOL_CALL_END event stream during the current agent turn. This
+  // node DOES NOT emit those events — it only writes to state.messages
+  // after the model stream is already finalized. On the next turn,
+  // the frontend sees the pair (AIMessage.tool_call + ToolMessage
+  // result) already present in the snapshot; pairs that carry a
+  // result are treated as resolved and are not re-dispatched.
+  //
+  // Dropped-id unknowns (no usable tool_call_id) are still omitted
+  // from tool_calls — they have no matching ToolMessage, so keeping
+  // them would reintroduce the dangling-id problem on the next turn.
+  const retainedCalls: ToolCall[] = [...knownCalls, ...unknownWithId];
   const strippedAIMessage = rebuildAIMessageWithToolCalls(
     lastMessage,
-    knownCalls,
+    retainedCalls,
   );
 
   const errorToolMessages = unknownWithId.map((call) => {
