@@ -384,9 +384,7 @@ export function createPbClient(config: PbClientConfig): PbClient {
       // auth/retry envelope applies, then buffer into a Uint8Array for
       // the S3 uploader (multi-GB PB DBs will eventually want streaming;
       // see s3-backup.ts TODO).
-      const res = await request(
-        `/api/backups/${encodeURIComponent(name)}`,
-      );
+      const res = await request(`/api/backups/${encodeURIComponent(name)}`);
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(`pb downloadBackup failed: ${res.status} ${text}`);
@@ -396,10 +394,9 @@ export function createPbClient(config: PbClientConfig): PbClient {
     },
 
     async deleteBackup(name: string): Promise<void> {
-      const res = await request(
-        `/api/backups/${encodeURIComponent(name)}`,
-        { method: "DELETE" },
-      );
+      const res = await request(`/api/backups/${encodeURIComponent(name)}`, {
+        method: "DELETE",
+      });
       if (!res.ok && res.status !== 404) {
         const text = await res.text().catch(() => "");
         throw new Error(`pb deleteBackup failed: ${res.status} ${text}`);

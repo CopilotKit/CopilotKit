@@ -500,7 +500,9 @@ function createRailwayAdapter(opts: {
   return {
     async listServices() {
       const data = await gql<{
-        project: { services: { edges: { node: { id: string; name: string } }[] } };
+        project: {
+          services: { edges: { node: { id: string; name: string } }[] };
+        };
       }>(
         `query project($id: String!) {
           project(id: $id) {
