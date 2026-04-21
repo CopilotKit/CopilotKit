@@ -32,7 +32,24 @@ export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;
 }> {
-  const pbUrl = process.env.POCKETBASE_URL ?? "http://localhost:8090";
+  // HF13-A2: fail loud on missing POCKETBASE_URL in production. Pre-fix the
+  // `?? "http://localhost:8090"` fallback silently bound a prod orchestrator
+  // to a non-existent localhost PB — no status reads, no state writes, no
+  // alerts. Shell-dashboard's `pb.ts` uses a `pbIsMisconfigured` sentinel and
+  // fails loud; orchestrator was asymmetric. Now it throws on boot in prod so
+  // the deploy CI (or Railway health-check) catches it immediately instead of
+  // discovering it hours later via silent alert suppression.
+  const rawPbUrl = process.env.POCKETBASE_URL;
+  if (!rawPbUrl && process.env.NODE_ENV === "production") {
+    logger.error("orchestrator.FATAL-CONFIG", {
+      msg: "POCKETBASE_URL required in production",
+      nodeEnv: process.env.NODE_ENV,
+    });
+    throw new Error(
+      "FATAL-CONFIG: POCKETBASE_URL required in production (NODE_ENV=production)",
+    );
+  }
+  const pbUrl = rawPbUrl ?? "http://localhost:8090";
   // These authenticate against `/api/collections/_superusers/auth-with-password`
   // in pb-client, so the env var names intentionally mirror "superuser" —
   // previously `POCKETBASE_WRITER_*`, renamed to eliminate the naming drift

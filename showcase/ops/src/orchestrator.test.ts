@@ -136,6 +136,48 @@ describe("orchestrator /health wiring (F1.1)", () => {
     }
   });
 
+  // HF13-A2: orchestrator must fail loud on missing POCKETBASE_URL in prod.
+  // Pre-fix the `?? "http://localhost:8090"` fallback silently bound a prod
+  // orchestrator to a non-existent localhost PB.
+  it("HF13-A2: boot throws FATAL-CONFIG when NODE_ENV=production and POCKETBASE_URL unset", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    process.env.NODE_ENV = "production";
+    delete process.env.POCKETBASE_URL;
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/FATAL-CONFIG: POCKETBASE_URL required in production/);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+    }
+  });
+
+  // HF13-A2 negative: non-prod boot with unset POCKETBASE_URL still succeeds
+  // (localhost fallback preserved for dev / tests).
+  it("HF13-A2: boot succeeds without POCKETBASE_URL when NODE_ENV is not production", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevPbUrl = process.env.POCKETBASE_URL;
+    process.env.NODE_ENV = "test";
+    delete process.env.POCKETBASE_URL;
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      // Any successful boot returning a port proves the fallback still works.
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevPbUrl !== undefined) process.env.POCKETBASE_URL = prevPbUrl;
+    }
+  });
+
   it("/health returns 200 with loop:\"ok\" and schedulerJobs>=1 when a rule is loaded (happy path)", async () => {
     // E2 happy-path coverage. Pre-fix we only asserted the pathological
     // no-jobs and stopped states; an accidental regression where the
