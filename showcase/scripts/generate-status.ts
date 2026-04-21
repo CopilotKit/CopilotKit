@@ -10,8 +10,17 @@
 // exporter can write authoritative results into the same file.
 //
 // Usage:
-//   npx tsx showcase/scripts/generate-status.ts            # real health + mock rest
-//   GENERATE_STATUS_MOCK_HEALTH=1 npx tsx ...              # mock everything (offline)
+//   npx tsx showcase/scripts/generate-status.ts                   # real health, mocks default OFF
+//   GENERATE_STATUS_MOCK_HEALTH=1 npx tsx ...                     # mock health too (offline)
+//   GENERATE_STATUS_MOCK_E2E=1 npx tsx ...                        # include mock e2e column
+//   GENERATE_STATUS_MOCK_SMOKE=1 npx tsx ...                      # include mock smoke column
+//   GENERATE_STATUS_MOCK_QA=1 npx tsx ...                         # include mock qa column
+//
+// Mocks default OFF so that production dashboards NEVER silently show
+// seeded test data: an unwired column emits `null` instead, which the UI
+// renders as "unknown". Setting any GENERATE_STATUS_MOCK_* env var also
+// prints a prominent warning banner so operators always know when they're
+// looking at stubs.
 
 import fs from "fs";
 import path from "path";
@@ -131,6 +140,31 @@ async function main() {
   };
 
   const mockHealth = process.env.GENERATE_STATUS_MOCK_HEALTH === "1";
+  const mockE2EOn = process.env.GENERATE_STATUS_MOCK_E2E === "1";
+  const mockSmokeOn = process.env.GENERATE_STATUS_MOCK_SMOKE === "1";
+  const mockQAOn = process.env.GENERATE_STATUS_MOCK_QA === "1";
+
+  // Loud banner whenever ANY mock is active — operators should never
+  // discover stub data by surprise in a dashboard.
+  const activeMocks: string[] = [];
+  if (mockHealth) activeMocks.push("health");
+  if (mockE2EOn) activeMocks.push("e2e");
+  if (mockSmokeOn) activeMocks.push("smoke");
+  if (mockQAOn) activeMocks.push("qa");
+  if (activeMocks.length > 0) {
+    const banner = "=".repeat(72);
+    console.warn(banner);
+    console.warn(
+      `WARNING: generate-status is emitting MOCK data for: ${activeMocks.join(", ")}`,
+    );
+    console.warn(
+      "These columns do NOT reflect real test results. Unset the",
+    );
+    console.warn(
+      "GENERATE_STATUS_MOCK_* env vars to emit `null` (unknown) instead.",
+    );
+    console.warn(banner);
+  }
 
   // Flatten to (slug, demoId, url) tuples for parallel probing.
   // Informational demos (e.g. cli-start) have no route — skip probing.
@@ -178,9 +212,9 @@ async function main() {
       const key = `${integ.slug}::${demo.id}`;
       const parentHealth = healthMap.get(key) ?? "unknown";
       demos[demo.id] = {
-        e2e: mockE2E(integ.slug, demo.id),
-        smoke: mockSmoke(integ.slug, demo.id),
-        qa: mockQA(integ.slug, demo.id),
+        e2e: mockE2EOn ? mockE2E(integ.slug, demo.id) : null,
+        smoke: mockSmokeOn ? mockSmoke(integ.slug, demo.id) : null,
+        qa: mockQAOn ? mockQA(integ.slug, demo.id) : null,
         health: { status: parentHealth, checked_at: checkedAt },
       };
     }
