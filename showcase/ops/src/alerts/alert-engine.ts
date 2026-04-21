@@ -117,11 +117,17 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
 
         // Bootstrap suppression: a freshly-booted service with no prior state
         // observes every failing key as either `green_to_red` (fresh write over
-        // an existing green record) or `first` with state=red (no prior record).
-        // Both are false-positives for alerting purposes.
+        // an existing green record) or `first` with state=red/degraded (no
+        // prior record). Both are false-positives for alerting purposes.
+        // HF13-A1: mirror dispatchCronAlert's `red || degraded` fresh-gate here
+        // so a first-observation degraded arriving via the status-changed bus
+        // is also suppressed inside the bootstrap window. Pre-fix only `red`
+        // was gated and a fresh degraded escaped to fire a spurious alert.
         const isFreshRed =
           triggered.includes("green_to_red") ||
-          (triggered.includes("first") && evt.outcome.newState === "red");
+          (triggered.includes("first") &&
+            (evt.outcome.newState === "red" ||
+              evt.outcome.newState === "degraded"));
         if (isFreshRed && bootstrapActive()) {
           logger.info("alert-engine.bootstrap-suppress", {
             ruleId: rule.id,
@@ -297,6 +303,14 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
           trigger: triggered[0] ?? transition,
           lastAlertAgeMin: ageMin,
           hasCandidates: signal["hasCandidates"] === true,
+          // HF13-E2 coord: `probeErrored` is a flat alias for
+          // `signal.probeErrored` surfaced by probes that distinguish "probe
+          // failed" from "probe ran and found nothing". Rules such as
+          // redirect-decommission-monthly widen their suppress expression
+          // with `probeErrored != true` so an audit failure is NOT silently
+          // suppressed as "no candidates". Must stay in sync with
+          // SUPPRESS_VALIDATION_VARS in rule-loader.ts.
+          probeErrored: signal["probeErrored"] === true,
         },
       );
       try {
@@ -828,8 +842,19 @@ function deriveSignalFlags(
   // `unwired` and non-empty `errored` — neither set_drifted nor
   // red_to_green fires, so the rule silently collapses. set_errored lights
   // up this case so YAML rules can render an "errored services" block.
+  //
+  // HF13-C1: also emit set_errored when the probe itself couldn't run to
+  // completion (`signal.probeErrored === true`). aimock-wiring with a
+  // malformed `aimockUrl` bypasses per-service iteration and short-circuits
+  // with `probeErrored: true` + `erroredPreview` — without this branch the
+  // aimock-wiring-drift rule would silently collapse on "config is broken"
+  // instead of firing the errored-state branch.
   const erroredArr = Array.isArray(s.errored) ? (s.errored as unknown[]) : null;
-  if (erroredArr && erroredArr.length > 0) flags.set_errored = true;
+  if (
+    (erroredArr && erroredArr.length > 0) ||
+    s.probeErrored === true
+  )
+    flags.set_errored = true;
 
   return flags;
 }

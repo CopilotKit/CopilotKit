@@ -1182,6 +1182,126 @@ describe("alert-engine (additional behaviors)", () => {
     expect(tgt.sent).toHaveLength(0);
   });
 
+  // HF13-A1: mirror dispatchCronAlert's `red || degraded` fresh-gate onto
+  // handleStatusChanged. Pre-fix the status.changed path only gated `red`,
+  // so a first-observation degraded via the live bus escaped bootstrap
+  // suppression and fired a spurious alert.
+  it("HF13-A1: bootstrap suppresses `first` with state=degraded too", async () => {
+    const e = engine({ bootstrapWindowMs: 15 * 60_000 });
+    e.start();
+    e.reload([baseRule({ stringTriggers: ["first"] })]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: null,
+        newState: "degraded",
+        transition: "first",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: probeRes("degraded"),
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
+  // HF13-E2 coord: `probeErrored` must be populated in the suppress var bag
+  // so rules widening `hasCandidates != true` with `probeErrored != true`
+  // fire when the probe itself failed (audit error), and still suppress when
+  // the probe succeeded and found nothing.
+  it("HF13-E2: suppress exposes `probeErrored` flat identifier", async () => {
+    const e = engine();
+    e.start();
+    // Rule fires on `first` and only suppresses when BOTH
+    // `hasCandidates != true` AND `probeErrored != true`.
+    e.reload([
+      baseRule({
+        stringTriggers: ["first"],
+        conditions: {
+          guards: [],
+          escalations: [],
+          suppress: {
+            when: "hasCandidates != true && probeErrored != true",
+          },
+        },
+      }),
+    ]);
+    // 1) probe succeeded and found nothing → suppressed (old behavior).
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: null,
+        newState: "green",
+        transition: "first",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "smoke:a",
+        state: "green",
+        signal: { slug: "a", hasCandidates: false, probeErrored: false },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+    // 2) probe failed (probeErrored=true) → NOT suppressed.
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: null,
+        newState: "green",
+        transition: "first",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "smoke:b",
+        state: "green",
+        signal: { slug: "b", hasCandidates: false, probeErrored: true },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+  });
+
+  // HF13-C1: deriveSignalFlags must emit `set_errored` when `probeErrored`
+  // is true, even if the `errored` array is empty. A probe that short-circuits
+  // on malformed config emits `probeErrored: true` + `erroredPreview` without
+  // iterating services — the rule's set_errored branch must still light up.
+  it("HF13-C1: set_errored fires on signal.probeErrored=true with empty errored[]", async () => {
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        stringTriggers: ["set_errored"],
+        template: { text: "{{#trigger.set_errored}}ERR{{/trigger.set_errored}}" },
+      }),
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "red",
+        signal: {
+          slug: "mastra",
+          probeErrored: true,
+          erroredPreview: "aimockUrl parse failed: http://",
+        },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "ERR",
+    );
+  });
+
   it("buildContext threads runUrl / runId / jobUrl from signal to event.*", async () => {
     const e = engine();
     e.start();
