@@ -107,7 +107,7 @@ export default async function FrameworkScopedDocsPage({
   const doc = loadDoc(slugPath);
   if (!doc) notFound();
 
-  const backLink = { label: "\u2190 All docs", href: "/docs" };
+  const backLink = { label: "\u2190 All docs", href: "/" };
   const navTree = buildNavTree(CONTENT_DIR);
 
   // Detect whether this page's default cell (the feature) has any
@@ -170,7 +170,7 @@ export default async function FrameworkScopedDocsPage({
               })}{" "}
             instead, or browse the{" "}
             <Link
-              href={`/docs/${slugPath}`}
+              href={`/${slugPath}`}
               className="text-[var(--accent)] hover:underline"
             >
               framework-agnostic version
@@ -268,7 +268,7 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
       <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <Link
-          href="/docs"
+          href="/"
           className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
         >
           ← All docs

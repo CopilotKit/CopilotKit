@@ -3,7 +3,7 @@
 // SidebarLink — framework-aware client-side anchor used for every
 // entry in the docs sidebar. Resolves its final href based on the
 // active FrameworkContext: when a framework is selected, the href is
-// `/<framework>/<slug>`; otherwise it falls through to `/docs/<slug>`.
+// `/<framework>/<slug>`; otherwise it falls through to `/<slug>`.
 //
 // `framework` is URL-derived (see framework-provider) so the resolved
 // href is identical during SSR and post-hydration — no transient
@@ -32,8 +32,8 @@ export function SidebarLink({
   const { framework } = useFramework();
 
   // Use the active framework when set, otherwise fall through to
-  // /docs/<slug>.
-  const href = framework ? `/${framework}/${slug}` : `/docs/${slug}`;
+  // /<slug>.
+  const href = framework ? `/${framework}/${slug}` : `/${slug}`;
 
   return (
     <Link
