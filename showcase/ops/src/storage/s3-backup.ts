@@ -109,6 +109,12 @@ export function createS3Backup(opts: CreateS3BackupOptions): S3Backup {
   return {
     async run() {
       if (!opts.bucket) {
+        // Defensive: the orchestrator only constructs `createS3Backup`
+        // when `S3_BACKUP_BUCKET` is truthy, so in normal usage this
+        // branch is unreachable. Kept for direct callers (tests, future
+        // entrypoints that wire the backup without the env guard) — it
+        // prevents an empty-bucket PutObject call from blowing up deep
+        // inside the AWS SDK with a confusing error.
         opts.logger.info("s3-backup.skipped", {
           reason: "no_bucket_configured",
         });
@@ -164,15 +170,16 @@ export function createS3Backup(opts: CreateS3BackupOptions): S3Backup {
 
 /**
  * Runtime adapter using `@aws-sdk/client-s3`. Imported lazily so the
- * dependency is only required when S3 backup is enabled.
+ * SDK isn't instantiated (and its connection pool warmed) unless the
+ * S3-backup cron path actually runs.
  *
- * NOTE: this is a thin lazy factory so the package can stay deployable
- * without the AWS SDK dependency when S3 backups are turned off. It does
- * a dynamic import so the SDK is only loaded if the code path runs.
- *
- * Throws a clear error if `@aws-sdk/client-s3` is not installed. The
- * orchestrator catches this and logs `orchestrator.s3-backup-init-failed`
- * so a missing optional dep doesn't take down the whole service.
+ * NOTE: `@aws-sdk/client-s3` is currently a hard dependency in
+ * `package.json`, so import failure is only realistic in corrupted
+ * `node_modules`. We still throw a clear error on import failure so the
+ * orchestrator's `orchestrator.s3-backup-init-failed` log surfaces a
+ * useful reason rather than a bare `Cannot find module` stack. If the
+ * dep is ever moved to optionalDependencies, this path becomes
+ * load-bearing for deployments that opt out of S3 backups.
  */
 export async function createDefaultS3Uploader(
   region: string,
