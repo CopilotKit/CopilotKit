@@ -540,9 +540,9 @@ function restore_frontend_tools(state: AgentState) {
       messageFound = true;
       const existing = msg.tool_calls ?? [];
       // Preserve all AIMessage metadata (additional_kwargs,
-      // response_metadata, usage_metadata, name, invalid_tool_calls,
-      // tool_call_chunks) — a naive rebuild drops them and breaks
-      // LangSmith tracing + token accounting.
+      // response_metadata, usage_metadata, name, invalid_tool_calls)
+      // — a naive rebuild drops them and breaks LangSmith tracing +
+      // token accounting.
       return rebuildAIMessageWithToolCalls(msg, [
         ...existing,
         ...interceptedToolCalls,
