@@ -385,6 +385,88 @@ describe("status-writer", () => {
     expect(failed).toEqual([{ phase: "status_upsert", key: "smoke:mastra" }]);
   });
 
+  it("error-path seed upsert failure does NOT emit status.changed and re-throws", async () => {
+    // Regression: previously, when the very first observation was an
+    // error and the seed upsert to `status` failed, we logged a warn and
+    // proceeded to emit `status.changed` with a synthesized prior. The
+    // alert engine then treated the transition as persisted, so a
+    // later red_to_green on recovery never fired.
+    // Fix: on seed-write failure, re-throw and skip the emit.
+    const pb: PbClient = {
+      async getOne() {
+        return null;
+      },
+      async getFirst() {
+        return null; // no prior row
+      },
+      async list() {
+        return { page: 1, perPage: 0, totalPages: 0, totalItems: 0, items: [] };
+      },
+      async create<T>(_c: string, r: unknown): Promise<T> {
+        return r as T; // history_create succeeds
+      },
+      async update<T>(_c: string, _i: string, r: unknown): Promise<T> {
+        return r as T;
+      },
+      async upsertByField(): Promise<never> {
+        throw new Error("seed boom");
+      },
+      async delete() {},
+      async deleteByFilter() {
+        return 0;
+      },
+      async health() {
+        return true;
+      },
+      async createBackup() {},
+      async downloadBackup() {
+        return new Uint8Array();
+      },
+      async deleteBackup() {},
+    };
+    const bus = createEventBus();
+    const statusChangedEvents: unknown[] = [];
+    const writerFailedPhases: string[] = [];
+    bus.on("status.changed", (p) => statusChangedEvents.push(p));
+    bus.on("writer.failed", (p) => writerFailedPhases.push(p.phase));
+    const writer = createStatusWriter({ pb, bus, logger });
+    await expect(writer.write(probeResult("error"))).rejects.toThrow(
+      /seed boom/,
+    );
+    // NO status.changed emit — alert engine must not see a fake transition.
+    expect(statusChangedEvents).toHaveLength(0);
+    // writer.failed still fires so ops can observe the failure.
+    expect(writerFailedPhases).toEqual(["status_upsert"]);
+  });
+
+  it("warns (once per key) when key lacks ':' separator and derives dimension=unknown", async () => {
+    const warnCalls: Array<{ msg: string; obj: unknown }> = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string, obj?: unknown) => warnCalls.push({ msg, obj: obj! }),
+      error: () => {},
+      debug: () => {},
+    };
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger: customLogger,
+    });
+    const malformed: ProbeResult<unknown> = {
+      key: "noColonHere",
+      state: "green",
+      signal: {},
+      observedAt: "2026-04-20T00:00:00Z",
+    };
+    await writer.write(malformed);
+    await writer.write(malformed); // second call should NOT re-warn
+    const malformedWarns = warnCalls.filter(
+      (w) => w.msg === "status-writer.malformed-key",
+    );
+    expect(malformedWarns).toHaveLength(1);
+    expect((malformedWarns[0]!.obj as { key: string }).key).toBe("noColonHere");
+  });
+
   it("emits writer.failed when history_create throws (non-error path)", async () => {
     const pb: PbClient = {
       async getOne() {

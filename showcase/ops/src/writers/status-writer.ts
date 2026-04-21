@@ -50,6 +50,26 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
   const { pb, bus, logger } = deps;
   const runKeyed = makeKeyedMutex();
 
+  // Once-per-key dedupe for the malformed-key warn so a persistently
+  // broken probe doesn't fill logs with the same message each tick.
+  const warnedMalformedKeys = new Set<string>();
+  // Same dedupe for the legacy-missing-first-failure warn — legacy rows
+  // can persist for days until a red_to_green cycle clears them, and a
+  // per-tick warn would drown operators.
+  const warnedLegacyFailureKeys = new Set<string>();
+  function deriveDimensionWithWarn(key: string): string {
+    const idx = key.indexOf(":");
+    if (idx > 0) return key.slice(0, idx);
+    if (!warnedMalformedKeys.has(key)) {
+      warnedMalformedKeys.add(key);
+      logger.warn("status-writer.malformed-key", {
+        key,
+        hint: "expected <dimension>:<slug> — dimension will be recorded as 'unknown'",
+      });
+    }
+    return "unknown";
+  }
+
   async function doWrite(result: ProbeResult<unknown>): Promise<WriteOutcome> {
     const existing = await pb.getFirst<StatusRecord>(
       "status",
@@ -62,7 +82,7 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
       const carriedState: State = prevState ?? "green";
       const history: StatusHistoryRecord = {
         key: result.key,
-        dimension: deriveDimension(result.key),
+        dimension: deriveDimensionWithWarn(result.key),
         state: carriedState,
         transition: "error",
         signal: result.signal,
@@ -121,7 +141,7 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
         // before producing a verdict).
         const seedRecord: Omit<StatusRecord, "id"> = {
           key: result.key,
-          dimension: deriveDimension(result.key),
+          dimension: deriveDimensionWithWarn(result.key),
           state: carriedState,
           signal: result.signal,
           observed_at: result.observedAt,
@@ -147,6 +167,13 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
             key: result.key,
             err: String(err),
           });
+          // CRITICAL: Do NOT emit status.changed when the seed write
+          // failed. Downstream alert-engine would otherwise believe a
+          // transition was persisted, and red_to_green on recovery would
+          // never fire because the synthesized "prev" never got written.
+          // Re-throw so the caller sees the failure — matches the
+          // non-error path, which throws on status upsert failure.
+          throw err;
         }
       }
 
@@ -181,10 +208,15 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
       // not now. Leave it null and log so operators can spot the
       // orphaned legacy row; the dashboard's "red for N minutes" widget
       // will render blank until a red_to_green cycle resets the row.
-      logger.warn("status-writer.legacy-missing-first-failure", {
-        key: result.key,
-        observedAt: result.observedAt,
-      });
+      // Rate-limited per key so a long-lived legacy row doesn't flood
+      // logs every tick.
+      if (!warnedLegacyFailureKeys.has(result.key)) {
+        warnedLegacyFailureKeys.add(result.key);
+        logger.warn("status-writer.legacy-missing-first-failure", {
+          key: result.key,
+          observedAt: result.observedAt,
+        });
+      }
     }
 
     const transitionedAt =
@@ -194,7 +226,7 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
 
     const statusRecord: Omit<StatusRecord, "id"> = {
       key: result.key,
-      dimension: deriveDimension(result.key),
+      dimension: deriveDimensionWithWarn(result.key),
       state: newState,
       signal: result.signal,
       observed_at: result.observedAt,
@@ -273,7 +305,3 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
   };
 }
 
-function deriveDimension(key: string): string {
-  const idx = key.indexOf(":");
-  return idx > 0 ? key.slice(0, idx) : "unknown";
-}
