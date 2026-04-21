@@ -165,4 +165,59 @@ describe("renderer", () => {
       Buffer.byteLength(String(out.payload.text), "utf8"),
     ).toBeLessThanOrEqual(38 * 1024);
   });
+
+  // F1.8: Slack mrkdwn injection via signal.* paths.
+  //
+  // SECURITY TODO in renderer.ts notes that `<`, `>`, `&` can inject Slack
+  // mrkdwn on non-slackSafe signal paths. These tests PIN the CURRENT
+  // behavior of each interpolation form so a future fix that changes the
+  // default doesn't silently land without updating every existing
+  // template. Behavior today:
+  //   - `{{signal.*}}` (double-brace): Mustache HTML-escapes by default
+  //     (`<` → `&lt;`, `>` → `&gt;`, `&` → `&amp;`, `/` → `&#x2F;`).
+  //     This is HTML escape, NOT Slack-mrkdwn escape — `|` (pipe-link
+  //     separator in Slack mrkdwn) is still passed through. So a hostile
+  //     `<http://evil|text>` can't render as a disguised Slack link
+  //     because `<` is escaped, but HTML-escaped output degrades
+  //     human-readability in Slack (`&lt;` literal text appears).
+  //   - `{{{signal.*}}}` (triple-brace): raw passthrough. Gate-kept by
+  //     the rule-loader's slackSafeFields registry.
+  //
+  // When a real Slack-mrkdwn-aware escape lands (see renderer.ts comment
+  // around the SECURITY TODO), update these expectations to reflect the
+  // new contract across ALL templates in config/alerts/*.yml. Until then,
+  // this test fails the moment someone changes the default — which is
+  // exactly the surface we want visible.
+  it("double-brace HTML-escapes signal.* (current behavior, pins the security TODO)", () => {
+    const r = createRenderer();
+    const out = r.render(
+      { text: "note: {{signal.note}}" },
+      ctx({
+        signal: {
+          // Classic Slack mrkdwn injection candidate: a disguised link.
+          note: "<http://evil.example|click>",
+        },
+      }),
+    );
+    // Mustache default: `<` and `>` get HTML-escaped. The `|` separator
+    // survives because Mustache's escape target is HTML, not mrkdwn.
+    expect(out.payload.text).toContain("&lt;");
+    expect(out.payload.text).toContain("&gt;");
+    expect(out.payload.text).not.toContain("<http://evil.example|click>");
+    // The pipe character is still present — this is the live gap the TODO
+    // calls out. A proper Slack-mrkdwn escape would either strip/encode
+    // the `|` (breaking legitimate bare-pipe uses) or run slackEscape
+    // instead of HTML escape.
+    expect(out.payload.text).toContain("|");
+  });
+
+  // F1.8 companion: triple-brace opts OUT of escaping for slackSafe paths.
+  it("triple-brace passes through raw — confirms triple-brace is the opt-out", () => {
+    const r = createRenderer();
+    const out = r.render(
+      { text: "link: {{{signal.url}}}" },
+      ctx({ signal: { url: "<https://ci/123|run 123>" } }),
+    );
+    expect(out.payload.text).toBe("link: <https://ci/123|run 123>");
+  });
 });
