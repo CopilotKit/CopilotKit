@@ -610,10 +610,67 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  *   - $AGENT_PID: captured after backgrounded agent launch. All frameworks'
  *     getEntrypointBlock() outputs set this.
  */
+/**
+ * Per-framework startup grace (seconds) — how long the watchdog waits after
+ * agent spawn before its first strike counts. Lets slow-starting agents
+ * reach their health endpoint without the 90s (3-strike) watchdog killing
+ * the process in a restart loop.
+ *
+ * `langgraph-*` agents use `langgraph-cli dev`, which on first boot does a
+ * Studio browser handshake + `@langchain/langgraph-api` JIT spawn + graph
+ * compile; on cold Railway containers this routinely exceeds the 90s
+ * strike threshold, producing the 04-20 restart loop on deployment
+ * 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. 180s is the observed upper bound
+ * across cold-start samples plus a safety margin.
+ *
+ * All other starters keep the 0s grace they had before PR #4116: crewai-
+ * crews and the other uvicorn-based agents are responsive within the
+ * 2–3s `sleep` that precedes `AGENT_HEALTH_CHECK`, so adding a grace
+ * here would only delay legitimate restart on true hangs.
+ */
+function getWatchdogGraceSeconds(fw: FrameworkDef): number {
+  if (fw.slug.startsWith("langgraph-")) return 180;
+  return 0;
+}
+
 function getWatchdogBlock(fw: FrameworkDef): string {
   const healthPath = getAgentHealthPath(fw);
   const agentPort = 8123; // Starter agents all bind to :8123.
   const healthUrl = `http://127.0.0.1:${agentPort}${healthPath}`;
+  const graceSeconds = getWatchdogGraceSeconds(fw);
+  // Grace loop: wait for first successful health probe up to `graceSeconds`
+  // before handing off to the steady-state strike counter. If the agent
+  // reports ready sooner, fall through immediately so the watchdog becomes
+  // effective as early as possible. If the agent hasn't reported ready by
+  // the deadline, still hand off — the watchdog will then strike and kill
+  // per normal, but only after giving slow cold-starts a fair shot.
+  //
+  // We deliberately do NOT `exit 1` on grace timeout (contrast with
+  // spring-ai's startup wait which exits): an agent that's still loading
+  // after 180s might just be a very cold container, and the steady-state
+  // watchdog handles the true-hang case in another 90s.
+  const graceBlock =
+    graceSeconds > 0
+      ? `  GRACE=${graceSeconds}
+  echo "[watchdog] Startup grace: waiting up to \${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 ${healthUrl} > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after \${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
+`
+      : "";
   return `# Watchdog: Railway deploys of showcase starters have been observed to hit a
 # silent agent hang — the agent process stays alive (so \`wait -n\` never
 # fires and the container never restarts) but stops responding on its health
@@ -622,8 +679,14 @@ function getWatchdogBlock(fw: FrameworkDef): string {
 # restarts the container. We kill the agent (not the whole script) so
 # \`set -e\` + \`wait -n; exit $?\` handles the restart through the normal
 # path rather than a forced \`exit\` that bypasses logging.
+#
+# Some frameworks (langgraph-*) have slow cold-start paths that can exceed
+# the 90s strike budget on a fresh Railway container. For those, an
+# initial startup-grace window waits for the first healthy probe (or a
+# per-framework ceiling) before the strike counter is armed. See
+# getWatchdogGraceSeconds() for the mapping.
 (
-  FAILS=0
+${graceBlock}  FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       # Agent already dead — wait -n in the main shell will handle it.
@@ -643,7 +706,7 @@ function getWatchdogBlock(fw: FrameworkDef): string {
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing ${healthUrl})"`;
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing ${healthUrl}${graceSeconds > 0 ? `, startup grace ${graceSeconds}s` : ""})"`;
 }
 
 // Previously the entrypoint used:

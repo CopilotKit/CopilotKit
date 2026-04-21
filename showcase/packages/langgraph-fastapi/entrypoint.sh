@@ -61,7 +61,35 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # process so `wait -n` returns and Railway restarts the container.
 # Generalized from showcase/packages/crewai-crews/entrypoint.sh (PRs #4114
 # + #4115).
+#
+# Startup grace: langgraph_cli dev does a heavy cold-start (graph compile
+# + uvicorn boot). On fresh Railway containers this can exceed the 90s
+# (3-strike) budget introduced in PR #4116, matching the restart loop
+# observed on langgraph-typescript (deployment
+# 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9, 04-20 17:05 UTC). Wait up to 180s
+# for the first healthy /ok probe before arming the strike counter; if
+# /ok comes up sooner, fall through immediately. If 180s elapses without
+# success, arm the counter anyway — the steady-state watchdog will then
+# handle a true hang.
 (
+  GRACE=180
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/ok > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -82,7 +110,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 ) &
 WATCHDOG_PID=$!
 
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, startup grace 180s)"
 echo "[entrypoint] Agent PID=$AGENT_PID, Next PID=$NEXTJS_PID"
 wait -n $AGENT_PID $NEXTJS_PID
 EXIT_CODE=$?
