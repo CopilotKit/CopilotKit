@@ -287,6 +287,88 @@ describe("POST /webhooks/deploy — webhook_rejections metric wiring", () => {
     );
   });
 
+  it("increments webhook_rejections on missing timestamp (split-reason: missing-timestamp)", async () => {
+    // F3.3: timestamp-absent and signature-absent get distinct reasons
+    // so metrics can disambiguate (an ops alert on "signer dropped
+    // timestamp" is very different from "signer dropped signature").
+    // The legacy `missing-headers` code is retained only for the
+    // both-missing case.
+    const app = new Hono();
+    const bus = createEventBus();
+    const metrics = createMetricsRegistry();
+    registerDeployWebhook(app, {
+      bus,
+      logger,
+      secrets: [SECRET],
+      nowSec: () => NOW,
+      metrics,
+    });
+    const body = JSON.stringify({
+      runId: "1",
+      services: [],
+      failed: [],
+      succeeded: [],
+      cancelled: false,
+    });
+    const canonical = canonicalPayload("POST", PATH, String(NOW), body);
+    const sig = computeSignature(SECRET, canonical);
+    const res = await app.request(PATH, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // no timestamp
+        "X-Ops-Signature": `sha256=${sig}`,
+      },
+      body,
+    });
+    expect(res.status).toBe(401);
+    const text = renderPrometheus(metrics);
+    expect(text).toMatch(
+      /showcase_ops_webhook_rejections\{reason="missing-timestamp"\}\s+1/,
+    );
+    expect(text).toMatch(
+      /showcase_ops_hmac_failures\{reason="missing-timestamp"\}\s+1/,
+    );
+  });
+
+  it("increments webhook_rejections on missing-headers (both absent) with combined reason", async () => {
+    // F3.3: combined `missing-headers` reason preserved for the both-
+    // missing case (legacy, rare; usually a middleware stripped both).
+    const app = new Hono();
+    const bus = createEventBus();
+    const metrics = createMetricsRegistry();
+    registerDeployWebhook(app, {
+      bus,
+      logger,
+      secrets: [SECRET],
+      nowSec: () => NOW,
+      metrics,
+    });
+    const body = JSON.stringify({
+      runId: "1",
+      services: [],
+      failed: [],
+      succeeded: [],
+      cancelled: false,
+    });
+    const res = await app.request(PATH, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        // no timestamp, no signature
+      },
+      body,
+    });
+    expect(res.status).toBe(401);
+    const text = renderPrometheus(metrics);
+    expect(text).toMatch(
+      /showcase_ops_webhook_rejections\{reason="missing-headers"\}\s+1/,
+    );
+    expect(text).toMatch(
+      /showcase_ops_hmac_failures\{reason="missing-headers"\}\s+1/,
+    );
+  });
+
   it("increments webhook_rejections on missing signature (split-reason: missing-signature)", async () => {
     const app = new Hono();
     const bus = createEventBus();
@@ -441,8 +523,8 @@ describe("POST /webhooks/deploy — gateSkipped pass-through", () => {
   });
 });
 
-describe("POST /webhooks/deploy — idempotency", () => {
-  it("returns 200 (not 202) on duplicate runId and does NOT re-emit", async () => {
+describe("POST /webhooks/deploy — idempotency (composite runId+bodySha)", () => {
+  it("returns 200 (not 202) on duplicate runId+body and does NOT re-emit", async () => {
     const { app, seen } = buildApp();
     const payload = JSON.stringify({
       runId: "dup-1",
@@ -469,6 +551,51 @@ describe("POST /webhooks/deploy — idempotency", () => {
     const parsed = (await res.json()) as { ok: boolean; duplicate: boolean };
     expect(parsed.duplicate).toBe(true);
     expect(seen).toHaveLength(1);
+  });
+
+  it("same runId with DIFFERENT body re-emits (composite key guards against fork/re-run replay)", async () => {
+    // F3.5: previously the dedupe key was `runId` alone. A workflow
+    // re-run (which preserves runId) with a different service list
+    // would have been silently dropped. The composite
+    // `runId + sha256(body)` key ensures a real payload change
+    // generates a fresh event.
+    const { app, seen } = buildApp();
+    const first = JSON.stringify({
+      runId: "rerun-1",
+      services: ["a"],
+      failed: [],
+      succeeded: ["a"],
+      cancelled: false,
+    });
+    const second = JSON.stringify({
+      runId: "rerun-1",
+      services: ["a", "b"],
+      failed: ["b"],
+      succeeded: ["a"],
+      cancelled: false,
+    });
+    {
+      const { headers, body } = signed(first);
+      const res = await app.request(PATH, {
+        method: "POST",
+        headers,
+        body,
+      });
+      expect(res.status).toBe(202);
+    }
+    {
+      const { headers, body } = signed(second);
+      const res = await app.request(PATH, {
+        method: "POST",
+        headers,
+        body,
+      });
+      // Body differs → composite key differs → must NOT be dedup'd.
+      expect(res.status).toBe(202);
+    }
+    expect(seen).toHaveLength(2);
+    expect(seen[0]!.services).toEqual(["a"]);
+    expect(seen[1]!.services).toEqual(["a", "b"]);
   });
 
   it("treats runIds independently — different runId always emits", async () => {

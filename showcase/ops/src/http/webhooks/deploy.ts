@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { Hono } from "hono";
 import { z } from "zod";
 import { verifyHmac } from "../hmac.js";
@@ -62,12 +63,22 @@ const deployPayloadSchema = z
   .strict();
 
 /**
- * Bounded LRU of processed runIds for at-least-once → exactly-once
- * idempotency. GitHub Actions retries the deploy-result POST on transient
- * failures (curl retry loop); we must 200 the duplicate rather than
- * re-emit the event. We key on `runId` because each workflow run has a
- * unique id; this naturally tolerates the common "signer retry" path
- * without any coordination with the sender.
+ * Bounded LRU of processed deploy-webhook requests for at-least-once →
+ * exactly-once idempotency. GitHub Actions retries the deploy-result POST
+ * on transient failures (curl retry loop); we must 200 the duplicate
+ * rather than re-emit the event.
+ *
+ * Dedupe key is `runId + ":" + sha256(body)` (composite). runId is the
+ * primary identity — each workflow run has a unique id and a retried
+ * POST carries an identical body, so the natural retry path still
+ * collapses to a single event. The bodySha suffix is defense-in-depth
+ * against two edge cases:
+ *   1. Fork/re-run races that reuse a runId: GitHub Actions re-runs
+ *      preserve runId, and a malicious or accidental signer could replay
+ *      a runId with a different payload; we want that to re-emit, not
+ *      silently dedupe.
+ *   2. Collisions on short numeric runIds if a sender is ever replaced
+ *      by a different workflow/infra (future-proofing).
  *
  * Bounded to 500 entries by default so the process footprint stays flat
  * under sustained traffic while comfortably absorbing a day of bursts:
@@ -83,8 +94,8 @@ function createRunIdDedupe(
   capacity: number,
   logger: Logger,
 ): {
-  seen: (runId: string) => boolean;
-  record: (runId: string) => void;
+  seen: (key: string) => boolean;
+  record: (key: string) => void;
   size: () => number;
 } {
   // Use a Map for insertion-order iteration; re-seeing a runId re-inserts
@@ -92,27 +103,27 @@ function createRunIdDedupe(
   const set = new Map<string, true>();
   let evictionsReported = 0;
   return {
-    seen(runId) {
+    seen(key) {
       if (capacity <= 0) return false;
-      // Touch on read: promote to tail so frequently-seen ids survive
+      // Touch on read: promote to tail so frequently-seen keys survive
       // eviction pressure. The prior comment claimed this behavior but
       // the implementation only touched on `record()` (first-seen), so
       // the LRU guarantee was false.
-      if (set.has(runId)) {
-        set.delete(runId);
-        set.set(runId, true);
+      if (set.has(key)) {
+        set.delete(key);
+        set.set(key, true);
         return true;
       }
       return false;
     },
-    record(runId) {
+    record(key) {
       if (capacity <= 0) return;
-      if (set.has(runId)) {
-        set.delete(runId);
-        set.set(runId, true);
+      if (set.has(key)) {
+        set.delete(key);
+        set.set(key, true);
         return;
       }
-      set.set(runId, true);
+      set.set(key, true);
       while (set.size > capacity) {
         const oldest = set.keys().next().value;
         if (oldest === undefined) break;
@@ -209,24 +220,35 @@ export function registerDeployWebhook(
       );
     }
 
-    // Idempotency: if we've already accepted this runId, return 200 OK
-    // without re-emitting. The workflow curl-retry loop will replay the
-    // same payload on transient upstream failures; re-emitting would
-    // double-count alerts (especially rate-limited ones). We check
-    // AND record inside the same synchronous block BEFORE emitting so
-    // two concurrent POSTs for the same runId can't both slip past
-    // `seen()` and produce duplicate `deploy.result` events — GitHub
-    // Actions retries are serial today but the handler is racy in
-    // principle and an infra change could expose it.
-    if (dedupe.seen(result.data.runId)) {
+    // Idempotency: if we've already accepted this composite key, return
+    // 200 OK without re-emitting. Key = `runId + ":" + sha256(body)` —
+    // the natural retry path (same runId + same body) still collapses to
+    // one event, while a runId replayed with a different payload (fork /
+    // re-run races, manual re-post with tweaked services) correctly
+    // falls through as a fresh event rather than being silently dropped.
+    // The workflow curl-retry loop will replay the same payload on
+    // transient upstream failures; re-emitting would double-count alerts
+    // (especially rate-limited ones). We check AND record inside the
+    // same synchronous block BEFORE emitting so two concurrent POSTs for
+    // the same key can't both slip past `seen()` and produce duplicate
+    // `deploy.result` events — GitHub Actions retries are serial today
+    // but the handler is racy in principle and an infra change could
+    // expose it.
+    const bodySha = crypto
+      .createHash("sha256")
+      .update(raw)
+      .digest("hex");
+    const dedupeKey = `${result.data.runId}:${bodySha}`;
+    if (dedupe.seen(dedupeKey)) {
       deps.logger.info("webhook.deploy.duplicate", {
         runId: result.data.runId,
+        bodySha,
       });
       return c.json({ ok: true, duplicate: true }, 200);
     }
-    // Record BEFORE emit so a concurrent request for the same runId
-    // lands on the "seen" branch rather than racing through emit.
-    dedupe.record(result.data.runId);
+    // Record BEFORE emit so a concurrent request for the same key lands
+    // on the "seen" branch rather than racing through emit.
+    dedupe.record(dedupeKey);
 
     const event: DeployResultEvent = {
       runId: result.data.runId,
