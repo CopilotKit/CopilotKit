@@ -145,6 +145,14 @@ export default async function FrameworkScopedDocsPage({
               .filter(
                 (alt): alt is NonNullable<typeof alt> => alt !== undefined,
               )
+              // Only surface deployed integrations — `findFrameworksWithCell`
+              // walks the full `getIntegrations()` list (including
+              // undeployed ones), so without this filter the banner can
+              // link to integration pages that aren't reachable. Apply
+              // BEFORE `.slice(0, 3)` so we show up to three _deployed_
+              // alternatives rather than padding the slice with dead
+              // links. If fewer than three qualify, show what's available.
+              .filter((alt) => alt.deployed)
               .slice(0, 3)
               .map((alt, i) => {
                 const href = `/${alt.slug}/${slugPath}`;

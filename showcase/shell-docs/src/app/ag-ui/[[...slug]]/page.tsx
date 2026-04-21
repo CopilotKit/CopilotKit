@@ -176,8 +176,21 @@ function getTitleForSlug(slug: string): string {
 }
 
 function readTitleForSlug(slug: string): string {
-  const filePath = path.join(CONTENT_DIR, `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) {
+  // Mirror the lookup precedence used by the page handler below
+  // (`${slug}.mdx` first, then `${slug}/index.mdx`). Without the
+  // index.mdx fallback the sidebar would show a slug-derived title
+  // (e.g. "Foo") while the page itself renders the real frontmatter
+  // title, silently diverging whenever content is authored as
+  // `foo/index.mdx`.
+  const flatPath = path.join(CONTENT_DIR, `${slug}.mdx`);
+  const indexPath = path.join(CONTENT_DIR, slug, "index.mdx");
+  let filePath: string | null = null;
+  if (fs.existsSync(flatPath)) {
+    filePath = flatPath;
+  } else if (fs.existsSync(indexPath)) {
+    filePath = indexPath;
+  }
+  if (!filePath) {
     return titleFromSlug(slug);
   }
   let raw: string;
@@ -417,25 +430,51 @@ export default async function AgUiDocPage({
   }
 
   let content = "";
-  let title = titleFromSlug(slugPath) || "AG-UI";
+  // `titleFromSlug` always returns a non-empty string here: slugPath is
+  // guaranteed non-empty by the `isOverview` early-return above, so the
+  // `last || slug` path in `titleFromSlug` can't collapse to "" for this
+  // call site. The prior `|| "AG-UI"` fallback was dead code — removed.
+  let title = titleFromSlug(slugPath);
   try {
     const parsed = matter(source);
     content = stripLeadingImports(parsed.content);
-    if (typeof parsed.data.title === "string" && parsed.data.title.length > 0) {
-      title = parsed.data.title;
-    } else {
-      const headingMatch = parsed.content.match(/^#\s+(.+)$/m);
-      if (headingMatch) title = headingMatch[1];
+    // Extract the body's first H1 (if any) separately so we can compare
+    // it against the frontmatter title before deciding to strip it.
+    // Match on `content` (post-`stripLeadingImports`) rather than
+    // `parsed.content`: import lines live above the H1 in the raw body,
+    // so the anchored `^…#\s+` regex wouldn't match until they're gone.
+    // CRLF support: `.` doesn't match `\r`, so match `(.+?)` up to
+    // `\r?\n` to handle both LF and CRLF MDX sources.
+    const bodyH1Match = content.match(/^(\s*\r?\n)*#\s+(.+?)\s*\r?\n/);
+    const bodyH1 = bodyH1Match ? bodyH1Match[2].trim() : null;
+    const fmTitle =
+      typeof parsed.data.title === "string" && parsed.data.title.length > 0
+        ? parsed.data.title
+        : null;
+    if (fmTitle) {
+      title = fmTitle;
+    } else if (bodyH1) {
+      title = bodyH1;
     }
     // The page wrapper below renders `title` inside its own <h1>. If the
-    // MDX body also leads with a `# Title` heading — which is the common
-    // case, since that's how we extract the title when frontmatter is
-    // absent — MDXRemote renders a second h1 and the page shows two
-    // stacked titles. Strip one leading `# …` line (skipping any blank
-    // lines above it) so the body picks up from the body text. We only
-    // strip the FIRST heading and only when it's the first non-blank
-    // content line, so code fences and deeper headings are untouched.
-    content = content.replace(/^(\s*\n)*#\s+.+\n?/, "");
+    // MDX body also leads with a `# Title` heading MDXRemote renders a
+    // second h1 and the page shows two stacked titles. Strip the leading
+    // body H1 ONLY when:
+    //   - there was no FM title (we're using the body H1 AS the page
+    //     title, so stripping avoids the duplicate), OR
+    //   - the FM title and body H1 match after whitespace normalization
+    //     (same title, just duplicated between FM and body).
+    // If FM title and body H1 differ, leave the body H1 intact so we
+    // don't silently drop a distinct section heading. Regex uses
+    // `\r?\n` to handle CRLF-authored MDX.
+    if (bodyH1) {
+      const normalizedFm = fmTitle?.replace(/\s+/g, " ").trim() ?? null;
+      const normalizedBody = bodyH1.replace(/\s+/g, " ").trim();
+      const shouldStrip = !normalizedFm || normalizedFm === normalizedBody;
+      if (shouldStrip) {
+        content = content.replace(/^(\s*\r?\n)*#\s+.+\r?\n?/, "");
+      }
+    }
   } catch (err) {
     console.error(`[ag-ui] Failed to parse MDX in ${filePath}:`, err);
     notFound();

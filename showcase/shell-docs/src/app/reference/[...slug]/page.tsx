@@ -54,7 +54,15 @@ export default async function ReferenceSlugPage({
   // slugPath is user-supplied (URL segments). Route the filesystem read
   // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
   // can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
+  //
+  // Try `${slugPath}.mdx` first, then fall back to `${slugPath}/index.mdx`.
+  // This mirrors docs-render's `loadDoc` and matches the slug normalization
+  // in reference-items.ts's `walkMdx`, which collapses `foo/index.mdx` into
+  // slug `foo` — so a file at `components/foo/index.mdx` is reachable at
+  // `/reference/components/foo` rather than 404ing.
+  const raw =
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`) ??
+    safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}/index.mdx`);
   if (raw === null) {
     notFound();
   }
@@ -67,7 +75,7 @@ export default async function ReferenceSlugPage({
     data = parsed.data;
   } catch (err) {
     console.error(
-      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
+      `[reference] Failed to parse frontmatter for slug ${slugPath}:`,
       err,
     );
     notFound();
@@ -85,10 +93,15 @@ export default async function ReferenceSlugPage({
   const categories = Array.from(new Set(allItems.map((i) => i.category))).sort(
     (a, b) => a.localeCompare(b),
   );
+  // Apply `titleCase` to the slug fallback so the <h1> matches the
+  // breadcrumb style (e.g. `my-component` → `My Component`). Previously
+  // the fallback echoed the raw slug segment, so a page without a FM
+  // title showed `my-component` in the heading but `My Component` in
+  // the breadcrumb one line above.
   const title =
     typeof data.title === "string" && data.title.length > 0
       ? data.title
-      : slug[slug.length - 1];
+      : titleCase(slug[slug.length - 1]);
   const description =
     typeof data.description === "string" ? data.description : undefined;
 

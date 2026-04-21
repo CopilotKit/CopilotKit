@@ -283,16 +283,31 @@ export function BrandNav() {
                 </Link>
               ))}
             </div>
-            {/* AG-UI link at bottom */}
+            {/* Cross-brand link at bottom — mirrors the top-nav brand
+                switcher, pointing at whichever brand ISN'T currently
+                active. Previously hardcoded to `/ag-ui`, which sent
+                users from an AG-UI page back to the AG-UI homepage
+                (same brand) instead of crossing over to CopilotKit. */}
             <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
-              <Link
-                href="/ag-ui"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
-              >
-                <AgUiIcon />
-                AG-UI
-              </Link>
+              {active === "ag-ui" ? (
+                <Link
+                  href="/"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+                >
+                  <CopilotKitIcon />
+                  CopilotKit
+                </Link>
+              ) : (
+                <Link
+                  href="/ag-ui"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+                >
+                  <AgUiIcon />
+                  AG-UI
+                </Link>
+              )}
             </div>
           </div>
           <style jsx global>{`

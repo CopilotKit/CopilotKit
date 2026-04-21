@@ -179,36 +179,66 @@ function DocsOverview() {
                   {label}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {items.map((i) => (
-                    <Link
-                      key={i.slug}
-                      href={`/${i.slug}`}
-                      className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
-                        i.deployed
-                          ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
-                          : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
-                      }`}
-                    >
-                      {i.logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={i.logo} alt="" className="w-5 h-5 shrink-0" />
-                      ) : (
-                        <span className="w-5 h-5 shrink-0" />
-                      )}
-                      <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                        {i.name}
-                      </span>
-                      {!i.deployed && (
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                          soon
+                  {items.map((i) => {
+                    // Undeployed integrations render as non-interactive
+                    // cards. The framework catch-all route would happily
+                    // serve a landing page for any registry entry, but
+                    // that page has no live demos wired up — clicking an
+                    // undeployed card would drop the user on a dead end.
+                    // The "soon" pill + dimmed styling already signal
+                    // not-ready; stripping the <Link> makes the
+                    // affordance match the signal.
+                    const cardContent = (
+                      <>
+                        {i.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={i.logo}
+                            alt=""
+                            className="w-5 h-5 shrink-0"
+                          />
+                        ) : (
+                          <span className="w-5 h-5 shrink-0" />
+                        )}
+                        <span
+                          className={`flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] ${
+                            i.deployed ? "group-hover:text-[var(--accent)]" : ""
+                          }`}
+                        >
+                          {i.name}
                         </span>
-                      )}
-                      {/* Marks the framework currently stored in
-                          localStorage so repeat visitors can spot "their"
-                          choice at a glance without an auto-redirect. */}
-                      <StoredFrameworkHighlight slug={i.slug} />
-                    </Link>
-                  ))}
+                        {!i.deployed && (
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+                            soon
+                          </span>
+                        )}
+                        {/* Marks the framework currently stored in
+                            localStorage so repeat visitors can spot "their"
+                            choice at a glance without an auto-redirect. */}
+                        <StoredFrameworkHighlight slug={i.slug} />
+                      </>
+                    );
+                    if (i.deployed) {
+                      return (
+                        <Link
+                          key={i.slug}
+                          href={`/${i.slug}`}
+                          className="group relative flex items-center gap-2 p-3 rounded-lg border transition-all border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
+                        >
+                          {cardContent}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <div
+                        key={i.slug}
+                        aria-disabled="true"
+                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70 cursor-not-allowed"
+                      >
+                        {cardContent}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -365,10 +395,18 @@ export default async function DocsPage({
       deployed: i.deployed,
     }));
 
+  // Only consider deployed integrations — `findFrameworksWithCell`
+  // receives a slug list and doesn't know about deployment state, so
+  // filter BEFORE the `.map` to avoid seeding the "has this cell" set
+  // with slugs that point at unreachable integration pages. Downstream
+  // `<RouterPivot>` already filters options to deployed, so undeployed
+  // slugs here would be dead weight at best, dead links at worst.
   const frameworksWithCell = doc.fm.defaultCell
     ? findFrameworksWithCell(
         doc.fm.defaultCell,
-        getIntegrations().map((i) => i.slug),
+        getIntegrations()
+          .filter((i) => i.deployed === true)
+          .map((i) => i.slug),
         demos,
       )
     : [];
@@ -385,8 +423,14 @@ export default async function DocsPage({
   // docs UI.
   let previewUrl: string | null | undefined = undefined;
   if (doc.fm.defaultCell) {
+    // Restrict the preview search to deployed integrations. An
+    // undeployed integration may still ship a preview asset in its
+    // registry entry, but showing it would advertise an experience the
+    // user cannot actually reach via the pivot (which itself filters to
+    // deployed). Filter BEFORE sorting so the first-match loop picks
+    // the visually-priority deployed integration's preview.
     const sortedIntegrations = getIntegrations()
-      .slice()
+      .filter((i) => i.deployed === true)
       .sort((a, b) => {
         const orderA = a.sort_order ?? 999;
         const orderB = b.sort_order ?? 999;
