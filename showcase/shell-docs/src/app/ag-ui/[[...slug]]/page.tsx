@@ -427,6 +427,15 @@ export default async function AgUiDocPage({
       const headingMatch = parsed.content.match(/^#\s+(.+)$/m);
       if (headingMatch) title = headingMatch[1];
     }
+    // The page wrapper below renders `title` inside its own <h1>. If the
+    // MDX body also leads with a `# Title` heading — which is the common
+    // case, since that's how we extract the title when frontmatter is
+    // absent — MDXRemote renders a second h1 and the page shows two
+    // stacked titles. Strip one leading `# …` line (skipping any blank
+    // lines above it) so the body picks up from the body text. We only
+    // strip the FIRST heading and only when it's the first non-blank
+    // content line, so code fences and deeper headings are untouched.
+    content = content.replace(/^(\s*\n)*#\s+.+\n?/, "");
   } catch (err) {
     console.error(`[ag-ui] Failed to parse MDX in ${filePath}:`, err);
     notFound();
