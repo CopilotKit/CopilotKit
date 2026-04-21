@@ -1599,6 +1599,25 @@ async function main() {
   console.log(`  Features: ${args.features.join(", ")}`);
   console.log("");
 
+  // Validate CI workflows BEFORE writing the package tree so a regex
+  // mismatch (layout drift in showcase_deploy.yml / test_smoke-starter.yml)
+  // throws early rather than leaving a half-scaffolded package on disk that
+  // the next run rejects via the packageDirState === "exists" guard above.
+  // updateWorkflows() is self-contained — it reads only args and mutates
+  // files in WORKFLOWS_DIR, so reordering is safe. Respect the same
+  // CREATE_INTEGRATION_SKIP_WORKFLOWS opt-out here; the original call
+  // below is now a no-op once workflows already include this slug
+  // (idempotent re-run), and is retained as a safety net.
+  if (process.env.CREATE_INTEGRATION_SKIP_WORKFLOWS === "1") {
+    console.log(
+      "--- Skipping CI workflow updates (CREATE_INTEGRATION_SKIP_WORKFLOWS=1) ---\n",
+    );
+  } else {
+    console.log("--- Updating CI workflows ---\n");
+    updateWorkflows(args);
+    console.log("");
+  }
+
   // Root files
   writeFile(
     path.join(packageDir, "manifest.yaml"),
@@ -1765,18 +1784,10 @@ See the LangGraph Python reference implementation for patterns.
     }
   }
 
-  // Auto-update CI workflows to include this integration.
-  // Respect CREATE_INTEGRATION_SKIP_WORKFLOWS=1 so tests that spawn this
-  // script as a subprocess don't mutate the real .github/workflows/ files
-  // in the working tree (there is no cleanup for those edits).
-  if (process.env.CREATE_INTEGRATION_SKIP_WORKFLOWS === "1") {
-    console.log(
-      "\n--- Skipping CI workflow updates (CREATE_INTEGRATION_SKIP_WORKFLOWS=1) ---\n",
-    );
-  } else {
-    console.log("\n--- Updating CI workflows ---\n");
-    updateWorkflows(args);
-  }
+  // (CI workflow updates already ran pre-write at the top of main() so a
+  // regex-mismatch fails before any filesystem mutation. Do not re-run
+  // here — a second call would attempt a duplicate append and throw on
+  // the options/outputs/filters anchored-idempotency checks.)
 
   console.log("\nNext steps:");
   console.log("  1. Write/customize the agent code in src/agents/");
