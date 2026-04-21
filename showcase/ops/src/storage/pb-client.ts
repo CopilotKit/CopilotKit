@@ -102,17 +102,28 @@ export function createPbClient(config: PbClientConfig): PbClient {
       }
       return;
     }
-    const res = await fetchImpl(
+    // PB v0.23+ uses /api/collections/_superusers/auth-with-password;
+    // v0.22 uses /api/admins/auth-with-password. Try v0.23 first, fall
+    // back to v0.22 on 404 so the client works against both versions.
+    const authBody = JSON.stringify({
+      identity: config.email,
+      password: config.password,
+    });
+    let res = await fetchImpl(
       `${baseUrl}/api/collections/_superusers/auth-with-password`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          identity: config.email,
-          password: config.password,
-        }),
+        body: authBody,
       },
     );
+    if (res.status === 404) {
+      res = await fetchImpl(`${baseUrl}/api/admins/auth-with-password`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: authBody,
+      });
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`pb-auth failed: ${res.status} ${text}`);
