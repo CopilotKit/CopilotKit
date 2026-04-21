@@ -8,29 +8,27 @@
     "Visualization"
   ],
   "keywords": [
-    "copilotkit",
-    "ag-ui",
     "a2ui",
-    "generative-ui",
+    "ag-ui",
     "agents",
     "ai",
-    "react",
+    "copilotkit",
+    "generative-ui",
     "hook-explorer",
     "inspector",
-    "preview"
+    "preview",
+    "react"
   ],
-  "license": "MIT",
-  "publisher": "copilotkit",
-  "icon": "icons/copilotkit.png",
-  "pricing": "Free",
   "homepage": "https://copilotkit.ai",
+  "bugs": {
+    "url": "https://github.com/CopilotKit/CopilotKit/issues"
+  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit"
   },
-  "bugs": {
-    "url": "https://github.com/CopilotKit/CopilotKit/issues"
-  },
+  "publisher": "copilotkit",
   "type": "module",
   "main": "dist/extension/activate.cjs",
   "scripts": {
@@ -167,7 +165,9 @@
     }
   },
   "activationEvents": [],
+  "icon": "icons/copilotkit.png",
   "engines": {
     "vscode": "^1.85.0"
-  }
+  },
+  "pricing": "Free"
 }
