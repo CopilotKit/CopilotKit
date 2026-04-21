@@ -5,7 +5,7 @@ import "@copilotkit/react-core/v2/styles.css";
 import { useEffect, useState } from "react";
 import {
   CopilotChat,
-  CopilotKitProvider,
+  CopilotKit,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { useAuth as useOidcAuth } from "react-oidc-context";
@@ -26,9 +26,11 @@ function CopilotChatContent() {
 
   useFrontendTool({
     name: "enableAppMode",
-    description: "Enable app mode when working with the todo canvas.",
+    description:
+      "Enable app mode when working with the todo canvas. Returns an app_mode_token that MUST be passed to manage_todos. Call this ALONE first, wait for the returned token, then call manage_todos.",
     handler: async () => {
       setMode("app");
+      return "APP_MODE_READY";
     },
   });
 
@@ -117,14 +119,15 @@ export default function CopilotChatInterface() {
   return (
     <ThemeProvider>
       <div className="h-full bg-[#f5f7fb]">
-        <CopilotKitProvider
+        <CopilotKit
           runtimeUrl={config.copilotKitRuntimeUrl}
+          useSingleEndpoint={false}
           headers={
             accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined
           }
         >
           <CopilotChatContent />
-        </CopilotKitProvider>
+        </CopilotKit>
       </div>
     </ThemeProvider>
   );

@@ -35,11 +35,34 @@ def _assign_ids(todos: list[dict]) -> list[dict]:
 
 
 @tool
-def manage_todos(todos: list[Todo], runtime: ToolRuntime) -> Command:
+def manage_todos(
+    todos: list[Todo], app_mode_token: str, runtime: ToolRuntime
+) -> Command:
     """
     Manage the current todos. Replaces the entire todo list.
     Assigns a unique UUID to any todo that is missing one.
+
+    REQUIRED: app_mode_token must be the exact string returned by a prior
+    enableAppMode tool call in this conversation. Do NOT guess or fabricate
+    this value. If you have not yet called enableAppMode and received its
+    result, call enableAppMode first in a separate turn, wait for the
+    returned token, then call manage_todos with that token.
     """
+    if app_mode_token != "APP_MODE_READY":
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(
+                        content=(
+                            "Error: invalid app_mode_token. Call enableAppMode "
+                            "first (alone, in its own turn), then pass its "
+                            "returned value as app_mode_token."
+                        ),
+                        tool_call_id=runtime.tool_call_id,
+                    )
+                ]
+            }
+        )
     _assign_ids(todos)  # type: ignore[arg-type]
 
     return Command(
