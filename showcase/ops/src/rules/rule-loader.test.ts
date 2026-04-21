@@ -228,6 +228,65 @@ describe("rule-loader: target dedupe + non-empty validation", () => {
     ]);
   });
 
+  it("dedupes in-rule duplicate targets even when _defaults.yml has no targets", async () => {
+    // Regression guard: dedupeTargets used to be gated behind
+    // `if (defaults.targets)`, so a rule with two identical {kind, webhook}
+    // targets in its OWN `targets:` list and a defaults file that did not
+    // declare targets bypassed dedupe entirely — every Slack alert fired
+    // twice. The guard now gates on the combined list being non-empty so
+    // rule-only duplicates are also collapsed.
+    const warnCalls: Array<{ msg: string; meta?: Record<string, unknown> }> =
+      [];
+    const captureLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: (msg: string, meta?: Record<string, unknown>) => {
+        warnCalls.push({ msg, meta });
+      },
+      error: () => {},
+    };
+    const dir = await writeDir({
+      // No targets in defaults — exercises the previously-skipped dedupe path.
+      "_defaults.yml": ["defaults:", "  severity: warn", ""].join("\n"),
+      "rule-only-dupes.yml": [
+        "id: rule-only-dupes",
+        'name: "rod"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        // First occurrence is the "plain" target; the second carries extra
+        // metadata. First-seen wins in dedupeTargets, so the SECOND (with
+        // `mention`) is dropped and its `droppedExtras` triggers the warn.
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        '    mention: "@oncall"',
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger: captureLogger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    // Without the fix, `rules[0]!.targets` is length 2 and the alert fires
+    // twice per tick. With the fix, first-seen wins and the dedupe-drop
+    // warn is emitted.
+    expect(rules[0]!.targets).toHaveLength(1);
+    expect(rules[0]!.targets[0]!.kind).toBe("slack_webhook");
+    expect(rules[0]!.targets[0]!.webhook).toBe("oss_alerts");
+    const drop = warnCalls.find(
+      (c) => c.msg === "rule-loader.target-dedupe-dropped-metadata",
+    );
+    expect(drop).toBeDefined();
+    expect(drop!.meta?.ruleId).toBe("rule-only-dupes");
+  });
+
   it("keeps targets that differ by webhook — dedupe is by shape, not kind alone", async () => {
     const dir = await writeDir({
       "_defaults.yml": [

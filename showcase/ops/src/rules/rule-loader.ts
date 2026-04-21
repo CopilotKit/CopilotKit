@@ -256,15 +256,19 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
     const merged: RuleDoc = { ...rule };
     if (!merged.severity && defaults.severity)
       merged.severity = defaults.severity;
-    if (defaults.targets) {
-      // Concatenate defaults + rule-level, then dedupe by a stable shape key
-      // (kind + webhook + any other target-distinguishing fields). A rule that
-      // both inherits a default target and redeclares the same `{ kind, webhook }`
-      // produced duplicate Slack sends — every alert fired twice.
-      const combined = [
-        ...(defaults.targets ?? []),
-        ...(rule.targets ?? []),
-      ] as NonNullable<RuleDoc["targets"]>;
+    // Concatenate defaults + rule-level, then dedupe by a stable shape key
+    // (kind + webhook + any other target-distinguishing fields). A rule that
+    // both inherits a default target and redeclares the same `{ kind, webhook }`
+    // produced duplicate Slack sends — every alert fired twice.
+    //
+    // Dedupe MUST also fire when defaults.targets is empty: a rule-only
+    // `targets:` list with two identical `{kind, webhook}` entries would
+    // otherwise bypass the guard entirely and double-fire every alert.
+    const combined = [
+      ...(defaults.targets ?? []),
+      ...(rule.targets ?? []),
+    ] as NonNullable<RuleDoc["targets"]>;
+    if (combined.length > 0) {
       merged.targets = dedupeTargets(combined, logger, rule.id);
     }
     if (defaults.conditions) {
