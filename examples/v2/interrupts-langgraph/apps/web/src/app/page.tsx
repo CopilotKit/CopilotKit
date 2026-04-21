@@ -203,6 +203,24 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
+  //
+  // `available: "disabled"` is the correct pairing with `render:` here.
+  // In @copilotkit/react-core, useCopilotAction routes based on the
+  // `available` value (see
+  // node_modules/@copilotkit/react-core/src/hooks/use-copilot-action.ts
+  // `getActionConfig`):
+  //   - "enabled" / "remote"      → frontend tool (handler runs client-side)
+  //   - "frontend" / "disabled"   → render-only (registers a tool-call
+  //                                 renderer; no handler)
+  // We want the BACKEND `getWeather` tool in agent.ts to execute the
+  // handler server-side AND have the streamed tool-call args drive a
+  // client-side gen-UI render here. The render-only path (via
+  // useRenderToolCall) still adds this renderer to
+  // `copilotkit.renderToolCalls` regardless of `available`, so the
+  // WeatherCard fires during tool-call streaming (see
+  // examples/showcases/scene-creator/src/app/page.tsx for the same
+  // pattern). Setting `"enabled"` here would register a FRONTEND handler
+  // of the same name and collide with the backend tool.
   useCopilotAction({
     name: "getWeather",
     description: "Get the weather for a given location.",

@@ -6,9 +6,16 @@
 import { z } from "zod";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
+import type { ToolRunnableConfig } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import type { BaseMessage } from "@langchain/core/messages";
-import { isAIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
+import type { BaseMessage, ToolCall } from "@langchain/core/messages";
+import {
+  AIMessage,
+  isAIMessage,
+  SystemMessage,
+  ToolMessage,
+} from "@langchain/core/messages";
+
 import {
   Command,
   END,
@@ -27,9 +34,22 @@ import { Annotation } from "@langchain/langgraph";
 
 // Include CopilotKitStateAnnotation so the frontend can attach actions and
 // so messages flow through the same channel the SDK expects.
+//
+// `interceptedToolCalls` + `originalAIMessageId` mirror
+// `@copilotkit/sdk-js/langgraph`'s `copilotkitMiddleware.afterModel`
+// intercept pattern (see node_modules/@copilotkit/sdk-js/src/langgraph/middleware.ts):
+// on a mixed batch (backend tool call + frontend-action call in the same
+// AIMessage), we strip the frontend calls out of the AIMessage before
+// ToolNode runs (otherwise ToolNode errors on "Tool not found" for the
+// frontend action names), stash them here, then restore them onto the
+// original AIMessage before the graph ends so the frontend runtime still
+// dispatches them. Raw-StateGraph starters like this one don't use
+// createAgent+middleware, so we reproduce the pattern inline.
 const AgentStateAnnotation = Annotation.Root({
   ...CopilotKitStateAnnotation.spec,
   proverbs: Annotation<string[]>,
+  interceptedToolCalls: Annotation<ToolCall[] | undefined>,
+  originalAIMessageId: Annotation<string | undefined>,
 });
 
 export type AgentState = typeof AgentStateAnnotation.State;
@@ -67,14 +87,30 @@ const getWeather = tool(
 // UI (which reads `state.proverbs` via CopilotKit) would still show the
 // "deleted" proverb, making the HITL demo a sham.
 const deleteProverb = tool(
-  async (args, config) => {
-    // `config.toolCall.id` is populated by ToolNode when it invokes the
-    // tool with a tool_call. We need it to construct the ToolMessage
-    // ourselves because returning a Command bypasses `_formatToolOutput`'s
-    // automatic tool_call_id wiring.
-    const toolCallId =
-      (config as { toolCall?: { id?: string } } | undefined)?.toolCall?.id ??
-      "";
+  async (args, config: ToolRunnableConfig) => {
+    // `config.toolCall.id` is the canonical id accessor when a tool is
+    // invoked by ToolNode. ToolNode calls `tool.invoke({...call, type:
+    // "tool_call"}, config)` (see
+    // node_modules/@langchain/langgraph/dist/prebuilt/tool_node.js runTool),
+    // and @langchain/core's StructuredTool.invoke then copies the call
+    // onto `enrichedConfig.toolCall` (see
+    // node_modules/@langchain/core/dist/tools/index.js lines 84-91) before
+    // forwarding to the tool function. This is typed on `ToolRunnableConfig`
+    // — typing `config` explicitly above is what gives us the safe accessor.
+    //
+    // We need the id here because returning a `Command` bypasses
+    // `_formatToolOutput`'s automatic tool_call_id wiring. If the id is
+    // somehow missing we throw loudly rather than silently emitting
+    // `tool_call_id: ""`, which OpenAI rejects on the next turn with
+    // "tool_call_id does not match any preceding tool_calls".
+    const toolCallId = config.toolCall?.id;
+    if (typeof toolCallId !== "string" || toolCallId.length === 0) {
+      throw new Error(
+        "deleteProverb: missing tool_call_id on ToolRunnableConfig.toolCall — " +
+          "tool was invoked outside a ToolNode context. Refusing to emit a " +
+          "ToolMessage with an empty tool_call_id (OpenAI rejects those).",
+      );
+    }
 
     const rawApproval = interrupt({
       action: "delete_proverb",
@@ -184,12 +220,140 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   };
 }
 
+// intercept_frontend_tools: strips frontend-action tool_calls out of the
+// last AIMessage before ToolNode runs and stashes them in state.
+//
+// ToolNode only knows about backend `tools` (getWeather, deleteProverb); it
+// looks up each `tool_call.name` in its own registry and throws
+// "Tool not found" for any frontend-action name (see
+// node_modules/@langchain/langgraph/dist/prebuilt/tool_node.js, runTool).
+// On a mixed batch that would leave backend results AND a model-visible
+// error ToolMessage for the frontend action, and the frontend would never
+// see the frontend-action call at all.
+//
+// The intercept+restore pattern mirrors CopilotKit's own
+// `copilotkitMiddleware.afterModel` + `afterAgent` (see
+// node_modules/@copilotkit/sdk-js/src/langgraph/middleware.ts). The
+// `restore_frontend_tools` node below reattaches the stashed calls to the
+// original AIMessage (matched by id) before the graph ends so the
+// CopilotKit runtime still dispatches them to the frontend.
+//
+// Pure-frontend-only batches skip this node entirely — shouldContinue
+// routes them straight to END, and the AIMessage with their tool_calls
+// reaches the frontend as-is.
+function intercept_frontend_tools(state: AgentState) {
+  const frontendActionNames = new Set(
+    (state.copilotkit?.actions ?? []).map((a: { name: string }) => a.name),
+  );
+  if (frontendActionNames.size === 0) {
+    return {};
+  }
+
+  // Widen to our directly-imported `BaseMessage` type so `isAIMessage`
+  // (1.1.27) can narrow a `state.messages[i]` (structurally identical
+  // 1.1.40) without the pnpm nominal-mismatch error. Runtime values are
+  // unaffected — see the matching annotation on `lastMessage` in
+  // `shouldContinue`.
+  const messages = (state.messages ?? []) as unknown as BaseMessage[];
+  const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
+  if (lastMessage === undefined || !isAIMessage(lastMessage)) {
+    return {};
+  }
+
+  const toolCalls = lastMessage.tool_calls ?? [];
+  const backendToolCalls: ToolCall[] = [];
+  const frontendToolCalls: ToolCall[] = [];
+  for (const call of toolCalls) {
+    if (frontendActionNames.has(call.name)) {
+      frontendToolCalls.push(call);
+    } else {
+      backendToolCalls.push(call);
+    }
+  }
+
+  if (frontendToolCalls.length === 0) {
+    // No frontend calls in the batch — nothing to strip.
+    return {};
+  }
+
+  // Rebuild the AIMessage preserving id (so restore_frontend_tools can
+  // find it later) with only the backend calls.
+  const strippedAIMessage = new AIMessage({
+    content: lastMessage.content,
+    tool_calls: backendToolCalls,
+    id: lastMessage.id,
+  });
+
+  // The outer cast passes the return past a pre-existing pnpm monorepo
+  // resolution quirk: `@langchain/langgraph@1.1.5` pins `@langchain/core`
+  // at a different patch level than this agent's direct dep, so our
+  // imported `AIMessage/BaseMessage` and the graph-state's internal
+  // version are nominally distinct types though structurally identical
+  // at runtime. chat_node's `return { messages: [response] }` hits the
+  // same mismatch implicitly; cf. the baseline tsc errors on that line.
+  return {
+    messages: [...messages.slice(0, -1), strippedAIMessage],
+    interceptedToolCalls: frontendToolCalls,
+    originalAIMessageId: lastMessage.id,
+  } as unknown as Partial<AgentState>;
+}
+
+// restore_frontend_tools: reattaches the stashed frontend-action tool_calls
+// to the original AIMessage (matched by id) so the CopilotKit runtime can
+// dispatch them to the frontend. Mirrors `copilotkitMiddleware.afterAgent`.
+function restore_frontend_tools(state: AgentState) {
+  const interceptedToolCalls = state.interceptedToolCalls;
+  const originalMessageId = state.originalAIMessageId;
+  if (
+    !interceptedToolCalls ||
+    interceptedToolCalls.length === 0 ||
+    !originalMessageId
+  ) {
+    return {};
+  }
+
+  // Widen to our directly-imported `BaseMessage` for `isAIMessage` —
+  // see the matching cast in `intercept_frontend_tools` above.
+  const messages = (state.messages ?? []) as unknown as BaseMessage[];
+  let messageFound = false;
+  const updatedMessages: BaseMessage[] = messages.map((msg) => {
+    if (isAIMessage(msg) && msg.id === originalMessageId) {
+      messageFound = true;
+      const existing = msg.tool_calls ?? [];
+      return new AIMessage({
+        content: msg.content,
+        tool_calls: [...existing, ...interceptedToolCalls],
+        id: msg.id,
+      });
+    }
+    return msg;
+  });
+
+  if (!messageFound) {
+    // Don't clear the intercept slot — leaving it set surfaces the drift
+    // on the next turn. Tradeoff vs CopilotKit's middleware (which warns
+    // and silently returns): we prefer loud over silent here.
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[restore_frontend_tools] original AIMessage id=${originalMessageId} not found in messages; leaving interceptedToolCalls in place for diagnosis`,
+    );
+    return {};
+  }
+
+  // See note on the matching return in `intercept_frontend_tools`.
+  return {
+    messages: updatedMessages,
+    interceptedToolCalls: undefined,
+    originalAIMessageId: undefined,
+  } as unknown as Partial<AgentState>;
+}
+
 // The return type is the union of node names plus END, matching the
 // shape addConditionalEdges expects from its callback.
 function shouldContinue({
   messages,
   copilotkit,
-}: AgentState): "tool_node" | typeof END {
+}: AgentState): "intercept_frontend_tools" | "tool_node" | "restore_frontend_tools" | typeof END {
   // Guard the tool-call-carrying variant structurally instead of casting
   // BaseMessage to AIMessage.
   const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
@@ -228,9 +392,11 @@ function shouldContinue({
     const backendToolNames = new Set<string>(tools.map((t) => t.name));
 
     let hasBackendTool = false;
+    let hasFrontendAction = false;
     for (const toolCall of toolCalls) {
       const name = toolCall.name;
       if (actionNames.has(name)) {
+        hasFrontendAction = true;
         // Frontend action — handled client-side.
         continue;
       }
@@ -259,20 +425,40 @@ function shouldContinue({
       );
     }
 
+    // Mixed batch (backend + frontend action): route through the intercept
+    // node first so ToolNode doesn't choke on the frontend-action call,
+    // then tool_node executes backend calls, then chat_node (looped) will
+    // reach END via the restore node.
+    if (hasBackendTool && hasFrontendAction) {
+      return "intercept_frontend_tools";
+    }
     if (hasBackendTool) {
       return "tool_node";
     }
   }
 
-  // Otherwise stop (reply to the user) using the special END node.
-  return END;
+  // Reached END. If we previously intercepted frontend tool calls in a
+  // mixed batch, restore them onto the original AIMessage before the
+  // CopilotKit runtime serializes messages to the frontend.
+  if ((lastMessage.tool_calls ?? []).length === 0) {
+    // Only restore when the current turn is an assistant reply (no
+    // pending tool_calls) — otherwise we'd mutate a still-in-progress
+    // AIMessage. The restore node itself is a no-op when nothing was
+    // intercepted, so routing through it is safe either way.
+  }
+
+  return "restore_frontend_tools";
 }
 
 const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("chat_node", chat_node)
   .addNode("tool_node", new ToolNode(tools))
+  .addNode("intercept_frontend_tools", intercept_frontend_tools)
+  .addNode("restore_frontend_tools", restore_frontend_tools)
   .addEdge(START, "chat_node")
+  .addEdge("intercept_frontend_tools", "tool_node")
   .addEdge("tool_node", "chat_node")
+  .addEdge("restore_frontend_tools", END)
   .addConditionalEdges("chat_node", shouldContinue);
 
 const memory = new MemorySaver();
