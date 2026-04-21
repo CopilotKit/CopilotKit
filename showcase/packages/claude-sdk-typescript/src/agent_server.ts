@@ -5,6 +5,14 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
+// Cold-start instrumentation: emitted before any side-effect imports so
+// Railway logs reveal exactly which phase (module load, Anthropic SDK
+// init, express.listen) consumes the watchdog budget. Paired with the
+// `[entrypoint] pre-node ...` print in entrypoint.sh so timestamps chain.
+// Disambiguates the observed failure class where process claims to be
+// listening but /health probes never succeed.
+console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
+
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
@@ -22,6 +30,7 @@ const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8000", 10);
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
 
+console.log(`[agent_server] pre-Anthropic ${new Date().toISOString()}`);
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -283,5 +292,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[agent_server] Listening on http://${HOST}:${PORT}`);
+  console.log(
+    `[agent_server] listening ${new Date().toISOString()} http://${HOST}:${PORT}`,
+  );
 });
