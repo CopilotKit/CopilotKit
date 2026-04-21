@@ -9,7 +9,11 @@ import type { NextConfig } from "next";
 // config (e.g. `next lint`, `next dev`) only warn, because failing them on a
 // missing value would be noise — consumers are expected to handle the dev
 // fallback themselves (e.g. `process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3003"`).
-const isNextBuild = process.argv.includes("build");
+//
+// Use NEXT_PHASE — the Next.js-canonical signal for production builds —
+// rather than sniffing process.argv, which is fragile (e.g. broken under
+// wrappers, turbo runs, or when invoked programmatically).
+const isNextBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 if (!process.env.NEXT_PUBLIC_BASE_URL) {
   if (isNextBuild) {
