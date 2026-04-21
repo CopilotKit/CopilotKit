@@ -55,7 +55,13 @@ on:
           - shell-docs
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
+  # Collapse push-to-main ("auto") and workflow_dispatch runs that target the
+  # same service into one queue slot. The earlier group split keyed on the
+  # dispatch input ("auto" vs a named service), which let a push and a manual
+  # dispatch of the same Railway service run concurrently → two redeploys
+  # of the same service racing into Verify (see C6 Finding 2 / race window).
+  # Keying on ref alone serializes all showcase-deploy runs for a branch.
+  group: showcase-deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
@@ -219,7 +225,11 @@ jobs:
           CHANGES="${CHANGES:-[]}"
 
           # Filter services based on three dispatch modes:
-          #   dispatch == "all": manual "deploy all" — include every service unconditionally
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally.
+          #     This re-pulls :latest for every matrix slot (~38 services); intentional for
+          #     drift-rebuild runs and full-fleet restarts. Do NOT try to short-circuit
+          #     unchanged services here — operators invoke "all" precisely when they want
+          #     the fleet re-deployed regardless of git state (cache poisoning, base-image CVE).
           #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
           #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
           #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
@@ -232,6 +242,17 @@ jobs:
               ($dispatch == "" and ($changes | index($fk) != null))
             ))]
           ')
+
+          # Fail loudly on typo'd workflow_dispatch inputs. If a user types a
+          # service name that doesn't exist in ALL_SERVICES, the jq filter
+          # silently produces [] and the run shows green with zero work
+          # done — a common "did my dispatch deploy?" footgun. The `all` and
+          # empty (push-event) modes legitimately produce [] when there are
+          # no changes and must still succeed.
+          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
+            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+            exit 1
+          fi
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
@@ -357,6 +378,19 @@ jobs:
           echo "Prior deployment ID: ${PRIOR_DEPLOY_ID:-<none>}"
           echo "prior_deploy_id=$PRIOR_DEPLOY_ID" >> "$GITHUB_OUTPUT"
 
+          # Record a monotonic cutoff just before the redeploy mutation.
+          # serviceInstanceRedeploy returns only a boolean, not the new
+          # deployment ID — so the verify step can't identify "our" deploy
+          # directly. Comparing solely against PRIOR_DEPLOY_ID is racy:
+          # an externally-triggered deploy in the window between the prior-ID
+          # read and the mutation would be mis-attributed as our fresh deploy.
+          # Requiring createdAt >= REDEPLOY_CUTOFF_ISO closes that window
+          # (minus a 5s skew allowance for clock drift between runner + Railway).
+          REDEPLOY_CUTOFF_EPOCH=$(($(date -u +%s) - 5))
+          REDEPLOY_CUTOFF_ISO=$(date -u -d "@${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -r "${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%SZ")
+          echo "Redeploy cutoff (ISO): $REDEPLOY_CUTOFF_ISO"
+          echo "redeploy_cutoff_iso=$REDEPLOY_CUTOFF_ISO" >> "$GITHUB_OUTPUT"
+
           # All Railway services are configured to pull :latest from GHCR.
           # serviceInstanceRedeploy triggers a fresh pull of the configured image.
           # Check response body for GraphQL errors (HTTP 200 + errors is valid).
@@ -383,6 +417,7 @@ jobs:
           SERVICE_ID: ${{ matrix.service.railway_id }}
           ENV_ID: ${{ env.RAILWAY_ENV_ID }}
           PRIOR_DEPLOY_ID: ${{ steps.deploy.outputs.prior_deploy_id }}
+          REDEPLOY_CUTOFF_ISO: ${{ steps.deploy.outputs.redeploy_cutoff_iso }}
         run: |
           # Fail fast if RAILWAY_TOKEN is not set
           if [ -z "$RAILWAY_TOKEN" ]; then
@@ -390,7 +425,7 @@ jobs:
             exit 1
           fi
 
-          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>})..."
+          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>}, cutoff: ${REDEPLOY_CUTOFF_ISO:-<none>})..."
           # 40 attempts * 15s = 600s. Previous 360s was tight for JVM
           # services (spring-ai's lazy bean init + first HTTP serve can
           # exceed 5 min on a cold Railway container; intermittent
@@ -405,7 +440,7 @@ jobs:
           for i in $(seq 1 40); do
             RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl } } } }\"}" \
+              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl createdAt } } } }\"}" \
               https://backboard.railway.com/graphql/v2 2>/dev/null)
 
             # Surface GraphQL errors and fail fast
@@ -423,12 +458,27 @@ jobs:
             DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
             STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
             DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
-            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
+            CREATED_AT=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.createdAt // empty')
+            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN createdAt=$CREATED_AT streak=$HEALTHY_STREAK"
 
             # Skip stale deployments: if we see the prior deployment, the fresh
             # one hasn't appeared yet — wait without declaring success or failure.
             if [ -n "$PRIOR_DEPLOY_ID" ] && [ "$DEPLOY_ID" = "$PRIOR_DEPLOY_ID" ]; then
               echo "  (prior deployment still latest — waiting for fresh one)"
+              HEALTHY_STREAK=0
+              sleep 15
+              continue
+            fi
+
+            # Secondary guard: close the race window between the prior-ID read
+            # and serviceInstanceRedeploy. If a concurrent external deploy
+            # landed a different new ID (neither PRIOR nor ours), its
+            # createdAt may predate REDEPLOY_CUTOFF_ISO. Reject those so we
+            # don't mis-attribute someone else's deploy as our fresh one.
+            # Lexicographic string compare works because Railway emits ISO8601
+            # in UTC with a fixed format (2006-01-02T15:04:05Z).
+            if [ -n "$REDEPLOY_CUTOFF_ISO" ] && [ -n "$CREATED_AT" ] && [ "$CREATED_AT" \< "$REDEPLOY_CUTOFF_ISO" ]; then
+              echo "  (latest deploy createdAt $CREATED_AT predates cutoff $REDEPLOY_CUTOFF_ISO — waiting for our deploy)"
               HEALTHY_STREAK=0
               sleep 15
               continue
@@ -466,17 +516,41 @@ jobs:
               # non-200; legitimate failures still fail because all 3 tries
               # must return non-200.
               HTTP_CODE="000"
+              RETRY_AFTER=""
               for probe_try in 1 2 3; do
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                RESP_HEADERS=$(mktemp)
+                HTTP_CODE=$(curl -s -o /dev/null -D "$RESP_HEADERS" -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                # Capture Retry-After so 429/503 waits respect the server hint
+                # instead of hammering every 2s. Header case-insensitive grep.
+                RETRY_AFTER=$(awk 'BEGIN{IGNORECASE=1} /^Retry-After:/ {sub(/\r$/,""); print $2; exit}' "$RESP_HEADERS" 2>/dev/null || echo "")
+                rm -f "$RESP_HEADERS"
                 if [ "$HTTP_CODE" = "200" ]; then
                   break
                 fi
                 if [ "$probe_try" -lt 3 ]; then
                   echo "HTTP check: $HEALTH_URL → $HTTP_CODE (retry $probe_try/3)"
-                  sleep 2
+                  # Honor Retry-After (seconds-form only — HTTP-date form is
+                  # uncommon from Railway/upstreams and a 2s fallback is fine).
+                  if [ -n "$RETRY_AFTER" ] && printf '%s' "$RETRY_AFTER" | grep -Eq '^[0-9]+$'; then
+                    # Cap at 30s so a broken Retry-After doesn't blow the 600s budget
+                    if [ "$RETRY_AFTER" -gt 30 ]; then RETRY_AFTER=30; fi
+                    sleep "$RETRY_AFTER"
+                  else
+                    sleep 2
+                  fi
                 fi
               done
               echo "HTTP check: $HEALTH_URL → $HTTP_CODE"
+              # Fail fast on permanent client errors. 404 (wrong health_path),
+              # 410 (endpoint decommissioned), 501 (method not implemented)
+              # will never recover — retrying for 10 min wastes the job budget
+              # and hides misconfiguration behind "did not become healthy".
+              case "$HTTP_CODE" in
+                404|410|501)
+                  echo "::error::Service ${{ matrix.service.dispatch_name }} health endpoint returned $HTTP_CODE at $HEALTH_URL — check health_path in ALL_SERVICES or confirm the service still serves that route"
+                  exit 1
+                  ;;
+              esac
               if [ "$HTTP_CODE" = "200" ]; then
                 HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
                 if [ "$HEALTHY_STREAK" -ge "$REQUIRED_STREAK" ]; then
@@ -507,7 +581,10 @@ jobs:
       contents: read
       actions: read
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    # 3 attempts * (30s curl + up to 10s backoff) is ~130s in the worst case,
+    # plus payload assembly. 2 minutes leaves no headroom and truncated the
+    # final retry under load; bumping to 3 gives a clean budget.
+    timeout-minutes: 3
     steps:
       - name: Compute deploy-result payload
         id: payload
@@ -599,8 +676,14 @@ jobs:
           MAX_ATTEMPTS=3
           while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
             ATTEMPT=$((ATTEMPT + 1))
+            # `--retry-all-errors` covers DNS/TLS/connect-reset failures that
+            # plain `--retry` skips (`--retry` only retries on 5xx + transient
+            # transport). 2 in-curl retries give us a short fast-path against
+            # a flapping resolver without blowing the 30s per-attempt budget;
+            # the outer loop still handles persistent 5xx.
             HTTP_CODE=$(curl -sS -o /tmp/body -w '%{http_code}' \
               --connect-timeout 10 --max-time 30 \
+              --retry 2 --retry-all-errors --retry-delay 1 \
               -X POST "${SHOWCASE_OPS_URL%/}${WEBHOOK_PATH}" \
               -H 'content-type: application/json' \
               -H "X-Ops-Timestamp: ${TS}" \
