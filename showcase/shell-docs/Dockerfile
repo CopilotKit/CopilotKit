@@ -11,6 +11,13 @@ ARG NEXT_PUBLIC_BASE_URL
 ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 WORKDIR /app
 
+# Fail fast if COMMIT_SHA was not supplied: shipping the default "unknown"
+# silently poisons build metadata (footer, health checks, error reports).
+RUN if [ "$COMMIT_SHA" = "unknown" ] || [ -z "$COMMIT_SHA" ]; then \
+      echo "ERROR: COMMIT_SHA must be set via --build-arg (got '$COMMIT_SHA')" >&2; \
+      exit 1; \
+    fi
+
 # NOTE on SWC native bindings: Next.js recommends installing `libc6-compat`
 # on Alpine-based images so @next/swc-* native binaries load. We use
 # `node:20-slim` (Debian bookworm), which ships with glibc, so no compat
