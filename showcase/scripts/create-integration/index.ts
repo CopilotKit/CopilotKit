@@ -2013,6 +2013,7 @@ export function updateWorkflows(args: CLIArgs) {
     let lastEntryIndex = -1;
     let inStarterBlock = false;
     let sawStarterBlock = false;
+    let slugAlreadyPresent = false;
     let entryIndent = "";
 
     for (let i = 0; i < lines.length; i++) {
@@ -2037,8 +2038,14 @@ export function updateWorkflows(args: CLIArgs) {
           lastEntryIndex = i;
           entryIndent = entryMatch[1];
           if (line.trim() === `- ${slug}`) {
-            // Already present
-            lastEntryIndex = -1;
+            // Idempotent re-run — the slug is already wired into the
+            // matrix. Flag it distinctly from the "no entries" /
+            // "no block" error branches below; previously this path
+            // set `lastEntryIndex = -1` and fell into the same else
+            // branch as the zero-entries degenerate case, producing
+            // a misleading "block has zero entries" error on the
+            // second generator run against the same slug.
+            slugAlreadyPresent = true;
             break;
           }
         } else {
@@ -2050,7 +2057,11 @@ export function updateWorkflows(args: CLIArgs) {
       }
     }
 
-    if (lastEntryIndex >= 0) {
+    if (slugAlreadyPresent) {
+      console.info(
+        `  test_smoke-starter.yml: slug "${slug}" already present in starter matrix, skipping.`,
+      );
+    } else if (lastEntryIndex >= 0) {
       lines.splice(lastEntryIndex + 1, 0, `${entryIndent}${slug}`);
       smoke = lines.join("\n");
       fs.writeFileSync(smokePath, smoke);

@@ -532,6 +532,63 @@ describe("Template Generator", () => {
     expect(fs.existsSync(REGRESSION_DIR)).toBe(false);
   });
 
+  // VT-M2-C regression: on an idempotent re-run against a slug that is
+  // already present in the `starter:` matrix of test_smoke-starter.yml,
+  // the generator must skip the insert quietly instead of throwing
+  // "found 'starter:' block in ... but it has zero entries". Previously
+  // the walker set `lastEntryIndex = -1` on already-present to signal
+  // "skip", which then fell into the same else branch as the degenerate
+  // zero-entries case and surfaced a misleading error for operators
+  // whose workflow was already correctly wired.
+  it("re-running against a slug already in the smoke-matrix is a no-op, not a throw (VT-M2-C)", () => {
+    cleanup();
+
+    const args = [
+      "--name",
+      "Idempotent Rerun",
+      "--slug",
+      REGRESSION_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "agentic-chat",
+    ];
+
+    // First run: scaffolds the package and appends the slug to the
+    // `starter:` matrix in our tmpdir-backed test_smoke-starter.yml.
+    runGenerator(args);
+    const smokePath = path.join(
+      TMP_WORKFLOWS_DIR,
+      "test_smoke-starter.yml",
+    );
+    const afterFirstRun = fs.readFileSync(smokePath, "utf-8");
+    expect(afterFirstRun).toMatch(
+      new RegExp(`^\\s+- ${REGRESSION_SLUG}\\s*$`, "m"),
+    );
+
+    // Remove only the scaffolded package dir so the generator's pre-flight
+    // guard lets us run again — the workflow already contains the slug,
+    // which is the state we're exercising.
+    fs.rmSync(path.join(TMP_PACKAGES_DIR, REGRESSION_SLUG), {
+      recursive: true,
+      force: true,
+    });
+
+    // Second run must succeed (not throw). Expected output contains the
+    // already-present skip notice; it MUST NOT contain the
+    // "zero entries" degenerate-case error text.
+    const { stdout } = runGenerator(args);
+    expect(stdout).toMatch(/already present in starter matrix/);
+    expect(stdout).not.toMatch(/has zero entries/);
+
+    // Workflow file must be unchanged bit-for-bit across the second run
+    // (no duplicate insert, no formatting drift).
+    const afterSecondRun = fs.readFileSync(smokePath, "utf-8");
+    expect(afterSecondRun).toBe(afterFirstRun);
+  });
+
   // Safety net: every seeded workflow must match its captured baseline
   // bit-for-bit at the end of the suite. Operates against our tmpdir-backed
   // copies — the real `.github/workflows/` YAMLs are never touched by this
