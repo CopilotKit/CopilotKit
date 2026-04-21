@@ -555,7 +555,10 @@ describe("alert-engine (additional behaviors)", () => {
       baseRule({
         id: "weekly-cron",
         signal: { dimension: "pin_drift" },
+        // Cron-only rule: empty stringTriggers + a cron schedule. This is the
+        // shape real cron rules take (rule-loader emits both arrays this way).
         stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
         template: { text: "ran" },
         conditions: { guards: [], escalations: [] },
       }),
@@ -778,6 +781,142 @@ describe("alert-engine (additional behaviors)", () => {
     await new Promise((r) => setImmediate(r));
     // Two distinct dedupe buckets → both dispatches fire.
     expect(tgt.sent).toHaveLength(2);
+  });
+
+  it("cron alert resolves set_drifted from signal (not hardcoded 'first')", async () => {
+    // Regression guard for the critical bug where dispatchCronAlert hardcoded
+    // `triggered:["first"]`, causing rules that declared `set_drifted` (e.g.
+    // aimock-wiring-drift) to render their templates with trigger.first=true
+    // and trigger.set_drifted=false — the drift block silently collapsed.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "aimock-wiring-drift",
+        signal: { dimension: "aimock_wiring" },
+        // Rule declares `set_drifted` only — NOT `first`. Under the old
+        // dispatchCronAlert, this never fired (hardcoded "first" didn't
+        // match). Under the fix, resolveTriggers sees signal.unwired and
+        // lights up set_drifted.
+        stringTriggers: ["set_drifted"],
+        cronTriggers: [{ schedule: "0 * * * *" }],
+        template: {
+          text: "{{#trigger.set_drifted}}DRIFT {{signal.unwiredCount}}{{/trigger.set_drifted}}",
+        },
+        conditions: { guards: [], escalations: [] },
+      }),
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "aimock-wiring-drift",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "aimock_wiring:check",
+        state: "red",
+        signal: {
+          unwired: ["svc-a", "svc-b"],
+          unwiredCount: 2,
+        },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "DRIFT 2",
+    );
+  });
+
+  it("resolveTriggers refuses prototype-chain trigger names", async () => {
+    // Guard against a YAML author declaring `toString` / `hasOwnProperty` /
+    // `constructor` as a trigger name. Without the Object.hasOwn guard, the
+    // inner lookup walks Object.prototype, returns a function reference
+    // (truthy), and fires a spurious alert on every cron tick.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "bogus-proto-trigger",
+        signal: { dimension: "smoke" },
+        // `toString` is a real Object.prototype method — if the lookup walked
+        // the prototype chain, signalFlags.toString would be truthy and the
+        // rule would fire. Our guard treats it as an unknown trigger name.
+        stringTriggers: ["toString" as never],
+        cronTriggers: [],
+        template: { text: "should-never-fire" },
+        conditions: { guards: [], escalations: [] },
+      }),
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "green",
+        transition: "sustained_green",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "green",
+        signal: {},
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
+  it("parseDuration rejects zero/negative numeric specs", async () => {
+    const { parseDuration } = await import("./dsl.js");
+    expect(() => parseDuration(0)).toThrow(/must be > 0/);
+    expect(() => parseDuration(-1)).toThrow(/must be > 0/);
+    expect(() => parseDuration("0s")).toThrow(/must be > 0/);
+    // Positive values still work.
+    expect(parseDuration(1_000)).toBe(1_000);
+    expect(parseDuration("15m")).toBe(15 * 60_000);
+  });
+
+  it("escalation severity = highest matching whenFailCount regardless of YAML order", async () => {
+    // Regression guard: previously the last matching escalation in
+    // declaration order won. Authors who declared
+    //   [{whenFailCount:10,severity:critical}, {whenFailCount:4,severity:error}]
+    // at failCount=10 got `error` (last match) instead of `critical`
+    // (highest matching threshold). The sort-ascending fix makes the
+    // highest threshold naturally win.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "escalation-order",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        template: { text: "{{rule.severity}}" },
+        conditions: {
+          guards: [],
+          // Declared in REVERSE ascending order on purpose: under the old
+          // "last match wins" rule this would yield "error". Under the fix
+          // (sort ascending, higher overrides), we get "critical".
+          escalations: [
+            { whenFailCount: 10, severity: "critical" },
+            { whenFailCount: 4, severity: "error" },
+          ],
+        },
+      }),
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 10,
+        firstFailureAt: "x",
+      },
+      result: probeRes("red"),
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "critical",
+    );
   });
 
   it("cron alert threads real probe signal.* into the template", async () => {
