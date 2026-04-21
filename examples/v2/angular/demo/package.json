@@ -23,6 +23,7 @@
     "@angular/forms": "^19.0.0",
     "@angular/platform-browser": "^19.0.0",
     "@angular/platform-browser-dynamic": "^19.0.0",
+    "@copilotkit/angular": "link:../../../../packages/angular",
     "@copilotkit/web-inspector": "workspace:*",
     "@copilotkit/web-inspector-angular": "workspace:*",
     "@copilotkitnext/angular": "workspace:*",
