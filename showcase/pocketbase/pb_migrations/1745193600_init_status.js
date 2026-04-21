@@ -17,7 +17,7 @@ migrate(
         { name: "signal", type: "json", options: { maxSize: 2000000 } },
         { name: "observed_at", type: "date", required: true },
         { name: "transitioned_at", type: "date", required: true },
-        { name: "fail_count", type: "number", required: true },
+        { name: "fail_count", type: "number" },
         { name: "first_failure_at", type: "date" },
       ],
       indexes: [

@@ -1,10 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
-// Follow-up migration: the initial 174519XX migrations were recorded as
-// applied before the `status`/`status_history`/`alert_state` collections
-// were manually recreated with corrected schemas (signal JSON field needs
-// explicit `options.maxSize` — otherwise PB 0.22 defaults to 0 bytes and
-// rejects every write). This migration idempotently (re)creates those
-// three collections with the correct shape so a fresh volume is usable.
+// Follow-up to 1776789000: first run marked the earlier recreate migration
+// as applied but PB rejected writes because `fail_count` had required:true
+// (PB treats 0 as "missing" for required number fields). This migration
+// drops the required flag on fail_count + re-lands the collections.
 migrate(
   (db) => {
     const dao = new Dao(db);
