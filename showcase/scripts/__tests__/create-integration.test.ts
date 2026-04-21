@@ -546,3 +546,585 @@ describe("Template Generator", () => {
     }
   });
 });
+
+describe("Template Generator — hardening regressions", () => {
+  it("fails fast with a listed-ids error on unknown --features", async () => {
+    cleanup();
+        try {
+      runGenerator([
+      "--name",
+      "Bad",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "agentic-chat,not-a-real-feature",
+      ]);
+      expect.fail("Should have rejected unknown feature id");
+    } catch (e: any) {
+      const combined = (e.stderr || "") + (e.stdout || "");
+      expect(combined).toMatch(/Unknown feature id/);
+      expect(combined).toContain("not-a-real-feature");
+      // Error message must enumerate known ids so the user can self-correct.
+      expect(combined).toContain("Known ids:");
+      expect(combined).toContain("agentic-chat");
+    }
+    // Partial directory must NOT be left behind on a validation failure.
+    expect(fs.existsSync(TEST_DIR)).toBe(false);
+  });
+
+  it("loadFeatureRegistry surfaces structured errors for read/parse/shape failures", async () => {
+    // Replace the vacuous SHOWCASE_FEATURE_REGISTRY env-var test with
+    // direct-import coverage. We spy on fs.readFileSync so we can inject
+    // each failure mode deterministically — ENOENT, invalid JSON, and
+    // shape-invalid (missing 'features' array) — and assert that the
+    // thrown error message names the registry path AND the failure mode
+    // rather than leaking a bare stack. The previous env-var approach
+    // was a no-op: create-integration/index.ts never reads that env var,
+    // and the test's own short-circuit (if /SHOWCASE_FEATURE_REGISTRY/
+    // matched) meant the asserts never ran.
+    const { loadFeatureRegistry } =
+      await import("../create-integration/index.ts");
+    const { vi } = await import("vitest");
+
+    // Capture the real readFileSync once so each case can delegate
+    // for paths that are NOT the feature registry. An unfiltered
+    // mockImplementation intercepts ALL readFileSync calls — including
+    // the ones vitest/tsx make internally to resolve source maps,
+    // transforms, etc. — and produces flaky failures that have nothing
+    // to do with the code under test. Mirror the pattern used in
+    // validate-parity.test.ts / manifest.test.ts.
+    const realRead = fs.readFileSync;
+    const delegate = (
+      p: fs.PathOrFileDescriptor,
+      ...rest: unknown[]
+    ): string | Buffer =>
+      (
+        realRead as unknown as (
+          p: fs.PathOrFileDescriptor,
+          ...rest: unknown[]
+        ) => string | Buffer
+      )(p, ...rest);
+
+    // Case 1: ENOENT (file missing).
+    {
+      const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("feature-registry.json")) {
+          const err = new Error(
+            "ENOENT: no such file or directory",
+          ) as NodeJS.ErrnoException;
+          err.code = "ENOENT";
+          throw err;
+        }
+        return delegate(p, ...rest);
+      }) as typeof fs.readFileSync);
+      try {
+        expect(() => loadFeatureRegistry()).toThrow(
+          /Failed to read feature registry/i,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    // Case 2: invalid JSON.
+    {
+      const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("feature-registry.json")) {
+          return "{ this is not valid json }";
+        }
+        return delegate(p, ...rest);
+      }) as typeof fs.readFileSync);
+      try {
+        expect(() => loadFeatureRegistry()).toThrow(/not valid JSON/i);
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    // Case 3: shape-invalid — top-level array.
+    {
+      const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("feature-registry.json")) {
+          return JSON.stringify([{ id: "x" }]);
+        }
+        return delegate(p, ...rest);
+      }) as typeof fs.readFileSync);
+      try {
+        expect(() => loadFeatureRegistry()).toThrow(
+          /must be a JSON object with a 'features' array/i,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+    }
+
+    // Case 4: shape-invalid — object without 'features' key.
+    {
+      const spy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("feature-registry.json")) {
+          return JSON.stringify({ categories: [] });
+        }
+        return delegate(p, ...rest);
+      }) as typeof fs.readFileSync);
+      try {
+        expect(() => loadFeatureRegistry()).toThrow(
+          /must be a JSON object with a 'features' array/i,
+        );
+      } finally {
+        spy.mockRestore();
+      }
+    }
+  });
+
+  it("validates feature-registry shape (top-level object with 'features' array)", () => {
+    // The loader rejects registries that drop the { features: [...] } wrapper
+    // so a hand-edited file surfaces as a clear error at load time rather
+    // than as 'features is undefined' further down the call stack.
+    // We assert the shape that the loader depends on is actually present.
+    const raw = fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8");
+    const parsed = JSON.parse(raw);
+    expect(parsed).not.toBeNull();
+    expect(typeof parsed).toBe("object");
+    expect(Array.isArray(parsed.features)).toBe(true);
+    // And every entry has the shape the loader types against
+    for (const f of parsed.features) {
+      expect(typeof f.id).toBe("string");
+      expect(f.id.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("generated health route has an in-process branch for TypeScript integrations", async () => {
+    cleanup();
+        runGenerator([
+      "--name",
+      "TS InProcess",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "typescript",
+      "--features",
+      "agentic-chat",
+    ]);
+
+    const healthRoute = fs.readFileSync(
+      path.join(TEST_DIR, "src/app/api/health/route.ts"),
+      "utf-8",
+    );
+    // Must not probe a bogus agent URL for an in-process TS integration;
+    // instead the flag must be hard-wired and the runtime must short-circuit
+    // to the in-process status.
+    expect(healthRoute).toContain("IS_IN_PROCESS = true");
+    expect(healthRoute).toContain('"in-process"');
+    // And the happy-path must treat in-process as 200 alongside "ok"
+    expect(healthRoute).toMatch(
+      /agentStatus\s*===\s*"ok"\s*\|\|\s*agentStatus\s*===\s*"in-process"/,
+    );
+  });
+
+  it("generated health route has an out-of-process probe for Python integrations", async () => {
+    cleanup();
+        runGenerator([
+      "--name",
+      "Py OutOfProcess",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "agentic-chat",
+    ]);
+
+    const healthRoute = fs.readFileSync(
+      path.join(TEST_DIR, "src/app/api/health/route.ts"),
+      "utf-8",
+    );
+    expect(healthRoute).toContain("IS_IN_PROCESS = false");
+    expect(healthRoute).toContain("AbortSignal.timeout(3000)");
+  });
+
+  it("generated E2E test uses the real assistant-message class, not the phantom data-role selector", async () => {
+    cleanup();
+        runGenerator([
+      "--name",
+      "Locator",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "agentic-chat",
+    ]);
+
+    const testFile = fs.readFileSync(
+      path.join(TEST_DIR, "tests/e2e/agentic-chat.spec.ts"),
+      "utf-8",
+    );
+    // The old 'data-role="assistant"' attribute does not exist in the
+    // CopilotKit DOM. The real assistant message carries the
+    // copilotKitAssistantMessage class.
+    expect(testFile).not.toContain('data-role="assistant"');
+    expect(testFile).toContain(".copilotKitAssistantMessage");
+  });
+
+  it("generated layout.tsx contains bare backticks in the inline script, not literal \\`", async () => {
+    cleanup();
+        runGenerator([
+      "--name",
+      "Layout",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "agentic-chat",
+    ]);
+
+    const layout = fs.readFileSync(
+      path.join(TEST_DIR, "src/app/layout.tsx"),
+      "utf-8",
+    );
+    // Previously the generator emitted \\\` which produced a literal \` in
+    // the output, breaking the template-literal assignment to __html.
+    expect(layout).not.toContain("\\`");
+    // The legitimate bare backticks must still be present so the script
+    // body actually parses.
+    expect(layout).toMatch(/__html:\s*`/);
+  });
+
+  describe("parseArgs — unit coverage for argv-walking guards", () => {
+    // parseArgs reads process.argv and calls process.exit(1) on any invalid
+    // shape. We stub both so each failure mode is observed via a thrown
+    // "process.exit called" sentinel and the matching error text on stderr.
+    // Each branch below exercises one guard the hardening added so the
+    // argv-walking logic doesn't silently drop flags or accept bad values.
+    it("rejects a positional argument that doesn't start with --", async () => {
+      const { parseArgs } = await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      const argv = process.argv;
+      process.argv = ["node", "index.ts", "stray", "--name", "x"];
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+        code?: number,
+      ) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(() => parseArgs()).toThrow(/exit:1/);
+        const combined = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(combined).toMatch(/Unexpected positional argument 'stray'/);
+      } finally {
+        process.argv = argv;
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    it("rejects a --flag missing its value (end-of-args)", async () => {
+      const { parseArgs } = await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      const argv = process.argv;
+      process.argv = ["node", "index.ts", "--name"];
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+        code?: number,
+      ) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(() => parseArgs()).toThrow(/exit:1/);
+        const combined = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(combined).toMatch(/Flag --name expects a value/);
+        expect(combined).toMatch(/end-of-args/);
+      } finally {
+        process.argv = argv;
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    it("rejects a --flag followed by another --flag instead of a value", async () => {
+      const { parseArgs } = await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      const argv = process.argv;
+      process.argv = ["node", "index.ts", "--name", "--slug", "x"];
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+        code?: number,
+      ) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(() => parseArgs()).toThrow(/exit:1/);
+        const combined = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(combined).toMatch(/Flag --name expects a value/);
+        expect(combined).toMatch(/another flag \(--slug\)/);
+      } finally {
+        process.argv = argv;
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    it("rejects an unknown --category value with the listed allowed set", async () => {
+      const { parseArgs } = await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      const argv = process.argv;
+      process.argv = [
+        "node",
+        "index.ts",
+        "--name",
+        "x",
+        "--slug",
+        "x",
+        "--category",
+        "not-a-category",
+        "--language",
+        "python",
+        "--features",
+        "agentic-chat",
+      ];
+      const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
+        code?: number,
+      ) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      try {
+        expect(() => parseArgs()).toThrow(/exit:1/);
+        const combined = errSpy.mock.calls.map((c) => c.join(" ")).join("\n");
+        expect(combined).toMatch(/Unknown --category 'not-a-category'/);
+        // The listed allowed set must include the canonical categories
+        // so the user can self-correct from the message alone.
+        expect(combined).toContain("provider-sdk");
+      } finally {
+        process.argv = argv;
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+  });
+
+  describe("updateWorkflows — regex-failure assertions", () => {
+    // updateWorkflows walks three workflow YAML files and inserts into
+    // well-defined blocks. If the surrounding YAML drifts so the regex no
+    // longer matches, the hardening requires it to throw a targeted error
+    // that names the file and mode — not to silently write a no-op.
+    // We drive the failure via a tiny shim that re-exports fs with the
+    // read/write calls intercepted, letting us substitute an empty YAML
+    // body that doesn't contain the expected 'options:' block.
+    it("throws when showcase_deploy.yml lacks the options: block", async () => {
+      const { updateWorkflows } =
+        await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      // Make only showcase_deploy.yml exist, and return a YAML body that
+      // contains no `options:` block at all. fs.existsSync returns false
+      // for the other two files so those branches are skipped.
+      const existsSpy = vi
+        .spyOn(fs, "existsSync")
+        .mockImplementation((p: fs.PathLike) => {
+          return String(p).endsWith("showcase_deploy.yml");
+        });
+      const readSpy = vi
+        .spyOn(fs, "readFileSync")
+        .mockImplementation(
+          () => "name: deploy\non: push\njobs:\n  noop:\n    runs-on: ubuntu\n",
+        );
+      // Prevent the function from actually writing; it shouldn't reach
+      // writeFileSync in the throwing branch, but guard anyway so a
+      // regression doesn't clobber the real workflow file.
+      const writeSpy = vi
+        .spyOn(fs, "writeFileSync")
+        .mockImplementation(() => {});
+
+      try {
+        expect(() =>
+          updateWorkflows({
+            name: "X",
+            slug: "x",
+            category: "agent-framework",
+            language: "python",
+            features: ["agentic-chat"],
+            extraDeps: [],
+          }),
+        ).toThrow(/failed to locate the 'options:' block/);
+      } finally {
+        existsSpy.mockRestore();
+        readSpy.mockRestore();
+        writeSpy.mockRestore();
+      }
+    });
+
+    it("throws when showcase_deploy.yml lacks the outputs: block", async () => {
+      const { updateWorkflows } =
+        await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      // YAML that has a well-formed `options:` block (so the first regex
+      // matches and the function proceeds) but no `outputs:` block at
+      // all. The second regex must throw with a message that names the
+      // outputs block — not silently drop the change.
+      const yamlBody = [
+        "name: deploy",
+        "on:",
+        "  workflow_dispatch:",
+        "    inputs:",
+        "      service:",
+        "        type: choice",
+        "        options:",
+        "          - langgraph-python",
+        "          - mastra",
+        "jobs:",
+        "  noop:",
+        "    runs-on: ubuntu",
+        "",
+      ].join("\n");
+
+      const existsSpy = vi
+        .spyOn(fs, "existsSync")
+        .mockImplementation((p: fs.PathLike) => {
+          return String(p).endsWith("showcase_deploy.yml");
+        });
+      const readSpy = vi
+        .spyOn(fs, "readFileSync")
+        .mockImplementation(() => yamlBody);
+      const writeSpy = vi
+        .spyOn(fs, "writeFileSync")
+        .mockImplementation(() => {});
+
+      try {
+        expect(() =>
+          updateWorkflows({
+            name: "X",
+            slug: "new-slug",
+            category: "agent-framework",
+            language: "python",
+            features: ["agentic-chat"],
+            extraDeps: [],
+          }),
+        ).toThrow(/failed to locate the 'outputs:' block/);
+      } finally {
+        existsSpy.mockRestore();
+        readSpy.mockRestore();
+        writeSpy.mockRestore();
+      }
+    });
+
+    it("throws when showcase_deploy.yml lacks the filters: block", async () => {
+      const { updateWorkflows } =
+        await import("../create-integration/index.ts");
+      const { vi } = await import("vitest");
+
+      // YAML that has both `options:` and `outputs:` blocks so the first
+      // two regexes match, but no `filters: |` block. The third regex
+      // must throw with a message that names the filters block.
+      const yamlBody = [
+        "name: deploy",
+        "on:",
+        "  workflow_dispatch:",
+        "    inputs:",
+        "      service:",
+        "        type: choice",
+        "        options:",
+        "          - langgraph-python",
+        "          - mastra",
+        "jobs:",
+        "  detect-changes:",
+        "    runs-on: ubuntu",
+        "    outputs:",
+        "      langgraph_python: ${{ steps.changes.outputs.langgraph_python }}",
+        "      mastra: ${{ steps.changes.outputs.mastra }}",
+        "    steps:",
+        "      - uses: actions/checkout@v4",
+        "",
+      ].join("\n");
+
+      const existsSpy = vi
+        .spyOn(fs, "existsSync")
+        .mockImplementation((p: fs.PathLike) => {
+          return String(p).endsWith("showcase_deploy.yml");
+        });
+      const readSpy = vi
+        .spyOn(fs, "readFileSync")
+        .mockImplementation(() => yamlBody);
+      const writeSpy = vi
+        .spyOn(fs, "writeFileSync")
+        .mockImplementation(() => {});
+
+      try {
+        expect(() =>
+          updateWorkflows({
+            name: "X",
+            slug: "new-slug",
+            category: "agent-framework",
+            language: "python",
+            features: ["agentic-chat"],
+            extraDeps: [],
+          }),
+        ).toThrow(/failed to locate the 'filters:' block/);
+      } finally {
+        existsSpy.mockRestore();
+        readSpy.mockRestore();
+        writeSpy.mockRestore();
+      }
+    });
+  });
+
+  it("demo README contains bare backticks for inline code, not literal \\` pairs", async () => {
+    cleanup();
+        runGenerator([
+      "--name",
+      "Readme",
+      "--slug",
+      TEST_SLUG,
+      "--category",
+      "agent-framework",
+      "--language",
+      "python",
+      "--features",
+      "tool-rendering",
+    ]);
+
+    const readme = fs.readFileSync(
+      path.join(TEST_DIR, "src/app/demos/tool-rendering/README.md"),
+      "utf-8",
+    );
+    // The authored Technical Details section used \\\` which rendered as
+    // literal \` in the generated markdown; flag any remaining residue.
+    expect(readme).not.toContain("\\`");
+    // Must still contain backticked code references (e.g. \`get_weather\`)
+    expect(readme).toMatch(/`get_weather`/);
+  });
+});

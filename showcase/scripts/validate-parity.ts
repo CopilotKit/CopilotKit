@@ -26,7 +26,9 @@
  *   npx tsx scripts/validate-parity.ts --baseline=9
  *   VALIDATE_PARITY_REPO_ROOT=/tmp/fixture npx tsx scripts/validate-parity.ts
  *
- * Exit codes (aligned with audit.ts / validate-pins.ts):
+ * Exit codes (aligned with audit.ts on codes 0/1/3/4; intentionally
+ * diverges from validate-pins.ts on code 2 — validate-pins.ts uses
+ * 2=internal error, whereas this tool uses 2=invalid CLI input):
  *   0 — no MUST failures
  *   1 — one or more MUST failures
  *   2 — invalid CLI input (bad --baseline / VALIDATE_PARITY_BASELINE)
@@ -69,8 +71,10 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
  */
 export const BASELINE_DEMO_COUNT = 9;
 
-// Exit code taxonomy mirrors audit.ts / validate-pins.ts so CI callers
+// Exit code taxonomy aligned with audit.ts on codes 0/1/3/4 so CI callers
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
+// Intentionally diverges from validate-pins.ts on code 2 (invalid-input here
+// vs internal-error in validate-pins.ts) — the tools are NOT aligned on 2.
 // `as const` narrows each to its literal type so the union below
 // (`ValidateParityExitCode`) is a literal union — guarding callers that
 // switch on the value from accidentally matching arbitrary numbers.
@@ -84,9 +88,10 @@ const EXIT_INTERNAL = 4 as const;
  * Strip the leading "/demos/" prefix from a demo route and return the
  * on-disk directory name (the segment under src/app/demos/). Returns
  * `undefined` when the route is `undefined` OR when the resulting
- * segment is empty (a route of exactly "/demos/" is malformed — but
- * parseManifest already enforces a non-empty tail, so this fallback
- * is a defence-in-depth guard, not a primary validation).
+ * segment is empty. parseManifest rejects routes of exactly "/demos/"
+ * at validation time (demos[i].route must have a non-empty tail), so
+ * the empty-segment fallback here is defence-in-depth for callers that
+ * bypass parseManifest — not a primary validation.
  *
  * Keep in sync with bundle-demo-content.ts, which applies the same
  * route → dir transformation when copying per-demo READMEs into the
@@ -472,7 +477,7 @@ export function listFiles(p: string, suffix: string): ListResult {
  *   Callers discriminate with `instanceof` (see auditPackage).
  *
  * Delegates to lib/manifest.ts :: parseManifest for shape validation so
- * audit.ts / validate-pins.ts / validate-parity.ts apply identical rules.
+ * audit.ts / validate-parity.ts / capture-previews.ts apply identical rules.
  */
 export function loadManifest(
   slug: string,
@@ -676,10 +681,12 @@ export function auditPackage(
 
   // Shape validation (top-level mapping, demos array-of-objects-with-id,
   // etc.) is performed by parseManifest in ./lib/manifest.ts. By the
-  // time we reach this point, `manifest.demos` (if set) is guaranteed
-  // to be `ManifestDemo[]` with string `id` on every entry — no need
-  // to re-guard here.
-  const demos = manifest.demos ?? [];
+  // time we reach this point, `manifest.demos` is guaranteed to be
+  // `readonly ManifestDemo[]` (parseManifest normalizes missing /
+  // null-valued `demos:` to a shared EMPTY_DEMOS sentinel), so no
+  // nullish fallback is needed here — dropping the `?? []` keeps the
+  // Manifest contract single-sourced at parseManifest.
+  const demos = manifest.demos;
   // Informational-only demos (e.g. cli-start with a `command:` field)
   // live in the registry but have no on-disk folder to audit. They're
   // identified by the `command` field; exclude them from parity checks.

@@ -355,8 +355,8 @@ function listShowcasePackageSlugs(cfg: AuditConfig): string[] {
  * collapsing `unreadable` into `malformed` with a prefix, so the cause
  * is preserved for structured consumers and CI bucket routing.
  *
- * Delegates to lib/manifest.ts :: parseManifest so audit.ts, validate-pins.ts,
- * and validate-parity.ts all apply identical YAML-shape validation rules.
+ * Delegates to lib/manifest.ts :: parseManifest so audit.ts, validate-parity.ts,
+ * and capture-previews.ts all apply identical YAML-shape validation rules.
  */
 function readManifest(slug: string, cfg: AuditConfig): ParsedManifest {
   const p = path.join(cfg.packagesDir, slug, "manifest.yaml");

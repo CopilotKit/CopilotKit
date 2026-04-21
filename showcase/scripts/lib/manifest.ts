@@ -1,7 +1,7 @@
 /**
  * Shared manifest schema + parser.
  *
- * Used by audit.ts, validate-parity.ts, and validate-pins.ts so the
+ * Used by audit.ts, validate-parity.ts, and capture-previews.ts so the
  * three tools agree on:
  *   1. the Manifest / ManifestDemo TypeScript shape
  *   2. runtime shape validation of `manifest.yaml`
@@ -82,7 +82,7 @@ export interface ManifestDemo {
 }
 
 /**
- * Union of the fields used by audit.ts / validate-parity.ts / validate-pins.ts.
+ * Union of the fields used by audit.ts / validate-parity.ts / capture-previews.ts.
  *
  * `slug` is REQUIRED: every manifest in showcase/packages/ carries a
  * slug, and none of the three consumers ever constructs or accepts a
@@ -106,6 +106,14 @@ export interface Manifest {
   readonly slug: string;
   readonly name?: string;
   readonly deployed?: boolean;
+  /**
+   * Deployed backend URL for this integration (e.g. the Railway public
+   * domain). Used by capture-previews.ts to navigate to each demo. Not
+   * required by audit.ts / validate-parity.ts, so it remains optional;
+   * callers that need it should check before use.
+   * parseManifest validates that, when present, it is a non-empty string.
+   */
+  readonly backend_url?: string;
   readonly demos: readonly ManifestDemo[];
 }
 
@@ -183,7 +191,7 @@ const EMPTY_DEMOS: readonly ManifestDemo[] = Object.freeze([]);
  *   - top-level must be a plain object mapping (not null, scalar, or
  *     array) — otherwise downstream `.demos` / `.deployed` reads would
  *     TypeError at runtime;
- *   - `slug` must be a non-empty string (the three consumers all rely
+ *   - `slug` must be a non-empty string (every consumer relies
  *     on it — missing slug is always a bug);
  *   - `name`, if present, must be a string;
  *   - `demos`, if present, must be an array of objects each with a
@@ -270,7 +278,7 @@ export function parseManifest(
   const obj: object = parsed;
 
   // slug is required — every consumer (audit.ts / validate-parity.ts /
-  // validate-pins.ts) assumes a slug exists. A manifest without one is
+  // capture-previews.ts) assumes a slug exists. A manifest without one is
   // always a bug, not a tolerable edge case.
   if (!hasOwnProp(obj, "slug")) {
     return {
@@ -281,13 +289,13 @@ export function parseManifest(
   }
   const slug = obj.slug;
   if (typeof slug !== "string" || slug.length === 0) {
+    // `hasOwnProp(obj, "slug")` already passed above, so the key is
+    // present; the value can still be the empty string, null, or a
+    // non-string. `describeType` covers all of those uniformly.
     return {
       kind: "malformed",
       subkind: "shape",
-      error:
-        slug === undefined
-          ? `missing required "slug" (non-empty string)`
-          : `expected "slug" to be a non-empty string, got ${describeType(slug)}`,
+      error: `expected "slug" to be a non-empty string, got ${describeType(slug)}`,
     };
   }
 
@@ -339,6 +347,20 @@ export function parseManifest(
       };
     }
     deployed = obj.deployed;
+  }
+
+  // backend_url (optional) must be a non-empty string if present. Not
+  // required by the audit/parity tools, so an absent field is fine.
+  let backendUrl: string | undefined;
+  if (hasOwnProp(obj, "backend_url") && obj.backend_url !== undefined) {
+    if (typeof obj.backend_url !== "string" || obj.backend_url.length === 0) {
+      return {
+        kind: "malformed",
+        subkind: "shape",
+        error: `expected "backend_url" to be a non-empty string, got ${describeType(obj.backend_url)}`,
+      };
+    }
+    backendUrl = obj.backend_url;
   }
 
   // demos must be an array of objects with non-empty string id. Both
@@ -446,6 +468,19 @@ export function parseManifest(
             error: `expected demos[${i}].route to start with "/demos/", got "${d.route}"`,
           };
         }
+        // Reject exactly "/demos/" (empty tail segment). Downstream
+        // consumers strip the "/demos/" prefix to derive an on-disk
+        // directory name; an empty tail would point at the parent
+        // demos/ directory rather than a specific demo. Guard at the
+        // parser boundary so validate-parity / bundle-demo-content can
+        // treat a successful parse as a non-empty segment invariant.
+        if (d.route.length <= "/demos/".length) {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].route to have a non-empty segment after "/demos/", got "${d.route}"`,
+          };
+        }
         demoRoute = d.route;
       }
       const demoEntry: {
@@ -475,6 +510,7 @@ export function parseManifest(
     slug,
     ...(name !== undefined ? { name } : {}),
     ...(deployed !== undefined ? { deployed } : {}),
+    ...(backendUrl !== undefined ? { backend_url: backendUrl } : {}),
     demos,
   });
   return { kind: "ok", manifest };
