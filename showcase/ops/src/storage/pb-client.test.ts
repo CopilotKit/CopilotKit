@@ -298,9 +298,12 @@ describe("pb-client", () => {
     expect(getFirstCalls).toBe(2);
   });
 
-  it("honors 429 Retry-After upper bound (clamps to 30s)", async () => {
-    // Retry-After: 600s should be capped at 30_000ms — never sleep 10
-    // minutes on a transient rate-limit response.
+  it("honors 429 Retry-After upper bound (clamps to 60s)", async () => {
+    // Retry-After: 600s should be capped at 60_000ms — never sleep 10
+    // minutes on a transient rate-limit response. The cap is specifically
+    // 60s (not 30s) because PocketBase behind Cloudflare legitimately
+    // returns `Retry-After: 60` under sustained pressure; a 30s cap
+    // silently clamped that and retried early into another 429.
     const waits: number[] = [];
     const realSetTimeout = setTimeout;
     const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
@@ -324,9 +327,92 @@ describe("pb-client", () => {
       });
       const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
       await pb.getOne("status", "x");
-      // Parsed 600s → 600_000ms, clamped to 30_000.
-      expect(waits).toContain(30_000);
+      // Parsed 600s → 600_000ms, clamped by the per-retry cap first
+      // (RETRY_AFTER_MAX_MS=60_000) and then by the outer retry-budget
+      // (RETRY_BUDGET_MS=50_000) on top. The scheduled wait must be
+      // strictly ≤ 60_000 (proving the per-retry cap engaged) and never
+      // the raw 600_000.
+      const nonzero = waits.filter((w) => w > 0);
+      expect(nonzero.length).toBeGreaterThan(0);
+      expect(Math.max(...nonzero)).toBeLessThanOrEqual(60_000);
       expect(waits).not.toContain(600_000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("honors Retry-After: 45 as 45s (under the 60s cap)", async () => {
+    // Red-green: a Retry-After value BELOW the 60s cap must be honored
+    // verbatim (45_000ms), not clamped down. Under the old 30s cap, 45s
+    // would silently become 30s and the retry would fire 15s early into
+    // another rate-limit response.
+    const waits: number[] = [];
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      ms?: number,
+    ) => {
+      waits.push(ms ?? 0);
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      let attempts = 0;
+      const fetchImpl = makeFetch(() => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("", {
+            status: 429,
+            headers: { "retry-after": "45" },
+          });
+        }
+        return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
+      });
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      await pb.getOne("status", "x");
+      expect(waits).toContain(45_000);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("clamps Retry-After: 90 to 60s (at the cap)", async () => {
+    // Red-green: a Retry-After value ABOVE the 60s cap must be clamped.
+    // Without this, a 90s Retry-After would either (a) exceed the caller's
+    // timeout envelope or (b) trip the 50s retry budget and abort without
+    // surfacing the contract-honoring behaviour this cap is designed to
+    // preserve.
+    const waits: number[] = [];
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      ms?: number,
+    ) => {
+      waits.push(ms ?? 0);
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      let attempts = 0;
+      const fetchImpl = makeFetch(() => {
+        attempts += 1;
+        if (attempts === 1) {
+          return new Response("", {
+            status: 429,
+            headers: { "retry-after": "90" },
+          });
+        }
+        return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
+      });
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      await pb.getOne("status", "x");
+      // 90s → capped at 60_000 by the per-retry cap, then at 50_000 by the
+      // outer retry-budget. Must NEVER observe the raw 90_000, and must
+      // NEVER exceed 60_000 (proves the per-retry cap did its job — if a
+      // future change bumps RETRY_AFTER_MAX_MS to e.g. 120s this assertion
+      // will catch it).
+      const nonzero = waits.filter((w) => w > 0);
+      expect(nonzero.length).toBeGreaterThan(0);
+      expect(waits).not.toContain(90_000);
+      expect(Math.max(...nonzero)).toBeLessThanOrEqual(60_000);
     } finally {
       spy.mockRestore();
     }

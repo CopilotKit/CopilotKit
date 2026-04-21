@@ -83,10 +83,24 @@ function isUniqueConstraintError(err: unknown): boolean {
 
 // Cap on the total retry envelope (all attempts + sleeps) for a single
 // request. Protects against stacking an exponential backoff on top of a
-// 30s Retry-After and exceeding the caller's handler timeout (GH Actions
+// Retry-After and exceeding the caller's handler timeout (GH Actions
 // webhook delivery, cron-handler budgets, etc). 50s leaves operators
-// ~10s of slack before external timeouts kick in.
+// ~10s of slack before external timeouts kick in. This is the OUTER
+// bound — the per-retry Retry-After cap (RETRY_AFTER_MAX_MS) is the
+// inner bound applied to a single 429 response.
 const RETRY_BUDGET_MS = 50_000;
+
+// Per-retry cap on an individual Retry-After header value. PocketBase
+// behind Cloudflare (and other proxies) legitimately returns
+// `Retry-After: 60` under sustained rate pressure; a lower cap silently
+// clamps that to its own value and the client retries early into
+// another 429, defeating the server-side backoff contract. 60s matches
+// Cloudflare's documented Retry-After behaviour for rate-limited
+// responses. Do NOT raise further: the outer RETRY_BUDGET_MS (50s) still
+// caps total retry wall-clock, so stacking multiple 60s waits can't run
+// away — but a single Retry-After honored at >60s would itself breach
+// the caller's envelope.
+const RETRY_AFTER_MAX_MS = 60_000;
 
 // Rate-limit for the re-auth-failure warn path — a persistently broken
 // credential set would otherwise fire one warn per request. One warn per
@@ -171,7 +185,7 @@ export function createPbClient(config: PbClientConfig): PbClient {
     if (header) {
       const seconds = Number(header);
       if (Number.isFinite(seconds) && seconds >= 0) {
-        return Math.min(seconds * 1000, 30_000);
+        return Math.min(seconds * 1000, RETRY_AFTER_MAX_MS);
       }
     }
     // Fall back to exponential backoff when no parseable header.
