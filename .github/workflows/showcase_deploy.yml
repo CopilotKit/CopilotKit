@@ -218,8 +218,30 @@ jobs:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
+  # Drift assertion — fails the workflow BEFORE the build matrix fans out
+  # if any Railway showcase service has a malformed image ref. On 2026-04-21
+  # 18 services were found with `ghcr.io/copilotkit/showcase-<slug>atest`
+  # (missing `:` before `latest`) after an out-of-band API mutation; since
+  # no committed code touched those refs, only a live-Railway assertion can
+  # catch that class of corruption. Runs unconditionally on every deploy
+  # run so a drifted env can never silently ship.
+  verify-image-refs:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+
   build:
-    needs: [detect-changes, check-lockfile]
+    needs: [detect-changes, check-lockfile, verify-image-refs]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ matrix.service.timeout }}
@@ -465,7 +487,7 @@ jobs:
           exit 1
 
   notify:
-    needs: [detect-changes, check-lockfile, build]
+    needs: [detect-changes, check-lockfile, verify-image-refs, build]
     if: always()
     permissions:
       contents: read
@@ -637,6 +659,7 @@ jobs:
           URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           DETECT="${{ needs.detect-changes.result }}"
           LOCKFILE="${{ needs.check-lockfile.result }}"
+          VERIFY="${{ needs.verify-image-refs.result }}"
           BUILD="${{ needs.build.result }}"
           COUNT="${{ steps.summary.outputs.count }}"
           NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -704,7 +727,7 @@ jobs:
           # has happened yet. Safe to stay silent — any newer run (or the
           # manual re-trigger) will redo all work from scratch. Don't touch
           # state either way — indeterminate outcome.
-          if [ "$DETECT" = "cancelled" ] || [ "$LOCKFILE" = "cancelled" ]; then
+          if [ "$DETECT" = "cancelled" ] || [ "$LOCKFILE" = "cancelled" ] || [ "$VERIFY" = "cancelled" ]; then
             echo "Pre-build stage cancelled — newer run will redo all work, skipping Slack notification"
             echo "should_post=false" >> "$GITHUB_OUTPUT"
             echo "update_state=false" >> "$GITHUB_OUTPUT"
@@ -728,7 +751,14 @@ jobs:
           fi
 
           # Classify the terminal outcome.
-          if [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
+          if [ "$VERIFY" = "failure" ]; then
+            # Drift assertion fired — one or more Railway services have a
+            # malformed image ref. This is actionable: check the run log
+            # for the per-service violation list (service name, current
+            # image, expected shape).
+            OUTCOME="failure"
+            MSG=":x: *Showcase deploy*: FAILED — Railway image-ref drift detected (inspect run log for affected services)"
+          elif [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
             OUTCOME="failure"
             MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
           elif [ "$BUILD" = "success" ]; then
