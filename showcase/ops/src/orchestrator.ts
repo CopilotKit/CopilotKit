@@ -213,20 +213,39 @@ export async function boot(opts: BootOptions = {}): Promise<{
             .toISOString()
             .replace(/[:.]/g, "-")}.zip`;
           await pb.createBackup(name);
+          let data: Uint8Array;
           try {
-            return await pb.downloadBackup(name);
-          } finally {
-            // Best-effort cleanup: PB stores backups on the same volume
-            // as pb_data, so leaving them around eats disk. A failure to
-            // delete is logged but not fatal — S3 is the source of truth
-            // once the upload lands.
-            pb.deleteBackup(name).catch((err) =>
+            data = await pb.downloadBackup(name);
+          } catch (err) {
+            // Attempt cleanup even if download failed — the create did
+            // succeed so the zip is on disk. Await the delete so process
+            // death between here and the next tick doesn't orphan the
+            // zip on the volume.
+            try {
+              await pb.deleteBackup(name);
+            } catch (delErr) {
               logger.warn("orchestrator.s3-backup-cleanup-failed", {
                 name,
-                err: String(err),
-              }),
-            );
+                err: String(delErr),
+                context: "download_failed",
+              });
+            }
+            throw err;
           }
+          // Await the delete inside its own try/catch: a failure here is
+          // NOT fatal (S3 is the source of truth once the upload lands)
+          // but we must not return until the call has either succeeded
+          // or thrown — the prior fire-and-forget could leak a zip if
+          // the process exited between `return` and the async delete.
+          try {
+            await pb.deleteBackup(name);
+          } catch (err) {
+            logger.warn("orchestrator.s3-backup-cleanup-failed", {
+              name,
+              err: String(err),
+            });
+          }
+          return data;
         },
         uploader,
         logger,
@@ -393,8 +412,16 @@ function diffCronSchedules(
 /**
  * Build the cron probe resolver. Reads Railway and aimock config from env
  * and constructs the `aimock_wiring` invoker when everything is present.
- * Other dimensions (pin_drift, version_drift, redirect_decommission)
- * deliberately return null — they need external webhook triggers.
+ *
+ * Other dimensions (pin_drift, version_drift, redirect_decommission) return
+ * null here, meaning the cron handler emits `rule.scheduled` with no probe
+ * result. Alert-engine's dispatchCronAlert still fires with a synthesized
+ * `resolvedState=green` outcome and `triggered=["first"]` (when the rule
+ * declares `first` as a trigger) — so a weekly report rule with a cron_only
+ * trigger and a static template does render on every tick, using whatever
+ * is in its default template. For rules that truly need a probe-produced
+ * signal (e.g. pin-drift expecting `{{signal.actualCount}}`), a CI webhook
+ * POST is the expected source of that signal.
  */
 function buildCronProbeResolver(): CronProbeResolver {
   const railwayToken = process.env.RAILWAY_TOKEN;
@@ -413,6 +440,20 @@ function buildCronProbeResolver(): CronProbeResolver {
       token: railwayToken,
       projectId: railwayProjectId,
       environmentId: railwayEnvironmentId,
+    });
+    // Boot-time auth probe. Without this, a bad RAILWAY_TOKEN only surfaces
+    // as a generic "railway gql 401: ..." error on the first cron tick —
+    // hours or days after deploy. We fire `listServices` once at
+    // construction; a 401 is logged with a specific
+    // `RAILWAY_AUTH_FAILED` hint that operators can grep for. We do NOT
+    // throw / exit non-zero — other probes (deploy/e2e) run without
+    // Railway and must stay up — but we log at error level so the
+    // healthcheck or log-alerts pipeline catches it.
+    adapter.listServices().catch((err) => {
+      logger.error("orchestrator.RAILWAY_AUTH_FAILED", {
+        err: String(err),
+        hint: "aimock-wiring probe will fail on every cron tick — check RAILWAY_TOKEN / RAILWAY_PROJECT_ID",
+      });
     });
     aimockInvoker = async () =>
       aimockWiringProbe.run(
@@ -497,46 +538,79 @@ function createRailwayAdapter(opts: {
   // shaves one extra GraphQL round-trip per invocation.
   let cachedServices: { name: string; id: string }[] | null = null;
 
-  return {
-    async listServices() {
-      const data = await gql<{
-        project: {
-          services: { edges: { node: { id: string; name: string } }[] };
-        };
-      }>(
-        `query project($id: String!) {
-          project(id: $id) {
-            services { edges { node { id name } } }
-          }
-        }`,
-        { id: opts.projectId },
-      );
-      const out = data.project.services.edges.map((e) => e.node);
-      cachedServices = out;
-      return out;
-    },
-    async getServiceEnv(name) {
-      if (!cachedServices) {
-        // Fallback path for callers that skip listServices — still fetch.
-        await this.listServices();
-      }
-      const match = cachedServices!.find((s) => s.name === name);
-      if (!match) {
-        throw new Error(`railway service not found: ${name}`);
-      }
-      const data = await gql<{ variables: Record<string, string> }>(
-        `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
-          variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
-        }`,
-        {
-          projectId: opts.projectId,
-          environmentId: opts.environmentId,
-          serviceId: match.id,
-        },
-      );
-      return data.variables ?? {};
-    },
+  // `listServices` is pulled into a plain binding so `getServiceEnv`
+  // can call it regardless of how it's invoked. The previous `this.listServices()`
+  // form broke the moment a caller destructured the adapter
+  // (`const { getServiceEnv } = adapter`) or bound `getServiceEnv` as a
+  // property of another object (`input.getServiceEnv`) — both patterns
+  // already in use (see buildCronProbeResolver passing `adapter.getServiceEnv`
+  // into `aimockWiringProbe.run` as `input.getServiceEnv`). Pre-fix the
+  // fallback path would throw `TypeError: Cannot read properties of
+  // undefined (reading 'listServices')` as soon as the cache was cold.
+  const listServices = async (): Promise<{ name: string; id: string }[]> => {
+    const data = await gql<{
+      project: {
+        services: { edges: { node: { id: string; name: string } }[] };
+      };
+    }>(
+      `query project($id: String!) {
+        project(id: $id) {
+          services { edges { node { id name } } }
+        }
+      }`,
+      { id: opts.projectId },
+    );
+    const out = data.project.services.edges.map((e) => e.node);
+    cachedServices = out;
+    return out;
   };
+
+  const getServiceEnv = async (
+    name: string,
+  ): Promise<Record<string, string | undefined>> => {
+    if (!cachedServices) {
+      // Fallback path for callers that skip listServices — still fetch.
+      // Uses the lexically-captured binding instead of `this.listServices`,
+      // which would be undefined when this method is passed as a callback.
+      await listServices();
+    }
+    const match = cachedServices!.find((s) => s.name === name);
+    if (!match) {
+      throw new Error(`railway service not found: ${name}`);
+    }
+    const data = await gql<{ variables: Record<string, string> }>(
+      `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
+        variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
+      }`,
+      {
+        projectId: opts.projectId,
+        environmentId: opts.environmentId,
+        serviceId: match.id,
+      },
+    );
+    // Sealed Railway variables come back as the literal string "*****"
+    // (masking). For wiring-drift detection specifically that's a false
+    // drift signal (we compare the masked placeholder against the aimock
+    // URL and always mismatch). We can't un-mask the value, so the
+    // defensible behavior is to surface the sentinel as "unknown" rather
+    // than a real value — the probe treats "unknown" as "could not
+    // determine", distinct from "definitely not aimock".
+    const vars = data.variables ?? {};
+    const out: Record<string, string | undefined> = {};
+    for (const [k, v] of Object.entries(vars)) {
+      if (v === "*****") {
+        // Keep the key present but set value to undefined so probes using
+        // `env[X] === undefined ? "unwired" : "wired"` can still see
+        // there's a variable configured — they just can't read it.
+        out[k] = undefined;
+      } else {
+        out[k] = v;
+      }
+    }
+    return out;
+  };
+
+  return { listServices, getServiceEnv };
 }
 
 // Only run boot() when executed directly (not when imported). Use fileURLToPath
