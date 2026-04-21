@@ -110,11 +110,55 @@ function validateIframeSrc(
 // `?q=`) are safe for next/link.
 function isExternalHref(href: string): boolean {
   if (!href) return false;
+  // Protocol-relative URLs (`//example.com/foo`) are external and must not
+  // go through next/link. Check this BEFORE the `/`-prefix internal guard.
+  if (href.startsWith("//")) return true;
   if (href.startsWith("/") || href.startsWith("#") || href.startsWith("?"))
     return false;
   // Any URL with a scheme that isn't a relative path → treat as external.
   // Covers https://..., http://..., mailto:..., tel:..., ftp:..., etc.
   return /^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(href);
+}
+
+// Scheme allowlist for MDX-authored hrefs. `javascript:`, `data:`, `vbscript:`,
+// `file:`, and any other scheme classify as external via isExternalHref() but
+// are live XSS vectors — `rel="noopener noreferrer"` does NOT neutralize them.
+// Accept only well-known safe schemes plus relative / protocol-relative /
+// fragment / query-only URLs. Anything else → sanitizeHref() returns null and
+// callers render text instead of an <a>.
+function sanitizeHref(href: string | undefined): string | null {
+  if (!href) return null;
+  // Relative-ish forms are safe.
+  if (
+    href.startsWith("/") ||
+    href.startsWith("#") ||
+    href.startsWith("?") ||
+    href.startsWith("//")
+  ) {
+    return href;
+  }
+  const schemeMatch = href.match(/^([a-zA-Z][a-zA-Z0-9+\-.]*):/);
+  if (!schemeMatch) {
+    // No scheme → relative path. Safe.
+    return href;
+  }
+  const scheme = schemeMatch[1].toLowerCase();
+  if (
+    scheme === "http" ||
+    scheme === "https" ||
+    scheme === "mailto" ||
+    scheme === "tel"
+  ) {
+    return href;
+  }
+  if (process.env.NODE_ENV !== "production") {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[mdx-registry] rejected href with disallowed scheme "${scheme}:" — rendering without link.`,
+      { href },
+    );
+  }
+  return null;
 }
 
 export const docsComponents = {
@@ -688,11 +732,19 @@ export const docsComponents = {
       style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
     />
   ),
-  A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-    <a href={href} style={{ color: "var(--accent)" }}>
-      {children}
-    </a>
-  ),
+  A: ({ children, href }: { children?: React.ReactNode; href?: string }) => {
+    const safe = sanitizeHref(href);
+    if (!safe) {
+      // Strip the href entirely — rendering as text avoids the XSS vector
+      // while preserving the author's visible content.
+      return <span style={{ color: "var(--accent)" }}>{children}</span>;
+    }
+    return (
+      <a href={safe} style={{ color: "var(--accent)" }}>
+        {children}
+      </a>
+    );
+  },
   Button: ({
     children,
     onClick,
@@ -744,19 +796,26 @@ export const docsComponents = {
     if (!href) {
       return <a {...(rest as Record<string, unknown>)}>{children}</a>;
     }
+    // Scheme allowlist: reject `javascript:`, `data:`, `vbscript:`, etc. These
+    // match the external-href branch (scheme with `:`) but `rel="noopener"`
+    // does NOT neutralize script-URL schemes. Strip the href entirely.
+    const safeHref = sanitizeHref(href);
+    if (!safeHref) {
+      return <span {...(rest as Record<string, unknown>)}>{children}</span>;
+    }
     // External hrefs (https://..., mailto:..., etc.) must NOT use next/link —
     // next/link is client-router-only and spuriously prefetches external
     // URLs. Internal forms (`/foo`, `#id`, `?q=`) route through next/link for
     // client-side navigation. Add rel/target on external links so they don't
     // leak the opener reference + open in a new tab by default.
-    if (isExternalHref(href)) {
+    if (isExternalHref(safeHref)) {
       const extraProps = rest as Record<string, unknown>;
       // Put the spread first so caller-supplied target/rel win; fall back
       // to safe defaults (_blank + noopener noreferrer) only when absent.
       return (
         <a
           {...extraProps}
-          href={href}
+          href={safeHref}
           target={(extraProps.target as string) ?? "_blank"}
           rel={(extraProps.rel as string) ?? "noopener noreferrer"}
         >
@@ -765,7 +824,7 @@ export const docsComponents = {
       );
     }
     return (
-      <Link href={href} {...(rest as Record<string, unknown>)}>
+      <Link href={safeHref} {...(rest as Record<string, unknown>)}>
         {children}
       </Link>
     );
