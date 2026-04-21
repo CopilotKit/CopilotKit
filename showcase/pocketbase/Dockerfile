@@ -33,11 +33,17 @@ RUN set -eux; \
     /pb/pocketbase --version
 
 FROM alpine:3.19
-RUN apk add --no-cache ca-certificates
+# `su-exec` is alpine's minimal privilege-drop helper (~30 KB static
+# binary). Used by entrypoint.sh to run PocketBase as `pocketbase` while
+# still being able to chown /pb_data at container start — see the
+# entrypoint for the full rationale.
+RUN apk add --no-cache ca-certificates su-exec
 # Create a non-root user + group for the runtime. PocketBase needs write
-# access to /pb_data (SQLite db + uploads), so we pre-create the directory
-# and chown it before dropping privileges. Running as root in the final
-# image is a gratuitous risk — nothing here needs it.
+# access to /pb_data (SQLite db + uploads). We pre-create the directory
+# and chown it at build time for the case where no volume is mounted,
+# but note: Railway mounts a fresh root-owned volume at /pb_data which
+# clobbers this chown. entrypoint.sh re-chowns at container start to
+# handle that path, then drops to the `pocketbase` user via su-exec.
 RUN addgroup -S pocketbase && adduser -S -G pocketbase pocketbase \
     && mkdir -p /pb_data \
     && chown -R pocketbase:pocketbase /pb_data
@@ -48,7 +54,12 @@ COPY --from=fetch /pb/pocketbase /usr/local/bin/pocketbase
 # If PB's logging ever stops including the filename, wrap each up/down
 # with `try { ... } catch (e) { throw new Error('[migration <file>] ' + e) }`.
 COPY --chown=pocketbase:pocketbase pb_migrations /pb_migrations
+COPY --chown=pocketbase:pocketbase pb_hooks /pb_hooks
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 VOLUME ["/pb_data"]
 EXPOSE 8090
-USER pocketbase
-ENTRYPOINT ["/usr/local/bin/pocketbase", "serve", "--http=0.0.0.0:8090", "--dir=/pb_data", "--migrationsDir=/pb_migrations"]
+# Run as root so entrypoint.sh can chown the freshly-mounted volume.
+# The shim drops to the `pocketbase` user via su-exec before exec()ing
+# the pocketbase binary — so PB still runs unprivileged.
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh", "serve", "--http=0.0.0.0:8090", "--dir=/pb_data", "--migrationsDir=/pb_migrations", "--hooksDir=/pb_hooks"]

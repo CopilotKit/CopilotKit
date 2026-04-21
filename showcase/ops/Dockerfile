@@ -46,8 +46,19 @@ EXPOSE 8080
 # Runtime healthcheck. Railway provides its own health check on the
 # `health_path` in ALL_SERVICES, so this is primarily for parity with
 # `docker run` locally (and CI integration harnesses that use
-# `docker inspect` to gate test starts on container health). 30s start-period
-# gives Node + config-load time before the first probe.
+# `docker inspect` to gate test starts on container health). 30s
+# start-period gives Node + config-load time before the first probe.
+#
+# BUSYBOX WGET BEHAVIOR: a 503 at /health (intentional response from
+# orchestrator.ts when the rule-loader / probe pipeline is in a broken
+# state) causes busybox `wget -q --spider` to exit 1, which Docker /
+# Railway read as "unhealthy" and restart the container after 3 retries.
+# That restart loop is THE INTENDED OUTCOME during sustained-503
+# windows: if /health is reporting broken for 90s straight, restarting
+# the orchestrator is the right remediation (faster than waiting for a
+# human to notice). Do not "soften" this by treating 503 as healthy —
+# the 503 is specifically how orchestrator.ts communicates "I cannot
+# serve" to its supervisor.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget -q --spider http://127.0.0.1:8080/health || exit 1
 CMD ["node", "dist/orchestrator.js"]
