@@ -9,6 +9,7 @@ import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { docsComponents } from "@/lib/mdx-registry";
+import { stripLeadingImports } from "@/lib/docs-render";
 import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
@@ -141,36 +142,6 @@ const NAV_DEFINITION: NavTab[] = [
 // one from the file (missing file, IO error, malformed frontmatter, etc.).
 function titleFromSlug(slug: string): string {
   return slug.split("/").pop()?.replace(/-/g, " ") || slug;
-}
-
-// Strip leading `import …` lines from the top of an MDX source without
-// touching `import …` lines that appear inside fenced code blocks (where
-// they're sample code, not MDX imports). Walks line-by-line and tracks
-// whether we're inside a fenced block (``` or ~~~).
-// TODO(dedup): hoist into a shared helper (e.g. @/lib/docs-render) once
-// another route needs this — duplicated in reference/[...slug]/page.tsx.
-function stripImportsFenceAware(source: string): string {
-  const lines = source.split("\n");
-  const out: string[] = [];
-  let inFence = false;
-  let fenceMarker = "";
-  for (const line of lines) {
-    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
-    if (fenceMatch) {
-      if (!inFence) {
-        inFence = true;
-        fenceMarker = fenceMatch[1];
-      } else if (line.trim().startsWith(fenceMarker)) {
-        inFence = false;
-        fenceMarker = "";
-      }
-      out.push(line);
-      continue;
-    }
-    if (!inFence && /^import\s+/.test(line)) continue;
-    out.push(line);
-  }
-  return out.join("\n");
 }
 
 // Read the title for a given slug from its MDX file. Uses gray-matter so
@@ -420,7 +391,7 @@ export default async function AgUiDocPage({
   let title = titleFromSlug(slugPath) || "AG-UI";
   try {
     const parsed = matter(source);
-    content = stripImportsFenceAware(parsed.content);
+    content = stripLeadingImports(parsed.content);
     if (typeof parsed.data.title === "string" && parsed.data.title.length > 0) {
       title = parsed.data.title;
     } else {

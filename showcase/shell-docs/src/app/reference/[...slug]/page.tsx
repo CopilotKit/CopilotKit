@@ -16,6 +16,7 @@ import {
   loadAllReferenceItems,
   referenceStaticParams,
 } from "@/lib/reference-items";
+import { stripLeadingImports } from "@/lib/docs-render";
 import { safeReadFileSync } from "@/lib/safe-fs";
 
 // next-mdx-remote components map
@@ -28,36 +29,6 @@ const mdxComponents = {
   Accordion,
   // Strip unknown imports — MDX import statements become no-ops in next-mdx-remote
 };
-
-// Strip leading `import …` lines from the top of an MDX source without
-// touching `import …` lines that appear inside fenced code blocks. The
-// previous implementation filtered any line matching /^import\s+/, which
-// silently mangled doc code samples like `import os` inside Python fences.
-// TODO(dedup): hoist into a shared helper once the ag-ui page and this
-// one both import it (both already have near-identical copies).
-function stripImportsFenceAware(source: string): string {
-  const lines = source.split("\n");
-  const out: string[] = [];
-  let inFence = false;
-  let fenceMarker = "";
-  for (const line of lines) {
-    const fenceMatch = line.match(/^\s*(```+|~~~+)/);
-    if (fenceMatch) {
-      if (!inFence) {
-        inFence = true;
-        fenceMarker = fenceMatch[1];
-      } else if (line.trim().startsWith(fenceMarker)) {
-        inFence = false;
-        fenceMarker = "";
-      }
-      out.push(line);
-      continue;
-    }
-    if (!inFence && /^import\s+/.test(line)) continue;
-    out.push(line);
-  }
-  return out.join("\n");
-}
 
 export function generateStaticParams() {
   return referenceStaticParams();
@@ -95,7 +66,7 @@ export default async function ReferenceSlugPage({
     notFound();
   }
 
-  const cleanedContent = stripImportsFenceAware(content);
+  const cleanedContent = stripLeadingImports(content);
 
   const allItems = loadAllReferenceItems();
   const title =

@@ -384,7 +384,7 @@ export const SUBPATH_TO_COMPONENT: Record<string, string> = {
  * with an `import` statement must have the `import` preserved in the
  * rendered output.
  */
-function stripLeadingImports(source: string): string {
+export function stripLeadingImports(source: string): string {
   const lines = source.split("\n");
   const out: string[] = [];
   let inFence = false;
