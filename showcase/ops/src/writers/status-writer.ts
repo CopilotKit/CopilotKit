@@ -108,20 +108,40 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
       // Update `observed_at` on the status row even on error so the
       // dashboard reflects "we tried at this time", but leave state /
       // fail_count untouched so an error tick doesn't reset the flap
-      // counter. When there's no existing row yet, synthesize a minimal
-      // status row with `state: carriedState` so state-tracking has a
-      // starting point on subsequent ticks — otherwise every tick would
-      // begin with `prevState=null` and the transition detector would
-      // keep reporting `"first"` forever on persistent probe errors.
+      // counter.
+      //
+      // F2.1: previously, when there was no existing row (first-ever
+      // observation of a key is an error), we synthesized a seed row with
+      // `state: carriedState` (defaulting to "green"). That created a
+      // false baseline: the next real red observation would fire a
+      // `green_to_red` transition despite never having observed green.
+      // Fix: skip the seed write entirely. The first real, non-error
+      // observation becomes the baseline and the transition detector
+      // emits `"first"` — which is correct. Persistent probe errors are
+      // still captured in status_history (above) and still emit
+      // `writer.failed` if history_create fails, so operators retain
+      // full visibility into error ticks without state-machine lies.
+      //
+      // F2.2: status.changed must only fire when a persisted transition
+      // actually occurred. On the error path, the status row is either
+      // touched (observed_at refresh) or skipped (first-ever error).
+      // Emitting status.changed without persistence causes the alert
+      // engine to treat a synthesized transition as real — a later
+      // recovery's red_to_green would never fire because the "prev" was
+      // never written. We now track whether a write was persisted and
+      // only emit status.changed when it was.
+      let persisted = false;
       if (existing?.id) {
         try {
           await pb.update("status", existing.id, {
             observed_at: result.observedAt,
           });
+          persisted = true;
         } catch (err) {
           // Best-effort: the history row is already written, so we
           // still emit writer.failed but swallow the throw so callers
-          // don't see an error for a non-critical field update.
+          // don't see an error for a non-critical field update. Leave
+          // `persisted=false` so we skip the status.changed emit below.
           bus.emit("writer.failed", {
             key: result.key,
             phase: "status_upsert",
@@ -133,49 +153,11 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
             err: String(err),
           });
         }
-      } else {
-        // First-ever observation for this key is an error — bootstrap a
-        // minimal row so state tracking is well-defined going forward.
-        // fail_count=0 and first_failure_at=null because we don't know
-        // whether the underlying dimension is red yet (probe errored
-        // before producing a verdict).
-        const seedRecord: Omit<StatusRecord, "id"> = {
-          key: result.key,
-          dimension: deriveDimensionWithWarn(result.key),
-          state: carriedState,
-          signal: result.signal,
-          observed_at: result.observedAt,
-          transitioned_at: result.observedAt,
-          fail_count: 0,
-          first_failure_at: null,
-        };
-        try {
-          await pb.upsertByField(
-            "status",
-            "key",
-            result.key,
-            seedRecord as unknown as Record<string, unknown>,
-          );
-        } catch (err) {
-          bus.emit("writer.failed", {
-            key: result.key,
-            phase: "status_upsert",
-            err: String(err),
-            observedAt: result.observedAt,
-          });
-          logger.warn("status-writer.error-seed-row-failed", {
-            key: result.key,
-            err: String(err),
-          });
-          // CRITICAL: Do NOT emit status.changed when the seed write
-          // failed. Downstream alert-engine would otherwise believe a
-          // transition was persisted, and red_to_green on recovery would
-          // never fire because the synthesized "prev" never got written.
-          // Re-throw so the caller sees the failure — matches the
-          // non-error path, which throws on status upsert failure.
-          throw err;
-        }
       }
+      // else: first-ever observation of this key is an error. We
+      // deliberately do NOT seed a status row — see F2.1 above. The
+      // history entry is sufficient for audit; the first non-error
+      // observation will establish the baseline correctly.
 
       const outcome: WriteOutcome = {
         previousState: prevState,
@@ -184,7 +166,13 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
         firstFailureAt: existing?.first_failure_at ?? null,
         failCount: existing?.fail_count ?? 0,
       };
-      bus.emit("status.changed", { outcome, result });
+      // Only emit status.changed when the DB write was persisted. If
+      // the observed_at update failed, or we didn't write anything
+      // (first-ever error), skip the emit so the alert engine and bus
+      // don't diverge from durable storage.
+      if (persisted) {
+        bus.emit("status.changed", { outcome, result });
+      }
       return outcome;
     }
 

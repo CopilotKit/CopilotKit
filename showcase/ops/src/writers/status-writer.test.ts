@@ -213,25 +213,51 @@ describe("status-writer", () => {
     expect([o1.failCount, o2.failCount, o3.failCount]).toEqual([1, 2, 3]);
   });
 
-  it("error on first-ever observation seeds a status row so next tick has a prev state", async () => {
-    // Regression: previously, when the first observation for a key was
-    // an error, no status row was written — next tick would start from
-    // prevState=null again and the transition detector would keep
-    // reporting "first" forever. Now we seed a minimal row with
-    // carriedState so state tracking is well-defined.
+  it("error on first-ever observation does NOT seed a status row (F2.1)", async () => {
+    // Regression: an earlier version seeded a synthesized status row
+    // with `state: "green"` on first-ever error observation so the
+    // transition detector would stop reporting "first" on every tick.
+    // That seed was a lie — the next real red observation would fire a
+    // `green_to_red` transition despite never having observed green.
+    //
+    // Fix (F2.1): skip the seed entirely. The first real, non-error
+    // observation establishes the baseline. Persistent error ticks are
+    // still captured in status_history and remain visible to operators.
+    const bus = createEventBus();
+    const statusChanged: unknown[] = [];
+    bus.on("status.changed", (p) => statusChanged.push(p));
+    const writer = createStatusWriter({ pb: env.pb, bus, logger });
+    const out = await writer.write(probeResult("error"));
+    expect(out.transition).toBe("error");
+    // No status row was created — first real observation will establish baseline.
+    expect(env.rows.get("smoke:mastra")).toBeUndefined();
+    // status.changed is NOT emitted when nothing was persisted (F2.2).
+    expect(statusChanged).toHaveLength(0);
+    // History row for the error tick IS written so the audit trail stays intact.
+    expect(
+      env.history.some(
+        (h) => (h as { transition: string }).transition === "error",
+      ),
+    ).toBe(true);
+  });
+
+  it("first-ever error followed by red emits 'first' (not green_to_red) — F2.1 regression", async () => {
+    // Concrete demonstration of the F2.1 bug: before the fix, the
+    // error-seed created a synthetic green prev, so the next red tick
+    // incorrectly reported `green_to_red` and would have fired an alert
+    // for a cell that was never observed green.
     const writer = createStatusWriter({
       pb: env.pb,
       bus: createEventBus(),
       logger,
     });
-    const out = await writer.write(probeResult("error"));
-    expect(out.transition).toBe("error");
-    const row = env.rows.get("smoke:mastra");
-    expect(row).toBeDefined();
-    // carriedState defaults to "green" when there's no prior state.
-    expect(row!.state).toBe("green");
-    expect(row!.fail_count).toBe(0);
-    expect(row!.first_failure_at).toBeNull();
+    await writer.write(probeResult("error"));
+    const out = await writer.write({
+      ...probeResult("red"),
+      observedAt: "2026-04-20T00:05:00Z",
+    });
+    expect(out.transition).toBe("first");
+    expect(out.previousState).toBeNull();
   });
 
   it("error transition refreshes status.observed_at to show latest probe attempt", async () => {
@@ -282,6 +308,54 @@ describe("status-writer", () => {
     });
     expect(out.transition).toBe("sustained_red");
     expect(out.firstFailureAt).toBeNull();
+  });
+
+  it("warns (once per key) on legacy-null-first_failure_at path (F2.7)", async () => {
+    // F2.7: the sustained_red branch logs a warn when a legacy row is
+    // missing first_failure_at — operators need to see orphaned rows so
+    // they can be cleaned up. Previously there was no test coverage for
+    // this warn, so a refactor could silently drop it. Assert that the
+    // warn fires on the first legacy tick and is de-duped on subsequent
+    // ones (long-lived legacy rows would otherwise flood the log).
+    const warnCalls: Array<{ msg: string; obj: unknown }> = [];
+    const customLogger = {
+      info: () => {},
+      warn: (msg: string, obj?: unknown) => warnCalls.push({ msg, obj }),
+      error: () => {},
+      debug: () => {},
+    };
+    env.rows.set("smoke:mastra", {
+      id: "legacy-1",
+      key: "smoke:mastra",
+      dimension: "smoke",
+      state: "red",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 5,
+      first_failure_at: null,
+    });
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger: customLogger,
+    });
+    await writer.write({
+      ...probeResult("red"),
+      observedAt: "2026-04-20T00:05:00Z",
+    });
+    await writer.write({
+      ...probeResult("red"),
+      observedAt: "2026-04-20T00:10:00Z",
+    });
+    const legacyWarns = warnCalls.filter(
+      (w) => w.msg === "status-writer.legacy-missing-first-failure",
+    );
+    expect(legacyWarns).toHaveLength(1);
+    expect((legacyWarns[0]!.obj as { key: string }).key).toBe("smoke:mastra");
+    expect((legacyWarns[0]!.obj as { observedAt: string }).observedAt).toBe(
+      "2026-04-20T00:05:00Z",
+    );
   });
 
   it("writes history BEFORE status (history-first ordering)", async () => {
@@ -385,19 +459,33 @@ describe("status-writer", () => {
     expect(failed).toEqual([{ phase: "status_upsert", key: "smoke:mastra" }]);
   });
 
-  it("error-path seed upsert failure does NOT emit status.changed and re-throws", async () => {
-    // Regression: previously, when the very first observation was an
-    // error and the seed upsert to `status` failed, we logged a warn and
-    // proceeded to emit `status.changed` with a synthesized prior. The
-    // alert engine then treated the transition as persisted, so a
-    // later red_to_green on recovery never fired.
-    // Fix: on seed-write failure, re-throw and skip the emit.
+  it("error-path observed_at update failure does NOT emit status.changed (F2.2)", async () => {
+    // Regression (F2.2): previously, when the existing status row's
+    // observed_at refresh failed on an error tick, we still emitted
+    // `status.changed` — the alert engine treated the transition as
+    // persisted despite the DB write failing, causing bus/DB divergence.
+    //
+    // Fix: only emit status.changed when the DB write actually
+    // persisted. writer.failed still fires so ops see the failure; the
+    // error is swallowed (not re-thrown) because observed_at is a
+    // non-critical field.
     const pb: PbClient = {
       async getOne() {
         return null;
       },
-      async getFirst() {
-        return null; // no prior row
+      async getFirst<T>(): Promise<T | null> {
+        // Existing row so we hit the update path (not the first-ever-error skip).
+        return {
+          id: "row-1",
+          key: "smoke:mastra",
+          dimension: "smoke",
+          state: "red",
+          signal: {},
+          observed_at: "2026-04-20T00:00:00Z",
+          transitioned_at: "2026-04-20T00:00:00Z",
+          fail_count: 3,
+          first_failure_at: "2026-04-20T00:00:00Z",
+        } as unknown as T;
       },
       async list() {
         return { page: 1, perPage: 0, totalPages: 0, totalItems: 0, items: [] };
@@ -405,11 +493,17 @@ describe("status-writer", () => {
       async create<T>(_c: string, r: unknown): Promise<T> {
         return r as T; // history_create succeeds
       },
-      async update<T>(_c: string, _i: string, r: unknown): Promise<T> {
-        return r as T;
+      async update(): Promise<never> {
+        // observed_at refresh fails.
+        throw new Error("update boom");
       },
-      async upsertByField(): Promise<never> {
-        throw new Error("seed boom");
+      async upsertByField<T>(
+        _c: string,
+        _f: string,
+        _v: string,
+        r: unknown,
+      ): Promise<T> {
+        return r as T;
       },
       async delete() {},
       async deleteByFilter() {
@@ -430,13 +524,36 @@ describe("status-writer", () => {
     bus.on("status.changed", (p) => statusChangedEvents.push(p));
     bus.on("writer.failed", (p) => writerFailedPhases.push(p.phase));
     const writer = createStatusWriter({ pb, bus, logger });
-    await expect(writer.write(probeResult("error"))).rejects.toThrow(
-      /seed boom/,
-    );
-    // NO status.changed emit — alert engine must not see a fake transition.
+    // Error path swallows the update error (best-effort field refresh).
+    const out = await writer.write(probeResult("error"));
+    expect(out.transition).toBe("error");
+    // F2.2: NO status.changed emit when persistence failed.
     expect(statusChangedEvents).toHaveLength(0);
-    // writer.failed still fires so ops can observe the failure.
+    // writer.failed still fires so operators see the persistence failure.
     expect(writerFailedPhases).toEqual(["status_upsert"]);
+  });
+
+  it("error-path observed_at update success DOES emit status.changed (F2.2 happy path)", async () => {
+    // Complement to the F2.2 fail test: when the update succeeds, the
+    // emit must still fire. We test this explicitly because our fix
+    // introduced a branch that could easily be wrong in the other
+    // direction (silently dropping emits in the common case).
+    const bus = createEventBus();
+    const statusChanged: unknown[] = [];
+    bus.on("status.changed", (p) => statusChanged.push(p));
+    const writer = createStatusWriter({ pb: env.pb, bus, logger });
+    // Seed an existing row by writing green first.
+    await writer.write(probeResult("green"));
+    statusChanged.length = 0;
+    // Now an error tick should update observed_at and still emit.
+    await writer.write({
+      ...probeResult("error"),
+      observedAt: "2026-04-20T00:10:00Z",
+    });
+    expect(statusChanged).toHaveLength(1);
+    expect(env.rows.get("smoke:mastra")?.observed_at).toBe(
+      "2026-04-20T00:10:00Z",
+    );
   });
 
   it("warns (once per key) when key lacks ':' separator and derives dimension=unknown", async () => {
