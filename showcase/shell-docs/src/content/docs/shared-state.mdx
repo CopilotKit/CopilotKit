@@ -79,10 +79,10 @@ component. Every onChange bubbles up to the parent, which calls
 
 Two common extensions of the basic pattern:
 
-- **[State streaming](/docs/shared-state/streaming)** — stream partial
+- **[State streaming](/shared-state/streaming)** — stream partial
   state updates to the UI *while* a tool call is still running, so
   long-running outputs (documents, plans) appear token-by-token.
-- **[Agent read-only context](/docs/shared-state/agent-readonly)** —
+- **[Agent read-only context](/shared-state/agent-readonly)** —
   when you only need a one-way UI → agent channel, `useAgentContext`
   publishes read-only values to the agent without opening up write
   access.

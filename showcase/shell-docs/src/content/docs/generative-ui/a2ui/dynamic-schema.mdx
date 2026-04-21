@@ -87,7 +87,14 @@ and serialise your client catalog into the agent's
 `copilotkit.context`. No backend code to write — the agent can be an
 empty `create_agent(tools=[])`:
 
-<Snippet region="runtime-inject-tool" />
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {
+    injectA2UITool: true,
+  },
+});
+```
 </Step>
 </Steps>
 
