@@ -69,7 +69,17 @@ export const imageDriftProbe: Probe<ImageDriftInput, ImageDriftSignal> = {
         } else if (latest !== digest) {
           stale.push(service);
         }
-      } catch {
+      } catch (err) {
+        // Surface WHY on the errored bucket — without this log, operators see
+        // an opaque "errored" list and have to dig through upstream logs to
+        // figure out if it was a 502, 404, auth failure, etc. The probe still
+        // degrades gracefully (service goes to errored bucket), but now the
+        // cause is captured at warn level for diagnostics.
+        ctx.logger.warn("image-drift service probe failed", {
+          errorId: "IMAGE_DRIFT_SERVICE_ERROR",
+          service,
+          err: err instanceof Error ? err.message : String(err),
+        });
         errored.push(service);
       }
     }
@@ -79,6 +89,9 @@ export const imageDriftProbe: Probe<ImageDriftInput, ImageDriftSignal> = {
     // Do NOT re-sort `triggered` or the template's "rebuild ... (failed lookups
     // listed last)" contract breaks.
     const triggered = [...stale, ...errored];
+    // Pluralize noun based on triggered count. count=0 → "rebuilds" is fine
+    // (templates guard on triggeredCount>0 before rendering the phrase), but
+    // count=1 must be "rebuild" (singular) or templates read "1 rebuilds".
     const signal: ImageDriftSignal = {
       staleServices: stale,
       triggered,
