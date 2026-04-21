@@ -18,12 +18,12 @@ WORKDIR /app
 #   RUN apk add --no-cache libc6-compat
 
 # Copy manifests + lockfiles first for cached, reproducible installs.
-# showcase/scripts/ does not currently ship a lockfile; use `npm install`
-# there and `npm ci` for shell-docs, which does.
-COPY showcase/scripts/package.json ./scripts/
+# Both showcase/scripts/ and showcase/shell-docs/ ship lockfiles, so use
+# `npm ci` in both stages for deterministic, reproducible installs.
+COPY showcase/scripts/package.json showcase/scripts/package-lock.json ./scripts/
 COPY showcase/shell-docs/package.json showcase/shell-docs/package-lock.json ./shell-docs/
 
-RUN cd scripts && npm install --silent \
+RUN cd scripts && npm ci --silent \
     && cd ../shell-docs && npm ci --silent
 
 # Copy source
