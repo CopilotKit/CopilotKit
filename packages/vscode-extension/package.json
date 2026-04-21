@@ -2,14 +2,35 @@
   "name": "copilotkit-vscode-extension",
   "displayName": "CopilotKit",
   "version": "0.1.0",
-  "private": true,
-  "description": "Live preview for A2UI catalog components inside VS Code",
+  "description": "Live-preview A2UI catalog components, explore useCopilotAction / useCoAgent hook renders, and inspect AG-UI agent runs — all from the VS Code sidebar.",
   "categories": [
     "Other",
     "Visualization"
   ],
+  "keywords": [
+    "copilotkit",
+    "ag-ui",
+    "a2ui",
+    "generative-ui",
+    "agents",
+    "ai",
+    "react",
+    "hook-explorer",
+    "inspector",
+    "preview"
+  ],
   "license": "MIT",
   "publisher": "copilotkit",
+  "icon": "icons/copilotkit.png",
+  "pricing": "Free",
+  "homepage": "https://copilotkit.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CopilotKit/CopilotKit"
+  },
+  "bugs": {
+    "url": "https://github.com/CopilotKit/CopilotKit/issues"
+  },
   "type": "module",
   "main": "dist/extension/activate.cjs",
   "scripts": {
@@ -18,6 +39,7 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "vscode:prepublish": "pnpm run build",
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
