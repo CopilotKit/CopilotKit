@@ -1901,8 +1901,13 @@ export function updateWorkflows(args: CLIArgs) {
       }
     }
 
-    // Add build job if not present
-    if (!deploy.includes(`build-${slugVar}`)) {
+    // Add build job if not present. Anchor to `^\s*build-<slugVar>:` at
+    // start of a line so a longer sibling slug (e.g. `build-foo_bar` when
+    // adding `foo`) or an incidental `build-foo` mention inside a
+    // comment, env var, or step name doesn't silently skip the insert.
+    // Mirrors the anchored idempotency checks above at lines 1852/1871.
+    const buildJobRe = new RegExp(`^\\s*build-${escapeRegex(slugVar)}:`, "m");
+    if (!buildJobRe.test(deploy)) {
       const buildJob = `
   build-${slugVar}:
     name: Build & Push ${args.name}
