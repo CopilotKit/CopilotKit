@@ -21,6 +21,7 @@ import {
   MarkdownTipRenderer,
   JsonFileTipStore,
 } from "../tips/index.js";
+import { AnalyticsService } from "../services/analytics.service.js";
 
 const streamPipeline = promisify(pipeline);
 
@@ -323,11 +324,22 @@ export default class Create extends BaseCommand {
     );
     this.log(theme.bottomPadding);
 
+    const analytics = new AnalyticsService();
     const tipEngine = createTipEngine({
       tips: postCreateTips,
       strategy: new WeightedRandomStrategy({ noRepeatCount: 3 }),
       renderer: new MarkdownTipRenderer(),
       store: new JsonFileTipStore(),
+      onTipShown: (tip) => {
+        analytics.track({
+          event: "cli.tip.shown",
+          properties: {
+            tip_id: tip.id,
+            category: tip.category,
+            command: "create",
+          },
+        });
+      },
     });
     await tipEngine.show(this.log.bind(this));
   }

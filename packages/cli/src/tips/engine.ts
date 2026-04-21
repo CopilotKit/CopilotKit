@@ -5,6 +5,7 @@ export interface TipEngineOptions {
   strategy: TipStrategy;
   renderer: TipRenderer;
   store: TipStore;
+  onTipShown?: (tip: Tip) => void;
 }
 
 export class TipEngine {
@@ -16,6 +17,7 @@ export class TipEngine {
     if (!tip) return;
 
     this.options.renderer.render(tip, log);
+    this.options.onTipShown?.(tip);
 
     state.shownTipIds.push(tip.id);
     state.lastShownAt = new Date().toISOString();

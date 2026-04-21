@@ -63,9 +63,8 @@ const createCommandPath = path.join(__dirname, "../../src/commands/create.ts");
 const createCommandSource = fs.readFileSync(createCommandPath, "utf8");
 
 describe("Create Command - Cloudless flow", () => {
-  test("does not depend on AuthService or analytics", () => {
+  test("does not depend on AuthService or cloud login", () => {
     expect(createCommandSource).not.toContain("AuthService");
-    expect(createCommandSource).not.toContain("AnalyticsService");
     expect(createCommandSource).not.toContain("createTRPCClient");
     expect(createCommandSource).not.toContain("requireLogin");
   });

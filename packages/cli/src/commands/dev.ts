@@ -205,6 +205,16 @@ export default class Dev extends BaseCommand {
           strategy: new WeightedRandomStrategy({ noRepeatCount: 2 }),
           renderer: new MarkdownTipRenderer(),
           store: new JsonFileTipStore(),
+          onTipShown: (tip) => {
+            analytics.track({
+              event: "cli.tip.shown",
+              properties: {
+                tip_id: tip.id,
+                category: tip.category,
+                command: "dev",
+              },
+            });
+          },
         });
         await tipEngine.show(this.log.bind(this));
 

@@ -85,4 +85,37 @@ describe("TipEngine", () => {
     await engine.show((msg) => lines.push(msg));
     expect(lines).toEqual([]);
   });
+
+  test("show() calls onTipShown callback with the selected tip", async () => {
+    const store = new InMemoryTipStore();
+    const shownTips: Tip[] = [];
+    const engine = createTipEngine({
+      tips,
+      strategy: new SequentialStrategy(),
+      renderer: new MarkdownTipRenderer(),
+      store,
+      onTipShown: (tip: Tip) => shownTips.push(tip),
+    });
+
+    await engine.show((msg: string) => {});
+    expect(shownTips).toHaveLength(1);
+    expect(shownTips[0].id).toBe("a");
+  });
+
+  test("show() does not call onTipShown when no tip is selected", async () => {
+    const store = new InMemoryTipStore();
+    let called = false;
+    const engine = createTipEngine({
+      tips: [],
+      strategy: new SequentialStrategy(),
+      renderer: new MarkdownTipRenderer(),
+      store,
+      onTipShown: () => {
+        called = true;
+      },
+    });
+
+    await engine.show((msg: string) => {});
+    expect(called).toBe(false);
+  });
 });

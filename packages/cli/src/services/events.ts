@@ -151,4 +151,11 @@ export type AnalyticsEvents = {
     step: string;
     duration_ms: number;
   };
+
+  // Tip system events
+  "cli.tip.shown": {
+    tip_id: string;
+    category?: string;
+    command: string;
+  };
 };
