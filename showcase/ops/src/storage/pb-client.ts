@@ -158,12 +158,12 @@ export function createPbClient(config: PbClientConfig): PbClient {
       },
     );
     if (res.status === 404) {
-      // PB ≤0.22 fallback. Log once so operators can correlate with the
-      // version pin and see it disappear after an upgrade. If this warn
-      // starts firing AFTER a PB 0.23+ upgrade, it means the /_superusers
-      // endpoint is broken on the target server and we're silently
-      // falling through to a stale v0.22 endpoint — which would hide
-      // real auth failures post-upgrade.
+      // PB ≤0.22 fallback. Fires while still on PB ≤0.22; upgrading to
+      // 0.23+ silences it. Log once so operators can correlate with the
+      // version pin. If this warn starts firing AFTER a PB 0.23+ upgrade,
+      // it means the /_superusers endpoint is broken on the target server
+      // and we're silently falling through to a stale v0.22 endpoint —
+      // which would hide real auth failures post-upgrade.
       if (!warnedLegacyAdminAuth) {
         warnedLegacyAdminAuth = true;
         logger.warn("pb-client.legacy-admin-auth-fallback", {
