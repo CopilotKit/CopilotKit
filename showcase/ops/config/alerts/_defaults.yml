@@ -6,4 +6,8 @@ defaults:
   conditions:
     rate_limit:
       window: 15m
-  renderer: mustache
+# NOTE: `renderer: mustache` was previously declared here. The schema
+# accepts the field but rule-loader silently drops it — every rule renders
+# via the one built-in mustache path. Removed to avoid suggesting the
+# default is configurable. If/when a second renderer lands, re-add both
+# schema wiring in rule-loader AND the default here in the same change.

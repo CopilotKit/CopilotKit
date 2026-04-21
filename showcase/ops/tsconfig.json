@@ -21,5 +21,5 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*", "test/**/*"],
-  "exclude": ["node_modules", "dist", "../pocketbase/**"]
+  "exclude": ["node_modules", "dist"]
 }

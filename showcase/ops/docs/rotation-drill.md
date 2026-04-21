@@ -76,10 +76,19 @@ CURRENT=$(railway variables --service showcase-ops --json | jq -r .SHARED_SECRET
 railway variables --service showcase-ops --set SHARED_SECRET_PREV="$CURRENT"
 railway variables --service showcase-ops --set SHARED_SECRET="$STAGED"
 # Remove the staging slot. Recent Railway CLI uses `--unset`; older
-# versions used `--remove`. We keep both for forward/back compat — one
-# will no-op with an unknown-flag error; the other succeeds.
-railway variables --service showcase-ops --unset SHARED_SECRET_NEW \
-  || railway variables --service showcase-ops --remove SHARED_SECRET_NEW
+# versions used `--remove`. Detect CLI capability upfront rather than
+# relying on `A || B` — a transient auth/network failure on `--unset`
+# would incorrectly fall through to `--remove`, which on a modern CLI
+# is itself an unknown-flag error and could mask the real cause.
+if railway variables --help 2>&1 | grep -q -- '--unset'; then
+  UNSET_FLAG=--unset
+elif railway variables --help 2>&1 | grep -q -- '--remove'; then
+  UNSET_FLAG=--remove
+else
+  echo "railway CLI supports neither --unset nor --remove for variables; upgrade CLI" >&2
+  exit 1
+fi
+railway variables --service showcase-ops "$UNSET_FLAG" SHARED_SECRET_NEW
 ```
 
 Railway will redeploy. Wait for `/health` to return 200. The verifier
