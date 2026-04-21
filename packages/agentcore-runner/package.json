@@ -1,0 +1,44 @@
+{
+  "name": "@copilotkit/agentcore-runner",
+  "version": "1.56.2",
+  "description": "AWS Bedrock AgentCore-compatible agent runner for CopilotKit2",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "publint": "publint .",
+    "attw": "attw --pack . --profile node16"
+  },
+  "dependencies": {
+    "@ag-ui/client": "0.0.52",
+    "@copilotkit/runtime": "workspace:*",
+    "rxjs": "7.8.1"
+  },
+  "devDependencies": {
+    "@copilotkit/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "tsdown": "^0.20.3",
+    "typescript": "5.8.2",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
