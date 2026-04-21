@@ -15,6 +15,7 @@ import {
   RouterPivot,
 } from "@/components/router-pivot";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { SidebarLink } from "@/components/sidebar-link";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import {
@@ -264,9 +265,9 @@ function DocsOverview() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {sections.map((s) => (
-                  <Link
+                  <SidebarLink
                     key={s.href}
-                    href={s.href}
+                    slug={s.href.slice(1)}
                     className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
                   >
                     <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
@@ -275,7 +276,7 @@ function DocsOverview() {
                     <div className="text-xs text-[var(--text-muted)] leading-relaxed">
                       {s.description}
                     </div>
-                  </Link>
+                  </SidebarLink>
                 ))}
               </div>
             </div>
@@ -315,13 +316,14 @@ function OverviewNavItem({
   }
   if (node.type === "page") {
     return (
-      <Link
-        href={`/${node.slug}`}
-        className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-        style={{ paddingLeft: `${indent}px` }}
-      >
-        {node.title}
-      </Link>
+      <div style={{ paddingLeft: `${indent}px` }}>
+        <SidebarLink
+          slug={node.slug}
+          className="block py-[5px] text-[13px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+        >
+          {node.title}
+        </SidebarLink>
+      </div>
     );
   }
   return (

@@ -29,11 +29,15 @@ export function SidebarLink({
   className,
   active,
 }: SidebarLinkProps) {
-  const { framework } = useFramework();
+  const { framework, storedFramework } = useFramework();
 
-  // Use the active framework when set, otherwise fall through to
-  // /<slug>.
-  const href = framework ? `/${framework}/${slug}` : `/${slug}`;
+  // Prefer URL-active framework, then stored preference, then bare slug.
+  // Using storedFramework here means sidebar links on unscoped pages (like
+  // the root overview) navigate directly to the framework-scoped URL —
+  // avoiding the visible RouterPivot redirect that would otherwise flicker
+  // in the URL bar.
+  const activeFramework = framework ?? storedFramework;
+  const href = activeFramework ? `/${activeFramework}/${slug}` : `/${slug}`;
 
   return (
     <Link
