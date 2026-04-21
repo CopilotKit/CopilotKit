@@ -9,6 +9,7 @@
 
 import fs from "fs";
 import path from "path";
+import matter from "gray-matter";
 import { resolveWithinDir } from "./safe-fs";
 
 export const CONTENT_DIR = path.join(process.cwd(), "src/content/docs");
@@ -96,7 +97,17 @@ export function readTitle(filePath: string): string | null {
     titleCache.set(cacheKey, null);
     return null;
   }
-  const raw = fs.readFileSync(filePath, "utf-8");
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    // A single bad file / permission error used to crash the whole
+    // page render. Log loudly and cache a null so we don't retry on
+    // every nav build in the same process.
+    console.error("[docs-render] failed to read", filePath, err);
+    titleCache.set(cacheKey, null);
+    return null;
+  }
   // Restrict frontmatter matches to the frontmatter block so we don't
   // grab a `title:` line that lives inside an MDX body (e.g. inside a
   // code sample or example config). Falls back to the first H1 when no
@@ -235,7 +246,16 @@ export function buildNavTreeFromFilesystem(
 ): NavNode[] {
   if (!fs.existsSync(dir)) return [];
   const nodes: NavNode[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch (err) {
+    // Permission denied / ENOTDIR / etc. Log and return an empty tree
+    // rather than crashing every docs page render downstream.
+    console.error("[docs-render] failed to read dir", dir, err);
+    return [];
+  }
+  for (const entry of entries) {
     if (entry.name.startsWith(".") || entry.name === "meta.json") continue;
     if (entry.name.startsWith("(")) continue;
     const slug = prefix
@@ -484,8 +504,21 @@ export function inlineSnippets(
         );
         return `{/* snippet cycle: ${componentName} */}`;
       }
-      let snippetContent = fs.readFileSync(snippetPath, "utf-8");
-      snippetContent = snippetContent.replace(/^---[\s\S]*?---\n?/, "");
+      let snippetContent: string;
+      try {
+        snippetContent = fs.readFileSync(snippetPath, "utf-8");
+      } catch (err) {
+        // Previously a permission error / missing file mid-render
+        // crashed the entire docs page. Log and leave the original
+        // <Component /> reference in the rendered output.
+        console.error(
+          "[docs-render] failed to read snippet",
+          snippetPath,
+          err,
+        );
+        return match;
+      }
+      snippetContent = snippetContent.replace(/^---[\s\S]*?---\r?\n?/, "");
       const nextSeen = new Set(seen);
       nextSeen.add(snippetPath);
       return inlineSnippets(snippetContent, slugPath, nextSeen);
@@ -661,24 +694,47 @@ export function loadDoc(
     return null;
   }
 
-  const source = fs.readFileSync(filePath, "utf-8");
-  const fmMatch = source.match(/^---([\s\S]*?)---/);
-  const fm = fmMatch?.[1] ?? "";
-  // Restrict frontmatter lookups to the `fm` block; previously these
-  // regexes scanned the whole source and could match a `title:` string
-  // that appears inside the MDX body (e.g. in a code sample). Fall
-  // through to the first H1 heading, then to slug-derived fallback.
-  const titleMatch =
-    fm.match(/^title:\s*["']?(.+?)["']?\s*$/m) || source.match(/^#\s+(.+)$/m);
+  let source: string;
+  try {
+    source = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    // Can't read the MDX — log and treat as a missing doc so the
+    // caller renders a 404 rather than crashing the request.
+    console.error("[docs-render] failed to read", filePath, err);
+    return null;
+  }
+
+  // Parse frontmatter with gray-matter rather than a hand-rolled
+  // regex: handles quoted values, folded YAML, multiline descriptions,
+  // and CRLF line endings correctly. Previously the regex split on
+  // `^---\n` and missed anything Windows-authored.
+  let data: Record<string, unknown> = {};
+  let parsed: { data: Record<string, unknown> } | null = null;
+  try {
+    parsed = matter(source);
+    data = parsed.data ?? {};
+  } catch (err) {
+    // Malformed YAML — don't crash the page, just render with an empty
+    // frontmatter and let the title fall back to the first H1.
+    console.error("[docs-render] failed to parse frontmatter", filePath, err);
+  }
+
+  const rawTitle = typeof data.title === "string" ? data.title : undefined;
+  const headingMatch = rawTitle ? null : source.match(/^#\s+(.+)$/m);
   const title =
-    titleMatch?.[1]?.replace(/["']$/, "") ||
+    rawTitle ||
+    headingMatch?.[1] ||
     slugPath.split("/").pop()?.replace(/-/g, " ") ||
     "Docs";
 
-  const descriptionMatch = fm.match(/^description:\s*(.+?)\s*$/m);
-  const description = descriptionMatch?.[1]?.replace(/^["']|["']$/g, "");
-  const snippetFrameworkMatch = fm.match(/snippet_framework:\s*(.+?)\s*$/m);
-  const snippetCellMatch = fm.match(/snippet_cell:\s*(.+?)\s*$/m);
+  const description =
+    typeof data.description === "string" ? data.description : undefined;
+  const defaultFramework =
+    typeof data.snippet_framework === "string"
+      ? data.snippet_framework
+      : undefined;
+  const defaultCell =
+    typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
 
   return {
     source,
@@ -686,8 +742,8 @@ export function loadDoc(
     fm: {
       title,
       description,
-      defaultFramework: snippetFrameworkMatch?.[1]?.replace(/["']/g, ""),
-      defaultCell: snippetCellMatch?.[1]?.replace(/["']/g, ""),
+      defaultFramework,
+      defaultCell,
     },
   };
 }
