@@ -7,6 +7,32 @@ signal:
   filter:
     key: overall
 
+# HF13-E1 coordination:
+#
+# A `gateSkipped: true` payload (see showcase_deploy.yml notify-ops step —
+# fires when the lockfile/detect-changes gate blocks the build matrix
+# before any service deploys) currently resolves to state="green" in
+# `src/probes/deploy-result.ts` (failedCount=0, succeededCount=0,
+# cancelled=false). Because no transition fires on first-observation green
+# and no signal-derived flag is emitted for gateSkipped, NO trigger
+# matches and the alert is silently dropped — operators never see that a
+# build was gated off. The `{{#signal.gateSkipped}}` branch below is the
+# template-side of the fix; the cross-cluster other halves are:
+#
+#   TODO(cluster C, src/probes/deploy-result.ts): when `event.gateSkipped
+#     === true` AND failedCount === 0, set `state = "degraded"` (or leave
+#     green but emit a `gate_skipped` signal flag) so a transition +
+#     trigger becomes observable.
+#   TODO(cluster A, src/alerts/alert-engine.ts deriveSignalFlags): emit
+#     `gate_skipped: true` when `signal.gateSkipped === true`.
+#   TODO(cluster A, src/rules/schema.ts StringTriggerEnum): add
+#     `gate_skipped` to the enum so this YAML can declare it.
+#
+# Until those land, the gate-skipped branch below only renders when some
+# OTHER trigger already fires on a gate-skipped payload (e.g. a prior
+# deploy left state red — `red_to_green` fires, and the branch surfaces
+# the gate alongside the recovery message). The gate-skipped-from-green
+# case stays silent — see coordination items above.
 triggers:
   - green_to_red
   - red_to_green
@@ -21,4 +47,5 @@ template:
     {{#trigger.green_to_red}}:x: *Showcase deploy*: {{#signal.partial}}{{signal.failedCount}}/{{signal.totalCount}} service(s) failed ({{ signal.failedList | truncateCsv 200 }}) — {{ signal.succeededList | truncateCsv 200 }} ok{{/signal.partial}}{{^signal.partial}}FAILED — {{signal.totalCount}} service(s) targeted ({{ signal.servicesList | truncateCsv 200 }}){{/signal.partial}}{{/trigger.green_to_red}}
     {{#trigger.red_to_green}}:white_check_mark: *Showcase deploy*: recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
     {{#trigger.cancelled_midmatrix}}:information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist{{/trigger.cancelled_midmatrix}}
+    {{#signal.gateSkipped}}:no_entry: *Showcase deploy*: build matrix gated off — no services deployed (see run for gate reason){{/signal.gateSkipped}}
     | <{{{event.runUrl}}}|View run>
