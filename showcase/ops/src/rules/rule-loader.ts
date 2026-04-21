@@ -223,24 +223,32 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
     return yaml.load(raw) ?? {};
   }
 
-  async function loadDefaults(): Promise<
-    Partial<RuleDoc> & { targets?: unknown[] }
-  > {
+  async function loadDefaults(): Promise<{
+    defaults: Partial<RuleDoc> & { targets?: unknown[] };
+    error?: string;
+  }> {
     const defaultsPath = path.join(dir, "_defaults.yml");
     try {
       const doc = await readYaml(defaultsPath);
       const parsed = DefaultsSchema.parse(doc);
       return {
-        severity: parsed.defaults.severity,
-        targets: parsed.defaults.targets,
-        conditions: parsed.defaults.conditions,
-      } as Partial<RuleDoc>;
+        defaults: {
+          severity: parsed.defaults.severity,
+          targets: parsed.defaults.targets,
+          conditions: parsed.defaults.conditions,
+        } as Partial<RuleDoc>,
+      };
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
-      if (code === "ENOENT") return {};
-      throw new Error(
-        `rule-loader: invalid _defaults.yml at ${defaultsPath}: ${String(err)}`,
-      );
+      if (code === "ENOENT") return { defaults: {} };
+      // Align with per-rule-file tolerance: a YAML typo or schema miss
+      // in _defaults.yml must NOT kill the entire load. Surface as a
+      // defaults-level error; rules still load (with empty defaults).
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        defaults: {},
+        error: `rule-loader: invalid _defaults.yml at ${defaultsPath}: ${msg}`,
+      };
     }
   }
 
@@ -412,7 +420,7 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
   }
 
   async function loadWithErrors(): Promise<LoadResult> {
-    const defaults = await loadDefaults();
+    const { defaults, error: defaultsError } = await loadDefaults();
     const entries = await fs.readdir(dir);
     const ruleFiles = entries
       .filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"))
@@ -420,6 +428,10 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       .sort();
     const out: CompiledRule[] = [];
     const errors: { file: string; error: string }[] = [];
+    if (defaultsError) {
+      errors.push({ file: "_defaults.yml", error: defaultsError });
+      logger.error("rule-loader.defaults-failed", { err: defaultsError });
+    }
     for (const f of ruleFiles) {
       const filePath = path.join(dir, f);
       try {

@@ -263,10 +263,13 @@ describe("rule-loader: target dedupe + non-empty validation", () => {
     ]);
   });
 
-  it("rejects _defaults.yml with unknown `renderer` key (no longer silently dropped)", async () => {
+  it("surfaces _defaults.yml schema violations as a defaults-level error (no longer fatal)", async () => {
     // Finding 14: the schema previously accepted `renderer` but loader
     // dropped it. Authors got silent no-ops. Removed from schema so a
-    // stray declaration fails at load time with a clear message.
+    // stray declaration surfaces at load time with a clear message.
+    // HF-B4: align with per-rule-file tolerance — a bad _defaults.yml
+    // must NOT kill the entire load. The error surfaces at
+    // `file: "_defaults.yml"` and valid rule files continue loading.
     const dir = await writeDir({
       "_defaults.yml": [
         "defaults:",
@@ -276,9 +279,44 @@ describe("rule-loader: target dedupe + non-empty validation", () => {
       ].join("\n"),
     });
     const loader = createRuleLoader({ dir, logger });
-    await expect(loader.loadWithErrors()).rejects.toThrow(
-      /Unrecognized key.*renderer/,
-    );
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("_defaults.yml");
+    expect(errors[0]!.error).toMatch(/Unrecognized key.*renderer/);
+  });
+
+  it("HF-B4: invalid _defaults.yml YAML still loads valid rule files", async () => {
+    // Red-green: a YAML typo in _defaults.yml must surface as a
+    // defaults-level error WITHOUT aborting rules loading.
+    const dir = await writeDir({
+      // Deliberately malformed YAML (unbalanced brace).
+      "_defaults.yml": ["defaults: {severity: warn", ""].join("\n"),
+      "ok.yml": [
+        "id: ok",
+        'name: "ok"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    // Valid rule file still loads despite defaults parse error.
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.id).toBe("ok");
+    // Defaults error surfaces in the error list.
+    const defaultsErr = errors.find((e) => e.file === "_defaults.yml");
+    expect(defaultsErr).toBeDefined();
+    expect(defaultsErr!.error).toMatch(/_defaults\.yml/);
   });
 
   it("dedupe is keyed by {kind,webhook} only — ignores passthrough extras", async () => {
