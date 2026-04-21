@@ -1,9 +1,12 @@
+"use client";
 // Shared cell-level helpers: docs links row, status (badges) row.
+import { useState } from "react";
 import type { CellContext } from "@/components/feature-grid";
 import { getDocsStatus, type DocState } from "@/lib/docs-status";
-import { Badge, HealthDot } from "@/components/badges";
-import { getDemoStatus, healthBadge, qaBadge, testBadge } from "@/lib/status";
+import { Badge, FlashOnChange, HealthDot } from "@/components/badges";
+import { keyFor, resolveCell, type BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
+import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
 
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
@@ -21,10 +24,6 @@ export function urlsFor(ctx: CellContext): {
  * Row of docs links for a single (integration, feature) cell. Reads the
  * framework-scoped override from `integration.docs_links.features[<id>]` when
  * available and falls back to the feature's global `og_docs_url`.
- *
- * Shell URLs are always built from `shell_docs_path` as
- * `${shellUrl}/${integration.slug}/unselected${path}` — the legacy
- * `feature.shell_docs_url` field is intentionally ignored here.
  */
 export function DocsRow({
   integration,
@@ -44,10 +43,6 @@ export function DocsRow({
     ? `${shellUrl}/${integration.slug}/unselected${shellPath}`
     : undefined;
 
-  // When a per-column override is curated, trust the curator — the probe
-  // data (`docs-status.json`) was generated against legacy URLs and lags
-  // behind the override. Fall back to probe state only when no override
-  // exists for this cell.
   const hasOgOverride = override?.og_docs_url !== undefined;
   const hasShellOverride = override?.shell_docs_path !== undefined;
   const ogState: DocState = hasOgOverride
@@ -112,21 +107,102 @@ function DocsLink({
   );
 }
 
-// Shared status row: docs-og/docs-shell line + E2E/Smoke/QA/Health badges.
-// Used by both the regular runnable-demo cell and the informational
-// (command) cell so the matrix keeps a consistent bottom section. Hides
-// the docs row for `testing`-kind features to match previous behavior.
+/**
+ * Per-badge wrapper that lazy-fetches the last transition on tooltip
+ * open for `red` / `degraded` badges only (spec §5.6).
+ */
+function LiveBadge({
+  name,
+  badge,
+  dimensionKey,
+  href,
+}: {
+  name: string;
+  badge: BadgeRender;
+  dimensionKey: string;
+  href?: string;
+}) {
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const eligible = badge.tone === "red" || badge.tone === "amber";
+  const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
+  const transitionLine = row
+    ? (() => {
+        const { from, to } = deriveFromTo(row.transition);
+        // Some transitions (`first`, `error`) don't encode a prior state, so
+        // fall back to showing just the current state in that case rather
+        // than rendering "null → null".
+        const pair = from && to ? `${from} → ${to}` : row.state;
+        return ` — since ${row.observed_at} (${pair})`;
+      })()
+    : "";
+  const title = badge.tooltip + (eligible ? transitionLine : "");
+
+  return (
+    <FlashOnChange tone={badge.tone}>
+      <Badge
+        name={name}
+        state={{ tone: badge.tone, label: badge.label }}
+        href={href}
+        title={title}
+        onTooltipOpen={() => setTooltipOpen(true)}
+      />
+    </FlashOnChange>
+  );
+}
+
+function LiveHealth({
+  badge,
+  dimensionKey,
+  href,
+}: {
+  badge: BadgeRender;
+  dimensionKey: string;
+  href?: string;
+}) {
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const eligible = badge.tone === "red" || badge.tone === "amber";
+  const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
+  const transitionLine = row
+    ? (() => {
+        const { from, to } = deriveFromTo(row.transition);
+        // Some transitions (`first`, `error`) don't encode a prior state, so
+        // fall back to showing just the current state in that case rather
+        // than rendering "null → null".
+        const pair = from && to ? `${from} → ${to}` : row.state;
+        return ` — since ${row.observed_at} (${pair})`;
+      })()
+    : "";
+  const title = badge.tooltip + (eligible ? transitionLine : "");
+
+  return (
+    <FlashOnChange tone={badge.tone}>
+      <HealthDot
+        state={{ tone: badge.tone, label: badge.label }}
+        href={href}
+        title={title}
+        onTooltipOpen={() => setTooltipOpen(true)}
+      />
+    </FlashOnChange>
+  );
+}
+
+/**
+ * Shared status row: docs-og/docs-shell line + E2E/Smoke/QA/Health badges.
+ * Consumes `liveStatus` from `ctx` (spec §5.4 wiring). Hides the docs row
+ * for `testing`-kind features to match previous behavior.
+ */
 export function CellStatus({ ctx }: { ctx: CellContext }) {
   const isTesting = ctx.feature.kind === "testing";
-  const s = getDemoStatus(ctx.integration.slug, ctx.feature.id);
-  const e2e = testBadge(s?.e2e ?? null, ctx.bundleStale);
-  const smoke = testBadge(s?.smoke ?? null, ctx.bundleStale);
-  const qa = qaBadge(s?.qa ?? null, ctx.bundleStale);
-  const health = healthBadge(
-    s?.health ?? { status: "unknown", checked_at: "" },
-    ctx.bundleStale,
+  const cell = resolveCell(
+    ctx.liveStatus,
+    ctx.integration.slug,
+    ctx.feature.id,
+    {
+      connection: ctx.connection,
+    },
   );
   const hostedUrl = ctx.hostedUrl || undefined;
+
   return (
     <>
       {!isTesting && (
@@ -137,10 +213,26 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
         />
       )}
       <div className="flex items-center gap-2.5">
-        <Badge name="E2E" state={e2e} href={s?.e2e?.url} />
-        <Badge name="Smoke" state={smoke} href={s?.smoke?.url} />
-        <Badge name="QA" state={qa} href={s?.qa?.url} />
-        <HealthDot state={health} href={hostedUrl} />
+        <LiveBadge
+          name="E2E"
+          badge={cell.e2e}
+          dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
+        />
+        <LiveBadge
+          name="Smoke"
+          badge={cell.smoke}
+          dimensionKey={keyFor("smoke", ctx.integration.slug, ctx.feature.id)}
+        />
+        <LiveBadge
+          name="QA"
+          badge={cell.qa}
+          dimensionKey={keyFor("qa", ctx.integration.slug, ctx.feature.id)}
+        />
+        <LiveHealth
+          badge={cell.health}
+          dimensionKey={keyFor("health", ctx.integration.slug)}
+          href={hostedUrl}
+        />
       </div>
     </>
   );

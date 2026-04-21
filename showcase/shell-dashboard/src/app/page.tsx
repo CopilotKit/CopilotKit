@@ -1,3 +1,4 @@
+"use client";
 // Feature matrix: one row per feature × integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
@@ -94,7 +95,7 @@ function Legend() {
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-muted)]">?</span>
-        status bundle is stale
+        live data not yet received (probe pending)
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-muted)]">—</span>

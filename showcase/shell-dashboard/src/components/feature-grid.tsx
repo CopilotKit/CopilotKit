@@ -1,4 +1,5 @@
-import { Fragment } from "react";
+"use client";
+import { Fragment, useMemo } from "react";
 import {
   getIntegrations,
   getFeatures,
@@ -8,13 +9,13 @@ import {
   type Demo,
 } from "@/lib/registry";
 import {
-  bundleGeneratedAt,
-  getDemoStatus,
-  healthBadge,
-  isBundleStale,
-  testBadge,
-} from "@/lib/status";
-import { getDocsStatus } from "@/lib/docs-status";
+  keyFor,
+  mergeRowsToMap,
+  resolveCell,
+  type ConnectionStatus,
+  type LiveStatusMap,
+} from "@/lib/live-status";
+import { useLiveStatus } from "@/hooks/useLiveStatus";
 
 export interface CellContext {
   integration: Integration;
@@ -22,83 +23,92 @@ export interface CellContext {
   demo: Demo;
   /** Hosted URL for runnable demos; empty string for informational (command) demos. */
   hostedUrl: string;
-  bundleStale: boolean;
   shellUrl: string;
+  /** Live-status map merged across {smoke, health, e2e, qa} dimensions. */
+  liveStatus: LiveStatusMap;
+  /** Aggregated SSE connection status — worst across dimensions. */
+  connection: ConnectionStatus;
 }
 
 export type CellRenderer = (ctx: CellContext) => React.ReactNode;
 
 /**
- * Counts binary green / red signals for a single integration column across
- * all features, mirroring the resolution logic used by `DocsRow` + `CellStatus`.
+ * Counts green / amber / red signals for a single integration column across
+ * all features. QA does not contribute (informational only).
  *
- * Counted as green: `docs-og ok`, `docs-shell ok`, `E2E` pass (fresh or amber),
- * `Smoke` pass, `health up`. Counted as red: `docs-og notfound/error`,
- * `docs-shell notfound/error`, `E2E` fail / none, `Smoke` fail / none,
- * `health down`. Skipped (neither green nor red): `missing` docs, `?` /
- * unknown / stale-bundle signals, QA (non-binary), and cells without a demo.
+ * Signal scoping (spec §5.4):
+ *   - Feature-level dimensions (`smoke`, `e2e`) are counted per feature.
+ *   - Integration-level dimensions (`health`) are counted EXACTLY ONCE
+ *     per integration — the health row keyed `health:<slug>` is a single
+ *     signal for the whole column, not one signal per feature. Double-
+ *     counting health across N features would make a single red-health
+ *     integration look N× worse than a single red-smoke feature.
+ *
+ * When the SSE stream is down (`connection === "error"`) we return all-zero —
+ * the column header falls back to an "unknown" rendering so stale counts
+ * don't read as authoritative while the dashboard is offline.
  */
-function computeColumnTally(
+export function computeColumnTally(
   integration: Integration,
   features: Feature[],
-  bundleStale: boolean,
-): { green: number; red: number } {
+  liveStatus: LiveStatusMap,
+  connection: ConnectionStatus = "live",
+): { green: number; amber: number; red: number; unknown: boolean } {
+  if (connection === "error") {
+    return { green: 0, amber: 0, red: 0, unknown: true };
+  }
+
   let green = 0;
+  let amber = 0;
   let red = 0;
 
+  const tallyTone = (tone: string): void => {
+    if (tone === "green") green++;
+    else if (tone === "amber") amber++;
+    else if (tone === "red") red++;
+  };
+
+  // Integration-level health — count once, regardless of how many features
+  // the integration declares. Derived from the `health:<slug>` row directly
+  // so we don't rely on resolveCell's per-feature join.
+  const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
+  if (healthRow) {
+    switch (healthRow.state) {
+      case "green":
+        tallyTone("green");
+        break;
+      case "red":
+        tallyTone("red");
+        break;
+      case "degraded":
+        tallyTone("amber");
+        break;
+    }
+  }
+
+  // Feature-level dimensions: smoke + e2e, one tally per feature-with-demo.
   for (const feature of features) {
     const demo = integration.demos.find((d) => d.id === feature.id);
     if (!demo) continue;
 
-    const isTesting = feature.kind === "testing";
+    const cell = resolveCell(liveStatus, integration.slug, feature.id, {
+      connection,
+    });
 
-    // Docs signals — only for primary features (matches CellStatus which
-    // hides DocsRow for testing features).
-    if (!isTesting) {
-      const probed = getDocsStatus(feature.id);
-      const override = integration.docs_links?.features?.[feature.id];
-      const hasOgOverride = override?.og_docs_url !== undefined;
-      const hasShellOverride = override?.shell_docs_path !== undefined;
-
-      const ogState = hasOgOverride
-        ? override?.og_docs_url
-          ? "ok"
-          : "missing"
-        : probed.og;
-      const shellState = hasShellOverride
-        ? override?.shell_docs_path
-          ? "ok"
-          : "missing"
-        : probed.shell;
-
-      if (ogState === "ok") green++;
-      else if (ogState === "notfound" || ogState === "error") red++;
-
-      if (shellState === "ok") green++;
-      else if (shellState === "notfound" || shellState === "error") red++;
-    }
-
-    // Test / health signals.
-    const s = getDemoStatus(integration.slug, feature.id);
-    const e2e = testBadge(s?.e2e ?? null, bundleStale);
-    const smoke = testBadge(s?.smoke ?? null, bundleStale);
-    const health = healthBadge(
-      s?.health ?? { status: "unknown", checked_at: "" },
-      bundleStale,
-    );
-
-    // testBadge tones: green/amber = passing, red = failing, gray = unknown/stale.
-    if (e2e.tone === "green" || e2e.tone === "amber") green++;
-    else if (e2e.tone === "red") red++;
-
-    if (smoke.tone === "green" || smoke.tone === "amber") green++;
-    else if (smoke.tone === "red") red++;
-
-    if (health.tone === "green") green++;
-    else if (health.tone === "red") red++;
+    tallyTone(cell.smoke.tone);
+    tallyTone(cell.e2e.tone);
   }
 
-  return { green, red };
+  return { green, amber, red, unknown: false };
+}
+
+function aggregateConnection(
+  ...statuses: ConnectionStatus[]
+): ConnectionStatus {
+  // Worst-wins: error > connecting > live. Any "error" → show offline.
+  if (statuses.some((s) => s === "error")) return "error";
+  if (statuses.some((s) => s === "connecting")) return "connecting";
+  return "live";
 }
 
 export function FeatureGrid({
@@ -116,8 +126,38 @@ export function FeatureGrid({
   const integrations = getIntegrations();
   const features = getFeatures();
   const categories = getFeatureCategories();
-  const bundleStale = isBundleStale();
-  const generatedAt = bundleGeneratedAt();
+
+  // One subscription per dimension — each resolves into `rows` that we
+  // merge into a single keyed `LiveStatusMap` (spec §5.4).
+  const smoke = useLiveStatus("smoke");
+  const health = useLiveStatus("health");
+  const e2e = useLiveStatus("e2e");
+  const qa = useLiveStatus("qa");
+
+  const liveStatus = useMemo(
+    () => mergeRowsToMap(smoke.rows, health.rows, e2e.rows, qa.rows),
+    [smoke.rows, health.rows, e2e.rows, qa.rows],
+  );
+  const connection = aggregateConnection(
+    smoke.status,
+    health.status,
+    e2e.status,
+    qa.status,
+  );
+
+  // O(features × integrations) per render is avoidable — the inputs only
+  // change when live rows or connection shift, so memoize across the whole
+  // integration list in one pass.
+  const tallies = useMemo(() => {
+    const out = new Map<string, ReturnType<typeof computeColumnTally>>();
+    for (const integration of integrations) {
+      out.set(
+        integration.slug,
+        computeColumnTally(integration, features, liveStatus, connection),
+      );
+    }
+    return out;
+  }, [integrations, features, liveStatus, connection]);
 
   const featuresByCategory = categories
     .map((cat) => ({
@@ -129,20 +169,17 @@ export function FeatureGrid({
   return (
     <div className="p-8 max-w-[100vw]">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+          <LiveIndicator status={connection} />
+        </div>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
           {subtitle ? <>{subtitle} · </> : null}
-          {features.length} features × {integrations.length} integrations.{" "}
-          <span
-            className={
-              bundleStale ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
-            }
-          >
-            Status bundle: {new Date(generatedAt).toLocaleString()}
-            {bundleStale && " (stale — signals shown as ?)"}
-          </span>
+          {features.length} features × {integrations.length} integrations.
         </p>
       </header>
+
+      {connection === "error" && <OfflineBanner />}
 
       <div className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
         <table className="border-collapse text-sm">
@@ -154,15 +191,18 @@ export function FeatureGrid({
                 </span>
               </th>
               {integrations.map((integration) => {
-                const tally = computeColumnTally(
-                  integration,
-                  features,
-                  bundleStale,
-                );
-                const total = tally.green + tally.red;
-                const tallyTitle = total
-                  ? `${tally.green} green · ${tally.red} red of ${total} countable signals (docs-og, docs-shell, E2E, Smoke, health)`
-                  : "no countable signals for this column";
+                const tally = tallies.get(integration.slug) ?? {
+                  green: 0,
+                  amber: 0,
+                  red: 0,
+                  unknown: false,
+                };
+                const total = tally.green + tally.amber + tally.red;
+                const tallyTitle = tally.unknown
+                  ? "dashboard offline — live signal unavailable (§5.3)"
+                  : total
+                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (E2E + Smoke per feature; Health counted once per integration)`
+                    : "no countable signals for this column";
                 return (
                   <th
                     key={integration.slug}
@@ -179,11 +219,29 @@ export function FeatureGrid({
                       className="mt-1 text-[10px] tabular-nums text-[var(--text-muted)]"
                       title={tallyTitle}
                     >
-                      <span className="text-[var(--ok)]">✓ {tally.green}</span>
-                      <span className="mx-1 text-[var(--text-muted)]">·</span>
-                      <span className="text-[var(--danger)]">
-                        ✗ {tally.red}
-                      </span>
+                      {tally.unknown ? (
+                        <span className="text-[var(--text-muted)]">
+                          ? offline
+                        </span>
+                      ) : (
+                        <>
+                          <span className="text-[var(--ok)]">
+                            ✓ {tally.green}
+                          </span>
+                          <span className="mx-1 text-[var(--text-muted)]">
+                            ·
+                          </span>
+                          <span className="text-[var(--amber)]">
+                            ~ {tally.amber}
+                          </span>
+                          <span className="mx-1 text-[var(--text-muted)]">
+                            ·
+                          </span>
+                          <span className="text-[var(--danger)]">
+                            ✗ {tally.red}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </th>
                 );
@@ -242,8 +300,9 @@ export function FeatureGrid({
                                 hostedUrl: demo.route
                                   ? `${integration.backend_url}${demo.route}`
                                   : "",
-                                bundleStale,
                                 shellUrl,
+                                liveStatus,
+                                connection,
                               })
                             ) : (
                               <div
@@ -264,6 +323,51 @@ export function FeatureGrid({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Header "live" dot — color-coded per spec §5.7.
+ *   connecting → amber pulse
+ *   live       → green solid
+ *   error      → red solid (paired with offline banner)
+ *
+ * Exported for unit-testable color-map coverage.
+ */
+export function LiveIndicator({ status }: { status: ConnectionStatus }) {
+  const dotClass =
+    status === "live"
+      ? "bg-[var(--ok)]"
+      : status === "connecting"
+        ? "bg-[var(--amber)] animate-pulse"
+        : "bg-[var(--danger)]";
+  const label =
+    status === "live"
+      ? "live"
+      : status === "connecting"
+        ? "connecting"
+        : "offline";
+  return (
+    <span
+      data-testid="live-indicator"
+      data-status={status}
+      className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]"
+      title={`Live data: ${label}`}
+    >
+      <span className={`inline-block w-2 h-2 rounded-full ${dotClass}`} />
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function OfflineBanner() {
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded-md border border-[var(--danger)] bg-[var(--bg-danger)] px-4 py-2 text-xs text-[var(--danger)]"
+    >
+      dashboard unavailable — check #oss-alerts
     </div>
   );
 }

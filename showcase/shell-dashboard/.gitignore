@@ -1,3 +1,7 @@
 .next/
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 node_modules/
+playwright-report/
+test-results/
+/tests/visual/__snapshots__/**/*-failed-diff.png
+/tests/visual/__snapshots__/**/*-actual.png
