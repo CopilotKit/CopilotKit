@@ -55,7 +55,7 @@ on:
           - shell-docs
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
+  group: showcase-deploy-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
@@ -256,9 +256,16 @@ jobs:
       - name: Copy shared modules into build context
         run: |
           CONTEXT="${{ matrix.service.context }}"
-          # Starters are self-contained — skip shared module copies
-          if [[ "$CONTEXT" == showcase/starters/* ]]; then
-            echo "Starter build — skipping shared module copies"
+          # Allowlist: only the framework-integration packages under
+          # showcase/packages/* consume shared_python / shared_typescript/tools.
+          # Everything else (starters, shell-family with context=".", aimock,
+          # shell-dojo) is self-contained — their Dockerfiles never reference
+          # these paths, and copying into their contexts either pollutes the
+          # repo root (context=".") or leaves stray unused dirs in the build
+          # context. Allowlist beats denylist here since the set of consumers
+          # is small, known, and grows with package additions (easy to spot).
+          if [[ "$CONTEXT" != showcase/packages/* ]]; then
+            echo "Self-contained build context ($CONTEXT) — skipping shared module copies"
             exit 0
           fi
           if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
@@ -458,6 +465,13 @@ jobs:
       actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    env:
+      # Hoisted to job level so the step-level `if:` on "Post to Slack" can
+      # reference `env.SLACK_WEBHOOK_OSS_ALERTS`. Step-level `env:` mappings
+      # are NOT visible to the same step's `if:` — only workflow-level and
+      # job-level env are. Previously defined only at step level, which made
+      # the gate always evaluate false and silently disabled Slack posts.
+      SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     steps:
       - name: Build deploy summary
         id: summary
@@ -788,8 +802,6 @@ jobs:
 
       - name: Post to Slack
         if: always() && steps.payload.outputs.should_post == 'true' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
-        env:
-          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
