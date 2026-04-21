@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { type Integration } from "@/lib/registry";
 
@@ -12,6 +12,45 @@ interface GuidedAnswers {
   features: string[];
   language: string | null;
   constraints: string[];
+}
+
+// Stored payload shape permits legacy `undefined` for `language` from
+// versions that pre-dated the field. Callers normalize to `GuidedAnswers`
+// immediately after validation.
+interface StoredGuidedAnswers {
+  features: string[];
+  language: string | null | undefined;
+  constraints: string[];
+}
+
+// Runtime guard mirroring StoredGuidedAnswers. Used before trusting values
+// parsed from localStorage (where the schema could drift across
+// component versions or be hand-edited).
+function isGuidedAnswers(v: unknown): v is StoredGuidedAnswers {
+  if (v === null || typeof v !== "object") return false;
+  const r = v as Record<string, unknown>;
+  if (
+    !Array.isArray(r.features) ||
+    !r.features.every((x) => typeof x === "string")
+  ) {
+    return false;
+  }
+  // Accept undefined for backwards compatibility with stored state from
+  // component versions that pre-dated the `language` field.
+  if (
+    r.language !== null &&
+    r.language !== undefined &&
+    typeof r.language !== "string"
+  ) {
+    return false;
+  }
+  if (
+    !Array.isArray(r.constraints) ||
+    !r.constraints.every((x) => typeof x === "string")
+  ) {
+    return false;
+  }
+  return true;
 }
 
 interface ScoredIntegration {
@@ -58,10 +97,10 @@ const STORAGE_KEY = "showcase-guided-flow";
 
 const FEATURE_MAP: Record<string, string> = {
   chat: "agentic-chat",
-  tools: "frontend-tools-sync",
+  tools: "frontend-tools",
   genui: "gen-ui-tool-based",
   orchestration: "subagents",
-  hitl: "hitl",
+  hitl: "hitl-in-chat",
   state: "shared-state-read",
 };
 
@@ -71,6 +110,30 @@ const LANG_MAP: Record<string, string> = {
   dotnet: "dotnet",
   java: "java",
 };
+
+// Module-load invariants: every FEATURE_OPTION id must have a FEATURE_MAP
+// entry, and every LANGUAGE_OPTION id (except "unsure" which is handled
+// separately) must have a LANG_MAP entry. Drift between the UI option
+// arrays and these maps silently produces zero-score scoring, which would
+// ship without a test failure because scoring isn't validated end-to-end.
+// Crashing at module load makes the drift impossible to miss.
+for (const opt of FEATURE_OPTIONS) {
+  if (!(opt.id in FEATURE_MAP)) {
+    throw new Error(
+      `guided-flow: FEATURE_OPTIONS contains id '${opt.id}' with no FEATURE_MAP entry. ` +
+        "Add the mapping in showcase/shell/src/components/guided-flow.tsx.",
+    );
+  }
+}
+for (const opt of LANGUAGE_OPTIONS) {
+  if (opt.id === "unsure") continue;
+  if (!(opt.id in LANG_MAP)) {
+    throw new Error(
+      `guided-flow: LANGUAGE_OPTIONS contains id '${opt.id}' with no LANG_MAP entry. ` +
+        "Add the mapping in showcase/shell/src/components/guided-flow.tsx.",
+    );
+  }
+}
 
 function scoreIntegration(
   integration: Integration,
@@ -134,33 +197,115 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
     constraints: [],
   });
 
-  // Restore from localStorage
+  // Warn-once refs for localStorage failure paths. Declared above both
+  // effects so the restore useEffect (which reads cleanupWarnedRef in its
+  // catch branch) does not forward-reference a later declaration. The
+  // restore effect's callback body runs after the full render — so the
+  // previous ordering worked at runtime — but a refactor to useLayoutEffect
+  // or a synchronous call in render would break silently. Keep these
+  // adjacent to the effects that consume them.
+  //
+  // persistWarnedRef guards the persist (setItem) effect below.
+  const persistWarnedRef = useRef(false);
+  // cleanupWarnedRef guards the removeItem calls in both the restore
+  // useEffect (malformed payload cleanup) and `reset`. Kept separate from
+  // persistWarnedRef so a persist failure doesn't silence cleanup
+  // diagnostics and vice versa.
+  const cleanupWarnedRef = useRef(false);
+  // restoredRef gates the persist effect. Without it, the persist effect
+  // runs on the initial render with the still-empty `answers` state and
+  // clobbers the saved localStorage payload before the restore effect's
+  // setAnswers call triggers a re-render. The persist effect skips its
+  // write until the restore effect has finished (marked at the end of
+  // its body regardless of which branch ran).
+  const restoredRef = useRef(false);
+
+  // Restore from localStorage. Validate the shape before trusting the
+  // parsed value: an older version of this component, a browser
+  // extension, or manual editing could have left a malformed record
+  // behind, and setAnswers(anyObject) would silently propagate the bad
+  // shape into JSX array methods below.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as GuidedAnswers;
-        setAnswers(parsed);
-        // If they have previous results, jump to results
-        if (
-          parsed.features.length > 0 ||
-          parsed.language ||
-          parsed.constraints.length > 0
-        ) {
-          setStep(3);
+      if (!saved) return;
+      const parsed: unknown = JSON.parse(saved);
+      if (!isGuidedAnswers(parsed)) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[guided-flow] Discarding malformed ${STORAGE_KEY} payload from localStorage.`,
+        );
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch (err) {
+          if (!cleanupWarnedRef.current) {
+            cleanupWarnedRef.current = true;
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[guided-flow] Failed to remove ${STORAGE_KEY} from localStorage (further warnings suppressed):`,
+              err,
+            );
+          }
         }
+        return;
       }
-    } catch {
-      // ignore
+      // Coerce legacy undefined language to null so the rest of the
+      // component treats the field uniformly.
+      const normalized: GuidedAnswers = {
+        features: parsed.features,
+        language: parsed.language ?? null,
+        constraints: parsed.constraints,
+      };
+      setAnswers(normalized);
+      // If they have previous results, jump to results
+      if (
+        normalized.features.length > 0 ||
+        normalized.language ||
+        normalized.constraints.length > 0
+      ) {
+        setStep(3);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[guided-flow] Failed to restore ${STORAGE_KEY} from localStorage:`,
+        err,
+      );
+    } finally {
+      // Mark restore complete in all exit paths (no-saved-value,
+      // malformed-and-cleaned, successfully-restored, or threw). The
+      // persist effect is gated on this flag to avoid clobbering the
+      // saved payload on the initial render before setAnswers has had
+      // a chance to swap in the restored state.
+      restoredRef.current = true;
     }
   }, []);
 
-  // Persist to localStorage
+  // Persist to localStorage. Warn at most once per mount: the write effect
+  // runs on every answer change and users in restrictive storage modes
+  // (Safari private, quota exceeded, disabled cookies) would otherwise see
+  // dozens of duplicate warnings per session. The persistWarnedRef /
+  // cleanupWarnedRef refs are declared above the restore useEffect so
+  // neither effect forward-references them.
   useEffect(() => {
+    // Skip until the restore effect has finished. Without this gate, the
+    // initial render writes `{features: [], language: null, constraints: []}`
+    // to localStorage — overwriting the saved payload the restore effect
+    // has not yet applied to state. The restore effect sets
+    // restoredRef.current = true in a finally block, so every exit path
+    // (including early returns and thrown errors) releases this gate.
+    if (!restoredRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
-    } catch {
-      // ignore
+    } catch (err) {
+      if (!persistWarnedRef.current) {
+        persistWarnedRef.current = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[guided-flow] Failed to persist ${STORAGE_KEY} to localStorage (further warnings suppressed):`,
+          err,
+        );
+      }
     }
   }, [answers]);
 
@@ -206,8 +351,15 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
     setStep(0);
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
+    } catch (err) {
+      if (!cleanupWarnedRef.current) {
+        cleanupWarnedRef.current = true;
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[guided-flow] Failed to remove ${STORAGE_KEY} from localStorage (further warnings suppressed):`,
+          err,
+        );
+      }
     }
   }, []);
 
@@ -360,6 +512,11 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                                 alt=""
                                 className="w-5 h-5 rounded"
                                 onError={(e) => {
+                                  // eslint-disable-next-line no-console
+                                  console.warn(
+                                    "[guided-flow] image failed to load:",
+                                    e.currentTarget.src,
+                                  );
                                   (e.target as HTMLImageElement).style.display =
                                     "none";
                                 }}
