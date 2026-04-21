@@ -21,13 +21,69 @@ import { DefaultsSchema, RuleSchema, type RuleDoc } from "./schema.js";
 // type↔value cycle (alert-engine imports `CompiledRule` from this file).
 import { evalSuppress } from "../alerts/dsl.js";
 
+/**
+ * Known filter names surfaced by the renderer pipeline. Kept in sync with
+ * `FilterName` in `src/render/filters.ts` — adding a new filter requires
+ * updating BOTH places so rule-load validation accepts the new name. A
+ * template referencing an unknown filter silently skips the filter at
+ * render time; catching it at load time surfaces the typo before deploy.
+ */
+const KNOWN_FILTERS = new Set<string>([
+  "stripAnsi",
+  "truncateUtf8",
+  "truncateCsv",
+  "slackEscape",
+]);
+
+// Same shape as renderer's FILTER_RE, reused for load-time validation.
+const FILTER_REF_RE = /\{\{\s*([^{}|]+?)\s*\|\s*([^{}]+?)\s*\}\}/g;
+
+/**
+ * Walk every `{{ path | filter ... }}` expression in a rendered template
+ * text and confirm each filter name is in KNOWN_FILTERS. Unknown names
+ * render as a pass-through at runtime (the original value, un-truncated
+ * and un-escaped) — catastrophic for a long stderr blob piped through a
+ * mistyped `truncateUTF8` (camelcase drift). Reject at load.
+ */
+function validateFilterNames(rule: RuleDoc): void {
+  const sources: string[] = [];
+  if (rule.template?.text) sources.push(rule.template.text);
+  if (rule.on_error?.template?.text) sources.push(rule.on_error.template.text);
+  for (const text of sources) {
+    let m: RegExpExecArray | null;
+    FILTER_REF_RE.lastIndex = 0;
+    while ((m = FILTER_REF_RE.exec(text))) {
+      const pipeline = (m[2] ?? "").trim();
+      if (!pipeline) continue;
+      const stages = pipeline
+        .split("|")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const stage of stages) {
+        const name = stage.split(/\s+/)[0] ?? "";
+        if (!KNOWN_FILTERS.has(name)) {
+          throw new Error(
+            `rule ${rule.id}: unknown filter '${name}' in template — valid filters: ${[...KNOWN_FILTERS].join(", ")}`,
+          );
+        }
+      }
+    }
+  }
+}
+
 // Sample vars used at rule-load time to confirm a suppress expression parses
 // cleanly. Keeping them locally in the loader avoids a runtime dependency on
 // the alert-engine's internals and mirrors the shape used at dispatch time.
-const SUPPRESS_VALIDATION_VARS: Record<string, unknown> = {
-  trigger: "first",
-  lastAlertAgeMin: 0,
-};
+//
+// Built on a null-prototype object so inherited names (`toString`, `hasOwnProperty`,
+// `constructor`, `__proto__`) aren't reachable via any future lookup variant.
+// evalSuppress already uses `Object.hasOwn`, but defence-in-depth: if a
+// downstream caller ever drops `hasOwn` for `in`, the validation pass stays
+// safe. Explicit `as` cast because `Object.create(null)` returns `any`.
+const SUPPRESS_VALIDATION_VARS: Record<string, unknown> = Object.assign(
+  Object.create(null) as Record<string, unknown>,
+  { trigger: "first", lastAlertAgeMin: 0 },
+);
 
 export interface CompiledRule {
   id: string;
@@ -102,16 +158,47 @@ export interface RuleLoaderOptions {
  */
 function dedupeTargets<T extends { kind: string; webhook?: string }>(
   targets: T[],
+  logger?: Logger,
+  ruleId?: string,
 ): T[] {
-  const seen = new Set<string>();
+  const seen = new Map<string, T>();
   const out: T[] = [];
   for (const t of targets) {
     // Use a delimiter that can't appear in kind/webhook values so
     // `{kind:"a", webhook:"b"}` and `{kind:"a:b", webhook:""}` don't
     // collide.
     const key = `${t.kind}\u0000${t.webhook ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    const prev = seen.get(key);
+    if (prev) {
+      // First occurrence wins (defaults-then-rule precedence), so the
+      // rule-level target that carried extra fields (e.g. `mention`) is
+      // dropped silently. That silence hid a real authoring bug — a rule
+      // author declared `mention: "@oncall"` expecting it to stick,
+      // defaults had an existing target for the same {kind, webhook},
+      // and the mention quietly vanished. Warn so the drop is visible.
+      if (logger) {
+        const drop = t as unknown as Record<string, unknown>;
+        const kept = prev as unknown as Record<string, unknown>;
+        const droppedExtras = Object.keys(drop).filter(
+          (k) => k !== "kind" && k !== "webhook" && k !== "key",
+        );
+        const keptExtras = Object.keys(kept).filter(
+          (k) => k !== "kind" && k !== "webhook" && k !== "key",
+        );
+        if (droppedExtras.length > 0) {
+          logger.warn("rule-loader.target-dedupe-dropped-metadata", {
+            ruleId: ruleId ?? "(unknown)",
+            kind: t.kind,
+            webhook: t.webhook,
+            droppedKeys: droppedExtras,
+            keptKeys: keptExtras,
+            hint: "add a distinct `webhook` to preserve rule-level metadata",
+          });
+        }
+      }
+      continue;
+    }
+    seen.set(key, t);
     out.push(t);
   }
   return out;
@@ -160,7 +247,7 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
         ...(defaults.targets ?? []),
         ...(rule.targets ?? []),
       ] as NonNullable<RuleDoc["targets"]>;
-      merged.targets = dedupeTargets(combined);
+      merged.targets = dedupeTargets(combined, logger, rule.id);
     }
     if (defaults.conditions) {
       merged.conditions = {
@@ -231,6 +318,7 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
 
   function compile(rule: RuleDoc): CompiledRule {
     validateTripleBrace(rule);
+    validateFilterNames(rule);
     // A rule with no targets (after merging defaults) can never dispatch;
     // fail loudly at load time rather than silently dropping alerts at runtime.
     const mergedTargets = rule.targets ?? [];
@@ -238,6 +326,21 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       throw new Error(
         `rule ${rule.id}: must declare at least one target (after merging defaults)`,
       );
+    }
+    // Escalations with the same whenFailCount are structurally ambiguous: the
+    // runtime sort preserves insertion order (stable), but which one wins for
+    // `severity` depends on declaration order between `_defaults.yml` and the
+    // rule file — a fragile contract. Reject at load so authors must pick
+    // distinct thresholds.
+    const escs = rule.conditions?.escalations ?? [];
+    const seenFailCounts = new Set<number>();
+    for (const e of escs) {
+      if (seenFailCounts.has(e.whenFailCount)) {
+        throw new Error(
+          `rule ${rule.id}: duplicate escalation whenFailCount=${e.whenFailCount} — thresholds must be unique`,
+        );
+      }
+      seenFailCounts.add(e.whenFailCount);
     }
     // Fail rule-load on a malformed suppress expression so bad syntax surfaces
     // at boot rather than at alert time (where it would silently pass-through
