@@ -52,7 +52,33 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+#
+# Startup grace: `node /app/agent_server.js` runs the compiled
+# @anthropic-ai/claude-agent-sdk bundle and was observed restart-looping
+# on Railway starting 04-20 16:54 UTC — the 90s (3-strike) budget was
+# shorter than the cold-start path on a fresh container. Wait up to 180s
+# for the first successful health probe before arming the strike counter
+# so slow cold-starts aren't killed in a loop. Matches the starter-level
+# grace emitted by getWatchdogGraceSeconds() in generate-starters.ts.
 (
+  GRACE=180
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
