@@ -13,13 +13,13 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node -e \"console.log('Agent app has no separate build target yet.')\""
+        "command": "tsc -p apps/agent/tsconfig.json --noEmit"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "node -e \"console.log('Agent app has no lint target yet.')\""
+        "command": "tsc -p apps/agent/tsconfig.json --noEmit"
       }
     }
   },

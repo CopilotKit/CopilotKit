@@ -96,8 +96,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### Agent Connection Issues
 
-If you see "I'm having trouble connecting to my tools", make sure:
-
-1. The LangGraph agent is running on port 8125
-2. Your OpenAI API key is set correctly
-3. Both servers started successfully
+**If the chat returns an "Internal error while dispatching CopilotKit request" 500:**
+Check the Next.js server logs for `[copilotkit/route] handleRequest failed:`. Common causes:
+- `LANGGRAPH_DEPLOYMENT_URL` unset in production (required — check `apps/web/.env`)
+- LangGraph server not running at the configured URL (check `pnpm dev --filter agent` started cleanly)
+- `OPENAI_API_KEY` missing from `apps/agent/.env`
