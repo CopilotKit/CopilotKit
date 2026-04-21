@@ -19,7 +19,7 @@ import {
 import { deployEventToProbeResult } from "./probes/deploy-result.js";
 import { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } from "./probes/redirect-decommission.js";
 import { aimockWiringProbe } from "./probes/aimock-wiring.js";
-import { logger } from "./logger.js";
+import { logger, reloadLogLevel } from "./logger.js";
 import type { Target } from "./types/index.js";
 
 export interface BootOptions {
@@ -186,6 +186,15 @@ export async function boot(opts: BootOptions = {}): Promise<{
     ruleCount: () => rules.length,
     loopAlive: () => loopAlive,
     schedulerStarted: () => schedulerRunning,
+    // Wire the scheduler's introspection probes through to /health so the
+    // endpoint honours the two 503 contracts ServerDeps documents:
+    //   - schedulerJobCount() == 0 → 503 loop:"no-jobs" (rule loader silently
+    //     produced zero cron entries; HTTP up but nothing is ticking).
+    //   - schedulerIsStopped() == true → 503 loop:"stopped" (post-shutdown
+    //     window after scheduler.stop() resolved; takes priority over
+    //     loopAlive which only flips on orchestrator.stop()).
+    schedulerJobCount: () => scheduler.getJobCount(),
+    schedulerIsStopped: () => scheduler.isStopped(),
     bus,
     webhookSecrets,
     metrics,
@@ -281,6 +290,11 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   const sigHup = (): void => {
     logger.info("showcase-ops.sighup-reload");
+    // Re-read LOG_LEVEL first so any log produced by reloadRules() (or its
+    // downstream emissions) honours the new verbosity. logger.ts caches
+    // LOG_LEVEL at module-load time; without this, operators who SIGHUP'd
+    // to bump to debug saw the rule-reload log at the OLD level.
+    reloadLogLevel();
     reloadRules().catch((err) =>
       logger.error("orchestrator.reload-failed", { err: String(err) }),
     );
@@ -590,19 +604,22 @@ function createRailwayAdapter(opts: {
     );
     // Sealed Railway variables come back as the literal string "*****"
     // (masking). For wiring-drift detection specifically that's a false
-    // drift signal (we compare the masked placeholder against the aimock
-    // URL and always mismatch). We can't un-mask the value, so the
-    // defensible behavior is to surface the sentinel as "unknown" rather
-    // than a real value — the probe treats "unknown" as "could not
-    // determine", distinct from "definitely not aimock".
+    // drift signal if we map it to undefined — the probe treats undefined
+    // as "not wired" and flags a correctly-configured-but-sealed service
+    // as drift. We can't un-mask the value, so the defensible behavior is
+    // to emit a SENTINEL string that probes can recognize as "sealed, do
+    // not conclude (un)wired from this value". The probe treats the
+    // sentinel as "unknown" and excludes the service from the drift bucket.
     const vars = data.variables ?? {};
     const out: Record<string, string | undefined> = {};
     for (const [k, v] of Object.entries(vars)) {
       if (v === "*****") {
-        // Keep the key present but set value to undefined so probes using
-        // `env[X] === undefined ? "unwired" : "wired"` can still see
-        // there's a variable configured — they just can't read it.
-        out[k] = undefined;
+        // __SEALED__ is a stable, probe-facing sentinel: probes compare
+        // against this exact string to distinguish "sealed" from "unset".
+        // Mapping to undefined conflated the two — an actually-unset var
+        // looked identical to a masked one, silently clearing the drift
+        // signal on configured services.
+        out[k] = "__SEALED__";
       } else {
         out[k] = v;
       }
