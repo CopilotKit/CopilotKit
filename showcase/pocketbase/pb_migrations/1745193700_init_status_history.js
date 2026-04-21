@@ -30,7 +30,7 @@ migrate(
             maxSelect: 1,
           },
         },
-        { name: "signal", type: "json", options: { maxSize: 2_000_000 } },
+        { name: "signal", type: "json", options: { maxSize: 2000000 } },
         { name: "observed_at", type: "date", required: true },
       ],
       indexes: [
