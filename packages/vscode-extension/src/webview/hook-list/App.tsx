@@ -64,7 +64,7 @@ export function App() {
     <div className="flex flex-col h-full text-[13px]">
       <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--vscode-panel-border)]">
         <div className="text-[11px] uppercase tracking-wider text-[var(--vscode-descriptionForeground)]">
-          Hook Explorer
+          Generative UI
         </div>
         <button
           type="button"

@@ -37,7 +37,7 @@ export function activateHookExplorer(
   workspaceRoot: string | undefined,
 ): void {
   const outputChannel = vscode.window.createOutputChannel(
-    "CopilotKit Hook Explorer",
+    "CopilotKit Generative UI",
   );
   context.subscriptions.push(outputChannel);
 
@@ -94,7 +94,7 @@ export function activateHookExplorer(
           `narrow your workspace folder.`;
         outputChannel.appendLine(msg);
         void vscode.window.showWarningMessage(
-          "CopilotKit hook scan was capped — results may be incomplete. See the CopilotKit Hook Explorer output channel for details.",
+          "CopilotKit hook scan was capped — results may be incomplete. See the CopilotKit Generative UI output channel for details.",
         );
       }
     } catch (err) {

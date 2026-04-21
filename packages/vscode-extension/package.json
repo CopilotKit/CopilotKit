@@ -58,7 +58,7 @@
         {
           "id": "copilotkit.hooks",
           "type": "webview",
-          "name": "CopilotKit Hooks"
+          "name": "Generative UI"
         },
         {
           "id": "copilotkit.componentPreview",
