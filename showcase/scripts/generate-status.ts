@@ -125,7 +125,15 @@ async function probeHealth(url: string): Promise<HealthState> {
     } finally {
       clearTimeout(timer);
     }
-  } catch {
+  } catch (err) {
+    // Log URL + error kind so operators can triage the "unknown" bucket.
+    // Silent return made it impossible to distinguish DNS failures from
+    // aborts from TLS errors.
+    const e = err as Error & { code?: string; cause?: { code?: string } };
+    const kind = e.name ?? "Error";
+    const code = e.code ?? e.cause?.code ?? "";
+    const detail = code ? `${kind}:${code}` : kind;
+    console.warn(`[health] probe failed ${url} (${detail}): ${e.message}`);
     return "unknown";
   }
 }
