@@ -254,11 +254,19 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       // Using a null-prototype object here as belt-and-braces so even if
       // a future change swaps hasOwn for `in`, Object.prototype members
       // stay unreachable.
+      // Project a small set of flat identifiers from `signal` into the
+      // suppress-var bag. The DSL is intentionally flat (no dot-access) so
+      // rule authors reference `hasCandidates` rather than
+      // `signal.hasCandidates`. Add further projections here only when a
+      // rule actually needs them — keep the surface small so load-time
+      // validation in rule-loader's SUPPRESS_VALIDATION_VARS stays in sync.
+      const signal = signalAsObject(evt.result.signal);
       const vars: Record<string, unknown> = Object.assign(
         Object.create(null) as Record<string, unknown>,
         {
           trigger: triggered[0] ?? transition,
           lastAlertAgeMin: ageMin,
+          hasCandidates: signal["hasCandidates"] === true,
         },
       );
       try {

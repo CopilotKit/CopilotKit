@@ -82,7 +82,17 @@ function validateFilterNames(rule: RuleDoc): void {
 // safe. Explicit `as` cast because `Object.create(null)` returns `any`.
 const SUPPRESS_VALIDATION_VARS: Record<string, unknown> = Object.assign(
   Object.create(null) as Record<string, unknown>,
-  { trigger: "first", lastAlertAgeMin: 0 },
+  {
+    trigger: "first",
+    lastAlertAgeMin: 0,
+    // `hasCandidates` is a flat alias for `signal.hasCandidates` exposed by
+    // probes whose suppress expression keys on that flag (e.g.
+    // redirect-decommission-monthly). The alert-engine suppress DSL does not
+    // support dot-access, so authors reference the flat identifier — which
+    // must be present at load-time validation and populated at dispatch time
+    // (see alert-engine.ts suppress-var construction).
+    hasCandidates: true,
+  },
 );
 
 export interface CompiledRule {

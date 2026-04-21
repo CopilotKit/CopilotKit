@@ -215,6 +215,76 @@ describe("alert-engine", () => {
     expect(tgt.sent).toHaveLength(1);
   });
 
+  it("suppresses cron tick when signal.hasCandidates is false (flat alias)", async () => {
+    // Regression: cluster 6 wired redirect-decommission-monthly.yml to
+    // suppress on `hasCandidates != true`. alert-engine must inject
+    // signal.hasCandidates into the suppress-var bag under the flat name
+    // `hasCandidates` — otherwise evalSuppress throws "unknown identifier"
+    // at dispatch time and the alert fires anyway (fail-open).
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "redirect-decommission-monthly",
+        signal: { dimension: "redirect_decommission" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 9 1 * *" }],
+        conditions: {
+          guards: [],
+          escalations: [],
+          suppress: { when: "hasCandidates != true" },
+        },
+        template: { text: "RAN" },
+      }),
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "redirect-decommission-monthly",
+      scheduledAt: "2026-04-20T09:00:00Z",
+      result: {
+        key: "redirect_decommission:monthly",
+        state: "green",
+        signal: { hasCandidates: false, body: "" },
+        observedAt: "2026-04-20T09:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
+  it("allows cron tick when signal.hasCandidates is true (flat alias)", async () => {
+    // Counter-test for the suppression above: when hasCandidates is true,
+    // the `hasCandidates != true` suppress expression evaluates false and
+    // the alert is allowed through.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "redirect-decommission-monthly",
+        signal: { dimension: "redirect_decommission" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 9 1 * *" }],
+        conditions: {
+          guards: [],
+          escalations: [],
+          suppress: { when: "hasCandidates != true" },
+        },
+        template: { text: "RAN" },
+      }),
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "redirect-decommission-monthly",
+      scheduledAt: "2026-04-20T09:00:00Z",
+      result: {
+        key: "redirect_decommission:monthly",
+        state: "green",
+        signal: { hasCandidates: true, body: "report" },
+        observedAt: "2026-04-20T09:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+  });
+
   it("bootstrap window suppresses green_to_red", async () => {
     const e = engine({ bootstrapWindowMs: 15 * 60_000 });
     e.start();

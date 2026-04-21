@@ -124,6 +124,43 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
     expect(errors[0]!.error).toMatch(/invalid suppress expression/);
   });
 
+  it("accepts a suppress expression referencing hasCandidates (flat signal alias)", async () => {
+    // Regression: cluster 6's redirect-decommission-monthly.yml references
+    // the flat `hasCandidates` identifier in suppress.when. rule-loader must
+    // include it in SUPPRESS_VALIDATION_VARS so the parse-time eval succeeds
+    // — otherwise the rule fails at load with "unknown identifier".
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-has-"));
+    await fs.writeFile(
+      path.join(tmp, "has-candidates.yml"),
+      [
+        "id: has-candidates",
+        'name: "has candidates"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: redirect_decommission",
+        "triggers:",
+        "  - cron_only:",
+        '      schedule: "0 9 1 * *"',
+        "conditions:",
+        "  suppress:",
+        '    when: "hasCandidates != true"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.conditions.suppress?.when).toBe("hasCandidates != true");
+  });
+
   it("loads the real pin-drift-weekly and version-drift-weekly rules cleanly", async () => {
     const realDir = path.resolve(__dirname, "../../config/alerts");
     const loader = createRuleLoader({ dir: realDir, logger });
