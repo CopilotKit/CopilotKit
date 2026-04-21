@@ -150,11 +150,18 @@ export async function boot(opts: BootOptions = {}): Promise<{
   );
 
   let loopAlive = true;
+  // `schedulerRunning` closes the boot-window honesty gap in /health: the
+  // HTTP server binds before `scheduler.start()` returns, so without this
+  // flag /health briefly reports `loop: "ok"` even though the scheduler
+  // hasn't ticked yet. Flipped true immediately after start, flipped false
+  // in stop() so post-shutdown probes also read correctly.
+  let schedulerRunning = false;
   const app = buildServer({
     pb,
     logger,
     ruleCount: () => rules.length,
     loopAlive: () => loopAlive,
+    schedulerStarted: () => schedulerRunning,
     bus,
     webhookSecrets,
     metrics,
@@ -193,6 +200,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const port = opts.port ?? Number(process.env.PORT ?? 8080);
   const server = serve({ fetch: app.fetch, port });
   scheduler.start();
+  schedulerRunning = true;
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {
@@ -207,6 +215,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     port,
     async stop() {
       loopAlive = false;
+      schedulerRunning = false;
       process.off("SIGHUP", sigHup);
       unwatch();
       engine.stop();
