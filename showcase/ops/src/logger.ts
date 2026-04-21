@@ -71,6 +71,45 @@ function currentLevel(): Level {
   return cachedLevel;
 }
 
+/**
+ * JSON.stringify with two belt-and-braces fallbacks:
+ *   1. Cycle break via WeakSet — circular `meta` (e.g. a caller passing an
+ *      Error with a cause chain that loops, or a bus event carrying its own
+ *      emitter reference) otherwise throws TypeError out of the catch block
+ *      that called logger.error, masking the original failure.
+ *   2. BigInt coerce to string — `JSON.stringify(1n)` throws; surfacing as
+ *      `"1"` keeps the log line emittable instead of swallowing the record.
+ * Any stringify failure after fallbacks becomes a literal `[logger: stringify
+ * failed]` marker so the log line still appears (at the cost of losing meta
+ * — preferable to silently losing the entire log event).
+ */
+function safeStringify(value: unknown): string {
+  const seen = new WeakSet<object>();
+  try {
+    return JSON.stringify(value, (_key, val): unknown => {
+      if (typeof val === "bigint") return val.toString();
+      if (val !== null && typeof val === "object") {
+        if (seen.has(val as object)) return "[Circular]";
+        seen.add(val as object);
+      }
+      return val;
+    });
+  } catch {
+    // Best-effort fallback: emit structural shell so the level/msg survive.
+    try {
+      const v = value as { level?: unknown; msg?: unknown; ts?: unknown };
+      return JSON.stringify({
+        level: v.level,
+        msg: v.msg,
+        ts: v.ts,
+        _meta_err: "[logger: stringify failed]",
+      });
+    } catch {
+      return `{"level":"error","msg":"logger: stringify failed"}`;
+    }
+  }
+}
+
 function emit(level: Level, msg: string, meta?: Record<string, unknown>): void {
   if (ORDER[level] < ORDER[currentLevel()]) return;
   const line = {
@@ -81,7 +120,7 @@ function emit(level: Level, msg: string, meta?: Record<string, unknown>): void {
   };
   const stream =
     level === "error" || level === "warn" ? process.stderr : process.stdout;
-  stream.write(`${JSON.stringify(line)}\n`);
+  stream.write(`${safeStringify(line)}\n`);
 }
 
 export const logger: Logger = {
