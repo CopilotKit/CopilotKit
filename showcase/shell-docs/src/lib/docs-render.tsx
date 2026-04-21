@@ -386,7 +386,9 @@ export const SNIPPET_MAP: Record<string, string> = {
   ProgrammaticControl: "shared/basics/programmatic-control.mdx",
   ReasoningMessages:
     "shared/guides/custom-look-and-feel/reasoning-messages.mdx",
+  SelfHosting: "shared/premium/self-hosting.mdx",
   Slots: "shared/basics/slots.mdx",
+  Threads: "shared/threads/threads.mdx",
   ToolRendering: "shared/generative-ui/tool-rendering.mdx",
   DefaultToolRendering: "shared/guides/default-tool-rendering.mdx",
 };
@@ -650,27 +652,24 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
   // the output is fed through dangerouslySetInnerHTML-style paths).
   // Covered by: docs pages that place untrusted-looking markup inside
   // `<Accordion>`/`<Callout>` table cells should render as literal text.
+  // Emit attribute-free tags so next-mdx-remote parses the result as
+  // valid JSX. Previously we set inline `style="..."` strings, but MDX
+  // parses inline HTML as JSX, where `style` must be an object — a
+  // string crashes the render. Styling comes from the
+  // `.reference-content table` rules in globals.css.
   const headerHtml = headers
-    .map(
-      (h) =>
-        `<th style="padding:6px 12px;border:1px solid var(--border);text-align:left;font-size:0.875rem">${escapeHtml(h)}</th>`,
-    )
+    .map((h) => `<th>${escapeHtml(h)}</th>`)
     .join("");
   const bodyHtml = bodyRows
     .map(
       (row) =>
         "<tr>" +
-        row
-          .map(
-            (cell) =>
-              `<td style="padding:6px 12px;border:1px solid var(--border);font-size:0.875rem">${escapeHtml(cell)}</td>`,
-          )
-          .join("") +
+        row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("") +
         "</tr>",
     )
-    .join("\n");
+    .join("");
 
-  return `<table style="width:100%;border-collapse:collapse;margin:0.75rem 0"><thead><tr>${headerHtml}</tr></thead><tbody>\n${bodyHtml}\n</tbody></table>`;
+  return `<table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 // A line looks like a table row when it contains at least one pipe

@@ -9,6 +9,10 @@
     "...generative-ui",
     "---App Control---",
     "frontend-tools",
-    "shared-state"
+    "shared-state",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
   ]
 }
