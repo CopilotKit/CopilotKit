@@ -6,7 +6,14 @@ signal:
   dimension: image_drift
 
 triggers:
+  # set_changed catches stale-set transitions (services newly out of date).
+  # set_errored catches the pure-error case: a service flips stale→errored
+  # without changing the stale set, so set_changed stays false but the
+  # template's {{signal.errored.length}} would silently render 0 without
+  # firing. deriveSignalFlags emits set_errored when signal.errored is
+  # non-empty; StringTriggerEnum accepts it (rules/schema.ts R5 C4).
   - set_changed
+  - set_errored
 
 conditions:
   guards:
