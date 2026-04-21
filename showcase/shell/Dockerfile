@@ -37,7 +37,6 @@ COPY --from=builder /app/shell/.next ./.next
 COPY --from=builder /app/shell/node_modules ./node_modules
 COPY --from=builder /app/shell/package.json ./
 COPY --from=builder /app/shell/public ./public
-COPY --from=builder /app/shell/src/content ./src/content
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
