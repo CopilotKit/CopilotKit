@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import crypto from "node:crypto";
 import type { ProbeResult, WriteOutcome } from "../types/index.js";
 import { logger } from "../logger.js";
 
@@ -80,9 +81,21 @@ export interface TypedEventBus {
   removeAll(): void;
 }
 
+// MAX_LISTENERS bumped higher than the default 10 to absorb hot-reload churn
+// (rule-loader watch() reattaches on every file change; under a rapid edit
+// loop we can briefly exceed a lower cap). If this ever fires a
+// MaxListenersExceededWarning in prod, check for leaked subscriptions from
+// repeated boot/stop cycles before bumping further.
+const MAX_LISTENERS = 200;
+
 export function createEventBus(): TypedEventBus {
   const emitter = new EventEmitter();
-  emitter.setMaxListeners(100);
+  emitter.setMaxListeners(MAX_LISTENERS);
+  // Per-subscriber failure counters, keyed by `${event}|${subscriberId}`, so
+  // a constantly-failing handler becomes visible at error level (and, once
+  // the metrics cluster wires a counter, a Prometheus series). Using a
+  // short random id keeps the key stable for the lifetime of a subscription
+  // without imposing a caller-supplied id contract.
   return {
     emit(event, payload) {
       emitter.emit(String(event), payload);
@@ -91,12 +104,21 @@ export function createEventBus(): TypedEventBus {
       // Wrap the handler so a throw in one subscriber never prevents later
       // subscribers from running. Node's EventEmitter re-throws listener
       // errors by default and halts further dispatch on that emit.
+      const subscriberId = crypto.randomBytes(4).toString("hex");
+      let failureCount = 0;
       const wrapper = (p: unknown) => {
         try {
           handler(p as never);
         } catch (err) {
+          failureCount += 1;
+          // errorId lets operators cross-reference the log line with the
+          // subscriber metric (once wired) and any downstream capture.
+          const errorId = crypto.randomBytes(6).toString("hex");
           logger.error("event-bus: subscriber threw, continuing dispatch", {
             event: String(event),
+            subscriberId,
+            errorId,
+            failureCount,
             error: err instanceof Error ? err.message : String(err),
             stack: err instanceof Error ? err.stack : undefined,
           });
@@ -106,6 +128,21 @@ export function createEventBus(): TypedEventBus {
       return () => emitter.off(String(event), wrapper);
     },
     removeAll() {
+      // Also warn if removeAll is called while callers still hold unsubs:
+      // those unsubs become no-ops (the wrappers they'd have detached are
+      // already gone), but the caller may expect their handler to still
+      // be reachable. Surfacing this prevents subtle "why isn't my
+      // subscription firing" debugging trips. Kept at debug level — this
+      // is intentional behavior on shutdown, just worth noting.
+      const count = emitter.eventNames().reduce(
+        (n, name) => n + emitter.listenerCount(name),
+        0,
+      );
+      if (count > 0) {
+        logger.debug("event-bus: removeAll detaching active listeners", {
+          count,
+        });
+      }
       emitter.removeAllListeners();
     },
   };
