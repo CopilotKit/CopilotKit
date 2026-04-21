@@ -89,7 +89,9 @@
       "serve-static@<=1.16.0": "1.16.0",
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
-      "@copilotkit/license-verifier": "0.0.1-a1"
+      "@copilotkit/license-verifier": "0.0.1-a1",
+      "next@<=16.0.9": "^16.0.10",
+      "next@15.6.0-canary.58": "15.6.0-canary.59"
     }
   }
 }
