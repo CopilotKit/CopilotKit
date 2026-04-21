@@ -11,7 +11,7 @@ This project is organized as a monorepo using [pnpm workspaces](https://pnpm.io/
 ├── apps/
 │   ├── web/          # Next.js frontend application
 │   └── agent/        # LangGraph agent
-└── package.json      # workspaces: ["apps/*"]
+└── package.json      # pnpm workspaces via pnpm-workspace.yaml
 ```
 
 ## Prerequisites
@@ -28,12 +28,13 @@ This project is organized as a monorepo using [pnpm workspaces](https://pnpm.io/
 pnpm install
 ```
 
-2. Set up your OpenAI API key:
+2. Set up your OpenAI API key by copying the example env file and editing it:
 
 ```bash
-cd apps/agent
-echo "OPENAI_API_KEY=your-openai-api-key-here" > .env
+cp apps/agent/.env.example apps/agent/.env
 ```
+
+Then open `apps/agent/.env` in your editor and fill in `OPENAI_API_KEY` with your key.
 
 3. Start the development servers:
 
@@ -99,5 +100,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 **If the chat returns an "Internal error while dispatching CopilotKit request" 500:**
 Check the Next.js server logs for `[copilotkit/route] handleRequest failed:`. Common causes:
 - `LANGGRAPH_DEPLOYMENT_URL` unset in production (required — check `apps/web/.env`)
-- LangGraph server not running at the configured URL (check `pnpm dev --filter agent` started cleanly)
+- LangGraph server not running at the configured URL (check `pnpm --filter agent-langgraph-interrupt dev` started cleanly)
 - `OPENAI_API_KEY` missing from `apps/agent/.env`

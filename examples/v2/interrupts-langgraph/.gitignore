@@ -20,6 +20,9 @@ node_modules
 # turbo
 .turbo
 
+# Build outputs
+dist/
+
 # production
 /build
 

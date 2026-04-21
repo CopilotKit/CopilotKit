@@ -12,6 +12,7 @@
     },
     "build": {
       "executor": "nx:run-commands",
+      "cache": false,
       "options": {
         "command": "pnpm --filter web-langgraph-interrupt build"
       }

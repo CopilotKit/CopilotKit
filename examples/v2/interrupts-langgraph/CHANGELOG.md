@@ -1,5 +1,41 @@
 # langgraph-js-starter
 
+## 0.1.7 — 2026-04-21
+
+### Fixed
+
+- CR round 6: hardened `emit_unknown_tools_notice` and
+  `intercept_frontend_tools` against OpenAI tool_call invariant violations
+  and prior-stash clobbering (handled in a parallel commit).
+- `useCopilotAction` deps on `setThemeColor` and `getWeather` (handled in
+  a parallel commit).
+- `next lint` removal in Next 16 — replaced with direct ESLint invocation
+  (handled in a parallel commit).
+- `route.ts` LANGSMITH warn now gates on NODE_ENV like DEPLOYMENT_URL
+  (handled in a parallel commit).
+- `route.ts` log prefixes distinguish runtime-construction from dispatch
+  failures (handled in a parallel commit).
+- `parseInterruptPayload` single-return-value, caller-owned log (handled
+  in a parallel commit).
+
+### Changed
+
+- LICENSE copyright attribution: `2025-2026 CopilotKit` (was: individual).
+- README: fixed broken `pnpm --filter` example in troubleshooting;
+  replaced inline `echo > .env` with `cp .env.example .env` + edit;
+  corrected project-structure diagram comment to reference
+  `pnpm-workspace.yaml`.
+- `apps/web/tsconfig.json`: dropped dead `.next/dev/types/**` include
+  (handled in a parallel commit).
+- `apps/web/.env.example`: clarified that LANGSMITH_* vars forward to the
+  agent (handled in a parallel commit).
+- Root `.gitignore`: ignore `dist/`.
+- `turbo.json`: add `start` task.
+- `apps/web/project.json`: `cache: false` on `build` target for Nx parity
+  with package.json.
+- `apps/agent/tsconfig.json`: set `noEmit: true` so direct `tsc`
+  invocation matches script-driven builds.
+
 ## 0.1.6 — 2026-04-21
 
 ### Changed
