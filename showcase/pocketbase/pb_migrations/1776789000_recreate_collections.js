@@ -155,14 +155,24 @@ migrate(
     reconcile(alertStateSpec);
   },
   (db) => {
-    const dao = new Dao(db);
-    for (const name of ["status", "status_history", "alert_state"]) {
-      try {
-        const c = dao.findCollectionByNameOrId(name);
-        dao.deleteCollection(c);
-      } catch (e) {
-        // ignore if already gone
-      }
-    }
+    // HF13-E4: intentional no-op.
+    //
+    // The UP arm is a reconcile patch — it introspects existing `status`,
+    // `status_history`, and `alert_state` collections and patches broken
+    // field options (signal.maxSize=0 → 2_000_000, fail_count.required=true
+    // → false). It does NOT create those collections; earlier migrations
+    // (1745193600/700/800) own their creation.
+    //
+    // The prior DOWN arm deleted all three collections, which would
+    // cascade-destroy production data owned by those earlier migrations on
+    // any partial rollback through this revision. Reverting field-level
+    // reconciliation without prior-state tracking is not possible — we
+    // cannot know what `maxSize`/`required` values to restore. Safer to
+    // treat this migration as structurally inert on DOWN.
+    //
+    // Second arg preserved so the migrate() signature (up, down) stays
+    // intact for PB's migration runner.
+    /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+    void db;
   },
 );

@@ -142,14 +142,16 @@ migrate(
     reconcile(alertStateSpec);
   },
   (db) => {
-    const dao = new Dao(db);
-    for (const name of ["status", "status_history", "alert_state"]) {
-      try {
-        const c = dao.findCollectionByNameOrId(name);
-        dao.deleteCollection(c);
-      } catch (e) {
-        // ignore if already gone
-      }
-    }
+    // HF13-E4: intentional no-op — see 1776789000_recreate_collections.js
+    // for full rationale. UP is a reconcile patch (not a creator), so DOWN
+    // has nothing structural to undo; deleting the `status`,
+    // `status_history`, and `alert_state` collections here would destroy
+    // rows owned by earlier migrations (1745193600/700/800) on any
+    // partial rollback.
+    //
+    // Second arg preserved so the migrate() signature (up, down) stays
+    // intact for PB's migration runner.
+    /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+    void db;
   },
 );
