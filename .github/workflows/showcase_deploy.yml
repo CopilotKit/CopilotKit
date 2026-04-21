@@ -116,8 +116,16 @@ jobs:
             starter_strands: 'showcase/starters/strands/**'
             aimock: 'showcase/aimock/**'
             shell_dojo: 'showcase/shell-dojo/**'
-            shell_dashboard: 'showcase/shell-dashboard/**'
-            shell_docs: 'showcase/shell-docs/**'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
+            shell_docs:
+              - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
 
       - name: Build service matrix
         id: build-matrix
