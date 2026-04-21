@@ -9,34 +9,25 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { AGENT_URL_LOCALHOST_8000_RE, FRAMEWORKS } from "../generate-starters";
+import {
+  FRAMEWORKS,
+  makeAgentUrlLocalhostPortRE,
+} from "../generate-starters";
 
 /**
- * Clone the shared 8000-port regex for per-iteration use. The imported
- * AGENT_URL_LOCALHOST_8000_RE carries the /g flag, so `.test()` / `.exec()`
- * advance lastIndex — sharing the exact instance across the beforeEach-free
- * describe-loop below would couple any two iterations that touch it.
- * Construct a fresh instance each time with `new RegExp(source, flags)`.
+ * Fresh AGENT_URL matchers per call. The underlying regex carries the /g
+ * flag, so `.test()` / `.exec()` advance `lastIndex` — sharing a single
+ * instance across the `describe`-loop iterations below would couple any two
+ * tests that touch it. Both helpers go through the shared factory in
+ * `generate-starters` so a single edit to the host allowlist propagates to
+ * every caller, and so neither side duplicates a regex body that could
+ * silently drift.
  */
 function re8000(): RegExp {
-  return new RegExp(
-    AGENT_URL_LOCALHOST_8000_RE.source,
-    AGENT_URL_LOCALHOST_8000_RE.flags,
-  );
+  return makeAgentUrlLocalhostPortRE(8000);
 }
-
-/**
- * Mirror the generator's narrow host pattern for the POST-rewrite assertion.
- * Must stay in lockstep with AGENT_URL_LOCALHOST_8000_RE but match the 8123
- * port instead of 8000. Derived at call time from the shared regex source
- * so a single edit to the host allowlist propagates to both sides, and so
- * each caller gets a fresh instance (no shared lastIndex across iterations).
- */
 function re8123(): RegExp {
-  return new RegExp(
-    AGENT_URL_LOCALHOST_8000_RE.source.replace(/8000\\b/, "8123\\b"),
-    AGENT_URL_LOCALHOST_8000_RE.flags,
-  );
+  return makeAgentUrlLocalhostPortRE(8123);
 }
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
