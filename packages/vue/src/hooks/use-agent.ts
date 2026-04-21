@@ -1,7 +1,8 @@
 import { computed, shallowRef, toValue, triggerRef, watch } from "vue";
 import type { MaybeRefOrGetter } from "vue";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -320,16 +321,17 @@ export function useAgent(props: UseAgentProps = {}) {
             }
           };
         } else {
-          handlers.onMessagesChanged = scheduleRefresh;
+          handlers.onMessagesChanged = () => {
+            if (!disposed) {
+              triggerRef(agent);
+            }
+          };
         }
       }
       if (f.includes(UseAgentUpdate.OnStateChanged)) {
         handlers.onStateChanged = scheduleRefresh;
       }
       if (f.includes(UseAgentUpdate.OnRunStatusChanged)) {
-        handlers.onRunStartedEvent = scheduleRefresh;
-        handlers.onRunFinishedEvent = scheduleRefresh;
-        handlers.onRunErrorEvent = scheduleRefresh;
         handlers.onRunInitialized = scheduleRefresh;
         handlers.onRunFinalized = scheduleRefresh;
         handlers.onRunFailed = scheduleRefresh;

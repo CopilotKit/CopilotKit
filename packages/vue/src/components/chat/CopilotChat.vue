@@ -129,6 +129,7 @@ const resolvedLabels = computed(() => props.labels);
 const { agent } = useAgent({
   agentId: resolvedAgentId,
   threadId: resolvedThreadId,
+  throttleMs: computed(() => props.throttleMs),
 });
 const { suggestions: autoSuggestions } = useSuggestions({
   agentId: resolvedAgentId,
@@ -147,10 +148,34 @@ const attachmentsEnabled = computed(() => props.attachments?.enabled ?? false);
 const effectiveMode = computed<"input" | "transcribe" | "processing">(() =>
   isTranscribing.value ? "processing" : transcribeMode.value,
 );
+const runLifecycleTick = ref(0);
 const messages = computed(() => [...(agent.value?.messages ?? [])]);
-const isRunning = computed(() => agent.value?.isRunning ?? false);
+const isRunning = computed(() => {
+  runLifecycleTick.value += 0;
+  return agent.value?.isRunning ?? false;
+});
 const shouldAllowStop = computed(
   () => isRunning.value && messages.value.length > 0,
+);
+
+watch(
+  () => agent.value,
+  (currentAgent, _previous, onCleanup) => {
+    if (!currentAgent) return;
+    const sub = currentAgent.subscribe({
+      onRunStartedEvent: () => {
+        runLifecycleTick.value += 1;
+      },
+      onRunFinishedEvent: () => {
+        runLifecycleTick.value += 1;
+      },
+      onRunErrorEvent: () => {
+        runLifecycleTick.value += 1;
+      },
+    });
+    onCleanup(() => sub.unsubscribe());
+  },
+  { immediate: true },
 );
 
 async function processFiles(files: File[]) {

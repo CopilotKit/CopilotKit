@@ -133,6 +133,15 @@ watch(
       onStateChanged: () => {
         stateTick.value += 1;
       },
+      onRunStartedEvent: () => {
+        stateTick.value += 1;
+      },
+      onRunFinishedEvent: () => {
+        stateTick.value += 1;
+      },
+      onRunErrorEvent: () => {
+        stateTick.value += 1;
+      },
     });
 
     onCleanup(() => sub.unsubscribe());

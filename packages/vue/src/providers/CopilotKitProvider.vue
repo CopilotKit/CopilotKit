@@ -339,11 +339,19 @@ watch(
     () => props.properties,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
-    () => props.defaultThrottleMs,
   ],
   () => {
     if (!didMountRef.value) return;
     syncRuntimeConfig();
+  },
+);
+
+watch(
+  () => props.defaultThrottleMs,
+  () => {
+    if (!didMountRef.value) return;
+    applyDefaultThrottleMs(copilotkit.value);
+    triggerRef(copilotkit);
   },
 );
 

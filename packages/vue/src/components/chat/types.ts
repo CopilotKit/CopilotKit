@@ -50,6 +50,7 @@ export interface CopilotChatProps extends Omit<
 > {
   agentId?: string;
   threadId?: string;
+  throttleMs?: number;
   labels?: Partial<CopilotChatLabels>;
   attachments?: AttachmentsConfig;
   onError?: (event: {
