@@ -2050,6 +2050,21 @@ export function updateWorkflows(args: CLIArgs) {
         `updateWorkflows: failed to locate the 'starter:' block in ${smokePath}. ` +
           "The workflow file layout may have changed; update the parser in updateWorkflows().",
       );
+    } else {
+      // Degenerate case: the `starter:` block was located but contains
+      // zero entries, so we have no existing `- <slug>` line to derive
+      // indentation from and no insertion point to append after.
+      // Without this guard the append silently no-ops and the new
+      // starter ships without smoke coverage. Auto-seeding the first
+      // entry is intentionally out of scope — the indentation for a
+      // fresh block depends on workflow layout we shouldn't guess at.
+      // The operator hand-seeds the first entry once; subsequent
+      // starters append normally.
+      throw new Error(
+        `updateWorkflows: found 'starter:' block in ${smokePath} but it has zero entries; ` +
+          "cannot determine indentation or insertion point. Hand-seed at least one " +
+          "existing entry in the block before running create-integration.",
+      );
     }
   }
 }
