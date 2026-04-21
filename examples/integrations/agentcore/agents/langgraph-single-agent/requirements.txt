@@ -1,14 +1,14 @@
 # LangGraph agent dependencies with pinned versions
 fastapi==0.115.12
 uvicorn==0.34.2
-ag-ui-protocol>=0.1.15
-ag-ui-langgraph==0.0.33
+ag-ui-protocol>=0.1.17
+ag-ui-langgraph==0.0.34
 copilotkit==0.1.87
 partialjson>=0.0.8
-langgraph==1.0.10rc1
-langchain>=0.3.0
-langchain-aws==1.0.0
-langchain-mcp-adapters==0.1.13
-langgraph-checkpoint-aws==1.0.5
+langgraph==1.1.8
+langchain>=1.2.15
+langchain-aws==1.4.4
+langchain-mcp-adapters==0.2.2
+langgraph-checkpoint-aws==1.0.7
 mcp==1.23.1
-bedrock-agentcore==1.0.6
+bedrock-agentcore==1.6.3
