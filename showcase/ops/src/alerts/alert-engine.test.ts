@@ -182,12 +182,17 @@ describe("alert-engine", () => {
         },
       }),
     ]);
-    // Seed alert_state so lastAlertAgeMin is small.
-    await store.record("smoke-red-tick", "smoke:mastra:sustained_red", {
-      at: "2026-04-20T00:55:00Z",
-      hash: "h",
-      preview: "",
-    });
+    // Seed alert_state so lastAlertAgeMin is small. Dedupe key shape is
+    // `${rule.id}:${evt.result.key}:${fallbackTrigger}` (A5/A10).
+    await store.record(
+      "smoke-red-tick",
+      "smoke-red-tick:smoke:mastra:sustained_red",
+      {
+        at: "2026-04-20T00:55:00Z",
+        hash: "h",
+        preview: "",
+      },
+    );
     bus.emit("status.changed", {
       outcome: {
         previousState: "red",
@@ -1560,6 +1565,256 @@ describe("alert-engine set_errored (F4.3)", () => {
     expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
       "ERR 1",
     );
+    e.stop();
+  });
+});
+
+// R7 Cluster A — A1, A4, A5, A9 regressions.
+describe("alert-engine R7 (A1/A4/A5/A9)", () => {
+  function makeEngine(
+    overrides: { now?: () => Date; bootstrapWindowMs?: number } = {},
+  ) {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: overrides.now ?? (() => new Date("2026-04-20T02:00:00Z")),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: overrides.bootstrapWindowMs ?? 0,
+    });
+    return { bus, e, sent, store };
+  }
+
+  it("A1: cron `error` tick suppressed when minDeployAgeMin guard fails", async () => {
+    // Pre-fix: dispatchCronAlert → dispatchOnError branch skipped
+    // passesGuards. A rule with minDeployAgeMin fired on cron-path error
+    // inside the deploy-age window even though status.changed's onError
+    // path correctly suppressed. This test pins the fix: cron onError
+    // must respect minDeployAgeMin.
+    const now = () => new Date("2026-04-20T02:00:00Z");
+    const { bus, e, sent } = makeEngine({ now, bootstrapWindowMs: 0 });
+    e.start();
+    e.reload([
+      {
+        id: "cron-err-guard",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        // Deploy 5 minutes before now, guard demands 10. Must suppress.
+        conditions: { guards: [{ minDeployAgeMin: 10 }], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "main" },
+        onError: { template: { text: "ERR" } },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-err-guard",
+      scheduledAt: "2026-04-20T02:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        // 5 minutes old — well inside the 10min guard window.
+        signal: { deployedAt: "2026-04-20T01:55:00Z", errorDesc: "boom" },
+        observedAt: "2026-04-20T02:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(0);
+    e.stop();
+  });
+
+  it("A1: cron `error` tick dispatches when minDeployAgeMin guard passes", async () => {
+    const now = () => new Date("2026-04-20T02:00:00Z");
+    const { bus, e, sent } = makeEngine({ now, bootstrapWindowMs: 0 });
+    e.start();
+    e.reload([
+      {
+        id: "cron-err-guard-ok",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [{ minDeployAgeMin: 10 }], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "main" },
+        onError: { template: { text: "ERR" } },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-err-guard-ok",
+      scheduledAt: "2026-04-20T02:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        // 20 minutes old — past the 10min threshold.
+        signal: { deployedAt: "2026-04-20T01:40:00Z", errorDesc: "boom" },
+        observedAt: "2026-04-20T02:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "ERR",
+    );
+    e.stop();
+  });
+
+  it("A5/A10: dedupe key is prefixed with rule.id", async () => {
+    // Two rules listening to the same event key must get distinct dedupe
+    // rows even under a stateStore namespace flattening. Seed state under
+    // the NEW prefixed shape and assert the rate-limit fires correctly.
+    const now = () => new Date("2026-04-20T02:00:00Z");
+    const { bus, e, sent, store } = makeEngine({ now, bootstrapWindowMs: 0 });
+    e.start();
+    const rule: CompiledRule = baseRule({
+      id: "rule-alpha",
+      conditions: {
+        guards: [],
+        escalations: [],
+        rate_limit: { window: "15m" },
+      },
+    });
+    e.reload([rule]);
+    // Seed at the new dedupe-key shape (rule-id prefixed).
+    await store.record(
+      "rule-alpha",
+      "rule-alpha:smoke:mastra:green_to_red",
+      {
+        at: "2026-04-20T01:55:00Z", // 5 minutes ago — inside the 15m window.
+        hash: "h",
+        preview: "",
+      },
+    );
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T01:55:00Z",
+      },
+      result: probeRes("red"),
+    });
+    await new Promise((r) => setImmediate(r));
+    // Rate-limited because the seed matches the rule-id-prefixed key.
+    expect(sent).toHaveLength(0);
+    e.stop();
+  });
+
+  it("A4: dedupe bucket is stable regardless of YAML `triggers:` order", async () => {
+    // Two rules declaring the same trigger set in different YAML order
+    // must share the same dedupe bucket. Pre-fix: `triggered[0]` was
+    // author-ordered, so `[green_to_red, sustained_red]` and
+    // `[sustained_red, green_to_red]` produced different buckets.
+    const now = () => new Date("2026-04-20T02:00:00Z");
+    const { bus, e, sent, store } = makeEngine({ now, bootstrapWindowMs: 0 });
+    e.start();
+    // Rule declares triggers [red_to_green, green_to_red]. A transition
+    // that fires green_to_red would previously dedupe-key on green_to_red
+    // (the first match) — pre-fix dedupe was author-ordered, not alpha.
+    // Post-fix: alpha-sorted, so `green_to_red` is the bucket regardless.
+    const rule: CompiledRule = baseRule({
+      id: "rule-reorder",
+      stringTriggers: ["red_to_green", "green_to_red", "sustained_red"],
+      conditions: {
+        guards: [],
+        escalations: [],
+        rate_limit: { window: "15m" },
+      },
+    });
+    e.reload([rule]);
+    // Seed the alpha-first key (green_to_red precedes sustained_red alpha).
+    await store.record(
+      "rule-reorder",
+      "rule-reorder:smoke:mastra:green_to_red",
+      {
+        at: "2026-04-20T01:55:00Z", // 5m ago, inside window.
+        hash: "h",
+        preview: "",
+      },
+    );
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T01:55:00Z",
+      },
+      result: probeRes("red"),
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(0);
+    e.stop();
+  });
+
+  it("A9: cron error + bootstrap + guard + suppress interact in the correct order", async () => {
+    // Clarifying test for the control-flow subtlety. The order is:
+    //   1. dispatchCronAlert sees state==="error" → passesGuards check
+    //   2. passesGuards fails (deploy too young) → return, NO dispatch
+    // So even if bootstrap window is closed, even if suppress would
+    // permit, a failing guard alone is sufficient to suppress.
+    const now = () => new Date("2026-04-20T02:00:00Z");
+    const { bus, e, sent } = makeEngine({
+      now,
+      // Bootstrap window wide open (so we test guard, not bootstrap).
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-order",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: {
+          guards: [{ minDeployAgeMin: 10 }],
+          escalations: [],
+          // Permissive suppress — never blocks.
+          suppress: { when: 'trigger == "never_matches"' },
+        },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "main" },
+        onError: { template: { text: "ERR" } },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-order",
+      scheduledAt: "2026-04-20T02:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        signal: { deployedAt: "2026-04-20T01:55:00Z", errorDesc: "x" },
+        observedAt: "2026-04-20T02:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    // Guard blocks before suppress even gets to run.
+    expect(sent).toHaveLength(0);
     e.stop();
   });
 });

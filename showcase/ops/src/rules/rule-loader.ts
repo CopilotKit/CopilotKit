@@ -352,6 +352,22 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       }
       seenFailCounts.add(e.whenFailCount);
     }
+    // A3: `conditions.rate_limit.perKey` is rendered by `Mustache.render`
+    // directly inside `alert-engine.buildDedupeKey` — it intentionally
+    // BYPASSES the renderer's two-phase filter pipeline, so any `| filter`
+    // tokens in this template would be treated as literal Mustache section
+    // syntax and silently malformed the dedupe key. Chosen approach:
+    // reject filter tokens at load time rather than threading perKey
+    // through the full renderer (which pulls in BOM handling, soft-limit
+    // truncation, sentinel extraction — all wrong tools for a short
+    // dedupe-key string). This mirrors `validateFilterNames` for templates.
+    const perKey = rule.conditions?.rate_limit?.perKey;
+    if (typeof perKey === "string" && /\{\{[^}]*\|[^}]*\}\}/.test(perKey)) {
+      throw new Error(
+        `rule ${rule.id}: rate_limit.perKey must not contain filter pipeline tokens ('|') — perKey is rendered via Mustache only. Got: '${perKey}'`,
+      );
+    }
+
     // Fail rule-load on a malformed suppress expression so bad syntax surfaces
     // at boot rather than at alert time (where it would silently pass-through
     // the alert since evalSuppress throws, and the caller catches + logs).

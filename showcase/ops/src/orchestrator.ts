@@ -391,35 +391,52 @@ function diffCronSchedules(
   }
   for (const [id, { schedule, ruleId, dimension }] of desired) {
     const invoker = cronProbeResolver(dimension);
-    scheduler.register({
-      id,
-      cron: schedule,
-      handler: async () => {
-        let result: import("./types/index.js").ProbeResult<unknown> | undefined;
-        if (invoker) {
-          try {
-            result = await invoker();
-          } catch (err) {
-            // Don't let a probe failure swallow the tick — still emit
-            // `rule.scheduled` without a result so downstream rules can
-            // still render something (or the alert-engine can synthesize
-            // a sentinel). The scheduler also logs its own handler-error
-            // when the handler itself throws; this try/catch keeps the
-            // handler green so that layer stays quiet for probe bugs.
-            logger.error("orchestrator.cron-probe-failed", {
-              ruleId,
-              dimension,
-              err: String(err),
-            });
+    // A2: wrap `scheduler.register` per-rule so a single typoed cron
+    // expression (validateCron throws synchronously inside register())
+    // does NOT poison the rest of the reload. Pre-fix, one bad rule
+    // aborted the for-loop → every subsequent rule silently unscheduled.
+    try {
+      scheduler.register({
+        id,
+        cron: schedule,
+        handler: async () => {
+          let result:
+            | import("./types/index.js").ProbeResult<unknown>
+            | undefined;
+          if (invoker) {
+            try {
+              result = await invoker();
+            } catch (err) {
+              // Don't let a probe failure swallow the tick — still emit
+              // `rule.scheduled` without a result so downstream rules can
+              // still render something (or the alert-engine can synthesize
+              // a sentinel). The scheduler also logs its own handler-error
+              // when the handler itself throws; this try/catch keeps the
+              // handler green so that layer stays quiet for probe bugs.
+              logger.error("orchestrator.cron-probe-failed", {
+                ruleId,
+                dimension,
+                err: String(err),
+              });
+            }
           }
-        }
-        bus.emit("rule.scheduled", {
-          ruleId,
-          scheduledAt: new Date().toISOString(),
-          result,
-        });
-      },
-    });
+          bus.emit("rule.scheduled", {
+            ruleId,
+            scheduledAt: new Date().toISOString(),
+            result,
+          });
+        },
+      });
+    } catch (err) {
+      logger.error("orchestrator.cron-register-failed", {
+        id,
+        ruleId,
+        dimension,
+        schedule,
+        err: String(err),
+      });
+      // Continue the loop — other rules must still register.
+    }
   }
 }
 

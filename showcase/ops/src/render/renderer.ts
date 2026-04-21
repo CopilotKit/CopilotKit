@@ -13,7 +13,14 @@ export interface Renderer {
   render(tmpl: CompiledTemplate, ctx: TemplateContext): RenderedMessage;
 }
 
-const FILTER_RE = /\{\{\s*([^{}|]+?)\s*\|\s*([^{}]+?)\s*\}\}/g;
+// A7: the leading `(?<!\{)` and trailing `(?!\})` negative look-arounds
+// prevent FILTER_RE from matching inside a `{{{ x | f }}}` triple-brace
+// span. rule-loader's `validateTripleBrace` already rejects most shapes
+// at load time, but loosening that validation (or a template slipping
+// past it through an edge case) would otherwise strip a brace and
+// corrupt splat-replacement. Defensive belt-and-braces.
+const FILTER_RE =
+  /(?<!\{)\{\{\s*([^{}|]+?)\s*\|\s*([^{}]+?)\s*\}\}(?!\})/g;
 
 // Slack incoming webhooks accept a little over 40KB. We leave headroom so the
 // JSON wrapping, quoting, and escaping never push us over the real ceiling.
@@ -207,20 +214,32 @@ function enforceSoftLimit(text: string): string {
  * payload wrapper ensures that string is only ever serialized via JSON.stringify,
  * so all control chars (0x00-0x1F), quotes, and backslashes escape correctly.
  *
- * SECURITY TODO: `slackEscape` exists in filters.ts but is not applied by
- * default. Templates that interpolate `{{signal.errorDesc}}` / `{{signal.details}}`
- * from probe payloads (err.message, CI logs, webhook bodies) can pass
- * un-escaped `<`, `>`, `&` through to Slack mrkdwn — enabling trivial
- * mrkdwn injection (disguised channel mentions, user pings, fake block
- * kit). Two remediation paths, both cluster-6-scoped (YAML changes):
- *   1. Update every config/alerts/*.yml to pipe signal.* content through
- *      `| slackEscape` (explicit, backwards-compatible).
- *   2. Flag the renderer to auto-apply slackEscape on non-slackSafe paths
- *      by default, and exempt triple-brace (`{{{ }}}`).
- * Option 2 requires a migration of any template that currently relies on
- * un-escaped Slack markup under signal.*. Option 1 is safer. Either way,
- * the fix lives in YAML — this comment is here so reviewers don't miss
- * the open vector when auditing renderer.ts in isolation.
+ * Threat model — Slack mrkdwn `|` injection via signal.* paths:
+ *
+ * `signal.*` is internally trusted: probe payloads originate from code we
+ * control (deploy/e2e/drift probes, CI job metadata the orchestrator
+ * stamps onto WriteOutcome). Operator-controlled fields like `signal.runUrl`
+ * / `signal.runId` / `signal.jobUrl` MUST NOT carry user input. Because
+ * `|` is the Slack-mrkdwn separator inside `<url|text>` link syntax,
+ * any value crossing the trust boundary that contained a literal `|`
+ * would break out of the link and let an attacker forge channel mentions
+ * or disguised links.
+ *
+ * Mustache's default `{{ }}` performs HTML escape (`<`/`>`/`&`) which
+ * blunts link-angle-bracket forgery but does NOT escape `|` — that's the
+ * gap F1.8 regression tests pin. Triple-brace `{{{ }}}` is explicit
+ * opt-out, gate-kept by `rule-loader.validateTripleBrace` against
+ * `slackSafeFields` (a per-dimension allow-list of known-safe signal keys).
+ *
+ * New signal sources added to probes MUST either:
+ *   - flow through `| slackEscape` in every template that renders them, OR
+ *   - be added to `slackSafeFields` ONLY when the field is structurally
+ *     produced by our own code with no user-input path (e.g. a fixed
+ *     enum, a GHCR image ref, a Railway service name).
+ *
+ * The F1.8 regression test (`double-brace HTML-escapes signal.*` in
+ * renderer.test.ts) will fail the moment someone changes the default
+ * escape; that's the trip-wire for the threat model above.
  */
 /**
  * Strip any literal U+FEFF BOM characters from the pre-rendered template

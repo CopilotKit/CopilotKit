@@ -203,7 +203,14 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     evt: { outcome: WriteOutcome; result: ProbeResult<unknown> },
     triggered: string[],
   ): string {
-    const fallbackTrigger = triggered[0] ?? evt.outcome.transition;
+    // A4: dedupe bucket must be stable regardless of the YAML author's
+    // ordering of `triggers:`. `triggered` preserves author order so flag
+    // emission (trigger.<name> sections) honours the declaration, but for
+    // dedupe-key purposes we pick the alpha-first name — reordering the
+    // YAML list no longer silently reassigns the dedupe bucket for the
+    // same underlying transition.
+    const sortedForDedupe = [...triggered].sort();
+    const fallbackTrigger = sortedForDedupe[0] ?? evt.outcome.transition;
     const perKeyTmpl = rule.conditions.rate_limit?.perKey;
     if (perKeyTmpl) {
       try {
@@ -226,7 +233,12 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
         });
       }
     }
-    return `${evt.result.key}:${fallbackTrigger}`;
+    // A5/A10: prefix fallback dedupe key with `rule.id:` as belt-and-braces
+    // against cross-rule collisions. `stateStore.get(rule.id, dedupeKey)`
+    // already scopes by rule id, so this is defensive — but it keeps the
+    // fallback shape congruent with any future stateStore that flattens
+    // the namespace, and it makes grep-debugging alert state rows cheaper.
+    return `${rule.id}:${evt.result.key}:${fallbackTrigger}`;
   }
 
   async function shouldSuppress(
@@ -424,6 +436,15 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       observedAt: evt.scheduledAt,
     };
     if (fakeResult.state === "error" && rule.onError) {
+      // A1: apply the same `passesGuards` filter as the status.changed
+      // onError path. Without this, a rule with `minDeployAgeMin: 10` would
+      // see cron-path onError fire inside the deploy-age window while the
+      // status.changed onError path correctly suppressed it. `dispatchOnError`
+      // internally enforces bootstrap suppression (bootstrapActive()) and
+      // rate-limit (shouldSuppress), but guard evaluation is owned here so
+      // control-flow order is: guards → bootstrap (inside dispatchOnError)
+      // → suppress/rate-limit (inside dispatchOnError) → dispatch. See A9.
+      if (!passesGuards(rule, { outcome, result: fakeResult })) return;
       await dispatchOnError(rule, { outcome, result: fakeResult });
       return;
     }

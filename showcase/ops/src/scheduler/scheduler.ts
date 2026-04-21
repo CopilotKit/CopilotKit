@@ -110,6 +110,14 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         return;
       }
       e.lastRunStartedAt = Date.now();
+      // A6: previously `p.finally(() => e.inflight.delete(p)).catch(() => {})`
+      // ran as a detached microtask. On a tight cron (`* * * * * *`), the
+      // next tick could observe `e.inflight.size > 0` at a microtask
+      // boundary where `p` had resolved but the `.finally` callback hadn't
+      // drained yet, producing a spurious `scheduler.skip-overlap` warn.
+      // Replace with structured try/finally so `inflight.delete(p)` runs
+      // synchronously in the same microtask as `p`'s settle, before the
+      // wrapper awaits return (and before croner can re-enter).
       const p = (async () => {
         try {
           await e.entry.handler();
@@ -121,13 +129,11 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         }
       })();
       e.inflight.add(p);
-      // Swallow the cleanup-chain rejection: `p` itself already catches
-      // user-handler throws above, so `p` should never reject — but we
-      // attach `.catch(() => {})` defensively so a future refactor that
-      // hoists a throw out of the wrapper doesn't produce an unhandled
-      // promise rejection on Node 24+ (which exits on them).
-      p.finally(() => e.inflight.delete(p)).catch(() => {});
-      await p;
+      try {
+        await p;
+      } finally {
+        e.inflight.delete(p);
+      }
     });
   }
 

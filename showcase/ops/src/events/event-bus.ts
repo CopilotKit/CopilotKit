@@ -19,12 +19,50 @@ export interface DeployResultEvent {
   gateSkipped?: boolean;
 }
 
+/**
+ * Classification of a writer failure's underlying cause. Lets the alert
+ * engine route transient errors (auth blip, rate limit) separately from
+ * structural errors (schema mismatch, bad credentials) — the former is
+ * noise, the latter is an actionable ops signal.
+ *
+ * - `pb_auth_error`    — 401/403 from PocketBase; creds bad or token revoked.
+ * - `pb_schema_error`  — 400 validation / missing column; schema drift.
+ * - `pb_permission`    — 403 rule-level reject that isn't auth.
+ * - `pb_rate_limited`  — 429 after exhausting retries; transient.
+ * - `pb_server_error`  — 5xx; transient unless sustained.
+ * - `network_error`    — fetch threw (ECONN, AbortError, DNS).
+ * - `unknown`          — couldn't classify.
+ */
+export type WriterFailureReason =
+  | "pb_auth_error"
+  | "pb_schema_error"
+  | "pb_permission"
+  | "pb_rate_limited"
+  | "pb_server_error"
+  | "network_error"
+  | "unknown";
+
 export interface WriterFailedEvent {
   /** Probe/deploy key the writer was processing (e.g. "smoke:mastra"). */
   key: string;
   /** Phase of the write that failed — useful for /health triage. */
   phase: "status_upsert" | "history_create";
+  /**
+   * Serialized error context. Uses a structured representation (message +
+   * status + validation payload) rather than bare `String(err)` so PB's
+   * `{ data: { field: { code, message } } }` shapes stay legible after
+   * emission. See status-writer.errorInfo() for the extraction logic.
+   */
   err: string;
+  /**
+   * Classification of the failure's underlying cause. Alert routing can
+   * distinguish transient-vs-structural failures without string-matching
+   * the err field. Optional (undefined before B6 landed / producers that
+   * don't classify).
+   */
+  reason?: WriterFailureReason;
+  /** HTTP status if the failure was a PB response-code error. */
+  status?: number;
   observedAt: string;
 }
 

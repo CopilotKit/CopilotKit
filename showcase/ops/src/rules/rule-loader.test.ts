@@ -455,6 +455,80 @@ describe("rule-loader: reload error propagation", () => {
   });
 });
 
+describe("rule-loader: rate_limit.perKey filter-pipeline validation (A3)", () => {
+  it("rejects perKey containing filter tokens ('|') at load time", async () => {
+    // A3: `alert-engine.buildDedupeKey` renders perKey via `Mustache.render`
+    // directly, bypassing the renderer's filter pipeline. Filter tokens
+    // inside perKey would silently corrupt the dedupe key at runtime.
+    // Rule-loader must catch this at boot.
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-pk-"));
+    await fs.writeFile(
+      path.join(tmp, "bad-perkey.yml"),
+      [
+        "id: bad-perkey",
+        'name: "bad perKey"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit:",
+        "    window: 15m",
+        '    perKey: "{{ signal.slug | stripAnsi }}"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error).toMatch(/rate_limit\.perKey.*filter pipeline/);
+  });
+
+  it("accepts perKey with plain Mustache interpolation (no filters)", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-pk-ok-"));
+    await fs.writeFile(
+      path.join(tmp, "ok-perkey.yml"),
+      [
+        "id: ok-perkey",
+        'name: "ok perKey"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit:",
+        "    window: 15m",
+        '    perKey: "{{signal.slug}}:{{triggerName}}"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.conditions.rate_limit?.perKey).toBe(
+      "{{signal.slug}}:{{triggerName}}",
+    );
+  });
+});
+
 async function makeSingleFixtureDir(file: string): Promise<string> {
   const os = await import("node:os");
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rule-"));
