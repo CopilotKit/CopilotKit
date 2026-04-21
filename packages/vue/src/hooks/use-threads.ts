@@ -2,27 +2,37 @@ import { computed, onScopeDispose, ref, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
 import {
   ɵcreateThreadStore,
+  ɵselectHasNextPage,
+  ɵselectIsFetchingNextPage,
   ɵselectThreads,
   ɵselectThreadsError,
   ɵselectThreadsIsLoading,
 } from "@copilotkit/core";
-import type {
-  ɵThread as CoreThread,
-  ɵThreadRuntimeContext,
-  ɵThreadStore,
-} from "@copilotkit/core";
+import type { ɵThreadRuntimeContext, ɵThreadStore } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 
-export interface Thread extends CoreThread {}
+export interface Thread {
+  id: string;
+  agentId: string;
+  name: string | null;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface UseThreadsInput {
   agentId: MaybeRefOrGetter<string>;
+  includeArchived?: MaybeRefOrGetter<boolean | undefined>;
+  limit?: MaybeRefOrGetter<number | undefined>;
 }
 
 export interface UseThreadsResult {
   threads: Ref<Thread[]>;
   isLoading: Ref<boolean>;
   error: Ref<Error | null>;
+  hasMoreThreads: Ref<boolean>;
+  isFetchingMoreThreads: Ref<boolean>;
+  fetchMoreThreads: () => void;
   renameThread: (threadId: string, name: string) => Promise<void>;
   archiveThread: (threadId: string) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
@@ -55,6 +65,10 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   });
 
   const resolvedAgentId = computed(() => toValue(input.agentId));
+  const resolvedIncludeArchived = computed(() =>
+    toValue(input.includeArchived),
+  );
+  const resolvedLimit = computed(() => toValue(input.limit));
   const headersKey = computed(() =>
     JSON.stringify(
       Object.entries(copilotkit.value.headers ?? {}).sort(([left], [right]) =>
@@ -66,12 +80,20 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const threads = ref<Thread[]>([]);
   const storeIsLoading = ref(false);
   const storeError = ref<Error | null>(null);
+  const hasMoreThreads = ref(false);
+  const isFetchingMoreThreads = ref(false);
   const isLoading = ref(false);
   const error = ref<Error | null>(null);
 
   bindThreadStoreSelector(store, ɵselectThreads, threads as Ref<Thread[]>);
   bindThreadStoreSelector(store, ɵselectThreadsIsLoading, storeIsLoading);
   bindThreadStoreSelector(store, ɵselectThreadsError, storeError);
+  bindThreadStoreSelector(store, ɵselectHasNextPage, hasMoreThreads);
+  bindThreadStoreSelector(
+    store,
+    ɵselectIsFetchingNextPage,
+    isFetchingMoreThreads,
+  );
 
   store.start();
   onScopeDispose(() => {
@@ -84,14 +106,18 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
       headersKey,
       () => copilotkit.value.intelligence?.wsUrl,
       resolvedAgentId,
+      resolvedIncludeArchived,
+      resolvedLimit,
     ],
-    ([runtimeUrl, _headersKey, wsUrl, agentId]) => {
+    ([runtimeUrl, _headersKey, wsUrl, agentId, includeArchived, limit]) => {
       const context: ɵThreadRuntimeContext | null = runtimeUrl
         ? {
             runtimeUrl,
             headers: { ...copilotkit.value.headers },
             wsUrl,
             agentId,
+            includeArchived,
+            limit,
           }
         : null;
 
@@ -116,9 +142,23 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   );
 
   return {
-    threads,
+    threads: computed(() =>
+      threads.value.map(
+        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+          id,
+          agentId,
+          name,
+          archived,
+          createdAt,
+          updatedAt,
+        }),
+      ),
+    ),
     isLoading,
     error,
+    hasMoreThreads,
+    isFetchingMoreThreads,
+    fetchMoreThreads: () => store.fetchNextPage(),
     renameThread: (threadId: string, name: string) =>
       store.renameThread(threadId, name),
     archiveThread: (threadId: string) => store.archiveThread(threadId),

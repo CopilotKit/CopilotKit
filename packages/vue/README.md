@@ -240,9 +240,25 @@ Default reasoning behavior mirrors React semantics:
 <script setup lang="ts">
 import { useThreads } from "@copilotkitnext/vue";
 
-const { threads, isLoading, renameThread, deleteThread } = useThreads({
+const {
+  threads,
+  isLoading,
+  hasMoreThreads,
+  isFetchingMoreThreads,
+  fetchMoreThreads,
+  renameThread,
+  deleteThread,
+} = useThreads({
   agentId: "agent-1",
+  includeArchived: false,
+  limit: 20,
 });
+
+function loadMoreThreads() {
+  if (hasMoreThreads.value && !isFetchingMoreThreads.value) {
+    fetchMoreThreads();
+  }
+}
 </script>
 
 <template>
@@ -254,10 +270,17 @@ const { threads, isLoading, renameThread, deleteThread } = useThreads({
       <button @click="deleteThread(thread.id)">Delete</button>
     </li>
   </ul>
+  <button
+    v-if="hasMoreThreads"
+    :disabled="isFetchingMoreThreads"
+    @click="loadMoreThreads"
+  >
+    {{ isFetchingMoreThreads ? "Loading..." : "Load more" }}
+  </button>
 </template>
 ```
 
-`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It subscribes to realtime metadata updates when the runtime exposes a websocket URL and returns reactive refs for `threads`, `isLoading`, and `error`.
+`useThreads` is a headless composable for Intelligence-platform thread lists scoped to the runtime-authenticated user and provided `agentId`. It supports optional `includeArchived` and `limit` inputs, subscribes to realtime metadata updates when the runtime exposes a websocket URL, and returns reactive refs for `threads`, `isLoading`, `error`, `hasMoreThreads`, and `isFetchingMoreThreads`, plus `fetchMoreThreads()`.
 
 ### `useInterrupt`
 

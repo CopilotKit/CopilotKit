@@ -6,7 +6,7 @@ import { useCopilotKit } from "../../providers/useCopilotKit";
 
 type ThreadRecord = {
   id: string;
-  tenantId: string;
+  organizationId: string;
   agentId: string;
   createdById: string;
   name: string | null;
@@ -19,11 +19,15 @@ type ThreadState = {
   threads: ThreadRecord[];
   isLoading: boolean;
   error: Error | null;
+  hasNextPage: boolean;
+  isFetchingNextPage: boolean;
   context: {
     runtimeUrl: string;
     headers: Record<string, string>;
     wsUrl?: string;
     agentId: string;
+    includeArchived?: boolean;
+    limit?: number;
   } | null;
 };
 
@@ -93,6 +97,8 @@ vi.mock("@copilotkit/core", () => {
       threads: [],
       isLoading: false,
       error: null,
+      hasNextPage: false,
+      isFetchingNextPage: false,
       context: null,
     };
     private listeners = new Set<() => void>();
@@ -105,6 +111,8 @@ vi.mock("@copilotkit/core", () => {
         threads: [],
         isLoading: false,
         error: null,
+        hasNextPage: false,
+        isFetchingNextPage: false,
         context: null,
       };
       if (this.socket) {
@@ -129,20 +137,33 @@ vi.mock("@copilotkit/core", () => {
       this.state.threads = [];
       this.state.isLoading = true;
       this.state.error = null;
+      this.state.hasNextPage = false;
+      this.state.isFetchingNextPage = false;
       this.notify();
       void this.fetchThreads(context);
     }
 
     private async fetchThreads(context: NonNullable<ThreadState["context"]>) {
       try {
+        const query = new URLSearchParams({ agentId: context.agentId });
+        if (context.includeArchived !== undefined) {
+          query.set("includeArchived", String(context.includeArchived));
+        }
+        if (context.limit !== undefined) {
+          query.set("limit", String(context.limit));
+        }
         const listResponse = await fetchMock(
-          `${context.runtimeUrl}/threads?agentId=${context.agentId}`,
-          { method: "GET", headers: context.headers },
+          `${context.runtimeUrl}/threads?${query}`,
+          {
+            method: "GET",
+            headers: context.headers,
+          },
         );
         if (!listResponse.ok) {
           this.state.error = new Error(String(listResponse.status));
           this.state.isLoading = false;
           this.state.threads = [];
+          this.state.hasNextPage = false;
           this.notify();
           return;
         }
@@ -151,6 +172,7 @@ vi.mock("@copilotkit/core", () => {
         this.state.threads = [...listData.threads].sort((left, right) =>
           right.updatedAt.localeCompare(left.updatedAt),
         );
+        this.state.hasNextPage = typeof listData.nextCursor === "string";
         this.state.isLoading = false;
         this.state.error = null;
         this.notify();
@@ -237,6 +259,13 @@ vi.mock("@copilotkit/core", () => {
       });
     }
 
+    fetchNextPage(): void {
+      this.state.isFetchingNextPage = true;
+      this.notify();
+      this.state.isFetchingNextPage = false;
+      this.notify();
+    }
+
     private requireContext() {
       if (!this.state.context) {
         throw new Error("Missing thread context");
@@ -275,6 +304,8 @@ vi.mock("@copilotkit/core", () => {
     ɵselectThreads: select((state) => state.threads),
     ɵselectThreadsIsLoading: select((state) => state.isLoading),
     ɵselectThreadsError: select((state) => state.error),
+    ɵselectHasNextPage: select((state) => state.hasNextPage),
+    ɵselectIsFetchingNextPage: select((state) => state.isFetchingNextPage),
   };
 });
 
@@ -311,7 +342,7 @@ const defaultInput = { agentId: "agent-1" };
 const sampleThreads = [
   {
     id: "t-1",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread One",
@@ -321,7 +352,7 @@ const sampleThreads = [
   },
   {
     id: "t-2",
-    tenantId: "tenant-1",
+    organizationId: "org-1",
     agentId: "agent-1",
     createdById: "user-1",
     name: "Thread Two",
@@ -337,6 +368,8 @@ type UseThreadsResult = ReturnType<typeof useThreads>;
 function mountHook(
   input: {
     agentId: string | Ref<string>;
+    includeArchived?: boolean | Ref<boolean | undefined>;
+    limit?: number | Ref<number | undefined>;
   } = defaultInput,
 ) {
   let result: UseThreadsResult | undefined;
@@ -445,7 +478,7 @@ describe("useThreads", () => {
       operation: "updated",
       threadId: "t-1",
       userId: "user-1",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       thread: {
         ...sampleThreads[0],
@@ -459,7 +492,7 @@ describe("useThreads", () => {
     });
   });
 
-  it("applies realtime metadata regardless of user id", async () => {
+  it("applies realtime metadata without client-side user filtering", async () => {
     fetchMock
       .mockReturnValueOnce(
         jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
@@ -476,7 +509,7 @@ describe("useThreads", () => {
       operation: "deleted",
       threadId: "t-2",
       userId: "user-2",
-      tenantId: "tenant-1",
+      organizationId: "org-1",
       occurredAt: "2026-01-03T00:00:00Z",
       deleted: { id: "t-2" },
     });
@@ -540,6 +573,60 @@ describe("useThreads", () => {
     expect(JSON.parse(fetchMock.mock.calls[3][1].body)).toMatchObject({
       agentId: "agent-1",
     });
+  });
+
+  it("exposes thread-scoped pagination properties", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { getResult } = mountHook();
+
+    await vi.waitFor(() => {
+      expect(getResult().isLoading.value).toBe(false);
+    });
+
+    expect(getResult()).toHaveProperty("hasMoreThreads");
+    expect(getResult()).toHaveProperty("isFetchingMoreThreads");
+    expect(getResult()).toHaveProperty("fetchMoreThreads");
+    expect(getResult()).not.toHaveProperty("hasNextPage");
+    expect(getResult()).not.toHaveProperty("isFetchingNextPage");
+    expect(getResult()).not.toHaveProperty("fetchNextPage");
+
+    expect(getResult().hasMoreThreads.value).toBe(true);
+    expect(getResult().isFetchingMoreThreads.value).toBe(false);
+    expect(typeof getResult().fetchMoreThreads).toBe("function");
+  });
+
+  it("does not expose organizationId or createdById on threads", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { getResult } = mountHook();
+
+    await vi.waitFor(() => {
+      expect(getResult().isLoading.value).toBe(false);
+    });
+
+    for (const thread of getResult().threads.value) {
+      expect(thread).not.toHaveProperty("organizationId");
+      expect(thread).not.toHaveProperty("createdById");
+      expect(thread).toHaveProperty("id");
+      expect(thread).toHaveProperty("agentId");
+      expect(thread).toHaveProperty("name");
+      expect(thread).toHaveProperty("archived");
+      expect(thread).toHaveProperty("createdAt");
+      expect(thread).toHaveProperty("updatedAt");
+    }
   });
 
   it("tears down sockets after repeated connection failures", async () => {
@@ -671,6 +758,40 @@ describe("useThreads", () => {
       });
 
       expect(getResult().threads.value[0].id).toBe("t-4");
+    });
+
+    it("reacts to includeArchived and limit changes", async () => {
+      const includeArchived = ref(false);
+      const limit = ref(10);
+
+      fetchMock
+        .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+        .mockReturnValueOnce(jsonResponse({ threads: sampleThreads }))
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-2" }));
+
+      mountHook({ agentId: "agent-1", includeArchived, limit });
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining(
+            "/threads?agentId=agent-1&includeArchived=false&limit=10",
+          ),
+          expect.objectContaining({ method: "GET" }),
+        );
+      });
+
+      includeArchived.value = true;
+      limit.value = 5;
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining(
+            "/threads?agentId=agent-1&includeArchived=true&limit=5",
+          ),
+          expect.objectContaining({ method: "GET" }),
+        );
+      });
     });
   });
 });
