@@ -1,5 +1,31 @@
 import type { Logger } from "../types/index.js";
 
+/**
+ * HF13-B1: Retry-exhausted 5xx/429 responses used to be returned to
+ * callers with their body already drained (so the retry envelope could
+ * free the socket). Callers that then did `await res.text()` /
+ * `await res.json()` on `!res.ok` got empty strings, and the resulting
+ * `pb create failed: 429 ` log had no server-side context.
+ *
+ * Fix: on the final-attempt 5xx/429 path, read the body text BEFORE
+ * drain, then throw a typed `PbHttpError` carrying `statusCode` +
+ * `bodyText`. Callers that previously matched on `!res.ok` now catch
+ * this class and surface the rich body text. Non-retryable 4xx paths
+ * are unchanged (callers read the body directly).
+ */
+export class PbHttpError extends Error {
+  readonly statusCode: number;
+  readonly bodyText: string;
+  readonly path: string;
+  constructor(opts: { statusCode: number; bodyText: string; path: string }) {
+    super(`pb http ${opts.statusCode} on ${opts.path}: ${opts.bodyText}`);
+    this.name = "PbHttpError";
+    this.statusCode = opts.statusCode;
+    this.bodyText = opts.bodyText;
+    this.path = opts.path;
+  }
+}
+
 export interface PbClientConfig {
   url: string;
   email?: string;
@@ -180,7 +206,15 @@ export function createPbClient(config: PbClientConfig): PbClient {
       const text = await res.text();
       throw new Error(`pb-auth failed: ${res.status} ${text}`);
     }
-    const body = (await res.json()) as { token?: unknown };
+    // HF13-B3: PB restarts have been observed returning 200 with an
+    // empty body. `await res.json()` on `""` throws a SyntaxError before
+    // we reach the empty-token guard, erasing the underlying symptom.
+    // Read as text first and parse defensively so empty-body restarts
+    // route into the clearer "pb-auth returned empty" branch below.
+    const text = await res.text();
+    const body: { token?: unknown } = text
+      ? (JSON.parse(text) as { token?: unknown })
+      : {};
     // Validate the token shape before trusting it — PB has been observed
     // returning 200 with malformed bodies during restarts.
     if (typeof body.token !== "string" || body.token.length === 0) {
@@ -324,16 +358,37 @@ export function createPbClient(config: PbClientConfig): PbClient {
           });
         });
       };
+      // HF13-B1: read the body text once, returning "" on any error
+      // (premature-close, already-drained, network blip). Used BEFORE
+      // drain on the terminal-failure paths so we can surface the
+      // server-side reason in a typed error.
+      const readBodyTextSafe = async (): Promise<string> => {
+        try {
+          return await res.text();
+        } catch (bodyErr: unknown) {
+          logger.debug("pb-client.body-drain-failed", {
+            path,
+            status: res.status,
+            err: String(bodyErr),
+          });
+          return "";
+        }
+      };
       if (res.status === 429 && attempts < maxAttempts) {
         const waitMs = Math.min(
           parseRetryAfterMs(res, attempts),
           remainingBudgetMs(),
         );
         if (waitMs <= 0) {
-          // B3: budget exhausted → caller gets this 429 back. Drain the
-          // body so non-reading callers don't leak the socket.
-          await drainBody();
-          return res;
+          // HF13-B1: budget exhausted → capture the body before the
+          // socket close, then throw a typed error so callers get the
+          // server-provided reason rather than an empty "pb ... failed: 429".
+          const bodyText = await readBodyTextSafe();
+          throw new PbHttpError({
+            statusCode: res.status,
+            bodyText,
+            path,
+          });
         }
         logger.debug("pb-client.rate-limited", {
           path,
@@ -347,10 +402,14 @@ export function createPbClient(config: PbClientConfig): PbClient {
       if (res.status >= 500 && attempts < maxAttempts) {
         const waitMs = Math.min(2 ** attempts * 100, remainingBudgetMs());
         if (waitMs <= 0) {
-          // B3: budget exhausted on 5xx — drain before surrendering the
-          // response to the caller.
-          await drainBody();
-          return res;
+          // HF13-B1: same treatment as 429 budget-exhausted — carry the
+          // body text through in a typed error so callers can log it.
+          const bodyText = await readBodyTextSafe();
+          throw new PbHttpError({
+            statusCode: res.status,
+            bodyText,
+            path,
+          });
         }
         // Same reasoning as the 429 branch: drain before backing off,
         // and surface drain errors at debug (F2.3).
@@ -358,17 +417,23 @@ export function createPbClient(config: PbClientConfig): PbClient {
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
-      // B3: final-attempt 429/5xx (retry loop exhausted) — drain the
-      // body before returning so callers that don't `.text()` / `.json()`
-      // the response don't leak the socket. Non-retryable responses
-      // (including 2xx/3xx/4xx-other) are left intact: callers read 2xx
-      // bodies; 4xx callers typically do read the body to surface the
-      // error; and we'd otherwise consume a body the caller still needs.
+      // HF13-B1: final-attempt 429/5xx (retry loop exhausted) — capture
+      // the body text up-front and throw PbHttpError so callers don't
+      // have to race a drained Response. Non-retryable responses
+      // (including 2xx/3xx/4xx-other) are returned intact: callers read
+      // 2xx bodies; 4xx callers typically do read the body to surface
+      // the error; and we'd otherwise consume a body the caller still
+      // needs.
       if (
         attempts >= maxAttempts &&
         (res.status === 429 || res.status >= 500)
       ) {
-        await drainBody();
+        const bodyText = await readBodyTextSafe();
+        throw new PbHttpError({
+          statusCode: res.status,
+          bodyText,
+          path,
+        });
       }
       return res;
     }

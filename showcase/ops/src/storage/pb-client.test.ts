@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { createPbClient } from "./pb-client.js";
+import { createPbClient, PbHttpError } from "./pb-client.js";
 import { logger } from "../logger.js";
 
 function makeFetch(
@@ -493,8 +493,10 @@ describe("pb-client", () => {
         });
       });
       const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
-      await expect(pb.getOne("status", "x")).rejects.toThrow(
-        /pb getOne failed: 429/,
+      // HF13-B1: retry-exhausted 429 now surfaces as PbHttpError carrying
+      // the server-side body text, not a bare `pb getOne failed: 429`.
+      await expect(pb.getOne("status", "x")).rejects.toBeInstanceOf(
+        PbHttpError,
       );
       // At least one scheduled wait must be strictly less than 30_000
       // (the unclamped Retry-After value), proving the budget clamped.
@@ -776,22 +778,22 @@ describe("pb-client", () => {
     }
   });
 
-  it("final-attempt 429 drains the body before returning (B3)", async () => {
-    // Regression (B3): the retry loop only drained the body on branches
-    // that were about to re-fetch. When all attempts were exhausted and
-    // the 429 was returned to the caller, the body was left unconsumed —
-    // callers that don't read leak the socket. Verify the final-attempt
-    // response had its body drained (observable via a `.text()` that
-    // tracks consumption).
-    let drainedOnFinal = false;
+  it("final-attempt 429 surfaces body text via PbHttpError (HF13-B1)", async () => {
+    // Regression (HF13-B1): the retry envelope used to drain the body
+    // on the final attempt and return the gutted Response, so callers
+    // doing `res.text()` on `!res.ok` got "" and the resulting
+    // "pb list failed: 429" log had no server-side context. Now the
+    // retry helper reads the body BEFORE drain and throws PbHttpError
+    // carrying statusCode + bodyText so operators can see the reason.
+    let readCount = 0;
     const fetchImpl = makeFetch(() => {
       return {
         status: 429,
         ok: false,
         headers: new Headers(),
         text: async () => {
-          drainedOnFinal = true;
-          return "rate limited";
+          readCount += 1;
+          return "rate limited: too many requests";
         },
         json: async () => ({}),
       } as unknown as Response;
@@ -805,30 +807,29 @@ describe("pb-client", () => {
     }) as unknown as typeof setTimeout);
     try {
       const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
-      // getOne throws on non-ok non-404 — the body-drain must have
-      // happened BEFORE the throw / return to the caller.
-      await expect(pb.getOne("status", "x")).rejects.toThrow(
-        /pb getOne failed: 429/,
-      );
-      expect(drainedOnFinal).toBe(true);
+      let caught: unknown;
+      await pb.getOne("status", "x").catch((err: unknown) => {
+        caught = err;
+      });
+      expect(caught).toBeInstanceOf(PbHttpError);
+      const err = caught as PbHttpError;
+      expect(err.statusCode).toBe(429);
+      expect(err.bodyText).toBe("rate limited: too many requests");
+      // Body must have been read (before any other consumer could drain it).
+      expect(readCount).toBeGreaterThanOrEqual(1);
     } finally {
       spy.mockRestore();
     }
   });
 
-  it("final-attempt 5xx drains the body before returning (B3)", async () => {
-    // Same as above but on the 5xx exhaustion path. getOne sees the
-    // final 5xx and throws; the body must have been drained.
-    let drainCount = 0;
+  it("final-attempt 5xx surfaces body text via PbHttpError (HF13-B1)", async () => {
+    // Same as above but on the 5xx exhaustion path.
     const fetchImpl = makeFetch(() => {
       return {
         status: 503,
         ok: false,
         headers: new Headers(),
-        text: async () => {
-          drainCount += 1;
-          return "server down";
-        },
+        text: async () => "service unavailable: upstream down",
         json: async () => ({}),
       } as unknown as Response;
     });
@@ -841,14 +842,77 @@ describe("pb-client", () => {
     }) as unknown as typeof setTimeout);
     try {
       const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
-      await expect(pb.getOne("status", "x")).rejects.toThrow(
-        /pb getOne failed: 503/,
-      );
-      // Drains on each retry (2 drains pre-sleep) + 1 final-attempt drain = 3.
-      expect(drainCount).toBeGreaterThanOrEqual(3);
+      let caught: unknown;
+      await pb.getOne("status", "x").catch((err: unknown) => {
+        caught = err;
+      });
+      expect(caught).toBeInstanceOf(PbHttpError);
+      const err = caught as PbHttpError;
+      expect(err.statusCode).toBe(503);
+      expect(err.bodyText).toBe("service unavailable: upstream down");
     } finally {
       spy.mockRestore();
     }
+  });
+
+  it("persistent 429 surfaces PbHttpError end-to-end from pb.create (HF13-B1)", async () => {
+    // Red-green: simulate a persistent 429 hitting a write path. Before
+    // the fix, pb.create's `!res.ok` branch ran `await res.text()` on a
+    // drained response and threw `pb create failed: 429 ` (empty text).
+    // Now PbHttpError is thrown from the retry envelope and propagates
+    // to the caller with the body intact.
+    const fetchImpl = makeFetch(
+      () =>
+        new Response('{"message":"rate limited","code":429}', { status: 429 }),
+    );
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      _ms?: number,
+    ) => {
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+      let caught: unknown;
+      await pb
+        .create("status", { key: "smoke:foo", state: "green" })
+        .catch((err: unknown) => {
+          caught = err;
+        });
+      expect(caught).toBeInstanceOf(PbHttpError);
+      const err = caught as PbHttpError;
+      expect(err.statusCode).toBe(429);
+      expect(err.bodyText).toContain("rate limited");
+      expect(err.path).toContain("/api/collections/status/records");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("empty-body 200 on auth endpoint surfaces empty-token error (HF13-B3)", async () => {
+    // Red-green: PB restarts have been observed returning 200 with an
+    // empty body on the auth-with-password endpoint. Before the fix,
+    // `await res.json()` threw a SyntaxError on "", masking the real
+    // symptom. Now we read text() first and route through the empty-
+    // token guard so operators see a clear "pb-auth returned empty or
+    // non-string token" error instead of an opaque parse failure.
+    const fetchImpl = makeFetch((url) => {
+      if (url.includes("auth-with-password")) {
+        return new Response("", { status: 200 });
+      }
+      return new Response("{}", { status: 200 });
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      email: "a",
+      password: "b",
+      logger,
+      fetchImpl,
+    });
+    await expect(pb.getOne("status", "x")).rejects.toThrow(
+      /empty or non-string token/,
+    );
   });
 
   it("deleteByFilter logs progress every 10 iterations (F2.5)", async () => {
