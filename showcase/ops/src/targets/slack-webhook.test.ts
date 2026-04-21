@@ -29,15 +29,61 @@ describe("slack-webhook target", () => {
     expect(calls[0]!.body).toBe('{"text":"hello"}');
   });
 
-  it("silently skips when webhook env var unset", async () => {
+  it("throws when webhook env var unset so engine records target-failed (no dedupe poisoning)", async () => {
+    // Regression: previously this returned void, which caused the
+    // alert engine's sendToTargets helper to treat the missing-env
+    // case as a successful send and record a dedupe entry, suppressing
+    // real alerts for the rate-limit window.
     let called = 0;
     const fetchImpl = (async () => {
       called += 1;
       return new Response("", { status: 200 });
     }) as unknown as typeof fetch;
     const t = createSlackWebhookTarget({ logger, env: {}, fetchImpl });
-    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    await expect(
+      t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" }),
+    ).rejects.toThrow(/env var for alias "oss_alerts"/);
     expect(called).toBe(0);
+  });
+
+  it("throws when webhook alias itself is missing (not just the env var)", async () => {
+    const fetchImpl = (async () =>
+      new Response("", { status: 200 })) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({ logger, env: {}, fetchImpl });
+    await expect(
+      t.send(payload, { kind: "slack_webhook" }),
+    ).rejects.toThrow(/not set/);
+  });
+
+  it("ignores HTTP-date Retry-After and falls through to exponential backoff", async () => {
+    // RFC 7231 permits Retry-After as either delta-seconds or HTTP-date.
+    // Slack incoming webhooks only use delta-seconds, but a misbehaving
+    // proxy in front could surface the date form — we parse it as NaN
+    // and fall back to exponential backoff rather than stalling forever
+    // or throwing a parse error.
+    const sleeps: number[] = [];
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response("slow", {
+          status: 429,
+          headers: { "retry-after": "Wed, 21 Oct 2015 07:28:00 GMT" },
+        });
+      }
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+      },
+    });
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    // Fell back to exponential: 2**1 * 100 = 200ms.
+    expect(sleeps[0]).toBe(200);
   });
 
   it("retries on 5xx with exponential backoff", async () => {

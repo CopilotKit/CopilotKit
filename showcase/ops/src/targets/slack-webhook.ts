@@ -61,21 +61,35 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
     /**
      * Delivery contract (consumed by alert-engine):
      *   - Successful delivery: resolves with `void`.
-     *   - Missing webhook env var: resolves with `void` (deliberate
-     *     no-op; not a failure — alert is simply suppressed).
+     *   - Missing webhook env var: THROWS. Previously this returned
+     *     `void` (silent no-op) which caused the engine's
+     *     `sendToTargets` helper to treat the call as a successful
+     *     delivery — it then recorded a dedupe entry, poisoning the
+     *     dedupe table. A real alert for the same rule during the
+     *     rate-limit window would be suppressed even though nothing
+     *     ever reached Slack. A misconfigured env var, a webhook
+     *     rotation rename, or a typoed `webhook:` alias would all
+     *     silently swallow alerts. Now we throw so the engine treats
+     *     this as a target failure and does NOT record dedupe.
      *   - Any other failure (network exhausted, 4xx, 429-exhausted,
-     *     5xx-exhausted): throws. The engine's `deliverToTargets`
-     *     uses these throws to decide whether to record dedupe state
-     *     — success implies at-least-one delivery, throw implies none.
+     *     5xx-exhausted): throws. The engine's `sendToTargets` uses
+     *     these throws to decide whether to record dedupe state —
+     *     success implies at-least-one delivery, throw implies none.
      */
     async send(rendered: RenderedMessage, config: TargetConfig): Promise<void> {
       const webhookUrl = resolveWebhook(config.webhook);
       if (!webhookUrl) {
-        opts.logger.warn("slack-webhook.skip", {
+        const alias = config.webhook ?? "(unset)";
+        opts.logger.error("slack-webhook.env-unset", {
           reason: "webhook-env-unset",
-          webhook: config.webhook,
+          webhook: alias,
+          envVar: config.webhook
+            ? `SLACK_WEBHOOK_${config.webhook.toUpperCase()}`
+            : null,
         });
-        return;
+        throw new Error(
+          `slack-webhook env var for alias "${alias}" is not set — alert not delivered`,
+        );
       }
 
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
