@@ -1,0 +1,9 @@
+defaults:
+  targets:
+    - kind: slack_webhook
+      webhook: oss_alerts
+  severity: warn
+  conditions:
+    rate_limit:
+      window: 15m
+  renderer: mustache
