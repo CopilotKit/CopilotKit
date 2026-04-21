@@ -1516,23 +1516,10 @@ function updateWorkflows(args: CLIArgs) {
     console.log("  Updated showcase_deploy.yml");
   }
 
-  // 2. Update showcase_drift-detection.yml — add to E2E matrix
-  const driftPath = path.join(workflowsDir, "showcase_drift-detection.yml");
-  if (fs.existsSync(driftPath)) {
-    let drift = fs.readFileSync(driftPath, "utf-8");
-    const slug = args.slug;
-
-    if (!drift.includes(`slug: ${slug}`)) {
-      // Add to matrix includes
-      const entry = `          - slug: ${slug}\n            name: "${args.name}"\n            url: https://showcase-${slug}-production.up.railway.app`;
-      drift = drift.replace(
-        /(matrix:\n\s+include:\n(?:\s+- slug:.*\n\s+name:.*\n\s+url:.*\n)+)/,
-        `$1${entry}\n`,
-      );
-      fs.writeFileSync(driftPath, drift);
-      console.log("  Updated showcase_drift-detection.yml");
-    }
-  }
+  // 2. showcase_drift-detection.yml was replaced by the showcase-ops
+  // service's aimock_wiring / image-drift probes; no per-integration
+  // workflow edit is needed anymore. The probes enumerate services from
+  // Railway at runtime.
 
   // 3. Update starter-smoke.yml — add to matrix (block sequence format)
   const smokePath = path.join(workflowsDir, "starter-smoke.yml");

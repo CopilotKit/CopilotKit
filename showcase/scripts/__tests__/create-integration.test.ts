@@ -45,12 +45,13 @@ const TEST_SLUG = "test-integration-tmp";
 const REGRESSION_SLUG = "test-integration-tmp-regression-guard";
 const TEST_SLUGS: readonly string[] = [TEST_SLUG, REGRESSION_SLUG];
 
-// Exactly the three workflow YAMLs the generator mutates. We seed our
+// Exactly the two workflow YAMLs the generator mutates. We seed our
 // tmpdir with copies of these real files so the generator's regex-based
-// edits have the expected anchors to match against.
+// edits have the expected anchors to match against. (The former
+// showcase_drift-detection.yml was deleted in favor of showcase-ops'
+// runtime probes.)
 const WORKFLOW_BASENAMES: readonly string[] = [
   "showcase_deploy.yml",
-  "showcase_drift-detection.yml",
   "starter-smoke.yml",
 ];
 
