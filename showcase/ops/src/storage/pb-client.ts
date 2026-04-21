@@ -81,6 +81,18 @@ function isUniqueConstraintError(err: unknown): boolean {
   );
 }
 
+// Cap on the total retry envelope (all attempts + sleeps) for a single
+// request. Protects against stacking an exponential backoff on top of a
+// 30s Retry-After and exceeding the caller's handler timeout (GH Actions
+// webhook delivery, cron-handler budgets, etc). 50s leaves operators
+// ~10s of slack before external timeouts kick in.
+const RETRY_BUDGET_MS = 50_000;
+
+// Rate-limit for the re-auth-failure warn path — a persistently broken
+// credential set would otherwise fire one warn per request. One warn per
+// minute is plenty to surface the outage without drowning the log.
+const REAUTH_WARN_INTERVAL_MS = 60_000;
+
 export function createPbClient(config: PbClientConfig): PbClient {
   const fetchImpl = config.fetchImpl ?? globalThis.fetch;
   const baseUrl = config.url.replace(/\/$/, "");
@@ -90,6 +102,11 @@ export function createPbClient(config: PbClientConfig): PbClient {
   // Without this, every request when PB creds aren't configured would
   // spam the log — a single warn is plenty to flag the gap.
   let warnedMissingCreds = false;
+  // Timestamp of the last "reauth-failed" warn — rate-limit so a broken
+  // credential set doesn't fill the log.
+  let lastReauthWarnAt = 0;
+  // One-time warn flag for the PB-≤0.22 /api/admins fallback path.
+  let warnedLegacyAdminAuth = false;
 
   async function ensureAuth(): Promise<void> {
     if (authToken) return;
@@ -118,6 +135,18 @@ export function createPbClient(config: PbClientConfig): PbClient {
       },
     );
     if (res.status === 404) {
+      // PB ≤0.22 fallback. Log once so operators can correlate with the
+      // version pin and see it disappear after an upgrade. If this warn
+      // starts firing AFTER a PB 0.23+ upgrade, it means the /_superusers
+      // endpoint is broken on the target server and we're silently
+      // falling through to a stale v0.22 endpoint — which would hide
+      // real auth failures post-upgrade.
+      if (!warnedLegacyAdminAuth) {
+        warnedLegacyAdminAuth = true;
+        logger.warn("pb-client.legacy-admin-auth-fallback", {
+          hint: "/_superusers returned 404 — falling back to /api/admins (PB ≤0.22). Disable this warn after upgrading to PB 0.23+.",
+        });
+      }
       res = await fetchImpl(`${baseUrl}/api/admins/auth-with-password`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -167,6 +196,17 @@ export function createPbClient(config: PbClientConfig): PbClient {
     // Retry loop covers three transient classes: 401 (re-auth once), 5xx
     // (exponential backoff), 429 (Retry-After), and thrown network
     // errors (DNS fail, AbortError, TypeError from fetchImpl).
+    //
+    // Hard cap on total time spent retrying. Without this, a 429 with
+    // Retry-After: 30 stacked on a 5xx retry (+ network-retry sleep)
+    // could exceed a caller's timeout envelope (GH Actions webhook
+    // delivery, cron-handler budget). When we exceed the budget, we stop
+    // retrying and return the most recent response — callers surface the
+    // 5xx/429 to their error handler rather than hang past their own
+    // deadline.
+    const startedAt = Date.now();
+    const remainingBudgetMs = () =>
+      Math.max(0, RETRY_BUDGET_MS - (Date.now() - startedAt));
     while (true) {
       attempts += 1;
       let res: Response;
@@ -176,7 +216,8 @@ export function createPbClient(config: PbClientConfig): PbClient {
         // Thrown network error — treat as transient and retry with the
         // same backoff envelope as 5xx.
         if (attempts < maxAttempts) {
-          const waitMs = 2 ** attempts * 100;
+          const waitMs = Math.min(2 ** attempts * 100, remainingBudgetMs());
+          if (waitMs <= 0) throw err;
           logger.debug("pb-client.network-retry", {
             path,
             attempt: attempts,
@@ -189,22 +230,50 @@ export function createPbClient(config: PbClientConfig): PbClient {
         throw err;
       }
       if (res.status === 401 && authRetries < MAX_AUTH_RETRIES) {
+        // Note: the outer `attempts += 1` fired before entering this
+        // branch, so a single 401-re-auth chain consumes 2 of 3
+        // attempts, leaving 1 slot for a subsequent 5xx/429. Defensive
+        // but intentional — we prefer to fail fast on pathological
+        // 401→429 loops rather than burn the full envelope.
         authRetries += 1;
         authToken = null;
         try {
           await ensureAuth();
         } catch (err) {
-          logger.debug("pb-client.reauth-failed", {
-            path,
-            err: String(err),
-          });
-          return res;
+          // Persistent re-auth failure is operationally significant: every
+          // write silently fails as a 401 to the caller, which then treats
+          // the probe as errored. Upgrade to warn (rate-limited) so
+          // operators notice without log spam. Surface the underlying
+          // cause in a thrown error rather than returning the bare 401 —
+          // a 401 with no context obscures the real failure (wrong creds,
+          // PB admin deleted, version mismatch at auth endpoint).
+          const now = Date.now();
+          if (now - lastReauthWarnAt > REAUTH_WARN_INTERVAL_MS) {
+            lastReauthWarnAt = now;
+            logger.warn("pb-client.reauth-failed", {
+              path,
+              err: String(err),
+              hint: "credentials rejected on re-auth — check POCKETBASE_SUPERUSER_EMAIL/PASSWORD and PB version",
+            });
+          } else {
+            logger.debug("pb-client.reauth-failed", {
+              path,
+              err: String(err),
+            });
+          }
+          throw new Error(
+            `pb-client: re-auth failed on ${path} (status 401): ${String(err)}`,
+          );
         }
         if (authToken) headers.set("authorization", authToken);
         continue;
       }
       if (res.status === 429 && attempts < maxAttempts) {
-        const waitMs = parseRetryAfterMs(res, attempts);
+        const waitMs = Math.min(
+          parseRetryAfterMs(res, attempts),
+          remainingBudgetMs(),
+        );
+        if (waitMs <= 0) return res;
         logger.debug("pb-client.rate-limited", {
           path,
           attempt: attempts,
@@ -219,7 +288,8 @@ export function createPbClient(config: PbClientConfig): PbClient {
         continue;
       }
       if (res.status >= 500 && attempts < maxAttempts) {
-        const waitMs = 2 ** attempts * 100;
+        const waitMs = Math.min(2 ** attempts * 100, remainingBudgetMs());
+        if (waitMs <= 0) return res;
         // Same reasoning as the 429 branch: drain before backing off.
         await res.text().catch(() => {});
         await new Promise((r) => setTimeout(r, waitMs));
@@ -262,7 +332,12 @@ export function createPbClient(config: PbClientConfig): PbClient {
       if (opts.sort) qs.set("sort", opts.sort);
       if (opts.page) qs.set("page", String(opts.page));
       if (opts.perPage) qs.set("perPage", String(opts.perPage));
-      if (opts.skipTotal) qs.set("skipTotal", "true");
+      // Pass the bool through explicitly so callers can force a total
+      // count (`skipTotal: false`) even when PB's default is otherwise.
+      // Previous `if (opts.skipTotal)` silently dropped explicit `false`.
+      if (opts.skipTotal !== undefined) {
+        qs.set("skipTotal", opts.skipTotal ? "true" : "false");
+      }
       const res = await request(
         `/api/collections/${encodeURIComponent(collection)}/records?${qs.toString()}`,
       );
