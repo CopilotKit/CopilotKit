@@ -6,6 +6,7 @@ import { CopilotChatConfigurationKey } from "./keys";
 import { CopilotChatDefaultLabels } from "./types";
 import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
+import { useShallowStableRef } from "../lib/shallow-stable";
 
 const props = withDefaults(
   defineProps<CopilotChatConfigurationProviderProps>(),
@@ -17,11 +18,12 @@ const parentConfig = inject<ComputedRef<CopilotChatConfigurationValue> | null>(
   null,
 );
 const parentConfigValue = computed(() => parentConfig?.value ?? null);
+const stableLabels = useShallowStableRef(computed(() => props.labels));
 
 const mergedLabels = computed<CopilotChatLabels>(() => ({
   ...CopilotChatDefaultLabels,
   ...parentConfigValue.value?.labels,
-  ...props.labels,
+  ...stableLabels.value,
 }));
 
 const resolvedAgentId = computed(

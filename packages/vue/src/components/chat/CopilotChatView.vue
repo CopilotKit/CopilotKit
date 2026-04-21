@@ -521,18 +521,20 @@ onBeforeUnmount(() => {
                   :messages="messages"
                   :is-running="isRunning"
                 >
-                  <CopilotChatMessageView
-                    :messages="messages"
-                    :is-running="isRunning"
-                  >
-                    <template
-                      v-for="slotName in forwardedMessageViewSlotNames"
-                      :key="slotName"
-                      #[slotName]="slotProps"
+                  <div v-memo="[messages, isRunning]">
+                    <CopilotChatMessageView
+                      :messages="messages"
+                      :is-running="isRunning"
                     >
-                      <slot :name="slotName" v-bind="slotProps" />
-                    </template>
-                  </CopilotChatMessageView>
+                      <template
+                        v-for="slotName in forwardedMessageViewSlotNames"
+                        :key="slotName"
+                        #[slotName]="slotProps"
+                      >
+                        <slot :name="slotName" v-bind="slotProps" />
+                      </template>
+                    </CopilotChatMessageView>
+                  </div>
                 </slot>
                 <div
                   v-if="hasSuggestions"
@@ -560,7 +562,7 @@ onBeforeUnmount(() => {
 
       <slot name="feather">
         <div
-          class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t cpk:from-white cpk:via-white cpk:to-transparent cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]"
+          class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-linear-to-t cpk:from-white cpk:via-white cpk:to-transparent cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]"
           data-testid="copilot-chat-view-feather"
         />
       </slot>

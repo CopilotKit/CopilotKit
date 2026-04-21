@@ -31,6 +31,7 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useAgent } from "../../hooks/use-agent";
 import { useSuggestions } from "../../hooks/use-suggestions";
+import { useShallowStableRef } from "../../lib/shallow-stable";
 import {
   transcribeAudio,
   TranscriptionError,
@@ -73,6 +74,7 @@ defineSlots<{
   "suggestion-view"?: (props: CopilotChatSuggestionViewSlotProps) => unknown;
   "welcome-screen"?: (props: CopilotChatWelcomeScreenSlotProps) => unknown;
   "welcome-message"?: () => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [key: string]: ((props: any) => unknown) | undefined;
 }>();
 
@@ -124,7 +126,8 @@ const resolvedThreadId = computed(
   () =>
     props.threadId ?? existingConfig.value?.threadId ?? generatedThreadId.value,
 );
-const resolvedLabels = computed(() => props.labels);
+const stableLabels = useShallowStableRef(computed(() => props.labels));
+const resolvedLabels = computed(() => stableLabels.value);
 
 const { agent } = useAgent({
   agentId: resolvedAgentId,
@@ -151,7 +154,7 @@ const effectiveMode = computed<"input" | "transcribe" | "processing">(() =>
 const runLifecycleTick = ref(0);
 const messages = computed(() => [...(agent.value?.messages ?? [])]);
 const isRunning = computed(() => {
-  runLifecycleTick.value += 0;
+  void runLifecycleTick.value;
   return agent.value?.isRunning ?? false;
 });
 const shouldAllowStop = computed(
