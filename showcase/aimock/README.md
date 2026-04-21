@@ -12,7 +12,7 @@ The showcase deployment runs aimock in proxy mode — `--proxy-only` with real u
 
 ## Fixtures in this directory
 
-- **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `showcase_aimock-e2e` Playwright suites and by the Dockerfile-baked image.
+- **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `test_e2e-showcase-on-demand` Playwright suites and by the Dockerfile-baked image.
 - **`smoke.json`** — a single minimal fixture (`userMessage: "Respond with exactly: OK"` → `content: "OK"`). Used by `/api/smoke` endpoints in each package to verify the aimock → package → UI round-trip without depending on a real agent.
 - **`Dockerfile`** — pins the upstream `ghcr.io/copilotkit/aimock:latest`, copies both fixtures into `/fixtures/`, and boots with `--proxy-only --validate-on-load` plus the three provider upstream URLs.
 

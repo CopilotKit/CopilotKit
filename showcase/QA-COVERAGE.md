@@ -63,7 +63,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 - Every one of the 17 packages ships 9 per-demo spec files (agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents).
 - `langgraph-python` additionally ships a 10th spec (`renderer-selector.spec.ts`) covering the Sales Dashboard renderer-selector flow; no other package has this spec.
-- Tests require a running dev server and (for interaction tests) an agent backend or aimock, and are **not** wired into default CI — they run on demand locally or via the manual `showcase_aimock-e2e.yml` trigger.
+- Tests require a running dev server and (for interaction tests) an agent backend or aimock, and are **not** wired into default CI — they run on demand locally or via the manual `test_e2e-showcase-on-demand.yml` trigger.
 - **Gap:** The renderer-selector per-package coverage is langgraph-python-only; replicating it to at least one TypeScript package would verify cross-framework parity.
 
 ### Aimock Fixtures (`showcase/aimock/`)
@@ -75,7 +75,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 ### CI Workflows (`.github/workflows/showcase_*.yml`)
 
 - `showcase_validate.yml` -- runs `npx vitest run` on PR (unit tests only)
-- `showcase_aimock-e2e.yml` -- runs aimock-backed Playwright E2E, **manual trigger only** (`/test-aimock` comment or workflow_dispatch)
+- `test_e2e-showcase-on-demand.yml` -- runs aimock-backed Playwright E2E, **manual trigger only** (`/test-aimock` comment or workflow_dispatch)
 - `showcase_drift-detection.yml` -- template drift detection
 - `showcase_template-drift.yml` -- template synchronization
 - `showcase_deploy.yml` -- deployment pipeline

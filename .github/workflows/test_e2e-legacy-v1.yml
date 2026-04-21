@@ -1,17 +1,17 @@
-name: test / e2e / examples
+name: test / e2e / legacy-v1
 
 on:
   push:
     branches: [main]
     paths:
       - "examples/**"
-      - ".github/workflows/e2e_examples.yml"
+      - ".github/workflows/test_e2e-legacy-v1.yml"
       - ".changeset"
   pull_request:
     branches: [main]
     paths:
       - "examples/**"
-      - ".github/workflows/e2e_examples.yml"
+      - ".github/workflows/test_e2e-legacy-v1.yml"
   workflow_dispatch:
     inputs:
       branch:

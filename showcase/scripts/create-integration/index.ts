@@ -2030,8 +2030,8 @@ export function updateWorkflows(args: CLIArgs) {
   // workflow edit is needed anymore. The probes enumerate services from
   // Railway at runtime.
 
-  // 3. Update starter-smoke.yml — add to matrix (block sequence format)
-  const smokePath = path.join(workflowsDir, "starter-smoke.yml");
+  // 3. Update test_smoke-starter.yml — add to matrix (block sequence format)
+  const smokePath = path.join(workflowsDir, "test_smoke-starter.yml");
   const smokeState = probePath(smokePath);
   if (smokeState === "unreadable") {
     console.error(
@@ -2041,7 +2041,7 @@ export function updateWorkflows(args: CLIArgs) {
   }
   if (smokeState === "missing") {
     console.warn(
-      `  [WARN] ${smokePath} not found; skipping starter-smoke.yml update.`,
+      `  [WARN] ${smokePath} not found; skipping test_smoke-starter.yml update.`,
     );
   }
   if (smokeState === "exists") {
@@ -2109,7 +2109,7 @@ export function updateWorkflows(args: CLIArgs) {
       lines.splice(lastEntryIndex + 1, 0, `${entryIndent}${slug}`);
       smoke = lines.join("\n");
       fs.writeFileSync(smokePath, smoke);
-      console.log("  Updated starter-smoke.yml");
+      console.log("  Updated test_smoke-starter.yml");
     } else if (!sawStarterBlock) {
       // The file exists but our regex-based parser could not find a
       // `starter:` block to append to. Symmetric with the deploy/drift
