@@ -2083,6 +2083,19 @@ if (process.argv[1]) {
   const invokedAs = path.resolve(process.argv[1]);
   const modulePath = path.resolve(fileURLToPath(import.meta.url));
   if (invokedAs === modulePath) {
-    main();
+    // Attach a top-level .catch so any rejected promise out of main()
+    // surfaces with a diagnostic prefix and a stable exit code rather
+    // than an UnhandledPromiseRejection warning (or, under
+    // --unhandled-rejections=strict, a silent non-zero exit with no
+    // stderr). Mirrors the [INTERNAL ERROR] / exit-4 convention used
+    // by audit.ts and validate-parity.ts.
+    main().catch((err) => {
+      const message =
+        err instanceof Error ? (err.stack ?? err.message) : String(err);
+      console.error(
+        `[INTERNAL ERROR] create-integration crashed: ${message}`,
+      );
+      process.exitCode = 4;
+    });
   }
 }
