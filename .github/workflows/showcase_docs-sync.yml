@@ -185,7 +185,7 @@ jobs:
 
           # Stage AFTER manifest has been applied so conflicted files land
           # in the commit.
-          git add showcase/shell/src/content/ showcase/shell/.docs-sync-sha
+          git add showcase/shell-docs/src/content/ showcase/shell-docs/.docs-sync-sha
           CHANGED=$(git diff --cached --name-only | wc -l | tr -d ' ')
 
           if [ "$CHANGED" = "0" ]; then
