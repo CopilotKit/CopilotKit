@@ -67,19 +67,22 @@ const runtime = new CopilotRuntime({
 });
 
 // 4. Build a Next.js API route that handles the CopilotKit runtime requests.
+//    Construct the endpoint once at module load so any configuration errors
+//    fail at deploy/boot time rather than being silently downgraded into
+//    per-request 500s, and so the runtime/adapter wiring isn't rebuilt on
+//    every request.
+const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+  runtime,
+  serviceAdapter,
+  endpoint: "/api/copilotkit",
+});
+
 //    Wrap handleRequest in try/catch so unhandled exceptions surface as a
 //    structured 500 rather than a raw Next.js error page, and log the failure
-//    for observability. Synchronous/setup errors (missing env, invalid
-//    config) land here; errors inside the streaming response are handled
+//    for observability. Errors inside the streaming response are handled
 //    by the runtime itself.
 export const POST = async (req: NextRequest) => {
   try {
-    const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-      runtime,
-      serviceAdapter,
-      endpoint: "/api/copilotkit",
-    });
-
     return await handleRequest(req);
   } catch (err) {
     // eslint-disable-next-line no-console
