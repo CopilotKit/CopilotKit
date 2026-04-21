@@ -152,9 +152,24 @@ export function readTitle(filePath: string): string | null {
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
   if (fmMatch) {
-    title = fmMatch[1].replace(/["']$/, "");
+    title = fmMatch[1];
   } else {
-    const headingMatch = raw.match(/^#\s+(.+)$/m);
+    // Match against the post-frontmatter body so a `# ...` YAML comment
+    // inside frontmatter can't be mistaken for the page's H1.
+    let body = raw;
+    try {
+      body = matter(raw).content;
+    } catch (err) {
+      // If frontmatter parsing blows up we still want a title guess;
+      // fall back to the raw source. Log so a malformed file doesn't
+      // silently produce a garbage H1-derived title with zero diagnostic.
+      console.error(
+        "[docs-render] frontmatter parse failed for",
+        filePath,
+        err,
+      );
+    }
+    const headingMatch = body.match(/^#\s+(.+)$/m);
     if (headingMatch) title = headingMatch[1];
   }
   if (isProd()) titleCache.set(cacheKey, title);
@@ -791,7 +806,7 @@ export function loadDoc(
   // and CRLF line endings correctly. Previously the regex split on
   // `^---\n` and missed anything Windows-authored.
   let data: Record<string, unknown> = {};
-  let parsed: { data: Record<string, unknown> } | null = null;
+  let parsed: { data: Record<string, unknown>; content: string } | null = null;
   try {
     parsed = matter(source);
     data = parsed.data ?? {};
@@ -802,7 +817,10 @@ export function loadDoc(
   }
 
   const rawTitle = typeof data.title === "string" ? data.title : undefined;
-  const headingMatch = rawTitle ? null : source.match(/^#\s+(.+)$/m);
+  // Use the parsed body (frontmatter stripped) for the H1 fallback so a
+  // `# ...` YAML comment inside frontmatter can't masquerade as an H1.
+  const body = parsed?.content ?? source;
+  const headingMatch = rawTitle ? null : body.match(/^#\s+(.+)$/m);
   const title =
     rawTitle ||
     headingMatch?.[1] ||
