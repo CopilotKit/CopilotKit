@@ -2,13 +2,15 @@
 name: a2ui-rendering
 description: >
   Render A2UI (Agent-to-UI declarative surfaces) in CopilotKit v2. Enable the
-  runtime via CopilotRuntime({ a2ui: {...} }) with @ag-ui/a2ui-middleware, then
-  enable the provider via <CopilotKitProvider a2ui={{ theme }}>. Auto-activates
-  via /info — do NOT manually pass renderActivityMessages. Covers
-  createA2UIMessageRenderer, theme customization, createSurface dedup,
-  action-bridge try/finally cleanup. Load when an agent emits A2UI operations
-  (createSurface / updateComponents / updateDataModel), when wiring a2ui on
-  CopilotRuntime, or when styling A2UI surfaces.
+  runtime via CopilotRuntime({ a2ui: {...} }), then enable the provider via
+  <CopilotKitProvider a2ui={{ theme }}>. Auto-activates via /info — do NOT
+  manually pass renderActivityMessages. createA2UIMessageRenderer ships from
+  @copilotkit/react-core/v2; low-level primitives (A2UIProvider, A2UIRenderer,
+  createCatalog) ship from @copilotkit/a2ui-renderer. Covers theme
+  customization, createSurface dedup, action-bridge try/finally cleanup. Load
+  when an agent emits A2UI operations (createSurface / updateComponents /
+  updateDataModel), when wiring a2ui on CopilotRuntime, or when styling A2UI
+  surfaces.
 type: framework
 library: copilotkit
 framework: react
@@ -117,6 +119,8 @@ import {
   basicCatalog,
 } from "@copilotkit/a2ui-renderer";
 
+const theme = { colors: { primary: "#0ea5e9" } };
+
 const catalog = createCatalog({
   ...basicCatalog,
   ProductCard: {
@@ -144,18 +148,9 @@ const catalog = createCatalog({
     theme,
     loadingComponent: () => <div className="animate-pulse">Building UI…</div>,
   }}
-/>
-```
-
-### Explicit renderer (advanced, non-default)
-
-Only when you need the renderer outside a CopilotKitProvider tree (e.g. a
-standalone preview). Inside the provider, the a2ui prop does this for you.
-
-```tsx
-import { createA2UIMessageRenderer } from "@copilotkit/react-core/v2";
-
-const renderer = createA2UIMessageRenderer({ theme, catalog });
+>
+  <CopilotChat agentId="default" />
+</CopilotKitProvider>
 ```
 
 ## Common Mistakes
@@ -215,19 +210,25 @@ Source: packages/react-core/src/v2/providers/CopilotKitProvider.tsx:188-222,294-
 Wrong:
 
 ```python
-# agent re-emits createSurface operation on every state delta
-for update in stream:
-    yield a2ui.create_surface(surface_id="main", ...)  # every tick
-    yield a2ui.update_components(...)
+# Pseudocode — inside your agent generator. Exact API names/kwargs vary by
+# A2UI SDK version; consult your SDK's docs for real call shapes.
+async def agent_generator():
+    # agent re-emits createSurface operation on every state delta
+    async for update in stream:
+        yield a2ui.create_surface(surface_id="main", ...)  # every tick
+        yield a2ui.update_components(...)
 ```
 
 Correct:
 
 ```python
-# emit createSurface once per surfaceId; use updateComponents / updateDataModel for changes
-yield a2ui.create_surface(surface_id="main", ...)  # once
-for update in stream:
-    yield a2ui.update_components(surface_id="main", ...)
+# Pseudocode — inside your agent generator.
+# Emit createSurface once per surfaceId; use updateComponents / updateDataModel
+# for changes.
+async def agent_generator():
+    yield a2ui.create_surface(surface_id="main", ...)  # once
+    async for update in stream:
+        yield a2ui.update_components(surface_id="main", ...)
 ```
 
 The MessageProcessor dedups on `surfaceId` but re-emitting is an agent-side
@@ -252,13 +253,17 @@ try {
   copilotkit.setProperties({ ...copilotkit.properties, a2uiAction: msg });
   await copilotkit.runAgent({ agent });
 } finally {
-  const { a2uiAction, ...rest } = copilotkit.properties;
-  copilotkit.setProperties(rest);
+  if (copilotkit.properties) {
+    const { a2uiAction, ...rest } = copilotkit.properties;
+    copilotkit.setProperties(rest);
+  }
 }
 ```
 
-The built-in bridge always strips `a2uiAction` in `finally`. Skipping cleanup
-keeps the previous action attached to subsequent runs.
+The built-in bridge always strips `a2uiAction` in `finally`, guarded by a
+`copilotkit.properties` null-check so it can't mask the original `runAgent`
+error with a `TypeError` during destructuring. Skipping cleanup keeps the
+previous action attached to subsequent runs.
 
 Source: packages/react-core/src/v2/a2ui/A2UIMessageRenderer.tsx:146-167
 
@@ -283,7 +288,9 @@ import {
 import { createA2UIMessageRenderer } from "@copilotkit/react-core/v2";
 ```
 
-Only `@copilotkitnext/angular` uses the `@copilotkitnext/` scope — every
-other CopilotKit package lives under `@copilotkit/`.
+This package ships as `@copilotkit/a2ui-renderer`, not
+`@copilotkitnext/a2ui-renderer`. The `@copilotkitnext/` scope is reserved
+for other packages that ship under it separately — do not assume it applies
+here.
 
-Source: packages/a2ui-renderer/package.json; packages/angular/package.json
+Source: packages/a2ui-renderer/package.json
