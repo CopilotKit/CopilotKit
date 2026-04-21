@@ -56,7 +56,11 @@ describe("deploy-result probe transformer", () => {
     expect(r.signal.succeededCount).toBe(2);
   });
 
-  it("flags cancelled_prebuild when cancelled with no legs complete", () => {
+  it("flags cancelled_prebuild when cancelled with no legs complete (state stays green — supersession is routine)", () => {
+    // Contract: cancel-before-build is almost always a deliberate supersede
+    // (push replacing an earlier run). Keeping state green avoids amber-fog
+    // across the dashboard for routine workflow events; templates that care
+    // about this distinction branch on `trigger.cancelled_prebuild`.
     const r = deployEventToProbeResult(
       {
         runId: "4",

@@ -32,11 +32,23 @@ export interface DeployResultSignal {
  * Passive transformer: converts a DeployResultEvent into a ProbeResult
  * keyed `deploy:overall`.
  *
+ * Idempotency: this function is pure — multiple calls for the same event
+ * produce identical output. Retry-dedupe is the caller's responsibility
+ * (webhook receiver caches by `runId`). If GH Actions retries a webhook
+ * post after a 200 response (e.g. parse error on our body), dedupe must
+ * prevent the resolver from re-running and re-writing status_history —
+ * this transformer cannot defend against that race.
+ *
  * State rules:
  *   - `failedCount > 0`                           → red
  *   - `cancelled === true && failedCount === 0 && succeededCount === 0` →
  *     green with `cancelledPreBuild: true` (no legs ever started — treat
  *     as a no-op). `cancelledMidMatrix` is NOT set here.
+ *     Rationale for green (not degraded): cancel-before-build is almost
+ *     always a deliberate supersession (push → supersede older run). A
+ *     degraded state would flip the rollup to amber across the dashboard
+ *     for routine workflow events. Templates differentiate via the
+ *     `cancelled_prebuild` signal-derived trigger.
  *   - `cancelled === true && failedCount === 0 && succeededCount > 0` →
  *     green with `cancelledMidMatrix: true` (some legs completed
  *     successfully before cancellation).
