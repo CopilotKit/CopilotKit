@@ -271,7 +271,7 @@ export default {
 
 ### SPA-without-runtime branch (no server)
 
-Point the provider at CopilotKit Cloud via `publicLicenseKey` — no backend,
+Point the provider at CopilotKit Cloud via `publicApiKey` — no backend,
 no `runtimeUrl`. This is the ONLY production-safe SPA path. See
 `copilotkit/spa-without-runtime` for the full treatment.
 
@@ -281,7 +281,7 @@ import "@copilotkit/react-core/v2/styles.css";
 
 export default function App() {
   return (
-    <CopilotKitProvider publicLicenseKey={import.meta.env.VITE_CPK_LICENSE}>
+    <CopilotKitProvider publicApiKey={import.meta.env.VITE_CPK_PUBLIC_API_KEY}>
       <CopilotChat agentId="default" className="h-full" />
     </CopilotKitProvider>
   );

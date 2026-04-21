@@ -277,13 +277,13 @@ Expected:
 ```tsx
 <CopilotKitProvider runtimeUrl="/api/copilotkit" />
 // or
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 ```
 
 Fail condition: any `agents__unsafe_dev_only={{ ... }}` prop in shipped
 client code — registers agents in the browser and leaks credentials.
 Fix: move agent construction to the server (runtime) or use
-`publicLicenseKey` (Cloud). See `copilotkit/spa-without-runtime`.
+`publicApiKey` (Cloud). See `copilotkit/spa-without-runtime`.
 
 ### Check: no selfManagedAgents in shipped client code
 
