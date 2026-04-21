@@ -48,7 +48,7 @@ html.dark,
 body.dark,
 [data-theme="dark"],
 html[style*="color-scheme: dark"],
-body[style*="color-scheme: dark"] :root {
+body[style*="color-scheme: dark"] {
   /* Main brand/action color - used for buttons, interactive elements */
   --copilot-kit-primary-color: rgb(255, 255, 255);
   /* Color that contrasts with primary - used for text on primary elements */

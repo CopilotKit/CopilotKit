@@ -23,6 +23,7 @@ import {
   getZodParameters,
   type PartialBy,
   isTelemetryDisabled,
+  type DebugConfig,
 } from "@copilotkit/shared";
 import type { RunAgentInput } from "@ag-ui/core";
 import { aguiToGQL } from "../../graphql/message-conversion/agui-to-gql";
@@ -292,6 +293,19 @@ export interface CopilotRuntimeConstructorParams_BASE<
 
   onStopGeneration?: OnStopGenerationHandler;
 
+  /**
+   * Enable debug logging for the runtime event pipeline.
+   * Pass `true` for full output, or an object for granular control:
+   *
+   * ```ts
+   * const runtime = new CopilotRuntime({
+   *   debug: true,
+   *   // or: debug: { events: true, lifecycle: true, verbose: false }
+   * });
+   * ```
+   */
+  debug?: DebugConfig;
+
   // /** Optional transcription service for audio processing. */
   // transcriptionService?: CopilotRuntimeOptionsVNext["transcriptionService"];
   // /** Optional *before* middleware – callback function or webhook URL. */
@@ -347,6 +361,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.remoteEndpoints ?? [],
     );
 
+    // Merge endpoint agents with user-provided agents.
+    // When agents is a factory function, wrap it so endpoint agents are merged
+    // at resolution time (spreading a function produces {} — silent data loss).
+    let mergedAgents: AgentsConfig;
+    if (typeof agents === "function") {
+      mergedAgents = async (ctx) => {
+        const resolved = await agents(ctx);
+        return { ...endpointAgents, ...resolved };
+      };
+    } else {
+      mergedAgents = Promise.resolve(agents).then((resolved) => ({
+        ...endpointAgents,
+        ...resolved,
+      }));
+    }
+
     // Determine the base runner (user-provided or default)
     const baseRunner = params?.runner ?? new InMemoryAgentRunner();
 
@@ -358,9 +388,10 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       : new TelemetryAgentRunner({ runner: baseRunner });
 
     this.runtimeArgs = {
-      agents: { ...endpointAgents, ...agents },
+      agents: mergedAgents,
       runner,
       licenseToken: params?.licenseToken,
+      debug: params?.debug,
       // TODO: add support for transcriptionService from CopilotRuntimeOptionsVNext once it is ready
       // transcriptionService: params?.transcriptionService,
 
@@ -595,9 +626,22 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       params?.afterRequestMiddleware?.(hookParams);
 
       if (params?.middleware?.onAfterRequest) {
-        // TODO: provide old expected params here when available
-        // @ts-expect-error -- missing arguments.
-        params.middleware.onAfterRequest({});
+        const messages = hookParams.messages ?? [];
+        params.middleware.onAfterRequest({
+          threadId: hookParams.threadId ?? "",
+          runId: hookParams.runId,
+          inputMessages: messages.filter(
+            (m): m is typeof m & { role: string } =>
+              "role" in m && m.role === "user",
+          ) as unknown as Message[],
+          outputMessages: messages.filter(
+            (m): m is typeof m & { role: string } =>
+              "role" in m && m.role !== "user",
+          ) as unknown as Message[],
+          // TODO: forward actual properties once the after-request hook has access to the request body
+          properties: {},
+          url: hookParams.path,
+        } satisfies OnAfterRequestOptions);
       }
     };
   }

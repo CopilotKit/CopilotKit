@@ -1,5 +1,5 @@
 # Stage 1: Build AG-UI Java SDK + Spring Boot agent backend
-FROM eclipse-temurin:17.0.18-jdk-jammy AS java-builder
+FROM eclipse-temurin:17-jdk-jammy AS java-builder
 RUN apt-get update && apt-get install -y maven git && rm -rf /var/lib/apt/lists/*
 
 # Build AG-UI Java SDK from source, then resolve our dependencies
@@ -24,21 +24,21 @@ COPY src/main/resources/ src/main/resources/
 RUN mvn package -DskipTests -B
 
 # Stage 2: Build Next.js frontend
-FROM node:20.20-slim AS frontend
+FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY next.config.ts tsconfig.json postcss.config.mjs ./
 COPY src/app/ src/app/
 COPY public/ public/
 RUN npm run build
 
 # Stage 3: Production runtime (JRE + Node)
-FROM eclipse-temurin:17.0.18-jre-jammy AS runner
+FROM eclipse-temurin:17-jre-jammy AS runner
 
 # Install Node.js 20
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 

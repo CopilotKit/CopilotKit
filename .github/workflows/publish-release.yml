@@ -74,6 +74,20 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
 
+      - name: Check for pre-existing tags
+        run: |
+          SCOPE="${{ steps.meta.outputs.scope }}"
+          VERSION="${{ steps.publish.outputs.version }}"
+          if [ "$SCOPE" == "monorepo" ]; then
+            TAG="v${VERSION}"
+          else
+            TAG="${SCOPE}/v${VERSION}"
+          fi
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "ERROR: Tag $TAG already exists" >&2
+            exit 1
+          fi
+
       - name: Create and push git tag
         run: |
           SCOPE="${{ steps.meta.outputs.scope }}"

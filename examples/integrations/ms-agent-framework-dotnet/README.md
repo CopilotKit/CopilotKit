@@ -46,23 +46,21 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
     - [Install via WinGet](https://winstall.app/apps/OpenJS.NodeJS) (`winget install --id=OpenJS.NodeJS -v "24.11.0" -e`)
 
 - Any of the following package managers:
-  - [pnpm](https://pnpm.io/installation) **(recommended)**
-  - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) (usually installed with Node.js)
-  - [yarn](https://yarnpkg.com/getting-started/install)
-  - [bun](https://bun.com/docs/installation)
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - [npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) **(default)** (usually installed with Node.js)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
    ```bash
-   # Using pnpm (recommended)
-   pnpm install
-
-   # Using npm
+   # Using npm (default)
    npm install
+
+   # Using pnpm
+   pnpm install
 
    # Using yarn
    yarn install
@@ -104,11 +102,11 @@ This is a starter template for building AI agents using [Microsoft Agent Framewo
 3. Start the development server:
 
    ```bash
+   # Using npm (default)
+   npm run dev
+
    # Using pnpm
    pnpm dev
-
-   # Using npm
-   npm run dev
 
    # Using yarn
    yarn dev

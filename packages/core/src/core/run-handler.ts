@@ -206,6 +206,18 @@ export class RunHandler {
         };
       }
 
+      // Notify subscribers (e.g. the inspector) about the agent that is about
+      // to run. This is critical for per-thread clones that are not present in
+      // the agent registry and would otherwise be invisible to subscribers.
+      await this._internal.notifySubscribers(
+        (subscriber) =>
+          subscriber.onAgentRunStarted?.({
+            copilotkit: this.core,
+            agent,
+          }),
+        "Subscriber onAgentRunStarted error:",
+      );
+
       const runAgentResult = await agent.connectAgent(
         {
           forwardedProps: this._internal.properties,
@@ -282,13 +294,15 @@ export class RunHandler {
     // does not overwrite the registry agent's subscription.
     this._internal.subscribeAgentToStateManager(agent);
 
-    // Notify subscribers (e.g. the web inspector) that a run is about to start
-    // on this specific agent instance. Must be awaited so that subscribers can
-    // call agent.subscribe() before agent.runAgent() captures its subscriber
-    // snapshot — agent.runAgent() snapshots [this.subscribers] synchronously.
+    // Notify subscribers (e.g. the inspector) about the agent that is about
+    // to run. This is critical for per-thread clones that are not present in
+    // the agent registry and would otherwise be invisible to subscribers.
     await this._internal.notifySubscribers(
       (subscriber) =>
-        subscriber.onAgentRunStarted?.({ copilotkit: this.core, agent }),
+        subscriber.onAgentRunStarted?.({
+          copilotkit: this.core,
+          agent,
+        }),
       "Subscriber onAgentRunStarted error:",
     );
 
@@ -865,6 +879,7 @@ export class RunHandler {
       .filter(
         (tool) =>
           tool.available !== false &&
+          tool.available !== "disabled" &&
           (!tool.agentId || tool.agentId === agentId),
       )
       .map((tool) => ({

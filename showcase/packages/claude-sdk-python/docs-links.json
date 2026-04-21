@@ -1,0 +1,59 @@
+{
+  "framework": "claude-sdk-python",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+      "shell_docs_path": null
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": null
+    }
+  },
+  "missing": [
+    {
+      "feature": "agentic-chat",
+      "reason": "No claude-sdk-python- or claude-sdk-scoped docs exist; no /agentic-chat root page. Falling back to /agentic-chat-ui (og) and /prebuilt-components (shell /unselected/prebuilt-components.mdx)."
+    },
+    {
+      "feature": "hitl-in-chat",
+      "reason": "No framework-scoped docs. Root /human-in-the-loop exists and is used for og. Shell /unselected/human-in-the-loop.mdx is missing — using /generative-ui/your-components/interactive which is the closest match (interactive components HITL in chat)."
+    },
+    {
+      "feature": "gen-ui-agent",
+      "reason": "Root /generative-ui/state-rendering exists (og), but shell /unselected/generative-ui/state-rendering.mdx does not exist. No suitable shell fallback in /unselected; shell_docs_path is null."
+    },
+    {
+      "feature": "shared-state-streaming",
+      "reason": "No dedicated streaming doc; root /shared-state/streaming and /shared-state/predictive-state-updates both 404 (og and shell). Falling back to parent /shared-state for both og and shell."
+    },
+    {
+      "feature": "subagents",
+      "reason": "No claude-sdk-python-scoped, claude-sdk-scoped, or root-scoped subagents/multi-agent docs exist. Checked: /claude-sdk-python/multi-agent/subagents, /claude-sdk/multi-agent/subagents, /multi-agent/subagents, /subagents, /multi-agent — all 404. Shell /unselected has no subagent content. Both og_docs_url and shell_docs_path are null."
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Let your agent interact with and update your application's UI.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: frontend-tools
+---
+
+## What is this?
+
+Frontend tools let your agent define and invoke client-side functions — logic
+that runs entirely in the user's browser. Because the handler executes in the
+frontend, it has direct access to component state, browser APIs, and any
+third-party UI library the page already uses. That's how an agent can "reach
+into" the app: update React state, trigger animations, read `localStorage`,
+pop a toast, or steer the user's view.
+
+This page covers the "agent drives the UI" shape of frontend tools. (The same
+primitive also powers Generative UI and Human-in-the-loop — see those pages
+for interaction patterns.)
+
+<InlineDemo integration="langgraph-python" demo="frontend-tools" />
+
+## When should I use this?
+
+Use frontend tools when your agent needs to:
+
+- Read or modify React component state
+- Access browser APIs like `localStorage`, `sessionStorage`, or cookies
+- Trigger UI updates, animations, or transitions
+- Show alerts, toasts, or notifications
+- Interact with third-party frontend libraries
+- Perform anything that requires the user's immediate browser context
+
+## How it works in code
+
+Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema
+for parameters, and a handler — the agent can then call it like any other
+tool and your frontend runs it in the browser.
+
+<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
+
+The handler receives the parsed, type-safe parameters and can do anything
+the browser can: update state, call an API, touch the DOM. Its return value
+is sent back to the agent as the tool result so the model can reason about
+what happened.
+
+<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
+
+<FeatureIntegrations feature="frontend-tools-sync" />
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="frontend-tools" />
