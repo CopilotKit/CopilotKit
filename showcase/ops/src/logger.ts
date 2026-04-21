@@ -23,13 +23,17 @@ function parseLevel(raw: string | undefined): {
   return { level: "info", invalid: true };
 }
 
-// Cache at boot. Previously the logger re-read process.env on every emit, which
-// is both wasteful on the hot path and makes debugging "why didn't my LOG_LEVEL
-// take" harder (looks like it should work, but the resolved value depended on
-// whatever process.env happened to look like at emit time).
-let cachedLevel: Level;
+// Cache at boot. Previously the logger re-read process.env on every emit,
+// which is both wasteful on the hot path and makes debugging "why didn't my
+// LOG_LEVEL take" harder (looks like it should work, but the resolved value
+// depended on whatever process.env happened to look like at emit time).
+//
+// To change verbosity on a running process WITHOUT a restart, send SIGHUP
+// (with a handler that calls `reloadLogLevel()`) or call `reloadLogLevel()`
+// directly from a debug endpoint. The cached value is intentional — we
+// don't re-read per-emit.
 const parsed = parseLevel(process.env.LOG_LEVEL);
-cachedLevel = parsed.level;
+let cachedLevel: Level = parsed.level;
 
 // Emit a boot-time warning loud enough to catch in a tail before operators
 // waste time wondering why `debug` logs aren't showing. Done via a direct
