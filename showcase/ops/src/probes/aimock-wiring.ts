@@ -121,6 +121,28 @@ export interface AimockWiringSignal {
    * pass/fail logic.
    */
   hasSealed: boolean;
+  /**
+   * HF13-C1: truthy when the probe itself could not run — the canonical
+   * example is a malformed `aimockUrl` that fails URL parsing. When true,
+   * per-service iteration is skipped, the probe returns `state:"red"`, and
+   * a single config-error sentinel populates `errored` / `erroredPreview`
+   * so `deriveSignalFlags` emits `set_errored` and the aimock-wiring-drift
+   * rule renders the errored branch (NOT the drift branch). Without this,
+   * `normalizeUrl(aimockUrl)` returned null and every service tripped
+   * `mismatch`, firing a spurious "all services drifted" page.
+   */
+  probeErrored: boolean;
+  /** Human-readable reason for `probeErrored`, rendered by templates. */
+  probeErrorDesc: string;
+  /**
+   * Distinct from `probeErrored` to let templates tell apart "probe itself
+   * mis-configured at boot" (configError=true) from "probe ran but upstream
+   * dependency errored" (probeErrored=true, configError=false). Today only
+   * the config-error path flips this; left as a dedicated flag so future
+   * non-config probe-level errors can reuse `probeErrored` without
+   * polluting the config-error branch in Slack templates.
+   */
+  configError: boolean;
 }
 
 /** Maximum number of failing services rendered inline in alerts. */
@@ -196,6 +218,11 @@ function pointsAtAimock(
   aimockUrl: string,
 ): "match" | "mismatch" | "sealed" {
   const target = normalizeUrl(aimockUrl);
+  // Defense-in-depth: the probe's `run` has already validated `aimockUrl`
+  // with `new URL` and short-circuited on failure, so `target` should never
+  // be null here. If it somehow is (e.g. a future caller invokes
+  // `pointsAtAimock` directly), return "mismatch" rather than silently
+  // matching — but this path is unreachable via the probe pipeline today.
   if (target === null) return "mismatch";
   const candidates = [env.OPENAI_BASE_URL, env.ANTHROPIC_BASE_URL];
   let anySealed = false;
@@ -232,6 +259,54 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
     input: AimockWiringInput,
     ctx: ProbeContext,
   ): Promise<ProbeResult<AimockWiringSignal>> {
+    // HF13-C1: parse the config URL ONCE at probe start. If it fails, every
+    // downstream `normalizeUrl` call against per-service env vars would also
+    // return null → `pointsAtAimock` returns "mismatch" → every service
+    // lands in `unwired` → probe goes red with "all services drifted". That
+    // paged operators when the actual failure was a config typo in
+    // AIMOCK_BASE_URL. Short-circuit here with a dedicated probeErrored
+    // signal and skip per-service iteration so Slack renders the errored
+    // branch, not the drift branch.
+    //
+    // We do NOT rely on `normalizeUrl` alone because its null-return is also
+    // a legitimate value for per-service env vars (a service without the
+    // var set). Parse+throw via `new URL` gives us a clean boot-time guard.
+    let aimockUrlValid = true;
+    try {
+      // eslint-disable-next-line no-new
+      new URL(input.aimockUrl);
+    } catch {
+      aimockUrlValid = false;
+    }
+    if (!aimockUrlValid) {
+      const errorDesc = `aimockUrl parse failed: ${input.aimockUrl}`;
+      const configEntry = { name: "<config>", errorDesc };
+      const signal: AimockWiringSignal = {
+        unwired: [],
+        wired: [],
+        sealed: [],
+        errored: [configEntry],
+        erroredPreview: [`${configEntry.name}: ${configEntry.errorDesc}`],
+        sealedPreview: [],
+        unwiredCount: 0,
+        wiredCount: 0,
+        erroredCount: 1,
+        sealedCount: 0,
+        unwiredNoun: "services",
+        hasErrored: true,
+        hasSealed: false,
+        probeErrored: true,
+        probeErrorDesc: errorDesc,
+        configError: true,
+      };
+      return {
+        key: "aimock_wiring:global",
+        state: "red",
+        signal,
+        observedAt: ctx.now().toISOString(),
+      };
+    }
+
     const all = await input.listServices();
     // Dedupe by name. Check exclusion BEFORE adding to `seen` so excluded
     // services don't poison the seen-set for later non-excluded duplicates.
@@ -305,6 +380,13 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
       unwiredNoun: unwired.length === 1 ? "service" : "services",
       hasErrored: errored.length > 0,
       hasSealed: sealed.length > 0,
+      // HF13-C1: always emit these on the happy path so templates and
+      // downstream consumers can rely on the fields existing. Per-service
+      // env-fetch failures live in `errored` (not `probeErrored`) — the
+      // latter is reserved for probe-wide misconfiguration.
+      probeErrored: false,
+      probeErrorDesc: "",
+      configError: false,
     };
     // Red state: any unwired or any errored. Sealed bucket does NOT trip red
     // — a correctly-configured service with a sealed env var must not be

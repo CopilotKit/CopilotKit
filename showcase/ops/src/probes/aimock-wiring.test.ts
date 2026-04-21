@@ -404,6 +404,76 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.hasErrored).toBe(true);
   });
 
+  it("HF13-C1: malformed aimockUrl emits probeErrored + config-error entry in errored (no per-service iteration)", async () => {
+    // Regression: when AIMOCK_BASE_URL is unparseable, the probe used to fall
+    // through `normalizeUrl -> null` and mark every service as mismatch,
+    // firing a spurious "all services drifted" alert. The correct behavior is
+    // to short-circuit with a config-error sentinel in `errored` so
+    // `deriveSignalFlags` emits `set_errored` and the aimock-wiring-drift rule
+    // renders the errored branch — NOT the drift branch.
+    let getServiceEnvCalls = 0;
+    let listServicesCalls = 0;
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: "not a url",
+        listServices: async () => {
+          listServicesCalls += 1;
+          return [
+            { name: "showcase-sales-dashboard" },
+            { name: "showcase-quickstart" },
+          ];
+        },
+        getServiceEnv: async () => {
+          getServiceEnvCalls += 1;
+          return {};
+        },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.probeErrored).toBe(true);
+    expect(r.signal.probeErrorDesc).toBe(
+      "aimockUrl parse failed: not a url",
+    );
+    expect(r.signal.configError).toBe(true);
+    expect(r.signal.hasErrored).toBe(true);
+    expect(r.signal.erroredCount).toBe(1);
+    expect(r.signal.errored).toEqual([
+      { name: "<config>", errorDesc: "aimockUrl parse failed: not a url" },
+    ]);
+    expect(r.signal.erroredPreview).toEqual([
+      "<config>: aimockUrl parse failed: not a url",
+    ]);
+    // Per-service iteration must NOT run — services would all be falsely
+    // reported as `mismatch` if we iterated against a null target.
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual([]);
+    expect(r.signal.sealed).toEqual([]);
+    expect(getServiceEnvCalls).toBe(0);
+    // listServices is allowed to run (needed for excluded filtering would add
+    // noise); assert it didn't iterate services either by checking env wasn't
+    // fetched. We don't constrain listServices itself because the contract is
+    // "no per-service env lookups", not "skip listServices".
+    expect(listServicesCalls).toBeLessThanOrEqual(1);
+  });
+
+  it("HF13-C1: well-formed probe runs carry probeErrored=false + configError=false", async () => {
+    // Lock the default shape so downstream consumers can rely on the fields
+    // always being present (redirect-decommission already establishes this
+    // convention).
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-sales-dashboard" }],
+        getServiceEnv: async () => ({ OPENAI_BASE_URL: AIMOCK_URL }),
+      },
+      ctx,
+    );
+    expect(r.signal.probeErrored).toBe(false);
+    expect(r.signal.probeErrorDesc).toBe("");
+    expect(r.signal.configError).toBe(false);
+  });
+
   it("hasErrored is false when errored bucket is empty", async () => {
     const r = await aimockWiringProbe.run(
       {
