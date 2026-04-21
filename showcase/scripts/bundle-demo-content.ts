@@ -419,7 +419,19 @@ function main() {
         const demoPathSet = new Set(files.map((f) => f.filename));
         for (const hlPath of highlightList) {
           if (demoPathSet.has(hlPath)) continue;
-          const absExternal = path.join(pkgRoot, hlPath);
+          const absExternal = path.resolve(pkgRoot, hlPath);
+          // Guard against highlight entries that escape the package root
+          // (e.g. `../../other-pkg/secret.txt` or absolute paths). The
+          // bundle output is committed to the repo and consumed by both
+          // shells at build time, so a malicious manifest could otherwise
+          // smuggle arbitrary filesystem contents into the bundled JSON.
+          // Block anything that resolves outside pkgRoot up front.
+          const rel = path.relative(pkgRoot, absExternal);
+          if (rel.startsWith("..") || path.isAbsolute(rel)) {
+            throw new Error(
+              `${key}: highlight path "${hlPath}" resolves outside the package root (${absExternal}). Highlight paths must be package-relative.`,
+            );
+          }
           if (!fs.existsSync(absExternal)) {
             throw new Error(
               `${key}: highlight path "${hlPath}" not found in demo folder nor at ${absExternal}.`,
