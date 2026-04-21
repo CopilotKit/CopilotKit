@@ -17,6 +17,7 @@ import {
 } from "@langchain/core/messages";
 
 import {
+  Annotation,
   Command,
   END,
   getCurrentTaskInput,
@@ -30,7 +31,6 @@ import {
   convertActionsToDynamicStructuredTools,
   CopilotKitStateAnnotation,
 } from "@copilotkit/sdk-js/langgraph";
-import { Annotation } from "@langchain/langgraph";
 
 // Include CopilotKitStateAnnotation so the frontend can attach actions and
 // so messages flow through the same channel the SDK expects.
@@ -158,10 +158,27 @@ const deleteProverb = tool(
         ? currentState.proverbs
         : [];
       const idx = current.indexOf(args.proverb);
-      const filtered =
-        idx === -1
-          ? current
-          : [...current.slice(0, idx), ...current.slice(idx + 1)];
+
+      // Approved-but-not-present: do not lie to the model. Return an
+      // error ToolMessage so the model sees "nothing matched" and can
+      // respond truthfully instead of confirming a deletion that never
+      // happened.
+      if (idx === -1) {
+        return new Command({
+          update: {
+            messages: [
+              new ToolMessage({
+                status: "error",
+                name: "deleteProverb",
+                tool_call_id: toolCallId,
+                content: `No proverb matching "${args.proverb}" was found; nothing was deleted.`,
+              }),
+            ],
+          },
+        });
+      }
+
+      const filtered = [...current.slice(0, idx), ...current.slice(idx + 1)];
 
       return new Command({
         update: {
@@ -181,11 +198,14 @@ const deleteProverb = tool(
     // Mirror the approved branch: return a Command wrapping a ToolMessage
     // so the model sees a well-formed tool result with the correct
     // tool_call_id (OpenAI rejects tool messages with mismatched ids).
+    // Cancellation is not success — the tool did not complete its stated
+    // intent — so the ToolMessage status is "error". The content string is
+    // truthful as a user-cancelled message.
     return new Command({
       update: {
         messages: [
           new ToolMessage({
-            status: "success",
+            status: "error",
             name: "deleteProverb",
             tool_call_id: toolCallId,
             content: `Deletion of proverb "${args.proverb}" was cancelled by the user.`,
@@ -265,31 +285,26 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
 // reaches the frontend as-is.
 // Rebuild an AIMessage with a different tool_calls set while preserving
 // every other field (additional_kwargs, response_metadata, usage_metadata,
-// name, invalid_tool_calls, tool_call_chunks, id, content). Required for
-// LangSmith tracing + token accounting — naively constructing
-// `new AIMessage({ content, tool_calls, id })` drops everything else.
+// name, invalid_tool_calls, id, content). Required for LangSmith tracing
+// + token accounting — naively constructing `new AIMessage({ content,
+// tool_calls, id })` drops everything else.
+//
+// Note: `tool_call_chunks` only exists on AIMessageChunk, and the AIMessage
+// constructor does not accept it — preserving it here was a no-op. Omitted.
 function rebuildAIMessageWithToolCalls(
-  source: BaseMessage,
+  source: AIMessage,
   toolCalls: ToolCall[],
 ): AIMessage {
-  // Clone all AIMessage-shape fields off the source. We read via `any`
-  // locally because some fields (tool_call_chunks) only exist on
-  // AIMessageChunk, and we want to pass them through when present.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const src = source as any;
-  const fields: Record<string, unknown> = {
-    content: src.content,
-    id: src.id,
-    name: src.name,
-    additional_kwargs: src.additional_kwargs,
-    response_metadata: src.response_metadata,
-    usage_metadata: src.usage_metadata,
-    invalid_tool_calls: src.invalid_tool_calls,
-    tool_call_chunks: src.tool_call_chunks,
+  return new AIMessage({
+    content: source.content,
+    id: source.id,
+    name: source.name,
+    additional_kwargs: source.additional_kwargs,
+    response_metadata: source.response_metadata,
+    usage_metadata: source.usage_metadata,
+    invalid_tool_calls: source.invalid_tool_calls,
     tool_calls: toolCalls,
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new AIMessage(fields as any);
+  });
 }
 
 function intercept_frontend_tools(state: AgentState) {
@@ -316,28 +331,28 @@ function intercept_frontend_tools(state: AgentState) {
   // earlier frontend-action calls and the frontend would never see them.
   const priorIntercepted = state.interceptedToolCalls;
   const priorOriginalId = state.originalAIMessageId;
-  if (
-    priorIntercepted &&
+  const priorSlotPresent =
+    !!priorIntercepted &&
     priorIntercepted.length > 0 &&
     typeof priorOriginalId === "string" &&
-    priorOriginalId.length > 0
-  ) {
-    let flushed = false;
+    priorOriginalId.length > 0;
+  let prior_flushed = false;
+  if (priorSlotPresent) {
     messages = messages.map((msg) => {
       if (isAIMessage(msg) && msg.id === priorOriginalId) {
-        flushed = true;
+        prior_flushed = true;
         const existing = msg.tool_calls ?? [];
         return rebuildAIMessageWithToolCalls(msg, [
           ...existing,
-          ...priorIntercepted,
+          ...priorIntercepted!,
         ]);
       }
       return msg;
     });
-    if (!flushed) {
+    if (!prior_flushed) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto; dropping stash to avoid blocking a new intercept`,
+        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto; retaining stash for a future intercept pass`,
       );
     }
   }
@@ -359,14 +374,18 @@ function intercept_frontend_tools(state: AgentState) {
   }
 
   if (frontendToolCalls.length === 0) {
-    // No frontend calls in the batch — nothing to strip. But if we
-    // flushed a prior stash above, we still need to emit the updated
-    // messages array so the flush lands on the channel.
-    if (
-      priorIntercepted &&
-      priorIntercepted.length > 0 &&
-      typeof priorOriginalId === "string"
-    ) {
+    // No frontend calls in the batch — nothing to strip.
+    //
+    // Two prior-slot cases to distinguish:
+    // (a) prior_flushed === true: we reattached the stashed calls onto
+    //     a matching AIMessage above; emit the updated messages and
+    //     clear the slot.
+    // (b) priorSlotPresent && !prior_flushed: no matching AIMessage was
+    //     found THIS pass. This node is non-terminal — leave the slot
+    //     UNCHANGED (do not emit interceptedToolCalls / originalAIMessageId
+    //     keys) so a future intercept pass can retry the flush. Emitting
+    //     `undefined` here would silently drop the stash.
+    if (prior_flushed) {
       return {
         messages,
         interceptedToolCalls: undefined,
@@ -433,14 +452,19 @@ function restore_frontend_tools(state: AgentState) {
   });
 
   if (!messageFound) {
-    // Don't clear the intercept slot — leaving it set surfaces the drift
-    // on the next turn. Tradeoff vs CopilotKit's middleware (which warns
-    // and silently returns): we prefer loud over silent here.
+    // This node is terminal (edge goes to END). Clear both slots so a
+    // stale stash can't be flushed onto an unrelated AIMessage on a
+    // later intercept pass. The warn is the diagnostic signal —
+    // persisting the slot would corrupt future turns rather than help
+    // diagnose this one.
     // eslint-disable-next-line no-console
     console.warn(
-      `[restore_frontend_tools] original AIMessage id=${originalMessageId} not found in messages; leaving interceptedToolCalls in place for diagnosis`,
+      `[restore_frontend_tools] original AIMessage id=${originalMessageId} not found in messages; clearing stash to avoid cross-turn corruption`,
     );
-    return {};
+    return {
+      interceptedToolCalls: undefined,
+      originalAIMessageId: undefined,
+    } as unknown as Partial<AgentState>;
   }
 
   // See note on the matching return in `intercept_frontend_tools`.
@@ -501,6 +525,7 @@ function shouldContinue({
 
     let hasBackendTool = false;
     let hasFrontendAction = false;
+    let hasUnknown = false;
     for (const toolCall of toolCalls) {
       const name = toolCall.name;
       if (actionNames.has(name)) {
@@ -513,23 +538,14 @@ function shouldContinue({
         continue;
       }
       // Unknown name: neither a frontend action nor a registered backend
-      // tool. Warn here; routing depends on what else is in the batch.
-      // - In mixed batches where a known backend tool is ALSO present,
-      //   we still return `"tool_node"` below because `hasBackendTool`
-      //   is true. ToolNode will emit an error ToolMessage for unknown
-      //   tool names; the graph then loops back to chat_node with that
-      //   error in context. (We don't strip unknown calls here.)
-      // - In batches consisting entirely of unknown calls or only
-      //   frontend actions (no backend tool), `hasBackendTool` stays
-      //   false and we fall through to END below.
-      // Tradeoff: in the pure-unknown case the user sees the turn end
-      // silently without a surfaced error. Follow-up: emit a synthetic
-      // AIMessage from chat_node on the next turn so the user sees a
-      // friendly "I hit an unexpected internal state — please try
-      // rephrasing." instead.
+      // tool. Track it so we can route unknown-bearing batches through
+      // emit_unknown_tools_notice (below), which synthesizes error
+      // ToolMessages for each unknown call and strips them off the
+      // AIMessage so the frontend runtime never sees them.
+      hasUnknown = true;
       // eslint-disable-next-line no-console
       console.warn(
-        `[shouldContinue] unknown tool call name '${name}' — will route to END unless a known backend tool is also present in this batch`,
+        `[shouldContinue] unknown tool call name '${name}' — will route through emit_unknown_tools_notice unless a known backend tool is also present in this batch`,
       );
     }
 
@@ -537,20 +553,32 @@ function shouldContinue({
     // node first so ToolNode doesn't choke on the frontend-action call,
     // then tool_node executes backend calls, then chat_node (looped) will
     // reach END via the restore node.
+    //
+    // Note: if the batch also contains unknown calls, we still prefer
+    // "tool_node" over the unknown-notice path when a backend call is
+    // present — ToolNode itself emits an error ToolMessage for unknown
+    // names and the graph loops back to chat_node with that context.
+    // The unknown-notice path is reserved for batches that would otherwise
+    // end the turn without running tool_node.
     if (hasBackendTool && hasFrontendAction) {
       return "intercept_frontend_tools";
     }
     if (hasBackendTool) {
       return "tool_node";
     }
-    // No backend AND no frontend action, but toolCalls.length > 0 means
-    // every call in the batch is an unknown name. Previously we fell
-    // through to END, silently ending the turn with no assistant message.
-    // Route through a dedicated node that appends a user-visible
-    // AIMessage so the user sees *something* instead of a dead turn.
-    // Conditional edges are pure routing — they cannot mutate state —
-    // so we delegate the state mutation to a node.
-    if (!hasFrontendAction) {
+    // No backend tool. If the batch carries ANY unknown calls (with or
+    // without frontend actions), route through emit_unknown_tools_notice
+    // so:
+    //   (a) error ToolMessages are synthesized for each unknown call,
+    //       keeping the AIMessage+ToolMessage sequence well-formed for
+    //       OpenAI on the next turn (no dangling tool_calls);
+    //   (b) unknown calls are stripped off the AIMessage so the frontend
+    //       runtime never sees names it can't dispatch;
+    //   (c) in the frontend-action + unknown mixed case, the surviving
+    //       frontend-action calls still reach the frontend via the
+    //       terminal restore path (emit_unknown_tools_notice goes to END
+    //       and the rebuilt AIMessage retains the known frontend calls).
+    if (hasUnknown) {
       return "emit_unknown_tools_notice";
     }
   }
@@ -560,25 +588,112 @@ function shouldContinue({
   return "restore_frontend_tools";
 }
 
-// emit_unknown_tools_notice: when the model emits a tool_calls batch where
-// every call targets an unknown name (neither a registered backend tool
-// nor a frontend action), chat_node's conditional edge routes here so the
-// user sees a visible "cancelling this turn" message instead of the turn
-// ending silently. Conditional edges are pure routing functions — they
-// cannot mutate state — so the state update lives in this node.
+// emit_unknown_tools_notice: when the model emits a tool_calls batch that
+// includes names the agent cannot dispatch (neither a registered backend
+// tool nor a frontend action), chat_node's conditional edge routes here.
+// Responsibilities:
+//
+//   1. Synthesize an error ToolMessage for EACH unknown tool_call on the
+//      prior AIMessage. Without this, the AIMessage's unresolved
+//      tool_calls leave a dangling tool-use turn — OpenAI rejects any
+//      AIMessage with tool_calls not followed by matching ToolMessages
+//      on the NEXT user turn, poisoning the conversation.
+//   2. Strip the unknown calls off the prior AIMessage using
+//      rebuildAIMessageWithToolCalls, preserving only the known calls
+//      (frontend actions). The frontend runtime then receives an
+//      AIMessage with only dispatchable names. This is the
+//      "strip unknown + emit errors + notice" approach: the mixed
+//      frontend-action + unknown batch case is handled by the same
+//      code path as the pure-unknown case.
+//   3. Append a user-visible AIMessage notice so the turn doesn't end
+//      silently when the AIMessage carries only unknown calls.
+//
+// Conditional edges are pure routing functions — they cannot mutate
+// state — so the state rewrite lives here.
 function emit_unknown_tools_notice(state: AgentState) {
   const messages = (state.messages ?? []) as unknown as BaseMessage[];
   const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
   if (lastMessage === undefined || !isAIMessage(lastMessage)) {
     return {};
   }
-  const unknownNames = (lastMessage.tool_calls ?? []).map((c) => c.name);
-  const list = unknownNames.length > 0 ? unknownNames.join(", ") : "unknown";
-  const notice = new AIMessage({
-    content: `I tried to call tools that aren't available in this environment (${list}). Cancelling this turn.`,
+
+  // Mirror shouldContinue's partition logic so the same known-set defines
+  // what counts as unknown. `tools` is the backend registry; the frontend
+  // action set comes from state.copilotkit.actions.
+  const frontendActionNames = new Set(
+    (state.copilotkit?.actions ?? []).map((a: { name: string }) => a.name),
+  );
+  const backendToolNames = new Set<string>(tools.map((t) => t.name));
+
+  const allCalls = lastMessage.tool_calls ?? [];
+  const knownCalls: ToolCall[] = [];
+  const unknownCalls: ToolCall[] = [];
+  for (const call of allCalls) {
+    if (
+      frontendActionNames.has(call.name) ||
+      backendToolNames.has(call.name)
+    ) {
+      knownCalls.push(call);
+    } else {
+      unknownCalls.push(call);
+    }
+  }
+
+  if (unknownCalls.length === 0) {
+    // Nothing unknown to notify about — shouldContinue shouldn't have
+    // routed here, but be defensive.
+    return {};
+  }
+
+  // Rebuild the prior AIMessage with unknown calls stripped, preserving
+  // its id + metadata. The error ToolMessages below reference the
+  // original tool_call_ids, which OpenAI still matches against the
+  // pre-strip call list as long as the ToolMessages follow the
+  // AIMessage in sequence.
+  const strippedAIMessage = rebuildAIMessageWithToolCalls(
+    lastMessage,
+    knownCalls,
+  );
+
+  const errorToolMessages = unknownCalls.map((call) => {
+    const id = call.id;
+    if (typeof id !== "string" || id.length === 0) {
+      // Defensive: ToolCall.id is optional in the type but OpenAI
+      // always emits one in practice. If it's somehow missing, fall
+      // back to an empty string — the ToolMessage will be visible to
+      // the model but may be rejected on the next turn. Logging here
+      // surfaces the anomaly.
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[emit_unknown_tools_notice] unknown tool_call '${call.name}' has no id; emitting ToolMessage with empty tool_call_id`,
+      );
+    }
+    return new ToolMessage({
+      status: "error",
+      name: call.name,
+      tool_call_id: typeof id === "string" ? id : "",
+      content: `Tool '${call.name}' is not available in this environment.`,
+    });
   });
+
+  const unknownNames = unknownCalls.map((c) => c.name);
+  const notice = new AIMessage({
+    content: `I tried to call tools that aren't available in this environment (${unknownNames.join(
+      ", ",
+    )}). Cancelling this turn.`,
+  });
+
+  // Sequence on the channel:
+  //   [...existing..., strippedAIMessage (replaces lastMessage),
+  //    ToolMessage(unknown1), ..., ToolMessage(unknownN),
+  //    AIMessage(notice)]
   return {
-    messages: [notice],
+    messages: [
+      ...messages.slice(0, -1),
+      strippedAIMessage,
+      ...errorToolMessages,
+      notice,
+    ],
   } as unknown as Partial<AgentState>;
 }
 
