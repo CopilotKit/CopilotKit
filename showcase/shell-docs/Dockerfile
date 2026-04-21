@@ -56,8 +56,13 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 COPY --from=builder /app/shell-docs/.next ./.next
 COPY --from=builder /app/shell-docs/node_modules ./node_modules
 COPY --from=builder /app/shell-docs/package.json ./
+COPY --from=builder /app/shell-docs/package-lock.json ./
 COPY --from=builder /app/shell-docs/public ./public
 COPY --from=builder /app/shell-docs/src/content ./src/content
+
+# Strip dev dependencies (tailwindcss/postcss/tsx/typescript/@types/*) from
+# the runtime image — they are only needed during `next build`.
+RUN npm prune --omit=dev
 
 EXPOSE 10000
 # Invoke next directly (no npx) to avoid runtime network fallback
