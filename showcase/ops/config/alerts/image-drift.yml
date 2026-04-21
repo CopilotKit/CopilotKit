@@ -36,4 +36,4 @@ targets:
 # lengths via mustache `.length` for robustness.
 template:
   text: |
-    :package: *Image drift detected* — {{signal.staleServices.length}} {{signal.rebuildNoun}} triggered, {{signal.erroredServices.length}} errored (<{{{event.runUrl}}}|run>)
+    :package: *Image drift detected* — {{signal.staleServices.length}} {{signal.rebuildNoun}} triggered, {{signal.errored.length}} errored (<{{{event.runUrl}}}|run>)
