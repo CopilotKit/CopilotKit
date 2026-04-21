@@ -8,8 +8,11 @@ import type { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import type { BaseMessage } from "@langchain/core/messages";
-import { isAIMessage, SystemMessage } from "@langchain/core/messages";
+import { isAIMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import {
+  Command,
+  END,
+  getCurrentTaskInput,
   interrupt,
   MemorySaver,
   START,
@@ -55,20 +58,82 @@ const getWeather = tool(
 
 // HITL tool: triggers an interrupt that the frontend resolves with
 // `{ approved: boolean }`. Validated with zod so a malformed resume value
-// surfaces as a ZodError rather than silently falling through to cancelled.
+// surfaces as a deterministic tool message rather than throwing through
+// ToolNode.
+//
+// On approval, returns a `Command` that BOTH emits a ToolMessage (so the
+// model sees the tool result) AND applies a state update that removes the
+// matching proverb from `state.proverbs`. Without the state update, the
+// UI (which reads `state.proverbs` via CopilotKit) would still show the
+// "deleted" proverb, making the HITL demo a sham.
 const deleteProverb = tool(
-  async (args) => {
+  async (args, config) => {
+    // `config.toolCall.id` is populated by ToolNode when it invokes the
+    // tool with a tool_call. We need it to construct the ToolMessage
+    // ourselves because returning a Command bypasses `_formatToolOutput`'s
+    // automatic tool_call_id wiring.
+    const toolCallId =
+      (config as { toolCall?: { id?: string } } | undefined)?.toolCall?.id ??
+      "";
+
     const rawApproval = interrupt({
       action: "delete_proverb",
       proverb: args.proverb,
       message: `Are you sure you want to delete the proverb: "${args.proverb}"?`,
     });
 
-    const approval = ApprovalResumeSchema.parse(rawApproval);
+    let approval: z.infer<typeof ApprovalResumeSchema>;
+    try {
+      approval = ApprovalResumeSchema.parse(rawApproval);
+    } catch {
+      // Don't let ZodError propagate through ToolNode. Return a
+      // deterministic tool message so the graph can loop back to chat_node
+      // with a readable result in context.
+      return new ToolMessage({
+        status: "error",
+        name: "deleteProverb",
+        tool_call_id: toolCallId,
+        content:
+          "Confirmation failed due to an unexpected resume payload shape; deletion was NOT performed.",
+      });
+    }
 
     if (approval.approved) {
-      return `Proverb "${args.proverb}" has been deleted.`;
+      // Read the current graph state via LangGraph's task-local accessor so
+      // we can filter `proverbs` deterministically. We match by content
+      // (the schema accepts the proverb text). If multiple proverbs tie
+      // exactly, only the first matching entry is removed — consistent
+      // with "delete the proverb the user named".
+      //
+      // AgentStateAnnotation's `proverbs` channel has no reducer, so
+      // Annotation<string[]> defaults to last-write-wins: emitting a
+      // filtered array replaces the channel wholesale (which is exactly
+      // what chat_node reads on the next turn for the system prompt).
+      const currentState = getCurrentTaskInput<AgentState>();
+      const current = Array.isArray(currentState?.proverbs)
+        ? currentState.proverbs
+        : [];
+      const idx = current.indexOf(args.proverb);
+      const filtered =
+        idx === -1
+          ? current
+          : [...current.slice(0, idx), ...current.slice(idx + 1)];
+
+      return new Command({
+        update: {
+          messages: [
+            new ToolMessage({
+              status: "success",
+              name: "deleteProverb",
+              tool_call_id: toolCallId,
+              content: `Proverb "${args.proverb}" has been deleted.`,
+            }),
+          ],
+          proverbs: filtered,
+        },
+      });
     }
+
     return `Deletion of proverb "${args.proverb}" was cancelled by the user.`;
   },
   {
@@ -110,7 +175,7 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   });
 
   const response = await modelWithTools.invoke(
-    [systemMessage, ...state.messages],
+    [systemMessage, ...(state.messages ?? [])],
     config,
   );
 
@@ -119,40 +184,38 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
   };
 }
 
-// The return type is the union of node names plus "__end__", matching the
+// The return type is the union of node names plus END, matching the
 // shape addConditionalEdges expects from its callback.
 function shouldContinue({
   messages,
   copilotkit,
-}: AgentState): "tool_node" | "__end__" {
+}: AgentState): "tool_node" | typeof END {
   // Guard the tool-call-carrying variant structurally instead of casting
   // BaseMessage to AIMessage.
   const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
   if (lastMessage === undefined) {
-    return "__end__";
+    return END;
   }
   // AIMessage is the only message variant that carries tool_calls. Use
   // the `isAIMessage` type predicate from @langchain/core/messages so the
   // narrowing is checked rather than cast.
   if (!isAIMessage(lastMessage)) {
     const kind = lastMessage._getType();
-    if (process.env.NODE_ENV !== "production") {
-      throw new Error(`Unexpected last message type: ${kind}`);
-    }
-    // In production, log and fall through to __end__ so a graph-shape bug
-    // doesn't crash live traffic. Tradeoff: the user sees the turn end
-    // silently (no synthetic error message surfaced to the chat). Follow-up:
-    // emit a synthetic AIMessage from chat_node (not this routing function)
-    // the next time we observe unexpected internal state, so the user
-    // sees "I hit an unexpected internal state — please try rephrasing."
+    // Log and fall through to END in both dev and prod so a graph-shape
+    // bug doesn't crash the process. Tradeoff: the user sees the turn
+    // end silently (no synthetic error message surfaced to the chat).
+    // Follow-up: emit a synthetic AIMessage from chat_node (not this
+    // routing function) the next time we observe unexpected internal
+    // state, so the user sees "I hit an unexpected internal state —
+    // please try rephrasing."
     // eslint-disable-next-line no-console
     console.warn("[shouldContinue] unexpected last message type:", kind);
-    return "__end__";
+    return END;
   }
 
   // Evaluate ALL tool calls. If ANY tool call targets a backend tool (i.e.
   // not a CopilotKit frontend action), we must route to `tool_node` so the
-  // backend tool runs — returning "__end__" on mixed batches would silently
+  // backend tool runs — returning END on mixed batches would silently
   // drop the backend call.
   const toolCalls = lastMessage.tool_calls ?? [];
   if (toolCalls.length > 0) {
@@ -179,12 +242,12 @@ function shouldContinue({
       // tool. Warn here; routing depends on what else is in the batch.
       // - In mixed batches where a known backend tool is ALSO present,
       //   we still return `"tool_node"` below because `hasBackendTool`
-      //   is true. ToolNode then receives the entire `tool_calls` array
-      //   including this unknown name and will reject the unknown call
-      //   at its own boundary (we don't strip it here).
+      //   is true. ToolNode will emit an error ToolMessage for unknown
+      //   tool names; the graph then loops back to chat_node with that
+      //   error in context. (We don't strip unknown calls here.)
       // - In batches consisting entirely of unknown calls or only
       //   frontend actions (no backend tool), `hasBackendTool` stays
-      //   false and we fall through to `"__end__"` below.
+      //   false and we fall through to END below.
       // Tradeoff: in the pure-unknown case the user sees the turn end
       // silently without a surfaced error. Follow-up: emit a synthetic
       // AIMessage from chat_node on the next turn so the user sees a
@@ -192,7 +255,7 @@ function shouldContinue({
       // rephrasing." instead.
       // eslint-disable-next-line no-console
       console.warn(
-        `[shouldContinue] unknown tool call name '${name}' — will route to __end__ unless a known backend tool is also present in this batch`,
+        `[shouldContinue] unknown tool call name '${name}' — will route to END unless a known backend tool is also present in this batch`,
       );
     }
 
@@ -201,8 +264,8 @@ function shouldContinue({
     }
   }
 
-  // Otherwise stop (reply to the user) using the special "__end__" node.
-  return "__end__";
+  // Otherwise stop (reply to the user) using the special END node.
+  return END;
 }
 
 const workflow = new StateGraph(AgentStateAnnotation)

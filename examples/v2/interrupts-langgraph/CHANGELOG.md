@@ -17,8 +17,10 @@
   tool. Previously a mixed batch (frontend action + backend tool) could
   silently drop the backend call. Each unknown tool-call name emits its
   own `console.warn`; routing then keeps the batch on `tool_node` when
-  any known backend tool is present (so ToolNode rejects the unknown
-  call at its boundary) and falls through to `__end__` otherwise.
+  any known backend tool is present (ToolNode will emit an error
+  ToolMessage for unknown tool names; the graph then loops back to
+  `chat_node` with that error in context) and falls through to `END`
+  otherwise.
 - Validated the interrupt payload on the web side via
   `parseInterruptPayload`; malformed payloads now render a cancellation
   fallback instead of crashing the renderer. Arrays are explicitly
