@@ -613,16 +613,26 @@ describe("generate-starters", () => {
       expect(block).toContain("@langchain/langgraph-cli dev");
     });
 
-    it("TypeScript mastra: returns mastra dev", () => {
+    it("TypeScript mastra: returns prod-mode node on .mastra/output/index.mjs", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("mastra dev");
+      // Prod-mode (post-#TBD): `mastra build` at image build time emits
+      // .mastra/output/index.mjs; entrypoint invokes it via `node`. Dev-mode
+      // `npx mastra dev` was blowing the watchdog grace on Railway cold
+      // containers, same failure class as langgraph-typescript pre-#4132.
+      expect(block).toContain("node /app/.mastra/output/index.mjs");
+      expect(block).not.toContain("mastra dev");
     });
 
-    it("TypeScript generic: returns npx tsx", () => {
+    it("TypeScript claude-sdk: returns prod-mode node on compiled dist", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("npx tsx agent/index.ts");
+      // Prod-mode (post-#TBD): tsc at image build time compiles agent/
+      // index.ts -> /app/dist/agent/index.js; entrypoint invokes it via
+      // `node`. Dev-mode `npx tsx` was blowing the watchdog grace on
+      // Railway cold containers.
+      expect(block).toContain("node /app/dist/agent/index.js");
+      expect(block).not.toContain("npx tsx");
     });
 
     it("Java: returns java -jar", () => {

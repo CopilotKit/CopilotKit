@@ -782,10 +782,30 @@ sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
+        // Prod-mode: the Dockerfile frontend stage runs `mastra build` which
+        // bundles the Mastra server into `.mastra/output/index.mjs`. Booting
+        // via `node` (instead of `npx mastra dev`) skips the tsx-based
+        // first-request build path that was blowing past the 180s watchdog
+        // grace on Railway cold containers — same failure class as
+        // langgraph-typescript pre-#4132 (see generate-starters.ts comment
+        // above getWatchdogGraceSeconds()).
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev ${AGENT_LOG_PREFIX} &
+PORT=8123 node /app/.mastra/output/index.mjs ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
+${AGENT_HEALTH_CHECK}`;
+      }
+      if (fw.slug === "claude-sdk-typescript") {
+        // Prod-mode: the Dockerfile frontend stage runs `tsc` over
+        // agent/index.ts into /app/dist/agent/index.js so boot is a straight
+        // `node` invocation. Previous `npx tsx agent/index.ts` did a full
+        // in-process TS compile on every cold start and was blowing past
+        // the 180s watchdog grace on Railway (same class as langgraph-ts
+        // pre-#4132). Flags in AGENT_BUILD_STEPS match the package.
+        return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
+PORT=8123 node /app/dist/agent/index.js ${AGENT_LOG_PREFIX} &
+AGENT_PID=$!
+sleep 2
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
@@ -836,6 +856,68 @@ cd /app
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
   }
+}
+
+/**
+ * Per-slug Dockerfile build steps emitted in the frontend stage, AFTER
+ * `npm run build` (the Next.js build). Lets starters whose agents need a
+ * prod-mode compile push that work off the cold-start hot path.
+ *
+ * Pairs with getAgentBuildCopy() (runs in the runner stage) and with
+ * getEntrypointBlock() (invokes the compiled artifact at boot).
+ *
+ * Only emitted for TS starters that explicitly opt in — other slugs get ""
+ * and their Dockerfile rebuild cache stays identical to pre-change.
+ */
+function getAgentBuildSteps(fw: FrameworkDef): string {
+  if (fw.slug === "claude-sdk-typescript") {
+    // Compile agent/index.ts → /app/dist/agent/index.js. Flags match
+    // showcase/packages/claude-sdk-typescript/Dockerfile so starter and
+    // package produce equivalent runtime shapes.
+    return `# Compile TypeScript agent server to JS so boot is a straight \`node\` call
+# instead of \`npx tsx\` (which does a fresh in-process TS compile on each
+# cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
+# so the starter and package produce equivalent runtime shapes. See also
+# getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \\
+    --target es2020 --esModuleInterop true --skipLibCheck true \\
+    agent/index.ts
+`;
+  }
+  if (fw.slug === "mastra") {
+    // Run \`mastra build\` which bundles the server into
+    // .mastra/output/index.mjs. The runner stage then invokes it via
+    // \`node\` so cold start doesn't pay the tsx-based first-request build.
+    return `# Build Mastra application to .mastra/output/index.mjs so boot is a
+# straight \`node\` call instead of \`npx mastra dev\` (which does a
+# tsx-based build on first request — observed blowing past 180s watchdog
+# grace on Railway, same failure class as langgraph-typescript pre-#4132).
+# See also getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx mastra build --dir src/mastra
+`;
+  }
+  return "";
+}
+
+/**
+ * Per-slug Dockerfile COPY lines emitted in the runner stage AFTER the base
+ * agent-code COPY. Moves compiled artifacts produced by getAgentBuildSteps()
+ * from the frontend stage into the runner image.
+ */
+function getAgentBuildCopy(fw: FrameworkDef): string {
+  if (fw.slug === "claude-sdk-typescript") {
+    return `# Precompiled agent entry (from frontend stage). entrypoint.sh invokes
+# \`node /app/dist/agent/index.js\` instead of \`npx tsx agent/index.ts\`.
+COPY --chown=app:app --from=frontend /app/dist ./dist
+`;
+  }
+  if (fw.slug === "mastra") {
+    return `# Precompiled Mastra server (from frontend stage). entrypoint.sh invokes
+# \`node /app/.mastra/output/index.mjs\` instead of \`npx mastra dev\`.
+COPY --chown=app:app --from=frontend /app/.mastra ./.mastra
+`;
+  }
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -1003,6 +1085,8 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     WATCHDOG_BLOCK: getWatchdogBlock(fw),
     DOCKER_EXTRA_COPY: dockerExtraCopy,
     LANGGRAPH_MKDIR: langgraphMkdir,
+    AGENT_BUILD_STEPS: getAgentBuildSteps(fw),
+    AGENT_BUILD_COPY: getAgentBuildCopy(fw),
   };
 
   // 1. Copy frontend files into src/
