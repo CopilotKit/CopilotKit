@@ -35,7 +35,7 @@ test.describe("Demo: agentic-chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat");
     // Wait for the chat input to confirm hydration
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
       timeout: 15000,
     });
   });
@@ -87,11 +87,11 @@ test.describe("Demo: agentic-chat", () => {
     // into the "sent" branch incorrectly and producing a confusing 5s
     // visibility timeout. Wait until either outcome is observably true
     // before branching.
-    const input = page.getByPlaceholder("Type a message");
+    const input = page.locator('textarea[placeholder^="Type a message"]');
     await page.waitForFunction(
       () => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
-          'textarea[placeholder="Type a message"]',
+          'textarea[placeholder^="Type a message"]',
         );
         const hasValue = !!textarea && textarea.value.length > 0;
         const hasSentMessage =
@@ -118,7 +118,7 @@ test.describe("Demo: agentic-chat", () => {
 test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/hitl");
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
       timeout: 15000,
     });
   });
@@ -131,7 +131,7 @@ test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
     await expect(container).toBeVisible();
 
     // The chat input should be inside this container
-    await expect(container.getByPlaceholder("Type a message")).toBeVisible();
+    await expect(container.locator('textarea[placeholder^="Type a message"]')).toBeVisible();
   });
 
   test("suggestion buttons are rendered with correct text", async ({
@@ -163,11 +163,11 @@ test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
     // Wait for an observable outcome before reading inputValue() — the
     // raw read races the click handler and can misroute us into the
     // "sent" branch with a confusing 5s timeout.
-    const input = page.getByPlaceholder("Type a message");
+    const input = page.locator('textarea[placeholder^="Type a message"]');
     await page.waitForFunction(
       () => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
-          'textarea[placeholder="Type a message"]',
+          'textarea[placeholder^="Type a message"]',
         );
         const hasValue = !!textarea && textarea.value.length > 0;
         const hasSentMessage =
@@ -194,7 +194,7 @@ test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
 test.describe("Demo: tool-rendering", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering");
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
       timeout: 15000,
     });
   });
@@ -235,11 +235,11 @@ test.describe("Demo: tool-rendering", () => {
     // Wait for an observable outcome before reading inputValue() — the
     // raw read races the click handler and can misroute us into the
     // "sent" branch with a confusing 5s timeout.
-    const input = page.getByPlaceholder("Type a message");
+    const input = page.locator('textarea[placeholder^="Type a message"]');
     await page.waitForFunction(
       () => {
         const textarea = document.querySelector<HTMLTextAreaElement>(
-          'textarea[placeholder="Type a message"]',
+          'textarea[placeholder^="Type a message"]',
         );
         const hasValue = !!textarea && textarea.value.length > 0;
         const hasSentMessage =
