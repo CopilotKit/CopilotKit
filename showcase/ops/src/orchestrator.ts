@@ -19,6 +19,7 @@ import {
 } from "./storage/s3-backup.js";
 import { deployEventToProbeResult } from "./probes/deploy-result.js";
 import { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } from "./probes/redirect-decommission.js";
+import { aimockWiringProbe } from "./probes/aimock-wiring.js";
 import { logger } from "./logger.js";
 import type { Target } from "./types/index.js";
 
@@ -112,11 +113,25 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   let rules: CompiledRule[] = [];
 
+  // Cron handler resolver: given a rule's dimension, either returns an
+  // async probe invoker (which produces a live ProbeResult for
+  // `rule.scheduled`) or null (fall back to emitting without a result).
+  //
+  // Only `aimock_wiring` has enough info at orchestrator-construction
+  // time (RAILWAY_TOKEN + project/environment IDs + aimock URL) to be
+  // invoked in-process on a cron tick. Other cron-only dimensions —
+  // `pin_drift`, `version_drift`, `redirect_decommission` — require
+  // an external trigger (webhook POST from CI) to supply signal data.
+  // Wiring those into the orchestrator is deliberate follow-up work:
+  // they'd need their own adapters (GHCR auth, showcase manifest fetch,
+  // prod URL roster) which materially expands this service's scope.
+  const cronProbeResolver = buildCronProbeResolver();
+
   async function reloadRules(): Promise<void> {
     const next = await loader.load();
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus);
+    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
     bus.emit("rules.reloaded", { count: next.length });
   }
 
@@ -130,7 +145,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const unwatch = loader.watch((next) => {
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus);
+    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
     // Emit rules.reloaded on file-watch reload too so the metric stays
     // accurate regardless of reload source (SIGHUP vs file event).
     bus.emit("rules.reloaded", { count: next.length });
@@ -268,25 +283,36 @@ export async function boot(opts: BootOptions = {}): Promise<{
 }
 
 /**
+ * Resolver that returns an async probe invoker for a given rule
+ * dimension, or null if no in-process probe is available (cron tick
+ * should emit `rule.scheduled` without a result and defer to external
+ * triggers / the alert engine's synthesized outcome path).
+ */
+type CronProbeResolver = (
+  dimension: string,
+) => (() => Promise<import("./types/index.js").ProbeResult<unknown>>) | null;
+
+/**
  * Diff the currently-scheduled cron entries against the desired set derived
  * from the active rule list. Removes stale entries; registers missing ones
- * with a handler that simply emits `rule.scheduled` with no probe result.
- *
- * Cron-only rules DO NOT get a live probe result from this handler. They are
- * either (a) purely scheduled reports whose alert template reads only static
- * text + env, or (b) driven by upstream jobs that POST the ProbeResult in via
- * a webhook which in turn emits `rule.scheduled` with a `result` field.
+ * with a handler that invokes the dimension's probe (if available) and
+ * emits `rule.scheduled` with the probe result. When no probe is wired
+ * (pin_drift / version_drift / redirect_decommission — external webhook
+ * triggers are the deliberate design for those), the handler emits
+ * `rule.scheduled` with `result: undefined` and the alert-engine's
+ * synthesized outcome path takes over.
  *
  * The previous implementation attempted to invoke the matching probe with
- * `undefined` input, which threw every tick for input-reading probes. The
- * alert-engine's cron-alert path already handles `result: undefined` by
- * synthesizing a sentinel outcome, so emitting without a probe call is both
- * safer and matches the existing fake-result flow.
+ * `undefined` input, which threw every tick for input-reading probes.
+ * `aimock_wiring` now gets a real invocation via the orchestrator-provided
+ * Railway adapter (orchestrator-level config: RAILWAY_TOKEN,
+ * RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, AIMOCK_URL).
  */
 function diffCronSchedules(
   scheduler: ReturnType<typeof createScheduler>,
   rules: CompiledRule[],
   bus: ReturnType<typeof createEventBus>,
+  cronProbeResolver: CronProbeResolver,
 ): void {
   const desired = new Map<
     string,
@@ -306,21 +332,185 @@ function diffCronSchedules(
   for (const id of currentIds) {
     if (!desired.has(id) && id.includes(":cron:")) scheduler.unregister(id);
   }
-  for (const [id, { schedule, ruleId }] of desired) {
+  for (const [id, { schedule, ruleId, dimension }] of desired) {
+    const invoker = cronProbeResolver(dimension);
     scheduler.register({
       id,
       cron: schedule,
       handler: async () => {
+        let result: import("./types/index.js").ProbeResult<unknown> | undefined;
+        if (invoker) {
+          try {
+            result = await invoker();
+          } catch (err) {
+            // Don't let a probe failure swallow the tick — still emit
+            // `rule.scheduled` without a result so downstream rules can
+            // still render something (or the alert-engine can synthesize
+            // a sentinel). The scheduler also logs its own handler-error
+            // when the handler itself throws; this try/catch keeps the
+            // handler green so that layer stays quiet for probe bugs.
+            logger.error("orchestrator.cron-probe-failed", {
+              ruleId,
+              dimension,
+              err: String(err),
+            });
+          }
+        }
         bus.emit("rule.scheduled", {
           ruleId,
           scheduledAt: new Date().toISOString(),
-          // No probe invocation — cron-only rules use the alert-engine's
-          // synthesized outcome path (or are driven by upstream POSTs).
-          result: undefined,
+          result,
         });
       },
     });
   }
+}
+
+/**
+ * Build the cron probe resolver. Reads Railway and aimock config from env
+ * and constructs the `aimock_wiring` invoker when everything is present.
+ * Other dimensions (pin_drift, version_drift, redirect_decommission)
+ * deliberately return null — they need external webhook triggers.
+ */
+function buildCronProbeResolver(): CronProbeResolver {
+  const railwayToken = process.env.RAILWAY_TOKEN;
+  const railwayProjectId = process.env.RAILWAY_PROJECT_ID;
+  const railwayEnvironmentId = process.env.RAILWAY_ENVIRONMENT_ID;
+  const aimockUrl = process.env.AIMOCK_URL;
+
+  // Construct once at boot; each cron tick reuses these closures. Env
+  // reads at boot only — rotating RAILWAY_TOKEN requires a restart, same
+  // as every other env-driven adapter in this service.
+  let aimockInvoker:
+    | (() => Promise<import("./types/index.js").ProbeResult<unknown>>)
+    | null = null;
+  if (railwayToken && railwayProjectId && railwayEnvironmentId && aimockUrl) {
+    const adapter = createRailwayAdapter({
+      token: railwayToken,
+      projectId: railwayProjectId,
+      environmentId: railwayEnvironmentId,
+    });
+    aimockInvoker = async () =>
+      aimockWiringProbe.run(
+        {
+          aimockUrl,
+          listServices: adapter.listServices,
+          getServiceEnv: adapter.getServiceEnv,
+        },
+        {
+          now: () => new Date(),
+          logger,
+          env: process.env as Readonly<Record<string, string | undefined>>,
+        },
+      );
+  } else {
+    logger.info("orchestrator.aimock-wiring-probe-disabled", {
+      hasToken: !!railwayToken,
+      hasProjectId: !!railwayProjectId,
+      hasEnvironmentId: !!railwayEnvironmentId,
+      hasAimockUrl: !!aimockUrl,
+    });
+  }
+
+  return (dimension: string) => {
+    if (dimension === "aimock_wiring") return aimockInvoker;
+    // Other cron-only dimensions require an external webhook trigger to
+    // supply signal data. See diffCronSchedules JSDoc for rationale.
+    return null;
+  };
+}
+
+/**
+ * Minimal Railway GraphQL adapter used by the aimock-wiring probe.
+ * Lists services in a project and fetches per-service env-var values
+ * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
+ *
+ * Kept in-file (rather than spun out into a module) because this is the
+ * only consumer today — if pin_drift or version_drift ever grow in-process
+ * probes that also need Railway, promote this to `src/adapters/railway.ts`.
+ */
+function createRailwayAdapter(opts: {
+  token: string;
+  projectId: string;
+  environmentId: string;
+}): {
+  listServices: () => Promise<{ name: string; id: string }[]>;
+  getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
+} {
+  const endpoint = "https://backboard.railway.com/graphql/v2";
+
+  async function gql<T>(
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<T> {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${opts.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ query, variables }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`railway gql ${res.status}: ${text}`);
+    }
+    const json = (await res.json()) as {
+      data?: T;
+      errors?: Array<{ message: string }>;
+    };
+    if (json.errors?.length) {
+      throw new Error(
+        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
+      );
+    }
+    return json.data as T;
+  }
+
+  // Cache services by name so getServiceEnv doesn't refetch the service
+  // list on every call. A cron tick on `aimock_wiring` calls listServices
+  // once and getServiceEnv once per service — keeping the mapping around
+  // shaves one extra GraphQL round-trip per invocation.
+  let cachedServices: { name: string; id: string }[] | null = null;
+
+  return {
+    async listServices() {
+      const data = await gql<{
+        project: { services: { edges: { node: { id: string; name: string } }[] } };
+      }>(
+        `query project($id: String!) {
+          project(id: $id) {
+            services { edges { node { id name } } }
+          }
+        }`,
+        { id: opts.projectId },
+      );
+      const out = data.project.services.edges.map((e) => e.node);
+      cachedServices = out;
+      return out;
+    },
+    async getServiceEnv(name) {
+      if (!cachedServices) {
+        // Fallback path for callers that skip listServices — still fetch.
+        await this.listServices();
+      }
+      const match = cachedServices!.find((s) => s.name === name);
+      if (!match) {
+        throw new Error(`railway service not found: ${name}`);
+      }
+      const data = await gql<{ variables: Record<string, string> }>(
+        `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
+          variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
+        }`,
+        {
+          projectId: opts.projectId,
+          environmentId: opts.environmentId,
+          serviceId: match.id,
+        },
+      );
+      return data.variables ?? {};
+    },
+  };
 }
 
 // Only run boot() when executed directly (not when imported). Use fileURLToPath
