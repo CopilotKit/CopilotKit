@@ -624,13 +624,29 @@ const isTableSeparator = (s: string): boolean =>
 export function convertTablesInJSX(content: string): string {
   const tagPattern = JSX_CONTAINER_TAGS.join("|");
   const regex = new RegExp(
-    `(<(?:${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
     "g",
   );
 
   return content.replace(
     regex,
-    (_match, openTag: string, inner: string, closeTag: string) => {
+    (
+      match,
+      openTag: string,
+      tagName: string,
+      inner: string,
+      closeTag: string,
+    ) => {
+      // Non-greedy `[\s\S]*?` matches through the FIRST close tag of
+      // any container in the set, so nested same-tag content (e.g.
+      // `<Card>outer <Card>inner</Card> rest</Card>`) closes at the
+      // inner `</Card>` and leaves `rest</Card>` stranded. Detect the
+      // nesting and bail — the outer match is left untouched, which
+      // renders correctly via MDX's own JSX handling (tables inside
+      // nested containers simply won't be promoted to HTML tables).
+      if (new RegExp(`<${tagName}[\\s>]`).test(inner)) {
+        return match;
+      }
       const lines = inner.split("\n");
       const result: string[] = [];
       let i = 0;
