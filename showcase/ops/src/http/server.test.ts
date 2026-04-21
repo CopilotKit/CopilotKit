@@ -1,0 +1,152 @@
+import { describe, it, expect } from "vitest";
+import { buildServer } from "./server.js";
+import { logger } from "../logger.js";
+import { createMetricsRegistry } from "./metrics.js";
+import type { PbClient } from "../storage/pb-client.js";
+
+function fakePb(healthy: boolean): PbClient {
+  return {
+    getOne: async () => null,
+    getFirst: async () => null,
+    list: async () => ({
+      page: 1,
+      perPage: 0,
+      totalPages: 0,
+      totalItems: 0,
+      items: [],
+    }),
+    create: async () => ({}) as never,
+    update: async () => ({}) as never,
+    upsertByField: async () => ({}) as never,
+    delete: async () => {},
+    deleteByFilter: async () => 0,
+    health: async () => healthy,
+  };
+}
+
+describe("http/server", () => {
+  it("GET /health returns 200 when pb up, loop alive, rules>0", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      status: string;
+      pb: string;
+      rules: number;
+    };
+    expect(body.status).toBe("ok");
+    expect(body.pb).toBe("ok");
+    expect(body.rules).toBe(1);
+  });
+
+  it("GET /health returns 503 when pb down", async () => {
+    const app = buildServer({
+      pb: fakePb(false),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+  });
+
+  it("GET /health returns 503 when no rules loaded", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 0,
+      loopAlive: () => true,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+  });
+
+  it("GET /health returns 503 when loop not alive", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => false,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+  });
+
+  it("GET /health reports loop:starting (503) when scheduler has not started", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+      schedulerStarted: () => false,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { loop: string; status: string };
+    expect(body.loop).toBe("starting");
+    expect(body.status).toBe("degraded");
+  });
+
+  it("GET /health reports loop:ok when scheduler has started and is alive", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { loop: string };
+    expect(body.loop).toBe("ok");
+  });
+
+  it("GET /health reports loop:stopped (503) when loop explicitly stopped even if started", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => false,
+      schedulerStarted: () => true,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { loop: string };
+    expect(body.loop).toBe("stopped");
+  });
+
+  it("GET /metrics exposes Prometheus-format counters when metrics is provided", async () => {
+    const metrics = createMetricsRegistry();
+    metrics.inc("probe_runs", { dimension: "smoke" });
+    metrics.inc("hmac_failures");
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+      metrics,
+    });
+    const res = await app.request("/metrics");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/plain");
+    const body = await res.text();
+    expect(body).toContain('showcase_ops_probe_runs{dimension="smoke"} 1');
+    expect(body).toContain("showcase_ops_hmac_failures 1");
+  });
+
+  it("GET /metrics returns 404 when metrics registry is absent", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+    });
+    const res = await app.request("/metrics");
+    expect(res.status).toBe(404);
+  });
+});
