@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aimockWiringProbe } from "./aimock-wiring.js";
+import { aimockWiringProbe, SEALED_SENTINEL } from "./aimock-wiring.js";
 import { logger } from "../logger.js";
 
 const ctx = { now: () => new Date("2026-04-20T00:00:00Z"), logger, env: {} };
@@ -300,6 +300,110 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.hasErrored).toBe(true);
   });
 
+  it("unwiredNoun singular when exactly one service is unwired", async () => {
+    // F4.4 red-green: count=1 must read "service", not "services". Already
+    // covered above indirectly; this test locks the singular contract
+    // explicitly for count=1 so a regression to `count > 0 ? services : service`
+    // would be caught immediately.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "lonely-service" }],
+        getServiceEnv: async () => ({}),
+      },
+      ctx,
+    );
+    expect(r.signal.unwiredCount).toBe(1);
+    expect(r.signal.unwiredNoun).toBe("service");
+  });
+
+  it("F4.2 sealed env: SEALED_SENTINEL in OPENAI_BASE_URL → sealed bucket, NOT unwired", async () => {
+    // Regression: Railway-masked values surfaced as undefined by the adapter
+    // were conflated with "not wired" and fired false drift. The adapter now
+    // passes SEALED_SENTINEL, and the probe routes that to a sealed bucket
+    // that does NOT trip red.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "svc-sealed" },
+          { name: "svc-wired" },
+        ],
+        getServiceEnv: async (name) =>
+          name === "svc-sealed"
+            ? { OPENAI_BASE_URL: SEALED_SENTINEL }
+            : { OPENAI_BASE_URL: AIMOCK_URL },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.sealed).toEqual(["svc-sealed"]);
+    expect(r.signal.sealedCount).toBe(1);
+    expect(r.signal.hasSealed).toBe(true);
+    expect(r.signal.sealedPreview).toEqual(["svc-sealed"]);
+    expect(r.signal.unwired).toEqual([]);
+    expect(r.signal.wired).toEqual(["svc-wired"]);
+  });
+
+  it("F4.2 sealed env: a confirmed match on ANOTHER candidate var beats a sealed sibling", async () => {
+    // If ANTHROPIC_BASE_URL is a confirmed aimock match, a sealed
+    // OPENAI_BASE_URL must not demote the service to sealed — it's wired.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "svc-mixed" }],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: SEALED_SENTINEL,
+          ANTHROPIC_BASE_URL: AIMOCK_URL,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["svc-mixed"]);
+    expect(r.signal.sealed).toEqual([]);
+    expect(r.signal.unwired).toEqual([]);
+  });
+
+  it("F4.2 sealed env: sealedPreview caps at 5 with (+N more) overflow", async () => {
+    const names = Array.from({ length: 7 }, (_, i) => `s-${i}`);
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => names.map((name) => ({ name })),
+        getServiceEnv: async () => ({ OPENAI_BASE_URL: SEALED_SENTINEL }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.sealedCount).toBe(7);
+    expect(r.signal.sealedPreview).toHaveLength(6);
+    expect(r.signal.sealedPreview[5]).toBe("(+2 more)");
+  });
+
+  it("F4.2 sealed + errored: sealed does not trip red, errored does", async () => {
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "svc-sealed" },
+          { name: "svc-errored" },
+        ],
+        getServiceEnv: async (name) => {
+          if (name === "svc-sealed")
+            return { OPENAI_BASE_URL: SEALED_SENTINEL };
+          throw new Error("Railway 500");
+        },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.sealed).toEqual(["svc-sealed"]);
+    expect(r.signal.errored).toHaveLength(1);
+    expect(r.signal.hasSealed).toBe(true);
+    expect(r.signal.hasErrored).toBe(true);
+  });
+
   it("hasErrored is false when errored bucket is empty", async () => {
     const r = await aimockWiringProbe.run(
       {
@@ -311,5 +415,9 @@ describe("aimock-wiring probe", () => {
     );
     expect(r.signal.hasErrored).toBe(false);
     expect(r.signal.erroredPreview).toEqual([]);
+    expect(r.signal.hasSealed).toBe(false);
+    expect(r.signal.sealed).toEqual([]);
+    expect(r.signal.sealedPreview).toEqual([]);
+    expect(r.signal.sealedCount).toBe(0);
   });
 });
