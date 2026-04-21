@@ -243,9 +243,22 @@ export const docsComponents = {
     // otherwise it'd 404 on docs.showcase.copilotkit.ai which has no
     // /integrations route.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
+    // Validate at the sink even though the registry is trusted today —
+    // a malformed backend_url (http://, empty, non-URL) should not silently
+    // embed. If validation fails, render a visible error placeholder so
+    // authors / operators notice rather than ship a broken/unsafe iframe.
+    const safeDemoUrl = validateIframeSrc("InlineDemo", demoUrl);
     const shellHost =
       process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
     const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
+    if (!safeDemoUrl) {
+      return (
+        <div className="my-6 rounded-xl border border-dashed border-[var(--border)] px-4 py-3 text-xs font-mono text-[var(--text-faint)]">
+          [InlineDemo] Refusing to embed — registry entry for &quot;
+          {integration}&quot; has an invalid backend_url.
+        </div>
+      );
+    }
     return (
       <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
@@ -259,11 +272,20 @@ export const docsComponents = {
             Open full demo →
           </a>
         </div>
+        {/*
+          NOTE on sandbox: we intentionally OMIT `allow-same-origin`. Per MDN,
+          combining `allow-scripts` + `allow-same-origin` lets the framed page
+          remove its own sandbox attribute — that's a sandbox escape. The
+          integration demos are served from a different origin (int.backend_url)
+          than the docs host, so they do not need same-origin semantics to
+          function (no shared cookies / storage / DOM access with the parent).
+          Keep forms + popups so the demo can still submit / open new tabs.
+        */}
         <iframe
-          src={demoUrl}
+          src={safeDemoUrl}
           className="w-full"
           style={{ height: "500px" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          sandbox="allow-scripts allow-forms allow-popups"
           loading="lazy"
         />
       </div>
@@ -410,11 +432,18 @@ export const docsComponents = {
           marginBottom: "1rem",
         }}
       >
+        {/*
+          Sandbox: drop `allow-same-origin`. Combining it with `allow-scripts`
+          lets the framed page remove its own sandbox attribute (MDN). This
+          component embeds arbitrary MDX-author-supplied URLs — it is NOT
+          trusted content — so defense-in-depth is mandatory. Keep forms +
+          popups for parity with typical embedded content (StackBlitz etc.).
+        */}
         <iframe
           src={safeSrc}
           title={title || "Embedded content"}
           style={{ width: "100%", height: "400px", border: "none" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          sandbox="allow-scripts allow-forms allow-popups"
           loading="lazy"
         />
       </div>
@@ -549,6 +578,13 @@ export const docsComponents = {
           marginBottom: "1rem",
         }}
       >
+        {/*
+          Sandbox: drop `allow-same-origin`. YouTube is trusted content, but
+          the `allow-scripts` + `allow-same-origin` combination lets the
+          framed page escape its sandbox regardless of origin trust — pure
+          defense-in-depth loss. YouTube's embed player works without
+          same-origin access to the parent. Keep presentation + popups.
+        */}
         <iframe
           src={src}
           title={title || "YouTube video"}
@@ -561,7 +597,7 @@ export const docsComponents = {
             border: "none",
             borderRadius: "0.5rem",
           }}
-          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          sandbox="allow-scripts allow-presentation allow-popups"
           loading="lazy"
           allowFullScreen
         />
