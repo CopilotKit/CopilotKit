@@ -132,21 +132,36 @@ import { EventType } from "@ag-ui/client";
 new BuiltInAgent({
   type: "custom",
   factory: async function* ({ input, abortSignal }): AsyncIterable<BaseEvent> {
+    // Check abortSignal.aborted on every iteration — agent.abortRun() signals
+    // cancellation via this flag, but the generator must consult it to stop yielding.
+    if (abortSignal.aborted) return;
+
     const messageId = crypto.randomUUID();
     yield {
       type: EventType.TEXT_MESSAGE_START,
       messageId,
       role: "assistant",
     } as any;
-    yield {
-      type: EventType.TEXT_MESSAGE_CONTENT,
-      messageId,
-      delta: "Hello.",
-    } as any;
+
+    for (const delta of ["Hello", ", ", "world."]) {
+      if (abortSignal.aborted) return; // honor cancellation between yields
+      yield {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId,
+        delta,
+      } as any;
+    }
+
     yield { type: EventType.TEXT_MESSAGE_END, messageId } as any;
   },
 });
 ```
+
+A custom factory that never checks `abortSignal.aborted` (or registers an
+`addEventListener("abort", …)` handler to break its loop) is non-cancellable —
+`agent.abortRun()` will flip the flag but the generator will keep yielding until it
+exhausts its own source. Pass `abortSignal` through to any underlying `fetch` /
+streaming API as well so the upstream request is torn down.
 
 ## Manual state-tool wiring (Factory Mode only)
 

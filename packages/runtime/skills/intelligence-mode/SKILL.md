@@ -97,19 +97,40 @@ Do NOT pass `runner` — see the failure-modes section.
 
 ### Identify the user from an auth cookie
 
+`identifyUser` is for user identification only — it does NOT forward thrown `Response`s.
+`resolveIntelligenceUser` (`handlers/shared/resolve-intelligence-user.ts:14-24`) wraps the
+call in try/catch and converts any thrown value (including `Response`) into a generic
+`errorResponse("Failed to identify user", 500)`. Gate auth in `hooks.onRequest`
+(see the `middleware` skill) and keep `identifyUser` focused on returning an id:
+
 ```typescript
-import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { parse } from "cookie";
 
 const runtime = new CopilotRuntime({
   agents,
   intelligence,
+  // identifyUser returns the id; auth rejection is hooked elsewhere.
   identifyUser: async (request) => {
     const cookies = parse(request.headers.get("cookie") ?? "");
-    const session = cookies["session"];
-    const user = await resolveSession(session); // your auth lib
-    if (!user) throw new Response("Unauthorized", { status: 401 });
-    return { id: user.id };
+    const user = await resolveSession(cookies["session"]); // your auth lib
+    return { id: user?.id ?? "anonymous" };
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: async ({ request }) => {
+      const cookies = parse(request.headers.get("cookie") ?? "");
+      const user = await resolveSession(cookies["session"]);
+      // onRequest DOES forward thrown Responses — use it for auth rejection.
+      if (!user) throw new Response("Unauthorized", { status: 401 });
+    },
   },
 });
 

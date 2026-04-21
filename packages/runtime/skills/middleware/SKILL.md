@@ -27,7 +27,8 @@ Two coexisting middleware surfaces:
 - **`hooks`** (preferred, newer) — pass to `createCopilotRuntimeHandler({ hooks })`.
   Route-aware via `onBeforeHandler({ route })`. Throw a `Response` to short-circuit.
 - **`beforeRequestMiddleware` / `afterRequestMiddleware`** (legacy) — pass to
-  `new CopilotRuntime({ ... })`. Runs before hooks in the same request. Pre-routing only.
+  `new CopilotRuntime({ ... })`. Runs **after `hooks.onRequest` but before routing** (see
+  `fetch-handler.ts:136-147` for exact order). Pre-routing only.
 
 Use **hooks** for new code.
 

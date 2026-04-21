@@ -42,6 +42,23 @@ In dev, bundlers replace modules. `GLOBAL_STORE_KEY` uses `Symbol.for(...)` so t
 
 - Local development.
 - Single-instance preview environments.
-- Tests (each `new InMemoryAgentRunner()` still shares the globalThis store — pass a fresh threadId per test, or clear the Symbol-keyed global between tests).
+- Tests (each `new InMemoryAgentRunner()` still shares the globalThis store — pass a fresh threadId per test, or clear the captured store in place between tests). Do NOT `delete globalThis[Symbol.for("@copilotkit/runtime/in-memory-store")]`: `in-memory.ts:98` captures `GLOBAL_STORE = getGlobalStore()` as a module-level const referencing the inner `stores` Map, so replacing `globalThis[KEY]` creates a new object that the module no longer consults. Mutate the existing maps in place:
+
+  ```ts
+  // test setup
+  const storeKey = Symbol.for("@copilotkit/runtime/in-memory-store");
+  const data = (globalThis as any)[storeKey] as
+    | {
+        stores: Map<string, unknown>;
+        historicRunsBackup: Map<string, unknown>;
+      }
+    | undefined;
+  if (data) {
+    data.stores.clear();
+    data.historicRunsBackup.clear();
+  }
+  ```
+
+  The runtime does not yet expose an official reset helper — a `__TEST_ONLY_clearGlobalStore` export would be a reasonable follow-up.
 
 Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts`.
