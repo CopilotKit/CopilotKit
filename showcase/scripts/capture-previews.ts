@@ -349,6 +349,12 @@ function buildTargets(
       if (filterDemo && demo.id !== filterDemo) {
         continue;
       }
+      // Skip informational-only / CLI demos (those with a `command` field)
+      // that have no on-disk route — navigating would 404. Matches the
+      // filter used in audit.ts and validate-parity.ts.
+      if (demo.command) {
+        continue;
+      }
       // demo.route is optional on the shared Manifest type. Fall back
       // to "/demos/<id>" when absent, matching the convention used by
       // generator + shell + the other consumers.
@@ -502,7 +508,11 @@ async function captureDemo(
     await page.waitForTimeout(config.extraWait ?? POST_RESPONSE_WAIT);
 
     // Close context to save the video
-    await context.close();
+    try {
+      await context.close();
+    } catch (err) {
+      console.warn("[capture-previews] context close failed:", err);
+    }
     context = null;
 
     // Find the video file
@@ -517,6 +527,14 @@ async function captureDemo(
       .sort((a, b) => b.mtime - a.mtime);
 
     if (videoFiles.length === 0) {
+      try {
+        fs.rmSync(videoSubDir, { recursive: true, force: true });
+      } catch (rmErr) {
+        console.warn(
+          `[capture-previews] cleanup failed for video subdir ${videoSubDir}:`,
+          rmErr,
+        );
+      }
       return {
         kind: "failure",
         integrationSlug: target.integrationSlug,
@@ -700,12 +718,18 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
   const results: CaptureResult[] = [];
 
-  await runWithConcurrency(targets, concurrency, async (target) => {
-    const result = await captureDemo(browser, target);
-    results.push(result);
-  });
-
-  await browser.close();
+  try {
+    await runWithConcurrency(targets, concurrency, async (target) => {
+      const result = await captureDemo(browser, target);
+      results.push(result);
+    });
+  } finally {
+    await browser
+      .close()
+      .catch((err) =>
+        console.error("[capture-previews] browser close failed:", err),
+      );
+  }
 
   // Write manifest.json
   const manifestJson: Record<string, Record<string, string>> = {};
