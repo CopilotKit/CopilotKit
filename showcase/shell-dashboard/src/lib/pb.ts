@@ -23,9 +23,15 @@ import PocketBase from "pocketbase";
 //     offline banner — no silent prod-pointing. ALSO emit a build-time
 //     warning (surfaces in `next build` logs) and a runtime console
 //     error so the misconfiguration is hard to miss.
-//   - Else (dev/test): fall back to the known Railway URL so local dev
-//     works without setup.
-const DEV_FALLBACK_URL = "https://showcase-pocketbase.up.railway.app";
+//   - Else (dev/test): fall back to a LOCAL PocketBase URL
+//     (`http://127.0.0.1:8090`). Pointing dev at the production Railway
+//     instance is a silent-failure footgun: a developer running the
+//     dashboard without env wiring would inadvertently query prod,
+//     polluting prod observability and risking authenticated requests
+//     leaking against the prod collection. Local fallback forces the
+//     operator to start a local PB (`pnpm pb:dev` / docker-compose) or
+//     set NEXT_PUBLIC_POCKETBASE_URL explicitly.
+const DEV_FALLBACK_URL = "http://127.0.0.1:8090";
 const PROD_INVALID_URL = "http://pocketbase.invalid";
 
 /** Human-readable error surfaced to hooks when the sentinel URL is live. */

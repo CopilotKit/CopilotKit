@@ -165,4 +165,46 @@ describe("resolveCell — per-spec §5.4 multi-dim precedence", () => {
     expect(c.health.tone).toBe("gray");
     expect(c.health.label).toBe("?");
   });
+
+  it("smoke+health green with e2e=null rolls up to green (C5 F13)", () => {
+    // Explicit lock: `allGreen` treats a missing e2e row as acceptable
+    // iff smoke AND health are green. Missing e2e + missing smoke/health
+    // would fall through to gray; this test pins the green case.
+    const live = mapOf([
+      row("smoke:a/b", "smoke", "green"),
+      row("health:a", "health", "green"),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.rollup).toBe("green");
+  });
+
+  it("red row + connection=error: red wins over the hook error tone (C5 F14)", () => {
+    // Locks the precedence clause — a genuine red signal must NOT be
+    // hidden behind an "error" rollup when the stream is also down.
+    const live = mapOf([
+      row("smoke:a/b", "smoke", "red"),
+      row("health:a", "health", "green"),
+    ]);
+    const c = resolveCell(live, "a", "b", { connection: "error" });
+    expect(c.rollup).toBe("red");
+  });
+
+  it("degraded does NOT render a green check glyph (C5 F12)", () => {
+    // Regression guard for the formatLabel bug where `state === "degraded"`
+    // fell through to the `return "✓"` branch, rendering amber/degraded
+    // cells with a "green check" glyph that contradicted the tooltip.
+    const live = mapOf([
+      row("smoke:a/b", "smoke", "degraded"),
+      row("e2e:a/b", "e2e", "degraded"),
+      row("qa:a/b", "qa", "degraded"),
+      row("health:a", "health", "degraded"),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.smoke.label).not.toBe("✓");
+    expect(c.e2e.label).not.toBe("✓");
+    expect(c.qa.label).not.toBe("✓");
+    // Health gets its own vocabulary: degraded → "stale" (not "up"/"down"/"?").
+    expect(c.health.label).not.toBe("up");
+    expect(c.health.label).not.toBe("?");
+  });
 });

@@ -80,9 +80,17 @@ function formatLabel(
 ): string {
   if (!row) return "?";
   if (dim === "health") {
-    return row.state === "green" ? "up" : row.state === "red" ? "down" : "?";
+    if (row.state === "green") return "up";
+    if (row.state === "red") return "down";
+    // degraded → "stale" matches the tooltip copy instead of rendering "?"
+    // which would read as "no data".
+    return "stale";
   }
   if (row.state === "red") return "✗";
+  // degraded must NOT render a green "✓" glyph — it contradicts the tooltip
+  // and misleads operators into thinking the signal is healthy. Use "~" to
+  // visually match the amber tone.
+  if (row.state === "degraded") return "~";
   return "✓";
 }
 
