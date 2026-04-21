@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-20T03:50:11.649Z",
+  "generated_at": "2026-04-21T07:26:03.482Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -366,7 +366,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -418,14 +422,18 @@
           "id": "cli-start",
           "name": "CLI Start Command",
           "description": "Copy-paste command to clone the canonical starter",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "command": "npx copilotkit@latest init --framework langgraph-python"
         },
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null,
           "highlight": [
@@ -438,7 +446,9 @@
           "id": "chat-customization-css",
           "name": "Chat Customization (CSS)",
           "description": "Default CopilotChat re-themed via CopilotKitCSSProperties",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/chat-customization-css",
           "animated_preview_url": null,
           "highlight": [
@@ -452,7 +462,9 @@
           "id": "tool-rendering-default-catchall",
           "name": "Tool Rendering (Default Catch-all)",
           "description": "Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/tool-rendering-default-catchall",
           "animated_preview_url": null,
           "highlight": [
@@ -465,7 +477,9 @@
           "id": "tool-rendering-custom-catchall",
           "name": "Tool Rendering (Custom Catch-all)",
           "description": "Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/tool-rendering-custom-catchall",
           "animated_preview_url": null,
           "highlight": [
@@ -479,7 +493,9 @@
           "id": "frontend-tools",
           "name": "Frontend Tools (In-App Actions)",
           "description": "Agent invokes client-side handlers registered with useFrontendTool",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/frontend-tools",
           "animated_preview_url": null,
           "highlight": [
@@ -492,7 +508,9 @@
           "id": "frontend-tools-async",
           "name": "Frontend Tools (Async)",
           "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/frontend-tools-async",
           "animated_preview_url": null,
           "highlight": [
@@ -506,7 +524,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat HITL (useHumanInTheLoop — ergonomic API)",
           "description": "Interactive approval/decision surface rendered inline in the chat via the high-level `useHumanInTheLoop` hook",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl-in-chat",
           "animated_preview_url": null,
           "highlight": [
@@ -520,7 +540,9 @@
           "id": "hitl-in-app",
           "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
           "description": "Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl-in-app",
           "animated_preview_url": null,
           "highlight": [
@@ -534,7 +556,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null,
           "highlight": [
@@ -549,7 +573,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null,
           "highlight": [
@@ -563,7 +589,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Canonical agent-state-driven Gen UI — the agent plans a live step list and emits it via copilotkit_emit_state; the frontend renders it with the v1 useCoAgentStateRender hook",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null,
           "highlight": [
@@ -577,7 +605,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null,
           "highlight": [
@@ -592,7 +622,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null,
           "highlight": [
@@ -606,7 +638,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null,
           "highlight": [
@@ -620,7 +654,9 @@
           "id": "prebuilt-sidebar",
           "name": "Pre-Built: Sidebar",
           "description": "Docked sidebar chat via <CopilotSidebar />",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/prebuilt-sidebar",
           "animated_preview_url": null,
           "highlight": [
@@ -633,7 +669,9 @@
           "id": "prebuilt-popup",
           "name": "Pre-Built: Popup",
           "description": "Floating popup chat via <CopilotPopup />",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/prebuilt-popup",
           "animated_preview_url": null,
           "highlight": [
@@ -646,7 +684,9 @@
           "id": "chat-slots",
           "name": "Chat Customization (Slots)",
           "description": "Customize CopilotChat via its slot system",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/chat-slots",
           "animated_preview_url": null,
           "highlight": [
@@ -660,7 +700,9 @@
           "id": "headless-simple",
           "name": "Headless Chat (Simple)",
           "description": "Minimal custom chat surface built on useAgent",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/headless-simple",
           "animated_preview_url": null,
           "highlight": [
@@ -673,7 +715,9 @@
           "id": "headless-complete",
           "name": "Headless Chat (Complete)",
           "description": "Full chat implementation built from scratch on useAgent",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/headless-complete",
           "animated_preview_url": null,
           "highlight": [
@@ -688,7 +732,9 @@
           "id": "agentic-chat-reasoning",
           "name": "Reasoning",
           "description": "Visible reasoning/thinking chain alongside the final answer",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/agentic-chat-reasoning",
           "animated_preview_url": null,
           "highlight": [
@@ -702,7 +748,9 @@
           "id": "gen-ui-interrupt",
           "name": "In-Chat HITL (useInterrupt — low-level primitive)",
           "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-interrupt",
           "animated_preview_url": null,
           "highlight": [
@@ -716,7 +764,9 @@
           "id": "declarative-gen-ui",
           "name": "Declarative Generative UI (A2UI)",
           "description": "Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/declarative-gen-ui",
           "animated_preview_url": null,
           "highlight": [
@@ -732,7 +782,9 @@
           "id": "a2ui-fixed-schema",
           "name": "Declarative Generative UI (A2UI — Fixed Schema)",
           "description": "A2UI rendering against a known client-side schema",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/a2ui-fixed-schema",
           "animated_preview_url": null,
           "highlight": [
@@ -750,7 +802,9 @@
           "id": "mcp-apps",
           "name": "MCP Apps",
           "description": "MCP server-driven UI via activity renderers",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/mcp-apps",
           "animated_preview_url": null,
           "highlight": [
@@ -763,7 +817,9 @@
           "id": "open-gen-ui",
           "name": "Open-Ended Generative UI",
           "description": "Minimal — enable open-ended gen UI in the runtime, nothing else",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/open-gen-ui",
           "animated_preview_url": null,
           "highlight": [
@@ -776,7 +832,9 @@
           "id": "open-gen-ui-advanced",
           "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
           "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/open-gen-ui-advanced",
           "animated_preview_url": null,
           "highlight": [
@@ -790,7 +848,9 @@
           "id": "interrupt-headless",
           "name": "Headless Interrupt (testing)",
           "description": "Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/interrupt-headless",
           "animated_preview_url": null,
           "highlight": [
@@ -803,7 +863,9 @@
           "id": "readonly-state-agent-context",
           "name": "Readonly State (Agent Context)",
           "description": "Frontend provides read-only context to the agent via useAgentContext",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/readonly-state-agent-context",
           "animated_preview_url": null,
           "highlight": [
@@ -816,7 +878,9 @@
           "id": "reasoning-default-render",
           "name": "Reasoning (Default Render)",
           "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/reasoning-default-render",
           "animated_preview_url": null,
           "highlight": [
@@ -829,7 +893,9 @@
           "id": "tool-rendering-reasoning-chain",
           "name": "Tool Rendering + Reasoning Chain (testing)",
           "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/tool-rendering-reasoning-chain",
           "animated_preview_url": null,
           "highlight": [
@@ -844,7 +910,9 @@
           "id": "beautiful-chat",
           "name": "Beautiful Chat",
           "description": "Canonical polished starter chat — brand fonts, theme tokens, suggestion pills",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/beautiful-chat",
           "animated_preview_url": null,
           "highlight": [
@@ -1007,7 +1075,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -1035,7 +1107,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1043,7 +1117,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1051,7 +1127,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1059,7 +1137,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1067,7 +1147,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1075,7 +1157,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1083,7 +1167,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1091,7 +1177,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1151,7 +1239,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
@@ -1179,7 +1271,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1187,7 +1281,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1195,7 +1291,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1203,7 +1301,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1211,7 +1311,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1219,7 +1321,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1227,7 +1331,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1235,7 +1341,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1295,7 +1403,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/google-adk",
         "name": "Sales Dashboard",
@@ -1319,7 +1431,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1327,7 +1441,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1335,7 +1451,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1343,7 +1461,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1351,7 +1471,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1359,7 +1481,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1367,7 +1491,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1375,7 +1501,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1435,7 +1563,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "Mastra Cloud",
         "url": "https://mastra.ai/cloud"
@@ -1463,7 +1595,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1471,7 +1605,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1479,7 +1615,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1487,7 +1625,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1495,7 +1635,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1503,7 +1645,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1511,7 +1655,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1519,7 +1665,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1579,7 +1727,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "managed_platform": {
         "name": "CrewAI Enterprise",
         "url": "https://crewai.com/amp"
@@ -1607,7 +1759,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1615,7 +1769,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1623,7 +1779,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1631,7 +1789,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1639,7 +1799,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1647,7 +1809,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1655,7 +1819,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1663,7 +1829,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1723,7 +1891,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/pydantic-ai",
         "name": "Sales Dashboard",
@@ -1747,7 +1919,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1755,7 +1929,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1763,7 +1939,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1771,7 +1949,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1779,7 +1959,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1787,7 +1969,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1795,7 +1979,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1803,7 +1989,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -1863,7 +2051,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "hitl-in-chat",
@@ -1879,7 +2071,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -1887,7 +2081,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -1895,7 +2091,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -1903,7 +2101,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -1911,7 +2111,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -1919,7 +2121,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -1927,7 +2131,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -1935,7 +2141,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2003,7 +2211,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "hitl-in-chat",
@@ -2019,7 +2231,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2027,7 +2241,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2035,7 +2251,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2043,7 +2261,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2051,7 +2271,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2059,7 +2281,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2067,7 +2291,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2075,7 +2301,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2143,7 +2371,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/agno",
         "name": "Sales Dashboard",
@@ -2167,7 +2399,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2175,7 +2409,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2183,7 +2419,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2191,7 +2429,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2199,7 +2439,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2207,7 +2449,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2215,7 +2459,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2223,7 +2469,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2287,7 +2535,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "hitl-in-chat",
@@ -2303,7 +2555,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2311,7 +2565,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2319,7 +2575,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2327,7 +2585,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2335,7 +2595,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2343,7 +2605,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2351,7 +2615,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2359,7 +2625,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2431,7 +2699,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/llamaindex",
         "name": "Sales Dashboard",
@@ -2455,7 +2727,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2463,7 +2737,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2471,7 +2747,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2479,7 +2757,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2487,7 +2767,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2495,7 +2777,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2503,7 +2787,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2511,7 +2797,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2575,7 +2863,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/strands",
         "name": "Sales Dashboard",
@@ -2599,7 +2891,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2607,7 +2901,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2615,7 +2911,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2623,7 +2921,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2631,7 +2931,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2639,7 +2941,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2647,7 +2951,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2655,7 +2961,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2715,7 +3023,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "hitl-in-chat",
@@ -2731,7 +3043,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2739,7 +3053,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2747,7 +3063,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2755,7 +3073,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2763,7 +3083,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2771,7 +3093,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2779,7 +3103,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2787,7 +3113,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2822,7 +3150,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/ms-agent-python",
         "name": "Sales Dashboard",
@@ -2846,7 +3178,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2854,7 +3188,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -2862,7 +3198,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -2870,7 +3208,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -2878,7 +3218,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -2886,7 +3228,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -2894,7 +3238,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -2902,7 +3248,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -2962,7 +3310,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "starter": {
         "path": "showcase/starters/ms-agent-dotnet",
         "name": "Sales Dashboard",
@@ -2986,7 +3338,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -2994,7 +3348,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -3002,7 +3358,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -3010,7 +3368,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -3018,7 +3378,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -3026,7 +3388,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -3034,7 +3398,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -3042,7 +3408,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
@@ -3102,7 +3470,11 @@
         "a2ui-fixed-schema",
         "a2ui-dynamic-schema"
       ],
-      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "interaction_modalities": [
+        "sidebar",
+        "embedded",
+        "chat"
+      ],
       "features": [
         "agentic-chat",
         "hitl-in-chat",
@@ -3118,7 +3490,9 @@
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
-          "tags": ["chat-ui"],
+          "tags": [
+            "chat-ui"
+          ],
           "route": "/demos/agentic-chat",
           "animated_preview_url": null
         },
@@ -3126,7 +3500,9 @@
           "id": "hitl-in-chat",
           "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
+          "tags": [
+            "interactivity"
+          ],
           "route": "/demos/hitl",
           "animated_preview_url": null
         },
@@ -3134,7 +3510,9 @@
           "id": "tool-rendering",
           "name": "Tool Rendering",
           "description": "Backend agent tools rendered as UI components",
-          "tags": ["agent-capabilities"],
+          "tags": [
+            "agent-capabilities"
+          ],
           "route": "/demos/tool-rendering",
           "animated_preview_url": null
         },
@@ -3142,7 +3520,9 @@
           "id": "gen-ui-tool-based",
           "name": "Tool-Based Generative UI",
           "description": "Agent uses tools to trigger UI generation",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-tool-based",
           "animated_preview_url": null
         },
@@ -3150,7 +3530,9 @@
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
           "description": "Long-running agent tasks with generated UI",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/gen-ui-agent",
           "animated_preview_url": null
         },
@@ -3158,7 +3540,9 @@
           "id": "shared-state-read-write",
           "name": "Shared State (Read + Write)",
           "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-read-write",
           "animated_preview_url": null
         },
@@ -3166,7 +3550,9 @@
           "id": "shared-state-streaming",
           "name": "State Streaming",
           "description": "Per-token state delta streaming from agent to UI",
-          "tags": ["agent-state"],
+          "tags": [
+            "agent-state"
+          ],
           "route": "/demos/shared-state-streaming",
           "animated_preview_url": null
         },
@@ -3174,7 +3560,9 @@
           "id": "subagents",
           "name": "Sub-Agents",
           "description": "Multiple agents with visible task delegation",
-          "tags": ["multi-agent"],
+          "tags": [
+            "multi-agent"
+          ],
           "route": "/demos/subagents",
           "animated_preview_url": null
         }
