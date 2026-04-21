@@ -358,9 +358,14 @@ jobs:
               exit 1
             fi
 
-            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id')
-            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status')
-            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl')
+            # `// empty` so a missing edge yields "" instead of the literal
+            # string "null". Matches the PRIOR_DEPLOY_ID extraction above —
+            # without it, the `$DEPLOY_ID = $PRIOR_DEPLOY_ID` comparison and
+            # the `$DOMAIN != "null"` guard break in inconsistent ways when
+            # Railway's edges array is transiently empty.
+            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
+            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
+            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
             echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
 
             # Skip stale deployments: if we see the prior deployment, the fresh
