@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { type Integration } from "@/lib/registry";
 
 // ---------------------------------------------------------------------------
@@ -114,12 +115,16 @@ const LANG_MAP: Record<string, string> = {
 // Module-load invariants: every FEATURE_OPTION id must have a FEATURE_MAP
 // entry, and every LANGUAGE_OPTION id (except "unsure" which is handled
 // separately) must have a LANG_MAP entry. Drift between the UI option
-// arrays and these maps silently produces zero-score scoring, which would
-// ship without a test failure because scoring isn't validated end-to-end.
-// Crashing at module load makes the drift impossible to miss.
+// arrays and these maps silently produces zero-score scoring for the
+// drifted option. We warn instead of throwing because this module runs in
+// a "use client" component — a thrown error at module load would crash
+// SSR and client hydration globally on any drift. A future Vitest test
+// should enforce this invariant at build time; for now, console.error
+// flags the drift in dev while keeping the app up.
 for (const opt of FEATURE_OPTIONS) {
   if (!(opt.id in FEATURE_MAP)) {
-    throw new Error(
+    // eslint-disable-next-line no-console
+    console.error(
       `guided-flow: FEATURE_OPTIONS contains id '${opt.id}' with no FEATURE_MAP entry. ` +
         "Add the mapping in showcase/shell/src/components/guided-flow.tsx.",
     );
@@ -128,7 +133,8 @@ for (const opt of FEATURE_OPTIONS) {
 for (const opt of LANGUAGE_OPTIONS) {
   if (opt.id === "unsure") continue;
   if (!(opt.id in LANG_MAP)) {
-    throw new Error(
+    // eslint-disable-next-line no-console
+    console.error(
       `guided-flow: LANGUAGE_OPTIONS contains id '${opt.id}' with no LANG_MAP entry. ` +
         "Add the mapping in showcase/shell/src/components/guided-flow.tsx.",
     );
@@ -162,7 +168,10 @@ function scoreIntegration(
     if (constraint === "aws" && ["strands", "agno"].includes(integration.slug))
       matches++;
     if (constraint === "google" && integration.slug === "google-adk") matches++;
-    if (constraint === "azure" && integration.slug.includes("ms-agent"))
+    if (
+      constraint === "azure" &&
+      ["ms-agent-python", "ms-agent-dotnet"].includes(integration.slug)
+    )
       matches++;
     if (
       constraint === "multi-agent" &&
@@ -219,6 +228,22 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
   // write until the restore effect has finished (marked at the end of
   // its body regardless of which branch ran).
   const restoredRef = useRef(false);
+  // resettingRef skips the NEXT scheduled persist-effect run after a
+  // removeItem call — because the same state change that triggers
+  // removeItem (empty-answers reset, or the malformed-payload cleanup path
+  // on mount) would otherwise cause the persist effect to fire and rewrite
+  // an empty payload to localStorage, undoing removeItem.
+  //
+  // Two call sites set this to true:
+  //  1. `reset()` — before setAnswers + removeItem.
+  //  2. The restore effect's malformed-payload branch — before
+  //     restoredRef flips to true (the flip is what lets the persist
+  //     effect run for the first time, so this flag must be set before
+  //     then to be observed on that first run).
+  //
+  // The persist effect, when it sees this flag, skips the write AND
+  // clears the flag back to false so subsequent mutations persist normally.
+  const resettingRef = useRef(false);
 
   // Restore from localStorage. Validate the shape before trusting the
   // parsed value: an older version of this component, a browser
@@ -235,6 +260,13 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
         console.warn(
           `[guided-flow] Discarding malformed ${STORAGE_KEY} payload from localStorage.`,
         );
+        // Mark a reset so the persist effect skips its first run. The
+        // `finally` block below flips restoredRef to true, which
+        // otherwise re-enables the persist effect — and because we did
+        // not call setAnswers here, the persist effect would see the
+        // initial empty answers state and rewrite an empty payload,
+        // undoing the removeItem below.
+        resettingRef.current = true;
         try {
           localStorage.removeItem(STORAGE_KEY);
         } catch (err) {
@@ -249,20 +281,31 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
         }
         return;
       }
-      // Coerce legacy undefined language to null so the rest of the
-      // component treats the field uniformly.
+      // Coerce legacy undefined language to null AND filter to known IDs
+      // so legacy payloads with retired feature/constraint/language IDs
+      // do not silently depress scoring by counting against `total`
+      // without matching any integration.
       const normalized: GuidedAnswers = {
-        features: parsed.features,
-        language: parsed.language ?? null,
-        constraints: parsed.constraints,
+        features: parsed.features.filter((f) =>
+          FEATURE_OPTIONS.some((o) => o.id === f),
+        ),
+        language:
+          parsed.language &&
+          (parsed.language === "unsure" ||
+            LANGUAGE_OPTIONS.some((o) => o.id === parsed.language))
+            ? parsed.language
+            : null,
+        constraints: parsed.constraints.filter((c) =>
+          CONSTRAINT_OPTIONS.some((o) => o.id === c),
+        ),
       };
       setAnswers(normalized);
-      // If they have previous results, jump to results
-      if (
-        normalized.features.length > 0 ||
-        normalized.language ||
-        normalized.constraints.length > 0
-      ) {
+      // Only jump to results when features are present — features are
+      // the only field required for meaningful scoring. A stored payload
+      // with only language/constraints set should land on step 0 so the
+      // user can complete the flow without being stranded on an empty
+      // results screen.
+      if (normalized.features.length > 0) {
         setStep(3);
       }
     } catch (err) {
@@ -295,6 +338,15 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
     // restoredRef.current = true in a finally block, so every exit path
     // (including early returns and thrown errors) releases this gate.
     if (!restoredRef.current) return;
+    // Skip (and consume) a reset tombstone: reset() and the
+    // malformed-payload cleanup branch both set resettingRef before
+    // mutating state / issuing removeItem. Without this, the persist
+    // effect would rewrite an empty-answers payload to localStorage in
+    // the same tick, undoing removeItem.
+    if (resettingRef.current) {
+      resettingRef.current = false;
+      return;
+    }
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(answers));
     } catch (err) {
@@ -340,13 +392,19 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
   }, []);
 
   const setLanguage = useCallback((id: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      language: prev.language === id ? null : id,
-    }));
+    // Language is a required single-select; clicking an already-selected
+    // pill is a no-op (idempotent set) rather than a toggle-off that
+    // would disable the Next button and trap the user on step 1.
+    setAnswers((prev) => ({ ...prev, language: id }));
   }, []);
 
   const reset = useCallback(() => {
+    // Mark a reset BEFORE mutating state. The setAnswers below schedules
+    // a re-render; the persist effect that would otherwise fire on that
+    // re-render checks resettingRef and skips its write, leaving the
+    // removeItem below sticky. The persist effect clears resettingRef
+    // back to false on the skip, so the next real mutation persists.
+    resettingRef.current = true;
     setAnswers({ features: [], language: null, constraints: [] });
     setStep(0);
     try {
@@ -507,9 +565,11 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             {integration.logo && (
-                              <img
+                              <Image
                                 src={integration.logo}
                                 alt=""
+                                width={20}
+                                height={20}
                                 className="w-5 h-5 rounded"
                                 onError={(e) => {
                                   // eslint-disable-next-line no-console
@@ -556,18 +616,27 @@ export function GuidedFlow({ integrations }: { integrations: Integration[] }) {
             <>
               <button
                 type="button"
-                onClick={reset}
+                onClick={() => setStep(0)}
                 className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
               >
-                Start over
+                Edit answers
               </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-              >
-                Done
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={reset}
+                  className="text-sm text-[var(--text-muted)] hover:text-[var(--text)] transition-colors"
+                >
+                  Start over
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-[var(--accent)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  Done
+                </button>
+              </div>
             </>
           ) : (
             <>
