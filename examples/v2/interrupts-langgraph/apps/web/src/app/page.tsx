@@ -21,6 +21,11 @@ export default function CopilotKitPage() {
       },
     ],
     handler({ themeColor }) {
+      // Defensive guard: during streaming, the LLM may invoke the handler
+      // before the `themeColor` arg has fully arrived. Skipping the update
+      // here avoids writing `undefined` into the CSS custom property, which
+      // would collapse the --copilot-kit-primary-color variable.
+      if (typeof themeColor !== "string" || themeColor.length === 0) return;
       setThemeColor(themeColor);
     },
   });
@@ -158,7 +163,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     name: "default",
     initialState: {
       proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
+        "CopilotKit may be new, but it's the best thing since sliced bread.",
       ],
     },
   });
@@ -182,6 +187,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       parameters: [
         {
           name: "proverb",
+          type: "string",
           description: "The proverb to add. Make it witty, short and concise.",
           required: true,
         },
@@ -221,9 +227,17 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {proverbs.map((proverb, index) => (
+          {proverbs.map((proverb) => (
+            // Key is the proverb text itself. This is stable across agent-
+            // side inserts/deletes (which was the bug with `${index}:...`),
+            // at the cost of colliding if the agent ever emits two identical
+            // proverbs — in which case React will log a duplicate-key
+            // warning and collapse them to one rendered node. Acceptable
+            // tradeoff for a demo; if duplicates become real, switch to
+            // `{id, text}` objects seeded with crypto.randomUUID() at add
+            // time (also requires widening AgentState.proverbs).
             <div
-              key={`${index}:${proverb}`}
+              key={proverb}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
             >
               <p className="pr-8">{proverb}</p>
@@ -231,8 +245,13 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
                 onClick={() =>
                   setState((prev) => ({
                     ...(prev ?? {}),
+                    // Filter by value identity rather than captured index:
+                    // between render and click, the agent may have
+                    // inserted/removed proverbs, shifting `index` to point
+                    // at a different entry. Matching on the string value
+                    // is stable (and consistent with the React key above).
                     proverbs: (prev?.proverbs ?? []).filter(
-                      (_, i) => i !== index,
+                      (p) => p !== proverb,
                     ),
                   }))
                 }
@@ -290,7 +309,10 @@ function WeatherCard({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xl font-bold text-white capitalize">
-              {location}
+              {/* During streaming, the tool-call arg may not have arrived
+                  yet, leaving `location` undefined and producing a blank
+                  heading. Show a loading placeholder in that window. */}
+              {location || "Loading…"}
             </h3>
             <p className="text-white">Current Weather</p>
           </div>
