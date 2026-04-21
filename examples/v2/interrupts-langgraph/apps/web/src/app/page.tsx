@@ -58,13 +58,14 @@ export default function CopilotKitPage() {
         return (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-2">
             <p className="text-sm text-red-800">
-              Received an unknown interrupt payload. Cancelling the request.
+              Received an unknown interrupt payload. This will tell the agent
+              to cancel.
             </p>
             <button
               onClick={() => resolve({ approved: false })}
               className="mt-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
             >
-              Dismiss
+              Cancel request
             </button>
           </div>
         );
@@ -144,12 +145,43 @@ const APPROVE_LABELS: Record<InterruptPayload["action"], string> = {
 };
 
 function parseInterruptPayload(value: unknown): InterruptPayload | null {
-  if (value === null || typeof value !== "object") return null;
-  if (Array.isArray(value)) return null;
+  // Emit a specific reason string for the first failed predicate so
+  // debugging agent-side schema drift doesn't require manually diffing
+  // the raw value against this type. The reason strings here are
+  // stable and surfaced by the renderer's console.error below.
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[interrupts-langgraph] parseInterruptPayload failed:",
+      "payload is not object",
+    );
+    return null;
+  }
   const v = value as Record<string, unknown>;
-  if (v.action !== "delete_proverb") return null;
-  if (typeof v.proverb !== "string") return null;
-  if (typeof v.message !== "string") return null;
+  if (v.action !== "delete_proverb") {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[interrupts-langgraph] parseInterruptPayload failed:",
+      "action mismatch",
+    );
+    return null;
+  }
+  if (typeof v.proverb !== "string") {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[interrupts-langgraph] parseInterruptPayload failed:",
+      "proverb not string",
+    );
+    return null;
+  }
+  if (typeof v.message !== "string") {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[interrupts-langgraph] parseInterruptPayload failed:",
+      "message not string",
+    );
+    return null;
+  }
   return {
     action: "delete_proverb",
     proverb: v.proverb,
@@ -193,6 +225,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         },
       ],
       handler: ({ proverb }) => {
+        // Defensive guard: during streaming, the LLM may invoke the handler
+        // before the `proverb` arg has fully arrived. Skipping the update
+        // here avoids pushing `undefined` into the proverbs array, which
+        // would break React rendering and React key stability.
+        if (typeof proverb !== "string" || proverb.length === 0) return;
         setState((prevState) => ({
           ...prevState,
           proverbs: [...(prevState?.proverbs || []), proverb],
@@ -245,17 +282,18 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {proverbs.map((proverb) => (
-            // Key is the proverb text itself. This is stable across agent-
-            // side inserts/deletes (which was the bug with `${index}:...`),
-            // at the cost of colliding if the agent ever emits two identical
-            // proverbs — in which case React will log a duplicate-key
-            // warning and collapse them to one rendered node. Acceptable
-            // tradeoff for a demo; if duplicates become real, switch to
-            // `{id, text}` objects seeded with crypto.randomUUID() at add
-            // time (also requires widening AgentState.proverbs).
+          {proverbs.map((proverb, index) => (
+            // Intentional index-and-content composite key: `${index}-${proverb}`.
+            // Plain `proverb` collides on duplicates (React logs a
+            // duplicate-key warning and collapses to one node); plain
+            // `index` destabilizes rows across agent-side inserts/deletes.
+            // The composite tolerates duplicates for this demo where rows
+            // are append-only and reordering is not a concern. Migrating
+            // to `{id, text}` objects (seeded with crypto.randomUUID())
+            // is the proper fix and is deferred to a follow-up since it
+            // requires widening AgentState.proverbs.
             <div
-              key={proverb}
+              key={`${index}-${proverb}`}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
             >
               <p className="pr-8">{proverb}</p>
