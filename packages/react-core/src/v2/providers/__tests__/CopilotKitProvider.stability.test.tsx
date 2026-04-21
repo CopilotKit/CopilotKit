@@ -695,6 +695,80 @@ describe("CopilotKitProvider stability", () => {
     });
   });
 
+  describe("default prop stability (no unnecessary setter calls)", () => {
+    // Regression coverage for provider defaults that previously allocated a
+    // fresh object per render (`headers = {}`, `properties = {}`, etc.),
+    // which made every downstream memo/effect dep unstable and fired the
+    // config setter effect on every parent render.
+    it("does not call setHeaders on re-render when `headers` prop is omitted", () => {
+      const calls: unknown[] = [];
+      let spyAttached = false;
+
+      function SpyAttacher() {
+        const { copilotkit } = useCopilotKit();
+        if (!spyAttached) {
+          const original = copilotkit.setHeaders.bind(copilotkit);
+          copilotkit.setHeaders = (headers: Record<string, string>) => {
+            calls.push(headers);
+            return original(headers);
+          };
+          spyAttached = true;
+        }
+        return null;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      calls.length = 0;
+
+      rerender(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      expect(calls).toHaveLength(0);
+    });
+
+    it("does not call setProperties on re-render when `properties` prop is omitted", () => {
+      const calls: unknown[] = [];
+      let spyAttached = false;
+
+      function SpyAttacher() {
+        const { copilotkit } = useCopilotKit();
+        if (!spyAttached) {
+          const original = copilotkit.setProperties.bind(copilotkit);
+          copilotkit.setProperties = (props: Record<string, unknown>) => {
+            calls.push(props);
+            return original(props);
+          };
+          spyAttached = true;
+        }
+        return null;
+      }
+
+      const { rerender } = render(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      calls.length = 0;
+
+      rerender(
+        <CopilotKitProvider runtimeUrl="http://localhost:3000/api">
+          <SpyAttacher />
+        </CopilotKitProvider>,
+      );
+
+      expect(calls).toHaveLength(0);
+    });
+  });
+
   describe("runtimeUrl deduplication", () => {
     it("always calls setRuntimeUrl with the same URL on re-render (AgentRegistry deduplicates)", () => {
       const setRuntimeUrlCalls: unknown[] = [];

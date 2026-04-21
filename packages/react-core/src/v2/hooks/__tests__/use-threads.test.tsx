@@ -463,6 +463,44 @@ describe("useThreads", () => {
     expect(socket.disconnected).toBe(true);
   });
 
+  // Regression: the setContext effect previously listed both `headersKey`
+  // (stable, serialized) and the raw `copilotkit.headers` ref. A new header
+  // object with identical content would fire the effect and churn the
+  // runtime subscription. `headersKey` alone must drive re-runs.
+  it("does not refetch when headers reference changes but content does not", async () => {
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result, rerender } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    const initialFetchCount = fetchMock.mock.calls.length;
+
+    // Swap in a new headers object with identical content — same keys,
+    // same values, new reference. A correctly-deduped effect must ignore
+    // this reference change.
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        headers: { Authorization: "Bearer test-token" },
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+      },
+    });
+
+    rerender();
+
+    // Give any queued effects a chance to fire.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(fetchMock.mock.calls.length).toBe(initialFetchCount);
+  });
+
   it("tears down the active socket on unmount", async () => {
     fetchMock
       .mockReturnValueOnce(

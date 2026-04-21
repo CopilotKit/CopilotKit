@@ -234,13 +234,18 @@ export function useThreads({
       : null;
 
     store.setContext(context);
+    // `headersKey` is the stable serialized form of `copilotkit.headers` —
+    // listing the raw ref alongside it would defeat the serialization and
+    // fire this effect whenever the provider hands us a new object with
+    // identical content. The effect body reads `copilotkit.headers` from
+    // the stable core instance, so it always sees the current value.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     store,
     copilotkit.runtimeUrl,
     headersKey,
     copilotkit.intelligence?.wsUrl,
     agentId,
-    copilotkit.headers,
     includeArchived,
     limit,
   ]);

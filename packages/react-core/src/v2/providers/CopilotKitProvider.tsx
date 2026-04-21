@@ -96,6 +96,22 @@ export interface CopilotKitContextValue {
 // Empty set for default context value
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
+// Stable empty-object defaults used when callers omit a prop. Inline `= {}`
+// destructure defaults allocate a new object per render, which makes every
+// downstream memo/effect dep unstable.
+const EMPTY_HEADERS: Record<string, string> = Object.freeze({}) as Record<
+  string,
+  string
+>;
+const EMPTY_PROPERTIES: Record<string, unknown> = Object.freeze({}) as Record<
+  string,
+  unknown
+>;
+const EMPTY_AGENTS: Record<string, AbstractAgent> = Object.freeze({}) as Record<
+  string,
+  AbstractAgent
+>;
+
 // Create the CopilotKit context
 const CopilotKitContext = createContext<CopilotKitContextValue>({
   copilotkit: null!,
@@ -268,14 +284,14 @@ function useStableArrayProp<T>(
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
   runtimeUrl,
-  headers: headersProp = {},
+  headers: headersProp,
   credentials,
   publicApiKey,
   publicLicenseKey,
   licenseToken,
-  properties = {},
-  agents__unsafe_dev_only: agents = {},
-  selfManagedAgents = {},
+  properties: propertiesProp,
+  agents__unsafe_dev_only: agentsProp,
+  selfManagedAgents: selfManagedAgentsProp,
   renderToolCalls,
   renderActivityMessages,
   renderCustomMessages,
@@ -389,15 +405,23 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, [renderActivityMessagesList, builtInActivityRenderers]);
 
   const resolvedPublicKey = publicApiKey ?? publicLicenseKey;
+  const properties = propertiesProp ?? EMPTY_PROPERTIES;
+  const agents = agentsProp ?? EMPTY_AGENTS;
+  const selfManagedAgents = selfManagedAgentsProp ?? EMPTY_AGENTS;
   const mergedAgents = useMemo(
     () => ({ ...agents, ...selfManagedAgents }),
     [agents, selfManagedAgents],
   );
   const hasLocalAgents = mergedAgents && Object.keys(mergedAgents).length > 0;
 
-  // Resolve headers from function or static object
-  const headers =
-    typeof headersProp === "function" ? headersProp() : headersProp;
+  // Resolve headers from function or static object. Memoize so callers that
+  // omit the prop (or pass a stable function/object) get a stable reference —
+  // otherwise downstream useMemo/useEffect deps would fire every render.
+  const headers = useMemo(() => {
+    if (headersProp === undefined) return EMPTY_HEADERS;
+    if (typeof headersProp === "function") return headersProp();
+    return headersProp;
+  }, [headersProp]);
 
   // Merge a provided publicApiKey into headers (without overwriting an explicit header).
   const mergedHeaders = useMemo(() => {
