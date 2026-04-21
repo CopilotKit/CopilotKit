@@ -20,7 +20,7 @@ conditions:
   guards:
     - minDeployAgeMin: 20
   rate_limit:
-    perKey: "{{signal.slug}}:{{trigger}}"
+    perKey: "{{signal.slug}}:{{triggerName}}"
     window: 15m
   suppress:
     when: 'trigger == "sustained_red" && lastAlertAgeMin < 15'

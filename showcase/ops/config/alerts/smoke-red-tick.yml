@@ -22,7 +22,7 @@ conditions:
     - minDeployAgeMin: 20
 
   rate_limit:
-    perKey: "{{signal.slug}}:{{trigger}}"
+    perKey: "{{signal.slug}}:{{triggerName}}"
     window: 15m
 
   suppress:

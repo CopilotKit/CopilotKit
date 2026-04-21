@@ -732,6 +732,54 @@ describe("alert-engine (additional behaviors)", () => {
     expect(tgt.sent).toHaveLength(2);
   });
 
+  it("perKey with {{triggerName}} produces distinct dedupe keys per transition", async () => {
+    // Regression: previously the default smoke-red-tick perKey used
+    // `{{trigger}}` (the flags OBJECT), which stringified to "[object Object]"
+    // for every transition — collapsing green_to_red + sustained_red into the
+    // same dedupe bucket and suppressing every follow-up tick. With
+    // `{{triggerName}}`, each transition gets its own bucket so a green_to_red
+    // followed by a sustained_red must both fire.
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        stringTriggers: ["green_to_red", "sustained_red"],
+        conditions: {
+          guards: [],
+          escalations: [],
+          rate_limit: {
+            perKey: "{{signal.slug}}:{{triggerName}}",
+            window: "15m",
+          },
+        },
+      }),
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "x",
+      },
+      result: probeRes("red", "mastra"),
+    });
+    await new Promise((r) => setImmediate(r));
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 2,
+        firstFailureAt: "x",
+      },
+      result: probeRes("red", "mastra"),
+    });
+    await new Promise((r) => setImmediate(r));
+    // Two distinct dedupe buckets → both dispatches fire.
+    expect(tgt.sent).toHaveLength(2);
+  });
+
   it("minDeployAgeMin guard suppresses when deploy is too young", async () => {
     const e = engine();
     e.start();
