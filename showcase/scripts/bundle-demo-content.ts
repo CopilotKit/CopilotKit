@@ -564,10 +564,7 @@ if (process.argv.includes("--watch")) {
         }
       } catch (e) {
         const err = e as Error;
-        if (
-          lastWatchError &&
-          lastWatchError.message === err.message
-        ) {
+        if (lastWatchError && lastWatchError.message === err.message) {
           console.error(`[watch] bundle still failing: ${err.message}`);
         } else {
           console.error("[watch] bundle failed:", err);

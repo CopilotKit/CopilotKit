@@ -102,7 +102,9 @@ async function probeOg(url: string | undefined): Promise<DocState> {
     const e = err as Error & { code?: string; cause?: { code?: string } };
     const code = e.code ?? e.cause?.code ?? "";
     const detail = code ? `${e.name}:${code}` : e.name;
-    console.warn(`[probe-docs] probeOg failed ${url} (${detail}): ${e.message}`);
+    console.warn(
+      `[probe-docs] probeOg failed ${url} (${detail}): ${e.message}`,
+    );
     return "error";
   } finally {
     clearTimeout(timer);

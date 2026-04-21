@@ -165,9 +165,7 @@ async function main() {
     console.warn(
       `WARNING: generate-status is emitting MOCK data for: ${activeMocks.join(", ")}`,
     );
-    console.warn(
-      "These columns do NOT reflect real test results. Unset the",
-    );
+    console.warn("These columns do NOT reflect real test results. Unset the");
     console.warn(
       "GENERATE_STATUS_MOCK_* env vars to emit `null` (unknown) instead.",
     );
