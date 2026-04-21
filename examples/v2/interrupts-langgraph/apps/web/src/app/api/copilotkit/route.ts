@@ -22,7 +22,10 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 //    runtime-only env vars (Vercel secrets, Railway env, Docker ENV at
 //    container start) are NOT injected at build time. Throwing at module
 //    load would abort otherwise-valid production builds.
-if (!process.env.LANGGRAPH_DEPLOYMENT_URL && process.env.NODE_ENV !== "production") {
+if (
+  !process.env.LANGGRAPH_DEPLOYMENT_URL &&
+  process.env.NODE_ENV !== "production"
+) {
   console.warn(
     "[copilotkit/route] LANGGRAPH_DEPLOYMENT_URL is not set; falling back to http://localhost:8125. Set LANGGRAPH_DEPLOYMENT_URL in production.",
   );

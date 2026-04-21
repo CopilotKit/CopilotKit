@@ -600,9 +600,10 @@ function DemoContent() {
     "useHumanInTheLoop",
     "useInterrupt",
   ] as const;
-  const v2Imports = ["CopilotChat", ...v2Candidates.filter((h) =>
-    new RegExp(`\\b${h}\\b`).test(codeOnly),
-  )];
+  const v2Imports = [
+    "CopilotChat",
+    ...v2Candidates.filter((h) => new RegExp(`\\b${h}\\b`).test(codeOnly)),
+  ];
   const zUsed = /\bz\b/.test(codeOnly);
 
   const importLines = [
@@ -2163,9 +2164,7 @@ if (process.argv[1]) {
     main().catch((err) => {
       const message =
         err instanceof Error ? (err.stack ?? err.message) : String(err);
-      console.error(
-        `[INTERNAL ERROR] create-integration crashed: ${message}`,
-      );
+      console.error(`[INTERNAL ERROR] create-integration crashed: ${message}`);
       process.exitCode = 4;
     });
   }

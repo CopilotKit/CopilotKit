@@ -29,14 +29,14 @@
     "tailwindcss": "^4",
     "typescript": "^5.9.3"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "nx": {
     "targets": {
       "build": {
         "cache": false
       }
     }
-  },
-  "engines": {
-    "node": ">=20.0.0"
   }
 }

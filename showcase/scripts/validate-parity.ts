@@ -608,7 +608,8 @@ export function auditPackage(
     PackageIssue,
     { category: "listing-failed" }
   >[] = [];
-  if (topLevelDemosUnreadable) demosDirUnreadableAll.push(topLevelDemosUnreadable);
+  if (topLevelDemosUnreadable)
+    demosDirUnreadableAll.push(topLevelDemosUnreadable);
   if (legacyDemosUnreadable) demosDirUnreadableAll.push(legacyDemosUnreadable);
   const demosDirUnreadable = demosDirUnreadableAll[0];
   const specsDirUnreadable = findListingFailed(specResult, specsDirPath);

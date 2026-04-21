@@ -35,7 +35,9 @@ test.describe("Demo: agentic-chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat");
     // Wait for the chat input to confirm hydration
-    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });
@@ -118,7 +120,9 @@ test.describe("Demo: agentic-chat", () => {
 test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/hitl");
-    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });
@@ -131,7 +135,9 @@ test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
     await expect(container).toBeVisible();
 
     // The chat input should be inside this container
-    await expect(container.locator('textarea[placeholder^="Type a message"]')).toBeVisible();
+    await expect(
+      container.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible();
   });
 
   test("suggestion buttons are rendered with correct text", async ({
@@ -194,7 +200,9 @@ test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
 test.describe("Demo: tool-rendering", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering");
-    await expect(page.locator('textarea[placeholder^="Type a message"]')).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });

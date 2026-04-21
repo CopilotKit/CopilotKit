@@ -17,8 +17,7 @@ export default function CopilotKitPage() {
         {
           name: "themeColor",
           type: "string",
-          description:
-            "The theme color to set. Make sure to pick nice colors.",
+          description: "The theme color to set. Make sure to pick nice colors.",
           required: true,
         },
       ],
@@ -64,8 +63,8 @@ export default function CopilotKitPage() {
         return (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-2">
             <p className="text-sm text-red-800">
-              Received an unknown interrupt payload. This will tell the agent
-              to cancel.
+              Received an unknown interrupt payload. This will tell the agent to
+              cancel.
             </p>
             <button
               onClick={() => resolve({ approved: false })}
@@ -259,9 +258,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
       available: "disabled",
       parameters: [{ name: "location", type: "string", required: true }],
       render: ({ args }) => {
-        return (
-          <WeatherCard location={args.location} themeColor={themeColor} />
-        );
+        return <WeatherCard location={args.location} themeColor={themeColor} />;
       },
     },
     [themeColor],

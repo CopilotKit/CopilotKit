@@ -766,10 +766,7 @@ function emit_unknown_tools_notice(state: AgentState) {
   const knownCalls: ToolCall[] = [];
   const unknownCalls: ToolCall[] = [];
   for (const call of allCalls) {
-    if (
-      frontendActionNames.has(call.name) ||
-      backendToolNames.has(call.name)
-    ) {
+    if (frontendActionNames.has(call.name) || backendToolNames.has(call.name)) {
       knownCalls.push(call);
     } else {
       unknownCalls.push(call);
