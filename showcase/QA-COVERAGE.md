@@ -4,43 +4,43 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 **Legend:**
 
-- ✅ Covered -- tests exist and verify this demo
-- ⚠️ Partial -- some coverage exists but gaps remain
-- ❌ None -- no tests exist for this demo
-- 🔧 Needs aimock -- tests exist but require aimock fixtures that are missing or incomplete
+- PASS Covered -- tests exist and verify this demo
+- WARN Partial -- some coverage exists but gaps remain
+- FAIL None -- no tests exist for this demo
+- STUB Needs aimock -- tests exist but require aimock fixtures that are missing or incomplete
 
 ## Demo Coverage
 
-| Demo                         | Manual QA                       | Vitest Unit | Playwright E2E (smoke) | Playwright E2E (interaction) | Per-Package E2E                                | Aimock Fixtures                                            | CI Auto                                           |
-| ---------------------------- | ------------------------------- | ----------- | ---------------------- | ---------------------------- | ---------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
-| **Agentic Chat**             | ✅ 17 packages                  | ❌          | ✅ load + suggestions  | ⚠️ suggestion click only     | ✅ weather card, background change, multi-turn | ⚠️ `background`, `weather` matches                         | ⚠️ validate only (no Playwright in CI by default) |
-| **Human in the Loop**        | ✅ 17 packages                  | ❌          | ✅ load + suggestions  | ⚠️ suggestion click only     | ✅ step selector, approve/reject               | ⚠️ `plan`/`steps`/`mars` matches (text only, no interrupt) | ⚠️ validate only                                  |
-| **Tool Rendering**           | ✅ 17 packages                  | ❌          | ✅ load + suggestions  | ⚠️ suggestion click only     | ✅ WeatherCard with stats grid                 | ⚠️ `weather` match (tool call)                             | ⚠️ validate only                                  |
-| **Gen UI (Tool-Based)**      | ✅ 17 packages                  | ❌          | ❌                     | ❌                           | ✅ sidebar, haiku card, pie/bar chart          | ❌ no haiku-specific fixture                               | ⚠️ validate only                                  |
-| **Gen UI (Agent)**           | ✅ 1 package (langgraph-python) | ❌          | ❌                     | ❌                           | ✅ task progress tracker, progress bar         | ❌ no gen-ui-agent fixture                                 | ⚠️ validate only                                  |
-| **Shared State (Read)**      | ✅ 1 package (langgraph-python) | ❌          | ❌                     | ❌                           | ✅ recipe card, sidebar, pipeline              | ❌ no shared-state fixture                                 | ⚠️ validate only                                  |
-| **Shared State (Write)**     | ✅ 1 package (langgraph-python) | ❌          | ❌                     | ❌                           | ✅ pipeline, deal CRUD, agent state writes     | ❌ no shared-state fixture                                 | ⚠️ validate only                                  |
-| **Shared State (Streaming)** | ✅ 1 package (langgraph-python) | ❌          | ❌                     | ❌                           | ✅ document editor, confirm/reject changes     | ❌ no streaming fixture                                    | ⚠️ validate only                                  |
-| **Sub-Agents**               | ✅ 1 package (langgraph-python) | ❌          | ❌                     | ❌                           | ✅ travel planner, agent indicators, sections  | ❌ no subagent fixture                                     | ⚠️ validate only                                  |
+| Demo                         | Manual QA               | Vitest Unit | Playwright E2E (smoke)  | Playwright E2E (interaction) | Per-Package E2E                                  | Aimock Fixtures                                              | CI Auto                                             |
+| ---------------------------- | ----------------------- | ----------- | ----------------------- | ---------------------------- | ------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------- |
+| **Agentic Chat**             | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS weather card, background change, multi-turn | WARN `background`, `weather` matches                         | WARN validate only (no Playwright in CI by default) |
+| **Human in the Loop**        | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS step selector, approve/reject               | WARN `plan`/`steps`/`mars` matches (text only, no interrupt) | WARN validate only                                  |
+| **Tool Rendering**           | PASS 17 packages        | FAIL        | PASS load + suggestions | WARN suggestion click only   | PASS WeatherCard with stats grid                 | WARN `weather` match (tool call)                             | WARN validate only                                  |
+| **Gen UI (Tool-Based)**      | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS sidebar, haiku card, pie/bar chart          | FAIL no haiku-specific fixture                               | WARN validate only                                  |
+| **Gen UI (Agent)**           | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS task progress tracker, progress bar         | FAIL no gen-ui-agent fixture                                 | WARN validate only                                  |
+| **Shared State (Read)**      | PASS 17 packages        | FAIL        | FAIL                    | FAIL                         | PASS recipe card, sidebar, pipeline              | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Write)**     | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS pipeline, deal CRUD, agent state writes     | FAIL no shared-state fixture                                 | WARN validate only                                  |
+| **Shared State (Streaming)** | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS document editor, confirm/reject changes     | FAIL no streaming fixture                                    | WARN validate only                                  |
+| **Sub-Agents**               | PASS 17 packages (stub) | FAIL        | FAIL                    | FAIL                         | PASS travel planner, agent indicators, sections  | FAIL no subagent fixture                                     | WARN validate only                                  |
 
 ## Starter Hero Coverage
 
-| Feature                         | Manual QA | Vitest Unit                                                    | Playwright E2E (smoke)                | Playwright E2E (interaction)                  | Aimock Fixtures                  | CI Auto                                   |
-| ------------------------------- | --------- | -------------------------------------------------------------- | ------------------------------------- | --------------------------------------------- | -------------------------------- | ----------------------------------------- |
-| **Sales Dashboard (page load)** | ❌        | ✅ generate-starters tests (17 starters exist, file structure) | ✅ header, 4 renderer pills           | ✅ pill switching, content verification       | ⚠️ `sales`/`todo`/`deal` matches | ⚠️ validate + aimock-e2e (manual trigger) |
-| **Renderer Selector**           | ❌        | ❌                                                             | ✅ 4 pills visible, default selection | ✅ mutual exclusion, content changes per mode | ❌                               | ⚠️ validate only                          |
-| **Tool-Based mode**             | ❌        | ❌                                                             | ✅ pipeline heading, KPI cards        | ✅ Add a deal, multiple deals, empty state    | ⚠️ `sales`/`todo` matches        | ⚠️ validate only                          |
-| **A2UI Catalog mode**           | ❌        | ❌                                                             | ✅ same pipeline content              | ❌                                            | ❌                               | ⚠️ validate only                          |
-| **json-render mode**            | ❌        | ❌                                                             | ✅ fallback note + pipeline           | ❌                                            | ❌                               | ⚠️ validate only                          |
-| **HashBrown mode**              | ❌        | ❌                                                             | ✅ pipeline content                   | ❌                                            | ❌                               | ⚠️ validate only                          |
+| Feature                         | Manual QA | Vitest Unit                                                      | Playwright E2E (smoke)                  | Playwright E2E (interaction)                    | Aimock Fixtures                    | CI Auto                                     |
+| ------------------------------- | --------- | ---------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | ---------------------------------- | ------------------------------------------- |
+| **Sales Dashboard (page load)** | FAIL      | PASS generate-starters tests (17 starters exist, file structure) | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
+| **Renderer Selector**           | FAIL      | FAIL                                                             | PASS 4 pills visible, default selection | PASS mutual exclusion, content changes per mode | FAIL                               | WARN validate only                          |
+| **Tool-Based mode**             | FAIL      | FAIL                                                             | PASS pipeline heading, KPI cards        | PASS Add a deal, multiple deals, empty state    | WARN `sales`/`todo` matches        | WARN validate only                          |
+| **A2UI Catalog mode**           | FAIL      | FAIL                                                             | PASS same pipeline content              | FAIL                                            | FAIL                               | WARN validate only                          |
+| **json-render mode**            | FAIL      | FAIL                                                             | PASS fallback note + pipeline           | FAIL                                            | FAIL                               | WARN validate only                          |
+| **HashBrown mode**              | FAIL      | FAIL                                                             | PASS pipeline content                   | FAIL                                            | FAIL                               | WARN validate only                          |
 
 ## Test Infrastructure Details
 
 ### Manual QA Checklists (`showcase/packages/*/qa/*.md`)
 
-- 73 files across 17 packages
-- All 17 packages have checklists for: agentic-chat, hitl, tool-rendering, gen-ui-tool-based
-- Only langgraph-python has checklists for: gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents
+- 153 files across 17 packages (17 × 9 demos)
+- All 17 packages have checklists for all 9 demos: agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents
+- Authored across all packages: agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read. Stub-only across all 17 packages (not yet authored): shared-state-write, shared-state-streaming, subagents (3 demos × 17 packages = 51 stub files).
 
 ### Vitest Unit Tests (`showcase/scripts/__tests__/*.test.ts`)
 
@@ -55,15 +55,16 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 ### Playwright E2E -- Shared (`showcase/scripts/__tests__/e2e/`)
 
 - `starter-e2e.spec.ts` -- Sales Dashboard starter (15 tests: pills, modes, content switching, add deals)
-- `demo-e2e.spec.ts` -- agentic-chat, hitl, tool-rendering only (9 tests: load, suggestions, click)
+- `demo-e2e.spec.ts` -- agentic-chat, hitl-in-chat, tool-rendering only (9 tests: load, suggestions, click)
 - `screenshots.spec.ts` -- screenshot capture
 - **Gap:** No shared E2E tests for gen-ui-tool-based, gen-ui-agent, shared-state-\*, subagents
 
-### Playwright E2E -- Per-Package (`showcase/packages/langgraph-python/tests/e2e/`)
+### Playwright E2E -- Per-Package (`showcase/packages/*/tests/e2e/`)
 
-- 10 spec files covering all 9 demos + renderer-selector
-- Tests require a running dev server and (for interaction tests) an agent backend or aimock
-- **Gap:** These tests only exist for langgraph-python, not other 16 packages
+- Every one of the 17 packages ships 9 per-demo spec files (agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents).
+- `langgraph-python` additionally ships a 10th spec (`renderer-selector.spec.ts`) covering the Sales Dashboard renderer-selector flow; no other package has this spec.
+- Tests require a running dev server and (for interaction tests) an agent backend or aimock, and are **not** wired into default CI — they run on demand locally or via the manual `showcase_aimock-e2e.yml` trigger.
+- **Gap:** The renderer-selector per-package coverage is langgraph-python-only; replicating it to at least one TypeScript package would verify cross-framework parity.
 
 ### Aimock Fixtures (`showcase/aimock/`)
 

@@ -1,4 +1,4 @@
-# QA: Sub-Agents — AG2
+# QA: Shared State (Writing) — Langroid
 
 ## Prerequisites
 
@@ -9,8 +9,8 @@
 
 ### 1. Basic Functionality
 
-- [ ] Navigate to the subagents demo page
-- [ ] Verify the chat interface loads with title "Sub-Agents"
+- [ ] Navigate to the shared-state-write demo page
+- [ ] Verify the chat interface loads with title "Shared State (Writing)"
 - [ ] Verify the chat input placeholder "Type a message..." is visible
 - [ ] Send a basic message (e.g. "Hello! What can you do?")
 - [ ] Verify the agent responds

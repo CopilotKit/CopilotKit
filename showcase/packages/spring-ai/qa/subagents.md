@@ -1,4 +1,4 @@
-# QA: Sub-Agents — AG2
+# QA: Sub-Agents — Spring AI
 
 ## Prerequisites
 
