@@ -364,9 +364,17 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
       // history entry is sufficient for audit; the first non-error
       // observation will establish the baseline correctly.
 
+      // HF13-B2: the error branch used to return `newState: carriedState`
+      // (the prior State), which meant downstream consumers branching on
+      // `outcome.newState === "error"` never fired for live-write errors
+      // — only dispatchCronAlert's synthesized outcomes did. Now we
+      // return `"error"` uniformly, and carry the prior State via the
+      // new optional `errorStatePrev` so dashboards that need to keep
+      // rendering the last-known colour still have it.
       const outcome: WriteOutcome = {
         previousState: prevState,
-        newState: carriedState,
+        newState: "error",
+        errorStatePrev: carriedState,
         transition: "error",
         firstFailureAt: existing?.first_failure_at ?? null,
         failCount: existing?.fail_count ?? 0,

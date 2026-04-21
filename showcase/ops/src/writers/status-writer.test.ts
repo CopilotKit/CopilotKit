@@ -180,7 +180,12 @@ describe("status-writer", () => {
     const out = await writer.write(probeResult("error"));
     const after = env.rows.get("smoke:mastra")!;
     expect(out.transition).toBe("error");
-    expect(out.newState).toBe("red"); // carried forward
+    // HF13-B2: newState is literal "error" so downstream consumers
+    // branching on `newState === "error"` fire. The prior State (red in
+    // this case) is carried on errorStatePrev for dashboards that want
+    // to keep rendering the last-known colour.
+    expect(out.newState).toBe("error");
+    expect(out.errorStatePrev).toBe("red");
     expect(after.state).toBe(before.state);
     expect(after.fail_count).toBe(before.fail_count);
     expect(
@@ -461,6 +466,44 @@ describe("status-writer", () => {
       /upsert boom/,
     );
     expect(failed).toEqual([{ phase: "status_upsert", key: "smoke:mastra" }]);
+  });
+
+  it("error tick returns outcome.newState === 'error' (HF13-B2)", async () => {
+    // Red-green (HF13-B2): the error branch used to return
+    // `newState: carriedState` (the prior State), which caused
+    // downstream consumers branching on `outcome.newState === "error"`
+    // to silently miss live-write errors — only dispatchCronAlert's
+    // synthesized outcomes ever reached them. Fix: error branch returns
+    // literal `"error"`, with the prior State carried on errorStatePrev
+    // so dashboards can still render the last-known colour.
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    // Seed a red baseline so we can verify the prior State carries over
+    // in errorStatePrev (and NOT as newState).
+    await writer.write(probeResult("red"));
+    const out = await writer.write(probeResult("error"));
+    expect(out.newState).toBe("error");
+    expect(out.errorStatePrev).toBe("red");
+    expect(out.transition).toBe("error");
+  });
+
+  it("first-ever error tick has errorStatePrev 'green' default (HF13-B2)", async () => {
+    // Red-green complement: when there's no prior observation, the
+    // doWrite's error branch defaults carriedState to "green" so
+    // dashboards can still render a colour. errorStatePrev must carry
+    // that default forward even though previousState is null.
+    const writer = createStatusWriter({
+      pb: env.pb,
+      bus: createEventBus(),
+      logger,
+    });
+    const out = await writer.write(probeResult("error"));
+    expect(out.newState).toBe("error");
+    expect(out.previousState).toBeNull();
+    expect(out.errorStatePrev).toBe("green");
   });
 
   it("error-path observed_at update failure does NOT emit status.changed (F2.2)", async () => {

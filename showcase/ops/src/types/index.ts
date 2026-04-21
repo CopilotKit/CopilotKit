@@ -41,16 +41,26 @@ export interface Probe<Input = void, Signal = unknown> {
 
 export interface WriteOutcome {
   previousState: State | null;
-  // HF-A6: `newState` must be able to carry the probe's actual `"error"`
+  // HF-A6 / HF13-B2: `newState` must carry the probe's actual `"error"`
   // state end-to-end so dispatchCronAlert's synthesized outcome stops
-  // lying about a fabricated red on error ticks. Persistent writers still
-  // use real State values — the error case on status-writer carries the
-  // prior State forward (see status-writer.doWrite's `carriedState`), NOT
-  // the literal "error" (history keeps the error bit via `transition`).
+  // lying about a fabricated red on error ticks. status-writer's error
+  // branch now also sets `newState: "error"` (was: carried prior state
+  // forward, which caused downstream consumers branching on
+  // `newState === "error"` to miss live-write error ticks). If the prior
+  // state is still needed (dashboards that want to keep rendering the
+  // last-known non-error colour), it is carried on `errorStatePrev`.
   // Consumers that need to branch on error-vs-red MUST match on
-  // `newState === "error"` OR `transition === "error"` depending on which
-  // invariant they care about.
+  // `newState === "error"` OR `transition === "error"` depending on
+  // which invariant they care about.
   newState: State | "error";
+  /**
+   * HF13-B2: when `newState === "error"`, this carries the prior durable
+   * State (pre-error) so dashboards can continue to render the
+   * last-known status colour while surfacing that the latest probe tick
+   * errored. `null` when there was no prior observation (first-ever tick
+   * is an error).
+   */
+  errorStatePrev?: State | null;
   transition: Transition;
   firstFailureAt: string | null;
   failCount: number;
