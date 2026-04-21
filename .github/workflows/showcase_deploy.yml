@@ -520,7 +520,7 @@ jobs:
             .jobs[]?
             | select(.name | test("^build \\(.+\\)$"))
             | "\(.name | capture("^build \\((?<s>.+)\\)$").s)\t\(.conclusion // "unknown")"
-          ' 2>/dev/null)
+          ')
           if [ -z "$pairs" ]; then
             echo "::warning::No matrix-leg jobs found in run; notify will use softer wording"
             echo "have_detail=false" >> "$GITHUB_OUTPUT"
@@ -607,10 +607,10 @@ jobs:
           # if the list exceeds the budget. Duplicate the helper inline
           # because YAML run blocks don't share shell functions.
           truncate_csv() {
-            local budget=$1 input=$2 out="" item proposed
+            local budget=$1 input=$2 out="" item proposed ws
             # Input is comma-separated (jq join(", ")) — normalise to
             # space separation for the shell word-split below.
-            local ws="${input//,/ }"
+            ws="${input//,/ }"
             for item in $ws; do
               if [ -z "$out" ]; then
                 proposed="$item"
