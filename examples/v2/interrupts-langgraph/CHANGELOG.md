@@ -1,5 +1,36 @@
 # langgraph-js-starter
 
+## 0.1.6 — 2026-04-21
+
+### Changed
+
+- Added `turbo.json` at the starter root so `turbo run dev/build/lint`
+  works when the starter is extracted standalone (root scripts delegate
+  to turbo; missing config previously broke extraction).
+- Added `pnpm-workspace.yaml` so pnpm v9+ reliably links
+  `workspace:*` deps on standalone extraction; the `workspaces` array in
+  the root `package.json` is not honored by pnpm on its own.
+- Bumped the agent `tsconfig.json` `target` from `es2016` to `ES2022`
+  (with explicit `lib: ["ES2022"]`, no DOM) to match the declared
+  Node 20+ runtime baseline.
+- Added `build` and `lint` scripts to `apps/agent/package.json`
+  (`tsc -p tsconfig.json --noEmit` — identical to what `project.json`
+  declares) so `turbo run build/lint` and nx targets agree.
+- Filled in the empty agent `description` and `author` fields.
+- Added `LANGSMITH_TRACING=true` (commented) to `apps/web/.env.example`
+  to match the agent's `.env.example`.
+- Added `"baseUrl": "."` to `apps/web/tsconfig.json` so the `@/*` path
+  alias resolves reliably across IDEs and tooling.
+- Removed Python-specific entries (`venv/`, `__pycache__/`, `*.pyc`)
+  from `apps/agent/.gitignore` — leftovers from a forked Python
+  LangGraph starter; this is a TypeScript project.
+- Added a copyright year to `LICENSE` (MIT convention requires one).
+
+### Versioning
+
+- Root, `apps/agent`, and `apps/web` all bumped from `0.1.5` to `0.1.6`
+  in lockstep per the starter's shared-version convention.
+
 ## 0.1.5 — 2026-04-17
 
 ### Renamed

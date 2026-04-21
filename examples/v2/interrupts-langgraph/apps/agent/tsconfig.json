@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es2016",
+    "target": "ES2022",
+    "lib": ["ES2022"],
     "module": "Node16",
     "moduleResolution": "node16",
     "resolvePackageJsonExports": true,
