@@ -298,15 +298,31 @@ export function FrameworkSelector({
                 </div>
                 {opts.map((opt) => {
                   const isActive = opt.slug === framework;
+                  // Undeployed frameworks must not be selectable — picking
+                  // one persists the slug to storedFramework, which then
+                  // traps the user in a RouterPivot redirect loop on every
+                  // `/docs/*` visit because the destination doesn't exist.
+                  const isDisabled = !opt.deployed;
                   return (
                     <button
                       key={opt.slug}
                       type="button"
-                      onClick={() => selectFramework(opt.slug)}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
+                      disabled={isDisabled}
+                      aria-disabled={isDisabled}
+                      onClick={() => {
+                        if (isDisabled) return;
+                        selectFramework(opt.slug);
+                      }}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors ${
+                        isDisabled
+                          ? "cursor-not-allowed opacity-60 text-[var(--text-muted)]"
+                          : "cursor-pointer"
+                      } ${
                         isActive
                           ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                          : isDisabled
+                            ? ""
+                            : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
                       }`}
                     >
                       {opt.logo ? (
