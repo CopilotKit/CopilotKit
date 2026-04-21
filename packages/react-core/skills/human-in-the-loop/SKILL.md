@@ -119,19 +119,36 @@ render: ({ status, args, respond }) => {
 ### Abort the run on unmount so threads unlock
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
-import { useEffect } from "react";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+import { useEffect, useRef } from "react";
 
 function HITLHost() {
-  const { agent, isRunning } = useAgent({ agentId: "default" });
+  const { agent } = useAgent({
+    agentId: "default",
+    updates: [UseAgentUpdate.OnRunStatusChanged],
+  });
+  // Track isRunning in a ref so the unmount cleanup reads the latest value
+  // without re-firing on every transition.
+  const runningRef = useRef(false);
+  useEffect(() => {
+    runningRef.current = agent.isRunning;
+  }, [agent.isRunning]);
+
   useEffect(() => {
     return () => {
-      if (isRunning) agent.abortRun();
+      if (runningRef.current) agent.abortRun();
     };
-  }, [agent, isRunning]);
+  }, [agent]);
+
   return <DeleteConfirmHITL />;
 }
 ```
+
+`useAgent` returns `{ agent }` only — run status lives on `agent.isRunning`.
+Depending the cleanup effect directly on `agent.isRunning` would fire the
+cleanup on every status flip (not just unmount), aborting active runs.
+The ref pattern captures the latest value while the cleanup runs only
+when the host component truly unmounts.
 
 ### Collect structured user input mid-run
 
@@ -276,12 +293,19 @@ Correct:
 
 ```tsx
 // Keep the HITL prompt at a layout level that persists across route changes, OR abort on unmount:
-const { agent, isRunning } = useAgent({ agentId: "default" });
+const { agent } = useAgent({
+  agentId: "default",
+  updates: [UseAgentUpdate.OnRunStatusChanged],
+});
+const runningRef = useRef(false);
+useEffect(() => {
+  runningRef.current = agent.isRunning;
+}, [agent.isRunning]);
 useEffect(
   () => () => {
-    if (isRunning) agent.abortRun();
+    if (runningRef.current) agent.abortRun();
   },
-  [agent, isRunning],
+  [agent],
 );
 ```
 

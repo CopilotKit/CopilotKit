@@ -5,9 +5,11 @@ description: >
   push JSON-serializable shared state via useAgentContext({ description,
   value }). Covers per-thread clone WeakMap, UseAgentUpdate filter,
   ProxiedCopilotRuntimeAgent provisional agent, agent.addMessage /
-  setState / abortRun. useAgentContext has no agentId parameter — context
-  is intentionally global. For rare per-agent scoping, use
-  copilotkit.addContext({ agentId }).
+  setState / abortRun. useAgent returns { agent }; run status comes from
+  agent.isRunning (subscribe via UseAgentUpdate.OnRunStatusChanged).
+  useAgentContext has no agentId parameter and context is always global —
+  the core addContext API also ignores any agentId field, so per-agent
+  context scoping is not supported.
 type: framework
 framework: react
 library: copilotkit
@@ -49,7 +51,7 @@ export function ChatDriver({
   route: string;
   userId: string;
 }) {
-  const { agent, isRunning } = useAgent({
+  const { agent } = useAgent({
     agentId: "default",
     threadId: "main",
     updates: [
@@ -64,7 +66,8 @@ export function ChatDriver({
 
   return (
     <div>
-      {isRunning ? "…thinking" : "idle"} — {agent.messages.length} messages
+      {agent.isRunning ? "…thinking" : "idle"} — {agent.messages.length}{" "}
+      messages
     </div>
   );
 }
@@ -87,11 +90,16 @@ async function ask(text: string) {
 ### Subscribe only to run-status to reduce re-renders
 
 ```tsx
-const { isRunning } = useAgent({
+const { agent } = useAgent({
   agentId: "default",
   updates: [UseAgentUpdate.OnRunStatusChanged],
 });
+const isRunning = agent.isRunning;
 ```
+
+`useAgent` returns `{ agent }` only; `isRunning` lives on the agent
+itself. Subscribing to `OnRunStatusChanged` forces a re-render when the
+value flips, so reading `agent.isRunning` stays live.
 
 ### Share app state with every agent run (global)
 
@@ -101,31 +109,6 @@ const value = useMemo(
   [cart.items, router.pathname],
 );
 useAgentContext({ description: "user cart + route", value });
-```
-
-### Per-agent context (rare — escape hatch)
-
-`useAgentContext` is intentionally global. For the rare case where a
-specific agent should see a different context, use the imperative API.
-
-```tsx
-import { useCopilotKit } from "@copilotkit/react-core/v2";
-import { useEffect, useMemo } from "react";
-
-const { copilotkit } = useCopilotKit();
-const value = useMemo(
-  () => ({ papers: researchState.papers }),
-  [researchState.papers],
-);
-
-useEffect(() => {
-  const id = copilotkit.addContext({
-    description: "paper list",
-    value: JSON.stringify(value),
-    agentId: "research",
-  });
-  return () => copilotkit.removeContext(id);
-}, [copilotkit, value]);
 ```
 
 ### Abort the run
@@ -265,34 +248,37 @@ remove/re-add churn in the core context store.
 
 Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx:30-35`
 
-### MEDIUM — Expecting `useAgentContext` to accept `agentId`
+### MEDIUM — Expecting `useAgentContext` or `copilotkit.addContext` to scope context per agent
 
 Wrong:
 
 ```tsx
 useAgentContext({ agentId: "research", description: "paper list", value });
+// or the imperative form:
+copilotkit.addContext({
+  description: "paper list",
+  value: JSON.stringify(value),
+  agentId: "research",
+});
 ```
 
 Correct:
 
 ```tsx
-const { copilotkit } = useCopilotKit();
-useEffect(() => {
-  const id = copilotkit.addContext({
-    description: "paper list",
-    value: JSON.stringify(value),
-    agentId: "research",
-  });
-  return () => copilotkit.removeContext(id);
-}, [copilotkit, value]);
+// Context is global — every agent run sees every registered entry.
+useAgentContext({ description: "paper list", value });
+
+// When only one agent should key off a value, branch inside its prompt
+// or tool logic instead of trying to scope the context entry.
 ```
 
-`useAgentContext` is intentionally global by design — context is "state of
-the world" and flows to every agent. Per-agent scoping is the escape hatch
-via `copilotkit.addContext({ agentId })`. Most of the time you want the
-ambient (global) version.
+Context is intentionally global and there is no per-agent scoping hook.
+`useAgentContext` has no `agentId` parameter, and `copilotkit.addContext`
+destructures only `{ description, value }` — any `agentId` passed is
+silently dropped. Treat context as "state of the world" that every agent
+sees.
 
-Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter)
+Source: `packages/react-core/src/v2/hooks/use-agent-context.tsx` (no `agentId` parameter); `packages/core/src/core/context-store.ts:26-31`
 
 ### MEDIUM — Two components using the same `(agentId, threadId)` expecting isolation
 

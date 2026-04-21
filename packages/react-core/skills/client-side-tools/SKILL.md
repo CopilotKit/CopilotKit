@@ -167,7 +167,8 @@ Correct:
 
 ```tsx
 // First check package.json for shadcn / @mui/* / @chakra-ui/* / antd / @mantine/*, then:
-import { Card, CardContent, Skeleton } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 useFrontendTool({
   name: "show",

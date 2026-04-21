@@ -76,21 +76,24 @@ import {
   CopilotChatInput,
   CopilotChatMessageView,
   useAgent,
+  useCopilotKit,
 } from "@copilotkit/react-core/v2";
 
 export function HeadlessChat() {
-  const { agent, isRunning } = useAgent({ agentId: "default" });
+  const { agent } = useAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
 
   return (
     <CopilotChatView
       messages={agent.messages}
-      isRunning={isRunning}
-      onSubmitInput={(text) => {
+      isRunning={agent.isRunning}
+      onSubmitInput={async (text) => {
         agent.addMessage({
           id: crypto.randomUUID(),
           role: "user",
           content: text,
         });
+        await copilotkit.runAgent({ agent });
       }}
     >
       <CopilotChatMessageView />

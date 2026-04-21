@@ -141,18 +141,28 @@ Correct:
 
 ```ts
 // Server — upgrade to Intelligence mode:
-import { CopilotRuntime, CopilotKitIntelligence } from "@copilotkit/runtime";
+import {
+  CopilotIntelligenceRuntime,
+  CopilotKitIntelligence,
+} from "@copilotkit/runtime/v2";
 
 const intelligence = new CopilotKitIntelligence({
-  publicLicenseKey: process.env.COPILOTKIT_LICENSE_KEY!,
+  apiUrl: process.env.COPILOTKIT_INTELLIGENCE_API_URL!,
+  wsUrl: process.env.COPILOTKIT_INTELLIGENCE_WS_URL!,
+  apiKey: process.env.COPILOTKIT_INTELLIGENCE_API_KEY!,
+  organizationId: process.env.COPILOTKIT_ORG_ID!,
 });
 
-const runtime = new CopilotRuntime({
+const runtime = new CopilotIntelligenceRuntime({
   agents,
   intelligence,
   identifyUser: async (req) => ({ userId: await getUserId(req) }),
 });
 ```
+
+`CopilotKitIntelligence` and `CopilotIntelligenceRuntime` are only exposed
+on the `@copilotkit/runtime/v2` subpath — the package root exports SSE
+primitives only.
 
 Thread routes only exist in Intelligence mode. In plain SSE the list fetch
 fails and mutations reject.

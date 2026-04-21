@@ -2,11 +2,11 @@
 name: provider-setup
 description: >
   Mount CopilotKitProvider in a React app — runtimeUrl, headers, credentials,
-  properties, publicLicenseKey, onError, debug, showDevConsole. Load when
+  properties, publicApiKey, onError, debug, showDevConsole. Load when
   setting up CopilotKit for the first time, fixing provisional-agent or
   "connecting forever" issues, adding the "use client" boundary for Next.js
   App Router, rotating auth headers, or wiring a global onError handler.
-  publicLicenseKey is canonical; publicApiKey is a deprecated alias.
+  publicApiKey is canonical; publicLicenseKey is an alias.
 type: framework
 framework: react
 library: copilotkit
@@ -42,18 +42,11 @@ pattern is a dedicated client-only `providers.tsx`.
 
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 import "@copilotkit/react-core/v2/styles.css";
-import { useMemo } from "react";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const headers = useMemo(
-    () => ({ Authorization: `Bearer ${getToken()}` }),
-    [],
-  );
-
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit"
-      headers={headers}
       credentials="include"
       onError={({ code, error, context }) => {
         console.error("[copilotkit]", code, error, context);
@@ -64,6 +57,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   );
 }
 ```
+
+For auth headers that change over the session (rotating bearer tokens,
+refreshed cookies), see the "Stable headers for rotating auth tokens"
+pattern below. Avoid putting a `useMemo(() => ({ Authorization: ... }),
+[])` on the provider — an empty deps array captures the token at mount
+and never refreshes.
 
 ```tsx
 // app/layout.tsx — server component
@@ -102,12 +101,13 @@ export function App({ children }: { children: React.ReactNode }) {
 ### SPA with CopilotKit Cloud (no self-hosted runtime)
 
 ```tsx
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 ```
 
-`publicLicenseKey` is the only production-safe way to run CopilotKit from a
-pure client bundle. `publicApiKey` is a deprecated alias — accept in old
-code, but always write `publicLicenseKey` in new code.
+`publicApiKey` is the canonical prop for running CopilotKit from a pure
+client bundle. `publicLicenseKey` is an alias that resolves to the same
+value (`publicApiKey ?? publicLicenseKey`) — accept in old code, but
+always write `publicApiKey` in new code.
 
 ## Core Patterns
 
@@ -223,7 +223,7 @@ Correct:
 <CopilotKitProvider runtimeUrl="/api/copilotkit" />
 
 // Or for a pure SPA, use CopilotKit Cloud:
-<CopilotKitProvider publicLicenseKey="ck_pub_..." />
+<CopilotKitProvider publicApiKey="ck_pub_..." />
 ```
 
 Both props are aliases for the same dev-only mechanism and ship any embedded
@@ -292,24 +292,26 @@ forever and users never see the actual error.
 
 Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:638-660`
 
-### HIGH — Writing `publicApiKey` in new code
+### HIGH — Writing `publicLicenseKey` in new code
 
 Wrong:
-
-```tsx
-<CopilotKitProvider publicApiKey="ck_pub_..." />
-```
-
-Correct:
 
 ```tsx
 <CopilotKitProvider publicLicenseKey="ck_pub_..." />
 ```
 
-`publicApiKey` still works as a deprecated alias, but `publicLicenseKey` is
-the canonical name in v2. Always write the canonical form in new code.
+Correct:
 
-Source: `packages/core/src/core/core.ts` (license resolution)
+```tsx
+<CopilotKitProvider publicApiKey="ck_pub_..." />
+```
+
+`publicLicenseKey` still works as an alias, but `publicApiKey` is the
+canonical name in v2. The provider resolves
+`publicApiKey ?? publicLicenseKey`. Always write the canonical form in
+new code.
+
+Source: `packages/react-core/src/v2/providers/CopilotKitProvider.tsx:122-128,391`
 
 ### MEDIUM — Putting the provider below a layout that uses CopilotKit
 

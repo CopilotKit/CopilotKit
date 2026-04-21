@@ -167,19 +167,36 @@ render: ({ content }) => {
 };
 ```
 
-Correct:
+Wrong (Rules of Hooks violation):
 
 ```tsx
 render: ({ content }) => {
-  useEffect(() => {
-    trackEvent(content);
-  }, [content]);
+  // `render` is invoked as a plain function by the resolver — NOT as a
+  // React component — so calling hooks directly inside it is illegal.
+  useEffect(() => trackEvent(content), [content]);
   return <Badge>{content.label}</Badge>;
 };
 ```
 
+Correct:
+
+```tsx
+function TrackedBadge({ content }: { content: { label: string } }) {
+  useEffect(() => {
+    trackEvent(content);
+  }, [content]);
+  return <Badge>{content.label}</Badge>;
+}
+
+// In the renderer:
+render: ({ content }) => <TrackedBadge content={content} />;
+```
+
 Activity-message renderers re-render on every message-list tick. Side
-effects in the render body fire repeatedly. Wrap them in `useEffect`.
+effects in the render body fire repeatedly. Hooks cannot be called
+directly inside `render` because the resolver invokes it as a plain
+function; hoist the effect into a wrapper component that React mounts as
+a real element.
 
 Source: `packages/react-core/src/v2/hooks/use-render-activity-message.tsx`
 

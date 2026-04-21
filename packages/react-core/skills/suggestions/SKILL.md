@@ -186,9 +186,13 @@ Wrong:
 Correct:
 
 ```tsx
-import { useAgent } from "@copilotkit/react-core/v2";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 
-const { isRunning } = useAgent({ agentId: "default" });
+const { agent } = useAgent({
+  agentId: "default",
+  updates: [UseAgentUpdate.OnRunStatusChanged],
+});
+const isRunning = agent.isRunning;
 <button
   disabled={isRunning}
   onClick={() => {

@@ -56,10 +56,16 @@ export function ChatPanel() {
 
 ```tsx
 "use client";
-import { useAttachments, useAgent } from "@copilotkit/react-core/v2";
+import {
+  useAttachments,
+  useAgent,
+  useCopilotKit,
+} from "@copilotkit/react-core/v2";
+import type { InputContent } from "@ag-ui/core";
 
 export function CustomChatInput() {
   const { agent } = useAgent({ agentId: "default" });
+  const { copilotkit } = useCopilotKit();
   const {
     attachments,
     containerRef,
@@ -86,13 +92,30 @@ export function CustomChatInput() {
         </button>
       ))}
       <button
-        onClick={() => {
+        onClick={async () => {
           const ready = consumeAttachments();
+          // `ready` is Attachment[] — map each to an AG-UI InputContent part
+          // before spreading into the message content array.
+          const contentParts: InputContent[] = [
+            { type: "text", text: "See attachments." },
+            ...ready.map(
+              (att) =>
+                ({
+                  type: att.type,
+                  source: att.source,
+                  metadata: {
+                    ...(att.filename ? { filename: att.filename } : {}),
+                    ...att.metadata,
+                  },
+                }) as InputContent,
+            ),
+          ];
           agent.addMessage({
             id: crypto.randomUUID(),
             role: "user",
-            content: [{ type: "text", text: "See attachments." }, ...ready],
+            content: contentParts,
           });
+          await copilotkit.runAgent({ agent });
         }}
       >
         Send
@@ -101,6 +124,13 @@ export function CustomChatInput() {
   );
 }
 ```
+
+`consumeAttachments()` returns the `Attachment[]` queue — each entry has
+`{ id, type, source, filename, status, metadata }` and is NOT a valid
+AG-UI content part. Map each attachment to an `InputContent` shape
+(`{ type, source, metadata }`) before spreading into a message's `content`
+array. See `packages/react-core/src/v2/components/chat/CopilotChat.tsx:247-268`
+for the canonical transform.
 
 ## Core Patterns
 
