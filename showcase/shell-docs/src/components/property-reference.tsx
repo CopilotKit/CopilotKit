@@ -13,6 +13,49 @@ type Props = {
   collapsable?: boolean;
 };
 
+/**
+ * Recursively walk a React children tree, cloning any PropertyReference
+ * encountered at ANY depth with `collapsable: true`. Non-PropertyReference
+ * elements (divs, Fragments, arbitrary wrapper components) are preserved
+ * with their structure intact and their own children deep-walked in turn.
+ *
+ * Why: React.Children.map only visits direct children. Authors frequently
+ * wrap nested PropertyReferences in layout elements (`<div>`, `<Fragment>`)
+ * or MDX-emitted wrappers; without deep walking, those nested references
+ * silently lose `collapsable` propagation. See caller's "Covered by:" note.
+ *
+ * We do NOT recurse into children whose `type` is PropertyReference itself
+ * — we only clone them with the new prop and stop. Their own auto-collapse
+ * logic runs at their render time with the updated prop.
+ */
+function deepMapPropertyReferences(node: React.ReactNode): React.ReactNode {
+  return React.Children.map(node, (child) => {
+    if (!React.isValidElement(child)) return child;
+
+    // PropertyReference: enhance and stop — don't recurse into its
+    // children, since that's the next PropertyReference's own concern.
+    if (child.type === PropertyReference) {
+      return React.cloneElement(child as React.ReactElement<Props>, {
+        collapsable: true,
+      });
+    }
+
+    // Any other element with children (div, Fragment, wrapper component):
+    // preserve the wrapper and recurse. Elements without children pass
+    // through untouched.
+    const childProps = child.props as { children?: React.ReactNode };
+    if (childProps && childProps.children !== undefined) {
+      return React.cloneElement(
+        child,
+        undefined,
+        deepMapPropertyReferences(childProps.children),
+      );
+    }
+
+    return child;
+  });
+}
+
 export function PropertyReference({
   children,
   name,
@@ -36,18 +79,18 @@ export function PropertyReference({
   // the `collapsable` prop never propagates. Reference equality is minifier-safe
   // because both sides point to the same function identity after bundling.
   //
-  // Known limitation: React.Children.map only walks *direct* children. A
-  // <PropertyReference> wrapped inside a <div> (or any other element) will NOT
-  // be detected here. Callers should nest PropertyReferences as direct
-  // siblings, not wrapped in other elements, for auto-collapse to work.
-  const enhancedChildren = React.Children.map(children, (child) => {
-    if (React.isValidElement(child) && child.type === PropertyReference) {
-      return React.cloneElement(child as React.ReactElement<Props>, {
-        collapsable: true,
-      });
-    }
-    return child;
-  });
+  // Deep walk: React.Children.map only walks *direct* children. Previously a
+  // <PropertyReference> wrapped in a <div> or <Fragment> was invisible and
+  // never received `collapsable: true`. `deepMapPropertyReferences` recurses
+  // into children's children, preserving the tree structure while applying
+  // the enhancement to every PropertyReference it finds at any depth. That
+  // lets authors use arbitrary wrapper layout (divs, fragments, etc.)
+  // around nested PropertyReferences without losing auto-collapse.
+  //
+  // Covered by: a <PropertyReference> containing <div><PropertyReference/></div>
+  // correctly renders the nested one with `collapsable: true`; direct-child
+  // nesting continues to work unchanged.
+  const enhancedChildren = deepMapPropertyReferences(children);
 
   const collapseClassName = `${isCollapsed ? "hidden" : ""}`;
 
