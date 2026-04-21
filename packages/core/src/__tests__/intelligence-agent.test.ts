@@ -575,6 +575,59 @@ describe("IntelligenceAgent", () => {
       expect(() => agent.abortRun()).not.toThrow();
       expect(mockFetch).not.toHaveBeenCalled();
     });
+
+    it("keeps the provided run id when replayed baseline events carry a different backend run id", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "live",
+          joinToken: "jt-123",
+          joinFromEventId: "event-2",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "hello",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      (agent as any).threadId = "thread-1";
+
+      const reconnectPromise = agent.connectAgent({ runId: "run-1" });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      await flushAsyncWork();
+
+      agent.abortRun();
+
+      const stopEntry = channel.pushLog.find((c) => c.event === "stop_run");
+      expect(stopEntry).toBeDefined();
+      expect(stopEntry!.payload).toEqual({ run_id: "run-1" });
+
+      stopEntry!.push.trigger("ok");
+
+      const result = await reconnectPromise;
+      expect(result.newMessages).toEqual([
+        {
+          id: "msg-1",
+          role: "user",
+          content: "hello",
+        },
+      ]);
+    });
   });
 
   describe("unsubscribe cleanup", () => {
@@ -816,21 +869,28 @@ describe("IntelligenceAgent", () => {
       ]);
     });
 
-    it("applies bootstrap events and completes without creating a socket", async () => {
+    it("applies event-native bootstrap events and completes without creating a socket", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse({
           mode: "bootstrap",
           latestEventId: "event-2",
           events: [
             {
-              type: EventType.MESSAGES_SNAPSHOT,
-              messages: [
-                {
-                  id: "msg-1",
-                  role: "user",
-                  content: "hello",
-                },
-              ],
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "hello",
+                  },
+                ],
+              },
+            },
+            {
+              type: EventType.RUN_FINISHED,
             },
           ],
         }),
@@ -847,16 +907,297 @@ describe("IntelligenceAgent", () => {
       expect(result.channel).toBeNull();
       expect(result.events).toEqual([
         {
-          type: EventType.MESSAGES_SNAPSHOT,
-          messages: [
-            {
-              id: "msg-1",
-              role: "user",
-              content: "hello",
-            },
-          ],
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: {
+            messages: [
+              {
+                id: "msg-1",
+                role: "user",
+                content: "hello",
+              },
+            ],
+          },
+        },
+        {
+          type: EventType.RUN_FINISHED,
         },
       ]);
+    });
+
+    it("applies bootstrap RUN_STARTED baseline events without creating a socket", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "hello",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: {
+            messages: [
+              {
+                id: "msg-1",
+                role: "user",
+                content: "hello",
+              },
+            ],
+          },
+        },
+      ]);
+      expect((agent as any).canonicalRunId).toBe("run-1");
+    });
+
+    it("applies event-native finished-thread bootstrap baselines with restored activity state", async () => {
+      const restoredActivity = {
+        a2ui_operations: [
+          {
+            version: "v0.9",
+            createSurface: {
+              surfaceId: "surface-1",
+              catalogId:
+                "https://a2ui.org/specification/v0_9/basic_catalog.json",
+            },
+          },
+          {
+            version: "v0.9",
+            updateComponents: {
+              surfaceId: "surface-1",
+              components: [
+                {
+                  id: "root",
+                  component: "Text",
+                  text: "Restored dashboard",
+                  variant: "body",
+                },
+              ],
+            },
+          },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-3",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "show me the restored ui",
+                  },
+                ],
+              },
+            },
+            {
+              type: EventType.ACTIVITY_SNAPSHOT,
+              messageId: "activity-1",
+              activityType: "a2ui-surface",
+              content: restoredActivity,
+            },
+            {
+              type: EventType.RUN_FINISHED,
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: {
+            messages: [
+              {
+                id: "msg-1",
+                role: "user",
+                content: "show me the restored ui",
+              },
+            ],
+          },
+        },
+        {
+          type: EventType.ACTIVITY_SNAPSHOT,
+          messageId: "activity-1",
+          activityType: "a2ui-surface",
+          content: restoredActivity,
+        },
+        {
+          type: EventType.RUN_FINISHED,
+        },
+      ]);
+    });
+
+    it("applies event-native finished-thread bootstrap baselines with restored open generative ui activity state", async () => {
+      const restoredActivity = {
+        initialHeight: 180,
+        generating: false,
+        html: [
+          "<head></head><body><div>Restored open generative UI</div></body>",
+        ],
+        htmlComplete: true,
+      };
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-3",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "show me the restored app",
+                  },
+                ],
+              },
+            },
+            {
+              type: EventType.ACTIVITY_SNAPSHOT,
+              messageId: "activity-1",
+              activityType: "open-generative-ui",
+              content: restoredActivity,
+            },
+            {
+              type: EventType.RUN_FINISHED,
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const result = await promise;
+      expect(result.completed).toBe(true);
+      expect(result.error).toBeNull();
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: {
+            messages: [
+              {
+                id: "msg-1",
+                role: "user",
+                content: "show me the restored app",
+              },
+            ],
+          },
+        },
+        {
+          type: EventType.ACTIVITY_SNAPSHOT,
+          messageId: "activity-1",
+          activityType: "open-generative-ui",
+          content: restoredActivity,
+        },
+        {
+          type: EventType.RUN_FINISHED,
+        },
+      ]);
+    });
+
+    it("hydrates messages from bootstrap RUN_STARTED baseline events through connectAgent", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-2",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "hello",
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      (agent as any).threadId = "thread-1";
+
+      const result = await agent.connectAgent({ runId: "run-1" });
+
+      expect(result.newMessages).toEqual([
+        {
+          id: "msg-1",
+          role: "user",
+          content: "hello",
+        },
+      ]);
+      expect(agent.messages).toEqual([
+        {
+          id: "msg-1",
+          role: "user",
+          content: "hello",
+        },
+      ]);
+      expect((agent as any).canonicalRunId).toBe("run-1");
+      expect(getSocket(agent)).toBeNull();
+      expect(getChannel(agent)).toBeNull();
     });
 
     it("does not create a socket for bootstrap-only connect plans", async () => {
@@ -864,7 +1205,19 @@ describe("IntelligenceAgent", () => {
         await jsonResponse({
           mode: "bootstrap",
           latestEventId: "event-2",
-          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [],
+              },
+            },
+            {
+              type: EventType.RUN_FINISHED,
+            },
+          ],
         }),
       );
 
@@ -879,19 +1232,41 @@ describe("IntelligenceAgent", () => {
       expect(result.channel).toBeNull();
       expect(result.events).toEqual([
         {
-          type: EventType.MESSAGES_SNAPSHOT,
-          messages: [],
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: {
+            messages: [],
+          },
+        },
+        {
+          type: EventType.RUN_FINISHED,
         },
       ]);
     });
 
-    it("emits bootstrap events before opening a live socket", async () => {
+    it("emits RUN_STARTED baseline events before opening a live socket", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse({
           mode: "live",
           joinToken: "jt-123",
           joinFromEventId: "event-2",
-          events: [{ type: EventType.MESSAGES_SNAPSHOT, messages: [] }],
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: {
+                messages: [
+                  {
+                    id: "msg-1",
+                    role: "user",
+                    content: "hello",
+                  },
+                ],
+              },
+            },
+          ],
         }),
       );
 
@@ -910,9 +1285,20 @@ describe("IntelligenceAgent", () => {
       await flushAsyncWork();
 
       expect(events[0]).toEqual({
-        type: EventType.MESSAGES_SNAPSHOT,
-        messages: [],
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: {
+          messages: [
+            {
+              id: "msg-1",
+              role: "user",
+              content: "hello",
+            },
+          ],
+        },
       });
+      expect((agent as any).canonicalRunId).toBe("run-1");
     });
 
     it("errors the observable on connect fetch failure", async () => {

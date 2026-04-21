@@ -286,6 +286,49 @@ describe("IntelligenceAgentRunner", () => {
       expect(ch.pushLog[2].payload.metadata.cpki_event_seq).toBe(3);
     });
 
+    it("overrides conflicting event thread and run ownership before pushing to the channel", async () => {
+      const threadId = "t-canonical";
+      const input = createRunInput({ threadId, runId: "r-canonical" });
+
+      const agent = new MockAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunStartedEvent,
+        {
+          type: EventType.RUN_FINISHED,
+          threadId: "backend-thread",
+          runId: "backend-run",
+        } as RunFinishedEvent,
+      ]);
+
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
+      const ch = mockChannels[0];
+      ch.triggerJoin("ok");
+
+      await eventsPromise;
+
+      expect(ch.pushLog.map((entry) => entry.payload)).toEqual([
+        expect.objectContaining({
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+        expect.objectContaining({
+          type: EventType.RUN_FINISHED,
+          threadId,
+          runId: input.runId,
+          thread_id: threadId,
+          run_id: input.runId,
+        }),
+      ]);
+    });
+
     it("rewrites RUN_STARTED input.messages to the unseen persisted subset", async () => {
       const threadId = "t-persisted-input";
       const input = createRunInput({
@@ -442,7 +485,14 @@ describe("IntelligenceAgentRunner", () => {
         (p) => p.payload?.type === EventType.RUN_ERROR,
       );
       expect(errorPush).toBeDefined();
-      expect(errorPush!.payload.message).toBe("Something went wrong");
+      expect(errorPush!.payload).toMatchObject({
+        type: EventType.RUN_ERROR,
+        message: "Something went wrong",
+        threadId,
+        runId: input.runId,
+        thread_id: threadId,
+        run_id: input.runId,
+      });
     });
 
     it("finalizes open message streams before completing", async () => {

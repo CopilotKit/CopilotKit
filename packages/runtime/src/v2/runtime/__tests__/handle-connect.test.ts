@@ -124,6 +124,7 @@ describe("handleConnectAgent", () => {
 
     expect(recordedRequests).toHaveLength(1);
     expect(recordedRequests[0].threadId).toBe("thread-1");
+    expect(recordedRequests[0].runId).toBe("run-1");
     expect(recordedRequests[0].headers).toMatchObject({
       authorization: "Bearer forwarded-token",
       "x-custom": "custom-value",
@@ -183,6 +184,7 @@ describe("handleConnectAgent", () => {
     await connectInvoked;
 
     expect(recordedRequests).toHaveLength(1);
+    expect(recordedRequests[0].runId).toBe("run-1");
     expect(recordedRequests[0].headers).toEqual({});
   });
 
@@ -262,6 +264,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: null,
       });
     });
@@ -271,7 +274,15 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn().mockResolvedValue({
           mode: "bootstrap",
           latestEventId: "event-2",
-          events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+          events: [
+            {
+              type: "RUN_STARTED",
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: { messages: [] },
+            },
+            { type: "RUN_FINISHED" },
+          ],
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
@@ -287,7 +298,23 @@ describe("handleConnectAgent", () => {
       expect(body).toEqual({
         mode: "bootstrap",
         latestEventId: "event-2",
-        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        events: [
+          {
+            type: "RUN_STARTED",
+            threadId: "thread-1",
+            runId: "run-1",
+            input: {
+              messages: [],
+              threadId: "thread-1",
+              runId: "run-1",
+            },
+          },
+          {
+            type: "RUN_FINISHED",
+            threadId: "thread-1",
+            runId: "run-1",
+          },
+        ],
       });
     });
 
@@ -310,6 +337,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: null,
       });
     });
@@ -349,6 +377,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: "event-9",
       });
     });
@@ -377,6 +406,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "resolved-user",
+        runId: "run-1",
         lastSeenEventId: "event-9",
       });
     });
