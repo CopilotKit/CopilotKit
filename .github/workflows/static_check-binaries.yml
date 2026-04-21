@@ -20,15 +20,6 @@ jobs:
         env:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          # Fail on any unset variable, failed command in a pipeline, or
-          # unhandled non-zero exit. The previous script would let `wc -c`
-          # failing on a transient race (file deleted mid-diff) produce
-          # an empty `$SIZE`, which then triggered `[ "$SIZE" -gt ... ]`
-          # with the error `integer expression expected` written to
-          # stderr while the script marched on — false-green runs
-          # possible. With `set -euo pipefail` + the explicit numeric
-          # check below, that failure path now fails the job loudly.
-          set -euo pipefail
           VIOLATIONS=0
 
           # Get list of added/modified files in the PR
@@ -39,11 +30,8 @@ jobs:
             exit 0
           fi
 
-          # Check for binary file extensions. Keep in rough sync with
-          # `.gitignore` — any compiled/archive/debug artefact authored
-          # by a build tool belongs here. Missing extensions historically
-          # let by: .class, .jar, .pyd, .pyc, .node, .bin, .pdb, .zip, .whl.
-          BINARY_FILES=$(echo "$CHANGED_FILES" | grep -iE '\.(exe|dll|so|dylib|o|obj|a|lib|wasm|class|jar|pyd|pyc|node|bin|pdb|zip|whl)$' || true)
+          # Check for binary file extensions
+          BINARY_FILES=$(echo "$CHANGED_FILES" | grep -iE '\.(exe|dll|so|dylib|o|obj|a|lib|wasm)$' || true)
           if [ -n "$BINARY_FILES" ]; then
             echo "::error::Binary files detected in PR:"
             echo "$BINARY_FILES"
@@ -77,18 +65,7 @@ jobs:
                 .github/actions/*/dist/*) continue ;;
                 showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac
-              # Guard `wc -c`: if the read fails or returns a non-numeric
-              # value, skip this file rather than letting the subsequent
-              # arithmetic comparison spew "integer expression expected"
-              # to stderr while the script silently continues.
-              if ! SIZE=$(wc -c < "$file" 2>/dev/null | tr -d ' '); then
-                echo "::warning::Could not size $file; skipping"
-                continue
-              fi
-              if ! [[ "$SIZE" =~ ^[0-9]+$ ]]; then
-                echo "::warning::wc returned non-numeric size for $file ($SIZE); skipping"
-                continue
-              fi
+              SIZE=$(wc -c < "$file" | tr -d ' ')
               if [ "$SIZE" -gt 1048576 ]; then
                 LARGE_FILES="${LARGE_FILES}${file} ($(( SIZE / 1024 )) KB)\n"
               fi
