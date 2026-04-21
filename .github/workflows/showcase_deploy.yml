@@ -677,11 +677,23 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          if [ "${DETECT_RESULT}" != "success" ] || [ "${DETECT_HAS_CHANGES}" != "true" ]; then
+          # Only short-circuit on the genuine "nothing to deploy" case: detect
+          # ran successfully AND reported no changed services. A detect-changes
+          # failure must fall through so the GATE_REASON="detect-changes-<result>"
+          # branch below can fire an alert — previously this was the explicit
+          # intent (see the comment on "upstream gate, also not our fault") but
+          # the compound guard swallowed the failure path entirely, making the
+          # detect-changes-failure branch unreachable dead code.
+          if [ "${DETECT_RESULT}" = "success" ] && [ "${DETECT_HAS_CHANGES}" != "true" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          SERVICES=$(echo "$DETECT_MATRIX" | jq -c '[.[].dispatch_name]')
+          # DETECT_MATRIX is empty or malformed when detect-changes failed or
+          # was cancelled. Fall back to an empty array so `jq` doesn't error
+          # out and kill the whole notify-ops step — the gate-reason branch
+          # below still fires the alert with an empty services list.
+          SERVICES=$(echo "$DETECT_MATRIX" | jq -c '[.[].dispatch_name]' 2>/dev/null || echo '[]')
+          SERVICES=${SERVICES:-'[]'}
           # Disambiguate skipped-because-gated from ran-and-failed-everything.
           # `needs.build.result == "skipped"` can arise from THREE distinct
           # causes — reporting every service as failed in any of them is a
