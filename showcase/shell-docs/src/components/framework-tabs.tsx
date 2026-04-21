@@ -25,8 +25,17 @@ import React, { useState } from "react";
 
 interface FrameworkTabsProps {
   frameworks: string[];
-  cell: string;
-  region: string;
+  /**
+   * `cell` and `region` are authored-facing props that describe WHICH
+   * snippet region each tab should surface. They are consumed by the
+   * parent MDX renderer (see `docs-render.inlineSnippets`), which
+   * pre-renders one <Snippet> per framework on the server and emits
+   * them as `children` here. This component itself does not read them
+   * at runtime — they are documented on the interface for MDX authors
+   * and tooling (typed <FrameworkTabs> usage in MDX) only.
+   */
+  cell?: string;
+  region?: string;
   /** Render an alternative label for each framework (e.g. pretty names). */
   labels?: Record<string, string>;
   /** Pre-rendered <Snippet> content, keyed by framework slug. Populated by
@@ -45,7 +54,11 @@ export function FrameworkTabs({
   // children should be an array of <div data-framework="..."> wrappers.
   // We filter + render the active one. This keeps all snippets rendered
   // on the server (good: syntax highlighting) and client only swaps.
-  const wrapped = React.Children.toArray(children);
+  // Filter to valid elements so MDX whitespace text nodes between
+  // <Snippet> siblings don't shift the index→framework mapping below.
+  const wrapped = React.Children.toArray(children).filter(
+    React.isValidElement,
+  );
 
   const displayLabel = (slug: string) =>
     labels?.[slug] ??
