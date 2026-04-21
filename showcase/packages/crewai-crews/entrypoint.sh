@@ -27,8 +27,17 @@ fi
 
 # Start agent backend on :8000 with log prefixing so its output is
 # distinguishable from Next.js in the Railway log stream.
+#
+# Belt-and-suspenders log flushing: `PYTHONUNBUFFERED=1` above exports the env
+# var, but a child process could in principle un-export or override it. The
+# `-u` flag to the Python interpreter forces unbuffered stdout/stderr at the
+# interpreter level and is not overridable by user code. Combined with the
+# `fflush()` inside the awk pipe below, this guarantees uvicorn request lines
+# and tracebacks reach Railway's log stream line-at-a-time rather than
+# block-buffered in pipe buffers. The 04-21 incident saw ~15 log lines over
+# 9h of uptime because of pipe-buffering through a previous `sed` formulation.
 echo "[entrypoint] Starting Python agent on port 8000..."
-python -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
+python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8000 &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then
