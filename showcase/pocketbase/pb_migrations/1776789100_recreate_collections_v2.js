@@ -1,21 +1,19 @@
 /// <reference path="../pb_data/types.d.ts" />
-// Follow-up to 1776789000: first run marked the earlier recreate migration
-// as applied but PB rejected writes because `fail_count` had required:true
-// (PB treats 0 as "missing" for required number fields). This migration
-// drops the required flag on fail_count + re-lands the collections.
+// Follow-up to 1776789000: kept as a second-pass reconcile so instances
+// that applied the earlier (naive-maybeCreate) revision of 1776789000
+// still converge on the correct schema. This migration runs the same
+// introspection logic — safe to apply even after 1776789000 has already
+// fixed everything (it's a no-op in that case).
+//
+// PUBLIC-READ INVARIANT: `status` + `status_history` have
+// listRule/viewRule = "" (public read). NEVER put secrets into the
+// `signal` JSON blob — its contents are trivially exposable via the PB
+// collection API.
 migrate(
   (db) => {
     const dao = new Dao(db);
 
-    const maybeCreate = (spec) => {
-      try {
-        dao.findCollectionByNameOrId(spec.name);
-      } catch (e) {
-        dao.saveCollection(new Collection(spec));
-      }
-    };
-
-    maybeCreate({
+    const statusSpec = {
       name: "status",
       type: "base",
       schema: [
@@ -43,9 +41,9 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
 
-    maybeCreate({
+    const statusHistorySpec = {
       name: "status_history",
       type: "base",
       schema: [
@@ -86,9 +84,9 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
 
-    maybeCreate({
+    const alertStateSpec = {
       name: "alert_state",
       type: "base",
       schema: [
@@ -106,7 +104,42 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
+
+    const reconcile = (spec) => {
+      let c;
+      try {
+        c = dao.findCollectionByNameOrId(spec.name);
+      } catch (e) {
+        dao.saveCollection(new Collection(spec));
+        return;
+      }
+      let dirty = false;
+      const signalField = c.schema.getFieldByName("signal");
+      if (
+        signalField &&
+        (!signalField.options ||
+          !signalField.options.maxSize ||
+          signalField.options.maxSize === 0)
+      ) {
+        signalField.options = Object.assign({}, signalField.options || {}, {
+          maxSize: 2000000,
+        });
+        dirty = true;
+      }
+      const failCount = c.schema.getFieldByName("fail_count");
+      if (failCount && failCount.required === true) {
+        failCount.required = false;
+        dirty = true;
+      }
+      if (dirty) {
+        dao.saveCollection(c);
+      }
+    };
+
+    reconcile(statusSpec);
+    reconcile(statusHistorySpec);
+    reconcile(alertStateSpec);
   },
   (db) => {
     const dao = new Dao(db);

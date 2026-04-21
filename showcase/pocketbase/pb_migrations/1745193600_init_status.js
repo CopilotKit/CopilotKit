@@ -1,4 +1,10 @@
 /// <reference path="../pb_data/types.d.ts" />
+//
+// PUBLIC-READ INVARIANT: `status` is served with listRule/viewRule = ""
+// (unauthenticated read). NEVER put secrets into the `signal` JSON blob
+// — any value stored here is trivially exposable via the PB collection
+// API from any browser. Sanitize at the writer (see status-writer.ts)
+// before anything reaches this collection.
 migrate(
   (db) => {
     const dao = new Dao(db);

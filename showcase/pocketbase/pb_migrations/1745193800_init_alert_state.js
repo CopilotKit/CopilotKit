@@ -1,4 +1,11 @@
 /// <reference path="../pb_data/types.d.ts" />
+//
+// AUTHENTICATED-READ INVARIANT: `alert_state` has
+// listRule/viewRule = '@request.auth.id != ""' — only authenticated
+// operators can read. Still, treat `payload_preview` as PR-safe:
+// dedupe hashes, rule ids, timestamps only. Alerts can leak into this
+// preview if future code ever widens what's stored; keep the field
+// scrubbed at the writer.
 migrate(
   (db) => {
     const dao = new Dao(db);

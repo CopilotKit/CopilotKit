@@ -3,21 +3,25 @@
 // applied before the `status`/`status_history`/`alert_state` collections
 // were manually recreated with corrected schemas (signal JSON field needs
 // explicit `options.maxSize` — otherwise PB 0.22 defaults to 0 bytes and
-// rejects every write). This migration idempotently (re)creates those
-// three collections with the correct shape so a fresh volume is usable.
+// rejects every write). Earlier revisions of this migration used a naive
+// `maybeCreate` helper that no-op'd when the collection existed; that
+// left instances with broken schema fields untouched on subsequent runs.
+//
+// This migration introspects each collection and ONLY touches the
+// broken fields (signal.maxSize == 0, fail_count.required == true) —
+// idempotent and safe across both fresh volumes and legacy instances.
+//
+// PUBLIC-READ INVARIANT: `status` + `status_history` have
+// listRule/viewRule = "" (public read). NEVER put secrets into the
+// `signal` JSON blob — its contents are trivially exposable via the PB
+// collection API.
 migrate(
   (db) => {
     const dao = new Dao(db);
 
-    const maybeCreate = (spec) => {
-      try {
-        dao.findCollectionByNameOrId(spec.name);
-      } catch (e) {
-        dao.saveCollection(new Collection(spec));
-      }
-    };
-
-    maybeCreate({
+    // Desired schema specs reused for both "collection missing" (create)
+    // and "collection exists with broken fields" (patch) paths.
+    const statusSpec = {
       name: "status",
       type: "base",
       schema: [
@@ -45,9 +49,9 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
 
-    maybeCreate({
+    const statusHistorySpec = {
       name: "status_history",
       type: "base",
       schema: [
@@ -88,9 +92,9 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
 
-    maybeCreate({
+    const alertStateSpec = {
       name: "alert_state",
       type: "base",
       schema: [
@@ -108,7 +112,47 @@ migrate(
       createRule: null,
       updateRule: null,
       deleteRule: null,
-    });
+    };
+
+    // Patch `signal` JSON field if maxSize was inherited as 0 from the
+    // original init migrations (PB 0.22 default when not explicitly set).
+    // Patch `fail_count` number field if required=true was baked in
+    // (required + a legitimate value of 0 is asymmetric — every row
+    // with zero flap-count fails validation).
+    const reconcile = (spec) => {
+      let c;
+      try {
+        c = dao.findCollectionByNameOrId(spec.name);
+      } catch (e) {
+        dao.saveCollection(new Collection(spec));
+        return;
+      }
+      let dirty = false;
+      const signalField = c.schema.getFieldByName("signal");
+      if (
+        signalField &&
+        (!signalField.options ||
+          !signalField.options.maxSize ||
+          signalField.options.maxSize === 0)
+      ) {
+        signalField.options = Object.assign({}, signalField.options || {}, {
+          maxSize: 2000000,
+        });
+        dirty = true;
+      }
+      const failCount = c.schema.getFieldByName("fail_count");
+      if (failCount && failCount.required === true) {
+        failCount.required = false;
+        dirty = true;
+      }
+      if (dirty) {
+        dao.saveCollection(c);
+      }
+    };
+
+    reconcile(statusSpec);
+    reconcile(statusHistorySpec);
+    reconcile(alertStateSpec);
   },
   (db) => {
     const dao = new Dao(db);

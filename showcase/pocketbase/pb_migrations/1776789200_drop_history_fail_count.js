@@ -36,8 +36,17 @@ migrate(
     if (c.schema.getFieldByName("fail_count")) {
       return;
     }
+    // Deterministic id (15 chars, PB convention) so repeated up/down
+    // cycles don't mint a fresh random id per roll. Without an explicit
+    // id, PB autogenerates one; the re-added field is schematically
+    // equivalent but has a different id than pre-drop, which breaks
+    // idempotency across rollback→reapply loops.
     c.schema.addField(
-      new SchemaField({ name: "fail_count", type: "number" }),
+      new SchemaField({
+        id: "shfailcount001",
+        name: "fail_count",
+        type: "number",
+      }),
     );
     dao.saveCollection(c);
   },
