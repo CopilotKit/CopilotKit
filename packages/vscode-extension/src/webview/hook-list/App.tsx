@@ -56,27 +56,15 @@ export function App() {
     vscode.postMessage({ type: "preview", site });
   const onOpenSource = (site: HookCallSite) =>
     vscode.postMessage({ type: "openSource", site });
-  const onRefresh = () => vscode.postMessage({ type: "refresh" });
+  // Refresh goes through the native VS Code title-bar icon (registered
+  // via `view/title` → `copilotkit.hooks.refresh` in package.json),
+  // which calls `doScan` in the extension host directly — no in-webview
+  // button needed.
 
   const hasRegistered = grouped.registered.length > 0;
 
   return (
     <div className="flex flex-col h-full text-[13px]">
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--vscode-panel-border)]">
-        <div className="text-[11px] uppercase tracking-wider text-[var(--vscode-descriptionForeground)]">
-          Generative UI
-        </div>
-        <button
-          type="button"
-          onClick={onRefresh}
-          title="Refresh"
-          aria-label="Refresh"
-          className="text-[var(--vscode-icon-foreground,var(--vscode-foreground))] opacity-70 hover:opacity-100 hover:bg-[var(--vscode-toolbar-hoverBackground)] rounded px-1.5 py-0.5"
-        >
-          {"\u21BB"}
-        </button>
-      </div>
-
       <div className="flex-1 min-h-0 overflow-auto">
         {initialized && !hasRegistered ? (
           <EmptyState workspaceRoot={workspaceRoot} />
