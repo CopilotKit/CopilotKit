@@ -9,10 +9,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import {
-  FRAMEWORKS,
-  makeAgentUrlLocalhostPortRE,
-} from "../generate-starters";
+import { FRAMEWORKS, makeAgentUrlLocalhostPortRE } from "../generate-starters";
 
 /**
  * Fresh AGENT_URL matchers per call. The underlying regex carries the /g
