@@ -664,9 +664,23 @@ const isTableSeparator = (s: string): boolean =>
   /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
 
 export function convertTablesInJSX(content: string): string {
-  const tagPattern = JSX_CONTAINER_TAGS.join("|");
+  // Sort longest-first so the regex alternation doesn't leftmost-FIRST
+  // match a prefix tag (e.g. `Tab`) when the source is actually the
+  // longer variant (`Tabs`). JS regex alternation is not leftmost-longest:
+  // for `<Tabs>`, `Tab|Tabs` matches "Tab", then `[^>]*` consumes the "s",
+  // group 2 captures "Tab", and the `</\2>` backref demands `</Tab>` — the
+  // actual `</Tabs>` never matches and table conversion is silently skipped.
+  const tagPattern = [...JSX_CONTAINER_TAGS]
+    .sort((a, b) => b.length - a.length)
+    .join("|");
+  // Require the closing tag to match the captured opening tag via
+  // backreference (`\\2`). Without this, alternation in the close group
+  // allowed cross-tag mismatches — e.g. `<Tabs><Tab>x</Tab></Tabs>` would
+  // pair `<Tabs>` with `</Tab>` and leave `</Tabs>` stranded. JS regex
+  // supports numbered backrefs, so `\\2` refers to the inner tag-name
+  // capture of the opener.
   const regex = new RegExp(
-    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
+    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/\\2>)`,
     "g",
   );
 
@@ -680,7 +694,7 @@ export function convertTablesInJSX(content: string): string {
       closeTag: string,
     ) => {
       // Non-greedy `[\s\S]*?` matches through the FIRST close tag of
-      // any container in the set, so nested same-tag content (e.g.
+      // the SAME container, so nested same-tag content (e.g.
       // `<Card>outer <Card>inner</Card> rest</Card>`) closes at the
       // inner `</Card>` and leaves `rest</Card>` stranded. Detect the
       // nesting and bail — the outer match is left untouched, which
