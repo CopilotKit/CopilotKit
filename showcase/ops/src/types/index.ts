@@ -123,6 +123,10 @@ export interface TriggerFlags {
   regressed: boolean;
   improved: boolean;
   set_drifted: boolean;
+  // set_errored mirrors set_drifted but keys on the probe's `errored` bucket
+  // (invariant probes surface pure-errored ticks as state:"red" with no
+  // unwired set). See alert-engine.deriveSignalFlags.
+  set_errored: boolean;
   isRedTick: boolean;
 }
 
@@ -147,6 +151,7 @@ export function emptyTriggerFlags(): TriggerFlags {
     regressed: false,
     improved: false,
     set_drifted: false,
+    set_errored: false,
     isRedTick: false,
   };
 }

@@ -234,7 +234,14 @@ class SuppressParser {
     if (t.t === "bool") return t.v;
     if (t.t === "null") return null;
     if (t.t === "ident") {
-      if (!(t.v in this.vars)) throw new Error(`unknown identifier: ${t.v}`);
+      // `Object.hasOwn` (not the `in` operator) so identifiers like
+      // `toString`, `hasOwnProperty`, `constructor`, `__proto__` do NOT
+      // resolve against Object.prototype. Pre-fix a rule typo like
+      // `when: "toString"` walked the prototype chain, returned a
+      // function reference (truthy), and silently suppressed every alert
+      // on every tick.
+      if (!Object.hasOwn(this.vars, t.v))
+        throw new Error(`unknown identifier: ${t.v}`);
       return this.vars[t.v];
     }
     if (t.t === "op" && t.v === "(") {

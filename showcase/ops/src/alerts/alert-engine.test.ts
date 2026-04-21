@@ -1187,4 +1187,309 @@ describe("evalSuppress", () => {
       }),
     ).toBe(true);
   });
+  // F1.4: evalSuppress must use Object.hasOwn — not `in` — so YAML typos
+  // like `when: "toString"` don't walk Object.prototype and resolve to a
+  // function reference (truthy), silently suppressing every alert.
+  it("rejects Object.prototype identifiers via Object.hasOwn", () => {
+    expect(() => evalSuppress("toString == 1", {})).toThrow(
+      /unknown identifier/,
+    );
+    expect(() => evalSuppress("hasOwnProperty == 1", {})).toThrow(
+      /unknown identifier/,
+    );
+    expect(() => evalSuppress("constructor == 1", {})).toThrow(
+      /unknown identifier/,
+    );
+  });
+});
+
+// F1.6: isRedTick is a synthesized flag on buildContext's trigger object —
+// derived from green_to_red OR sustained_red. Without a direct assertion, a
+// refactor could drop the OR and silently empty every red-tick rule.
+describe("alert-engine isRedTick flag (F1.6)", () => {
+  // These use the same fixtures as the main suite. Re-importing inside the
+  // describe so the test is self-contained and easy to grep for.
+  // Re-use helpers from the module scope by re-declaring local copies.
+  async function runAndAssertRedTick(
+    transition: "green_to_red" | "sustained_red" | "sustained_green",
+    expected: boolean,
+  ): Promise<void> {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "isredtick-check",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: [transition],
+        cronTriggers: [],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: {
+          // Template emits "RED" iff trigger.isRedTick is truthy, else "NOT".
+          text: "{{#trigger.isRedTick}}RED{{/trigger.isRedTick}}{{^trigger.isRedTick}}NOT{{/trigger.isRedTick}}",
+        },
+        actions: [],
+      },
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: transition === "green_to_red" ? "green" : "red",
+        newState: transition === "sustained_green" ? "green" : "red",
+        transition,
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:slug",
+        state: transition === "sustained_green" ? "green" : "red",
+        signal: { slug: "slug" },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe(expected ? "RED" : "NOT");
+    e.stop();
+  }
+
+  it("trigger.isRedTick is TRUE on green_to_red", async () => {
+    await runAndAssertRedTick("green_to_red", true);
+  });
+
+  it("trigger.isRedTick is TRUE on sustained_red", async () => {
+    await runAndAssertRedTick("sustained_red", true);
+  });
+
+  it("trigger.isRedTick is FALSE on sustained_green", async () => {
+    await runAndAssertRedTick("sustained_green", false);
+  });
+});
+
+// F1.7: every string in StringTriggerEnum must have a matching key on
+// emptyTriggerFlags(). Otherwise a newly-declared trigger is recognized at
+// rule-load but silently ignored at render (Mustache section evaluates an
+// absent key as falsy). Catch the drift at test time.
+describe("alert-engine StringTriggerEnum ↔ emptyTriggerFlags invariant (F1.7)", () => {
+  it("every declared trigger name is represented in emptyTriggerFlags", async () => {
+    const { StringTriggerEnum } = await import("../rules/schema.js");
+    const { emptyTriggerFlags } = await import("../types/index.js");
+    const flags = emptyTriggerFlags() as unknown as Record<string, unknown>;
+    for (const t of StringTriggerEnum.options) {
+      expect(Object.hasOwn(flags, t), `missing flag for trigger '${t}'`).toBe(
+        true,
+      );
+    }
+  });
+});
+
+// F1.2/F1.3: dispatchCronAlert must treat `degraded` AND `red` as fresh-red
+// states (bootstrap suppression), and must NOT lie about `newState: "green"`
+// on error outcomes.
+describe("alert-engine dispatchCronAlert fresh-red + error state (F1.2/F1.3)", () => {
+  it("bootstrap suppresses cron `degraded` ticks (F1.2)", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T00:01:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 15 * 60_000,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-degraded",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "RAN" },
+        actions: [],
+      },
+    ]);
+    // Degraded cron tick inside bootstrap window should be suppressed.
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-degraded",
+      scheduledAt: "2026-04-20T00:01:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "degraded",
+        signal: {},
+        observedAt: "2026-04-20T00:01:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(0);
+    e.stop();
+  });
+
+  it("cron `error` tick preserves error transition + routes to onError (F1.3)", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-errored",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "main" },
+        // onError template is distinct so we can prove the router hit the
+        // error branch (rather than the green-collapsing branch pre-fix).
+        onError: { template: { text: "ERR: {{signal.errorDesc}}" } },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-errored",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        signal: { errorDesc: "GHCR 500" },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    // Pre-fix: routed through the main template (newState was synthesized
+    // as "green", skipping the error branch). Post-fix: routed via onError.
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("ERR: GHCR 500");
+    e.stop();
+  });
+});
+
+// F4.3: set_errored flag mirrors set_drifted but keys on `signal.errored`.
+describe("alert-engine set_errored (F4.3)", () => {
+  it("fires set_errored when signal.errored is non-empty", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "aimock-wiring-errored",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "aimock_wiring" },
+        stringTriggers: ["set_errored"],
+        cronTriggers: [],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: {
+          text: "{{#trigger.set_errored}}ERR {{signal.erroredCount}}{{/trigger.set_errored}}",
+        },
+        actions: [],
+      },
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "aimock_wiring:global",
+        state: "red",
+        signal: {
+          errored: ["svc-a"],
+          erroredCount: 1,
+        },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "ERR 1",
+    );
+    e.stop();
+  });
 });

@@ -249,10 +249,18 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     // Fail OPEN on eval error — a broken suppress clause must not silently
     // suppress every matching alert. Log at error level so operators notice.
     if (rule.conditions.suppress) {
-      const vars = {
-        trigger: triggered[0] ?? transition,
-        lastAlertAgeMin: ageMin,
-      };
+      // Null-prototype bag: evalSuppress uses Object.hasOwn for lookups
+      // (defence against `toString`/`constructor` typos in rule YAML).
+      // Using a null-prototype object here as belt-and-braces so even if
+      // a future change swaps hasOwn for `in`, Object.prototype members
+      // stay unreachable.
+      const vars: Record<string, unknown> = Object.assign(
+        Object.create(null) as Record<string, unknown>,
+        {
+          trigger: triggered[0] ?? transition,
+          lastAlertAgeMin: ageMin,
+        },
+      );
       try {
         if (evalSuppress(rule.conditions.suppress.when, vars)) {
           logger.debug("alert-engine.suppressed", {
@@ -382,8 +390,22 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
         : null;
     const outcome: WriteOutcome = {
       previousState: null,
-      newState: resolvedState,
-      transition: "first",
+      // State-of-record on the synthesized outcome MUST reflect the actual
+      // probe state. Pre-fix, error ticks routed through dispatchOnError
+      // still carried `newState: "green"` because resolvedState collapses
+      // anything-not-red/degraded to green — downstream consumers
+      // (templates, dedupe keying, metrics dashboards) saw a green state
+      // on an error event. We preserve the probe's real state here and
+      // let the rest of the path interpret it correctly; the type allows
+      // "green"|"red"|"degraded" only, so for error ticks we fall back to
+      // "red" (the closest real State) rather than lying about green.
+      newState:
+        probeState === "error" ? "red" : resolvedState,
+      // Use the probe's actual transition semantics on errors: `"error"`
+      // (matching handleStatusChanged's onError path). For non-error
+      // probes keep "first" — cron ticks are first-observation in the
+      // rule's own framing.
+      transition: probeState === "error" ? "error" : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
     };
@@ -434,10 +456,13 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       return;
     }
     // Apply same dedupe + rate-limit gating as status.changed alerts. Bootstrap
-    // suppression must ONLY kick in when the transition looks like a "fresh
-    // red" (mirror handleStatusChanged's isFreshRed gate) — green/degraded
-    // scheduled reports are valid even inside the bootstrap window.
-    const isFreshRed = resolvedState === "red";
+    // suppression kicks in for any fresh non-green observation: a cron-driven
+    // rule observing `red` OR `degraded` for the first time (transition
+    // "first") is indistinguishable from bootstrap noise and must be
+    // suppressed. Pre-fix only `resolvedState === "red"` was gated — degraded
+    // first-seen state silently fired through the window.
+    const isFreshRed =
+      resolvedState === "red" || resolvedState === "degraded";
     if (isFreshRed && bootstrapActive()) {
       logger.info("alert-engine.bootstrap-suppress", {
         ruleId: rule.id,
@@ -693,6 +718,15 @@ function deriveSignalFlags(
   // IS the drift — no separate state transition needed.
   const unwiredArr = Array.isArray(s.unwired) ? (s.unwired as unknown[]) : null;
   if (unwiredArr && unwiredArr.length > 0) flags.set_drifted = true;
+
+  // Set-errored: mirrors set_drifted but keys on the `errored` bucket.
+  // A pure-errored invariant-probe tick (e.g. aimock-wiring saw N services
+  // but couldn't read env vars for them) emits state:"red" with empty
+  // `unwired` and non-empty `errored` — neither set_drifted nor
+  // red_to_green fires, so the rule silently collapses. set_errored lights
+  // up this case so YAML rules can render an "errored services" block.
+  const erroredArr = Array.isArray(s.errored) ? (s.errored as unknown[]) : null;
+  if (erroredArr && erroredArr.length > 0) flags.set_errored = true;
 
   return flags;
 }

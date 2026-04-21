@@ -15,6 +15,13 @@ export const StringTriggerEnum = z.enum([
   "regressed",
   "improved",
   "set_drifted",
+  // set_errored: fires when a probe reports a non-empty `signal.errored`
+  // list. Used by invariant probes (e.g. aimock-wiring) where a pure-errored
+  // tick emits `state:"red"` but neither `set_drifted` (no unwired bucket)
+  // nor `red_to_green` (transitioning OUT of errored). Without this the
+  // rule silently collapses onto the bare state-machine transition and the
+  // "errored services" block in the template never renders.
+  "set_errored",
 ]);
 
 export const CronOnlyTrigger = z.object({
