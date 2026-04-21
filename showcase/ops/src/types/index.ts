@@ -41,7 +41,16 @@ export interface Probe<Input = void, Signal = unknown> {
 
 export interface WriteOutcome {
   previousState: State | null;
-  newState: State;
+  // HF-A6: `newState` must be able to carry the probe's actual `"error"`
+  // state end-to-end so dispatchCronAlert's synthesized outcome stops
+  // lying about a fabricated red on error ticks. Persistent writers still
+  // use real State values — the error case on status-writer carries the
+  // prior State forward (see status-writer.doWrite's `carriedState`), NOT
+  // the literal "error" (history keeps the error bit via `transition`).
+  // Consumers that need to branch on error-vs-red MUST match on
+  // `newState === "error"` OR `transition === "error"` depending on which
+  // invariant they care about.
+  newState: State | "error";
   transition: Transition;
   firstFailureAt: string | null;
   failCount: number;
@@ -98,6 +107,12 @@ export interface TemplateContext {
   rule: { id: string; name: string; owner: string; severity: Severity };
   trigger: TriggerFlags;
   escalated: boolean;
+  // HF-A3: winning escalation's `mention` (highest matching whenFailCount,
+  // set on the escalation entry in the rule YAML). `undefined` when no
+  // escalation matches OR when the matching escalation had no `mention`.
+  // Templates render `{{escalationMention}}` — Mustache prints empty on
+  // undefined so the absence case stays silent.
+  escalationMention?: string;
   signal: Record<string, unknown>;
   event: {
     id: string;

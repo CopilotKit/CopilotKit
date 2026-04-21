@@ -23,6 +23,21 @@ import {
   type WriteOutcome,
 } from "../types/index.js";
 
+/**
+ * HF-A1: dispatchCronAlert previously synthesized `previousState: null` on
+ * every cron tick, which broke perKey dedupe templates that reference
+ * `{{outcome.previousState}}` (they rendered empty), broke `red_to_green`
+ * transition logging (no baseline to compare against), and masked recovery
+ * on a truly-first cron tick. The engine reads the status row for the
+ * probe's `key` before synthesizing the outcome when a reader is wired.
+ * Optional because existing unit tests construct the engine without a PB
+ * connection; in production (`orchestrator.ts`) the reader is always
+ * provided so cron ticks see the real prior state.
+ */
+export interface StatusReader {
+  getStateByKey(key: string): Promise<State | null>;
+}
+
 export interface AlertEngineDeps {
   bus: TypedEventBus;
   renderer: Renderer;
@@ -33,6 +48,8 @@ export interface AlertEngineDeps {
   env: { dashboardUrl: string; repo: string };
   /** Milliseconds after boot during which green_to_red is suppressed. */
   bootstrapWindowMs?: number;
+  /** HF-A1 — optional; see StatusReader JSDoc. */
+  statusReader?: StatusReader;
 }
 
 export interface AlertEngine {
@@ -42,7 +59,8 @@ export interface AlertEngine {
 }
 
 export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
-  const { bus, renderer, stateStore, targets, logger, now, env } = deps;
+  const { bus, renderer, stateStore, targets, logger, now, env, statusReader } =
+    deps;
   const bootstrapWindowMs = deps.bootstrapWindowMs ?? 15 * 60_000;
   const bootTime = now().getTime();
   let rules: CompiledRule[] = [];
@@ -408,19 +426,48 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       typeof probeSignal["firstFailureAt"] === "string"
         ? (probeSignal["firstFailureAt"] as string)
         : null;
+    const fakeResult: ProbeResult<unknown> = evt.result ?? {
+      key: `${rule.signal.dimension}:scheduled`,
+      state: "green",
+      signal: {},
+      observedAt: evt.scheduledAt,
+    };
+    // HF-A1: read the real prior state from PB (via the injected
+    // statusReader) so the synthesized outcome carries an accurate
+    // `previousState` rather than a fabricated null. Fail open on read
+    // error — log at warn so operators notice dedupe semantics degrade,
+    // but keep the tick dispatching (a broken status read must not
+    // silence alerts). Tests without a wired reader still get null, matching
+    // pre-fix behavior.
+    let previousState: State | null = null;
+    if (statusReader) {
+      try {
+        previousState = await statusReader.getStateByKey(fakeResult.key);
+      } catch (err) {
+        logger.warn("alert-engine.cron-status-read-failed", {
+          ruleId: rule.id,
+          key: fakeResult.key,
+          err: String(err),
+        });
+        previousState = null;
+      }
+    }
     const outcome: WriteOutcome = {
-      previousState: null,
-      // State-of-record on the synthesized outcome MUST reflect the actual
-      // probe state. Pre-fix, error ticks routed through dispatchOnError
-      // still carried `newState: "green"` because resolvedState collapses
-      // anything-not-red/degraded to green — downstream consumers
-      // (templates, dedupe keying, metrics dashboards) saw a green state
-      // on an error event. We preserve the probe's real state here and
-      // let the rest of the path interpret it correctly; the type allows
-      // "green"|"red"|"degraded" only, so for error ticks we fall back to
-      // "red" (the closest real State) rather than lying about green.
-      newState:
-        probeState === "error" ? "red" : resolvedState,
+      previousState,
+      // HF-A6: carry the probe's real `"error"` state through instead of
+      // fabricating a red. `WriteOutcome.newState` permits `State | "error"`
+      // (see types/index.ts). Downstream consumers:
+      //   - buildContext: reads via `evt.outcome.newState === "red" |
+      //     "degraded"` (HF-A2 isRedTick) — the error bucket intentionally
+      //     does NOT satisfy those, because `transition === "error"` routes
+      //     cron-error ticks to dispatchOnError (line ~440 below).
+      //   - buildDedupeKey: dedupe bucket is derived from triggered[] or
+      //     `evt.outcome.transition`, NOT newState, so the error value flows
+      //     through without colliding with red dedupe.
+      //   - status-writer: does NOT consume this synthesized outcome; its
+      //     own error-path preserves the prior State under `carriedState`.
+      // Non-error cron ticks unchanged.
+      newState: probeState === "error" ? "error" : resolvedState,
       // Use the probe's actual transition semantics on errors: `"error"`
       // (matching handleStatusChanged's onError path). For non-error
       // probes keep "first" — cron ticks are first-observation in the
@@ -428,12 +475,6 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       transition: probeState === "error" ? "error" : "first",
       firstFailureAt: signalFirstFailureAt,
       failCount: signalFailCount,
-    };
-    const fakeResult: ProbeResult<unknown> = evt.result ?? {
-      key: `${rule.signal.dimension}:scheduled`,
-      state: "green",
-      signal: {},
-      observedAt: evt.scheduledAt,
     };
     if (fakeResult.state === "error" && rule.onError) {
       // A1: apply the same `passesGuards` filter as the status.changed
@@ -583,7 +624,25 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     for (const name of triggered) {
       if (name in flags) mutableFlags[name] = true;
     }
-    flags.isRedTick = flags.green_to_red || flags.sustained_red;
+    // HF-A2: isRedTick previously only covered `green_to_red || sustained_red`,
+    // silently dropping error, set_drifted, set_errored, first+red, and
+    // degraded-first. Templates using `{{#trigger.isRedTick}}` rendered
+    // empty for every one of those — which is the entire error surface of
+    // the invariant probes (aimock-wiring, pin-drift, image-drift). Rebuild
+    // the flag from the authoritative outcome state PLUS the flag set so
+    // every legitimately-red observation lights it up. A degraded tick is
+    // treated as red-adjacent for alerting purposes (it's an on-call ping,
+    // not a "green with caveat").
+    const stateIsRed =
+      evt.outcome.newState === "red" ||
+      evt.outcome.newState === "degraded" ||
+      evt.outcome.newState === "error";
+    flags.isRedTick =
+      flags.green_to_red ||
+      flags.sustained_red ||
+      flags.set_drifted ||
+      flags.set_errored ||
+      (flags.first && stateIsRed);
     // Escalation check: at or past the configured fail count boundary so
     // operators keep seeing escalations on every tick past the threshold
     // (rate-limit governs frequency).
@@ -597,6 +656,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     // intuitive `critical` (highest matching threshold).
     let escalated = false;
     let severity: Severity = rule.severity;
+    // HF-A3: track the winning escalation's `mention` alongside severity so
+    // templates can render `{{escalationMention}}`. The winning escalation
+    // is the highest-threshold match (last in ascending-sort order), matching
+    // the severity-pick semantics above — keeping the two fields consistent.
+    let escalationMention: string | undefined;
     const sortedEscalations = [...rule.conditions.escalations].sort(
       (a, b) => a.whenFailCount - b.whenFailCount,
     );
@@ -604,6 +668,12 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       if (evt.outcome.failCount >= esc.whenFailCount) {
         escalated = true;
         if (esc.severity) severity = esc.severity;
+        // Adopt each matching escalation's mention as we pass its threshold.
+        // An escalation without an explicit `mention` leaves the last-set
+        // value in place — carries the lower tier's mention forward instead
+        // of clobbering it with undefined. Operators can still null out a
+        // mention at a higher tier by declaring `mention: ""` explicitly.
+        if (esc.mention !== undefined) escalationMention = esc.mention;
       }
     }
     const baseSignal = signalAsObject(evt.result.signal);
@@ -627,6 +697,7 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       rule: { id: rule.id, name: rule.name, owner: rule.owner, severity },
       trigger: flags,
       escalated,
+      escalationMention,
       signal: {
         ...baseSignal,
         failCount: evt.outcome.failCount,
@@ -703,10 +774,13 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
   };
 }
 
-// TODO(cluster-consolidation): status-writer.ts has a near-identical
-// deriveDimensionWithWarn with once-per-key warn logging. Consolidate into
-// a shared util under src/types/ or src/util/ once both clusters can touch
-// the same file — cluster 2 owns status-writer, cluster 3 owns types/.
+// TODO: status-writer.ts has a near-identical `deriveDimensionWithWarn`
+// with once-per-key warn logging. Consolidate into a shared util under
+// src/types/ or src/util/ — this copy stays lean (no logging) because the
+// alert-engine hot path must not re-warn on every match, but the
+// key-parsing rules (colon-split, "unknown" fallback) MUST stay in lockstep
+// with the writer's version. Kept duplicated for now to avoid tangling
+// ownership; fold into a shared module in the next refactor pass.
 function deriveDimension(key: string): string {
   const idx = key.indexOf(":");
   return idx > 0 ? key.slice(0, idx) : "unknown";

@@ -8,7 +8,13 @@ import { createEventBus } from "../events/event-bus.js";
 import { createRenderer } from "../render/renderer.js";
 import { logger } from "../logger.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
-import type { AlertStateRecord, Target, ProbeResult } from "../types/index.js";
+import type {
+  AlertStateRecord,
+  ProbeResult,
+  State,
+  Target,
+  Transition,
+} from "../types/index.js";
 import type { CompiledRule } from "../rules/rule-loader.js";
 
 function memStore(): AlertStateStore {
@@ -1818,3 +1824,554 @@ describe("alert-engine R7 (A1/A4/A5/A9)", () => {
     e.stop();
   });
 });
+
+// HF-A1: dispatchCronAlert threads the real `previousState` from the PB
+// status row into the synthesized WriteOutcome so perKey templates (and
+// any future downstream consumer) see an accurate baseline rather than
+// the pre-fix hardcoded `null`.
+describe("alert-engine dispatchCronAlert previousState threading (HF-A1)", () => {
+  it("reads prior state via statusReader and threads it through perKey template", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const getCalls: string[] = [];
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+      statusReader: {
+        async getStateByKey(key) {
+          getCalls.push(key);
+          return "red";
+        },
+      },
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-prev-state",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: ["first"],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        // perKey template references outcome.previousState so dedupe-key
+        // generation reads the real prior state — that's where the wire is
+        // observable without adding new context surface.
+        conditions: {
+          guards: [],
+          escalations: [],
+          rate_limit: {
+            perKey:
+              "{{rule.id}}:{{#signal}}{{slug}}{{/signal}}:prev={{outcome.previousState}}",
+          },
+        },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "prev={{outcome.previousState}}" },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-prev-state",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "red",
+        signal: { slug: "weekly" },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    // Reader must have been consulted with the probe's actual key.
+    expect(getCalls).toEqual(["pin_drift:weekly"]);
+    e.stop();
+  });
+
+  it("logs warn and falls back to null when statusReader throws", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const warnCalls: Array<{ msg: string; meta?: Record<string, unknown> }> =
+      [];
+    const captureLogger = {
+      ...logger,
+      warn(msg: string, meta?: Record<string, unknown>) {
+        warnCalls.push({ msg, meta });
+      },
+    };
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger: captureLogger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+      statusReader: {
+        async getStateByKey() {
+          throw new Error("pb-read-boom");
+        },
+      },
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-fallback",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: ["first"],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "tick" },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-fallback",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "red",
+        signal: {},
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    // Fail-open: alert still fires on PB read failure.
+    expect(sent).toHaveLength(1);
+    // Warn log must carry the cron-status-read-failed tag so operators can
+    // grep for dedupe-semantics degradation.
+    expect(
+      warnCalls.some((c) => c.msg === "alert-engine.cron-status-read-failed"),
+    ).toBe(true);
+    e.stop();
+  });
+});
+
+// HF-A2: isRedTick now covers green_to_red, sustained_red, set_drifted,
+// set_errored, and first+red/degraded/error. Pre-fix only the first two
+// lit up, so templates using `{{#trigger.isRedTick}}` silently swallowed
+// the entire invariant-probe red surface.
+describe("alert-engine trigger.isRedTick coverage (HF-A2)", () => {
+  const cases: Array<{
+    label: string;
+    declared: string[];
+    transition: Transition;
+    newState: State | "error";
+    signal?: Record<string, unknown>;
+  }> = [
+    {
+      label: "green_to_red",
+      declared: ["green_to_red"],
+      transition: "green_to_red",
+      newState: "red",
+    },
+    {
+      label: "sustained_red",
+      declared: ["sustained_red"],
+      transition: "sustained_red",
+      newState: "red",
+    },
+    {
+      label: "first+red",
+      declared: ["first"],
+      transition: "first",
+      newState: "red",
+    },
+    {
+      label: "first+degraded",
+      declared: ["first"],
+      transition: "first",
+      newState: "degraded",
+    },
+    {
+      label: "set_drifted",
+      declared: ["set_drifted"],
+      transition: "sustained_red",
+      newState: "red",
+      signal: { unwired: ["svc-a"] },
+    },
+    {
+      label: "set_errored",
+      declared: ["set_errored"],
+      transition: "sustained_red",
+      newState: "red",
+      signal: { errored: ["svc-a"] },
+    },
+  ];
+  for (const c of cases) {
+    it(`isRedTick === true for ${c.label}`, async () => {
+      const bus = createEventBus();
+      const renderer = createRenderer();
+      const store = memStore();
+      const sent: unknown[] = [];
+      const target: Target = {
+        kind: "slack_webhook",
+        async send(r) {
+          sent.push(r);
+        },
+      };
+      const tMap = new Map([["slack_webhook", target]]);
+      const e = createAlertEngine({
+        bus,
+        renderer,
+        stateStore: store,
+        targets: tMap,
+        logger,
+        now: () => new Date("2026-04-20T01:00:00Z"),
+        env: { dashboardUrl: "https://d", repo: "r/r" },
+        bootstrapWindowMs: 0,
+      });
+      e.start();
+      e.reload([
+        {
+          id: `isred-${c.label}`,
+          name: c.label,
+          owner: "@oss",
+          severity: "warn",
+          signal: { dimension: "smoke" },
+          stringTriggers: c.declared,
+          cronTriggers: [],
+          conditions: { guards: [], escalations: [] },
+          targets: [{ kind: "slack_webhook", webhook: "w" }],
+          template: {
+            text: "{{#trigger.isRedTick}}RED{{/trigger.isRedTick}}{{^trigger.isRedTick}}NO{{/trigger.isRedTick}}",
+          },
+          actions: [],
+        } as unknown as CompiledRule,
+      ]);
+      bus.emit("status.changed", {
+        outcome: {
+          previousState:
+            c.transition === "green_to_red" ? "green" : "red",
+          newState: c.newState as State,
+          transition: c.transition,
+          failCount: 1,
+          firstFailureAt: "2026-04-20T00:00:00Z",
+        },
+        result: {
+          key: "smoke:x",
+          state: c.newState === "error" ? "red" : (c.newState as State),
+          signal: c.signal ?? {},
+          observedAt: "2026-04-20T00:00:00Z",
+        },
+      });
+      await new Promise((r) => setImmediate(r));
+      expect(sent).toHaveLength(1);
+      expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
+        "RED",
+      );
+      e.stop();
+    });
+  }
+});
+
+// HF-A3: winning escalation's `mention` is threaded into
+// `{{escalationMention}}` on TemplateContext. Pre-fix the field didn't
+// exist — templates had no way to reference the oncall mention declared on
+// the escalation entry, so YAML authors copy-pasted the mention into every
+// template by hand.
+describe("alert-engine escalation mention threading (HF-A3)", () => {
+  it("renders {{escalationMention}} at the winning escalation", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "escal-mention",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        cronTriggers: [],
+        conditions: {
+          guards: [],
+          escalations: [
+            { whenFailCount: 4, mention: "@oncall", severity: "error" },
+            { whenFailCount: 10, mention: "@pager", severity: "critical" },
+          ],
+        },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "ping {{escalationMention}} sev={{rule.severity}}" },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 4,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:x",
+        state: "red",
+        signal: {},
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("ping @oncall sev=error");
+    e.stop();
+  });
+
+  it("renders empty {{escalationMention}} when no escalation matches", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "escal-no-match",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        cronTriggers: [],
+        conditions: {
+          guards: [],
+          escalations: [
+            { whenFailCount: 10, mention: "@pager", severity: "critical" },
+          ],
+        },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "m=[{{escalationMention}}]" },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 2,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:x",
+        state: "red",
+        signal: {},
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("m=[]");
+    e.stop();
+  });
+});
+
+// HF-A4: when a filter pipeline throws, the renderer must propagate the
+// error out rather than silently substituting a `[filter-error]` string.
+// Dispatcher's try/catch then skips dedupe so the next tick retries.
+describe("alert-engine renderer filter failure (HF-A4)", () => {
+  it("filter throw → renderer throws → no dedupe recorded", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "filter-throws",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        cronTriggers: [],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        // signal.boom has a throwing toString — `stripAnsi(String(...))`
+        // throws inside applyPipeline. Renderer MUST propagate; dispatcher
+        // catches and skips dedupe.
+        template: {
+          text: "x {{ signal.boom | stripAnsi }}",
+        },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    const throwingBoom: unknown = {
+      toString() {
+        throw new Error("boom-toString");
+      },
+    };
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:x",
+        state: "red",
+        signal: { boom: throwingBoom },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    // Nothing delivered (renderer threw before reaching the target).
+    expect(sent).toHaveLength(0);
+    // Dedupe row must NOT be present — next tick retries.
+    const record = await store.get(
+      "filter-throws",
+      "filter-throws:smoke:x:sustained_red",
+    );
+    expect(record).toBeNull();
+    e.stop();
+  });
+});
+
+// HF-A6: synthesized cron outcome carries the probe's real `"error"` state
+// rather than fabricating `"red"`. Verifies newState is preserved through
+// to dispatchOnError (the onError template sees it via buildContext).
+describe("alert-engine dispatchCronAlert preserves error state (HF-A6)", () => {
+  it("cron error tick routes via onError; newState is 'error', not fabricated 'red'", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-err-state",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "main" },
+        onError: { template: { text: "ERR {{signal.errorDesc}}" } },
+        actions: [],
+      } as unknown as CompiledRule,
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-err-state",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        signal: { errorDesc: "GHCR 500" },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    // Routed to onError; main template would print "main".
+    expect(text).toBe("ERR GHCR 500");
+    e.stop();
+  });
+});
+
