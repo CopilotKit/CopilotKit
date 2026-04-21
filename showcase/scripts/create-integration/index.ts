@@ -1914,10 +1914,16 @@ export function updateWorkflows(args: CLIArgs) {
     }
 
     // Anchor the outputs-block idempotency check to a line that starts
-    // with `<slug>:` (optionally indented) — `includes("<slug>:")`
+    // with `<slugVar>:` (optionally indented) — `includes("<slug>:")`
     // matches slug-shaped substrings inside env vars, step names, or
-    // YAML comments and silently skips the insert.
-    const outputRe = new RegExp(`^\\s+${escapeRegex(slug)}:`, "m");
+    // YAML comments and silently skips the insert. The guard MUST use
+    // `slugVar` (underscore form) because the insertion below writes
+    // `${slugVar}:` as the key; for hyphenated slugs (e.g.
+    // `sales-dashboard` → `sales_dashboard`) matching on `slug`
+    // (hyphen form) would never hit on a re-run and would duplicate
+    // the outputs+filters entries every time. Mirrors the same fix
+    // applied to the `build-<slugVar>:` idempotency regex below.
+    const outputRe = new RegExp(`^\\s+${escapeRegex(slugVar)}:`, "m");
     if (!outputRe.test(deploy)) {
       // Add output (match only lines containing ${{ to avoid matching `steps:`).
       // The indent is captured from the last existing output entry and

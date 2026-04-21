@@ -556,16 +556,32 @@ describe("Template Generator", () => {
       "agentic-chat",
     ];
 
-    // First run: scaffolds the package and appends the slug to the
-    // `starter:` matrix in our tmpdir-backed test_smoke-starter.yml.
+    // First run: scaffolds the package, appends the slug to the
+    // `starter:` matrix in test_smoke-starter.yml, AND inserts
+    // options/outputs/filters/build-job entries into showcase_deploy.yml.
     runGenerator(args);
     const smokePath = path.join(
       TMP_WORKFLOWS_DIR,
       "test_smoke-starter.yml",
     );
+    const deployPath = path.join(
+      TMP_WORKFLOWS_DIR,
+      "showcase_deploy.yml",
+    );
     const afterFirstRun = fs.readFileSync(smokePath, "utf-8");
+    const deployAfterFirstRun = fs.readFileSync(deployPath, "utf-8");
     expect(afterFirstRun).toMatch(
       new RegExp(`^\\s+- ${REGRESSION_SLUG}\\s*$`, "m"),
+    );
+    // showcase_deploy.yml insertions use the underscored `slugVar`
+    // (hyphens → underscores). This is the form the idempotency
+    // guards must look for on re-run. (VT-M2-F regression anchor.)
+    const regressionSlugVar = REGRESSION_SLUG.replace(/-/g, "_");
+    expect(deployAfterFirstRun).toMatch(
+      new RegExp(`^\\s+${regressionSlugVar}: \\$\\{\\{`, "m"),
+    );
+    expect(deployAfterFirstRun).toMatch(
+      new RegExp(`^\\s*build-${regressionSlugVar}:`, "m"),
     );
 
     // Remove only the scaffolded package dir so the generator's pre-flight
@@ -583,10 +599,32 @@ describe("Template Generator", () => {
     expect(stdout).toMatch(/already present in starter matrix/);
     expect(stdout).not.toMatch(/has zero entries/);
 
-    // Workflow file must be unchanged bit-for-bit across the second run
-    // (no duplicate insert, no formatting drift).
+    // test_smoke-starter.yml must be unchanged bit-for-bit across the
+    // second run (no duplicate insert, no formatting drift).
     const afterSecondRun = fs.readFileSync(smokePath, "utf-8");
     expect(afterSecondRun).toBe(afterFirstRun);
+
+    // showcase_deploy.yml MUST also be unchanged bit-for-bit across the
+    // second run. This is the VT-M2-F regression: prior to the fix the
+    // outputs/filters idempotency guard compared against the hyphenated
+    // `slug` while the insertion wrote the underscored `slugVar`, so a
+    // re-run against a hyphenated slug like `test-integration-tmp-
+    // regression-guard` would never match the guard and would append
+    // duplicate `<slugVar>:` entries under outputs: and filters: on
+    // every re-run, corrupting the YAML.
+    const deployAfterSecondRun = fs.readFileSync(deployPath, "utf-8");
+    expect(deployAfterSecondRun).toBe(deployAfterFirstRun);
+
+    // Belt-and-suspenders: there must be exactly one output entry and
+    // exactly one filter entry keyed by `<slugVar>:`, no duplicates.
+    const outputKeyMatches = deployAfterSecondRun.match(
+      new RegExp(`^\\s+${regressionSlugVar}: \\$\\{\\{`, "gm"),
+    );
+    expect(outputKeyMatches?.length).toBe(1);
+    const buildJobMatches = deployAfterSecondRun.match(
+      new RegExp(`^\\s*build-${regressionSlugVar}:`, "gm"),
+    );
+    expect(buildJobMatches?.length).toBe(1);
   });
 
   // Safety net: every seeded workflow must match its captured baseline
