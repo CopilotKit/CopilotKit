@@ -680,7 +680,7 @@ jobs:
             # No service changes matched the paths filter — run proved
             # nothing either way. Don't flip state.
             OUTCOME="skip"
-          elif [ "$BUILD" = "failure" ] || [ -n "$BUILD" ]; then
+          elif [ "$BUILD" = "failure" ]; then
             # Build failed. Distinguish full failure (every leg failed) from
             # partial failure (some legs passed, some failed). The previous
             # wording said "FAILED — N service(s) targeted" which implied
