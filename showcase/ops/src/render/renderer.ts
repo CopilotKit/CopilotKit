@@ -106,21 +106,24 @@ function extractFilters(
       .split("|")
       .map((s) => s.trim())
       .filter(Boolean);
-    // Filter failure must never emit raw (unfiltered) value into Slack —
-    // that path was responsible for both mrkdwn injection (un-escaped
-    // `<`/`>`) and oversized bodies (un-truncated 50KB logs). Fail closed:
-    // substitute an explicit sentinel string and log at error so operators
-    // see the broken filter rather than the symptom downstream.
+    // HF-A4: filter failure MUST abort rendering. The previous
+    // `[filter-error]` sentinel shipped that literal string to Slack —
+    // operators got "Deploy failed for [filter-error] at [filter-error]"
+    // which is worse than no alert at all. Throwing propagates out of
+    // `Renderer.render` and the dispatcher's try/catch in `sendToTargets`
+    // treats it as a target failure: no dedupe gets recorded, so the next
+    // tick retries rather than the outage getting wallpapered over. Keep
+    // the error log so operators can grep for the root cause.
     let out: string;
     try {
       out = applyPipeline(value, stages);
     } catch (err) {
-      logger.error("renderer: filter pipeline threw, substituting [filter-error]", {
+      logger.error("renderer: filter pipeline threw, aborting render", {
         path: pathStr,
         stages,
         err: String(err),
       });
-      out = "[filter-error]";
+      throw err;
     }
     const key = `${FILTER_SENTINEL_PREFIX}${idx++}${FILTER_SENTINEL_SUFFIX}`;
     values.set(key, out);

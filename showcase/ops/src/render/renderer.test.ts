@@ -220,4 +220,23 @@ describe("renderer", () => {
     );
     expect(out.payload.text).toBe("link: <https://ci/123|run 123>");
   });
+
+  // HF-A4: filter pipeline throw must propagate out of render() rather than
+  // silently substituting a `[filter-error]` sentinel (which shipped that
+  // literal string to Slack). The dispatcher treats a render throw as a
+  // target failure and skips dedupe so the next tick retries.
+  it("filter pipeline throw propagates as exception (no [filter-error] substitute)", () => {
+    const r = createRenderer();
+    const throwing: unknown = {
+      toString() {
+        throw new Error("toString-boom");
+      },
+    };
+    expect(() =>
+      r.render(
+        { text: "x {{ signal.v | stripAnsi }}" },
+        ctx({ signal: { v: throwing } }),
+      ),
+    ).toThrow(/toString-boom/);
+  });
 });
