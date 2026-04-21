@@ -657,9 +657,7 @@ function convertMarkdownTableToHtml(tableLines: string[]): string {
   // parses inline HTML as JSX, where `style` must be an object — a
   // string crashes the render. Styling comes from the
   // `.reference-content table` rules in globals.css.
-  const headerHtml = headers
-    .map((h) => `<th>${escapeHtml(h)}</th>`)
-    .join("");
+  const headerHtml = headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("");
   const bodyHtml = bodyRows
     .map(
       (row) =>
