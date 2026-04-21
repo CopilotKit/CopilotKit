@@ -675,6 +675,7 @@ jobs:
           DETECT_MATRIX: ${{ needs.detect-changes.outputs.matrix }}
           RUN_ID: ${{ github.run_id }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           # Only short-circuit on the genuine "nothing to deploy" case: detect
@@ -718,14 +719,21 @@ jobs:
               GATE_REASON="detect-changes-${DETECT_RESULT}"
             fi
           fi
+          # HF13-E3: per-matrix-leg partition via `gh api`.
+          #
+          # The aggregate `needs.build.result` CANNOT be used to partition
+          # failed-vs-succeeded services when the build matrix has
+          # `fail-fast: false`. `needs.build.result == "failure"` means "at
+          # least one leg failed" — it does NOT mean "all legs failed".
+          # Previously we set `FAILED="$SERVICES"` on aggregate-failure,
+          # marking every successful leg as failed and rendering the
+          # signal.partial branch in deploy-result.yml unreachable. Query
+          # the per-job conclusions directly and partition by matching job
+          # name against each service's dispatch_name.
           if [ "${BUILD_RESULT}" = "cancelled" ]; then
             FAILED='[]'
             SUCCEEDED='[]'
             CANCELLED=true
-          elif [ "${BUILD_RESULT}" = "success" ]; then
-            FAILED='[]'
-            SUCCEEDED="$SERVICES"
-            CANCELLED=false
           elif [ "$GATE_SKIPPED" = "true" ]; then
             # Build matrix never ran. Send an empty failed/succeeded pair plus
             # a `gateSkipped: true` discriminator so showcase-ops can render
@@ -733,9 +741,57 @@ jobs:
             FAILED='[]'
             SUCCEEDED='[]'
             CANCELLED=false
+          elif [ "${BUILD_RESULT}" = "success" ]; then
+            # Fast-path: aggregate success means every leg succeeded — no
+            # need to round-trip through the API just to re-derive the same
+            # answer. Keeps notify-ops within its retry budget on the happy
+            # path where most runs land.
+            FAILED='[]'
+            SUCCEEDED="$SERVICES"
+            CANCELLED=false
           else
-            FAILED="$SERVICES"
-            SUCCEEDED='[]'
+            # Partial / all-failed / unknown aggregate: ask the Actions API
+            # for per-leg conclusions. `--paginate` handles large matrices
+            # (>30 jobs per page); filter to build-matrix legs by name
+            # prefix. Each job name follows the pattern
+            # "build (<serialized-matrix-value>...)" — we match each
+            # service's dispatch_name as a substring of the job name.
+            JOBS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
+              | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
+            BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]' 2>/dev/null || echo '[]')
+            FAILED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") | contains($svc))
+                | select(.conclusion == "failure")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo "$SERVICES")
+            # SUCCEEDED = services with at least one job whose conclusion
+            # is "success". Matrix legs that were cancelled/skipped by the
+            # platform land in neither bucket — surfaced implicitly as
+            # `totalCount - failedCount - succeededCount` on the receiver.
+            SUCCEEDED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") | contains($svc))
+                | select(.conclusion == "success")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo '[]')
+            # Defensive fallback: if the API query failed and FAILED is an
+            # empty array while the aggregate says failure, fall back to
+            # marking all services failed rather than silently reporting
+            # "everything green on a failed run".
+            FAILED_LEN=$(echo "$FAILED" | jq 'length' 2>/dev/null || echo 0)
+            SUCCEEDED_LEN=$(echo "$SUCCEEDED" | jq 'length' 2>/dev/null || echo 0)
+            if [ "$FAILED_LEN" = "0" ] && [ "$SUCCEEDED_LEN" = "0" ]; then
+              echo "::warning::gh api job-partition query returned no matches; falling back to aggregate-failure"
+              FAILED="$SERVICES"
+              SUCCEEDED='[]'
+            fi
             CANCELLED=false
           fi
           PAYLOAD=$(jq -cn \
