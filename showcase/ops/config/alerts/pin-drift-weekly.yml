@@ -16,8 +16,14 @@ targets:
   - kind: slack_webhook
     webhook: oss_alerts
 
+# Render `[first run — no baseline yet]` on the initial weekly run
+# instead of leaking the raw enum value `[no_baseline]` into Slack.
+# Probe emits `signal.isFirstRun = true` when `signal.setStatus ==
+# "no_baseline"`; template branches on that flag.
 template:
-  text: ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} (baseline {{signal.baselineCount}}) [{{signal.setStatus}}] | <{{{event.runUrl}}}|Run>"
+  text: |
+    {{#signal.isFirstRun}}:chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} [first run — no baseline yet] | <{{{event.runUrl}}}|Run>{{/signal.isFirstRun}}
+    {{^signal.isFirstRun}}:chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} (baseline {{signal.baselineCount}}) [{{signal.setStatus}}] | <{{{event.runUrl}}}|Run>{{/signal.isFirstRun}}
 
 on_error:
   template:

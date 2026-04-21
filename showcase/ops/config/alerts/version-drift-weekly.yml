@@ -16,12 +16,15 @@ targets:
   - kind: slack_webhook
     webhook: oss_alerts
 
+# Probe always returns state="green" (the weekly cadence is informational
+# — drift is surfaced via signal.driftType flags, not a red dimension),
+# which means the alert-engine never dispatches to `on_error`. Error
+# rendering therefore lives inside the main template under
+# `{{#signal.driftType.probeErrored}}`. The previous top-level `on_error`
+# block was dead and removed.
 template:
   text: |
+    {{#signal.driftType.probeErrored}}:x: *Showcase version-drift (weekly)*: probe errored — {{signal.errorMessage}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.probeErrored}}
     {{#signal.driftType.stable}}:white_check_mark: *Showcase version-drift (weekly)*: no drift | <{{{event.runUrl}}}|Run>{{/signal.driftType.stable}}
     {{#signal.driftType.npmDrift}}:package: *Showcase version-drift (weekly)*: npm drift detected — {{signal.npmSummary}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.npmDrift}}
     {{#signal.driftType.pythonDrift}}:snake: *Showcase version-drift (weekly)*: python drift detected — {{signal.pythonSummary}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.pythonDrift}}
-
-on_error:
-  template:
-    text: ":x: *Showcase version-drift*: job failed | <{{{event.runUrl}}}|Run>"

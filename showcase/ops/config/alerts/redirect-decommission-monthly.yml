@@ -9,9 +9,24 @@ triggers:
   - cron_only:
       schedule: "0 9 1 * *"
 
+# NOTE: the alert-engine suppress DSL does NOT support dot-access — only
+# flat identifiers. The probe emits `signal.hasCandidates` (boolean); the
+# suppress expression here must reference a flat alias, which alert-engine
+# injects into the per-evaluation var bag under the name `hasCandidates`
+# (see alert-engine.ts suppress-var construction).
+#
+# If cluster 1 has NOT yet landed the `hasCandidates` injection, this
+# rule will fail at load with "unknown identifier: hasCandidates" (fails
+# loud at load — the alternative silent-skip path was closed in F6.3).
+# Until then the effective behavior is: load-time error logged, alert
+# never fires — acceptable fail-closed posture for a cron-only rule.
+#
+# Coordination: cluster 1 must extend SUPPRESS_VALIDATION_VARS + the
+# runtime vars bag in alert-engine.ts to include `hasCandidates` from
+# `signal.hasCandidates`.
 conditions:
   suppress:
-    when: signal.hasCandidates != true
+    when: hasCandidates != true
 
 targets:
   - kind: slack_webhook

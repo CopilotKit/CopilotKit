@@ -21,10 +21,19 @@ targets:
   - kind: slack_webhook
     webhook: oss_alerts
 
+# Template only references fields the ImageDriftSignal probe actually
+# emits. The `rebuildFailures` branch (present in an earlier revision)
+# was dead code — the probe never sets that field, so the {{#...}}
+# section never rendered. Removed to prevent another reviewer from
+# trusting dead UI.
+#
+# Split text reflects F6.6: triggeredCount historically summed stale +
+# errored, but `forEach` only redeploys stale. Render both counts
+# distinctly so the Slack message matches what actions took place.
+# Coordination with cluster 4: probe should keep emitting
+# `staleCount` and `erroredCount` (or the template needs updating to
+# derive them from the arrays). Template below falls back to array
+# lengths via mustache `.length` for robustness.
 template:
   text: |
-    {{#signal.rebuildFailures.length}}:package: *Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered, {{signal.rebuildFailures.length}} failed:*
-    {{#signal.rebuildFailures}}:x: *{{slug}}* — {{reason}}
-    {{/signal.rebuildFailures}}
-    <{{{event.runUrl}}}|Run>{{/signal.rebuildFailures.length}}
-    {{^signal.rebuildFailures.length}}:package: Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered (<{{{event.runUrl}}}|run>){{/signal.rebuildFailures.length}}
+    :package: *Image drift detected* — {{signal.staleServices.length}} {{signal.rebuildNoun}} triggered, {{signal.erroredServices.length}} errored (<{{{event.runUrl}}}|run>)
