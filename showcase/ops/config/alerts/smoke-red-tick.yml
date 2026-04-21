@@ -39,4 +39,4 @@ template:
     {{#trigger.red_to_green}}:white_check_mark: *{{signal.slug}}* recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
     {{#escalated}}<!channel> :rotating_light: *{{signal.slug}}* has been failing for 1 hour (since {{signal.firstFailureAt}}){{/escalated}}
 
-    <{{env.dashboardUrl}}|Showcase> · <{{env.dashboardUrl}}/runs/{{event.runId}}|Run>
+    <{{{env.dashboardUrl}}}|Showcase> · <{{{env.dashboardUrl}}}/runs/{{{event.runId}}}|Run>

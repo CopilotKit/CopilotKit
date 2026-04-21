@@ -21,4 +21,4 @@ template:
     {{#trigger.green_to_red}}:x: *Showcase deploy*: {{#signal.partial}}{{signal.failedCount}}/{{signal.totalCount}} service(s) failed ({{ signal.failedList | truncateCsv 200 }}) — {{ signal.succeededList | truncateCsv 200 }} ok{{/signal.partial}}{{^signal.partial}}FAILED — {{signal.totalCount}} service(s) targeted ({{ signal.servicesList | truncateCsv 200 }}){{/signal.partial}}{{/trigger.green_to_red}}
     {{#trigger.red_to_green}}:white_check_mark: *Showcase deploy*: recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
     {{#trigger.cancelled_midmatrix}}:information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist{{/trigger.cancelled_midmatrix}}
-    | <{{event.runUrl}}|View run>
+    | <{{{event.runUrl}}}|View run>

@@ -17,8 +17,8 @@ targets:
     webhook: oss_alerts
 
 template:
-  text: ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} (baseline {{signal.baselineCount}}) [{{signal.setStatus}}] | <{{event.runUrl}}|Run>"
+  text: ":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={{signal.actualCount}} (baseline {{signal.baselineCount}}) [{{signal.setStatus}}] | <{{{event.runUrl}}}|Run>"
 
 on_error:
   template:
-    text: ":x: *Showcase drift report*: job failed | <{{event.runUrl}}|Run>"
+    text: ":x: *Showcase drift report*: job failed | <{{{event.runUrl}}}|Run>"

@@ -192,9 +192,19 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
         }
         continue;
       }
+      if (p.startsWith("env.")) {
+        const sub = p.slice("env.".length);
+        const ENV_SAFE = new Set(["dashboardUrl", "repo"]);
+        if (!ENV_SAFE.has(sub)) {
+          throw new Error(
+            `rule ${rule.id}: triple-brace '${p}' not among known-safe env.* fields`,
+          );
+        }
+        continue;
+      }
       if (!p.startsWith("signal.")) {
         throw new Error(
-          `rule ${rule.id}: triple-brace must reference 'signal.*' or 'event.*', got '${p}'`,
+          `rule ${rule.id}: triple-brace must reference 'signal.*', 'event.*', or 'env.*', got '${p}'`,
         );
       }
       const sub = p.slice("signal.".length);

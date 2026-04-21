@@ -26,5 +26,5 @@ template:
     {{#signal.rebuildFailures.length}}:package: *Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered, {{signal.rebuildFailures.length}} failed:*
     {{#signal.rebuildFailures}}:x: *{{slug}}* — {{reason}}
     {{/signal.rebuildFailures}}
-    <{{event.runUrl}}|Run>{{/signal.rebuildFailures.length}}
-    {{^signal.rebuildFailures.length}}:package: Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered (<{{event.runUrl}}|run>){{/signal.rebuildFailures.length}}
+    <{{{event.runUrl}}}|Run>{{/signal.rebuildFailures.length}}
+    {{^signal.rebuildFailures.length}}:package: Image drift detected — {{signal.triggeredCount}} {{signal.rebuildNoun}} triggered (<{{{event.runUrl}}}|run>){{/signal.rebuildFailures.length}}
