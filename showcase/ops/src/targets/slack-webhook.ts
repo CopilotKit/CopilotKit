@@ -122,6 +122,26 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
 
         if (res.ok) return;
 
+        // 3xx: Slack incoming webhooks don't redirect in practice, but if
+        // a proxy in front emits a 3xx the default fetch behavior already
+        // follows it (so we'd normally see the final status here). A raw
+        // 3xx reaching this branch means redirect=manual or a broken
+        // proxy — treat as a permanent failure and throw so the engine
+        // records target-failed instead of silently dropping the alert
+        // (prior behavior: loop exhausted with no branch, returned
+        // undefined, engine recorded a successful delivery → dedupe
+        // poisoning).
+        if (res.status >= 300 && res.status < 400) {
+          const location = res.headers.get("location");
+          opts.logger.error("slack-webhook.unexpected-redirect", {
+            status: res.status,
+            location,
+          });
+          throw new Error(
+            `slack-webhook received unexpected ${res.status} redirect (location=${location ?? "(none)"}) — not delivered`,
+          );
+        }
+
         if (res.status === 429) {
           // Respect Retry-After when present; otherwise fall back to
           // the same exponential backoff we use for 5xx.

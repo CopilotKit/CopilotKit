@@ -274,6 +274,34 @@ describe("slack-webhook target", () => {
     expect(calls).toBe(12);
   });
 
+  it("throws on unexpected 3xx redirect so engine records target-failed (no silent drop)", async () => {
+    // Regression for F3.1: previously the retry loop had no branch for
+    // 3xx responses (Slack never emits them, but a misbehaving proxy
+    // might). The loop would exhaust, return undefined, and the
+    // dispatcher would record the send as successful — poisoning dedupe
+    // and dropping the alert silently. We now throw so the engine
+    // records a target-failed outcome.
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response("moved", {
+        status: 301,
+        headers: { location: "https://evil.example/other" },
+      });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async () => {},
+    });
+    await expect(
+      t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" }),
+    ).rejects.toThrow(/301/);
+    // Must NOT retry — 3xx is permanent for our purposes.
+    expect(calls).toBe(1);
+  });
+
   it("caps a huge Retry-After value at 30s", async () => {
     const sleeps: number[] = [];
     let calls = 0;
