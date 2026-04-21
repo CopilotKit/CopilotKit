@@ -139,10 +139,28 @@ export function FrameworkProvider({
   // both `stored` and `storageAvailable`; in private-mode browsers
   // where the read throws, `storageAvailable` stays false so consumers
   // can branch on "we can't persist your pick".
+  //
+  // Validate the retrieved slug against the known registry — same
+  // contract as `setStoredFramework` and the cross-tab `storage` handler.
+  // A stale localStorage entry from a framework slug that was later
+  // removed from the registry must not seed `stored`, otherwise
+  // RouterPivot would redirect users to a non-existent framework page.
+  // Clear the poisoned key so it stops haunting subsequent loads.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const result = readStoredFramework();
-    setStored(result.value);
     setStorageAvailable(result.available);
+    if (result.value !== null && !knownFrameworks.includes(result.value)) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          `[framework-provider] ignoring stored framework with unknown slug "${result.value}" — clearing`,
+        );
+      }
+      writeStoredFramework(null);
+      setStored(null);
+      return;
+    }
+    setStored(result.value);
   }, []);
 
   // Cross-tab sync — when ANOTHER tab writes `selectedFramework`, our
@@ -161,11 +179,24 @@ export function FrameworkProvider({
       // Scoped reads can pass null for e.newValue when the key is
       // removed; that's legitimately "cleared" and should null out
       // our state rather than be ignored.
+      //
+      // Validate non-null values against the known registry — same
+      // contract as `setStoredFramework` below. A cross-tab write of an
+      // arbitrary string (stale tab, browser extension, dev tools) must
+      // not poison this tab's state.
+      if (e.newValue !== null && !knownFrameworks.includes(e.newValue)) {
+        if (process.env.NODE_ENV !== "production") {
+          console.warn(
+            `[framework-provider] ignoring cross-tab storage write with unknown slug "${e.newValue}"`,
+          );
+        }
+        return;
+      }
       setStored(e.newValue);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
-  }, []);
+  }, [knownFrameworks]);
 
   // Whenever the URL asserts a framework, persist it so the preference
   // follows the user when they navigate back to /docs/*.
