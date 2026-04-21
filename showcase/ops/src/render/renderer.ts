@@ -1,6 +1,7 @@
 import Mustache from "mustache";
 import type { RenderedMessage, TemplateContext } from "../types/index.js";
 import { applyPipeline } from "./filters.js";
+import { FILTER_RE } from "./filter-regex.js";
 import { logger } from "../logger.js";
 
 export interface CompiledTemplate {
@@ -13,14 +14,15 @@ export interface Renderer {
   render(tmpl: CompiledTemplate, ctx: TemplateContext): RenderedMessage;
 }
 
-// A7: the leading `(?<!\{)` and trailing `(?!\})` negative look-arounds
-// prevent FILTER_RE from matching inside a `{{{ x | f }}}` triple-brace
-// span. rule-loader's `validateTripleBrace` already rejects most shapes
-// at load time, but loosening that validation (or a template slipping
-// past it through an edge case) would otherwise strip a brace and
-// corrupt splat-replacement. Defensive belt-and-braces.
-const FILTER_RE =
-  /(?<!\{)\{\{\s*([^{}|]+?)\s*\|\s*([^{}]+?)\s*\}\}(?!\})/g;
+// A7 / HF13-D1: the filter-pipeline regex lives in `./filter-regex.ts` so
+// both the renderer (here, via extractFilters) and the rule-loader (via
+// validateFilterNames) share a single source of truth. The leading
+// `(?<!\{)` and trailing `(?!\})` negative look-arounds prevent FILTER_RE
+// from matching inside a `{{{ x | f }}}` triple-brace span. rule-loader's
+// `validateTripleBrace` already rejects most shapes at load time, but
+// loosening that validation (or a template slipping past it through an
+// edge case) would otherwise strip a brace and corrupt splat-replacement.
+// Defensive belt-and-braces.
 
 // Slack incoming webhooks accept a little over 40KB. We leave headroom so the
 // JSON wrapping, quoting, and escaping never push us over the real ceiling.

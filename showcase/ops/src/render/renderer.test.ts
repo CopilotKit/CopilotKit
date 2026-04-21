@@ -239,4 +239,24 @@ describe("renderer", () => {
       ),
     ).toThrow(/toString-boom/);
   });
+
+  // HF13-D1: triple-brace spans must NOT be matched by the filter regex,
+  // regardless of whether they contain a `|` token inside. The renderer
+  // emits raw passthrough for triple-brace and the rule-loader's shared
+  // regex has the same guards. Pins the negative-lookaround contract so
+  // any future regex change that re-introduces drift between the two
+  // call sites trips this test.
+  it("does not treat `{{{ path | filter }}}` triple-brace as a filter pipeline", () => {
+    const r = createRenderer();
+    const out = r.render(
+      { text: "body: {{{ signal.body | slackEscape }}}" },
+      ctx({ signal: { body: "plain <text>" } }),
+    );
+    // Triple-brace is raw passthrough — Mustache sees `signal.body | slackEscape`
+    // as a literal identifier and fails the property lookup silently, so the
+    // expression renders as empty rather than evaluating the pipeline.
+    // The critical invariant: the `slackEscape` filter DOES NOT execute (if
+    // it did, `<` would become `&lt;`). That's the only thing we're pinning.
+    expect(out.payload.text).not.toContain("&lt;");
+  });
 });
