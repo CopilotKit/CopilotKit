@@ -136,4 +136,62 @@ describe("alert-state-store.record", () => {
     await store.putSet("rule-x", "hash-x", "2026-04-20T00:00:00Z");
     expect(seen[0]!.filter).toContain('dedupe_key = "__set__"');
   });
+
+  it("accepts printable Unicode dedupe keys (emoji, accented chars) — F2.4", async () => {
+    // Regression (F2.4): the old ASCII-only guard `/^[\x20-\x7E]+$/`
+    // rejected any non-ASCII content (emoji in alert descriptions,
+    // accented repo names like `café-service`, Japanese slugs), failing
+    // open — the suppress lookup threw before comparing hashes, so the
+    // alert engine fired the same alert on every tick. Widen to
+    // printable-Unicode (`\P{C}`).
+    let createdDedupeKey: string | null = null;
+    const pb = makeFakePb({
+      async getFirst() {
+        return null;
+      },
+      async create<T>(_c: string, record: Record<string, unknown>) {
+        createdDedupeKey = record.dedupe_key as string;
+        return { id: "new" } as T;
+      },
+    });
+    const store = createAlertStateStore(pb);
+    const unicodeKey = "rocket:🚀 café-service:漢字";
+    await expect(
+      store.record("rule-a", unicodeKey, {
+        at: "2026-04-20T00:00:00Z",
+        hash: "h",
+        preview: "p",
+      }),
+    ).resolves.toBeUndefined();
+    expect(createdDedupeKey).toBe(unicodeKey);
+  });
+
+  it("rejects dedupe keys containing control characters (F2.4)", async () => {
+    // Control characters (C0/C1) would break PocketBase's filter DSL
+    // parse. The printable-Unicode regex still rejects them even as it
+    // accepts the full printable Unicode range.
+    const pb = makeFakePb();
+    const store = createAlertStateStore(pb);
+    await expect(
+      store.record("rule-a", "key\nwith\nnewline", {
+        at: "2026-04-20T00:00:00Z",
+        hash: "h",
+        preview: "p",
+      }),
+    ).rejects.toThrow(/printable Unicode/);
+    await expect(
+      store.record("rule-a", "key\u0000null", {
+        at: "2026-04-20T00:00:00Z",
+        hash: "h",
+        preview: "p",
+      }),
+    ).rejects.toThrow(/printable Unicode/);
+    await expect(
+      store.record("rule-a", "tab\there", {
+        at: "2026-04-20T00:00:00Z",
+        hash: "h",
+        preview: "p",
+      }),
+    ).rejects.toThrow(/printable Unicode/);
+  });
 });

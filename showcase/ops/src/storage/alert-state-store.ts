@@ -14,18 +14,24 @@ export interface AlertStateStore {
 
 // PocketBase's filter DSL is a custom grammar, NOT JSON. `JSON.stringify`
 // happens to produce a compatible single-token string literal for ASCII
-// inputs, but keys containing `\n`, unicode escapes, or embedded quotes
-// would leak through. Rather than rely on the callers to behave, we
-// enforce an ASCII-safe dedupe key at write time — rejects anything the
-// JSON-literal round-trip can't safely represent inside the PB filter
-// grammar. A proper fix is a dedicated composite column + PB migration;
-// this guard is the interim contract so today's build stays safe.
-const SAFE_DEDUPE_KEY_RE = /^[\x20-\x7E]+$/;
+// and printable-Unicode inputs, but keys containing control characters
+// (\n, \t, \u0000..\u001F, etc.) would leak through and break the filter
+// parse. Rather than rely on the callers to behave, we enforce a
+// printable-Unicode dedupe key at write time — `\P{C}` is the Unicode
+// complement of the Other/Control category, which includes all printable
+// letters, digits, symbols, marks, punctuation, and emoji across every
+// script, while still rejecting C0/C1 control characters and surrogate
+// escapes. (F2.4: the previous `[\x20-\x7E]+` was ASCII-only and failed
+// closed on any emoji or accented repo name, causing alerts to fire on
+// every tick because the suppress lookup threw before comparing hashes.)
+// A proper fix is a dedicated composite column + PB migration; this
+// guard is the interim contract so today's build stays safe.
+const SAFE_DEDUPE_KEY_RE = /^[\P{C}]+$/u;
 
 function assertSafeKey(field: string, value: string): void {
   if (!SAFE_DEDUPE_KEY_RE.test(value)) {
     throw new Error(
-      `alert-state-store: ${field} must be printable ASCII (got ${JSON.stringify(value.slice(0, 40))})`,
+      `alert-state-store: ${field} must be printable Unicode (no control chars) (got ${JSON.stringify(value.slice(0, 40))})`,
     );
   }
 }
