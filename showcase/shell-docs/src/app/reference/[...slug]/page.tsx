@@ -19,6 +19,16 @@ import {
 import { stripLeadingImports } from "@/lib/docs-render";
 import { safeReadFileSync } from "@/lib/safe-fs";
 
+// Title-Case a slug segment. `my-component` → `My Component`. The
+// previous `capitalize` Tailwind class only cased the first letter of
+// the whole segment, so hyphenated segments came out as `My-component`.
+function titleCase(slugSegment: string): string {
+  return slugSegment
+    .split("-")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(" ");
+}
+
 // next-mdx-remote components map
 const mdxComponents = {
   PropertyReference,
@@ -66,6 +76,15 @@ export default async function ReferenceSlugPage({
   const cleanedContent = stripLeadingImports(content);
 
   const allItems = loadAllReferenceItems();
+  // Derive the sidebar category list from the loaded items rather than
+  // hardcoding — a new top-level subdir in src/content/reference/ (added
+  // via REFERENCE_SUBDIRS in reference-items.ts) picks up automatically
+  // without a second edit here. Stable order: lexical sort on the
+  // category label, which matches the current alphabetical layout
+  // (Components, Hooks).
+  const categories = Array.from(new Set(allItems.map((i) => i.category))).sort(
+    (a, b) => a.localeCompare(b),
+  );
   const title =
     typeof data.title === "string" && data.title.length > 0
       ? data.title
@@ -86,7 +105,7 @@ export default async function ReferenceSlugPage({
               Reference
             </Link>
           </div>
-          {["Components", "Hooks"].map((cat) => (
+          {categories.map((cat) => (
             <div key={cat}>
               <div className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] mb-2">
                 {cat}
@@ -129,7 +148,7 @@ export default async function ReferenceSlugPage({
               Reference
             </Link>
             {" / "}
-            <span className="capitalize">{slug[0]}</span>
+            <span>{titleCase(slug[0])}</span>
           </div>
           <h1 className="text-2xl font-bold text-[var(--text)]">{title}</h1>
           {description && (
