@@ -223,17 +223,26 @@ is a situation where a user and an agent are working together to solve a problem
         ```
       </Tab>
       <Tab value="Python">
-        ```python title="agent/src/agent.py"
-        from typing import Annotated, Dict
-        from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+        ```python title="main.py"
+        from __future__ import annotations
+        import os
+        import uvicorn
+        from agent_framework import Agent, tool, SupportsChatGetResponse
+        from agent_framework.openai import OpenAIChatClient
+        from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
         from agent_framework.ag_ui import AgentFrameworkAgent
+        from dotenv import load_dotenv
+        from fastapi import FastAPI
+        from typing import Annotated
         from pydantic import BaseModel, Field
+
+        load_dotenv()
 
         class SearchItem(BaseModel):
             query: str
             done: bool
-
-        STATE_SCHEMA: Dict[str, object] = {
+            
+        STATE_SCHEMA: dict[str, object] = {
             "searches": {
                 "type": "array",
                 "items": {
@@ -248,7 +257,6 @@ is a situation where a user and an agent are working together to solve a problem
                 "description": "List of searches and whether each is done.",
             }
         }
-
         PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
             "searches": {
                 "tool": "update_searches",
@@ -256,21 +264,33 @@ is a situation where a user and an agent are working together to solve a problem
             }
         }
 
-        @ai_function(
-            name="update_searches",
-            description=(
-                "Replace the entire list of searches with the provided values. "
-                "Always include the full list you want to keep. "
-                "Each search should include: { query: string, done: boolean }."
-            ),
-        )
+        @tool
         def update_searches(
             searches: Annotated[list[SearchItem], Field(description=("The complete source of truth for the user's searches. Maintain ordering and include the full list on each call."))],
         ) -> str:
             return f"Searches updated. Tracking {len(searches)} item(s)."
 
-        def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
-            base_agent = ChatAgent(
+
+        def _build_chat_client():
+            if os.getenv("AZURE_OPENAI_ENDPOINT"):
+                return OpenAIChatClient(
+                    model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                )
+            if os.getenv("OPENAI_API_KEY"):
+                return OpenAIChatClient(
+                    model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                )
+            raise RuntimeError(
+                "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
+            )
+
+
+
+        def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
+            base_agent = Agent(
                 name="search_agent",
                 instructions=(
                     "You help users create and run searches.\\n\\n"
@@ -280,7 +300,7 @@ is a situation where a user and an agent are working together to solve a problem
                     "- All searches in the list should have done=true unless explicitly in progress.\\n"
                     "- Never send partial updates—always include the full list on each call.\\n"
                 ),
-                chat_client=chat_client,
+                client=chat_client,
                 tools=[update_searches],
             )
 
@@ -292,6 +312,15 @@ is a situation where a user and an agent are working together to solve a problem
                 predict_state_config=PREDICT_STATE_CONFIG,
                 require_confirmation=False,
             )
+        chat_client = _build_chat_client()
+
+        agent = create_agent(chat_client)
+
+        app = FastAPI(title="Microsoft Agent Framework - Quickstart")
+        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+
+        if __name__ == "__main__":
+            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
         ```
       </Tab>
     </Tabs>
