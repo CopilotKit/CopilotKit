@@ -1,17 +1,21 @@
 // <FrameworkTabs> — tabbed view of the same region rendered against
 // multiple integration frameworks' cells.
 //
-// Usage:
-//     <FrameworkTabs
-//       frameworks={["langgraph-python", "mastra", "crewai-crews"]}
-//       cell="agentic-chat"
-//       region="provider-setup"
-//     />
+// Usage (MDX):
+//     <FrameworkTabs frameworks={["langgraph-python", "mastra", "crewai-crews"]}>
+//       <Snippet framework="langgraph-python" cell="agentic-chat" region="provider-setup" />
+//       <Snippet framework="mastra"           cell="agentic-chat" region="provider-setup" />
+//       <Snippet framework="crewai-crews"     cell="agentic-chat" region="provider-setup" />
+//     </FrameworkTabs>
 //
-// Each tab runs <Snippet framework=... cell=... region=...>. When a
-// framework is missing that region/cell the Snippet's built-in warning
-// box surfaces inline, so authors get a clear signal to tag the missing
-// region in the corresponding cell.
+// The authored MDX passes one server-rendered <Snippet> per framework
+// as children, in the same order as `frameworks`. Mapping is strictly
+// positional (`frameworks[i]` ↔ children[i]), so children counts must
+// match `frameworks.length`. When a framework is missing that region
+// the Snippet's built-in warning box surfaces inline, so authors still
+// get a clear signal to tag the missing region in the corresponding
+// cell (and, critically, Snippet emits a non-null element so the
+// positional mapping holds).
 //
 // FrameworkTabs is intentionally **client-side** (uses useState for the
 // active tab). The inner <Snippet> is a server component — Next.js will
@@ -21,21 +25,10 @@
 
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface FrameworkTabsProps {
   frameworks: string[];
-  /**
-   * `cell` and `region` are authored-facing props that describe WHICH
-   * snippet region each tab should surface. They are consumed by the
-   * parent MDX renderer (see `docs-render.inlineSnippets`), which
-   * pre-renders one <Snippet> per framework on the server and emits
-   * them as `children` here. This component itself does not read them
-   * at runtime — they are documented on the interface for MDX authors
-   * and tooling (typed <FrameworkTabs> usage in MDX) only.
-   */
-  cell?: string;
-  region?: string;
   /** Render an alternative label for each framework (e.g. pretty names). */
   labels?: Record<string, string>;
   /** Pre-rendered <Snippet> content, keyed by framework slug. Populated by
@@ -51,14 +44,45 @@ export function FrameworkTabs({
 }: FrameworkTabsProps) {
   const [active, setActive] = useState<string>(frameworks[0] ?? "");
 
-  // children should be an array of <div data-framework="..."> wrappers.
-  // We filter + render the active one. This keeps all snippets rendered
-  // on the server (good: syntax highlighting) and client only swaps.
+  // Re-sync active selection when `frameworks` changes after mount (e.g.
+  // MDX author swapped the framework list, or an HMR edit changed the
+  // set). useState only seeds its initial value once, so without this
+  // effect an active tab whose slug disappeared from the list would
+  // leave the tab highlight blank and every body render null. Mirror
+  // the sibling pattern in docs-tabs.tsx.
+  const frameworksKey = frameworks.join("|");
+  useEffect(() => {
+    if (!frameworks.includes(active)) {
+      setActive(frameworks[0] ?? "");
+    }
+    // frameworksKey intentionally used as a proxy for frameworks —
+    // avoids array identity churn every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [frameworksKey]);
+
+  // children should be an array of server-rendered <Snippet> wrappers,
+  // one per framework in `frameworks`. We filter + render the active one.
+  // This keeps all snippets rendered on the server (good: syntax
+  // highlighting) and client only swaps.
+  //
   // Filter to valid elements so MDX whitespace text nodes between
   // <Snippet> siblings don't shift the index→framework mapping below.
-  const wrapped = React.Children.toArray(children).filter(
-    React.isValidElement,
-  );
+  const wrapped = React.Children.toArray(children).filter(React.isValidElement);
+
+  // Count mismatch is a hard authoring error: mapping is strictly
+  // positional (`frameworks[i]` ↔ `wrapped[i]`), so a Snippet that
+  // rendered null (region missing for that framework) would shift every
+  // subsequent tab's content onto the wrong framework. Surface in dev
+  // and refuse to render misleading content in prod rather than silently
+  // display the wrong snippet.
+  const countMismatch = wrapped.length !== frameworks.length;
+  if (process.env.NODE_ENV !== "production" && countMismatch) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[framework-tabs] frameworks.length (${frameworks.length}) !== rendered children (${wrapped.length}). ` +
+        `Every framework must emit exactly one child; refusing to render to avoid misaligned tab bodies.`,
+    );
+  }
 
   const displayLabel = (slug: string) =>
     labels?.[slug] ??
@@ -116,11 +140,13 @@ export function FrameworkTabs({
         })}
       </div>
       <div>
-        {wrapped.map((child, i) => {
-          const fw = frameworks[i];
-          if (fw !== active) return null;
-          return <React.Fragment key={fw}>{child}</React.Fragment>;
-        })}
+        {countMismatch
+          ? null
+          : wrapped.map((child, i) => {
+              const fw = frameworks[i];
+              if (fw !== active) return null;
+              return <React.Fragment key={fw}>{child}</React.Fragment>;
+            })}
       </div>
     </div>
   );
