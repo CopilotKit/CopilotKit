@@ -85,18 +85,26 @@ export function escapeHtml(s: string): string {
 //
 // Memory footprint: titles are tiny strings, meta is a small JSON
 // object — negligible even with hundreds of docs files.
+//
+// Dev caveat: the cache would prevent MDX title / meta.json edits from
+// showing up without a server restart. We skip the cache when
+// NODE_ENV !== "production" so `next dev` picks up edits on the next
+// page reload, matching the convention in reference-items.ts.
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
   { title?: string; pages?: string[]; root?: boolean } | null
 >();
+function isProd(): boolean {
+  return process.env.NODE_ENV === "production";
+}
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
-  if (titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
+  if (isProd() && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
 
   if (!fs.existsSync(filePath)) {
-    titleCache.set(cacheKey, null);
+    if (isProd()) titleCache.set(cacheKey, null);
     return null;
   }
   let raw: string;
@@ -107,7 +115,7 @@ export function readTitle(filePath: string): string | null {
     // page render. Log loudly and cache a null so we don't retry on
     // every nav build in the same process.
     console.error("[docs-render] failed to read", filePath, err);
-    titleCache.set(cacheKey, null);
+    if (isProd()) titleCache.set(cacheKey, null);
     return null;
   }
   // Restrict frontmatter matches to the frontmatter block so we don't
@@ -123,7 +131,7 @@ export function readTitle(filePath: string): string | null {
     const headingMatch = raw.match(/^#\s+(.+)$/m);
     if (headingMatch) title = headingMatch[1];
   }
-  titleCache.set(cacheKey, title);
+  if (isProd()) titleCache.set(cacheKey, title);
   return title;
 }
 
@@ -132,15 +140,15 @@ export function readMeta(
 ): { title?: string; pages?: string[]; root?: boolean } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
-  if (metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
+  if (isProd() && metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
 
   if (!fs.existsSync(metaPath)) {
-    metaCache.set(cacheKey, null);
+    if (isProd()) metaCache.set(cacheKey, null);
     return null;
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-    metaCache.set(cacheKey, parsed);
+    if (isProd()) metaCache.set(cacheKey, parsed);
     return parsed;
   } catch (err) {
     // Previously swallowed silently — a malformed meta.json rendered
@@ -148,7 +156,7 @@ export function readMeta(
     // see the offending path and parse error. Cache the null so we
     // don't re-parse a bad file on every call.
     console.error("[docs-render] failed to parse", metaPath, err);
-    metaCache.set(cacheKey, null);
+    if (isProd()) metaCache.set(cacheKey, null);
     return null;
   }
 }
@@ -439,6 +447,18 @@ export function inlineSnippets(
 ): string {
   let result = stripLeadingImports(content);
 
+  // This regex is intentionally strict: it only matches self-closing JSX
+  // tags with an optional `components={...}` attribute, e.g.
+  //   <FrontendTools />
+  //   <SharedContent components={{ ... }} />
+  //
+  // Anything else — tags with other props (`<Snippet region="x" />`),
+  // non-self-closing tags, or tags wrapping children — is deliberately
+  // skipped here and handed off to the MDX component map (see
+  // `docsComponents` in mdx-registry.tsx). The split keeps the two
+  // systems non-overlapping: SNIPPET_MAP files get inlined as raw MDX
+  // (their imports and headings are preserved), while component-map
+  // entries render as React components with full prop handling.
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
     (match, componentName) => {

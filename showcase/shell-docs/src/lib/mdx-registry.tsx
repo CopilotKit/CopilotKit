@@ -66,6 +66,57 @@ function warnSilentNull(component: string, reason: string): void {
   console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
 }
 
+// Validate a user-supplied URL string destined for an <iframe src>. Only
+// https:// URLs are accepted — http is too easy to mix-content-block, and
+// `javascript:` / `data:` are an XSS surface even inside a sandboxed
+// iframe (some engines still evaluate scripts in the parent for javascript:
+// schemes). Returns null when the URL is malformed or non-https, and warns
+// in dev so authors notice their embed silently vanished.
+function validateIframeSrc(
+  component: string,
+  src: string | undefined,
+): string | null {
+  if (!src) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(src);
+  } catch {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[mdx-registry] <${component}> src is not a valid URL — skipping embed.`,
+        { src },
+      );
+    }
+    return null;
+  }
+  if (parsed.protocol !== "https:") {
+    if (process.env.NODE_ENV !== "production") {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[mdx-registry] <${component}> src protocol "${parsed.protocol}" is not allowed (expected https:) — skipping embed.`,
+        { src },
+      );
+    }
+    return null;
+  }
+  return parsed.toString();
+}
+
+// Detect links that should NOT go through next/link's client-side router.
+// next/link is only meaningful for same-origin in-app navigation; using it
+// for external URLs (or non-http schemes like mailto:/tel:) either fires a
+// spurious prefetch or fails outright. Internal href forms (`/foo`, `#id`,
+// `?q=`) are safe for next/link.
+function isExternalHref(href: string): boolean {
+  if (!href) return false;
+  if (href.startsWith("/") || href.startsWith("#") || href.startsWith("?"))
+    return false;
+  // Any URL with a scheme that isn't a relative path → treat as external.
+  // Covers https://..., http://..., mailto:..., tel:..., ftp:..., etc.
+  return /^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(href);
+}
+
 export const docsComponents = {
   Callout,
   Cards,
@@ -303,8 +354,10 @@ export const docsComponents = {
     children?: React.ReactNode;
     src?: string;
     title?: string;
-  }) =>
-    src ? (
+  }) => {
+    const safeSrc = validateIframeSrc("IframeSwitcher", src);
+    if (!safeSrc) return <div>{children}</div>;
+    return (
       <div
         style={{
           border: "1px solid var(--border)",
@@ -314,16 +367,15 @@ export const docsComponents = {
         }}
       >
         <iframe
-          src={src}
+          src={safeSrc}
           title={title || "Embedded content"}
           style={{ width: "100%", height: "400px", border: "none" }}
           sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           loading="lazy"
         />
       </div>
-    ) : (
-      <div>{children}</div>
-    ),
+    );
+  },
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -426,8 +478,26 @@ export const docsComponents = {
   ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) =>
-    id ? (
+  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) => {
+    // YouTube video IDs are 11 chars of [A-Za-z0-9_-]. Accept only that
+    // shape — anything else either traversal-injects query params into
+    // the embed URL or points at some non-YouTube origin.
+    if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) {
+      if (id && process.env.NODE_ENV !== "production") {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[mdx-registry] <YouTubeVideo> invalid id — skipping embed.",
+          { id },
+        );
+      }
+      return null;
+    }
+    const src = validateIframeSrc(
+      "YouTubeVideo",
+      `https://www.youtube.com/embed/${id}`,
+    );
+    if (!src) return null;
+    return (
       <div
         style={{
           position: "relative",
@@ -436,7 +506,7 @@ export const docsComponents = {
         }}
       >
         <iframe
-          src={`https://www.youtube.com/embed/${id}`}
+          src={src}
           title={title || "YouTube video"}
           style={{
             position: "absolute",
@@ -452,7 +522,8 @@ export const docsComponents = {
           allowFullScreen
         />
       </div>
-    ) : null,
+    );
+  },
   CTACards: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -669,17 +740,36 @@ export const docsComponents = {
     children?: React.ReactNode;
     href?: string;
     [key: string]: unknown;
-  }) =>
-    href ? (
-      // Route internal MDX <Link> through next/link so navigation is
-      // client-side (prior impl rendered a plain <a>, triggering a full
-      // page reload on every internal link).
+  }) => {
+    if (!href) {
+      return <a {...(rest as Record<string, unknown>)}>{children}</a>;
+    }
+    // External hrefs (https://..., mailto:..., etc.) must NOT use next/link —
+    // next/link is client-router-only and spuriously prefetches external
+    // URLs. Internal forms (`/foo`, `#id`, `?q=`) route through next/link for
+    // client-side navigation. Add rel/target on external links so they don't
+    // leak the opener reference + open in a new tab by default.
+    if (isExternalHref(href)) {
+      const extraProps = rest as Record<string, unknown>;
+      // Put the spread first so caller-supplied target/rel win; fall back
+      // to safe defaults (_blank + noopener noreferrer) only when absent.
+      return (
+        <a
+          {...extraProps}
+          href={href}
+          target={(extraProps.target as string) ?? "_blank"}
+          rel={(extraProps.rel as string) ?? "noopener noreferrer"}
+        >
+          {children}
+        </a>
+      );
+    }
+    return (
       <Link href={href} {...(rest as Record<string, unknown>)}>
         {children}
       </Link>
-    ) : (
-      <a {...(rest as Record<string, unknown>)}>{children}</a>
-    ),
+    );
+  },
   Code: ({ children }: { children?: React.ReactNode }) => (
     <code>{children}</code>
   ),
@@ -782,12 +872,11 @@ export const docsComponents = {
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Tooltip: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipProvider: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  // Radix-style <Tooltip content=... label=...> props would be silently
+  // dropped by a plain children-only shim. Route through stub() so dev-mode
+  // gets a one-shot warning listing the discarded prop names.
+  Tooltip: stub("Tooltip"),
+  TooltipProvider: stub("TooltipProvider"),
   Markdown: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

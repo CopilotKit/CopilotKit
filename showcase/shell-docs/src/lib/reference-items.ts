@@ -100,8 +100,25 @@ function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
   return items;
 }
 
-// In-memory cache — keyed by subdir, rebuilt once per process in prod. In
-// dev we skip the cache so MDX edits show up without a server restart.
+/**
+ * In-memory reference-item cache. Populated lazily on first access per
+ * subdir and never invalidated for the life of the Node process.
+ *
+ * Lifecycle assumptions:
+ *   - Production: a single `next start` boot caches once and serves cached
+ *     items until the process exits. Next.js redeploys spin up a new
+ *     process, so a fresh cache is a natural boundary — same as the
+ *     title/meta caches in docs-render.tsx.
+ *   - Dev: `isProd()` returns false, so both the read and write paths
+ *     skip the cache and every render reopens the MDX files. This is the
+ *     only way MDX edits show up without a server restart.
+ *
+ * Fragility note: a deployment that uses ISR / on-demand revalidation
+ * against this module would serve stale items forever because nothing
+ * clears the map. If we ever add ISR to /reference routes, refactor this
+ * to key on mtime or add an explicit invalidation hook. For the current
+ * `next start` deployment, the one-shot cache is correct.
+ */
 const __itemsCache = new Map<ReferenceSubdir, ReferenceItem[]>();
 function isProd(): boolean {
   return process.env.NODE_ENV === "production";
