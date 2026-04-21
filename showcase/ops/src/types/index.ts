@@ -152,6 +152,12 @@ export interface TriggerFlags {
   // (invariant probes surface pure-errored ticks as state:"red" with no
   // unwired set). See alert-engine.deriveSignalFlags.
   set_errored: boolean;
+  // gate_skipped: derived from `signal.gateSkipped === true`. The showcase
+  // deploy workflow posts a gate-skipped payload (lockfile/detect-changes
+  // gate blocked the build matrix before any deploys) that resolves to
+  // state:"green" / failedCount:0 — without a derived signal flag no
+  // trigger matches and the tick is silently dropped. See HF13-E1.
+  gate_skipped: boolean;
   isRedTick: boolean;
 }
 
@@ -177,6 +183,7 @@ export function emptyTriggerFlags(): TriggerFlags {
     improved: false,
     set_drifted: false,
     set_errored: false,
+    gate_skipped: false,
     isRedTick: false,
   };
 }

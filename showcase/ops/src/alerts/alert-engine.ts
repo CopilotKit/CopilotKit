@@ -856,6 +856,14 @@ function deriveSignalFlags(
   )
     flags.set_errored = true;
 
+  // HF13-E1: gate_skipped — fires when the deploy workflow's lockfile /
+  // detect-changes gate blocked the build matrix before any service ran.
+  // The probe resolves this payload to state:"green" / failedCount:0, so
+  // no state-machine transition (green_to_red / red_to_green) fires and
+  // without this flag the rule silently drops the tick. See the
+  // deploy-result.yml gate-skipped template branch.
+  if (s.gateSkipped === true) flags.gate_skipped = true;
+
   return flags;
 }
 

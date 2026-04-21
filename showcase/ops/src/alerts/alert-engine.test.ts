@@ -1302,6 +1302,93 @@ describe("alert-engine (additional behaviors)", () => {
     );
   });
 
+  // HF13-E1: deriveSignalFlags must emit `gate_skipped` when
+  // `signal.gateSkipped === true`. The showcase_deploy.yml notify-ops step
+  // posts a `gateSkipped: true` payload when the lockfile/detect-changes
+  // gate blocks the build matrix before any service deploys; the probe
+  // resolves that to state:"green" / failedCount:0, so no state-machine
+  // transition fires. Without this derived flag the tick is silently
+  // dropped and operators never see the gate. Red-green verification:
+  // reverting any of the three source changes (schema enum, TriggerFlags,
+  // deriveSignalFlags emit) makes this assertion fail.
+  it("HF13-E1: gate_skipped fires on signal.gateSkipped=true with green state", async () => {
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "deploy-result",
+        signal: { dimension: "deploy", filter: { key: "overall" } },
+        stringTriggers: ["green_to_red", "red_to_green", "gate_skipped"],
+        template: {
+          text: "{{#trigger.gate_skipped}}GATED{{/trigger.gate_skipped}}",
+        },
+      }),
+    ]);
+    // Gate-skipped payload resolves to state:"green", no transition that
+    // the rule's state triggers match. Only the signal-derived flag path
+    // can cause dispatch.
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "green",
+        transition: "first",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "deploy:overall",
+        state: "green",
+        signal: {
+          gateSkipped: true,
+          failedCount: 0,
+          succeededCount: 0,
+          totalCount: 0,
+        },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    expect((tgt.sent[0] as { payload: { text: string } }).payload.text).toBe(
+      "GATED",
+    );
+  });
+
+  // HF13-E1: neighboring assertion — a deploy-result payload WITHOUT
+  // gateSkipped must not inadvertently light up gate_skipped (prototype
+  // walk / bag leak regression guard).
+  it("HF13-E1: gate_skipped does NOT fire when signal.gateSkipped absent", async () => {
+    const e = engine();
+    e.start();
+    e.reload([
+      baseRule({
+        id: "deploy-result",
+        signal: { dimension: "deploy", filter: { key: "overall" } },
+        stringTriggers: ["gate_skipped"],
+        template: {
+          text: "{{#trigger.gate_skipped}}GATED{{/trigger.gate_skipped}}",
+        },
+      }),
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "green",
+        transition: "first",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "deploy:overall",
+        state: "green",
+        signal: { failedCount: 0, succeededCount: 3, totalCount: 3 },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(0);
+  });
+
   it("buildContext threads runUrl / runId / jobUrl from signal to event.*", async () => {
     const e = engine();
     e.start();

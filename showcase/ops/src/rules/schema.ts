@@ -22,6 +22,15 @@ export const StringTriggerEnum = z.enum([
   // rule silently collapses onto the bare state-machine transition and the
   // "errored services" block in the template never renders.
   "set_errored",
+  // gate_skipped: HF13-E1 coord. The showcase_deploy.yml notify-ops step
+  // posts a `gateSkipped: true` payload when the lockfile/detect-changes
+  // gate blocks the build matrix before any service deploys. That payload
+  // resolves to state="green" (failedCount=0) in the deploy-result probe,
+  // so no state-machine transition fires and the rule would silently drop
+  // the tick. This flag is derived from `signal.gateSkipped === true` in
+  // deriveSignalFlags so the deploy-result rule can declare it alongside
+  // green_to_red/red_to_green and the gate-skipped template branch renders.
+  "gate_skipped",
 ]);
 
 export const CronOnlyTrigger = z.object({

@@ -7,36 +7,18 @@ signal:
   filter:
     key: overall
 
-# HF13-E1 coordination:
-#
-# A `gateSkipped: true` payload (see showcase_deploy.yml notify-ops step —
-# fires when the lockfile/detect-changes gate blocks the build matrix
-# before any service deploys) currently resolves to state="green" in
-# `src/probes/deploy-result.ts` (failedCount=0, succeededCount=0,
-# cancelled=false). Because no transition fires on first-observation green
-# and no signal-derived flag is emitted for gateSkipped, NO trigger
-# matches and the alert is silently dropped — operators never see that a
-# build was gated off. The `{{#signal.gateSkipped}}` branch below is the
-# template-side of the fix; the cross-cluster other halves are:
-#
-#   TODO(cluster C, src/probes/deploy-result.ts): when `event.gateSkipped
-#     === true` AND failedCount === 0, set `state = "degraded"` (or leave
-#     green but emit a `gate_skipped` signal flag) so a transition +
-#     trigger becomes observable.
-#   TODO(cluster A, src/alerts/alert-engine.ts deriveSignalFlags): emit
-#     `gate_skipped: true` when `signal.gateSkipped === true`.
-#   TODO(cluster A, src/rules/schema.ts StringTriggerEnum): add
-#     `gate_skipped` to the enum so this YAML can declare it.
-#
-# Until those land, the gate-skipped branch below only renders when some
-# OTHER trigger already fires on a gate-skipped payload (e.g. a prior
-# deploy left state red — `red_to_green` fires, and the branch surfaces
-# the gate alongside the recovery message). The gate-skipped-from-green
-# case stays silent — see coordination items above.
+# HF13-E1: `gate_skipped` fires when the showcase_deploy.yml
+# lockfile/detect-changes gate blocks the build matrix before any service
+# deploys. The probe resolves that payload to state="green" / failedCount=0,
+# so no state-machine transition matches. `deriveSignalFlags` in
+# alert-engine.ts lifts `signal.gateSkipped === true` into a derived
+# trigger flag so this rule observes the event and renders the gate-skipped
+# template branch below.
 triggers:
   - green_to_red
   - red_to_green
   - cancelled_midmatrix
+  - gate_skipped
 
 targets:
   - kind: slack_webhook
