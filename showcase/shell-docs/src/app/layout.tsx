@@ -55,12 +55,13 @@ export default function RootLayout({
     .map((i) => i.slug)
     .filter((slug) => {
       if (reserved.has(slug)) {
-        if (process.env.NODE_ENV !== "production") {
-          // eslint-disable-next-line no-console
-          console.error(
-            `[layout] integration slug "${slug}" collides with a reserved top-level route and was dropped from knownFrameworks. Rename the integration slug or update RESERVED_ROUTE_SLUGS.`,
-          );
-        }
+        // Always log — a registry integration slug colliding with a
+        // reserved top-level route is a hard wiring bug that production
+        // operators need to see in logs, not a dev-only warning.
+        // eslint-disable-next-line no-console
+        console.error(
+          `[layout] integration slug "${slug}" collides with a reserved top-level route and was dropped from knownFrameworks. Rename the integration slug or update RESERVED_ROUTE_SLUGS.`,
+        );
         return false;
       }
       return true;
