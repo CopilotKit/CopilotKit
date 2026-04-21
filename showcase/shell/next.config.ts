@@ -27,13 +27,41 @@ function localBackendsEnv(): string {
 // sync between next.config.ts and the docs shell's ownership list.
 function frameworkSlugs(): string[] {
   const registryPath = path.resolve(__dirname, "src", "data", "registry.json");
-  if (!fs.existsSync(registryPath)) return [];
+  if (!fs.existsSync(registryPath)) {
+    // In production the registry is a required build-time artifact; missing
+    // it means our redirect table is wrong. Fail loud so the deploy stops
+    // rather than silently shipping a site where /<slug> 404s. In dev the
+    // file may legitimately not exist yet (e.g. before generate-registry.ts
+    // has run) so we stay quiet — returning [] matches dev-server behavior.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        `[next.config] registry.json missing at ${registryPath} — ` +
+          `framework redirects cannot be built. Run generate-registry.ts before building.`,
+      );
+    }
+    return [];
+  }
   try {
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8")) as {
       integrations?: { slug: string }[];
     };
     return (registry.integrations ?? []).map((i) => i.slug);
-  } catch {
+  } catch (err) {
+    // Corrupt registry: in production, rip the cord — every /<slug> redirect
+    // would vanish and we'd silently serve 404s for every framework route.
+    // In dev, log and keep going so the dev loop isn't fatally broken by a
+    // transient mid-write or bad hand edit.
+    const message = (err as Error).message;
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        `[next.config] registry.json at ${registryPath} is unparseable: ${message}. ` +
+          `Refusing to build with missing framework redirects.`,
+      );
+    }
+    console.warn(
+      `[next.config] registry.json at ${registryPath} is unparseable: ${message}. ` +
+        `Framework redirects will be empty until fixed.`,
+    );
     return [];
   }
 }
