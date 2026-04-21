@@ -23,7 +23,6 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 //    container start) are NOT injected at build time. Throwing at module
 //    load would abort otherwise-valid production builds.
 if (!process.env.LANGGRAPH_DEPLOYMENT_URL && process.env.NODE_ENV !== "production") {
-  // eslint-disable-next-line no-console
   console.warn(
     "[copilotkit/route] LANGGRAPH_DEPLOYMENT_URL is not set; falling back to http://localhost:8125. Set LANGGRAPH_DEPLOYMENT_URL in production.",
   );
@@ -33,9 +32,9 @@ if (!process.env.LANGGRAPH_DEPLOYMENT_URL && process.env.NODE_ENV !== "productio
 // surfaces in logs. When absent we omit the langsmithApiKey field
 // entirely rather than passing "" — omitting the field disables
 // LangSmith tracing cleanly; passing an empty string may be forwarded
-// to the SDK.
-if (!process.env.LANGSMITH_API_KEY) {
-  // eslint-disable-next-line no-console
+// to the SDK. Gate the warn on NODE_ENV so it does not fire during
+// `next build` in CI (same rationale as the DEPLOYMENT_URL warn above).
+if (!process.env.LANGSMITH_API_KEY && process.env.NODE_ENV !== "production") {
   console.warn(
     "[copilotkit/route] LANGSMITH_API_KEY is not set; LangSmith tracing is disabled for this session.",
   );
@@ -47,8 +46,12 @@ if (!process.env.LANGSMITH_API_KEY) {
 //    without runtime env vars) does not bake the fallback localhost URL
 //    into the compiled artifact. The cached closure keeps per-request
 //    overhead at the same single-allocation cost as the eager form.
+// Matches the signature returned by copilotRuntimeNextJSAppRouterEndpoint:
+// `(req: Request) => Response | Promise<Response>`. NextRequest extends
+// Request, so the POST handler below can still pass its req through
+// without an explicit cast.
 let cachedHandleRequest:
-  | ((req: NextRequest) => Promise<Response>)
+  | ((req: Request) => Response | Promise<Response>)
   | null = null;
 
 const getHandleRequest = () => {
@@ -100,17 +103,36 @@ const getHandleRequest = () => {
 //    and log the failure for observability. Errors inside the streaming
 //    response are handled by the runtime itself.
 export const POST = async (req: NextRequest) => {
+  // Redact `detail` in production: raw error messages can leak
+  // internals (stack-adjacent strings, paths, env-var names). Keep
+  // the full detail in non-production builds so developers see the
+  // real cause locally.
+  const isProd = process.env.NODE_ENV === "production";
+
+  // Split construction vs dispatch into two try/catch regions so
+  // logs distinguish runtime-construction failures (bad config / env)
+  // from dispatch failures inside handleRequest. Response shape is
+  // unchanged between the two.
+  let handleRequest: (req: Request) => Response | Promise<Response>;
   try {
-    const handleRequest = getHandleRequest();
+    handleRequest = getHandleRequest();
+  } catch (err) {
+    console.error("[copilotkit/route] runtime construction failed:", err);
+    return NextResponse.json(
+      {
+        error: "Internal error while dispatching CopilotKit request.",
+        ...(isProd
+          ? {}
+          : { detail: err instanceof Error ? err.message : String(err) }),
+      },
+      { status: 500 },
+    );
+  }
+
+  try {
     return await handleRequest(req);
   } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("[copilotkit/route] handleRequest failed:", err);
-    // Redact `detail` in production: raw error messages can leak
-    // internals (stack-adjacent strings, paths, env-var names). Keep
-    // the full detail in non-production builds so developers see the
-    // real cause locally.
-    const isProd = process.env.NODE_ENV === "production";
+    console.error("[copilotkit/route] handleRequest dispatch failed:", err);
     return NextResponse.json(
       {
         error: "Internal error while dispatching CopilotKit request.",

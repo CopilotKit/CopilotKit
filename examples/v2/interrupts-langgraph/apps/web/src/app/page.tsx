@@ -9,26 +9,30 @@ export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
-    name: "setThemeColor",
-    description: "Set the theme color of the page.",
-    parameters: [
-      {
-        name: "themeColor",
-        type: "string",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
+  useCopilotAction(
+    {
+      name: "setThemeColor",
+      description: "Set the theme color of the page.",
+      parameters: [
+        {
+          name: "themeColor",
+          type: "string",
+          description:
+            "The theme color to set. Make sure to pick nice colors.",
+          required: true,
+        },
+      ],
+      handler({ themeColor }) {
+        // Defensive guard: during streaming, the LLM may invoke the handler
+        // before the `themeColor` arg has fully arrived. Skipping the update
+        // here avoids writing `undefined` into the CSS custom property, which
+        // would collapse the --copilot-kit-primary-color variable.
+        if (typeof themeColor !== "string" || themeColor.length === 0) return;
+        setThemeColor(themeColor);
       },
-    ],
-    handler({ themeColor }) {
-      // Defensive guard: during streaming, the LLM may invoke the handler
-      // before the `themeColor` arg has fully arrived. Skipping the update
-      // here avoids writing `undefined` into the CSS custom property, which
-      // would collapse the --copilot-kit-primary-color variable.
-      if (typeof themeColor !== "string" || themeColor.length === 0) return;
-      setThemeColor(themeColor);
     },
-  });
+    [setThemeColor],
+  );
 
   // 🪁 Interrupts: Handle human-in-the-loop confirmations from the agent
   // https://docs.copilotkit.ai/coagents/human-in-the-loop (useInterrupt)
@@ -42,17 +46,19 @@ export default function CopilotKitPage() {
   // as Record<InterruptPayload["action"], string>.
   useInterrupt({
     render: ({ event, resolve }) => {
-      const payload = parseInterruptPayload(event.value);
-      if (payload === null) {
+      const parsed = parseInterruptPayload(event.value);
+      if (!parsed.ok) {
         // Unknown/malformed payload shape. Surface a generic fallback
         // rather than crashing on an unchecked cast. Resolving with a
         // cancellation unblocks the agent in case the user dismisses it.
-        // Log the raw payload so developers can diagnose schema drift
-        // from the agent side — the UI shows "unknown" without this,
-        // which is useless for debugging.
-        // eslint-disable-next-line no-console
+        // Log the reason + raw payload so developers can diagnose
+        // schema drift from the agent side — the UI shows "unknown"
+        // without this, which is useless for debugging. The parser
+        // itself does not log, so this is the single log line for
+        // the whole failure path.
         console.error(
           "[interrupts-langgraph] Unknown interrupt payload shape:",
+          parsed.reason,
           event.value,
         );
         return (
@@ -72,6 +78,7 @@ export default function CopilotKitPage() {
       }
 
       // Resolve the button label for this action.
+      const payload = parsed.value;
       const approveLabel = APPROVE_LABELS[payload.action];
 
       return (
@@ -144,48 +151,35 @@ const APPROVE_LABELS: Record<InterruptPayload["action"], string> = {
   delete_proverb: "Yes, delete it",
 };
 
-function parseInterruptPayload(value: unknown): InterruptPayload | null {
-  // Emit a specific reason string for the first failed predicate so
-  // debugging agent-side schema drift doesn't require manually diffing
-  // the raw value against this type. The reason strings here are
-  // stable and surfaced by the renderer's console.error below.
+// Result type surfaces the first failed predicate as a stable reason
+// string so the caller can log a single message containing both the
+// reason and the raw value. The parser itself does no logging — the
+// renderer owns the single log line (avoids the prior double-log).
+type ParseResult =
+  | { ok: true; value: InterruptPayload }
+  | { ok: false; reason: string };
+
+function parseInterruptPayload(value: unknown): ParseResult {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[interrupts-langgraph] parseInterruptPayload failed:",
-      "payload is not object",
-    );
-    return null;
+    return { ok: false, reason: "payload is not object" };
   }
   const v = value as Record<string, unknown>;
   if (v.action !== "delete_proverb") {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[interrupts-langgraph] parseInterruptPayload failed:",
-      "action mismatch",
-    );
-    return null;
+    return { ok: false, reason: "action mismatch" };
   }
   if (typeof v.proverb !== "string") {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[interrupts-langgraph] parseInterruptPayload failed:",
-      "proverb not string",
-    );
-    return null;
+    return { ok: false, reason: "proverb not string" };
   }
   if (typeof v.message !== "string") {
-    // eslint-disable-next-line no-console
-    console.error(
-      "[interrupts-langgraph] parseInterruptPayload failed:",
-      "message not string",
-    );
-    return null;
+    return { ok: false, reason: "message not string" };
   }
   return {
-    action: "delete_proverb",
-    proverb: v.proverb,
-    message: v.message,
+    ok: true,
+    value: {
+      action: "delete_proverb",
+      proverb: v.proverb,
+      message: v.message,
+    },
   };
 }
 
@@ -258,15 +252,20 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   // examples/showcases/scene-creator/src/app/page.tsx for the same
   // pattern). Setting `"enabled"` here would register a FRONTEND handler
   // of the same name and collide with the backend tool.
-  useCopilotAction({
-    name: "getWeather",
-    description: "Get the weather for a given location.",
-    available: "disabled",
-    parameters: [{ name: "location", type: "string", required: true }],
-    render: ({ args }) => {
-      return <WeatherCard location={args.location} themeColor={themeColor} />;
+  useCopilotAction(
+    {
+      name: "getWeather",
+      description: "Get the weather for a given location.",
+      available: "disabled",
+      parameters: [{ name: "location", type: "string", required: true }],
+      render: ({ args }) => {
+        return (
+          <WeatherCard location={args.location} themeColor={themeColor} />
+        );
+      },
     },
-  });
+    [themeColor],
+  );
 
   return (
     <div
