@@ -447,6 +447,18 @@ export function inlineSnippets(
 ): string {
   let result = stripLeadingImports(content);
 
+  // This regex is intentionally strict: it only matches self-closing JSX
+  // tags with an optional `components={...}` attribute, e.g.
+  //   <FrontendTools />
+  //   <SharedContent components={{ ... }} />
+  //
+  // Anything else — tags with other props (`<Snippet region="x" />`),
+  // non-self-closing tags, or tags wrapping children — is deliberately
+  // skipped here and handed off to the MDX component map (see
+  // `docsComponents` in mdx-registry.tsx). The split keeps the two
+  // systems non-overlapping: SNIPPET_MAP files get inlined as raw MDX
+  // (their imports and headings are preserved), while component-map
+  // entries render as React components with full prop handling.
   result = result.replace(
     /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
     (match, componentName) => {
