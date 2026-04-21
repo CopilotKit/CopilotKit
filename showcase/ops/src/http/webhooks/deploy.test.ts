@@ -148,7 +148,7 @@ describe("POST /webhooks/deploy", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects payload missing required fields with 400", async () => {
+  it("rejects payload missing required fields with 400 including zod-flatten detail", async () => {
     const body = JSON.stringify({ runId: "1" });
     const canonical = canonicalPayload("POST", PATH, String(NOW), body);
     const sig = computeSignature(SECRET, canonical);
@@ -162,6 +162,15 @@ describe("POST /webhooks/deploy", () => {
       body,
     });
     expect(res.status).toBe(400);
+    const parsed = (await res.json()) as {
+      reason: string;
+      errors?: { fieldErrors?: Record<string, string[]> };
+    };
+    expect(parsed.reason).toBe("invalid-payload");
+    // Flatten includes field-level issues so a signer can self-diagnose
+    // without reading the ops service log.
+    expect(parsed.errors).toBeDefined();
+    expect(parsed.errors!.fieldErrors).toBeDefined();
   });
 
   it("rejects a javascript: runUrl scheme with 400", async () => {
@@ -278,7 +287,7 @@ describe("POST /webhooks/deploy — webhook_rejections metric wiring", () => {
     );
   });
 
-  it("increments webhook_rejections on missing headers", async () => {
+  it("increments webhook_rejections on missing signature (split-reason: missing-signature)", async () => {
     const app = new Hono();
     const bus = createEventBus();
     const metrics = createMetricsRegistry();
@@ -308,10 +317,12 @@ describe("POST /webhooks/deploy — webhook_rejections metric wiring", () => {
     expect(res.status).toBe(401);
     const text = renderPrometheus(metrics);
     expect(text).toMatch(
-      /showcase_ops_webhook_rejections\{reason="missing-headers"\}\s+1/,
+      /showcase_ops_webhook_rejections\{reason="missing-signature"\}\s+1/,
     );
+    // Deprecated alias still populated for HMAC-category reasons —
+    // `missing-signature` is in HMAC_REASONS.
     expect(text).toMatch(
-      /showcase_ops_hmac_failures\{reason="missing-headers"\}\s+1/,
+      /showcase_ops_hmac_failures\{reason="missing-signature"\}\s+1/,
     );
   });
 
@@ -443,8 +454,11 @@ describe("POST /webhooks/deploy — idempotency", () => {
     const { headers, body } = signed(payload);
     const first = await app.request(PATH, { method: "POST", headers, body });
     expect(first.status).toBe(202);
-    // Re-sign with a fresh timestamp so HMAC succeeds again; the dedupe
-    // path runs after signature verification.
+    // Identical payload + identical NOW means the signature is identical
+    // too — we're exercising the dedupe path, which runs AFTER signature
+    // verification and keys on runId rather than anything timestamp-
+    // dependent. (Previous comment here claimed "re-sign with a fresh
+    // timestamp"; that was misleading since the test reuses NOW.)
     const second = signed(payload);
     const res = await app.request(PATH, {
       method: "POST",
@@ -499,6 +513,59 @@ describe("POST /webhooks/deploy — idempotency", () => {
       expect(res.status).toBe(202);
     }
     expect(seen).toHaveLength(3);
+  });
+
+  it("touch-on-read: frequently-seen runId survives eviction pressure", async () => {
+    // Regression: the dedupe cache comment claimed "re-seeing refreshes LRU"
+    // but the prior implementation only touched on `record()` (first-seen),
+    // so a hot id would get evicted just like a cold one. We now touch on
+    // read too — exercise it by filling past capacity and confirming the
+    // hot id still deduplicates.
+    const app = new Hono();
+    const bus = createEventBus();
+    const seen: DeployResultEvent[] = [];
+    bus.on("deploy.result", (e) => seen.push(e));
+    registerDeployWebhook(app, {
+      bus,
+      logger,
+      secrets: [SECRET],
+      nowSec: () => NOW,
+      dedupeSize: 3,
+    });
+    async function post(runId: string): Promise<number> {
+      const body = JSON.stringify({
+        runId,
+        services: [],
+        failed: [],
+        succeeded: [],
+        cancelled: false,
+      });
+      const { headers, body: b } = signed(body);
+      const res = await app.request(PATH, {
+        method: "POST",
+        headers,
+        body: b,
+      });
+      return res.status;
+    }
+    // Insert "hot" then fill the cache with cold ids, re-reading "hot"
+    // each round so touch-on-read moves it to the tail.
+    expect(await post("hot")).toBe(202);
+    for (const cold of ["c1", "c2"]) {
+      expect(await post(cold)).toBe(202);
+      // Re-post "hot" as a duplicate — should be dedup'd (200) AND re-
+      // promoted by touch-on-read.
+      expect(await post("hot")).toBe(200);
+    }
+    // Add enough cold ids to overflow cap — hot must still be dedup'd.
+    expect(await post("c3")).toBe(202);
+    expect(await post("c4")).toBe(202);
+    // If hot had been evicted, this would re-emit (202). With touch-on-
+    // read + eviction victim being the least-recent non-hot id, hot
+    // remains and we get 200.
+    expect(await post("hot")).toBe(200);
+    // Hot emitted once total.
+    expect(seen.filter((e) => e.runId === "hot")).toHaveLength(1);
   });
 });
 

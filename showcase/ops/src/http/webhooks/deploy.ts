@@ -29,7 +29,9 @@ export interface DeployWebhookDeps {
   webhookPath?: string;
   /**
    * Max number of recently-processed runIds remembered for idempotency.
-   * Defaults to 100. Set to 0 to disable dedupe entirely.
+   * Defaults to 500 (raised from 100 to absorb 17-service × 2-retry ×
+   * burst-day traffic without LRU churn). Set to 0 to disable dedupe
+   * entirely.
    */
   dedupeSize?: number;
 }
@@ -67,12 +69,20 @@ const deployPayloadSchema = z
  * unique id; this naturally tolerates the common "signer retry" path
  * without any coordination with the sender.
  *
- * Bounded to 100 entries by default so the process footprint stays
- * flat under sustained traffic. On overflow we evict the oldest-seen
- * entry (insertion-order) — acceptable since retries always follow the
- * first accepted POST within seconds.
+ * Bounded to 500 entries by default so the process footprint stays flat
+ * under sustained traffic while comfortably absorbing a day of bursts:
+ * 17 services × 2 retries × daily deploys leaves ample headroom. On
+ * overflow we evict the oldest-seen entry (insertion-order) and log at
+ * warn — if evictions start appearing, raise the cap or back with PB.
+ *
+ * `record` also touches on re-insert so repeatedly-seen ids stay warm
+ * (keeps the LRU semantics described in the class name honest — the
+ * previous implementation only ever inserted on first-seen).
  */
-function createRunIdDedupe(capacity: number): {
+function createRunIdDedupe(
+  capacity: number,
+  logger: Logger,
+): {
   seen: (runId: string) => boolean;
   record: (runId: string) => void;
   size: () => number;
@@ -80,10 +90,20 @@ function createRunIdDedupe(capacity: number): {
   // Use a Map for insertion-order iteration; re-seeing a runId re-inserts
   // it to the tail so frequently-seen ids stay warm.
   const set = new Map<string, true>();
+  let evictionsReported = 0;
   return {
     seen(runId) {
       if (capacity <= 0) return false;
-      return set.has(runId);
+      // Touch on read: promote to tail so frequently-seen ids survive
+      // eviction pressure. The prior comment claimed this behavior but
+      // the implementation only touched on `record()` (first-seen), so
+      // the LRU guarantee was false.
+      if (set.has(runId)) {
+        set.delete(runId);
+        set.set(runId, true);
+        return true;
+      }
+      return false;
     },
     record(runId) {
       if (capacity <= 0) return;
@@ -97,6 +117,16 @@ function createRunIdDedupe(capacity: number): {
         const oldest = set.keys().next().value;
         if (oldest === undefined) break;
         set.delete(oldest);
+        evictionsReported += 1;
+        // Log every eviction at warn — these should be rare. If they
+        // aren't, operators raise the cap or swap to PB-backed storage
+        // (indexed by runId with a TTL) so evictions can't create
+        // duplicate status.changed emissions across retry windows.
+        logger.warn("webhook.deploy.dedupe-eviction", {
+          evicted: oldest,
+          totalEvictions: evictionsReported,
+          capacity,
+        });
       }
     },
     size() {
@@ -111,7 +141,7 @@ export function registerDeployWebhook(
 ): void {
   const route = "/webhooks/deploy";
   const signedPath = deps.webhookPath ?? route;
-  const dedupe = createRunIdDedupe(deps.dedupeSize ?? 100);
+  const dedupe = createRunIdDedupe(deps.dedupeSize ?? 500, deps.logger);
 
   app.post(route, async (c) => {
     const timestamp = c.req.header("x-ops-timestamp") ?? "";
@@ -162,25 +192,41 @@ export function registerDeployWebhook(
 
     const result = deployPayloadSchema.safeParse(parsed);
     if (!result.success) {
-      deps.logger.warn("webhook.deploy.invalid-payload", {
+      const flattened = result.error.flatten();
+      // Server-to-server call: include the zod flatten so operators
+      // grepping the workflow run can see exactly which field failed
+      // validation without reading the ops service log.
+      deps.logger.error("webhook.deploy.invalid-payload", {
         issues: result.error.issues.map(
           (i) => i.path.join(".") + ": " + i.message,
         ),
+        flattened,
       });
       deps.metrics?.inc("webhook_rejections", { reason: "invalid-payload" });
-      return c.json({ ok: false, reason: "invalid-payload" }, 400);
+      return c.json(
+        { ok: false, reason: "invalid-payload", errors: flattened },
+        400,
+      );
     }
 
     // Idempotency: if we've already accepted this runId, return 200 OK
     // without re-emitting. The workflow curl-retry loop will replay the
     // same payload on transient upstream failures; re-emitting would
-    // double-count alerts (especially rate-limited ones).
+    // double-count alerts (especially rate-limited ones). We check
+    // AND record inside the same synchronous block BEFORE emitting so
+    // two concurrent POSTs for the same runId can't both slip past
+    // `seen()` and produce duplicate `deploy.result` events — GitHub
+    // Actions retries are serial today but the handler is racy in
+    // principle and an infra change could expose it.
     if (dedupe.seen(result.data.runId)) {
       deps.logger.info("webhook.deploy.duplicate", {
         runId: result.data.runId,
       });
       return c.json({ ok: true, duplicate: true }, 200);
     }
+    // Record BEFORE emit so a concurrent request for the same runId
+    // lands on the "seen" branch rather than racing through emit.
+    dedupe.record(result.data.runId);
 
     const event: DeployResultEvent = {
       runId: result.data.runId,
@@ -191,7 +237,6 @@ export function registerDeployWebhook(
       cancelled: result.data.cancelled,
       gateSkipped: result.data.gateSkipped,
     };
-    dedupe.record(result.data.runId);
     deps.bus.emit("deploy.result", event);
     deps.logger.info("webhook.deploy.accepted", {
       runId: event.runId,
