@@ -26,6 +26,22 @@ export interface ServerDeps {
    * crashed scheduler otherwise stays invisible.
    */
   schedulerStarted?: () => boolean;
+  /**
+   * Number of entries currently registered with the scheduler. When
+   * supplied, /health treats zero as a hard 503 — a running HTTP server
+   * with no cron jobs means the rule loader silently crashed (or loaded
+   * zero rules) and no probes will tick. Without this callback the
+   * endpoint still reports 200 in that pathological state.
+   */
+  schedulerJobCount?: () => number;
+  /**
+   * `true` once `scheduler.stop()` has completed. When supplied, /health
+   * returns 503 with `loop: "stopped"` rather than relying on the weaker
+   * `loopAlive` signal alone, which closes the post-shutdown window
+   * where /health can otherwise report healthy for a few seconds after
+   * stop() is called.
+   */
+  schedulerIsStopped?: () => boolean;
   /** Event bus for webhook emissions. Optional so older callers (tests) don't break. */
   bus?: TypedEventBus;
   /** HMAC secrets for signed webhooks. If unset, webhook routes are not registered. */
@@ -53,8 +69,9 @@ export function buildServer(deps: ServerDeps): Hono {
     // this service is ever exposed directly to the public internet, this
     // route leaks internal counters (probe cadence, alert volume, HMAC
     // failure rate) and must be locked down (e.g. private network ACL,
-    // reverse-proxy basic auth, or token-based auth). Out of scope for
-    // v1 which runs behind Railway's private network.
+    // reverse-proxy basic auth, or token-based auth). Tracked as a
+    // hardening item post-v1 rather than a default; until then, operators
+    // must keep this service behind Railway's private network.
     app.get("/metrics", (c) => {
       const body = renderPrometheus(registry);
       return c.body(body, 200, { "Content-Type": "text/plain; version=0.0.4" });
@@ -65,23 +82,39 @@ export function buildServer(deps: ServerDeps): Hono {
     const pbOk = await deps.pb.health();
     const ruleCount = deps.ruleCount();
     // Loop-alive semantics:
-    //   - If schedulerStarted is supplied, `loop` only reads ok when the
-    //     scheduler has actually started AND is not explicitly stopped.
-    //     This closes the boot-window honesty gap where the HTTP server
-    //     comes up before (or in parallel with) scheduler start.
-    //   - If schedulerStarted is not supplied, we fall back to
-    //     loopAlive alone (legacy behavior, preserved for tests and
-    //     old callers that haven't plumbed the new callback through).
+    //   - `schedulerStarted` (optional): true once start() returned.
+    //   - `schedulerIsStopped` (optional): true once stop() completed —
+    //     takes priority over `loopAlive` so post-shutdown responses are
+    //     accurate.
+    //   - `schedulerJobCount` (optional): if supplied AND zero, /health
+    //     returns 503. An HTTP server up with no cron entries means the
+    //     scheduler is ticking nothing — a silent outage we previously
+    //     reported as healthy.
+    //   - `loopAlive`: legacy flag flipped by orchestrator.stop().
+    // Order: stopped > !started > !alive > jobCount==0 > alive.
     const alive = deps.loopAlive?.() ?? true;
     const started = deps.schedulerStarted?.() ?? true;
-    const loopOk = alive && started;
+    const schedulerStopped = deps.schedulerIsStopped?.() ?? false;
+    const jobCount = deps.schedulerJobCount?.();
+    const jobCountOk = jobCount === undefined ? true : jobCount > 0;
+    const loopOk = !schedulerStopped && started && alive && jobCountOk;
+    const loopLabel = schedulerStopped
+      ? "stopped"
+      : !started
+        ? "starting"
+        : !alive
+          ? "stopped"
+          : !jobCountOk
+            ? "no-jobs"
+            : "ok";
     const ok = pbOk && loopOk && ruleCount > 0;
     return c.json(
       {
         status: ok ? "ok" : "degraded",
         pb: pbOk ? "ok" : "down",
-        loop: loopOk ? "ok" : !started ? "starting" : "stopped",
+        loop: loopLabel,
         rules: ruleCount,
+        ...(jobCount !== undefined ? { schedulerJobs: jobCount } : {}),
       },
       ok ? 200 : 503,
     );

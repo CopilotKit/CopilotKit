@@ -47,6 +47,67 @@ describe("http/server", () => {
     expect(body.rules).toBe(1);
   });
 
+  it("GET /health returns 503 with loop:no-jobs when scheduler has zero entries", async () => {
+    // Regression: if rule-loader crashes or loads zero rules, the HTTP
+    // server still reports healthy because loopAlive/schedulerStarted
+    // don't care about job count. Require schedulerJobCount > 0 so
+    // this pathological state surfaces in /health.
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerJobCount: () => 0,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as {
+      loop: string;
+      status: string;
+      schedulerJobs: number;
+    };
+    expect(body.loop).toBe("no-jobs");
+    expect(body.schedulerJobs).toBe(0);
+    expect(body.status).toBe("degraded");
+  });
+
+  it("GET /health returns 503 with loop:stopped when schedulerIsStopped is true even if alive was never flipped", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 1,
+      loopAlive: () => true, // legacy flag, still true
+      schedulerStarted: () => true,
+      schedulerIsStopped: () => true, // but scheduler.stop() completed
+      schedulerJobCount: () => 0,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(503);
+    const body = (await res.json()) as { loop: string };
+    expect(body.loop).toBe("stopped");
+  });
+
+  it("GET /health returns 200 when all scheduler signals are healthy", async () => {
+    const app = buildServer({
+      pb: fakePb(true),
+      logger,
+      ruleCount: () => 3,
+      loopAlive: () => true,
+      schedulerStarted: () => true,
+      schedulerIsStopped: () => false,
+      schedulerJobCount: () => 5,
+    });
+    const res = await app.request("/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      loop: string;
+      schedulerJobs: number;
+    };
+    expect(body.loop).toBe("ok");
+    expect(body.schedulerJobs).toBe(5);
+  });
+
   it("GET /health returns 503 when pb down", async () => {
     const app = buildServer({
       pb: fakePb(false),
