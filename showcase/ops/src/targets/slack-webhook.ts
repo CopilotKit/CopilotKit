@@ -43,16 +43,62 @@ function parseRetryAfterMs(header: string | null): number | null {
   return Math.min(Math.floor(seconds * 1000), MAX_BACKOFF_MS);
 }
 
+/**
+ * Valid alias pattern. Aliases appear in YAML `webhook:` fields and are
+ * normalized into env var names. We accept the common `kebab-case` /
+ * `snake_case` / alphanumeric shapes and reject anything else — a typo
+ * like `oss_alerts!` or `oss alerts` would otherwise produce a garbage
+ * env var name that Railway silently rejects.
+ */
+const ALIAS_RE = /^[A-Za-z0-9_-]+$/;
+
+/**
+ * Normalize a webhook alias into an env var name. Dashes are normalized
+ * to underscores BEFORE upper-casing because `SLACK_WEBHOOK_OSS-ALERTS`
+ * is rejected by Railway's env UI (and most POSIX shells). After
+ * normalization, `oss-alerts`, `oss_alerts`, and `OSS_ALERTS` all map to
+ * `SLACK_WEBHOOK_OSS_ALERTS`.
+ */
+export function aliasToEnvVar(alias: string): string {
+  return `SLACK_WEBHOOK_${alias.replace(/-/g, "_").toUpperCase()}`;
+}
+
 export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
   const env = opts.env ?? process.env;
   const fetchImpl = opts.fetchImpl ?? globalThis.fetch;
-  const maxAttempts = opts.maxRetries ?? 3;
+  // Clamp to at least 1 attempt so a caller passing `maxRetries: 0`
+  // doesn't silently bypass the retry loop — which would return
+  // `undefined` and make the dispatcher treat a non-delivery as a
+  // successful send (dedupe poisoning). The post-loop throw below is
+  // defense-in-depth for the same concern.
+  const maxAttempts = Math.max(1, opts.maxRetries ?? 3);
   const sleep =
     opts.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
 
+  // Warn-once-per-alias on first resolution so operators can spot a
+  // mismatch between their YAML `webhook:` alias and the Railway env
+  // var name at runtime. Normalization (dash → underscore) is a common
+  // source of silent misconfigs.
+  const warnedAliases = new Set<string>();
+
   function resolveWebhook(alias: string | undefined): string | undefined {
     if (!alias) return undefined;
-    const varName = `SLACK_WEBHOOK_${alias.toUpperCase()}`;
+    if (!ALIAS_RE.test(alias)) {
+      opts.logger.warn("slack-webhook.invalid-alias-shape", {
+        reason: "alias-shape",
+        webhook: alias,
+        expected: ALIAS_RE.source,
+      });
+      return undefined;
+    }
+    const varName = aliasToEnvVar(alias);
+    if (!warnedAliases.has(alias)) {
+      warnedAliases.add(alias);
+      opts.logger.info("slack-webhook.alias-resolved", {
+        webhook: alias,
+        envVar: varName,
+      });
+    }
     return env[varName];
   }
 
@@ -83,9 +129,10 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
         opts.logger.error("slack-webhook.env-unset", {
           reason: "webhook-env-unset",
           webhook: alias,
-          envVar: config.webhook
-            ? `SLACK_WEBHOOK_${config.webhook.toUpperCase()}`
-            : null,
+          envVar:
+            config.webhook && ALIAS_RE.test(config.webhook)
+              ? aliasToEnvVar(config.webhook)
+              : null,
         });
         throw new Error(
           `slack-webhook env var for alias "${alias}" is not set — alert not delivered`,
@@ -193,6 +240,17 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
           `slack-webhook failed with ${res.status} after ${attempt} attempts`,
         );
       }
+
+      // Defense-in-depth: every branch inside the loop either `return`s
+      // on success or `throw`s on exhaustion, so we should never reach
+      // this point. The `Math.max(1, ...)` clamp on maxAttempts above
+      // also guarantees the loop executes at least once. Throw rather
+      // than falling through — a silent `return undefined` would make
+      // the dispatcher treat this as a successful send (dedupe
+      // poisoning).
+      throw new Error(
+        "slack-webhook: unreachable — retry loop exited without sending (maxAttempts clamp violated?)",
+      );
     },
   };
 }

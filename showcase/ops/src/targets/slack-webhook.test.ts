@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createSlackWebhookTarget } from "./slack-webhook.js";
+import { aliasToEnvVar, createSlackWebhookTarget } from "./slack-webhook.js";
 import { logger } from "../logger.js";
 import type { RenderedMessage } from "../types/index.js";
 
@@ -300,6 +300,142 @@ describe("slack-webhook target", () => {
     ).rejects.toThrow(/301/);
     // Must NOT retry — 3xx is permanent for our purposes.
     expect(calls).toBe(1);
+  });
+
+  // C1 regression: when a caller passed `maxRetries: 0` (e.g. a test or
+  // a deliberate "fire-and-forget" wiring), the for-loop never executed
+  // and `send` returned `undefined`. The dispatcher treated that as a
+  // successful delivery and recorded dedupe state — poisoning the
+  // dedupe table for the full rate-limit window. The fix clamps
+  // maxAttempts to at least 1 so the loop ALWAYS executes.
+  it("clamps maxRetries=0 to at least 1 attempt (never silently returns undefined)", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      maxRetries: 0,
+      sleep: async () => {},
+    });
+    // Must either succeed deterministically (attempt executed) or throw
+    // — never resolve to `undefined` from a silent no-op loop.
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    expect(calls).toBe(1);
+  });
+
+  it("clamps maxRetries=0 and still throws on 5xx (defense-in-depth)", async () => {
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      return new Response("gw", { status: 503 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      maxRetries: 0,
+      sleep: async () => {},
+    });
+    await expect(
+      t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" }),
+    ).rejects.toThrow(/503/);
+    expect(calls).toBe(1);
+  });
+
+  // C2 regression: aliases like `oss-alerts` are common in YAML
+  // (`webhook: oss-alerts`) but were previously upper-cased as-is,
+  // producing `SLACK_WEBHOOK_OSS-ALERTS` — a name Railway's env UI
+  // rejects and most shells can't export. The fix normalizes `-` to
+  // `_` before upper-casing so kebab-case and snake_case aliases both
+  // resolve to the same env var.
+  describe("alias normalization (C2)", () => {
+    it("aliasToEnvVar replaces dashes with underscores before upper-casing", () => {
+      expect(aliasToEnvVar("oss-alerts")).toBe("SLACK_WEBHOOK_OSS_ALERTS");
+      expect(aliasToEnvVar("oss_alerts")).toBe("SLACK_WEBHOOK_OSS_ALERTS");
+      expect(aliasToEnvVar("OSS-Alerts")).toBe("SLACK_WEBHOOK_OSS_ALERTS");
+    });
+
+    it("resolves kebab-case alias to the underscore env var at runtime", async () => {
+      const calls: Array<{ url: string }> = [];
+      const fetchImpl = (async (input: string | URL | Request) => {
+        calls.push({ url: String(input) });
+        return new Response("ok", { status: 200 });
+      }) as unknown as typeof fetch;
+      const t = createSlackWebhookTarget({
+        logger,
+        env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/kebab" },
+        fetchImpl,
+      });
+      await t.send(payload, { kind: "slack_webhook", webhook: "oss-alerts" });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]!.url).toBe("https://hooks.slack/kebab");
+    });
+
+    it("emits a warn log and throws for aliases that don't match ^[A-Za-z0-9_-]+$", async () => {
+      const warnCalls: Array<{ msg: string; meta?: unknown }> = [];
+      const errorCalls: Array<{ msg: string; meta?: unknown }> = [];
+      const capture = {
+        debug: () => {},
+        info: () => {},
+        warn: (msg: string, meta?: unknown) => {
+          warnCalls.push({ msg, meta });
+        },
+        error: (msg: string, meta?: unknown) => {
+          errorCalls.push({ msg, meta });
+        },
+      };
+      const fetchImpl = (async () =>
+        new Response("ok", { status: 200 })) as unknown as typeof fetch;
+      const t = createSlackWebhookTarget({
+        logger: capture,
+        env: {},
+        fetchImpl,
+      });
+      await expect(
+        t.send(payload, { kind: "slack_webhook", webhook: "oss alerts!" }),
+      ).rejects.toThrow(/not set/);
+      expect(
+        warnCalls.some((c) => c.msg === "slack-webhook.invalid-alias-shape"),
+      ).toBe(true);
+    });
+
+    it("emits an info log on first resolution showing the resolved env var name", async () => {
+      const infoCalls: Array<{ msg: string; meta?: unknown }> = [];
+      const capture = {
+        debug: () => {},
+        info: (msg: string, meta?: unknown) => {
+          infoCalls.push({ msg, meta });
+        },
+        warn: () => {},
+        error: () => {},
+      };
+      const fetchImpl = (async () =>
+        new Response("ok", { status: 200 })) as unknown as typeof fetch;
+      const t = createSlackWebhookTarget({
+        logger: capture,
+        env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+        fetchImpl,
+      });
+      await t.send(payload, { kind: "slack_webhook", webhook: "oss-alerts" });
+      const resolved = infoCalls.find(
+        (c) => c.msg === "slack-webhook.alias-resolved",
+      );
+      expect(resolved).toBeDefined();
+      expect(resolved!.meta).toMatchObject({
+        webhook: "oss-alerts",
+        envVar: "SLACK_WEBHOOK_OSS_ALERTS",
+      });
+      // Second call with same alias should NOT re-emit the info log.
+      await t.send(payload, { kind: "slack_webhook", webhook: "oss-alerts" });
+      const resolvedCount = infoCalls.filter(
+        (c) => c.msg === "slack-webhook.alias-resolved",
+      ).length;
+      expect(resolvedCount).toBe(1);
+    });
   });
 
   it("caps a huge Retry-After value at 30s", async () => {
