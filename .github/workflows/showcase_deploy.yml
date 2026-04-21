@@ -55,13 +55,16 @@ on:
           - shell-docs
 
 concurrency:
-  # Collapse push-to-main ("auto") and workflow_dispatch runs that target the
-  # same service into one queue slot. The earlier group split keyed on the
-  # dispatch input ("auto" vs a named service), which let a push and a manual
-  # dispatch of the same Railway service run concurrently → two redeploys
-  # of the same service racing into Verify (see C6 Finding 2 / race window).
-  # Keying on ref alone serializes all showcase-deploy runs for a branch.
-  group: showcase-deploy-${{ github.ref }}
+  # Key on `event_name + ref` so push events and manual workflow_dispatch
+  # runs queue INDEPENDENTLY. A previous revision keyed on ref alone and
+  # let a push-to-main (cancel-in-progress: true) kill a 38-service
+  # `service=all` manual dispatch mid-run — operator intent was lost.
+  # Splitting the group means:
+  #   - push → push:     cancel-in-progress true (latest main wins)
+  #   - dispatch → push: coexist (different groups)
+  #   - dispatch → dispatch: queue (cancel-in-progress false — let the
+  #     prior fleet rebuild finish before the next one starts)
+  group: showcase-deploy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
@@ -91,7 +94,7 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
-            langgraph:
+            langgraph_python:
               - 'showcase/packages/langgraph-python/**'
             mastra:
               - 'showcase/packages/mastra/**'
@@ -180,7 +183,7 @@ jobs:
           # fix in the matrix, not runtime behavior to hide.
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
-            {"dispatch_name":"langgraph-python","filter_key":"langgraph","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/packages/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/packages/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/packages/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -266,9 +269,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (enforced via corepack).
+      # Earlier revisions hard-pinned `version: 10.13.1` which silently
+      # drifted from package.json whenever the repo bumped pnpm —
+      # resulting in lockfile-vs-engine mismatches that only surfaced on
+      # the slow `--frozen-lockfile` path.
       - uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
@@ -363,7 +370,13 @@ jobs:
         run: |
           # Capture the current deployment ID BEFORE redeploying so the verify
           # step can distinguish the fresh deployment from the prior one.
-          PRIOR_RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+          # `--retry 2 --retry-all-errors --retry-delay 1` tolerates the
+          # occasional transient 5xx from Railway GraphQL without failing
+          # the deploy; `--fail-with-body` prints the HTML error body on
+          # hard failure so a reviewer can diagnose without re-running.
+          PRIOR_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
             https://backboard.railway.com/graphql/v2 2>/dev/null)
@@ -378,23 +391,29 @@ jobs:
           echo "Prior deployment ID: ${PRIOR_DEPLOY_ID:-<none>}"
           echo "prior_deploy_id=$PRIOR_DEPLOY_ID" >> "$GITHUB_OUTPUT"
 
-          # Record a monotonic cutoff just before the redeploy mutation.
-          # serviceInstanceRedeploy returns only a boolean, not the new
-          # deployment ID — so the verify step can't identify "our" deploy
-          # directly. Comparing solely against PRIOR_DEPLOY_ID is racy:
-          # an externally-triggered deploy in the window between the prior-ID
-          # read and the mutation would be mis-attributed as our fresh deploy.
-          # Requiring createdAt >= REDEPLOY_CUTOFF_ISO closes that window
-          # (minus a 5s skew allowance for clock drift between runner + Railway).
-          REDEPLOY_CUTOFF_EPOCH=$(($(date -u +%s) - 5))
-          REDEPLOY_CUTOFF_ISO=$(date -u -d "@${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -r "${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%SZ")
+          # Record a cutoff AT the mutation time (no -5s subtraction).
+          # An earlier revision subtracted 5 seconds "for clock skew" — but
+          # that opened a 5s window where an externally-triggered concurrent
+          # redeploy could be mis-attributed as ours (its createdAt would
+          # legitimately exceed cutoff-5). Computing the cutoff immediately
+          # before the mutation (and after the mutation lands it's the
+          # NEW deploy's timestamp that matters) is tighter; Railway's
+          # createdAt monotonicity + serialized GraphQL ordering guarantees
+          # our fresh deployment's createdAt is >= this cutoff. Normalize
+          # to ms precision so the lex-compare in Verify handles Railway's
+          # ISO8601-with-ms format correctly.
+          REDEPLOY_CUTOFF_EPOCH=$(date -u +%s)
+          REDEPLOY_CUTOFF_ISO=$(date -u -d "@${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z" 2>/dev/null || date -u -r "${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z")
           echo "Redeploy cutoff (ISO): $REDEPLOY_CUTOFF_ISO"
           echo "redeploy_cutoff_iso=$REDEPLOY_CUTOFF_ISO" >> "$GITHUB_OUTPUT"
+          echo "redeploy_cutoff_epoch=$REDEPLOY_CUTOFF_EPOCH" >> "$GITHUB_OUTPUT"
 
           # All Railway services are configured to pull :latest from GHCR.
           # serviceInstanceRedeploy triggers a fresh pull of the configured image.
           # Check response body for GraphQL errors (HTTP 200 + errors is valid).
-          REDEPLOY_RESULT=$(curl -s -X POST "https://backboard.railway.com/graphql/v2" \
+          REDEPLOY_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -X POST "https://backboard.railway.com/graphql/v2" \
             -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
@@ -426,19 +445,28 @@ jobs:
           fi
 
           echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>}, cutoff: ${REDEPLOY_CUTOFF_ISO:-<none>})..."
-          # 40 attempts * 15s = 600s. Previous 360s was tight for JVM
-          # services (spring-ai's lazy bean init + first HTTP serve can
-          # exceed 5 min on a cold Railway container; intermittent
-          # timeouts caused false deploy failures even when the service
-          # eventually came up healthy). 600s is still bounded — the
-          # overall job has `timeout-minutes` on the matrix — and a
-          # genuinely dead service still fails via CRASHED/FAILED status.
-          # Require 2 consecutive healthy polls before declaring success — catches
-          # SUCCESS-then-crash (JVM lazy init failure, Python OOM on first request).
+          # Enforce a 600s wall-clock budget rather than a fixed iteration
+          # count. Previous revision counted 40 attempts * 15s sleep and
+          # *assumed* total ≈ 600s — but each iteration also spent up to
+          # 15s on the curl (--max-time 15) plus health probes, so the
+          # actual budget could stretch past 900s in practice.
+          # Tracking START and checking elapsed per-loop makes the budget
+          # real. Previous 360s was tight for JVM services (spring-ai's
+          # lazy bean init + first HTTP serve can exceed 5 min on a cold
+          # Railway container). 600s is still bounded.
+          # Require 2 consecutive healthy polls before declaring success —
+          # catches SUCCESS-then-crash (JVM lazy init failure, Python OOM
+          # on first request).
           HEALTHY_STREAK=0
           REQUIRED_STREAK=2
-          for i in $(seq 1 40); do
-            RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+          START=$(date +%s)
+          BUDGET=600
+          i=0
+          while [ $(($(date +%s) - START)) -lt "$BUDGET" ]; do
+            i=$((i + 1))
+            RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+              --fail-with-body \
+              -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
               -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl createdAt } } } }\"}" \
               https://backboard.railway.com/graphql/v2 2>/dev/null)
@@ -473,15 +501,27 @@ jobs:
             # Secondary guard: close the race window between the prior-ID read
             # and serviceInstanceRedeploy. If a concurrent external deploy
             # landed a different new ID (neither PRIOR nor ours), its
-            # createdAt may predate REDEPLOY_CUTOFF_ISO. Reject those so we
+            # createdAt may predate the redeploy cutoff. Reject those so we
             # don't mis-attribute someone else's deploy as our fresh one.
-            # Lexicographic string compare works because Railway emits ISO8601
-            # in UTC with a fixed format (2006-01-02T15:04:05Z).
-            if [ -n "$REDEPLOY_CUTOFF_ISO" ] && [ -n "$CREATED_AT" ] && [ "$CREATED_AT" \< "$REDEPLOY_CUTOFF_ISO" ]; then
-              echo "  (latest deploy createdAt $CREATED_AT predates cutoff $REDEPLOY_CUTOFF_ISO — waiting for our deploy)"
-              HEALTHY_STREAK=0
-              sleep 15
-              continue
+            #
+            # Epoch-number compare (instead of lex string compare) sidesteps
+            # Railway's mixed-precision createdAt format: the API returns
+            # `2006-01-02T15:04:05.123Z` (ms precision) while a lex cutoff
+            # in `2006-01-02T15:04:05Z` (second precision) sorted the fresh
+            # deploy as OLDER because ASCII `.` < `Z`. Converting both
+            # sides to epoch seconds eliminates the format-sensitivity.
+            if [ -n "${REDEPLOY_CUTOFF_EPOCH:-}" ] && [ -n "$CREATED_AT" ]; then
+              # Strip fractional seconds + Z for cross-platform `date -d`.
+              CREATED_AT_SANE=$(printf '%s' "$CREATED_AT" | sed -E 's/\.[0-9]+Z$/Z/')
+              CREATED_EPOCH=$(date -u -d "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || date -u -jf "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || echo 0)
+              if [ "$CREATED_EPOCH" -gt 0 ] && [ "$CREATED_EPOCH" -lt "$REDEPLOY_CUTOFF_EPOCH" ]; then
+                echo "  (latest deploy createdAt $CREATED_AT predates cutoff $REDEPLOY_CUTOFF_ISO — waiting for our deploy)"
+                HEALTHY_STREAK=0
+                sleep 15
+                continue
+              fi
             fi
 
             # Fail on any terminal failure status. Railway's DeploymentStatus enum
@@ -493,7 +533,11 @@ jobs:
                 ;;
             esac
 
-            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "null" ]; then
+            # `DOMAIN` is empty string on missing edge (jq `// empty`), so a
+            # `-n` check is sufficient. The prior `!= "null"` guard was dead
+            # — jq `// empty` already resolves JSON null to "", never to the
+            # literal string "null".
+            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ]; then
               # Probe the service-specific health_path. Hit a real endpoint
               # rather than root: many services are API-only backends that 404
               # at /, so a 404 at root can't distinguish "dead" from
@@ -529,12 +573,35 @@ jobs:
                 fi
                 if [ "$probe_try" -lt 3 ]; then
                   echo "HTTP check: $HEALTH_URL → $HTTP_CODE (retry $probe_try/3)"
-                  # Honor Retry-After (seconds-form only — HTTP-date form is
-                  # uncommon from Railway/upstreams and a 2s fallback is fine).
-                  if [ -n "$RETRY_AFTER" ] && printf '%s' "$RETRY_AFTER" | grep -Eq '^[0-9]+$'; then
-                    # Cap at 30s so a broken Retry-After doesn't blow the 600s budget
-                    if [ "$RETRY_AFTER" -gt 30 ]; then RETRY_AFTER=30; fi
-                    sleep "$RETRY_AFTER"
+                  # Honor Retry-After. RFC 7231 allows either a
+                  # delta-seconds integer OR an HTTP-date. Railway's
+                  # upstreams have been observed emitting both, so we
+                  # parse both forms; unknown/unparseable falls through
+                  # to the 2s default.
+                  RETRY_SECONDS=""
+                  if [ -n "$RETRY_AFTER" ]; then
+                    if printf '%s' "$RETRY_AFTER" | grep -Eq '^[0-9]+$'; then
+                      RETRY_SECONDS="$RETRY_AFTER"
+                    else
+                      # HTTP-date form: `Wed, 21 Oct 2015 07:28:00 GMT`.
+                      # GNU date on the runner parses this directly; BSD
+                      # date (macOS CI fallback) has a different flag set
+                      # — `|| true` ensures neither path aborts the probe
+                      # loop if the header is garbled.
+                      HD_EPOCH=$(date -u -d "$RETRY_AFTER" +%s 2>/dev/null || echo "")
+                      if [ -n "$HD_EPOCH" ]; then
+                        NOW_EPOCH=$(date -u +%s)
+                        DELTA=$((HD_EPOCH - NOW_EPOCH))
+                        if [ "$DELTA" -gt 0 ]; then
+                          RETRY_SECONDS="$DELTA"
+                        fi
+                      fi
+                    fi
+                  fi
+                  # Cap at 30s so a broken Retry-After doesn't blow the 600s budget
+                  if [ -n "$RETRY_SECONDS" ]; then
+                    if [ "$RETRY_SECONDS" -gt 30 ]; then RETRY_SECONDS=30; fi
+                    sleep "$RETRY_SECONDS"
                   else
                     sleep 2
                   fi
@@ -604,13 +671,28 @@ jobs:
           fi
           SERVICES=$(echo "$DETECT_MATRIX" | jq -c '[.[].dispatch_name]')
           # Disambiguate skipped-because-gated from ran-and-failed-everything.
-          # `needs.build.result == "skipped"` combined with a non-success
-          # lockfile check means the matrix never ran — reporting every
-          # service as failed in that case is a false positive and spams
-          # #oss-alerts with bogus "all services failed" messages.
+          # `needs.build.result == "skipped"` can arise from THREE distinct
+          # causes — reporting every service as failed in any of them is a
+          # false positive and spams #oss-alerts with bogus "all services
+          # failed" messages. The previous single-condition check
+          # (LOCKFILE_RESULT != success) conflated:
+          #   - lockfile actually failed (gated intentionally)
+          #   - lockfile cancelled (external cancel, not our concern)
+          #   - detect-changes failed (upstream gate, also not our fault)
+          # Split into explicit branches so each case is identifiable.
           GATE_SKIPPED=false
-          if [ "${BUILD_RESULT}" = "skipped" ] && [ "${LOCKFILE_RESULT}" != "success" ]; then
-            GATE_SKIPPED=true
+          GATE_REASON=""
+          if [ "${BUILD_RESULT}" = "skipped" ]; then
+            if [ "${LOCKFILE_RESULT}" = "failure" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-failed"
+            elif [ "${LOCKFILE_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-cancelled"
+            elif [ "${DETECT_RESULT}" != "success" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="detect-changes-${DETECT_RESULT}"
+            fi
           fi
           if [ "${BUILD_RESULT}" = "cancelled" ]; then
             FAILED='[]'
@@ -635,12 +717,13 @@ jobs:
           PAYLOAD=$(jq -cn \
             --arg runId "$RUN_ID" \
             --arg runUrl "$RUN_URL" \
+            --arg gateReason "$GATE_REASON" \
             --argjson services "$SERVICES" \
             --argjson failed "$FAILED" \
             --argjson succeeded "$SUCCEEDED" \
             --argjson cancelled "$CANCELLED" \
             --argjson gateSkipped "$GATE_SKIPPED" \
-            '{runId:$runId,runUrl:$runUrl,services:$services,failed:$failed,succeeded:$succeeded,cancelled:$cancelled,gateSkipped:$gateSkipped}')
+            '{runId:$runId,runUrl:$runUrl,services:$services,failed:$failed,succeeded:$succeeded,cancelled:$cancelled,gateSkipped:$gateSkipped,gateReason:$gateReason}')
           echo "skip=false" >> "$GITHUB_OUTPUT"
           {
             echo "payload<<EOF_PAYLOAD"
