@@ -437,6 +437,7 @@ jobs:
           ENV_ID: ${{ env.RAILWAY_ENV_ID }}
           PRIOR_DEPLOY_ID: ${{ steps.deploy.outputs.prior_deploy_id }}
           REDEPLOY_CUTOFF_ISO: ${{ steps.deploy.outputs.redeploy_cutoff_iso }}
+          REDEPLOY_CUTOFF_EPOCH: ${{ steps.deploy.outputs.redeploy_cutoff_epoch }}
         run: |
           # Fail fast if RAILWAY_TOKEN is not set
           if [ -z "$RAILWAY_TOKEN" ]; then

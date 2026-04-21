@@ -60,7 +60,7 @@ jobs:
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               case "$file" in
-                pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
+                pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
                 assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
                 showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
