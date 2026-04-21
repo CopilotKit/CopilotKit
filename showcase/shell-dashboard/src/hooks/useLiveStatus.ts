@@ -27,10 +27,9 @@ const INITIAL_PAGE_SIZE = 200;
 // arriving with no surface signal. A cheap `getList(1,1)` ping is enough
 // to confirm the REST endpoint is reachable.
 const HEARTBEAT_INTERVAL_MS = 30_000;
-// If heartbeat REST succeeds but no SSE record update has been observed
-// for this long, assume the subscription is a zombie and force-reconnect.
-// 2× heartbeat interval is the conventional "missed two beats" rule.
-const STREAM_SILENCE_LIMIT_MS = HEARTBEAT_INTERVAL_MS * 2;
+// Reconnect backoff: 1s, 2s, 4s, capped at 8s (parity across retry chain).
+const RECONNECT_BACKOFF_BASE_MS = 1000;
+const RECONNECT_BACKOFF_MAX_MS = 8000;
 
 /**
  * Subscribes to the `status` collection, scoped by `dimension`. Exposes
@@ -57,11 +56,17 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     let attempts = 0;
     let cancel: (() => void) | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let reconnecting = false;
-    // Wall-clock of the last SSE record update observed. Used to detect
-    // silent mid-stream drops: REST (heartbeat) still reachable while the
-    // subscription has silently died.
-    let lastRowUpdateAt = Date.now();
+    // Zombie-detection note: an earlier revision tracked
+    // `lastRowUpdateAt` and force-reconnected if no SSE delta arrived
+    // within 2× heartbeat interval. That produced a reconnect storm on
+    // idle/quiet collections (no rows changing for minutes at a time is
+    // normal), so it was removed. Today, subscription health is inferred
+    // from the heartbeat REST probe — if REST works, we assume SSE does
+    // too; if REST fails, we proactively reconnect. True REST-alive +
+    // SSE-dead zombie detection would require an out-of-band ping PB
+    // doesn't expose (C5 F3).
 
     // Server-side filter. `pb.filter()` quotes/escapes via placeholder so
     // the value is never interpolated raw, even though callers today pass
@@ -88,11 +93,28 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       }
     }
 
+    function clearReconnectTimer(): void {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    }
+
     function startReconnect(reason: string, err?: unknown): void {
+      // Idempotency guard: if we're already mid-reconnect (e.g. overlapping
+      // heartbeat tick, onError callback), drop the redundant kickoff so we
+      // don't fork parallel connect chains or reset `attempts` out from
+      // under an in-flight retry (C5 F6).
+      if (reconnecting) return;
       // Mark reconnecting BEFORE any async work so a concurrent heartbeat
       // tick can't slip in and double-dispatch `connect()`.
       reconnecting = true;
-      attempts = 0;
+      // NOTE: we do NOT reset `attempts` here. Resetting on every reconnect
+      // kickoff produced an infinite retry loop that bypassed
+      // MAX_RECONNECT_ATTEMPTS — every heartbeat-triggered reconnect wiped
+      // the counter before the previous chain exhausted it (C5 F4).
+      // `attempts` is cleared to 0 only in connect()'s success path, which
+      // is the true "fresh start" signal.
       setStatus("connecting");
       if (err !== undefined) {
         setError(err instanceof Error ? err.message : String(err));
@@ -100,6 +122,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         setError(reason);
       }
       clearHeartbeat();
+      clearReconnectTimer();
       teardownSubscription();
       // `connect()` chains its own setTimeout-based retries internally,
       // so `reconnecting` must stay `true` for the entire retry chain,
@@ -115,19 +138,12 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
       } catch (err) {
         if (!alive) return;
         // SSE socket is probably dead too — re-establish the whole
-        // subscription. Reset attempts so the backoff starts fresh.
+        // subscription.
         startReconnect("heartbeat failed", err);
         return;
       }
-      // REST heartbeat passed. Check for silent SSE death: if we're
-      // subscribed but haven't seen any record update in 2× heartbeat
-      // intervals, the stream is a zombie — tear it down + reconnect.
-      if (
-        cancel !== null &&
-        Date.now() - lastRowUpdateAt > STREAM_SILENCE_LIMIT_MS
-      ) {
-        startReconnect("sse silent beyond stream-silence limit");
-      }
+      // REST heartbeat succeeded. No silence-check / zombie-detection
+      // to run here — see the comment at the top of the effect for why.
     }
 
     function startHeartbeat(): void {
@@ -164,9 +180,9 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
         setRows(initial);
         setStatus("live");
         setError(null);
-        lastRowUpdateAt = Date.now();
-        // Reset the reconnect counter on a successful connection so a
-        // later drop (detected via heartbeat) gets a fresh 3-attempt budget.
+        // Reset the reconnect counter on a SUCCESSFUL connection. This is
+        // the only place `attempts` is cleared — resetting in
+        // `startReconnect` would allow an infinite retry loop (C5 F4).
         attempts = 0;
         // Server-side filter on subscribe so PB doesn't stream unrelated
         // dimensions. We still defensively filter client-side below in case
@@ -180,7 +196,6 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
             try {
               if (!alive) return;
               if (dimension && e.record.dimension !== dimension) return;
-              lastRowUpdateAt = Date.now();
               if (e.action === "delete") {
                 setRows((prev) => prev.filter((r) => r.key !== e.record.key));
               } else {
@@ -212,11 +227,18 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
           reconnecting = false;
           return;
         }
-        // Exponential backoff: 1s, 2s, 4s. Stay `reconnecting` across the
-        // entire retry chain so overlapping heartbeat ticks can't fork a
-        // parallel reconnect.
-        const delay = Math.min(1000 * 2 ** (attempts - 1), 8000);
-        setTimeout(() => {
+        // Exponential backoff: 1s, 2s, 4s, capped at 8s. Stay
+        // `reconnecting` across the entire retry chain so overlapping
+        // heartbeat ticks can't fork a parallel reconnect. Track the
+        // outstanding timer so a fresh startReconnect / teardown can
+        // cancel it (C5 F6).
+        const delay = Math.min(
+          RECONNECT_BACKOFF_BASE_MS * 2 ** (attempts - 1),
+          RECONNECT_BACKOFF_MAX_MS,
+        );
+        clearReconnectTimer();
+        reconnectTimer = setTimeout(() => {
+          reconnectTimer = null;
           if (alive) void connect();
           else reconnecting = false;
         }, delay);
@@ -228,6 +250,7 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
     return () => {
       alive = false;
       clearHeartbeat();
+      clearReconnectTimer();
       teardownSubscription();
     };
   }, [dimension]);

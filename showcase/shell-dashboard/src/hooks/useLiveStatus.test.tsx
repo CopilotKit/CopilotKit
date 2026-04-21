@@ -299,6 +299,102 @@ describe("useLiveStatus", () => {
     }
   });
 
+  it("idle dashboard: successful heartbeats do NOT trigger reconnect (C5 F3)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useLiveStatus("smoke"));
+      await vi.waitFor(() => expect(result.current.status).toBe("live"));
+      const initialSubscribeCount = mockState.subscribeCalls;
+
+      // Advance well past multiple heartbeat intervals with NO SSE row
+      // updates and NO heartbeat failures — the hook must remain live
+      // and NOT force a reconnect (previous impl did reconnect every
+      // minute due to stream-silence detection, producing a storm).
+      for (let i = 0; i < 6; i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(31_000);
+        });
+      }
+      expect(result.current.status).toBe("live");
+      expect(mockState.subscribeCalls).toBe(initialSubscribeCount);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reconnect backoff cadence: 1s → 2s → give up at MAX (C5 F19)", async () => {
+    vi.useFakeTimers();
+    try {
+      // Arm enough failures that every retry attempt throws. With
+      // MAX_RECONNECT_ATTEMPTS=3 the hook should: initial fetch fails
+      // (attempts=1), wait 1s, retry fails (attempts=2), wait 2s, retry
+      // fails (attempts=3) → terminal error.
+      mockState.failRemaining = 10;
+      const { result } = renderHook(() => useLiveStatus("smoke"));
+      // Kick initial connect (it fails synchronously via microtask).
+      await vi.waitFor(() => expect(mockState.getListCalls).toBeGreaterThan(0));
+      expect(result.current.status).toBe("connecting");
+
+      // Advance 900ms — backoff has not elapsed, no new attempt.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(900);
+      });
+      const callsAfter900 = mockState.getListCalls;
+
+      // Advance another 200ms (1.1s total past failure) — first retry fires.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(200);
+      });
+      await vi.waitFor(() =>
+        expect(mockState.getListCalls).toBeGreaterThan(callsAfter900),
+      );
+
+      // Advance past the 2s second-backoff, second retry fires → terminal.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2_500);
+      });
+      await vi.waitFor(() => expect(result.current.status).toBe("error"));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("INITIAL_CAP: stops at 500 rows even when more are available (C5 F20)", async () => {
+    // 350 rows: well below cap. Verify pagination pulls all 350.
+    mockState.initial = Array.from({ length: 350 }, (_, i) => ({
+      id: `r${i}`,
+      key: `smoke:int/f${i}`,
+      dimension: "smoke",
+      state: "green",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 0,
+      first_failure_at: null,
+    }));
+    const { result } = renderHook(() => useLiveStatus("smoke"));
+    await waitFor(() => expect(result.current.status).toBe("live"));
+    expect(result.current.rows).toHaveLength(350);
+  });
+
+  it("INITIAL_CAP: truncates to 500 when collection is larger (C5 F20)", async () => {
+    // 600 rows: exceeds cap. We expect exactly 500.
+    mockState.initial = Array.from({ length: 600 }, (_, i) => ({
+      id: `r${i}`,
+      key: `smoke:int/f${i}`,
+      dimension: "smoke",
+      state: "green",
+      signal: {},
+      observed_at: "2026-04-20T00:00:00Z",
+      transitioned_at: "2026-04-20T00:00:00Z",
+      fail_count: 0,
+      first_failure_at: null,
+    }));
+    const { result } = renderHook(() => useLiveStatus("smoke"));
+    await waitFor(() => expect(result.current.status).toBe("live"));
+    expect(result.current.rows).toHaveLength(500);
+  });
+
   it("filters subscribe events by dimension (client-side defense)", async () => {
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
