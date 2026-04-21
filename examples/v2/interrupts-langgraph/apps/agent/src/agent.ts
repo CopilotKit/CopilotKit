@@ -329,6 +329,22 @@ function intercept_frontend_tools(state: AgentState) {
   // stash, we must flush the previous stash onto its matching AIMessage
   // inline here. Otherwise last-write-wins would silently drop the
   // earlier frontend-action calls and the frontend would never see them.
+  //
+  // Flush strategy on re-entry:
+  //   (a) First pass: walk `messages` and reattach the prior stash onto
+  //       the AIMessage whose id matches `priorOriginalId` (pre-strip).
+  //   (b) If (a) finds no match AND this pass would otherwise overwrite
+  //       the slot with a new stash (the mixed-batch return below), we
+  //       make a second flush attempt against the newly-rewritten
+  //       `messages` array (post-strip) before committing the new stash.
+  //   (c) If both attempts fail, we emit a loud warn naming the lost
+  //       AIMessage id + tool-call ids and STILL write the new stash —
+  //       merging two different AIMessage ids into one slot would corrupt
+  //       `originalAIMessageId`. The warn is the escape valve.
+  //
+  // The `frontendToolCalls.length === 0` return branch is non-terminal,
+  // so it retains the unflushed slot unchanged (a later pass may still
+  // find the match).
   const priorIntercepted = state.interceptedToolCalls;
   const priorOriginalId = state.originalAIMessageId;
   const priorSlotPresent =
@@ -403,6 +419,45 @@ function intercept_frontend_tools(state: AgentState) {
     backendToolCalls,
   );
 
+  // Compose the outgoing message list with the strip applied so any
+  // post-strip flush attempt sees the final shape.
+  let outgoingMessages: BaseMessage[] = [
+    ...messages.slice(0, -1),
+    strippedAIMessage,
+  ];
+
+  // Mixed-batch overwrite guard: if a prior stash is still present and
+  // was NOT flushed in the pre-strip pass above, we are about to
+  // overwrite the slot. Try one more flush against the post-strip
+  // `outgoingMessages` before giving up. If still unmatched, warn
+  // loudly — merging different AIMessage ids into one slot would
+  // corrupt `originalAIMessageId`, so we accept losing the prior stash
+  // in exchange for a coherent new one. The warn mirrors the
+  // "no matching AIMessage" style used by `restore_frontend_tools`.
+  if (priorSlotPresent && !prior_flushed) {
+    let lateFlushed = false;
+    outgoingMessages = outgoingMessages.map((msg) => {
+      if (isAIMessage(msg) && msg.id === priorOriginalId) {
+        lateFlushed = true;
+        const existing = msg.tool_calls ?? [];
+        return rebuildAIMessageWithToolCalls(msg, [
+          ...existing,
+          ...priorIntercepted!,
+        ]);
+      }
+      return msg;
+    });
+    if (!lateFlushed) {
+      const lostIds = priorIntercepted!
+        .map((c) => c.id ?? "<no-id>")
+        .join(", ");
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto (pre- or post-strip); overwriting stash with current mixed-batch intercept. Lost tool-call ids: [${lostIds}]`,
+      );
+    }
+  }
+
   // The outer cast passes the return past a pre-existing pnpm monorepo
   // resolution quirk: `@langchain/langgraph@1.1.5` pins `@langchain/core`
   // at a different patch level than this agent's direct dep, so our
@@ -411,7 +466,7 @@ function intercept_frontend_tools(state: AgentState) {
   // at runtime. chat_node's `return { messages: [response] }` hits the
   // same mismatch implicitly; cf. the baseline tsc errors on that line.
   return {
-    messages: [...messages.slice(0, -1), strippedAIMessage],
+    messages: outgoingMessages,
     interceptedToolCalls: frontendToolCalls,
     originalAIMessageId: lastMessage.id,
   } as unknown as Partial<AgentState>;
@@ -593,20 +648,34 @@ function shouldContinue({
 // tool nor a frontend action), chat_node's conditional edge routes here.
 // Responsibilities:
 //
-//   1. Synthesize an error ToolMessage for EACH unknown tool_call on the
-//      prior AIMessage. Without this, the AIMessage's unresolved
-//      tool_calls leave a dangling tool-use turn — OpenAI rejects any
-//      AIMessage with tool_calls not followed by matching ToolMessages
-//      on the NEXT user turn, poisoning the conversation.
+//   1. Synthesize an error ToolMessage for each unknown tool_call that
+//      carries a non-empty `call.id`. Without this, the AIMessage's
+//      unresolved tool_calls leave a dangling tool-use turn — OpenAI
+//      rejects any AIMessage with tool_calls not followed by matching
+//      ToolMessages on the NEXT user turn, poisoning the conversation.
+//      Unknown calls with a missing/empty id are DROPPED from both the
+//      ToolMessage list AND the AIMessage's tool_calls (emitting
+//      `tool_call_id: ""` would itself be rejected; keeping the call on
+//      the AIMessage without a matching ToolMessage re-introduces the
+//      dangling-reference bug).
 //   2. Strip the unknown calls off the prior AIMessage using
 //      rebuildAIMessageWithToolCalls, preserving only the known calls
 //      (frontend actions). The frontend runtime then receives an
-//      AIMessage with only dispatchable names. This is the
-//      "strip unknown + emit errors + notice" approach: the mixed
-//      frontend-action + unknown batch case is handled by the same
-//      code path as the pure-unknown case.
-//   3. Append a user-visible AIMessage notice so the turn doesn't end
-//      silently when the AIMessage carries only unknown calls.
+//      AIMessage with only dispatchable names.
+//   3. In the PURE-unknown batch (`knownCalls.length === 0`), append a
+//      user-visible AIMessage notice so the turn doesn't end silently,
+//      and clear any stale intercept slot from a prior turn.
+//      In the MIXED frontend-action + unknown batch, do NOT append the
+//      notice — the surviving frontend-action tool_calls on
+//      strippedAIMessage need matching ToolMessages on the next turn,
+//      and a trailing AIMessage(notice) produces an ill-formed OpenAI
+//      transcript. The surviving calls reach the frontend via the
+//      outgoing `restore_frontend_tools` → END path.
+//
+// Routing: outgoing edge goes to `restore_frontend_tools` (not END).
+// That node no-ops when the slot is empty, so the pure-unknown case
+// still terminates cleanly, while the mixed case gets canonical
+// restore-then-END handling and any prior unflushed stash is cleared.
 //
 // Conditional edges are pure routing functions — they cannot mutate
 // state — so the state rewrite lives here.
@@ -645,55 +714,100 @@ function emit_unknown_tools_notice(state: AgentState) {
     return {};
   }
 
+  // Partition unknowns by whether they carry a usable tool_call_id.
+  // OpenAI rejects ToolMessages whose `tool_call_id` doesn't match a
+  // preceding AIMessage tool_call id — including empty strings. The
+  // only safe handling for an unknown tool_call with a missing/empty
+  // id is to DROP IT from both the error ToolMessage list AND the
+  // AIMessage's tool_calls (so no dangling reference remains). This
+  // mirrors `deleteProverb`'s refusal to emit `tool_call_id: ""`.
+  const unknownWithId: ToolCall[] = [];
+  for (const call of unknownCalls) {
+    const id = call.id;
+    if (typeof id === "string" && id.length > 0) {
+      unknownWithId.push(call);
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[emit_unknown_tools_notice] unknown tool_call '${call.name}' has no id; dropping from both errorToolMessages and strippedAIMessage.tool_calls to avoid emitting a ToolMessage with empty tool_call_id`,
+      );
+    }
+  }
+
+  // If every unknown call lacked an id, `unknownWithId` is empty and
+  // `errorToolMessages` below will be empty — the AIMessage retains
+  // only `knownCalls` and we still emit the notice in the pure-unknown
+  // case below (drop-only is still a reportable turn).
+
   // Rebuild the prior AIMessage with unknown calls stripped, preserving
-  // its id + metadata. The error ToolMessages below reference the
-  // original tool_call_ids, which OpenAI still matches against the
-  // pre-strip call list as long as the ToolMessages follow the
-  // AIMessage in sequence.
+  // its id + metadata. Dropped-id unknowns are ALSO stripped from
+  // tool_calls (they have no matching ToolMessage, so leaving them on
+  // the AIMessage would re-introduce the dangling-tool_call_id problem
+  // on the next turn).
   const strippedAIMessage = rebuildAIMessageWithToolCalls(
     lastMessage,
     knownCalls,
   );
 
-  const errorToolMessages = unknownCalls.map((call) => {
-    const id = call.id;
-    if (typeof id !== "string" || id.length === 0) {
-      // Defensive: ToolCall.id is optional in the type but OpenAI
-      // always emits one in practice. If it's somehow missing, fall
-      // back to an empty string — the ToolMessage will be visible to
-      // the model but may be rejected on the next turn. Logging here
-      // surfaces the anomaly.
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[emit_unknown_tools_notice] unknown tool_call '${call.name}' has no id; emitting ToolMessage with empty tool_call_id`,
-      );
-    }
+  const errorToolMessages = unknownWithId.map((call) => {
     return new ToolMessage({
       status: "error",
       name: call.name,
-      tool_call_id: typeof id === "string" ? id : "",
+      // Narrowed: unknownWithId only contains calls whose id is a
+      // non-empty string.
+      tool_call_id: call.id as string,
       content: `Tool '${call.name}' is not available in this environment.`,
     });
   });
 
+  // Mixed frontend-action + unknown batch: the surviving knownCalls
+  // are frontend-action calls that still need to reach the frontend
+  // runtime. Appending an `AIMessage(notice)` here would leave
+  // strippedAIMessage's frontend-action tool_calls with no matching
+  // ToolMessages before the trailing notice, producing an ill-formed
+  // OpenAI transcript on replay. Instead, suppress the notice in the
+  // mixed case and let the outgoing edge route the surviving calls
+  // through `restore_frontend_tools` → END for normal dispatch.
+  //
+  // Pure-unknown batch (`knownCalls.length === 0`): emit the notice
+  // as before so the turn doesn't end silently.
   const unknownNames = unknownCalls.map((c) => c.name);
-  const notice = new AIMessage({
-    content: `I tried to call tools that aren't available in this environment (${unknownNames.join(
-      ", ",
-    )}). Cancelling this turn.`,
-  });
+  const trailingMessages: BaseMessage[] =
+    knownCalls.length === 0
+      ? [
+          new AIMessage({
+            content: `I tried to call tools that aren't available in this environment (${unknownNames.join(
+              ", ",
+            )}). Cancelling this turn.`,
+          }),
+        ]
+      : [];
 
-  // Sequence on the channel:
+  // Pure-unknown batch additionally clears any stale intercept slot
+  // from a prior turn — this node now routes to `restore_frontend_tools`
+  // on the way out, which already no-ops when the slot is empty, but
+  // being explicit here prevents a stale stash from being flushed onto
+  // an unrelated AIMessage.
+  const slotClear: Partial<AgentState> =
+    knownCalls.length === 0
+      ? {
+          interceptedToolCalls: undefined,
+          originalAIMessageId: undefined,
+        }
+      : {};
+
+  // Sequence on the channel (mixed case):
   //   [...existing..., strippedAIMessage (replaces lastMessage),
-  //    ToolMessage(unknown1), ..., ToolMessage(unknownN),
-  //    AIMessage(notice)]
+  //    ToolMessage(unknown1), ..., ToolMessage(unknownN)]
+  // Pure-unknown case appends a trailing AIMessage(notice).
   return {
     messages: [
       ...messages.slice(0, -1),
       strippedAIMessage,
       ...errorToolMessages,
-      notice,
+      ...trailingMessages,
     ],
+    ...slotClear,
   } as unknown as Partial<AgentState>;
 }
 
@@ -707,7 +821,13 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addEdge("intercept_frontend_tools", "tool_node")
   .addEdge("tool_node", "chat_node")
   .addEdge("restore_frontend_tools", END)
-  .addEdge("emit_unknown_tools_notice", END)
+  // Route through `restore_frontend_tools` (not END) so any prior
+  // unflushed intercept stash is cleared and any surviving
+  // frontend-action tool_calls retained on the stripped AIMessage in
+  // the mixed-batch case are reattached via the canonical restore
+  // path before termination. `restore_frontend_tools` no-ops when the
+  // slot is empty, so the pure-unknown case still terminates cleanly.
+  .addEdge("emit_unknown_tools_notice", "restore_frontend_tools")
   .addConditionalEdges("chat_node", shouldContinue);
 
 const memory = new MemorySaver();
