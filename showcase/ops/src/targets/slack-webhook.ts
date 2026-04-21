@@ -216,6 +216,11 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
             retryAfterMs,
           });
           if (attempt < maxAttempts) {
+            // Drain the body before sleeping so undici can return the
+            // socket to the pool. Without this, a sustained 429 burst
+            // leaves sockets in a CLOSE_WAIT-like state until GC and can
+            // exhaust the connection pool. Mirrors pb-client's drain.
+            await res.text().catch(() => "");
             await sleep(retryAfterMs);
             continue;
           }
@@ -243,6 +248,10 @@ export function createSlackWebhookTarget(opts: SlackWebhookOptions): Target {
 
         // 5xx: retry with bounded exponential backoff (cap 30s).
         if (attempt < maxAttempts) {
+          // Drain the body before sleeping so undici can return the
+          // socket to the pool — same CLOSE_WAIT leak concern as the 429
+          // branch above.
+          await res.text().catch(() => "");
           await sleep(exponentialBackoffMs(attempt));
           continue;
         }

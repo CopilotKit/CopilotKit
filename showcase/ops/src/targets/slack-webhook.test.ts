@@ -495,6 +495,89 @@ describe("slack-webhook target", () => {
     expect(sleeps[0]).toBe(100);
   });
 
+  // Bucket-(a) R15: on 429/5xx retry paths, the response body was not
+  // drained before sleeping, leaving undici sockets in CLOSE_WAIT until
+  // GC. A sustained 429 burst could exhaust the connection pool.
+  //
+  // Testing strategy: wrap the Response in a Proxy that flips a sentinel
+  // when `.text()` is invoked. We can't observe socket-pool state from
+  // userland, so we assert the moral equivalent — the caller actually
+  // invokes `res.text()` on the failing response before sleeping.
+  function instrumentedResponse(
+    res: Response,
+    onText: () => void,
+  ): Response {
+    return new Proxy(res, {
+      get(target, prop) {
+        if (prop === "text") {
+          return async () => {
+            onText();
+            return await target.text();
+          };
+        }
+        // Forward native accessors (res.ok/status/headers/...) with
+        // target as the receiver so the Response's private fields
+        // resolve correctly — otherwise `Reflect.get` binds to the
+        // Proxy and throws on the #state private member access.
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+  }
+
+  it("drains 429 response body before sleeping so sockets return to the pool", async () => {
+    let bodyRead = false;
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return instrumentedResponse(
+          new Response("slow", {
+            status: 429,
+            headers: { "retry-after": "1" },
+          }),
+          () => {
+            bodyRead = true;
+          },
+        );
+      }
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async () => {},
+    });
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    expect(bodyRead).toBe(true);
+  });
+
+  it("drains 5xx response body before sleeping so sockets return to the pool", async () => {
+    let bodyRead = false;
+    let calls = 0;
+    const fetchImpl = (async () => {
+      calls += 1;
+      if (calls === 1) {
+        return instrumentedResponse(
+          new Response("gateway", { status: 503 }),
+          () => {
+            bodyRead = true;
+          },
+        );
+      }
+      return new Response("ok", { status: 200 });
+    }) as unknown as typeof fetch;
+    const t = createSlackWebhookTarget({
+      logger,
+      env: { SLACK_WEBHOOK_OSS_ALERTS: "https://hooks.slack/x" },
+      fetchImpl,
+      sleep: async () => {},
+    });
+    await t.send(payload, { kind: "slack_webhook", webhook: "oss_alerts" });
+    expect(bodyRead).toBe(true);
+  });
+
   it("caps a huge Retry-After value at 30s", async () => {
     const sleeps: number[] = [];
     let calls = 0;
