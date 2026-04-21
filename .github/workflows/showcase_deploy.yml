@@ -598,9 +598,20 @@ jobs:
                         fi
                       fi
                     fi
+                    # If the header was present but neither decimal-seconds
+                    # nor HTTP-date parsed, surface a warning so operators
+                    # can spot misformatted Retry-After headers instead of
+                    # silently burning retry budget at 2s/try.
+                    if [ -z "$RETRY_SECONDS" ]; then
+                      echo "::warning::Unparseable Retry-After header '$RETRY_AFTER' from $HEALTH_URL — falling back to 2s"
+                    fi
                   fi
-                  # Cap at 30s so a broken Retry-After doesn't blow the 600s budget
+                  # Clamp to [1, 30]: upper cap keeps a broken Retry-After from
+                  # blowing the 600s budget; lower clamp ensures `Retry-After: 0`
+                  # still yields at least one tick of backoff rather than a busy
+                  # loop of same-second retries.
                   if [ -n "$RETRY_SECONDS" ]; then
+                    if [ "$RETRY_SECONDS" -lt 1 ]; then RETRY_SECONDS=1; fi
                     if [ "$RETRY_SECONDS" -gt 30 ]; then RETRY_SECONDS=30; fi
                     sleep "$RETRY_SECONDS"
                   else
