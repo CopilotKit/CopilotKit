@@ -137,7 +137,13 @@ export const DefaultsSchema = z
         targets: z.array(TargetSchema).optional(),
         severity: SeverityEnum.optional(),
         conditions: ConditionsSchema.optional(),
-        renderer: z.string().optional(),
+        // `renderer` was historically permitted by this schema but silently
+        // dropped by rule-loader.loadDefaults — authors declaring it got no
+        // feedback and no effect. There is exactly one renderer today
+        // (Mustache-based slack-text renderer) and no wiring to swap it
+        // per-rule. Removing the field from the schema so a stray
+        // `renderer: slack` in _defaults.yml fails at load with a clear
+        // "unknown key" message instead of being silently inert.
       })
       .strict(),
   })

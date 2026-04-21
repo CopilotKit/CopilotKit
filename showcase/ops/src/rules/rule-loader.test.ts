@@ -57,7 +57,6 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
         "  conditions:",
         "    rate_limit:",
         "      window: 15m",
-        "  renderer: mustache",
         "",
       ].join("\n"),
       "utf-8",
@@ -165,7 +164,6 @@ describe("rule-loader: target dedupe + non-empty validation", () => {
         "  conditions:",
         "    rate_limit:",
         "      window: 15m",
-        "  renderer: mustache",
         "",
       ].join("\n"),
       "dup-targets.yml": [
@@ -226,6 +224,68 @@ describe("rule-loader: target dedupe + non-empty validation", () => {
       { kind: "slack_webhook", webhook: "oss_alerts" },
       { kind: "slack_webhook", webhook: "oncall" },
     ]);
+  });
+
+  it("rejects _defaults.yml with unknown `renderer` key (no longer silently dropped)", async () => {
+    // Finding 14: the schema previously accepted `renderer` but loader
+    // dropped it. Authors got silent no-ops. Removed from schema so a
+    // stray declaration fails at load time with a clear message.
+    const dir = await writeDir({
+      "_defaults.yml": [
+        "defaults:",
+        "  severity: warn",
+        "  renderer: mustache",
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    await expect(loader.loadWithErrors()).rejects.toThrow(
+      /Unrecognized key.*renderer/,
+    );
+  });
+
+  it("dedupe is keyed by {kind,webhook} only — ignores passthrough extras", async () => {
+    // Regression guard for Finding 8: TargetSchema uses .passthrough(),
+    // so rule-level targets can carry arbitrary extras (mention, labels).
+    // Dedupe must collapse targets that point at the same destination
+    // regardless of attached metadata. Previously the stringify-by-object
+    // key meant `{kind, webhook, mention: "@oncall"}` and `{kind, webhook}`
+    // hashed to different keys — every matched alert fired TWICE.
+    const dir = await writeDir({
+      "_defaults.yml": [
+        "defaults:",
+        "  targets:",
+        "    - kind: slack_webhook",
+        "      webhook: oss_alerts",
+        "  severity: warn",
+        "",
+      ].join("\n"),
+      "dup-with-extras.yml": [
+        "id: dup-with-extras",
+        'name: "dwe"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        // Same routing identity as the default, but with an extra field.
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        '    mention: "@oncall"',
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    // First occurrence wins — the default's shape (without `mention`) survives.
+    expect(rules[0]!.targets).toHaveLength(1);
+    expect(rules[0]!.targets[0]!.kind).toBe("slack_webhook");
+    expect(rules[0]!.targets[0]!.webhook).toBe("oss_alerts");
   });
 
   it("fails compile when a rule has zero targets after merge", async () => {
