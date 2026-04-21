@@ -121,7 +121,15 @@ const deleteProverb = tool(
     let approval: z.infer<typeof ApprovalResumeSchema>;
     try {
       approval = ApprovalResumeSchema.parse(rawApproval);
-    } catch {
+    } catch (err) {
+      // Only swallow ZodError — any other throw (programming errors, runtime
+      // failures, etc.) must propagate so we don't mask real bugs behind a
+      // generic tool message.
+      if (!(err instanceof z.ZodError)) {
+        throw err;
+      }
+      // eslint-disable-next-line no-console
+      console.error("[deleteProverb] resume payload rejected:", err.issues);
       // Don't let ZodError propagate through ToolNode. Return a
       // deterministic tool message so the graph can loop back to chat_node
       // with a readable result in context.
@@ -170,7 +178,21 @@ const deleteProverb = tool(
       });
     }
 
-    return `Deletion of proverb "${args.proverb}" was cancelled by the user.`;
+    // Mirror the approved branch: return a Command wrapping a ToolMessage
+    // so the model sees a well-formed tool result with the correct
+    // tool_call_id (OpenAI rejects tool messages with mismatched ids).
+    return new Command({
+      update: {
+        messages: [
+          new ToolMessage({
+            status: "success",
+            name: "deleteProverb",
+            tool_call_id: toolCallId,
+            content: `Deletion of proverb "${args.proverb}" was cancelled by the user.`,
+          }),
+        ],
+      },
+    });
   },
   {
     name: "deleteProverb",
@@ -241,6 +263,35 @@ async function chat_node(state: AgentState, config: RunnableConfig) {
 // Pure-frontend-only batches skip this node entirely — shouldContinue
 // routes them straight to END, and the AIMessage with their tool_calls
 // reaches the frontend as-is.
+// Rebuild an AIMessage with a different tool_calls set while preserving
+// every other field (additional_kwargs, response_metadata, usage_metadata,
+// name, invalid_tool_calls, tool_call_chunks, id, content). Required for
+// LangSmith tracing + token accounting — naively constructing
+// `new AIMessage({ content, tool_calls, id })` drops everything else.
+function rebuildAIMessageWithToolCalls(
+  source: BaseMessage,
+  toolCalls: ToolCall[],
+): AIMessage {
+  // Clone all AIMessage-shape fields off the source. We read via `any`
+  // locally because some fields (tool_call_chunks) only exist on
+  // AIMessageChunk, and we want to pass them through when present.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const src = source as any;
+  const fields: Record<string, unknown> = {
+    content: src.content,
+    id: src.id,
+    name: src.name,
+    additional_kwargs: src.additional_kwargs,
+    response_metadata: src.response_metadata,
+    usage_metadata: src.usage_metadata,
+    invalid_tool_calls: src.invalid_tool_calls,
+    tool_call_chunks: src.tool_call_chunks,
+    tool_calls: toolCalls,
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return new AIMessage(fields as any);
+}
+
 function intercept_frontend_tools(state: AgentState) {
   const frontendActionNames = new Set(
     (state.copilotkit?.actions ?? []).map((a: { name: string }) => a.name),
@@ -254,7 +305,43 @@ function intercept_frontend_tools(state: AgentState) {
   // 1.1.40) without the pnpm nominal-mismatch error. Runtime values are
   // unaffected — see the matching annotation on `lastMessage` in
   // `shouldContinue`.
-  const messages = (state.messages ?? []) as unknown as BaseMessage[];
+  let messages = (state.messages ?? []) as unknown as BaseMessage[];
+
+  // The per-turn intercept slot is a single pair (interceptedToolCalls +
+  // originalAIMessageId) with no reducer on the annotation — it cannot
+  // queue. If the graph re-enters this node for a second mixed batch in
+  // the same thread before `restore_frontend_tools` has flushed the prior
+  // stash, we must flush the previous stash onto its matching AIMessage
+  // inline here. Otherwise last-write-wins would silently drop the
+  // earlier frontend-action calls and the frontend would never see them.
+  const priorIntercepted = state.interceptedToolCalls;
+  const priorOriginalId = state.originalAIMessageId;
+  if (
+    priorIntercepted &&
+    priorIntercepted.length > 0 &&
+    typeof priorOriginalId === "string" &&
+    priorOriginalId.length > 0
+  ) {
+    let flushed = false;
+    messages = messages.map((msg) => {
+      if (isAIMessage(msg) && msg.id === priorOriginalId) {
+        flushed = true;
+        const existing = msg.tool_calls ?? [];
+        return rebuildAIMessageWithToolCalls(msg, [
+          ...existing,
+          ...priorIntercepted,
+        ]);
+      }
+      return msg;
+    });
+    if (!flushed) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[intercept_frontend_tools] prior intercept slot held id=${priorOriginalId} but no matching AIMessage was found to flush onto; dropping stash to avoid blocking a new intercept`,
+      );
+    }
+  }
+
   const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
   if (lastMessage === undefined || !isAIMessage(lastMessage)) {
     return {};
@@ -272,17 +359,30 @@ function intercept_frontend_tools(state: AgentState) {
   }
 
   if (frontendToolCalls.length === 0) {
-    // No frontend calls in the batch — nothing to strip.
+    // No frontend calls in the batch — nothing to strip. But if we
+    // flushed a prior stash above, we still need to emit the updated
+    // messages array so the flush lands on the channel.
+    if (
+      priorIntercepted &&
+      priorIntercepted.length > 0 &&
+      typeof priorOriginalId === "string"
+    ) {
+      return {
+        messages,
+        interceptedToolCalls: undefined,
+        originalAIMessageId: undefined,
+      } as unknown as Partial<AgentState>;
+    }
     return {};
   }
 
   // Rebuild the AIMessage preserving id (so restore_frontend_tools can
-  // find it later) with only the backend calls.
-  const strippedAIMessage = new AIMessage({
-    content: lastMessage.content,
-    tool_calls: backendToolCalls,
-    id: lastMessage.id,
-  });
+  // find it later) AND all other metadata (additional_kwargs,
+  // response_metadata, usage_metadata, etc.) with only the backend calls.
+  const strippedAIMessage = rebuildAIMessageWithToolCalls(
+    lastMessage,
+    backendToolCalls,
+  );
 
   // The outer cast passes the return past a pre-existing pnpm monorepo
   // resolution quirk: `@langchain/langgraph@1.1.5` pins `@langchain/core`
@@ -320,11 +420,14 @@ function restore_frontend_tools(state: AgentState) {
     if (isAIMessage(msg) && msg.id === originalMessageId) {
       messageFound = true;
       const existing = msg.tool_calls ?? [];
-      return new AIMessage({
-        content: msg.content,
-        tool_calls: [...existing, ...interceptedToolCalls],
-        id: msg.id,
-      });
+      // Preserve all AIMessage metadata (additional_kwargs,
+      // response_metadata, usage_metadata, name, invalid_tool_calls,
+      // tool_call_chunks) — a naive rebuild drops them and breaks
+      // LangSmith tracing + token accounting.
+      return rebuildAIMessageWithToolCalls(msg, [
+        ...existing,
+        ...interceptedToolCalls,
+      ]);
     }
     return msg;
   });
@@ -353,7 +456,12 @@ function restore_frontend_tools(state: AgentState) {
 function shouldContinue({
   messages,
   copilotkit,
-}: AgentState): "intercept_frontend_tools" | "tool_node" | "restore_frontend_tools" | typeof END {
+}: AgentState):
+  | "intercept_frontend_tools"
+  | "tool_node"
+  | "restore_frontend_tools"
+  | "emit_unknown_tools_notice"
+  | typeof END {
   // Guard the tool-call-carrying variant structurally instead of casting
   // BaseMessage to AIMessage.
   const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
@@ -435,19 +543,43 @@ function shouldContinue({
     if (hasBackendTool) {
       return "tool_node";
     }
+    // No backend AND no frontend action, but toolCalls.length > 0 means
+    // every call in the batch is an unknown name. Previously we fell
+    // through to END, silently ending the turn with no assistant message.
+    // Route through a dedicated node that appends a user-visible
+    // AIMessage so the user sees *something* instead of a dead turn.
+    // Conditional edges are pure routing — they cannot mutate state —
+    // so we delegate the state mutation to a node.
+    if (!hasFrontendAction) {
+      return "emit_unknown_tools_notice";
+    }
   }
 
-  // Reached END. If we previously intercepted frontend tool calls in a
-  // mixed batch, restore them onto the original AIMessage before the
-  // CopilotKit runtime serializes messages to the frontend.
-  if ((lastMessage.tool_calls ?? []).length === 0) {
-    // Only restore when the current turn is an assistant reply (no
-    // pending tool_calls) — otherwise we'd mutate a still-in-progress
-    // AIMessage. The restore node itself is a no-op when nothing was
-    // intercepted, so routing through it is safe either way.
-  }
-
+  // All paths that reach here are assistant replies with no pending backend tool_calls.
+  // Route through restore_frontend_tools; it is a no-op when nothing was intercepted.
   return "restore_frontend_tools";
+}
+
+// emit_unknown_tools_notice: when the model emits a tool_calls batch where
+// every call targets an unknown name (neither a registered backend tool
+// nor a frontend action), chat_node's conditional edge routes here so the
+// user sees a visible "cancelling this turn" message instead of the turn
+// ending silently. Conditional edges are pure routing functions — they
+// cannot mutate state — so the state update lives in this node.
+function emit_unknown_tools_notice(state: AgentState) {
+  const messages = (state.messages ?? []) as unknown as BaseMessage[];
+  const lastMessage: BaseMessage | undefined = messages[messages.length - 1];
+  if (lastMessage === undefined || !isAIMessage(lastMessage)) {
+    return {};
+  }
+  const unknownNames = (lastMessage.tool_calls ?? []).map((c) => c.name);
+  const list = unknownNames.length > 0 ? unknownNames.join(", ") : "unknown";
+  const notice = new AIMessage({
+    content: `I tried to call tools that aren't available in this environment (${list}). Cancelling this turn.`,
+  });
+  return {
+    messages: [notice],
+  } as unknown as Partial<AgentState>;
 }
 
 const workflow = new StateGraph(AgentStateAnnotation)
@@ -455,10 +587,12 @@ const workflow = new StateGraph(AgentStateAnnotation)
   .addNode("tool_node", new ToolNode(tools))
   .addNode("intercept_frontend_tools", intercept_frontend_tools)
   .addNode("restore_frontend_tools", restore_frontend_tools)
+  .addNode("emit_unknown_tools_notice", emit_unknown_tools_notice)
   .addEdge(START, "chat_node")
   .addEdge("intercept_frontend_tools", "tool_node")
   .addEdge("tool_node", "chat_node")
   .addEdge("restore_frontend_tools", END)
+  .addEdge("emit_unknown_tools_notice", END)
   .addConditionalEdges("chat_node", shouldContinue);
 
 const memory = new MemorySaver();
