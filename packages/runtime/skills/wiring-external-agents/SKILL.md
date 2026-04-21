@@ -33,20 +33,20 @@ sources:
 `CopilotRuntime` takes any `AbstractAgent` subclass. Every framework below ships a
 ready-made subclass you construct and hand to `agents: { ... }`.
 
-| Framework                 | Package                     | Construct                                                               |
-| ------------------------- | --------------------------- | ----------------------------------------------------------------------- |
+| Framework                 | Package                     | Construct                                                                                                                    |
+| ------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | Mastra                    | `@ag-ui/mastra`             | `MastraAgent.getLocalAgents({ mastra, resourceId? })` (record; `resourceId` required only when the agent has Memory enabled) |
-| LangGraph                 | `@ag-ui/langgraph`          | `new LangGraphAgent({ deploymentUrl, graphId })`                        |
-| CrewAI Crews              | `@ag-ui/crewai`             | `new CrewAIAgent({ url })`                                              |
-| CrewAI Flows              | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| PydanticAI                | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| Google ADK                | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| LlamaIndex                | `@ag-ui/llamaindex`         | `new LlamaIndexAgent({ url: ".../run" })` (`/run` suffix)               |
-| Agno                      | `@ag-ui/agno`               | `new AgnoAgent({ url: ".../agui" })` (`/agui` suffix)                   |
-| AWS Strands               | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| Microsoft Agent Framework | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| AG2                       | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                |
-| A2A                       | `@ag-ui/a2a`                | `new A2AAgent({ a2aClient })` (pre-built `A2AClient`, not a URL)        |
+| LangGraph                 | `@ag-ui/langgraph`          | `new LangGraphAgent({ deploymentUrl, graphId })`                                                                             |
+| CrewAI Crews              | `@ag-ui/crewai`             | `new CrewAIAgent({ url })`                                                                                                   |
+| CrewAI Flows              | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| PydanticAI                | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| Google ADK                | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| LlamaIndex                | `@ag-ui/llamaindex`         | `new LlamaIndexAgent({ url: ".../run" })` (`/run` suffix)                                                                    |
+| Agno                      | `@ag-ui/agno`               | `new AgnoAgent({ url: ".../agui" })` (`/agui` suffix)                                                                        |
+| AWS Strands               | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| Microsoft Agent Framework | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| AG2                       | `@ag-ui/client` (HttpAgent) | `new HttpAgent({ url })`                                                                                                     |
+| A2A                       | `@ag-ui/a2a`                | `new A2AAgent({ a2aClient })` (pre-built `A2AClient`, not a URL)                                                             |
 
 MCP Apps is NOT a framework — it's a runtime middleware:
 `new CopilotRuntime({ agents, mcpApps: { servers: [...] } })`. See

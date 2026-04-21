@@ -149,9 +149,9 @@ Safe aliases — mechanical find/replace, behavior unchanged:
 
 Renamed props (breaking — semantics changed, not just names):
 
-| Old prop               | New prop                          | Why it's breaking                                                                                                               |
-| ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `imageUploadsEnabled`  | `attachments={{ enabled: true }}` | `attachments` covers the broader file/paste/drag surface, not just image uploads; the shape is an object, not a boolean.        |
+| Old prop              | New prop                          | Why it's breaking                                                                                                        |
+| --------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `imageUploadsEnabled` | `attachments={{ enabled: true }}` | `attachments` covers the broader file/paste/drag surface, not just image uploads; the shape is an object, not a boolean. |
 
 ## Common Mistakes
 
