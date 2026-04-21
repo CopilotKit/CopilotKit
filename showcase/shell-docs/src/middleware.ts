@@ -81,6 +81,12 @@ export function middleware(
   if (request.headers.get("purpose") === "prefetch") {
     return NextResponse.next();
   }
+  // Chrome speculation rules (and modern prefetch APIs) advertise
+  // prefetches via the `Sec-Purpose` header. Without this filter, the
+  // browser's speculative navigations fire phantom pageviews.
+  if (request.headers.get("sec-purpose") === "prefetch") {
+    return NextResponse.next();
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -114,7 +120,10 @@ export const config = {
   matcher: [
     // Skip static assets, Next.js internals, and well-known static paths.
     // Note the trailing `/` on `api/` so this does not match `/apidocs`
-    // and friends.
-    "/((?!api/|_next/static|_next/image|favicon\\.ico|previews/|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|\\.well-known/).*)",
+    // and friends. The final `(?!.*\\.(png|...)$)` alternative excludes
+    // raw asset requests served from /public/** (logos, images, icons,
+    // fonts, etc.) — without this, every asset fires a phantom
+    // PostHog pageview.
+    "/((?!api/|_next/static|_next/image|favicon\\.ico|previews/|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest|\\.well-known/)(?!.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|avif|woff2?|ttf|otf|eot|map)(?:\\?.*)?$).*)",
   ],
 };
