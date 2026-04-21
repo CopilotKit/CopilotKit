@@ -92,16 +92,23 @@ for (const label of ["all-green", "mixed", "all-unknown"] as const) {
     await seedPb(page, label);
     await page.goto("/");
     // Deterministic wait: the shell-dashboard `live-indicator` carries a
-    // `data-status` attribute that settles to "offline" once the SSE
-    // connection attempt fails (our route.abort above forces this). Pre-
-    // fix this block used `waitForTimeout(1500)` — a real-clock race
-    // prone to flake under load, and that silently accepted partially-
-    // rendered screenshots. Waiting on `data-status="offline"` is the
-    // same visual end-state we screenshot.
+    // `data-status` attribute sourced from `useLiveStatus` connection
+    // state. Valid values are "connecting" | "live" | "error" (the dot's
+    // user-facing LABEL is "offline" for the error case, but the
+    // attribute itself is "error" — the source of truth is the React
+    // type). With `/api/realtime` aborted above, the subscribe() call
+    // rejects and the reconnect chain exhausts to terminal `"error"`.
+    // Pre-fix this block waited on `data-status="offline"` which never
+    // matched and silently fell through to the 5s timeout, taking
+    // partially-rendered screenshots. All three variants (all-green,
+    // mixed, all-unknown) converge on the same connection end-state;
+    // they differ visually via the cell content (row data seeded by
+    // `/api/collections/status/records`), which is what the screenshot
+    // asserts.
     await page
-      .locator('[data-testid="live-indicator"][data-status="offline"]')
+      .locator('[data-testid="live-indicator"][data-status="error"]')
       .first()
-      .waitFor({ state: "attached", timeout: 5000 });
+      .waitFor({ state: "attached", timeout: 10000 });
     await expect(page).toHaveScreenshot(`matrix-${label}.png`, {
       fullPage: true,
       maxDiffPixelRatio: 0.02,
