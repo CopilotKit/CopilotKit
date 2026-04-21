@@ -124,6 +124,40 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
     expect(errors[0]!.error).toMatch(/invalid suppress expression/);
   });
 
+  it("rejects a rule with an unknown filter in its template (validateFilterNames)", async () => {
+    // HF13-D1 regression: the rule-loader regex must flag `truncateUtfBAD`
+    // (typoed filter) so load-time validation catches the mistake instead
+    // of silently passing through at render time. Pairs with the
+    // triple-brace passthrough test below to pin the shared-regex contract.
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-bad-f-"));
+    await fs.writeFile(
+      path.join(tmp, "bad-filter.yml"),
+      [
+        "id: bad-filter",
+        'name: "bad filter"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "summary: {{ signal.body | truncateUtfBAD }}"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error).toMatch(/unknown filter.*truncateUtfBAD/);
+  });
+
+
   it("accepts a suppress expression referencing hasCandidates (flat signal alias)", async () => {
     // Regression: cluster 6's redirect-decommission-monthly.yml references
     // the flat `hasCandidates` identifier in suppress.when. rule-loader must

@@ -20,6 +20,10 @@ import { DefaultsSchema, RuleSchema, type RuleDoc } from "./schema.js";
 // Import from the DSL leaf module rather than alert-engine to avoid the
 // type↔value cycle (alert-engine imports `CompiledRule` from this file).
 import { evalSuppress } from "../alerts/dsl.js";
+// HF13-D1: reuse the renderer's FILTER_RE so load-time validation and
+// render-time substitution can't drift. A prior local copy here lacked
+// the negative look-arounds that exclude triple-brace spans.
+import { FILTER_RE } from "../render/filter-regex.js";
 
 /**
  * Known filter names surfaced by the renderer pipeline. Kept in sync with
@@ -35,9 +39,6 @@ const KNOWN_FILTERS = new Set<string>([
   "slackEscape",
 ]);
 
-// Same shape as renderer's FILTER_RE, reused for load-time validation.
-const FILTER_REF_RE = /\{\{\s*([^{}|]+?)\s*\|\s*([^{}]+?)\s*\}\}/g;
-
 /**
  * Walk every `{{ path | filter ... }}` expression in a rendered template
  * text and confirm each filter name is in KNOWN_FILTERS. Unknown names
@@ -51,8 +52,8 @@ function validateFilterNames(rule: RuleDoc): void {
   if (rule.on_error?.template?.text) sources.push(rule.on_error.template.text);
   for (const text of sources) {
     let m: RegExpExecArray | null;
-    FILTER_REF_RE.lastIndex = 0;
-    while ((m = FILTER_REF_RE.exec(text))) {
+    FILTER_RE.lastIndex = 0;
+    while ((m = FILTER_RE.exec(text))) {
       const pipeline = (m[2] ?? "").trim();
       if (!pipeline) continue;
       const stages = pipeline
