@@ -14,16 +14,25 @@ echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
 echo "========================================="
 
 # Start LangGraph agent server in background.
-# --host 0.0.0.0 binds IPv4 + IPv6 so the Next.js frontend can reach the agent
-# regardless of how `localhost` resolves in the container. Default is 'localhost'
-# which on modern Node resolves IPv6-first (::1), leaving the IPv4 loopback
-# unbound and causing 503s from the frontend's /api/health probe.
+# We invoke @langchain/langgraph-api/server directly (see src/agent/server.mjs)
+# instead of `langgraph-cli dev`. Rationale: dev mode wraps the server in
+# `tsx watch` + chokidar + Studio IPC, and its schema-extraction worker is
+# cold on first request (multi-second TS program compile). Production path:
+#   1. `node --import tsx` — tsx is a one-shot ESM hook for graph.ts at load
+#      time only, NOT a watcher (no chokidar, no restart loop).
+#   2. `server.mjs` pre-warms the schema cache before the first external
+#      /assistants/*/schemas hits.
+#   3. /ok liveness stays sub-10ms regardless of graph-compile load because
+#      the schema worker runs in a worker_thread off the main event loop.
+#
+# --host 0.0.0.0 via HOST env; binds IPv4+IPv6 so the Next.js frontend can
+# reach the agent regardless of how `localhost` resolves in the container.
 #
 # Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
 # pipe (`| sed …`): process substitution leaves `$!` pointing at the real
-# langgraph-cli process, so `wait -n $AGENT_PID` monitors the right thing.
-echo "[entrypoint] Starting LangGraph TS agent on port 8123..."
-cd /app/src/agent && npx @langchain/langgraph-cli dev --port 8123 --host 0.0.0.0 --no-browser &> >(awk '{print "[agent] " $0; fflush()}') &
+# node process, so `wait -n $AGENT_PID` monitors the right thing.
+echo "[entrypoint] Starting LangGraph TS agent on port 8123 (prod mode, no CLI)..."
+cd /app/src/agent && PORT=8123 HOST=0.0.0.0 npm start &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 cd /app
 sleep 3
