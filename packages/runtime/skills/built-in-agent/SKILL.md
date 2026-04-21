@@ -6,7 +6,7 @@ description: >
   (classic config) for quickstart-only. Covers AgentFactoryContext { input, abortController,
   abortSignal }, the converter helpers (convertInputToTanStackAI,
   convertMessagesToVercelAISDKMessages, convertToolsToVercelAITools,
-  convertToolDefinitionsToVercelAITools, resolveModel), tool-loop semantics via maxSteps (default 1),
+  convertToolDefinitionsToVercelAITools, resolveModel), tool-loop semantics via maxSteps (default undefined — AI SDK stops after one generation),
   the TanStack AI reasoning-event caveat (reasoning events are silently dropped — use AI SDK
   if reasoning UI is required), forwardSystemMessages / forwardDeveloperMessages defaults
   (false), and manual AGUISendStateSnapshot / AGUISendStateDelta wiring in Factory Mode.
@@ -118,7 +118,7 @@ const agent = new BuiltInAgent({
     const messages = convertMessagesToVercelAISDKMessages(input.messages);
     const tools = convertToolsToVercelAITools(input.tools);
     return streamText({
-      model: anthropic("claude-sonnet-4"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       messages,
       tools,
       abortSignal,
@@ -445,7 +445,7 @@ new BuiltInAgent({
   factory: ({ input, abortController }) => {
     const { messages, systemPrompts } = convertInputToTanStackAI(input);
     return chat({
-      adapter: anthropicText("claude-sonnet-4"),
+      adapter: anthropicText("claude-sonnet-4-5-20250929"),
       messages,
       systemPrompts,
       modelOptions: { thinking: { type: "enabled", budgetTokens: 10000 } },
@@ -470,7 +470,7 @@ new BuiltInAgent({
   type: "aisdk",
   factory: ({ input, abortSignal }) =>
     streamText({
-      model: anthropic("claude-sonnet-4"),
+      model: anthropic("claude-sonnet-4-5-20250929"),
       messages: convertMessagesToVercelAISDKMessages(input.messages),
       providerOptions: {
         anthropic: { thinking: { type: "enabled", budgetTokens: 10000 } },

@@ -113,31 +113,43 @@ Pass a custom catalog to extend the built-in component set. `createCatalog`
 and `extractSchema` let the agent see what components it may render.
 
 ```tsx
-import {
-  createCatalog,
-  extractSchema,
-  basicCatalog,
-} from "@copilotkit/a2ui-renderer";
+import { createCatalog } from "@copilotkit/a2ui-renderer";
+import { z } from "zod";
 
 const theme = { colors: { primary: "#0ea5e9" } };
 
-const catalog = createCatalog({
-  ...basicCatalog,
+// Definitions are platform-agnostic (Zod schemas + descriptions).
+// Renderers are platform-specific (React components).
+// TypeScript enforces that renderer keys match definition keys exactly.
+const definitions = {
   ProductCard: {
-    schema: extractSchema<{ title: string; price: number }>(),
-    render: ({ title, price }) => (
+    description: "A product card with title and price",
+    props: z.object({ title: z.string(), price: z.number() }),
+  },
+};
+
+const catalog = createCatalog(
+  definitions,
+  {
+    ProductCard: ({ props }) => (
       <div className="rounded-xl border p-3">
-        <div className="font-medium">{title}</div>
-        <div className="text-sm text-muted-foreground">${price}</div>
+        <div className="font-medium">{props.title}</div>
+        <div className="text-sm text-muted-foreground">${props.price}</div>
       </div>
     ),
   },
-});
+  { includeBasicCatalog: true },
+);
 
 <CopilotKitProvider runtimeUrl="/api/copilotkit" a2ui={{ theme, catalog }}>
   <CopilotChat agentId="default" />
 </CopilotKitProvider>;
 ```
+
+`extractSchema(definitions)` is available for passing a JSON-serializable
+view of the definitions to the runtime's `a2ui.schema` config — it is not
+a generic type helper. Type parameters erase at runtime; the agent needs a
+real runtime schema value (Zod).
 
 ### Override the loading skeleton
 

@@ -182,7 +182,11 @@ export const APIRoute = createAPIFileRoute("/api/copilotkit/$")({
 ### Next.js App Router branch
 
 ```ts
-// app/api/copilotkit/[...slug]/route.ts
+// app/api/copilotkit/[[...slug]]/route.ts
+//
+// Optional catch-all ([[...slug]]) so the bare /api/copilotkit basePath
+// and every sub-path (/info, /agent/*/run, /threads, etc.) all route to
+// this handler. A non-optional [...slug] 404s the bare basePath.
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,

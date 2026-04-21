@@ -158,20 +158,25 @@ For every `useCopilotAction` call:
   the same `name` and matching `parameters`. The tool's data path goes
   into `useFrontendTool`, the UI path goes into `useHumanInTheLoop`.
 
-Rewrite the `parameters` array into a zod schema:
+Rewrite the `parameters` array into a zod schema. **v1 parameters default
+to `required: true`; only map to `.optional()` when `required: false` was
+explicit on the v1 entry — otherwise you silently flip the contract and
+let the LLM omit fields the handler expects.**
 
 ```tsx
 // v1
 parameters: [
   { name: "to", type: "string", required: true },
-  { name: "body", type: "string" },
+  { name: "body", type: "string" }, // no `required` → defaults to true
+  { name: "cc", type: "string", required: false }, // explicit optional
 ];
 
 // v2
 import { z } from "zod";
 parameters: z.object({
   to: z.string(),
-  body: z.string().optional(),
+  body: z.string(), // was required by default, stays required
+  cc: z.string().optional(), // only .optional() because v1 said required: false
 });
 ```
 

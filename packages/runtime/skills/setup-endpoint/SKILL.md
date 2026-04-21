@@ -220,8 +220,10 @@ export default {
 Do not use `createCopilotExpressHandler` / `createCopilotHonoHandler`.
 
 ```typescript
-// Express
+// Express — requires Node 18.17+ for Readable.fromWeb + fetch body: req
 import express from "express";
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,
@@ -240,6 +242,8 @@ const handler = createCopilotRuntimeHandler({
 
 app.all("/api/copilotkit/*", async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
+  // `body: req` + `duplex: "half"` lets us stream the Node IncomingMessage
+  // into a Web Request without buffering (Node 18.17+).
   const webReq = new Request(url, {
     method: req.method,
     headers: req.headers as any,
@@ -249,8 +253,14 @@ app.all("/api/copilotkit/*", async (req, res) => {
   const webRes = await handler(webReq);
   res.status(webRes.status);
   webRes.headers.forEach((v, k) => res.setHeader(k, v));
-  const body = await webRes.arrayBuffer();
-  res.end(Buffer.from(body));
+  // Stream the response body through — required for SSE on
+  // /agent/*/run and /agent/*/connect. Buffering via arrayBuffer()
+  // would collapse the stream and deliver all events at end-of-stream.
+  if (webRes.body) {
+    Readable.fromWeb(webRes.body as unknown as WebReadableStream).pipe(res);
+  } else {
+    res.end();
+  }
 });
 
 app.listen(3000);
@@ -309,12 +319,15 @@ app.use(
 Correct:
 
 ```typescript
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
 const handler = createCopilotRuntimeHandler({
   runtime,
   basePath: "/api/copilotkit",
 });
 app.all("/api/copilotkit/*", async (req, res) => {
+  // Requires Node 18.17+ (Readable.fromWeb + duplex: "half")
   const webReq = new Request(new URL(req.url, `http://${req.headers.host}`), {
     method: req.method,
     headers: req.headers as any,
@@ -324,7 +337,12 @@ app.all("/api/copilotkit/*", async (req, res) => {
   const webRes = await handler(webReq);
   res.status(webRes.status);
   webRes.headers.forEach((v, k) => res.setHeader(k, v));
-  res.end(Buffer.from(await webRes.arrayBuffer()));
+  // Stream, don't buffer — /agent/*/run is SSE.
+  if (webRes.body) {
+    Readable.fromWeb(webRes.body as unknown as WebReadableStream).pipe(res);
+  } else {
+    res.end();
+  }
 });
 ```
 

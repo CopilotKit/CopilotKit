@@ -52,7 +52,7 @@ export function DropdownAgentSwitcher() {
 ```tsx
 "use client";
 import { CopilotChat, useCopilotKit } from "@copilotkit/react-core/v2";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function TabsAgentSwitcher() {
   const { copilotkit } = useCopilotKit();
@@ -63,18 +63,26 @@ export function TabsAgentSwitcher() {
     () => agentIds[0] ?? "default",
   );
 
+  // Hold activeAgent in a ref so the subscribe effect only re-binds when
+  // `copilotkit` changes. Depending on `activeAgent` would tear down and
+  // re-establish the subscription on every tab click.
+  const activeAgentRef = useRef(activeAgent);
+  useEffect(() => {
+    activeAgentRef.current = activeAgent;
+  }, [activeAgent]);
+
   useEffect(() => {
     const sub = copilotkit.subscribe({
       onAgentsChanged: ({ agents }) => {
         const ids = Object.keys(agents ?? {});
         setAgentIds(ids);
-        if (!ids.includes(activeAgent) && ids.length > 0) {
+        if (!ids.includes(activeAgentRef.current) && ids.length > 0) {
           setActiveAgent(ids[0]);
         }
       },
     });
     return () => sub.unsubscribe();
-  }, [copilotkit, activeAgent]);
+  }, [copilotkit]);
 
   return (
     <div>

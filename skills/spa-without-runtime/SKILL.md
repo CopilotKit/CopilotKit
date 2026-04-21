@@ -53,8 +53,13 @@ function RegisterTools() {
       } catch (error) {
         // navigator.clipboard.readText() rejects on denied permission,
         // non-HTTPS origins, and lost document focus. Return a structured
-        // error so the agent (and onError for `tool_handler_failed`) can
-        // recover instead of surfacing a raw DOMException.
+        // error so the agent sees it as a regular tool result and can
+        // respond ("I couldn't read your clipboard — please paste here")
+        // instead of surfacing a raw DOMException.
+        //
+        // Note: returning an error object does NOT trigger `onError` with
+        // `tool_handler_failed` — that fires only when the handler throws.
+        // If you want `onError` to fire, `throw` instead of returning.
         return {
           error: "clipboard_read_failed",
           message:
