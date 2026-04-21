@@ -117,6 +117,11 @@ export async function checkAgentEndpoint(
   // (even a 404 from its internal Hono router) rather than a Next.js 404 page.
   const infoPaths = [`${agentPath}/info`, agentPath];
 
+  // Track the last probe error so a failing POST fallback can surface
+  // the underlying GET transport failure (DNS, TLS handshake, timeout)
+  // instead of swallowing it. Without this, a wholly unreachable host
+  // looks identical to a reachable host that 404s on /info.
+  let lastInfoError: string | null = null;
   for (const path of infoPaths) {
     try {
       const res = await request.get(`${baseUrl}${path}`, { timeout: 15_000 });
@@ -129,8 +134,8 @@ export async function checkAgentEndpoint(
       if (res.status() === 405) {
         return { ok: true, status: res.status(), body };
       }
-    } catch {
-      // try next path
+    } catch (e: unknown) {
+      lastInfoError = e instanceof Error ? e.message : String(e);
     }
   }
 
@@ -152,7 +157,11 @@ export async function checkAgentEndpoint(
     };
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, status: 0, body: msg };
+    // Include the /info probe failure in the body so CI logs show both
+    // the POST error and the earlier GET transport error — otherwise
+    // operators see only the POST error and miss that /info also failed.
+    const body = lastInfoError ? `${msg} (info probe: ${lastInfoError})` : msg;
+    return { ok: false, status: 0, body };
   }
 }
 
@@ -185,24 +194,21 @@ export async function sendChatMessage(
   await textarea.fill(message);
   await textarea.press("Enter");
 
-  // Wait for a new assistant message to appear
-  try {
-    await page.waitForFunction(
-      ({ selector, countBefore }) => {
-        const msgs = document.querySelectorAll(selector);
-        return msgs.length > countBefore;
-      },
-      {
-        selector: '[data-testid="copilot-assistant-message"]',
-        countBefore: messagesBefore,
-      },
-      { timeout: 60_000 },
-    );
-  } catch {
-    // Fallback: look for any new content that appeared after our message
-    // This handles cases where the selector doesn't match
-    await page.waitForTimeout(5_000);
-  }
+  // Wait for a new assistant message to appear. Let waitForFunction's
+  // timeout throw if it fails — a swallowing catch with a blind 5s sleep
+  // would turn a real "agent didn't respond" failure into a degraded
+  // text-scrape fallback and hide the actual signal.
+  await page.waitForFunction(
+    ({ selector, countBefore }) => {
+      const msgs = document.querySelectorAll(selector);
+      return msgs.length > countBefore;
+    },
+    {
+      selector: '[data-testid="copilot-assistant-message"]',
+      countBefore: messagesBefore,
+    },
+    { timeout: 60_000 },
+  );
 
   // Extract the latest assistant message text, waiting for content to stream in
   const assistantMessages = page.locator(
@@ -218,8 +224,14 @@ export async function sendChatMessage(
         await latest.elementHandle(),
         { timeout: 60_000 },
       );
-    } catch {
-      // Streaming may be slow; continue with whatever we have
+    } catch (err) {
+      // Streaming may be slow — we continue with whatever text exists —
+      // but log so a real timeout (e.g. agent never streamed any text)
+      // is diagnosable in CI logs rather than invisibly falling through
+      // to an empty-string assertion later.
+      const msg = err instanceof Error ? err.message : String(err);
+      // eslint-disable-next-line no-console
+      console.warn(`[sendChatMessage] waitForFunction failed: ${msg}`);
     }
     const text = (await latest.textContent()) ?? "";
     return { gotResponse: true, responseText: text.trim() };

@@ -14,7 +14,9 @@ test.describe("Human in the Loop", () => {
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    await expect(
+      page.locator(".copilotKitAssistantMessage").first(),
+    ).toBeVisible({
       timeout: 30000,
     });
   });
@@ -26,7 +28,8 @@ test.describe("Human in the Loop", () => {
     );
     await input.press("Enter");
 
-    // Either the LangGraph interrupt StepSelector or the HITL StepsFeedback should appear
+    // The HITL demo surfaces a single StepSelector card regardless of whether the
+    // underlying flow is an interrupt hook or a frontend HITL tool — assert on that.
     const stepSelector = page.locator('[data-testid="select-steps"]');
     await expect(stepSelector.first()).toBeVisible({ timeout: 60000 });
 
@@ -77,8 +80,10 @@ test.describe("Human in the Loop", () => {
     await expect(actionBtn.first()).toBeVisible({ timeout: 5000 });
     await actionBtn.first().click();
 
-    // After approval, agent should continue — look for accepted/confirmed state
-    const confirmed = page.locator("text=/Accepted|Confirmed|selected/i");
-    await expect(confirmed.first()).toBeVisible({ timeout: 10000 });
+    // After approval, the step selector's action button should disappear
+    // (StepSelector unmounts after onConfirm; StepsFeedback replaces buttons with
+    // the "Accepted" or "Rejected" banner). Assert on a post-click transition
+    // that does NOT match the pre-click "N/N selected" counter text.
+    await expect(actionBtn.first()).not.toBeVisible({ timeout: 10000 });
   });
 });
