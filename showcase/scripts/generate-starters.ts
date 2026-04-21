@@ -623,6 +623,15 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  * 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. 180s is the observed upper bound
  * across cold-start samples plus a safety margin.
  *
+ * `mastra` starters spawn `mastra dev`, which runs a tsx-based build +
+ * Mastra server boot on first request and was observed restart-looping
+ * on Railway starting 04-20 18:18 UTC — same kill-loop shape as langgraph.
+ *
+ * `claude-sdk-typescript` starters spawn `tsx agent/index.ts` which
+ * performs a full tsx type-strip + @anthropic-ai/claude-agent-sdk init;
+ * observed restart-looping on Railway starting 04-20 16:54 UTC on the
+ * package-level deploy (same generator-emitted watchdog shape).
+ *
  * All other starters keep the 0s grace they had before PR #4116: crewai-
  * crews and the other uvicorn-based agents are responsive within the
  * 2–3s `sleep` that precedes `AGENT_HEALTH_CHECK`, so adding a grace
@@ -630,6 +639,8 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  */
 function getWatchdogGraceSeconds(fw: FrameworkDef): number {
   if (fw.slug.startsWith("langgraph-")) return 180;
+  if (fw.slug === "mastra") return 180;
+  if (fw.slug === "claude-sdk-typescript") return 180;
   return 0;
 }
 
