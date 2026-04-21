@@ -84,7 +84,8 @@
       ],
       "excluded": [
         "tool-rendering",
-        "hitl",
+        "hitl-in-chat",
+        "hitl-in-app",
         "gen-ui-tool-based",
         "gen-ui-interrupt",
         "useComponent",
