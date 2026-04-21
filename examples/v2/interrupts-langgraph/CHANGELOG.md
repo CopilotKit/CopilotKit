@@ -4,19 +4,15 @@
 
 ### Fixed
 
-- CR round 6: hardened `emit_unknown_tools_notice` and
-  `intercept_frontend_tools` against OpenAI tool_call invariant violations
-  and prior-stash clobbering (handled in a parallel commit).
-- `useCopilotAction` deps on `setThemeColor` and `getWeather` (handled in
-  a parallel commit).
-- `next lint` removal in Next 16 — replaced with direct ESLint invocation
-  (handled in a parallel commit).
-- `route.ts` LANGSMITH warn now gates on NODE_ENV like DEPLOYMENT_URL
-  (handled in a parallel commit).
+- Hardened `emit_unknown_tools_notice` and `intercept_frontend_tools`
+  against OpenAI tool_call invariant violations and prior-stash
+  clobbering.
+- `useCopilotAction` deps on `setThemeColor` and `getWeather`.
+- `next lint` removal in Next 16 — replaced with direct ESLint invocation.
+- `route.ts` LANGSMITH warn now gates on NODE_ENV like DEPLOYMENT_URL.
 - `route.ts` log prefixes distinguish runtime-construction from dispatch
-  failures (handled in a parallel commit).
-- `parseInterruptPayload` single-return-value, caller-owned log (handled
-  in a parallel commit).
+  failures.
+- `parseInterruptPayload` single-return-value, caller-owned log.
 
 ### Changed
 
@@ -25,10 +21,9 @@
   replaced inline `echo > .env` with `cp .env.example .env` + edit;
   corrected project-structure diagram comment to reference
   `pnpm-workspace.yaml`.
-- `apps/web/tsconfig.json`: dropped dead `.next/dev/types/**` include
-  (handled in a parallel commit).
+- `apps/web/tsconfig.json`: dropped dead `.next/dev/types/**` include.
 - `apps/web/.env.example`: clarified that LANGSMITH_* vars forward to the
-  agent (handled in a parallel commit).
+  agent.
 - Root `.gitignore`: ignore `dist/`.
 - `turbo.json`: add `start` task.
 - `apps/web/project.json`: `cache: false` on `build` target for Nx parity
