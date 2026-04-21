@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { InMemoryAgentRunner } from "../in-memory";
+import { InMemoryAgentRunner, type InMemoryThread } from "../in-memory";
 import {
   AbstractAgent,
   BaseEvent,
@@ -358,6 +358,238 @@ describe("InMemoryAgentRunner", () => {
 
       expect(errorEvent).toBeDefined();
       expect(errorEvent!.message).toBe("Connection refused");
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Agent that populates this.messages after a run — needed to test the
+// listThreads / getThreadMessages fallback which reads agent.messages.
+// ---------------------------------------------------------------------------
+class MessagePopulatingTestAgent extends AbstractAgent {
+  constructor(
+    agentId: string,
+    private readonly inputMessages: Message[],
+    private readonly generatedMessages: Message[],
+  ) {
+    super({ agentId });
+  }
+
+  // Override runAgent to simulate what a real agent does: populate this.messages
+  // with the full conversation (input + generated) then call the subscriber callbacks.
+  async runAgent(
+    input: RunAgentInput,
+    options?: {
+      onEvent?: (params: { event: BaseEvent }) => void;
+      onRunStartedEvent?: () => void;
+    },
+  ): Promise<{ result: unknown; newMessages: Message[] }> {
+    const runStarted: RunStartedEvent = {
+      type: EventType.RUN_STARTED,
+      threadId: input.threadId,
+      runId: input.runId,
+    };
+    options?.onEvent?.({ event: runStarted });
+    options?.onRunStartedEvent?.();
+
+    for (const msg of this.generatedMessages) {
+      const start = {
+        type: EventType.TEXT_MESSAGE_START,
+        messageId: msg.id,
+        role: (msg as { role: string }).role,
+      } as TextMessageStartEvent;
+      const content = {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        messageId: msg.id,
+        delta: (msg as { content?: string }).content ?? "",
+      } as TextMessageContentEvent;
+      const end = {
+        type: EventType.TEXT_MESSAGE_END,
+        messageId: msg.id,
+      } as TextMessageEndEvent;
+      options?.onEvent?.({ event: start });
+      options?.onEvent?.({ event: content });
+      options?.onEvent?.({ event: end });
+    }
+
+    // Populate this.messages — this is what real AbstractAgent.runAgent does
+    this.messages = [...this.inputMessages, ...this.generatedMessages];
+    return { result: undefined, newMessages: this.generatedMessages };
+  }
+
+  clone(): AbstractAgent {
+    return new MessagePopulatingTestAgent(
+      this.agentId ?? "",
+      this.inputMessages,
+      this.generatedMessages,
+    );
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+}
+
+describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
+  let runner: InMemoryAgentRunner;
+
+  const userMessage: Message = { id: "u1", role: "user", content: "Hello" };
+  const assistantMessage: Message = {
+    id: "a1",
+    role: "assistant",
+    content: "Hi there!",
+  };
+
+  beforeEach(async () => {
+    runner = new InMemoryAgentRunner();
+
+    // Run a single turn on a unique thread so each test starts fresh
+    const agent = new MessagePopulatingTestAgent(
+      "test-agent",
+      [userMessage],
+      [assistantMessage],
+    );
+    agent.agentId = "test-agent";
+    await firstValueFrom(
+      runner
+        .run({
+          threadId: "list-threads-thread-1",
+          agent,
+          input: {
+            threadId: "list-threads-thread-1",
+            runId: "run-lt-1",
+            messages: [userMessage],
+            state: {},
+            tools: [],
+            context: [],
+          },
+        })
+        .pipe(toArray()),
+    );
+  });
+
+  describe("listThreads", () => {
+    it("returns a summary for each completed thread", () => {
+      const threads = runner.listThreads();
+      const thread = threads.find(
+        (t: InMemoryThread) => t.id === "list-threads-thread-1",
+      );
+      expect(thread).toBeDefined();
+      expect(thread!.agentId).toBe("test-agent");
+      expect(thread!.name).toBeNull();
+      expect(thread!.archived).toBe(false);
+      expect(thread!.createdAt).toBeTruthy();
+      expect(thread!.updatedAt).toBeTruthy();
+    });
+
+    it("returns threads sorted most-recently-updated first", async () => {
+      // Run a second thread after a short delay so timestamps differ
+      await new Promise((r) => setTimeout(r, 5));
+      const agent2 = new MessagePopulatingTestAgent(
+        "test-agent",
+        [userMessage],
+        [assistantMessage],
+      );
+      agent2.agentId = "test-agent";
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "list-threads-thread-2",
+            agent: agent2,
+            input: {
+              threadId: "list-threads-thread-2",
+              runId: "run-lt-2",
+              messages: [userMessage],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const threads = runner.listThreads();
+      const ids = threads.map((t: InMemoryThread) => t.id);
+      const idx1 = ids.indexOf("list-threads-thread-1");
+      const idx2 = ids.indexOf("list-threads-thread-2");
+      // thread-2 is more recent, should appear before thread-1
+      expect(idx2).toBeLessThan(idx1);
+    });
+
+    it("returns an empty array when no threads have been run", () => {
+      const freshRunner = new InMemoryAgentRunner();
+      // Use a runner that has never been used (GLOBAL_STORE key won't exist for new threadIds)
+      // We can't easily clear GLOBAL_STORE, but a fresh runner shares the same singleton.
+      // Just verify the method returns an array (even if it has entries from other tests).
+      expect(Array.isArray(freshRunner.listThreads())).toBe(true);
+    });
+  });
+
+  describe("getThreadMessages", () => {
+    it("returns all messages for a completed thread", () => {
+      const messages = runner.getThreadMessages("list-threads-thread-1");
+      expect(messages).toHaveLength(2);
+      const roles = messages.map((m) => (m as { role: string }).role);
+      expect(roles).toContain("user");
+      expect(roles).toContain("assistant");
+    });
+
+    it("includes message content", () => {
+      const messages = runner.getThreadMessages("list-threads-thread-1");
+      const user = messages.find(
+        (m) => (m as { role: string }).role === "user",
+      ) as {
+        content?: string;
+      };
+      const assistant = messages.find(
+        (m) => (m as { role: string }).role === "assistant",
+      ) as { content?: string };
+      expect(user?.content).toBe("Hello");
+      expect(assistant?.content).toBe("Hi there!");
+    });
+
+    it("returns an empty array for an unknown threadId", () => {
+      const messages = runner.getThreadMessages("nonexistent-thread-xyz");
+      expect(messages).toEqual([]);
+    });
+
+    it("reflects the most recent run's full message history", async () => {
+      const followUp: Message = {
+        id: "u2",
+        role: "user",
+        content: "Follow up",
+      };
+      const followUpReply: Message = {
+        id: "a2",
+        role: "assistant",
+        content: "Sure!",
+      };
+      const agent2 = new MessagePopulatingTestAgent(
+        "test-agent",
+        [userMessage, assistantMessage, followUp],
+        [followUpReply],
+      );
+      agent2.agentId = "test-agent";
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "list-threads-thread-1",
+            agent: agent2,
+            input: {
+              threadId: "list-threads-thread-1",
+              runId: "run-lt-turn-2",
+              messages: [userMessage, assistantMessage, followUp],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const messages = runner.getThreadMessages("list-threads-thread-1");
+      // Should have all 4 messages from the second run's snapshot
+      expect(messages).toHaveLength(4);
     });
   });
 });

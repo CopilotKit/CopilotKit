@@ -27,6 +27,8 @@ import {
 } from "./run-handler";
 import { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
+import { ThreadStoreRegistry } from "./thread-store-registry";
+import { type ɵThreadStore } from "../threads";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -162,6 +164,15 @@ export interface CopilotKitCoreSubscriber {
     error: Error;
     code: CopilotKitCoreErrorCode;
     context: Record<string, any>;
+  }) => void | Promise<void>;
+  onThreadStoreRegistered?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
+    store: ɵThreadStore;
+  }) => void | Promise<void>;
+  onThreadStoreUnregistered?: (event: {
+    copilotkit: CopilotKitCore;
+    agentId: string;
   }) => void | Promise<void>;
   /**
    * Fired when an agent run or connect begins. The `agent` may be a per-thread
@@ -322,6 +333,7 @@ export class CopilotKitCore {
   private suggestionEngine: SuggestionEngine;
   private runHandler: RunHandler;
   private stateManager: StateManager;
+  private threadStoreRegistry: ThreadStoreRegistry;
 
   constructor({
     runtimeUrl,
@@ -345,6 +357,7 @@ export class CopilotKitCore {
     this.suggestionEngine = new SuggestionEngine(this);
     this.runHandler = new RunHandler(this);
     this.stateManager = new StateManager(this);
+    this.threadStoreRegistry = new ThreadStoreRegistry(this);
 
     // Initialize each subsystem
     this.agentRegistry.initialize(agents__unsafe_dev_only);
@@ -363,6 +376,14 @@ export class CopilotKitCore {
             this.stateManager.subscribeToAgent(agent);
           }
         });
+
+        // Unregister thread stores for agents that are no longer present
+        const currentAgentIds = new Set(Object.keys(agents));
+        for (const agentId of Object.keys(this.threadStoreRegistry.stores)) {
+          if (!currentAgentIds.has(agentId)) {
+            this.threadStoreRegistry.unregister(agentId);
+          }
+        }
       },
     });
   }
@@ -610,6 +631,25 @@ export class CopilotKitCore {
 
   removeContext(id: string): void {
     this.contextStore.removeContext(id);
+  }
+
+  /**
+   * Thread store registry (delegated to ThreadStoreRegistry)
+   */
+  registerThreadStore(agentId: string, store: ɵThreadStore): void {
+    this.threadStoreRegistry.register(agentId, store);
+  }
+
+  unregisterThreadStore(agentId: string): void {
+    this.threadStoreRegistry.unregister(agentId);
+  }
+
+  getThreadStore(agentId: string): ɵThreadStore | undefined {
+    return this.threadStoreRegistry.get(agentId);
+  }
+
+  getThreadStores(): Readonly<Record<string, ɵThreadStore>> {
+    return this.threadStoreRegistry.getAll();
   }
 
   /**

@@ -1,6 +1,6 @@
 import { Component, input, Input } from "@angular/core";
 import { CommonModule } from "@angular/common";
-import { AngularToolCall, ToolRenderer } from "@copilotkit/angular";
+import { AngularToolCall, ToolRenderer } from "@copilotkitnext/angular";
 
 @Component({
   selector: "wildcard-tool-render",

@@ -1,16 +1,20 @@
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
+import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { marked } from "marked";
 import { icons } from "lucide";
 import {
   CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   type CopilotKitCoreSubscriber,
   type CopilotKitCoreErrorCode,
+  type ɵThreadStore,
+  type ɵThread,
+  ɵselectThreads,
+  ɵcreateThreadStore,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -44,7 +48,12 @@ export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey = "ag-ui-events" | "agents" | "frontend-tools" | "agent-context";
+type MenuKey =
+  | "ag-ui-events"
+  | "agents"
+  | "frontend-tools"
+  | "agent-context"
+  | "threads";
 
 type MenuItem = {
   key: MenuKey;
@@ -61,7 +70,7 @@ const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
-const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 560 };
+const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
@@ -87,7 +96,9 @@ type InspectorAgentEventType =
   | "REASONING_MESSAGE_CONTENT"
   | "REASONING_MESSAGE_END"
   | "REASONING_END"
-  | "REASONING_ENCRYPTED_VALUE";
+  | "REASONING_ENCRYPTED_VALUE"
+  | "ACTIVITY_SNAPSHOT"
+  | "ACTIVITY_DELTA";
 
 const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
@@ -111,6 +122,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "REASONING_MESSAGE_END",
   "REASONING_END",
   "REASONING_ENCRYPTED_VALUE",
+  "ACTIVITY_SNAPSHOT",
+  "ACTIVITY_DELTA",
 ] as const;
 
 type SanitizedValue =
@@ -137,6 +150,8 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  /** Populated for role="activity" messages (Generative UI). */
+  activityType?: string;
 };
 
 type InspectorToolDefinition = {
@@ -190,6 +205,17 @@ export class WebInspectorElement extends LitElement {
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedThreadId: string | null = null;
+  private threadListWidth = 290;
+  private threadDividerResizing = false;
+  private threadDividerPointerId = -1;
+  private threadDividerStartX = 0;
+  private threadDividerStartWidth = 0;
+  private _threads: ɵThread[] = [];
+  private _threadStoreSubscriptions: Map<string, () => void> = new Map();
+  private _threadsByAgent: Map<string, ɵThread[]> = new Map();
+  // Thread stores created and owned by the inspector (keyed by agentId)
+  private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -203,6 +229,46 @@ export class WebInspectorElement extends LitElement {
   private toolSignature = "";
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
+  // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
+  private evtColWidths = [100, 80, 150];
+  private _evtColResize: {
+    col: number;
+    startX: number;
+    startW: number;
+  } | null = null;
+
+  private _threadsUnlocked = false;
+  private _threadsGateError: string | null = null;
+
+  /**
+   * Marketing demo mode. When true, the inspector bypasses the early-access
+   * gate and populates the Threads tab with scripted data instead of live
+   * runtime state. On load, four fake enterprise threads are shown with the
+   * "SOC 2 audit prep checklist" thread pre-selected and a static conversation
+   * visible. Clicking "Customer churn risk report" starts a streaming assistant
+   * response and populates the Agent State and AG-UI Events tabs with realistic
+   * mock data, so all three sub-tabs are immediately usable.
+   *
+   * To record: flip this to `true`, rebuild with
+   * `npx nx run @copilotkit/web-inspector:build --skip-nx-cache`, then restart
+   * the Angular demo (`npx nx run @copilotkit/angular-demo:start`). Open
+   * Screen Studio, crop to 960×720 (4:3) or 720×720 (1:1), and record. Flip
+   * back to `false` and rebuild before merging.
+   */
+  private _demoMode = true;
+  private _demoThreads: ɵThread[] = [];
+  private _demoSelectedThreadId: string | null = null;
+  private _demoConversation: {
+    id: string;
+    type: string;
+    content: string;
+    html?: string;
+    createdAt: string;
+  }[] = [];
+  private _demoAgentState: SanitizedValue | null = null;
+  private _demoAgentEvents: InspectorEvent[] = [];
+  private _demoTimers: ReturnType<typeof setTimeout>[] = [];
+  private _demoStreamInterval: ReturnType<typeof setInterval> | null = null;
 
   private announcementMarkdown: string | null = null;
   private announcementHtml: string | null = null;
@@ -210,9 +276,9 @@ export class WebInspectorElement extends LitElement {
   private announcementPreviewText: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
-  private announcementLoadError: unknown = null;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
+  private announcementExpanded = false;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -259,12 +325,116 @@ export class WebInspectorElement extends LitElement {
   private resizeInitialSize: { width: number; height: number } | null = null;
   private isResizing = false;
 
-  private readonly menuItems: MenuItem[] = [
-    { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
-    { key: "agents", label: "Agent", icon: "Bot" },
-    { key: "frontend-tools", label: "Frontend Tools", icon: "Hammer" },
-    { key: "agent-context", label: "Context", icon: "FileText" },
-  ];
+  private readonly customTabIcons: Record<string, string> = {
+    threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
+  };
+
+  private get menuItems(): MenuItem[] {
+    const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    return [
+      {
+        key: "ag-ui-events",
+        label: "AG-UI Events",
+        icon: "Zap" as LucideIconName,
+      },
+      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      ...(hasFrontendTools
+        ? [
+            {
+              key: "frontend-tools" as const,
+              label: "Frontend Tools",
+              icon: "Hammer" as LucideIconName,
+            },
+          ]
+        : []),
+      {
+        key: "agent-context",
+        label: "Context",
+        icon: "FileText" as LucideIconName,
+      },
+      {
+        key: "threads",
+        label: "Threads",
+        icon: "MessageSquare" as LucideIconName,
+      },
+    ];
+  }
+
+  private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (this._threadStoreSubscriptions.has(agentId)) return;
+    const sub = store.select(ɵselectThreads).subscribe((threads) => {
+      this._threadsByAgent.set(agentId, threads as ɵThread[]);
+      this._threads = Array.from(this._threadsByAgent.values()).flat();
+      this.autoSelectLatestThread();
+      this.requestUpdate();
+    });
+    this._threadStoreSubscriptions.set(agentId, () => sub.unsubscribe());
+    // Populate immediately from current state
+    const threads = ɵselectThreads(store.getState());
+    this._threadsByAgent.set(agentId, threads);
+    this._threads = Array.from(this._threadsByAgent.values()).flat();
+    this.autoSelectLatestThread();
+  }
+
+  private autoSelectLatestThread(): void {
+    if (this._threads.length === 0) return;
+    const stillValid =
+      this.selectedThreadId != null &&
+      this._threads.some((t) => t.id === this.selectedThreadId);
+    if (!stillValid) {
+      // Threads are sorted most-recently-updated first
+      this.selectedThreadId = this._threads[0]!.id;
+    }
+  }
+
+  private teardownThreadStoreSubscriptions(): void {
+    for (const unsub of this._threadStoreSubscriptions.values()) {
+      unsub();
+    }
+    this._threadStoreSubscriptions.clear();
+    this._threadsByAgent.clear();
+    this._threads = [];
+  }
+
+  private ensureOwnedThreadStore(agentId: string): void {
+    if (this._ownedThreadStores.has(agentId)) return;
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+
+    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: core.runtimeUrl,
+      headers: {},
+      agentId,
+    });
+    this._ownedThreadStores.set(agentId, store);
+    core.registerThreadStore(agentId, store);
+  }
+
+  private refreshOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    if (!store) return;
+    // refresh() re-fetches without resetting threads to [] first, so the list
+    // stays visible while new data loads and survives transient fetch failures.
+    store.refresh();
+  }
+
+  private removeOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    if (!store) return;
+    store.stop();
+    this.core?.unregisterThreadStore(agentId);
+    this._ownedThreadStores.delete(agentId);
+  }
+
+  private teardownOwnedThreadStores(): void {
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.stop();
+      this.core?.unregisterThreadStore(agentId);
+    }
+    this._ownedThreadStores.clear();
+  }
 
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
@@ -274,6 +444,15 @@ export class WebInspectorElement extends LitElement {
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        if (status === "connected") {
+          for (const agentId of this._ownedThreadStores.keys()) {
+            this.refreshOwnedThreadStore(agentId);
+          }
+        } else {
+          // Clear stale thread data immediately when the server goes away
+          this._threadsByAgent.clear();
+          this._threads = [];
+        }
         this.requestUpdate();
       },
       onPropertiesChanged: ({ properties }) => {
@@ -299,10 +478,38 @@ export class WebInspectorElement extends LitElement {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
       },
+      onThreadStoreRegistered: ({ agentId, store }) => {
+        this.subscribeToThreadStore(agentId, store);
+        this.requestUpdate();
+      },
+      onThreadStoreUnregistered: ({ agentId }) => {
+        const unsub = this._threadStoreSubscriptions.get(agentId);
+        if (unsub) {
+          unsub();
+          this._threadStoreSubscriptions.delete(agentId);
+        }
+        this._threadsByAgent.delete(agentId);
+        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.requestUpdate();
+      },
+      onAgentRunStarted: ({ agent }) => {
+        // Subscribe to the concrete agent instance about to run. This handles
+        // per-thread clones that are not in core.agents and therefore not
+        // reachable via onAgentsChanged. Replacing an existing subscription for
+        // the same agentId is safe: the previous instance emits no more events
+        // once a new run starts on a fresh clone.
+        this.subscribeToAgent(agent);
+        this.requestUpdate();
+      },
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
+
+    // Subscribe to any already-registered thread stores
+    for (const [agentId, store] of Object.entries(core.getThreadStores())) {
+      this.subscribeToThreadStore(agentId, store);
+    }
 
     // Initialize context from core
     if (core.context) {
@@ -322,6 +529,8 @@ export class WebInspectorElement extends LitElement {
     this.cachedTools = [];
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
+    this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
   }
 
   private teardownAgentSubscriptions(): void {
@@ -347,6 +556,7 @@ export class WebInspectorElement extends LitElement {
       }
       seenAgentIds.add(agent.agentId);
       this.subscribeToAgent(agent);
+      this.ensureOwnedThreadStore(agent.agentId);
     }
 
     for (const agentId of Array.from(this.agentSubscriptions.keys())) {
@@ -355,6 +565,7 @@ export class WebInspectorElement extends LitElement {
         this.agentEvents.delete(agentId);
         this.agentMessages.delete(agentId);
         this.agentStates.delete(agentId);
+        this.removeOwnedThreadStore(agentId);
       }
     }
 
@@ -436,6 +647,7 @@ export class WebInspectorElement extends LitElement {
       },
       onRunFinishedEvent: ({ event, result }) => {
         this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+        this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
@@ -529,6 +741,14 @@ export class WebInspectorElement extends LitElement {
       onReasoningEncryptedValueEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
       },
+      onActivitySnapshotEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_SNAPSHOT", event);
+        this.syncAgentMessages(agent);
+      },
+      onActivityDeltaEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_DELTA", event);
+        this.syncAgentMessages(agent);
+      },
     };
 
     const { unsubscribe } = agent.subscribe(subscriber);
@@ -547,6 +767,32 @@ export class WebInspectorElement extends LitElement {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+  }
+
+  private mapMessagesToConversation(
+    messages: InspectorMessage[] | null,
+  ): { id: string; type: string; content: string; createdAt: string }[] | null {
+    if (!messages) return null;
+    return messages
+      .filter(
+        (m) =>
+          m.role === "user" || m.role === "assistant" || m.role === "activity",
+      )
+      .map((m, i) => ({
+        id: m.id ?? `msg-${i}`,
+        type:
+          m.role === "user"
+            ? "user"
+            : m.role === "activity"
+              ? "generative-ui"
+              : "assistant",
+        // For activity messages, store the activityType as content so the
+        // renderer can display a meaningful label (crawl phase). Walk phase
+        // will render the actual output once the Angular inspector ships.
+        content:
+          m.role === "activity" ? (m.activityType ?? "unknown") : m.contentText,
+        createdAt: "",
+      }));
   }
 
   private recordAgentEvent(
@@ -648,14 +894,25 @@ export class WebInspectorElement extends LitElement {
     if (pendingContext) {
       const isPendingAvailable =
         pendingContext === "all-agents" || agentIds.has(pendingContext);
-      if (isPendingAvailable) {
+      // Only restore a specific-agent selection when there is exactly one
+      // agent registered. With multiple agents, fall back to "all-agents" so
+      // events from any agent are visible regardless of what was persisted.
+      const shouldRestore =
+        isPendingAvailable &&
+        (pendingContext === "all-agents" || agentIds.size === 1);
+      if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
       } else if (agentIds.size > 0) {
-        // Agents are loaded but the pending selection no longer exists
+        // Persisted selection is unavailable or inappropriate for multiple
+        // agents — reset to "all-agents" so nothing is silently filtered.
+        if (this.selectedContext !== "all-agents") {
+          this.selectedContext = "all-agents";
+          this.expandedRows.clear();
+        }
         this.pendingSelectedContext = null;
       }
     }
@@ -665,15 +922,13 @@ export class WebInspectorElement extends LitElement {
     );
 
     if (!hasSelectedContext && this.pendingSelectedContext === null) {
-      // Auto-select "default" agent if it exists, otherwise first agent, otherwise "all-agents"
+      // When there is exactly one agent, auto-select it so the view is
+      // immediately focused. When multiple agents are registered (e.g. "default"
+      // + "openai"), keep "all-agents" so events from any agent are visible.
       let nextSelected: string = "all-agents";
 
-      if (agentIds.has("default")) {
-        nextSelected = "default";
-      } else if (agentIds.size > 0) {
-        nextSelected = Array.from(agentIds).sort((a, b) =>
-          a.localeCompare(b),
-        )[0]!;
+      if (agentIds.size === 1) {
+        nextSelected = Array.from(agentIds)[0]!;
       }
 
       if (this.selectedContext !== nextSelected) {
@@ -1003,6 +1258,7 @@ ${argsString}</pre
         z-index: 2147483646;
         display: block;
         will-change: transform;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       }
 
       :host([data-transitioning="true"]) {
@@ -1058,13 +1314,14 @@ ${argsString}</pre
         left: 50%;
         transform: translateX(-50%) translateY(-4px);
         white-space: nowrap;
-        background: rgba(17, 24, 39, 0.95);
+        background: rgba(1, 5, 7, 0.95);
         color: white;
         padding: 4px 8px;
         border-radius: 6px;
         font-size: 10px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.2;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 10px rgba(1, 5, 7, 0.18);
         opacity: 0;
         pointer-events: none;
         transition:
@@ -1085,18 +1342,19 @@ ${argsString}</pre
         min-width: 300px;
         max-width: 300px;
         background: white;
-        color: #111827;
+        color: #010507;
         font-size: 13px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.4;
         border-radius: 12px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 12px 28px rgba(1, 5, 7, 0.12);
         padding: 10px 12px;
         display: inline-flex;
         align-items: flex-start;
         gap: 8px;
         z-index: 4500;
         animation: fade-slide-in 160ms ease;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         white-space: normal;
         word-break: break-word;
         text-align: left;
@@ -1117,7 +1375,7 @@ ${argsString}</pre
         width: 10px;
         height: 10px;
         background: white;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         transform: rotate(45deg);
         top: 50%;
         margin-top: -5px;
@@ -1126,35 +1384,130 @@ ${argsString}</pre
 
       .announcement-preview[data-side="left"] .announcement-preview__arrow {
         right: -5px;
-        box-shadow: 6px -6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: 6px -6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-preview[data-side="right"] .announcement-preview__arrow {
         left: -5px;
-        box-shadow: -6px 6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-dismiss {
-        color: #6b7280;
-        font-size: 12px;
-        padding: 2px 8px;
-        border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        background: rgba(248, 250, 252, 0.9);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #838389;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        padding: 0;
         transition:
           background 120ms ease,
           color 120ms ease;
       }
 
       .announcement-dismiss:hover {
-        background: rgba(241, 245, 249, 1);
-        color: #111827;
+        background: rgba(0, 0, 0, 0.06);
+        color: #010507;
+      }
+
+      /* ── Agent tab section cards ─────────────────────────────────────── */
+      .cpk-section-card {
+        border-radius: 8px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      /* ── Agent icon bubble ───────────────────────────────────────────── */
+      .cpk-agent-icon {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+
+      /* ── Agent stat cards ────────────────────────────────────────────── */
+      .cpk-stat-card {
+        background-color: #ffffff !important;
+        border: 1px solid #dbdbe5 !important;
+      }
+      button.cpk-stat-card:hover {
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Circle chevron (Frontend Tools + Context) ──────────────────── */
+      .cpk-chevron-circle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #f0f0f4;
+        color: #838389;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .cpk-chevron-circle svg {
+        width: 14px !important;
+        height: 14px !important;
+      }
+      .cpk-chevron-circle--open {
+        transform: rotate(180deg);
+      }
+
+      /* ── Inline copy button ─────────────────────────────────────────── */
+      .cpk-copy-btn {
+        font-size: 10px;
+        font-weight: 500;
+        color: #57575b;
+        background: #ffffff;
+        border: 1px solid #dbdbe5;
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        transition:
+          background-color 0.15s,
+          border-color 0.15s;
+      }
+      .cpk-copy-btn:hover {
+        background-color: #f0f0f4;
+        border-color: #afafb7;
+      }
+
+      .cpk-section-header {
+        background: #e8edf5;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 10px 16px;
+      }
+      .cpk-section-header h4 {
+        font-size: 11px;
+        font-weight: 600;
+        color: #181c1f;
+        margin: 0;
+      }
+
+      /* Inputs/selects inside the lavender header need an explicit white bg */
+      .cpk-section-header input,
+      .cpk-section-header select {
+        background-color: #ffffff !important;
+        box-shadow: none !important;
+      }
+      .cpk-section-header select {
+        padding-right: 24px !important;
+      }
+      /* Events table column headers */
+      table thead th {
+        font-weight: 600 !important;
       }
 
       .announcement-content {
-        color: #111827;
-        font-size: 14px;
-        line-height: 1.6;
+        color: #010507;
+        font-size: 12px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        line-height: 1.5;
       }
 
       .announcement-content h1,
@@ -1165,36 +1518,315 @@ ${argsString}</pre
       }
 
       .announcement-content h1 {
-        font-size: 1.1rem;
+        font-size: 0.75rem;
       }
-
       .announcement-content h2 {
-        font-size: 1rem;
+        font-size: 0.8rem;
       }
-
       .announcement-content h3 {
-        font-size: 0.95rem;
+        font-size: 0.75rem;
       }
 
       .announcement-content p {
-        margin: 0.25rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ul {
         list-style: disc;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ol {
         list-style: decimal;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content a {
-        color: #0f766e;
+        color: #757cf2;
         text-decoration: underline;
+      }
+
+      .announcement-body {
+        position: relative;
+        overflow: hidden;
+        transition: max-height 0.25s ease;
+      }
+      .announcement-body--collapsed {
+        max-height: 72px;
+      }
+      .announcement-body--expanded {
+        max-height: 2000px;
+      }
+      .announcement-fade {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(to bottom, transparent, #ffffff);
+        pointer-events: none;
+      }
+      .announcement-toggle {
+        display: block;
+        width: 100%;
+        margin-top: 6px;
+        padding: 0;
+        background: none;
+        border: none;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: #757cf2;
+        cursor: pointer;
+        text-align: center;
+      }
+      .announcement-toggle:hover {
+        color: #6430ab;
+      }
+
+      /* ── Brand typography ────────────────────────────────────────── */
+      /* Override Tailwind font-mono stack → Spline Sans Mono */
+      .font-mono,
+      pre,
+      code {
+        font-family: "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+      }
+
+      /* ── Floating button ─────────────────────────────────────────── */
+      .console-button {
+        background-color: rgba(1, 5, 7, 0.95) !important;
+        border-color: rgba(190, 194, 255, 0.25) !important;
+        box-shadow:
+          0 0 0 1px rgba(190, 194, 255, 0.15),
+          0 4px 14px rgba(1, 5, 7, 0.28) !important;
+      }
+      .console-button:hover {
+        background-color: rgba(1, 5, 7, 1) !important;
+        border-color: rgba(190, 194, 255, 0.45) !important;
+      }
+      .console-button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Inspector window ────────────────────────────────────────── */
+      .inspector-window {
+        border-color: #dbdbe5 !important;
+        box-shadow:
+          0 8px 32px rgba(1, 5, 7, 0.1),
+          0 2px 8px rgba(1, 5, 7, 0.06) !important;
+      }
+
+      /* ── Header drag area ────────────────────────────────────────── */
+      .drag-handle {
+        border-bottom-color: #dbdbe5 !important;
+        /* Subtle pale lavender gradient — brand "light, spacious" surface */
+        background: linear-gradient(180deg, #f4f4fd 0%, #ffffff 100%) !important;
+      }
+
+      /* Tab strip row: soft off-white, separated from content */
+      .drag-handle > div:last-child {
+        border-top-color: #e2e2ea !important;
+        background-color: #fafafc !important;
+      }
+
+      /* ── Tab buttons ─────────────────────────────────────────────── */
+      /*
+       * Named classes owned by this component — no Tailwind conflict.
+       * Active: brand surface/surfaceContainerActive (lilac tint) +
+       *         border/borderActionEnabled underline.
+       * Dark fill is for primary action buttons only, not nav tabs.
+       */
+      .cpk-tab-active {
+        background-color: rgba(190, 194, 255, 0.18);
+        color: #010507;
+        font-weight: 600;
+      }
+      .cpk-tab-active .cpk-tab-icon {
+        color: #757cf2;
+      }
+      .cpk-tab-inactive {
+        background-color: transparent;
+        color: #2b2b2b;
+      }
+      .cpk-tab-inactive .cpk-tab-icon {
+        color: #838389;
+      }
+      .cpk-tab-inactive:hover {
+        background-color: rgba(190, 194, 255, 0.08);
+        color: #010507;
+        cursor: pointer;
+      }
+      .cpk-tab-active {
+        cursor: pointer;
+      }
+
+      /* ── Header control buttons (dock, close) — first row only ───── */
+      .drag-handle > div:first-child button {
+        color: #838389 !important;
+      }
+      .drag-handle > div:first-child button:hover {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+      .drag-handle > div:first-child button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Agent/context dropdown ──────────────────────────────────── */
+      [data-context-dropdown-root="true"] > button {
+        border-color: #dbdbe5 !important;
+        color: #010507 !important;
+      }
+      [data-context-dropdown-root="true"] > button:hover {
+        border-color: #bec2ff !important;
+        background-color: #f7f7f9 !important;
+      }
+      [data-context-dropdown-root="true"] > button > span:last-child {
+        color: #838389 !important;
+      }
+      [data-context-dropdown-root="true"] > div {
+        border-color: #dbdbe5 !important;
+        box-shadow: 0 4px 12px rgba(1, 5, 7, 0.08) !important;
+      }
+      [data-context-dropdown-root="true"] > div button:hover,
+      [data-context-dropdown-root="true"] > div button:focus {
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Status bar (bottom chrome) ──────────────────────────────── */
+      .inspector-window > div > div:last-child {
+        border-top-color: #dbdbe5 !important;
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Resize handle ───────────────────────────────────────────── */
+      .resize-handle {
+        color: #838389 !important;
+      }
+      .resize-handle:hover {
+        color: #57575b !important;
+      }
+
+      /* ── AG-UI Events tab ────────────────────────────────────────── */
+      /* Row hover: replace blue tint with brand lilac */
+      tr:hover td {
+        background-color: rgba(190, 194, 255, 0.08) !important;
+      }
+      /* Reset/dark action button */
+      button[class*="bg-gray-900"] {
+        background-color: #010507 !important;
+      }
+      button[class*="bg-gray-800"] {
+        background-color: #2b2b2b !important;
+      }
+      /* Copy "copied" state: generic green → brand mint */
+      button[class*="bg-green-100"] {
+        background-color: rgba(133, 236, 206, 0.2) !important;
+        color: #189370 !important;
+      }
+
+      /* ── Agents tab ──────────────────────────────────────────────── */
+      /* Agent icon bubble: blue → lilac */
+      span[class*="bg-blue-100"]:not([class*="text-blue-800"]) {
+        background-color: rgba(190, 194, 255, 0.15) !important;
+      }
+      span[class*="text-blue-600"] {
+        color: #757cf2 !important;
+      }
+      /* Running badge: emerald → mint */
+      span[class*="bg-emerald-50"] {
+        background-color: rgba(133, 236, 206, 0.15) !important;
+      }
+      span[class*="text-emerald-700"] {
+        color: #189370 !important;
+      }
+      /* Running status dot */
+      span[class*="bg-emerald-500"] {
+        background-color: #85ecce !important;
+      }
+      /* Idle dot */
+      span[class*="bg-gray-400"] {
+        background-color: #afafb7 !important;
+      }
+      /* User role badge (blue → lilac) */
+      span[class*="bg-blue-100"][class*="text-blue-800"] {
+        background-color: rgba(190, 194, 255, 0.22) !important;
+        border: 1px solid rgba(190, 194, 255, 0.45) !important;
+        color: #57575b !important;
+      }
+      /* Assistant role badge (green → mint) */
+      span[class*="bg-green-100"][class*="text-green-800"] {
+        background-color: rgba(133, 236, 206, 0.18) !important;
+        border: 1px solid rgba(133, 236, 206, 0.4) !important;
+        color: #189370 !important;
+      }
+      /* Tool role badge (amber → orange brand) */
+      span[class*="bg-amber-100"][class*="text-amber-800"] {
+        background-color: rgba(255, 172, 77, 0.15) !important;
+        color: #57575b !important;
+      }
+
+      /* ── Frontend Tools tab ──────────────────────────────────────── */
+      /* Handler badge (blue → lilac) */
+      span[class*="bg-blue-50"][class*="text-blue-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #010507 !important;
+      }
+      /* Renderer badge (purple → lilac-adjacent) */
+      span[class*="bg-purple-50"][class*="text-purple-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #57575b !important;
+      }
+      /* Required badge (rose → brand red) */
+      span[class*="bg-rose-50"][class*="text-rose-700"] {
+        background-color: rgba(250, 95, 103, 0.1) !important;
+        border-color: rgba(250, 95, 103, 0.25) !important;
+        color: #fa5f67 !important;
+      }
+      /* Code/default value blocks */
+      code[class*="bg-gray-100"],
+      span[class*="bg-gray-100"] {
+        background-color: #f0f0f4 !important;
+      }
+
+      /* ── Connected status bar: match threads header mint (#5BE4BB) ──── */
+      /* Outer strip bg + top border + text when connected badge is present */
+      .inspector-window
+        > div
+        > div:last-child
+        > div:last-child:has(div[class*="bg-emerald-50"]) {
+        background-color: rgba(91, 228, 187, 0.08) !important;
+        border-top-color: rgba(91, 228, 187, 0.3) !important;
+        color: #189370 !important;
+      }
+      /* Inner badge — slightly more opaque on the mint bg */
+      div[class*="bg-emerald-50"][class*="border-emerald-200"] {
+        background-color: rgba(91, 228, 187, 0.12) !important;
+        border-color: rgba(91, 228, 187, 0.4) !important;
+        color: #189370 !important;
+      }
+      /* Icon bubble inside connected badge → mint tint */
+      div[class*="bg-emerald-50"] span[class*="bg-white"] {
+        background-color: rgba(91, 228, 187, 0.3) !important;
+      }
+
+      /* ── Announcement panel ──────────────────────────────────────── */
+      div[class*="border-slate-200"][class*="bg-white"] {
+        border-color: #dbdbe5 !important;
+      }
+      /* Announcement icon bubble: black → brand light lavender + lilac icon */
+      span[class*="bg-slate-900"],
+      div[class*="bg-slate-900"] {
+        background-color: #eee6fe !important;
+        color: #757cf2 !important;
+      }
+      span[class*="text-slate-800"],
+      div[class*="text-slate-800"] {
+        color: #010507 !important;
       }
     `,
   ];
@@ -1202,6 +1834,7 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
         "pointerdown",
@@ -1212,7 +1845,21 @@ ${argsString}</pre
       this.hydrateStateFromStorageEarly();
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
+      if (this._demoMode) {
+        this.startDemoAnimation();
+      }
     }
+  }
+
+  private ensureBrandFonts(): void {
+    const FONT_LINK_ID = "cpk-inspector-brand-fonts";
+    if (document.getElementById(FONT_LINK_ID)) return;
+    const link = document.createElement("link");
+    link.id = FONT_LINK_ID;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap";
+    document.head.appendChild(link);
   }
 
   disconnectedCallback(): void {
@@ -1223,6 +1870,13 @@ ${argsString}</pre
         "pointerdown",
         this.handleGlobalPointerDown as EventListener,
       );
+    }
+    // Clean up demo mode timers
+    for (const id of this._demoTimers) clearTimeout(id);
+    this._demoTimers = [];
+    if (this._demoStreamInterval !== null) {
+      clearInterval(this._demoStreamInterval);
+      this._demoStreamInterval = null;
     }
     // Clear pending body-transition timers to prevent post-teardown errors
     for (const id of this.bodyTransitionTimeoutIds) {
@@ -1309,7 +1963,7 @@ ${argsString}</pre
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
-      "focus-visible:outline-rose-500",
+      "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
@@ -1435,6 +2089,7 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
+            ${this.renderAnnouncementBanner()}
             <div
               class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
             >
@@ -1442,9 +2097,7 @@ ${argsString}</pre
                 const isSelected = this.selectedMenu === key;
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected
-                    ? "bg-gray-900 text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
                 ].join(" ");
 
                 return html`
@@ -1454,10 +2107,12 @@ ${argsString}</pre
                     aria-pressed=${isSelected}
                     @click=${() => this.handleMenuSelect(key)}
                   >
-                    <span
-                      class="text-gray-400 ${isSelected ? "text-white" : ""}"
-                    >
-                      ${this.renderIcon(icon)}
+                    <span class="cpk-tab-icon">
+                      ${
+                        key in this.customTabIcons
+                          ? unsafeHTML(this.customTabIcons[key])
+                          : this.renderIcon(icon)
+                      }
                     </span>
                     <span>${label}</span>
                   </button>
@@ -1466,8 +2121,7 @@ ${argsString}</pre
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
-            <div class="flex-1 overflow-auto">
-              ${this.renderAnnouncementPanel()}
+            <div id="cpk-main-scroll" class="flex-1 overflow-auto">
               ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
               <slot></slot>
             </div>
@@ -2531,6 +3185,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      activityType:
+        typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
   }
 
@@ -2686,7 +3342,703 @@ ${argsString}</pre
       return this.renderContextView();
     }
 
+    if (this.selectedMenu === "threads") {
+      return this.renderThreadsView();
+    }
+
     return nothing;
+  }
+
+  private handleThreadDividerPointerDown = (event: PointerEvent) => {
+    this.threadDividerResizing = true;
+    this.threadDividerPointerId = event.pointerId;
+    this.threadDividerStartX = event.clientX;
+    this.threadDividerStartWidth = this.threadListWidth;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  private handleThreadDividerPointerMove = (event: PointerEvent) => {
+    if (
+      !this.threadDividerResizing ||
+      this.threadDividerPointerId !== event.pointerId
+    )
+      return;
+    const delta = event.clientX - this.threadDividerStartX;
+    this.threadListWidth = Math.max(
+      180,
+      Math.min(480, this.threadDividerStartWidth + delta),
+    );
+    this.requestUpdate();
+  };
+
+  private handleThreadDividerPointerUp = (event: PointerEvent) => {
+    if (this.threadDividerPointerId !== event.pointerId) return;
+    const target = event.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(this.threadDividerPointerId)) {
+      target.releasePointerCapture(this.threadDividerPointerId);
+    }
+    this.threadDividerResizing = false;
+  };
+
+  private startDemoAnimation(): void {
+    const ago = (minutes: number) =>
+      new Date(Date.now() - minutes * 60 * 1000).toISOString();
+
+    const makeThread = (
+      id: string,
+      name: string,
+      agentId: string,
+      updatedAt: string,
+    ): ɵThread => ({
+      id,
+      organizationId: "demo-org",
+      agentId,
+      createdById: "demo-user",
+      name,
+      archived: false,
+      createdAt: updatedAt,
+      updatedAt,
+    });
+
+    this._demoThreads = [
+      makeThread(
+        "demo-4",
+        "Customer churn risk report",
+        "langgraph-agent",
+        ago(3),
+      ),
+      makeThread(
+        "demo-3",
+        "SOC 2 audit prep checklist",
+        "compliance-agent",
+        ago(47),
+      ),
+      makeThread(
+        "demo-2",
+        "Vendor contract renewal",
+        "langgraph-agent",
+        ago(183),
+      ),
+      makeThread("demo-1", "Q3 headcount planning", "crewai-agent", ago(1440)),
+    ];
+    // Start with SOC 2 thread open and a pre-existing conversation
+    this._resetToSoc2();
+    this._threadsUnlocked = true;
+    this.selectedMenu = "threads";
+    this.requestUpdate();
+  }
+
+  private _resetToSoc2(): void {
+    this._demoSelectedThreadId = "demo-3";
+    this._demoAgentState = null;
+    this._demoAgentEvents = [];
+    this._demoConversation = [
+      {
+        id: "soc-u1",
+        type: "user",
+        content:
+          "What documentation do we still need to complete before the SOC 2 audit in June?",
+        createdAt: "",
+      },
+      {
+        id: "soc-a1",
+        type: "assistant",
+        content:
+          "Four gaps to close before the June audit. Access control needs CISO sign-off — last review was 14 months ago. Vendor risk assessments are missing for 3 critical subprocessors. Incident response runbooks have never been tested in a tabletop exercise. Security training completion is at 71%, below the 95% threshold auditors expect.",
+        createdAt: "",
+      },
+    ];
+    this._demoConversation.push({
+      id: "soc-ui1",
+      type: "generative-ui",
+      content: "open-generative-ui",
+      html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <span style="font-size:13px;font-weight:700;color:#0f172a;">SOC 2 Readiness Scorecard</span>
+    <span style="font-size:10px;font-weight:500;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:4px;">74 days to audit</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px;">
+    <div style="position:relative;width:72px;height:72px;flex-shrink:0;">
+      <svg viewBox="0 0 36 36" width="72" height="72" style="transform:rotate(-90deg);">
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#e2e8f0" stroke-width="3.8"/>
+        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#8b5cf6" stroke-width="3.8" stroke-dasharray="67 33" stroke-linecap="round"/>
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <span style="font-size:14px;font-weight:800;color:#0f172a;line-height:1;">67%</span>
+        <span style="font-size:8px;color:#94a3b8;line-height:1;margin-top:2px;">ready</span>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#f87171;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Access Control</span>
+        <span style="font-size:10px;color:#64748b;">Needs CISO sign-off</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#f87171;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Vendor Risk</span>
+        <span style="font-size:10px;color:#64748b;">3 missing assessments</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#fb923c;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Incident Response</span>
+        <span style="font-size:10px;color:#64748b;">No tabletop on record</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#fbbf24;flex-shrink:0;"></div>
+        <span style="font-size:11px;color:#334155;flex:1;">Security Training</span>
+        <span style="font-size:10px;color:#64748b;">71% — need 95%</span>
+      </div>
+    </div>
+  </div>
+  <div style="font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · compliance-agent</div>
+</div>`,
+      createdAt: "",
+    });
+  }
+
+  private _startChurnDemo(): void {
+    // Cancel any in-progress streaming before restarting
+    if (this._demoStreamInterval !== null) {
+      clearInterval(this._demoStreamInterval);
+      this._demoStreamInterval = null;
+    }
+    this._demoSelectedThreadId = "demo-4";
+    this._demoConversation = [
+      {
+        id: "msg-u1",
+        type: "user",
+        content:
+          "Which enterprise accounts are most at risk of churning this quarter? Pull from usage metrics and support history.",
+        createdAt: "",
+      },
+      { id: "msg-a1", type: "assistant", content: "", createdAt: "" },
+    ];
+
+    // Mock agent state for the churn report thread
+    this._demoAgentState = {
+      status: "completed",
+      accounts_analyzed: 47,
+      high_risk_count: 3,
+      watch_list_count: 2,
+      data_sources: ["usage_metrics", "support_tickets", "crm"],
+      last_updated: new Date().toISOString(),
+      high_risk_accounts: [
+        {
+          name: "Meridian Financial",
+          risk_score: 0.91,
+          active_user_drop_pct: 64,
+          open_p1_tickets: 4,
+        },
+        {
+          name: "Crestwood Logistics",
+          risk_score: 0.84,
+          days_to_renewal: 47,
+          exec_sponsor_left: true,
+        },
+        {
+          name: "Atlas Healthcare",
+          risk_score: 0.79,
+          seat_utilization_pct: 12,
+          admin_inactive_days: 42,
+        },
+      ],
+    };
+
+    // Mock AG-UI events for the churn report thread
+    const t = Date.now();
+    this._demoAgentEvents = [
+      {
+        id: "demo-evt-1",
+        agentId: "langgraph-agent",
+        type: "RUN_STARTED",
+        timestamp: t - 8200,
+        payload: { run_id: "run_cHurnQ3", agent: "langgraph-agent" },
+      },
+      {
+        id: "demo-evt-2",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 7100,
+        payload: {
+          tool_call_id: "tc_01",
+          tool_name: "fetch_usage_metrics",
+          arguments: { window_days: 90, segment: "enterprise" },
+        },
+      },
+      {
+        id: "demo-evt-3",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 5800,
+        payload: { tool_call_id: "tc_01", accounts_returned: 47 },
+      },
+      {
+        id: "demo-evt-4",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 5700,
+        payload: {
+          tool_call_id: "tc_02",
+          tool_name: "fetch_support_history",
+          arguments: { severity: ["P1", "P2"], days: 90 },
+        },
+      },
+      {
+        id: "demo-evt-5",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 4300,
+        payload: { tool_call_id: "tc_02", tickets_returned: 214 },
+      },
+      {
+        id: "demo-evt-6",
+        agentId: "langgraph-agent",
+        type: "STATE_SNAPSHOT",
+        timestamp: t - 3900,
+        payload: {
+          status: "analyzing",
+          accounts_analyzed: 47,
+          high_risk_count: 3,
+        },
+      },
+      {
+        id: "demo-evt-7",
+        agentId: "langgraph-agent",
+        type: "TEXT_MESSAGE_START",
+        timestamp: t - 3100,
+        payload: { message_id: "msg-a1" },
+      },
+      {
+        id: "demo-evt-8",
+        agentId: "langgraph-agent",
+        type: "TEXT_MESSAGE_END",
+        timestamp: t - 200,
+        payload: { message_id: "msg-a1" },
+      },
+      {
+        id: "demo-evt-8b",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_START",
+        timestamp: t - 180,
+        payload: {
+          tool_call_id: "tc_03",
+          tool_name: "render_churn_dashboard",
+          arguments: {
+            accounts: [
+              "Meridian Financial",
+              "Crestwood Logistics",
+              "Atlas Healthcare",
+            ],
+          },
+        },
+      },
+      {
+        id: "demo-evt-8c",
+        agentId: "langgraph-agent",
+        type: "ACTIVITY_DELTA",
+        timestamp: t - 120,
+        payload: {
+          tool_call_id: "tc_03",
+          activityType: "open-generative-ui",
+          status: "streaming",
+        },
+      },
+      {
+        id: "demo-evt-8d",
+        agentId: "langgraph-agent",
+        type: "TOOL_CALL_END",
+        timestamp: t - 80,
+        payload: { tool_call_id: "tc_03", status: "rendered" },
+      },
+      {
+        id: "demo-evt-9",
+        agentId: "langgraph-agent",
+        type: "RUN_FINISHED",
+        timestamp: t - 100,
+        payload: { run_id: "run_cHurnQ3" },
+      },
+    ];
+
+    this.requestUpdate();
+
+    // Stream the assistant response word by word
+    const fullResponse =
+      "Three accounts are high risk this quarter. Meridian Financial is down 64% in active users with 4 open P1 tickets. Crestwood Logistics renews in 47 days and their exec sponsor just left. Atlas Healthcare is at 12% seat utilization with no admin logins in 6 weeks. Recommend scheduling EBRs with Meridian and Atlas this week, and looping in their CSMs on Crestwood before the renewal closes.";
+
+    const tokens = fullResponse.split(/(\s+)/);
+    let tokenIndex = 0;
+    this._demoStreamInterval = setInterval(() => {
+      if (tokenIndex >= tokens.length) {
+        if (this._demoStreamInterval !== null) {
+          clearInterval(this._demoStreamInterval);
+          this._demoStreamInterval = null;
+        }
+        // Guard against duplicate pushes if the demo was restarted mid-flight
+        if (!this._demoConversation.some((m) => m.id === "churn-ui1")) {
+          this._demoConversation = [
+            ...this._demoConversation,
+            {
+              id: "churn-ui1",
+              type: "generative-ui",
+              content: "open-generative-ui",
+              html: `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;padding:16px 20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <span style="font-size:13px;font-weight:700;color:#0f172a;">Churn Risk · Q3 Enterprise</span>
+    <span style="font-size:10px;font-weight:600;background:#fff1f2;color:#9f1239;padding:2px 8px;border-radius:4px;border:1px solid #fda4af;">$2.1M ARR at risk</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:11px;">
+    <thead>
+      <tr style="border-bottom:1px solid #e2e8f0;">
+        <th style="text-align:left;padding:4px 6px 6px 0;font-weight:600;color:#64748b;font-size:10px;">Account</th>
+        <th style="text-align:center;padding:4px 6px 6px;font-weight:600;color:#64748b;font-size:10px;">Risk</th>
+        <th style="text-align:right;padding:4px 6px 6px;font-weight:600;color:#64748b;font-size:10px;">ARR</th>
+        <th style="text-align:left;padding:4px 0 6px 8px;font-weight:600;color:#64748b;font-size:10px;">Key signal</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Meridian Financial</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fff1f2;color:#9f1239;border:1px solid #fda4af;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">91%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$840k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;"><span style="color:#9f1239;">↓64%</span> DAU · 4 P1s open</td>
+      </tr>
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Crestwood Logistics</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fff7ed;color:#c2410c;border:1px solid #fdba74;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">84%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$720k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;">Renewal 47d · exec departed</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 6px 7px 0;font-weight:600;color:#0f172a;">Atlas Healthcare</td>
+        <td style="padding:7px 6px;text-align:center;"><span style="background:#fffbeb;color:#b45309;border:1px solid #fcd34d;padding:2px 7px;border-radius:4px;font-weight:600;font-size:10px;">79%</span></td>
+        <td style="padding:7px 6px;text-align:right;color:#334155;font-weight:500;">$540k</td>
+        <td style="padding:7px 0 7px 8px;color:#64748b;">12% seat util · no admin 42d</td>
+      </tr>
+    </tbody>
+  </table>
+  <div style="margin-top:12px;font-size:9px;color:#94a3b8;display:flex;align-items:center;gap:4px;"><svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg> Generative UI · langgraph-agent</div>
+</div>`,
+              createdAt: "",
+            },
+          ];
+          this.requestUpdate();
+        }
+        return;
+      }
+      const last = this._demoConversation[this._demoConversation.length - 1];
+      if (!last) return;
+      const updated: {
+        id: string;
+        type: string;
+        content: string;
+        createdAt: string;
+      } = {
+        id: last.id,
+        type: last.type,
+        content: last.content + (tokens[tokenIndex] ?? ""),
+        createdAt: last.createdAt,
+      };
+      this._demoConversation = [
+        ...this._demoConversation.slice(0, -1),
+        updated,
+      ];
+      tokenIndex++;
+      this.requestUpdate();
+    }, 18);
+  }
+
+  private renderThreadsGate() {
+    return html`
+      <div style="
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        padding:40px 24px;
+        min-height:100%;
+        text-align:center;
+        background:linear-gradient(135deg,#f5f4ff 0%,#ede9fe 100%);
+        overflow:hidden;
+      ">
+        <!-- Blurred ellipses from Figma/storybook -->
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;top:-80px;left:-120px;opacity:0.25;background:#757CF2;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;bottom:-100px;right:-80px;opacity:0.2;background:#FFAC4D;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:400px;height:400px;border-radius:50%;bottom:20px;left:-60px;opacity:0.15;background:#FFAC4D;filter:blur(100px);pointer-events:none;"></div>
+
+        <div style="
+          position:relative;
+          z-index:1;
+          background:white;
+          border-radius:16px;
+          padding:32px 28px;
+          max-width:320px;
+          width:100%;
+          box-shadow:0 4px 24px rgba(99,102,241,0.12),0 1px 4px rgba(0,0,0,0.06);
+          border:1px solid #EEE6FE;
+        ">
+          <!-- Lock icon -->
+          <div style="
+            width:52px;height:52px;
+            background:#EEE6FE;
+            border-radius:14px;
+            display:flex;align-items:center;justify-content:center;
+            margin:0 auto 16px;
+          ">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+
+          <!-- Badge -->
+          <div style="
+            display:inline-block;
+            background:#EEE6FE;
+            color:#6366f1;
+            font-size:10px;
+            font-weight:700;
+            letter-spacing:0.08em;
+            text-transform:uppercase;
+            padding:3px 10px;
+            border-radius:20px;
+            margin-bottom:12px;
+          ">Early Access</div>
+
+          <div style="font-size:16px;font-weight:700;color:#181c1f;margin-bottom:8px;line-height:1.3;">
+            Threads is coming soon
+          </div>
+          <div style="font-size:12px;color:#57575B;line-height:1.7;margin-bottom:20px;">
+            See inside your persistent agent conversations with CopilotKit Threads.
+          </div>
+
+          <a
+            href="https://copilotkit.ai/threads-early-access"
+            target="_blank"
+            style="
+              display:block;
+              background:#757CF2;
+              color:white;
+              text-decoration:none;
+              font-size:13px;
+              font-weight:600;
+              padding:10px 16px;
+              border-radius:8px;
+              margin-bottom:16px;
+            "
+          >Request early access →</a>
+
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
+            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
+            <span style="font-size:11px;color:#838389;">have a code?</span>
+            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
+          </div>
+
+          <div style="display:flex;gap:6px;">
+            <input
+              id="cpk-gate-input"
+              type="text"
+              placeholder="Enter access code"
+              style="
+                flex:1;
+                border:1px solid #DBDBE5;
+                border-radius:8px;
+                padding:8px 12px;
+                font-size:12px;
+                outline:none;
+                color:#181c1f;
+                background:#FAFAFA;
+              "
+              @keydown=${(e: KeyboardEvent) => {
+                if (e.key === "Enter") {
+                  this._submitThreadsCode(
+                    (e.currentTarget as HTMLInputElement).value,
+                  );
+                }
+              }}
+            />
+            <button
+              style="
+                background:#181c1f;
+                color:white;
+                border:none;
+                border-radius:8px;
+                padding:8px 14px;
+                font-size:12px;
+                font-weight:500;
+                cursor:pointer;
+                white-space:nowrap;
+              "
+              @click=${() => {
+                const input = this.shadowRoot?.getElementById(
+                  "cpk-gate-input",
+                ) as HTMLInputElement | null;
+                if (input) this._submitThreadsCode(input.value);
+              }}
+            >
+              Unlock
+            </button>
+          </div>
+          ${
+            this._threadsGateError
+              ? html`<div style="font-size:11px;color:#ef4444;margin-top:10px;">
+                  ${this._threadsGateError}
+                </div>`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private _submitThreadsCode(value: string): void {
+    if (value.trim().toLowerCase() === "earlyaccess") {
+      document.cookie =
+        "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
+      this._threadsUnlocked = true;
+      this._threadsGateError = null;
+    } else {
+      this._threadsGateError =
+        "Incorrect code. Sign up at copilotkit.ai/threads-early-access to get yours.";
+    }
+    this.requestUpdate();
+  }
+
+  private renderThreadsView() {
+    if (!this._threadsUnlocked && !this._demoMode) {
+      return this.renderThreadsGate();
+    }
+
+    const isDemoActive = this._demoMode && this._demoThreads.length > 0;
+
+    const displayThreads = isDemoActive
+      ? this._demoThreads
+      : this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    const activeSelectedId = isDemoActive
+      ? this._demoSelectedThreadId
+      : this.selectedThreadId;
+
+    const selectedThread =
+      activeSelectedId != null
+        ? (displayThreads.find((t) => t.id === activeSelectedId) ?? null)
+        : null;
+
+    const conversationOverride = isDemoActive
+      ? this._demoConversation
+      : selectedThread
+        ? this.mapMessagesToConversation(
+            this.agentMessages.get(selectedThread.agentId) ?? null,
+          )
+        : null;
+
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;">
+        <!-- Left sidebar: thread list -->
+        <div
+          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+        >
+          <cpk-thread-list
+            style="height:100%;"
+            .threads=${displayThreads}
+            .selectedThreadId=${activeSelectedId}
+            @threadSelected=${(e: CustomEvent<string>) => {
+              if (isDemoActive) {
+                if (e.detail === "demo-4") {
+                  this._startChurnDemo();
+                } else {
+                  // Clear any in-progress churn streaming
+                  if (this._demoStreamInterval !== null) {
+                    clearInterval(this._demoStreamInterval);
+                    this._demoStreamInterval = null;
+                  }
+                  if (e.detail === "demo-3") {
+                    this._resetToSoc2();
+                  } else {
+                    this._demoSelectedThreadId = e.detail;
+                    this._demoAgentState = null;
+                    this._demoAgentEvents = [];
+                    this._demoConversation = [];
+                  }
+                }
+              } else {
+                this.selectedThreadId = e.detail;
+              }
+              this.requestUpdate();
+            }}
+          ></cpk-thread-list>
+        </div>
+
+        <!-- Resize divider -->
+        <div
+          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+          @pointerdown=${this.handleThreadDividerPointerDown}
+          @pointermove=${this.handleThreadDividerPointerMove}
+          @pointerup=${this.handleThreadDividerPointerUp}
+          @pointercancel=${this.handleThreadDividerPointerUp}
+        ></div>
+
+        <!-- Center + right: thread details or empty state -->
+        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+          ${
+            activeSelectedId
+              ? html`<cpk-thread-details
+                  style="flex:1;min-width:0;"
+                  .threadId=${activeSelectedId}
+                  .thread=${selectedThread}
+                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                  .headers=${this._core?.headers ?? {}}
+                  .agentStateInput=${
+                    isDemoActive
+                      ? this._demoAgentState
+                      : selectedThread
+                        ? this.getLatestStateForAgent(selectedThread.agentId)
+                        : null
+                  }
+                  .agentEventsInput=${
+                    isDemoActive
+                      ? this._demoAgentEvents
+                      : selectedThread
+                        ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                        : []
+                  }
+                  .conversationOverride=${conversationOverride}
+                ></cpk-thread-details>`
+              : html`
+                  <div
+                    style="
+                      flex: 1;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      color: #838389;
+                    "
+                  >
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#c0c0c8"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
+                  </div>
+                `
+          }
+        </div>
+      </div>
+    `;
   }
 
   private renderEventsTable() {
@@ -2699,20 +4051,11 @@ ${argsString}</pre
 
     if (events.length === 0) {
       return html`
-        <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
-        >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Zap")}
-            </div>
-            <p class="text-sm text-gray-600">No events yet</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Trigger an agent run to see live activity.
-            </p>
-          </div>
+        <div class="flex h-full items-center justify-center">
+          <cpk-empty-events
+            label="No events yet"
+            hint="Events are recorded live. Run the agent to see them here."
+          ></cpk-empty-events>
         </div>
       `;
     }
@@ -2823,23 +4166,30 @@ ${argsString}</pre
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
+            <colgroup>
+              <col style="width:${this.evtColWidths[0]}px">
+              <col style="width:${this.evtColWidths[1]}px">
+              <col style="width:${this.evtColWidths[2]}px">
+              <col>
+            </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
+                ${["Agent", "Time", "Event Type"].map(
+                  (label, col) => html`
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  style="position:relative;overflow:hidden;"
                 >
-                  Agent
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Time
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Event Type
-                </th>
+                  ${label}
+                  <div
+                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
+                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
+                    @pointerup=${() => this._onEvtColResizeEnd()}
+                    @pointercancel=${() => this._onEvtColResizeEnd()}
+                  ></div>
+                </th>`,
+                )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
                 >
@@ -2954,6 +4304,30 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  private _onEvtColResizeStart(e: PointerEvent, col: number): void {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    this._evtColResize = {
+      col,
+      startX: e.clientX,
+      startW: this.evtColWidths[col] ?? 0,
+    };
+  }
+
+  private _onEvtColResizeMove(e: PointerEvent): void {
+    if (!this._evtColResize) return;
+    const { col, startX, startW } = this._evtColResize;
+    this.evtColWidths = this.evtColWidths.map((w, i) =>
+      i === col ? Math.max(40, startW + (e.clientX - startX)) : w,
+    );
+    this.requestUpdate();
+  }
+
+  private _onEvtColResizeEnd(): void {
+    this._evtColResize = null;
+  }
+
   private handleClearEvents = (): void => {
     if (this.selectedContext === "all-agents") {
       this.agentEvents.clear();
@@ -3026,7 +4400,7 @@ ${prettyEvent}</pre
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600"
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 cpk-agent-icon"
               >
                 ${this.renderIcon("Bot")}
               </div>
@@ -3062,7 +4436,7 @@ ${prettyEvent}</pre
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
               type="button"
-              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden"
+              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden cpk-stat-card"
               @click=${() => this.handleMenuSelect("ag-ui-events")}
               title="View all events in AG-UI Events"
             >
@@ -3073,7 +4447,9 @@ ${prettyEvent}</pre
                 ${stats.totalEvents}
               </div>
             </button>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Messages
               </div>
@@ -3081,7 +4457,9 @@ ${prettyEvent}</pre
                 ${stats.messages}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Tool Calls
               </div>
@@ -3089,7 +4467,9 @@ ${prettyEvent}</pre
                 ${stats.toolCalls}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Errors
               </div>
@@ -3101,9 +4481,9 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current State Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">Current State</h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current State</h4>
           </div>
           <div class="overflow-auto p-4">
             ${
@@ -3115,7 +4495,7 @@ ${prettyEvent}</pre
                 `
                 : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
@@ -3130,32 +4510,20 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current Messages Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">
-              Current Messages
-            </h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current Messages</h4>
           </div>
           <div class="overflow-auto">
             ${
               messages && messages.length > 0
                 ? html`
-                  <table class="w-full text-xs">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Role
-                        </th>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Content
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
+                  <div class="w-full text-xs">
+                    <div class="flex bg-gray-50">
+                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
+                    </div>
+                    <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -3173,27 +4541,23 @@ ${prettyEvent}</pre
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
                         return html`
-                          <tr>
-                            <td class="px-4 py-2 align-top">
+                          <div class="flex items-start">
+                            <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
-                                  roleColors[role] || roleColors.unknown
-                                }"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
                               >
                                 ${role}
                               </span>
-                            </td>
-                            <td class="px-4 py-2">
+                            </div>
+                            <div class="flex-1 px-4 py-2">
                               ${
                                 hasContent
                                   ? html`<div
-                                    class="max-w-2xl whitespace-pre-wrap break-words text-gray-700"
+                                    class="whitespace-pre-line break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
-                                  : html`<div
-                                    class="text-xs italic text-gray-400"
-                                  >
+                                  : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
                               }
@@ -3202,16 +4566,16 @@ ${prettyEvent}</pre
                                   ? this.renderToolCallDetails(toolCalls)
                                   : nothing
                               }
-                            </td>
-                          </tr>
+                            </div>
+                          </div>
                         `;
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
                 `
                 : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
@@ -3300,20 +4664,49 @@ ${prettyEvent}</pre
       return;
     }
 
+    const previousMenu = this.selectedMenu;
     this.selectedMenu = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to default or first agent
+    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
       const agentOptions = this.contextOptions.filter(
         (opt) => opt.key !== "all-agents",
       );
       if (agentOptions.length > 0) {
-        // Try to find "default" agent first
-        const defaultAgent = agentOptions.find((opt) => opt.key === "default");
-        this.selectedContext = defaultAgent
-          ? defaultAgent.key
+        // Pick the agent with the most recent activity; fall back to first
+        const mostRecent = agentOptions.reduce<{
+          key: string;
+          ts: number;
+        } | null>((best, opt) => {
+          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+        }, null);
+        this.selectedContext = mostRecent
+          ? mostRecent.key
           : agentOptions[0]!.key;
       }
+    }
+
+    // If leaving the agents view with multiple agents registered, restore
+    // "all-agents" so the Events tab isn't silently filtered to one agent.
+    if (previousMenu === "agents" && key !== "agents") {
+      const agentCount = this.contextOptions.filter(
+        (opt) => opt.key !== "all-agents",
+      ).length;
+      if (agentCount > 1) {
+        this.selectedContext = "all-agents";
+      }
+    }
+
+    if (key === "threads") {
+      this.autoSelectLatestThread();
+    }
+
+    if (key === "ag-ui-events" || key === "agents") {
+      requestAnimationFrame(() => {
+        const scroller = this.shadowRoot?.getElementById("cpk-main-scroll");
+        if (scroller) scroller.scrollTop = 0;
+      });
     }
 
     this.contextMenuOpen = false;
@@ -3948,9 +5341,19 @@ ${prettyEvent}</pre
                 <div class="mb-3">
                   <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
                   <code
-                    class="block rounded bg-white border border-gray-200 px-2 py-1 text-[10px] font-mono text-gray-600"
+                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
                     >${id}</code
                   >
+                  <button
+                    type="button"
+                    class="cpk-copy-btn"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      void this.copyContextValue(id, `${id}:id`);
+                    }}
+                  >
+                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
+                  </button>
                 </div>
                 ${
                   hasValue
@@ -3960,8 +5363,8 @@ ${prettyEvent}</pre
                           Value
                         </h5>
                         <button
-                          class="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:bg-gray-50"
                           type="button"
+                          class="cpk-copy-btn"
                           @click=${(e: Event) => {
                             e.stopPropagation();
                             void this.copyContextValue(context.value, id);
@@ -3973,15 +5376,6 @@ ${prettyEvent}</pre
                               : "Copy JSON"
                           }
                         </button>
-                      </div>
-                      <div
-                        class="rounded-md border border-gray-200 bg-white p-3"
-                      >
-                        <pre
-                          class="overflow-auto text-xs text-gray-800 max-h-96"
-                        ><code>${this.formatContextValue(
-                          context.value,
-                        )}</code></pre>
                       </div>
                     `
                     : html`
@@ -4112,70 +5506,34 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  private renderAnnouncementPanel() {
-    if (!this.isOpen) {
-      return nothing;
-    }
-
-    // Ensure loading is triggered even if we mounted in an already-open state
-    this.ensureAnnouncementLoading();
-
+  private renderAnnouncementBanner() {
     if (!this.hasUnseenAnnouncement) {
       return nothing;
     }
 
-    if (!this.announcementLoaded && !this.announcementMarkdown) {
+    if (!this.announcementLoaded && !this.announcementHtml) {
       return html`<div
-        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+        class="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800"
       >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Loading latest announcement…</span>
-        </div>
+        <span
+          class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+        >
+          ${this.renderIcon("Megaphone")}
+        </span>
+        <span>Loading latest announcement…</span>
       </div>`;
     }
 
-    if (this.announcementLoadError) {
-      return html`<div
-        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
-      >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Announcement unavailable</span>
-        </div>
-        <p class="mt-2 text-xs text-rose-800">
-          We couldn’t load the latest notice. Please try opening the inspector
-          again.
-        </p>
-      </div>`;
-    }
-
-    if (!this.announcementMarkdown) {
+    if (!this.announcementHtml) {
       return nothing;
     }
 
-    const content = this.announcementHtml
-      ? unsafeHTML(this.announcementHtml)
-      : html`<pre class="whitespace-pre-wrap text-sm text-gray-900">
-${this.announcementMarkdown}</pre
-        >`;
-
-    return html`<div
-      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
-    >
+    return html`<div class="mx-4 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
       <div
-        class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
+        class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
         <span
-          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+          class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
         >
           ${this.renderIcon("Megaphone")}
         </span>
@@ -4186,12 +5544,31 @@ ${this.announcementMarkdown}</pre
           @click=${this.handleDismissAnnouncement}
           aria-label="Dismiss announcement"
         >
-          Dismiss
+          ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-content text-sm leading-relaxed text-gray-900">
-        ${content}
+      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+        <div class="announcement-content">
+          ${unsafeHTML(this.announcementHtml)}
+        </div>
+        ${
+          !this.announcementExpanded
+            ? html`
+                <div class="announcement-fade"></div>
+              `
+            : nothing
+        }
       </div>
+      <button
+        class="announcement-toggle"
+        type="button"
+        @click=${() => {
+          this.announcementExpanded = !this.announcementExpanded;
+          this.requestUpdate();
+        }}
+      >
+        ${this.announcementExpanded ? "Show less ↑" : "Show more ↓"}
+      </button>
     </div>`;
   }
 
@@ -4275,8 +5652,7 @@ ${this.announcementMarkdown}</pre
       this.announcementLoaded = true;
 
       this.requestUpdate();
-    } catch (error) {
-      this.announcementLoadError = error;
+    } catch {
       this.announcementLoaded = true;
       this.requestUpdate();
     }

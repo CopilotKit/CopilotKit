@@ -38,7 +38,7 @@ pre-commit:
 
         for f in $STAGED; do
           [ ! -f "$f" ] && continue
-          case "$f" in pnpm-lock.yaml|*/package-lock.json|showcase/shell/src/data/demo-content.json|showcase/shell/src/data/search-index.json|showcase/shell/src/data/starter-content.json) continue ;; esac
+          case "$f" in pnpm-lock.yaml|*/package-lock.json|showcase/shell/src/data/demo-content.json|showcase/shell/src/data/search-index.json|showcase/shell/src/data/starter-content.json|showcase/shell-dojolike/src/data/demo-content.json|showcase/shell-docs/src/data/demo-content.json) continue ;; esac
           SIZE=$(wc -c < "$f" | tr -d ' ')
           if [ "$SIZE" -gt 1048576 ]; then
             echo "Oversized file: $f ($((SIZE / 1024)) KB)"

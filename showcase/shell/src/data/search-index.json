@@ -554,13 +554,6 @@
   },
   {
     "type": "page",
-    "title": "Factory Mode",
-    "subtitle": "",
-    "section": "Backend",
-    "href": "/docs/backend/custom-agent"
-  },
-  {
-    "type": "page",
     "title": "Advanced Configuration",
     "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
     "section": "Built in agent",
@@ -957,13 +950,6 @@
     "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
     "section": "Generative ui",
     "href": "/docs/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
-    "title": "Open Generative UI",
-    "subtitle": "Open Generative UI lets the agent generate complete, sandboxed UI on the fly — HTML, CSS, and JavaScript — and stream it",
-    "section": "Generative ui",
-    "href": "/docs/generative-ui/open-generative-ui"
   },
   {
     "type": "page",
@@ -1419,62 +1405,6 @@
     "subtitle": "id=\"shared-state-write-example\"",
     "section": "Integrations",
     "href": "/docs/integrations/aws-strands/shared-state/in-app-agent-write"
-  },
-  {
-    "type": "page",
-    "title": "Advanced Configuration",
-    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/advanced-configuration"
-  },
-  {
-    "type": "page",
-    "title": "Factory Mode",
-    "subtitle": "",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/custom-agent"
-  },
-  {
-    "type": "page",
-    "title": "MCP Apps",
-    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/generative-ui/mcp-apps"
-  },
-  {
-    "type": "page",
-    "title": "Overview",
-    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent"
-  },
-  {
-    "type": "page",
-    "title": "MCP Servers",
-    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/mcp-servers"
-  },
-  {
-    "type": "page",
-    "title": "Model Selection",
-    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/model-selection"
-  },
-  {
-    "type": "page",
-    "title": "Quickstart",
-    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4\"",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/quickstart"
-  },
-  {
-    "type": "page",
-    "title": "Server Tools",
-    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
-    "section": "Integrations",
-    "href": "/docs/integrations/built-in-agent/server-tools"
   },
   {
     "type": "page",
@@ -2616,13 +2546,6 @@
     "subtitle": "Starting from scratch? Use our CLI to get started in minutes, it will bootstrap a",
     "section": "",
     "href": "/docs/quickstart"
-  },
-  {
-    "type": "page",
-    "title": "LangChainAdapter",
-    "subtitle": "{",
-    "section": "Reference",
-    "href": "/docs/reference/v1/classes/llm-adapters/LangChainAdapter"
   },
   {
     "type": "page",

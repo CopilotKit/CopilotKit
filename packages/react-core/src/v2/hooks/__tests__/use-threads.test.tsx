@@ -152,6 +152,8 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
       },
+      registerThreadStore: vi.fn(),
+      unregisterThreadStore: vi.fn(),
     },
   });
 }

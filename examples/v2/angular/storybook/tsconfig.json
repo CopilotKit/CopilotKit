@@ -15,10 +15,16 @@
     "resolveJsonModule": true,
     "useDefineForClassFields": false,
     "paths": {
-      "@copilotkit/angular": ["../../../packages/angular/src/index.ts"],
-      "@copilotkit/angular/*": ["../../../packages/angular/src/*"],
-      "@copilotkit/core": ["../../../packages/core/src/index.ts"],
-      "@copilotkit/shared": ["../../../packages/shared/src/index.ts"]
+      "@copilotkitnext/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkitnext/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/angular": ["../../../../packages/angular/src/index.ts"],
+      "@copilotkit/angular/*": ["../../../../packages/angular/src/*"],
+      "@copilotkit/web-inspector-angular": [
+        "../../../../packages/v2/web-inspector-angular/src/index.ts"
+      ],
+      "@copilotkit/web-inspector-angular/*": [
+        "../../../../packages/v2/web-inspector-angular/src/*"
+      ]
     },
     "types": ["node"]
   },
