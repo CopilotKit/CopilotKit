@@ -23,5 +23,9 @@ export default defineConfig({
         command: "pnpm dev",
         url: "http://localhost:3000",
         reuseExistingServer: true,
+        env: {
+          ...process.env,
+          GOOGLE_API_KEY: process.env.GOOGLE_API_KEY || "",
+        },
       },
 });

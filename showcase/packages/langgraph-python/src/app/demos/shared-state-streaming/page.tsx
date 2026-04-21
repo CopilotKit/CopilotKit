@@ -1,242 +1,77 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
+import React from "react";
 import {
-  CopilotSidebar,
+  CopilotKit,
+  CopilotChat,
   useAgent,
   UseAgentUpdate,
-  useHumanInTheLoop,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
-import { z } from "zod";
 
-interface AgentState {
-  document: string;
+import { DocumentView } from "./document-view";
+
+interface StreamingAgentState {
+  document?: string;
 }
 
 export default function SharedStateStreamingDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
-      <div className="min-h-screen w-full">
-        <CopilotSidebar
-          defaultOpen={true}
-          labels={{
-            modalHeaderTitle: "AI Document Editor",
-          }}
-        />
-        <DocumentEditor />
-      </div>
+      <DemoContent />
     </CopilotKit>
   );
 }
 
-function DocumentEditor() {
-  const [document, setDocument] = useState("");
-  const [placeholderVisible, setPlaceholderVisible] = useState(true);
-  const [currentDocument, setCurrentDocument] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+function DemoContent() {
+  // @region[frontend-use-coagent-state]
+  // Subscribe to BOTH state changes and run-status changes. The former
+  // drives the per-token document rerender; the latter toggles the
+  // "LIVE" badge when the agent starts / stops.
+  const { agent } = useAgent({
+    agentId: "shared-state-streaming",
+    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
+  });
+  // @endregion[frontend-use-coagent-state]
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Write a pirate story",
-        message: "Please write a story about a pirate named Candy Beard.",
+        title: "Write a short poem",
+        message: "Write a short poem about autumn leaves.",
       },
       {
-        title: "Write a mermaid story",
-        message: "Please write a story about a mermaid named Luna.",
+        title: "Draft an email",
+        message:
+          "Draft a polite email declining a meeting next Tuesday afternoon.",
       },
       {
-        title: "Add character",
-        message: "Please add a character named Courage.",
+        title: "Explain quantum computing",
+        message:
+          "Write a 2-paragraph explanation of quantum computing for a curious teenager.",
       },
     ],
     available: "always",
   });
 
-  const { agent } = useAgent({
-    agentId: "shared-state-streaming",
-    updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
-  });
-
-  const agentState = agent.state as AgentState | undefined;
-  const setAgentState = (s: AgentState) => agent.setState(s);
-  const isLoading = agent.isRunning;
-
-  const wasRunning = useRef(false);
-
-  useEffect(() => {
-    if (isLoading) {
-      setCurrentDocument(document);
-    }
-  }, [isLoading]);
-
-  // When run finishes, apply final state
-  useEffect(() => {
-    if (wasRunning.current && !isLoading) {
-      if (agentState?.document) {
-        setDocument(agentState.document);
-        setCurrentDocument(agentState.document);
-      }
-    }
-    wasRunning.current = isLoading;
-  }, [isLoading]);
-
-  // Stream updates while loading
-  useEffect(() => {
-    if (isLoading && agentState?.document) {
-      setDocument(agentState.document);
-    }
-  }, [agentState?.document]);
-
-  // Sync local edits to agent state
-  useEffect(() => {
-    setPlaceholderVisible(document.length === 0);
-    if (!isLoading) {
-      setCurrentDocument(document);
-      setAgentState({ document });
-    }
-  }, [document]);
-
-  // Human-in-the-loop for confirming changes
-  useHumanInTheLoop(
-    {
-      agentId: "shared-state-streaming",
-      name: "write_document",
-      description: "Present the proposed changes to the user for review",
-      parameters: z.object({
-        document: z
-          .string()
-          .describe("The full updated document in markdown format"),
-      }),
-      render({
-        args,
-        status,
-        respond,
-      }: {
-        args: { document?: string };
-        status: string;
-        respond?: (result: unknown) => Promise<void>;
-      }) {
-        if (status === "executing") {
-          return (
-            <ConfirmChanges
-              args={args}
-              respond={respond}
-              status={status}
-              onReject={() => {
-                setDocument(currentDocument);
-                setAgentState({
-                  document: currentDocument,
-                });
-              }}
-              onConfirm={() => {
-                const newDoc = agentState?.document || "";
-                setDocument(newDoc);
-                setCurrentDocument(newDoc);
-                setAgentState({
-                  document: newDoc,
-                });
-              }}
-            />
-          );
-        }
-        return <></>;
-      },
-    },
-    [agentState?.document],
-  );
+  const agentState = agent.state as StreamingAgentState | undefined;
+  const document = agentState?.document ?? "";
+  const isRunning = agent.isRunning;
 
   return (
-    <div className="relative min-h-screen w-full p-6">
-      {placeholderVisible && (
-        <div className="absolute top-10 left-10 pointer-events-none text-gray-400">
-          Write whatever you want here...
-        </div>
-      )}
-      <textarea
-        ref={textareaRef}
-        className="w-full min-h-screen p-4 text-base leading-relaxed border-none outline-none resize-none bg-transparent"
-        value={document}
-        onChange={(e) => setDocument(e.target.value)}
-        readOnly={isLoading}
-        placeholder=""
-      />
-    </div>
-  );
-}
-
-interface ConfirmChangesProps {
-  args: { document?: string };
-  respond: ((result: unknown) => Promise<void>) | undefined;
-  status: string;
-  onReject: () => void;
-  onConfirm: () => void;
-}
-
-function ConfirmChanges({
-  args,
-  respond,
-  status,
-  onReject,
-  onConfirm,
-}: ConfirmChangesProps) {
-  const [accepted, setAccepted] = useState<boolean | null>(null);
-
-  return (
-    <div
-      data-testid="confirm-changes-modal"
-      className="bg-white p-6 rounded shadow-lg border border-gray-200 mt-5 mb-5"
-    >
-      <h2 className="text-lg font-bold mb-4">Confirm Changes</h2>
-      <p className="mb-6">Do you want to accept the changes?</p>
-      {accepted === null && (
-        <div className="flex justify-end space-x-4">
-          <button
-            data-testid="reject-button"
-            className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${
-              status === "executing" ? "cursor-pointer" : "cursor-default"
-            }`}
-            disabled={status !== "executing"}
-            onClick={() => {
-              if (respond) {
-                setAccepted(false);
-                onReject();
-                respond({ accepted: false });
-              }
-            }}
-          >
-            Reject
-          </button>
-          <button
-            data-testid="confirm-button"
-            className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${
-              status === "executing" ? "cursor-pointer" : "cursor-default"
-            }`}
-            disabled={status !== "executing"}
-            onClick={() => {
-              if (respond) {
-                setAccepted(true);
-                onConfirm();
-                respond({ accepted: true });
-              }
-            }}
-          >
-            Confirm
-          </button>
-        </div>
-      )}
-      {accepted !== null && (
-        <div className="flex justify-end">
-          <div
-            data-testid="status-display"
-            className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block"
-          >
-            {accepted ? "Accepted" : "Rejected"}
-          </div>
-        </div>
-      )}
+    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
+      <section className="flex-1 min-h-0 p-4">
+        <DocumentView content={document} isStreaming={isRunning} />
+      </section>
+      <aside className="md:w-[420px] md:shrink-0 flex flex-col min-h-0 border-l bg-white">
+        <CopilotChat
+          agentId="shared-state-streaming"
+          className="flex-1 min-h-0"
+          labels={{
+            chatInputPlaceholder: "Ask me to write something...",
+          }}
+        />
+      </aside>
     </div>
   );
 }

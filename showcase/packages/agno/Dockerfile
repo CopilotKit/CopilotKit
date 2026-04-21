@@ -1,8 +1,8 @@
 # Stage 1: Build Next.js frontend
-FROM node:20.20-slim AS frontend
+FROM node:22-slim AS frontend
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
@@ -10,7 +10,7 @@ RUN npm run build
 FROM python:3.12.13-slim AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl && \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -29,6 +29,10 @@ COPY --from=frontend /app/public ./public
 # Agent code
 COPY src/agent_server.py ./
 COPY src/agents/ ./agents/
+
+# Shared Python tools (copied into build context by CI)
+COPY shared_python/ /app/shared/python/
+ENV PYTHONPATH=/app/shared/python
 
 # Entrypoint
 COPY entrypoint.sh ./

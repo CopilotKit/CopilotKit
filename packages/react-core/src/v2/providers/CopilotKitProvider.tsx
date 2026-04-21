@@ -21,6 +21,7 @@ import { LicenseWarningBanner } from "../components/license-warning-banner";
 import {
   createLicenseContextValue,
   type LicenseContextValue,
+  type DebugConfig,
 } from "@copilotkit/shared";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
 import {
@@ -234,6 +235,10 @@ export interface CopilotKitProviderProps {
    * Defaults to `{ horizontal: "right", vertical: "top" }`.
    */
   inspectorDefaultAnchor?: Anchor;
+  /**
+   * Enable debug logging for the client-side event pipeline.
+   */
+  debug?: DebugConfig;
 }
 
 // Small helper to normalize array props to a stable reference and warn
@@ -283,6 +288,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   a2ui,
   defaultThrottleMs,
   inspectorDefaultAnchor,
+  debug,
 }) => {
   const [shouldRenderInspector, setShouldRenderInspector] = useState(false);
   const [runtimeA2UIEnabled, setRuntimeA2UIEnabled] = useState(false);
@@ -554,6 +560,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       renderToolCalls: allRenderToolCalls,
       renderActivityMessages: allActivityRenderers,
       renderCustomMessages: renderCustomMessagesList,
+      debug,
     });
     // Set initial defaultThrottleMs synchronously so child hooks see the
     // correct value on their first render (before useEffect fires).
@@ -665,6 +672,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
     copilotkit.setAgents__unsafe_dev_only(mergedAgents);
+    copilotkit.setDebug(debug);
   }, [
     copilotkit,
     chatApiEndpoint,
@@ -673,6 +681,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     properties,
     mergedAgents,
     useSingleEndpoint,
+    debug,
   ]);
 
   // Sync render/tool arrays to the stable instance via setters.
@@ -711,19 +720,10 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   }, []);
 
   // Sync defaultThrottleMs to the core instance on prop changes.
-  // Initial value is set synchronously during instance creation (below the
-  // ref init) so child hooks see the correct value on their first render.
+  // Initial value is set synchronously during instance creation (inside the
+  // ref-init block above) so child hooks see the correct value on first render.
   // This effect handles subsequent updates when the prop changes.
   useEffect(() => {
-    if (
-      defaultThrottleMs !== undefined &&
-      (!Number.isFinite(defaultThrottleMs) || defaultThrottleMs < 0)
-    ) {
-      console.error(
-        `CopilotKitProvider: defaultThrottleMs must be a non-negative finite number, got ${defaultThrottleMs}. ` +
-          `useAgent hooks without an explicit throttleMs will fall back to unthrottled.`,
-      );
-    }
     copilotkit.setDefaultThrottleMs(defaultThrottleMs);
   }, [copilotkit, defaultThrottleMs]);
 

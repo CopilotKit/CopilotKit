@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./utils";
 export * from "./constants";
 export * from "./telemetry";
+export * from "./debug";
 export * from "./standard-schema";
 export * from "./attachments";
 

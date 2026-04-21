@@ -1,4 +1,10 @@
-import { AbstractAgent, Context, State } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  type AgentSubscriber,
+  Context,
+  State,
+} from "@ag-ui/client";
+import { Throttler } from "@tanstack/pacer";
 import {
   FrontendTool,
   SuggestionsConfig,
@@ -19,6 +25,7 @@ import {
   CopilotKitCoreRunToolParams,
   CopilotKitCoreRunToolResult,
 } from "./run-handler";
+import { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import { type ɵThreadStore } from "../threads";
@@ -41,6 +48,8 @@ export interface CopilotKitCoreConfig {
   tools?: FrontendTool<any>[];
   /** Suggestions config for the core. */
   suggestionsConfig?: SuggestionsConfig[];
+  /** Enable debug logging for the client-side event pipeline. */
+  debug?: DebugConfig;
 }
 
 export type { CopilotKitCoreAddAgentParams };
@@ -94,6 +103,7 @@ export enum CopilotKitCoreErrorCode {
   TRANSCRIPTION_RATE_LIMITED = "transcription_rate_limited",
   TRANSCRIPTION_AUTH_FAILED = "transcription_auth_failed",
   TRANSCRIPTION_NETWORK_ERROR = "transcription_network_error",
+  SUBSCRIBER_CALLBACK_FAILED = "subscriber_callback_failed",
 }
 
 export interface CopilotKitCoreSubscriber {
@@ -176,9 +186,82 @@ export interface CopilotKitCoreSubscriber {
   }) => void | Promise<void>;
 }
 
-// Subscription object returned by subscribe()
+// Subscription object returned by subscribe() and subscribeToAgentWithOptions()
 export interface CopilotKitCoreSubscription {
   unsubscribe: () => void;
+}
+
+/**
+ * The callback keys accepted by {@link CopilotKitCore.subscribeToAgentWithOptions}.
+ * This tuple is the single source of truth — both the
+ * `SubscribeToAgentSubscriber` type and the runtime `ALLOWED_KEYS` set
+ * are derived from it, so they cannot desynchronise.
+ */
+const SUBSCRIBE_TO_AGENT_KEYS = [
+  "onMessagesChanged",
+  "onStateChanged",
+  "onRunInitialized",
+  "onRunFinalized",
+  "onRunFailed",
+  "onRunErrorEvent",
+] as const satisfies readonly (keyof AgentSubscriber)[];
+
+/**
+ * Runtime allowlist derived from {@link SUBSCRIBE_TO_AGENT_KEYS}. Hoisted
+ * to module scope so the Set is allocated once, not per-subscription.
+ */
+const ALLOWED_KEYS: ReadonlySet<(typeof SUBSCRIBE_TO_AGENT_KEYS)[number]> =
+  new Set(SUBSCRIBE_TO_AGENT_KEYS);
+
+/**
+ * The subset of `AgentSubscriber` callbacks accepted by
+ * {@link CopilotKitCore.subscribeToAgentWithOptions}. Only the callbacks
+ * listed in {@link SUBSCRIBE_TO_AGENT_KEYS} are supported:
+ * `onMessagesChanged`, `onStateChanged`, and the four run lifecycle
+ * callbacks (`onRunInitialized`, `onRunFinalized`, `onRunFailed`,
+ * `onRunErrorEvent`).
+ *
+ * Two categories of `AgentSubscriber` members are excluded:
+ *
+ * - **AG-UI event handlers** (`onEvent`, `onToolCallStartEvent`, etc.)
+ *   return `AgentStateMutation` with `stopPropagation` — semantics that
+ *   the throttle and error-protection wrappers cannot safely mediate.
+ *
+ * - **Per-item notification callbacks** (`onNewMessage`, `onNewToolCall`)
+ *   return `void` and have no mutation concerns, but are excluded to keep
+ *   the surface area minimal — `onMessagesChanged` already covers the
+ *   same data at a coarser granularity, and throttling per-item callbacks
+ *   would have different semantic expectations.
+ *
+ * `onRunErrorEvent` is technically an AG-UI event handler (its return type
+ * includes `stopPropagation`), but it is included here because all
+ * framework consumers need it to reset `isRunning` on protocol-level
+ * `RUN_ERROR` events — distinct from `onRunFailed` which handles local
+ * exceptions like network errors. In practice, consumers return `void`
+ * from this callback, so the `stopPropagation` semantics are unused.
+ *
+ * Note: the included lifecycle callbacks return
+ * `Omit<AgentStateMutation, "stopPropagation">` (or full
+ * `AgentStateMutation` in the case of `onRunErrorEvent`). On the error
+ * path, `safeCall` discards those return values (see its inline
+ * documentation).
+ *
+ * Use `agent.subscribe()` directly when event mutation or per-item
+ * notification semantics are needed.
+ */
+export type SubscribeToAgentSubscriber = Pick<
+  AgentSubscriber,
+  (typeof SUBSCRIBE_TO_AGENT_KEYS)[number]
+>;
+
+/** Options for {@link CopilotKitCore.subscribeToAgentWithOptions}. */
+export interface SubscribeToAgentOptions {
+  /**
+   * Throttle interval (ms) for `onMessagesChanged` / `onStateChanged`.
+   * Non-negative finite number; `0` explicitly disables throttling.
+   * Falls back to `defaultThrottleMs` when `undefined`.
+   */
+  throttleMs?: number;
 }
 
 export enum CopilotKitCoreRuntimeConnectionStatus {
@@ -210,6 +293,7 @@ export interface CopilotKitCoreFriendsAccess {
   readonly credentials: RequestCredentials | undefined;
   readonly properties: Readonly<Record<string, unknown>>;
   readonly context: Readonly<Record<string, Context>>;
+  readonly debug?: DebugConfig;
 
   // Internal methods
   buildFrontendTools(agentId?: string): import("@ag-ui/client").Tool[];
@@ -240,6 +324,7 @@ export class CopilotKitCore {
   private _credentials?: RequestCredentials;
   private _properties: Record<string, unknown>;
   private _defaultThrottleMs?: number;
+  private _debug?: DebugConfig;
 
   private subscribers: Set<CopilotKitCoreSubscriber> = new Set();
 
@@ -260,10 +345,12 @@ export class CopilotKitCore {
     agents__unsafe_dev_only = {},
     tools = [],
     suggestionsConfig = [],
+    debug,
   }: CopilotKitCoreConfig) {
     this._headers = headers;
     this._credentials = credentials;
     this._properties = properties;
+    this._debug = debug;
 
     // Initialize delegate classes
     this.agentRegistry = new AgentRegistry(this);
@@ -345,6 +432,25 @@ export class CopilotKitCore {
   }
 
   /**
+   * Log a message to the console and emit an error to subscribers.
+   * Catches failures from `emitError` itself to prevent unhandled rejections.
+   */
+  private logAndEmitError(
+    message: string,
+    params: {
+      error: Error;
+      code: CopilotKitCoreErrorCode;
+      context?: Record<string, any>;
+    },
+    logLevel: "error" | "warn" = "error",
+  ): void {
+    console[logLevel](message, params.error);
+    this.emitError(params).catch((emitErr: unknown) => {
+      console.error(message + " — emitError itself failed:", emitErr);
+    });
+  }
+
+  /**
    * Snapshot accessors
    */
   get context(): Readonly<Record<string, Context>> {
@@ -392,21 +498,45 @@ export class CopilotKitCore {
   }
 
   /**
-   * Default throttle interval (ms) applied by framework hooks (e.g.
-   * `useAgent()`) when the hook/component does not specify an explicit
-   * `throttleMs`. An explicit `0` passed as `throttleMs` to `useAgent()`
-   * or `<CopilotChat>` overrides this default and disables throttling.
+   * Default throttle interval (ms) used by `subscribeToAgentWithOptions()`
+   * when the caller does not specify an explicit `throttleMs`.
+   * `undefined` means no default is configured; `0` means no throttling.
    */
   get defaultThrottleMs(): number | undefined {
     return this._defaultThrottleMs;
   }
 
+  /**
+   * Set the default throttle interval (ms) for `subscribeToAgentWithOptions()`.
+   *
+   * Accepts a non-negative finite number or `undefined` (to clear the
+   * default). Invalid values (NaN, Infinity, negative) are logged as
+   * errors and ignored — the previous valid value is preserved.
+   */
   setDefaultThrottleMs(value: number | undefined): void {
     if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
-      this._defaultThrottleMs = undefined;
+      this.logAndEmitError(
+        `CopilotKitCore.setDefaultThrottleMs: value must be a non-negative finite number or undefined, ` +
+          `got ${value}. Keeping current value (${this._defaultThrottleMs}).`,
+        {
+          error: new Error(
+            `setDefaultThrottleMs: invalid value (${value}), keeping current value (${this._defaultThrottleMs})`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { value, currentValue: this._defaultThrottleMs },
+        },
+      );
       return;
     }
     this._defaultThrottleMs = value;
+  }
+
+  get debug(): DebugConfig | undefined {
+    return this._debug;
+  }
+
+  setDebug(debug: DebugConfig | undefined): void {
+    this._debug = debug;
   }
 
   get runtimeConnectionStatus(): CopilotKitCoreRuntimeConnectionStatus {
@@ -577,6 +707,211 @@ export class CopilotKitCore {
     return {
       unsubscribe: () => {
         this.subscribers.delete(subscriber);
+      },
+    };
+  }
+
+  /**
+   * Subscribe to an agent's notification and lifecycle events with
+   * optional configuration (e.g. throttling).
+   *
+   * Wraps every callback with error protection (`safeCall`) and applies
+   * the options before delegating to `agent.subscribe()`.
+   *
+   * See {@link SubscribeToAgentSubscriber} for the accepted callback subset
+   * and the rationale for excluding AG-UI event handlers.
+   */
+  subscribeToAgentWithOptions(
+    agent: AbstractAgent,
+    subscriber: SubscribeToAgentSubscriber,
+    options?: SubscribeToAgentOptions,
+  ): CopilotKitCoreSubscription {
+    const resolved = options?.throttleMs ?? this._defaultThrottleMs ?? 0;
+
+    let effectiveMs = 0;
+    if (!Number.isFinite(resolved) || resolved < 0) {
+      const source =
+        options?.throttleMs !== undefined ? "throttleMs" : "defaultThrottleMs";
+      this.logAndEmitError(
+        `CopilotKitCore.subscribeToAgentWithOptions: ${source} must be a non-negative finite number, ` +
+          `got ${resolved}. Falling back to unthrottled.`,
+        {
+          error: new Error(
+            `subscribeToAgentWithOptions: invalid ${source} (${resolved}), falling back to unthrottled`,
+          ),
+          code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+          context: { agentId: agent.agentId, source, value: resolved },
+        },
+      );
+    } else {
+      effectiveMs = resolved;
+    }
+
+    const agentLabel = agent.agentId || "(unknown agent)";
+
+    // Wraps a callback so that synchronous throws and async rejections are
+    // caught, logged, and emitted — preventing one failing callback from
+    // corrupting the agent's notification loop.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const safeCall = <F extends (...args: any[]) => any>(
+      label: string,
+      fn: F,
+      ...args: Parameters<F>
+    ): any => {
+      const reportError = (err: unknown, verb: string) => {
+        this.logAndEmitError(
+          `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: ${label} callback ${verb}:`,
+          {
+            error: err instanceof Error ? err : new Error(String(err)),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, callback: label },
+          },
+        );
+      };
+      try {
+        const result = fn(...args);
+        if (result instanceof Promise) {
+          return result.catch((err: unknown) => {
+            reportError(err, "rejected");
+          });
+        }
+        return result;
+      } catch (err) {
+        reportError(err, "threw");
+      }
+    };
+
+    const guardAll = (
+      sub: SubscribeToAgentSubscriber,
+    ): SubscribeToAgentSubscriber => {
+      const guarded: SubscribeToAgentSubscriber = {};
+      if (sub.onMessagesChanged) {
+        const fn = sub.onMessagesChanged;
+        guarded.onMessagesChanged = (params) =>
+          safeCall("onMessagesChanged", fn, params);
+      }
+      if (sub.onStateChanged) {
+        const fn = sub.onStateChanged;
+        guarded.onStateChanged = (params) =>
+          safeCall("onStateChanged", fn, params);
+      }
+      if (sub.onRunInitialized) {
+        const fn = sub.onRunInitialized;
+        guarded.onRunInitialized = (params) =>
+          safeCall("onRunInitialized", fn, params);
+      }
+      if (sub.onRunFinalized) {
+        const fn = sub.onRunFinalized;
+        guarded.onRunFinalized = (params) =>
+          safeCall("onRunFinalized", fn, params);
+      }
+      if (sub.onRunFailed) {
+        const fn = sub.onRunFailed;
+        guarded.onRunFailed = (params) => safeCall("onRunFailed", fn, params);
+      }
+      if (sub.onRunErrorEvent) {
+        const fn = sub.onRunErrorEvent;
+        guarded.onRunErrorEvent = (params) =>
+          safeCall("onRunErrorEvent", fn, params);
+      }
+      return guarded;
+    };
+
+    // Warn about unsupported keys so JS / `as any` consumers get diagnostics.
+    for (const key of Object.keys(subscriber)) {
+      if (
+        typeof (subscriber as Record<string, unknown>)[key] === "function" &&
+        !(ALLOWED_KEYS as ReadonlySet<string>).has(key)
+      ) {
+        const message =
+          `CopilotKitCore.subscribeToAgentWithOptions[${agentLabel}]: callback "${key}" is not supported ` +
+          `and was dropped. Supported callbacks: ${Array.from(ALLOWED_KEYS).join(", ")}. ` +
+          `Use agent.subscribe() directly for event handlers and per-item notifications.`;
+        this.logAndEmitError(
+          message,
+          {
+            error: new Error(message),
+            code: CopilotKitCoreErrorCode.SUBSCRIBER_CALLBACK_FAILED,
+            context: { agentId: agent.agentId, droppedCallback: key },
+          },
+          "warn",
+        );
+      }
+    }
+
+    // No throttle — guard callbacks and subscribe directly.
+    if (effectiveMs <= 0) {
+      const subscription = agent.subscribe(guardAll(subscriber));
+      return { unsubscribe: () => subscription.unsubscribe() };
+    }
+
+    // Throttled path: lifecycle callbacks fire immediately; onMessagesChanged
+    // and onStateChanged share a single Throttler that flushes the latest
+    // params for both channels.
+    let active = true;
+    let latestMessagesParams:
+      | Parameters<
+          NonNullable<SubscribeToAgentSubscriber["onMessagesChanged"]>
+        >[0]
+      | null = null;
+    let latestStateParams:
+      | Parameters<NonNullable<SubscribeToAgentSubscriber["onStateChanged"]>>[0]
+      | null = null;
+
+    const flushPending = () => {
+      if (active && subscriber.onMessagesChanged && latestMessagesParams) {
+        const params = latestMessagesParams;
+        latestMessagesParams = null;
+        safeCall("onMessagesChanged", subscriber.onMessagesChanged, params);
+      }
+      if (active && subscriber.onStateChanged && latestStateParams) {
+        const params = latestStateParams;
+        latestStateParams = null;
+        safeCall("onStateChanged", subscriber.onStateChanged, params);
+      }
+    };
+
+    const throttler = new Throttler(flushPending, {
+      wait: effectiveMs,
+      leading: true,
+      trailing: true,
+    });
+
+    // Lifecycle callbacks are guarded but never throttled.
+    const lifecycleOnly: SubscribeToAgentSubscriber = {};
+    if (subscriber.onRunInitialized)
+      lifecycleOnly.onRunInitialized = subscriber.onRunInitialized;
+    if (subscriber.onRunFinalized)
+      lifecycleOnly.onRunFinalized = subscriber.onRunFinalized;
+    if (subscriber.onRunFailed)
+      lifecycleOnly.onRunFailed = subscriber.onRunFailed;
+    if (subscriber.onRunErrorEvent)
+      lifecycleOnly.onRunErrorEvent = subscriber.onRunErrorEvent;
+
+    const wrappedSubscriber: SubscribeToAgentSubscriber =
+      guardAll(lifecycleOnly);
+
+    if (subscriber.onMessagesChanged) {
+      wrappedSubscriber.onMessagesChanged = (params) => {
+        latestMessagesParams = params;
+        throttler.maybeExecute();
+      };
+    }
+
+    if (subscriber.onStateChanged) {
+      wrappedSubscriber.onStateChanged = (params) => {
+        latestStateParams = params;
+        throttler.maybeExecute();
+      };
+    }
+
+    const subscription = agent.subscribe(wrappedSubscriber);
+
+    return {
+      unsubscribe: () => {
+        active = false;
+        throttler.cancel();
+        subscription.unsubscribe();
       },
     };
   }

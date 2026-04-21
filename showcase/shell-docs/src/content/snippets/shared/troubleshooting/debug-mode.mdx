@@ -1,0 +1,149 @@
+# Debug Mode
+
+When your agent isn't behaving as expected — events are missing, state isn't updating, or tool calls aren't executing — you need visibility into what's happening in the event pipeline. Debug mode gives you that visibility with detailed logging on both the server (runtime) and client (React) side.
+
+Enable it to see:
+- What events your agent is emitting and whether they reach the client
+- Where in the pipeline events are being dropped or failing validation
+- The full lifecycle of a request from start to finish
+
+<Callout type="info">
+  For visual error display during local development (error banners, dev console), see [Error Debugging](/troubleshooting/error-debugging). Debug mode focuses on event pipeline logging rather than UI-level error display.
+</Callout>
+
+## Enabling Debug Mode
+
+### Server-Side (Runtime)
+
+Pass `debug: true` to the `CopilotRuntime` constructor:
+
+```ts title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: {
+    // your agents
+  },
+  debug: true, // [!code highlight]
+});
+```
+
+This produces structured Pino logs (formatted by `pino-pretty`) with a `copilotkit-debug` component label:
+
+```
+[14:32:01.123] DEBUG (copilotkit-debug): Agent run started
+    agentName: "default"
+    threadId: "abc-123"
+[14:32:01.130] DEBUG (copilotkit-debug): SSE stream opened
+[14:32:01.145] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_START"
+    messageId: "msg-1"
+    role: "assistant"
+[14:32:01.200] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_CONTENT"
+    deltaLength: 42
+[14:32:01.250] DEBUG (copilotkit-debug): Event emitted
+    type: "TEXT_MESSAGE_END"
+[14:32:01.260] DEBUG (copilotkit-debug): Event emitted
+    type: "RUN_FINISHED"
+[14:32:01.261] DEBUG (copilotkit-debug): SSE stream completed
+    eventCount: 4
+    loggedEventCount: 4
+```
+
+### Client-Side (React)
+
+Pass `debug={true}` to the `<CopilotKit>` provider:
+
+```tsx
+<CopilotKit
+  runtimeUrl="/api/copilotkit"
+  debug={true} // [!code highlight]
+>
+  <YourApp />
+</CopilotKit>
+```
+
+This forwards the debug configuration to the AG-UI client transport layer (`transformChunks`), which may produce transport-level debug output depending on the AG-UI library version. Note that the richest debug logging comes from the **server-side** `CopilotRuntime` — enable `debug: true` there for full structured Pino logs of every AG-UI event.
+
+<Callout type="info">
+  The server and client debug toggles are independent. Enabling debug on the client does not affect the server, and vice versa.
+</Callout>
+
+## Granular Configuration
+
+Instead of `true`, you can pass an object for fine-grained control over what gets logged:
+
+```ts
+debug: {
+  events: true,     // Log every event emitted/received
+  lifecycle: true,  // Log request/run lifecycle (start, finish, error)
+  verbose: false,   // Log full payloads instead of summaries
+}
+```
+
+This works the same way on both the server and client.
+
+### Defaults
+
+| Input | `events` | `lifecycle` | `verbose` |
+|-------|----------|-------------|-----------|
+| `debug: true` | `true` | `true` | `false` |
+| `debug: {}` | `true` | `true` | `false` |
+| `debug: { events: false }` | `false` | `true` | `false` |
+
+When `debug` is a boolean (`true`), events and lifecycle logging are enabled but verbose mode is **off** by default (to avoid leaking PII in logs). To get full event payloads, explicitly opt in with `debug: { verbose: true }`.
+
+### Examples
+
+Log only lifecycle events (no per-event logs):
+
+```ts
+debug: { events: false, lifecycle: true }
+```
+
+Log events with full payloads but skip lifecycle:
+
+```ts
+debug: { events: true, lifecycle: false, verbose: true }
+```
+
+## Troubleshooting with Debug Mode
+
+### Events Not Reaching the Client
+
+Enable debug on the server side for the most detailed visibility:
+1. Check server logs for `Event emitted` — are the expected events being sent?
+2. Verify `SSE stream completed` shows the expected `eventCount`.
+3. Use the browser Network tab to confirm SSE events are arriving over the wire.
+
+### Tool Calls Not Executing
+
+Enable server-side debug and look for:
+1. `TOOL_CALL_START` events being emitted on the server
+2. `TOOL_CALL_ARGS` and `TOOL_CALL_END` events following correctly
+3. Confirm the events appear in the SSE stream via the browser Network tab
+
+### State Not Updating
+
+Look for `STATE_SNAPSHOT` or `STATE_DELTA` events in server logs. If they appear on the server but not in the browser's SSE stream, there may be a connection issue.
+
+## What Gets Logged
+
+### Server-Side Logs
+
+| Category | Log Message | Description |
+|----------|-------------|-------------|
+| Lifecycle | `Agent run started` | An agent run was initiated, includes agent name and thread ID |
+| Lifecycle | `SSE stream opened` | The SSE response stream was created |
+| Lifecycle | `SSE stream completed` | The stream finished, includes total event count |
+| Lifecycle | `SSE stream errored` | The stream encountered an error |
+| Events | `Event emitted` | Each AG-UI event as it's written to the stream |
+
+In **summary mode** (verbose off), event logs include key identifiers like `messageId`, `toolCallId`, `toolCallName`, `role`, and content lengths instead of full payloads.
+
+### Client-Side
+
+On the client, the `debug` configuration is passed through to the AG-UI transport layer. The AG-UI client library controls what (if any) debug output is produced. CopilotKit itself does not emit `console.debug` calls — the debug flag configures the underlying AG-UI event pipeline.
+
+<Callout type="warn">
+  Debug mode can produce a large volume of log output, especially in verbose mode. Use it during development and debugging, not in production.
+</Callout>

@@ -47,14 +47,14 @@ a.copilotKitMarkdownElement {
   text-decoration: underline;
 }
 
-p.copilotKitMarkdownElement {
+.copilotKitParagraph {
   padding: 0px;
   margin: 0px;
   line-height: 1.75;
   font-size: 1rem;
 }
 
-p.copilotKitMarkdownElement:not(:last-child),
+.copilotKitParagraph:not(:last-child),
 pre.copilotKitMarkdownElement:not(:last-child),
 ol.copilotKitMarkdownElement:not(:last-child),
 ul.copilotKitMarkdownElement:not(:last-child),
@@ -70,7 +70,7 @@ blockquote.copilotKitMarkdownElement {
   padding-left: 10px;
 }
 
-blockquote.copilotKitMarkdownElement p {
+blockquote.copilotKitMarkdownElement .copilotKitParagraph {
   padding: 0.7em 0;
 }
 
