@@ -21,11 +21,13 @@ import {
   CONTENT_DIR,
   FRAMEWORK_CATEGORY_ORDER,
   buildNavTree,
+  findFrameworksWithCell,
   loadDoc,
   readMeta,
   type NavNode,
 } from "@/lib/docs-render";
 import {
+  getIntegration,
   getIntegrations,
   getFeature,
   getCategoryLabel,
@@ -39,14 +41,6 @@ interface DemoRecord {
 const demos: Record<string, DemoRecord> = (
   demoContent as { demos: Record<string, DemoRecord> }
 ).demos;
-
-function findFrameworksWithCell(cell: string): string[] {
-  const matches: string[] = [];
-  for (const integration of getIntegrations()) {
-    if (demos[`${integration.slug}::${cell}`]) matches.push(integration.slug);
-  }
-  return matches;
-}
 
 // Category ordering for the framework picker grid is imported from
 // @/lib/docs-render so the landing grid, sidebar dropdown, and this
@@ -339,6 +333,12 @@ export default async function DocsPage({
   const integrationMatch = slugPath.match(/^integrations\/([^/]+)/);
   if (integrationMatch) {
     const framework = integrationMatch[1];
+    // Validate the framework slug against the registry. A crafted URL
+    // like `/docs/integrations/fake-framework/anything` would otherwise
+    // silently fall through to an empty nav tree rather than a clean
+    // 404 — the reader can't tell the difference between "valid
+    // integration with no scoped content" and "invalid slug".
+    if (!getIntegration(framework)) notFound();
     const frameworkDir = `${CONTENT_DIR}/integrations/${framework}`;
     const frameworkMeta = readMeta(frameworkDir);
     sidebarTitle =
@@ -366,18 +366,34 @@ export default async function DocsPage({
     }));
 
   const frameworksWithCell = doc.fm.defaultCell
-    ? findFrameworksWithCell(doc.fm.defaultCell)
+    ? findFrameworksWithCell(
+        doc.fm.defaultCell,
+        getIntegrations().map((i) => i.slug),
+        demos,
+      )
     : [];
 
   // Look up the feature record for an animated preview URL, if any
   const featureFromCell = doc.fm.defaultCell
     ? getFeature(doc.fm.defaultCell)
     : undefined;
-  // Fallback to the first integration that implements the feature and
-  // has an animated preview.
+  // Fallback to the FIRST integration (sorted by sort_order, then slug)
+  // that implements the feature and has an animated preview. Registry
+  // iteration order alone isn't deterministic w.r.t. the visual
+  // priority consumers set via `sort_order`, so sort explicitly so the
+  // preview we pick matches the ordering shown everywhere else in the
+  // docs UI.
   let previewUrl: string | null | undefined = undefined;
   if (doc.fm.defaultCell) {
-    for (const integration of getIntegrations()) {
+    const sortedIntegrations = getIntegrations()
+      .slice()
+      .sort((a, b) => {
+        const orderA = a.sort_order ?? 999;
+        const orderB = b.sort_order ?? 999;
+        if (orderA !== orderB) return orderA - orderB;
+        return a.slug.localeCompare(b.slug);
+      });
+    for (const integration of sortedIntegrations) {
       const demo = integration.demos?.find((d) => d.id === doc.fm.defaultCell);
       if (demo?.animated_preview_url) {
         previewUrl = demo.animated_preview_url;
