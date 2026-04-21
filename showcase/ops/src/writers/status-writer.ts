@@ -132,18 +132,17 @@ function serializeErr(info: WriterErrorInfo): string {
 export function classifyWriterError(
   info: WriterErrorInfo,
 ): WriterFailureReason {
-  const { status, message, data } = info;
+  const { status, message } = info;
   if (status === 401) return "pb_auth_error";
   if (status === 403) return "pb_permission";
   if (status === 429) return "pb_rate_limited";
   if (status !== undefined && status >= 500 && status < 600) {
     return "pb_server_error";
   }
-  if (status === 400) {
-    // PB validation shape (missing/invalid column, bad field type, etc).
-    if (data) return "pb_schema_error";
-    return "pb_schema_error";
-  }
+  // All PB 400s route to `pb_schema_error` — the WriterFailureReason union
+  // (see event-bus.ts) has no narrower bad-request bucket, and in practice
+  // every PB 400 we see is a validation/schema shape error.
+  if (status === 400) return "pb_schema_error";
   // No HTTP status — fetch-level error or thrown from outside PB.
   const lower = message.toLowerCase();
   if (
@@ -190,7 +189,9 @@ export interface StatusWriterDeps {
 
 /**
  * Keyed mutex: per-key serialization of writes, preventing upsert races on
- * fast consecutive probes for the same key (§10 concurrency note).
+ * fast consecutive probes for the same key. Single-writer invariant holds
+ * across the process; this keyed mutex additionally guards in-process
+ * TOCTOU between the read-current-row and the upsert for the same key.
  */
 function makeKeyedMutex(): (
   key: string,

@@ -956,6 +956,23 @@ describe("status-writer", () => {
     expect(classifyWriterError({ message: "" })).toBe("unknown");
   });
 
+  it("HF-B1: classifyWriterError routes 400s to pb_schema_error with or without data", () => {
+    // Red-green: the previous implementation had a dead branch on `data`
+    // (both arms returned pb_schema_error). Confirm both paths still
+    // collapse to pb_schema_error so no 400 silently falls through to
+    // "unknown".
+    expect(
+      classifyWriterError({
+        message: "validation failed",
+        status: 400,
+        data: { data: { url: { code: "validation_required" } } },
+      }),
+    ).toBe("pb_schema_error");
+    expect(
+      classifyWriterError({ message: "bad request", status: 400 }),
+    ).toBe("pb_schema_error");
+  });
+
   it("emits writer.failed when history_create throws (non-error path)", async () => {
     const pb: PbClient = {
       async getOne() {
