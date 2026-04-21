@@ -81,7 +81,7 @@ export function FrameworkSelector({
   // Close on outside-click / Escape
   useEffect(() => {
     if (!open) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       // `e.target` is typed as `EventTarget | null`; `Node.contains`
       // requires an actual `Node`. Guard instead of casting so we don't
       // silently invoke `contains` with non-DOM targets (e.g. events
@@ -100,9 +100,14 @@ export function FrameworkSelector({
       if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
+    // iOS Safari doesn't always fire `mousedown` for taps that land
+    // outside focusable UI — mirror the handler on `touchstart` so the
+    // panel closes on mobile as expected.
+    document.addEventListener("touchstart", handleClick);
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("touchstart", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
