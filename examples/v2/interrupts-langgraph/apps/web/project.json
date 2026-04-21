@@ -1,5 +1,5 @@
 {
-  "name": "web-langraph-interrupt",
+  "name": "web-langgraph-interrupt",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/web/src",
   "projectType": "application",
@@ -7,19 +7,19 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm --filter web-langraph-interrupt dev"
+        "command": "pnpm --filter web-langgraph-interrupt dev"
       }
     },
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm --filter web-langraph-interrupt build"
+        "command": "pnpm --filter web-langgraph-interrupt build"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm --filter web-langraph-interrupt lint"
+        "command": "pnpm --filter web-langgraph-interrupt lint"
       }
     }
   },

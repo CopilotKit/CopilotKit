@@ -1,5 +1,5 @@
 {
-  "name": "agent-langraph-interrupt",
+  "name": "agent-langgraph-interrupt",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
   "sourceRoot": "apps/agent/src",
   "projectType": "application",
@@ -7,7 +7,7 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "pnpm --filter agent-langraph-interrupt dev"
+        "command": "pnpm --filter agent-langgraph-interrupt dev"
       }
     },
     "build": {

@@ -15,6 +15,7 @@ export default function CopilotKitPage() {
     parameters: [
       {
         name: "themeColor",
+        type: "string",
         description: "The theme color to set. Make sure to pick nice colors.",
         required: true,
       },
@@ -25,26 +26,60 @@ export default function CopilotKitPage() {
   });
 
   // 🪁 Interrupts: Handle human-in-the-loop confirmations from the agent
+  // https://docs.copilotkit.ai/coagents/human-in-the-loop (useInterrupt)
+  //
+  // The agent emits interrupt payloads shaped as
+  //   { action: "delete_proverb"; proverb: string; message: string }
+  // Today the only supported action is delete_proverb. When future
+  // actions are added, widen InterruptPayload to a discriminated union
+  // on `action` and extend APPROVE_LABELS below — TypeScript will flag
+  // the missing key as a compile error because APPROVE_LABELS is typed
+  // as Record<InterruptPayload["action"], string>.
   useInterrupt({
     render: ({ event, resolve }) => {
-      const { message, proverb, action } = event.value as {
-        message: string;
-        proverb: string;
-        action: string;
-      };
+      const payload = parseInterruptPayload(event.value);
+      if (payload === null) {
+        // Unknown/malformed payload shape. Surface a generic fallback
+        // rather than crashing on an unchecked cast. Resolving with a
+        // cancellation unblocks the agent in case the user dismisses it.
+        // Log the raw payload so developers can diagnose schema drift
+        // from the agent side — the UI shows "unknown" without this,
+        // which is useless for debugging.
+        // eslint-disable-next-line no-console
+        console.error(
+          "[interrupts-langgraph] Unknown interrupt payload shape:",
+          event.value,
+        );
+        return (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 my-2">
+            <p className="text-sm text-red-800">
+              Received an unknown interrupt payload. Cancelling the request.
+            </p>
+            <button
+              onClick={() => resolve({ approved: false })}
+              className="mt-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        );
+      }
+
+      // Resolve the button label for this action.
+      const approveLabel = APPROVE_LABELS[payload.action];
 
       return (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 my-2">
           <p className="text-sm font-medium text-yellow-800 mb-1">
             Confirmation Required
           </p>
-          <p className="text-sm text-yellow-700 mb-3">{message}</p>
+          <p className="text-sm text-yellow-700 mb-3">{payload.message}</p>
           <div className="flex gap-2">
             <button
               onClick={() => resolve({ approved: true })}
               className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 hover:bg-red-600 rounded-md transition-colors"
             >
-              Yes, delete it
+              {approveLabel}
             </button>
             <button
               onClick={() => resolve({ approved: false })}
@@ -78,10 +113,44 @@ export default function CopilotKitPage() {
   );
 }
 
-// State of the agent, make sure this aligns with your agent's state.
+// Partial view of the agent state the UI reads + writes. The agent's
+// full state is defined in apps/agent/src/agent.ts (AgentStateAnnotation);
+// this type intentionally declares only the subset the UI consumes. Keep
+// the field names and types in sync with the agent side.
 type AgentState = {
   proverbs: string[];
 };
+
+// Shape of interrupt payloads produced by deleteProverb on the agent
+// side. Validated at runtime by `parseInterruptPayload` below. Kept
+// close to the consumer so divergence surfaces in the renderer where
+// it's used.
+type InterruptPayload = {
+  action: "delete_proverb";
+  proverb: string;
+  message: string;
+};
+
+// Approve-button label per interrupt action. Typed exhaustively against
+// InterruptPayload["action"] so adding a new action anywhere else in the
+// file is a compile error until this map is extended.
+const APPROVE_LABELS: Record<InterruptPayload["action"], string> = {
+  delete_proverb: "Yes, delete it",
+};
+
+function parseInterruptPayload(value: unknown): InterruptPayload | null {
+  if (value === null || typeof value !== "object") return null;
+  if (Array.isArray(value)) return null;
+  const v = value as Record<string, unknown>;
+  if (v.action !== "delete_proverb") return null;
+  if (typeof v.proverb !== "string") return null;
+  if (typeof v.message !== "string") return null;
+  return {
+    action: "delete_proverb",
+    proverb: v.proverb,
+    message: v.message,
+  };
+}
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
@@ -94,7 +163,18 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
     },
   });
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
+  // Defensive default: during transient state-sync, `state` or
+  // `state.proverbs` can momentarily be undefined. Coalescing here
+  // keeps the map/length checks below from falling into the
+  // `undefined !== 0` trap that would hide the "No proverbs yet"
+  // empty-state fallback.
+  const proverbs = state?.proverbs ?? [];
+
+  // 🪁 Shared State action: writes into the shared agent state above
+  //     (not to be confused with a pure frontend action — this mutates
+  //     `proverbs`, which is part of the agent's CoAgent state and is
+  //     synced back to the graph on the next turn).
+  //     https://docs.copilotkit.ai/coagents/shared-state
   useCopilotAction(
     {
       name: "addProverb",
@@ -141,18 +221,20 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {state.proverbs?.map((proverb, index) => (
+          {proverbs.map((proverb, index) => (
             <div
-              key={index}
+              key={`${index}:${proverb}`}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
             >
               <p className="pr-8">{proverb}</p>
               <button
                 onClick={() =>
-                  setState({
-                    ...state,
-                    proverbs: state.proverbs?.filter((_, i) => i !== index),
-                  })
+                  setState((prev) => ({
+                    ...(prev ?? {}),
+                    proverbs: (prev?.proverbs ?? []).filter(
+                      (_, i) => i !== index,
+                    ),
+                  }))
                 }
                 className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity
                   bg-red-500 hover:bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center"
@@ -162,7 +244,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             </div>
           ))}
         </div>
-        {state.proverbs?.length === 0 && (
+        {proverbs.length === 0 && (
           <p className="text-center text-white/80 italic my-8">
             No proverbs yet. Ask the assistant to add some!
           </p>
@@ -172,7 +254,6 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   );
 }
 
-// Simple sun icon for the weather card
 function SunIcon() {
   return (
     <svg
@@ -191,8 +272,8 @@ function SunIcon() {
   );
 }
 
-// Weather card component where the location and themeColor are based on what the agent
-// sets via tool calls.
+// Weather card rendered by the getWeather action. `location` and
+// `themeColor` are driven by the agent's tool-call args + frontend state.
 function WeatherCard({
   location,
   themeColor,

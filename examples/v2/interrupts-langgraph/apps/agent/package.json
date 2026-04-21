@@ -1,11 +1,10 @@
 {
-  "name": "agent-langraph-interrupt",
-  "version": "0.0.1",
+  "name": "agent-langgraph-interrupt",
+  "version": "0.1.5",
   "description": "",
   "keywords": [],
-  "license": "ISC",
+  "license": "MIT",
   "author": "",
-  "main": "index.js",
   "scripts": {
     "dev": "npx @langchain/langgraph-cli dev --port 8125 --no-browser"
   },
@@ -18,7 +17,6 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/html-to-text": "^9.0.4",
     "@types/node": "^22.19.11",
     "typescript": "^5.9.3"
   }

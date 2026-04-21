@@ -1,5 +1,13 @@
 # ESLint + Prettier → oxlint + oxfmt Migration
 
+**Status:** Executed 2026-03-05 — path references reflect pre-rename `interrupts-langraph` spelling; the rename to `interrupts-langgraph` happened after this plan ran.
+
+> **Note on paths:** This plan was written before `examples/v2/interrupts-langraph`
+> was renamed to `interrupts-langgraph` (spelling fix). Path references below
+> intentionally preserve the pre-rename name as a historical record of what
+> was touched when this migration ran; they are NOT a source of truth for
+> the current tree layout.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Replace ESLint and Prettier with oxlint and oxfmt for faster linting and formatting across the entire
