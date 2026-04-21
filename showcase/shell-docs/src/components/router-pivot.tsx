@@ -10,7 +10,7 @@
 // framework is selected — the router-page's job is to pivot, not to
 // serve code without the relevant backend context.
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFramework } from "./framework-provider";
@@ -46,9 +46,19 @@ export interface RouterPivotProps {
  *   - Neither → render the body so the user sees the pivot + any MDX
  *     copy that accompanies it.
  *
+ * Hydration-flash guard: `storedFramework` is always null on the first
+ * render (localStorage is read in a mount effect). Without the
+ * `hasHydrated` gate below, a returning user who picked LangChain
+ * would briefly see the MDX body render, then disappear as the
+ * effect reads localStorage and flips `storedFramework` from null to
+ * "langgraph-python". The gate holds the body back until the first
+ * mount effect has run, swallowing that flash. Fresh visitors (who
+ * legitimately have null stored) see the content on the next tick;
+ * the delay is one microtask and invisible in practice.
+ *
  * Covered by: visit /docs/foo with no localStorage entry → MDX body
  * visible alongside the pivot; visit with localStorage=langgraph-python
- * → body hidden while redirect runs.
+ * → NO flash of docs body while redirect runs.
  */
 export function FrameworkGuardedContent({
   children,
@@ -56,9 +66,16 @@ export function FrameworkGuardedContent({
   children: React.ReactNode;
 }) {
   const { framework, storedFramework } = useFramework();
-  // Hide only when we're about to redirect to a framework-scoped page
-  // (URL framework present, or a stored preference will trigger
-  // redirect). When neither exists we want the pivot + MDX body.
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+  // Before hydration, suppress — we don't yet know whether a stored
+  // framework exists, and rendering content we're about to hide
+  // causes a visible flash. After hydration, apply the normal rule:
+  // hide only when we're about to redirect to a framework-scoped
+  // page. When neither exists we want the pivot + MDX body.
+  if (!hasHydrated) return null;
   if (framework || storedFramework) return null;
   return <>{children}</>;
 }
@@ -73,6 +90,10 @@ export function RouterPivot({
 }: RouterPivotProps) {
   const router = useRouter();
   const { framework, storedFramework } = useFramework();
+  const [hasHydrated, setHasHydrated] = useState(false);
+  useEffect(() => {
+    setHasHydrated(true);
+  }, []);
 
   // Redirect target: prefer URL framework (should never happen on
   // `/docs/*` since that route prefix isn't a known framework, but we
@@ -94,6 +115,21 @@ export function RouterPivot({
       router.replace(`/${target}/${slugPath}`);
     }
   }, [target, router, slugPath]);
+
+  // Hydration-flash guard: `storedFramework` is null on the very first
+  // render (populated by a mount effect in FrameworkProvider). Without
+  // this gate, returning users see the full pivot grid render, then
+  // have it replaced by the "Loading …" placeholder one tick later as
+  // storedFramework flips from null to their stored slug.
+  //
+  // Covered by: returning user with localStorage=langgraph-python visits
+  // /docs/<feature> → sees the loading placeholder immediately, not a
+  // flash of the pivot grid.
+  if (!hasHydrated) {
+    return (
+      <div className="text-xs text-[var(--text-muted)]">Loading…</div>
+    );
+  }
 
   // If we have a redirect target we'll be redirected in a tick —
   // render a lightweight placeholder instead of the full pivot to
