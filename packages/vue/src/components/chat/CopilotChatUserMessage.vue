@@ -130,15 +130,18 @@ function resetCopiedStateWithDelay() {
 async function handleCopyMessage() {
   if (!flattenedContent.value) return;
 
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(flattenedContent.value);
-      resetCopiedStateWithDelay();
-    } catch {
-      resetCopiedStateWithDelay();
-    }
-  } else {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.clipboard?.writeText !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(flattenedContent.value);
     resetCopiedStateWithDelay();
+  } catch (error) {
+    console.error("Failed to copy to clipboard:", error);
   }
 }
 
@@ -242,6 +245,7 @@ onBeforeUnmount(() => {
               :label="labels.userMessageToolbarCopyMessageLabel"
             >
               <button
+                data-testid="copilot-user-copy-button"
                 type="button"
                 :class="toolbarButtonClass"
                 :aria-label="labels.userMessageToolbarCopyMessageLabel"

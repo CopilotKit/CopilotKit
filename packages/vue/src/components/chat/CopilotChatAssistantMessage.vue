@@ -678,16 +678,18 @@ async function handleCopyMessage() {
   const content = normalizedContent.value;
   if (!content) return;
 
-  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(content);
-      resetCopiedStateWithDelay();
-    } catch (error) {
-      console.error("Failed to copy message:", error);
-      resetCopiedStateWithDelay();
-    }
-  } else {
+  if (
+    typeof navigator === "undefined" ||
+    typeof navigator.clipboard?.writeText !== "function"
+  ) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(content);
     resetCopiedStateWithDelay();
+  } catch (error) {
+    console.error("Failed to copy to clipboard:", error);
   }
 }
 
@@ -798,6 +800,7 @@ onBeforeUnmount(() => {
               :label="labels.assistantMessageToolbarCopyMessageLabel"
             >
               <button
+                data-testid="copilot-copy-button"
                 type="button"
                 :class="toolbarButtonClass"
                 :aria-label="labels.assistantMessageToolbarCopyMessageLabel"

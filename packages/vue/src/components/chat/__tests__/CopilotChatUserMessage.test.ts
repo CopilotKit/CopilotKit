@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { h, nextTick } from "vue";
 import { mount } from "@vue/test-utils";
 import type { UserMessage } from "@ag-ui/core";
@@ -6,6 +6,27 @@ import { CopilotChatDefaultLabels } from "../../../providers/types";
 import CopilotChatUserMessage from "../CopilotChatUserMessage.vue";
 
 describe("CopilotChatUserMessage", () => {
+  let originalClipboard: Clipboard | undefined;
+  const mockWriteText = vi.fn();
+
+  beforeEach(() => {
+    originalClipboard = navigator.clipboard;
+    mockWriteText.mockReset();
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: mockWriteText.mockResolvedValue(undefined) },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: originalClipboard,
+      writable: true,
+      configurable: true,
+    });
+  });
+
   it("renders flattened text content from structured message parts", () => {
     const message = {
       id: "user-1",

@@ -1106,6 +1106,97 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       await agent.complete();
     });
 
+    it("should not auto-collapse when user manually toggled during streaming", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      await submitMessageAndWaitForUserMessage("User toggle test");
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      await agent.emit(runStartedEvent());
+      await agent.emit(reasoningStartEvent(reasoningId));
+      await agent.emit(reasoningMessageStartEvent(reasoningId));
+      await agent.emit(
+        reasoningMessageContentEvent(reasoningId, "Deep analysis in progress"),
+      );
+
+      await waitFor(() => {
+        const button = screen.getByText("Thinking…").closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      const streamingHeaderButton = screen
+        .getByText("Thinking…")
+        .closest("button");
+      if (streamingHeaderButton) {
+        await fireEvent.click(streamingHeaderButton);
+      }
+
+      await waitFor(() => {
+        const button = screen.getByText("Thinking…").closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("false");
+      });
+
+      await agent.emit(reasoningMessageEndEvent(reasoningId));
+      await agent.emit(reasoningEndEvent(reasoningId));
+      await agent.emit(textChunkEvent(textId, "Done."));
+      await agent.emit(runFinishedEvent());
+      await agent.complete();
+
+      await waitFor(() => {
+        const button = screen.getByText(/Thought for/).closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("false");
+      });
+    });
+
+    it("should keep panel open when user re-expands during streaming", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      await submitMessageAndWaitForUserMessage("Re-expand toggle test");
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      await agent.emit(runStartedEvent());
+      await agent.emit(reasoningStartEvent(reasoningId));
+      await agent.emit(reasoningMessageStartEvent(reasoningId));
+      await agent.emit(
+        reasoningMessageContentEvent(reasoningId, "Thinking hard"),
+      );
+
+      await waitFor(() => {
+        const button = screen.getByText("Thinking…").closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      const streamingHeaderButton = screen
+        .getByText("Thinking…")
+        .closest("button");
+      if (streamingHeaderButton) {
+        await fireEvent.click(streamingHeaderButton);
+        await fireEvent.click(streamingHeaderButton);
+      }
+
+      await waitFor(() => {
+        const button = screen.getByText("Thinking…").closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      await agent.emit(reasoningMessageEndEvent(reasoningId));
+      await agent.emit(reasoningEndEvent(reasoningId));
+      await agent.emit(textChunkEvent(textId, "All done."));
+      await agent.emit(runFinishedEvent());
+      await agent.complete();
+
+      await waitFor(() => {
+        const button = screen.getByText(/Thought for/).closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("true");
+      });
+    });
+
     it("should expand and collapse reasoning content on click", async () => {
       const agent = new MockStepwiseAgent();
       renderWithCopilotKit({ agent });

@@ -84,6 +84,7 @@ const isStreaming = computed(() => !!(props.isRunning && isLatest.value));
 
 const elapsed = ref(0);
 const isOpen = ref(isStreaming.value);
+const userToggledDuringStreaming = ref(false);
 let startTimeMs: number | null = null;
 let elapsedInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -109,13 +110,16 @@ watch(
       }
       clearElapsedInterval();
       elapsedInterval = setInterval(updateElapsedNow, 1000);
+      userToggledDuringStreaming.value = false;
       isOpen.value = true;
       return;
     }
 
     clearElapsedInterval();
     updateElapsedNow();
-    isOpen.value = false;
+    if (!userToggledDuringStreaming.value) {
+      isOpen.value = false;
+    }
   },
   { immediate: true },
 );
@@ -132,6 +136,7 @@ const label = computed(() =>
 
 function toggleOpen() {
   if (!hasContent.value) return;
+  userToggledDuringStreaming.value = true;
   isOpen.value = !isOpen.value;
 }
 </script>

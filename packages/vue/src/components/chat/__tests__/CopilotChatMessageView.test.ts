@@ -1,6 +1,6 @@
 import { defineComponent } from "vue";
 import { render, screen } from "@testing-library/vue";
-import { vi, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type {
   ActivityMessage,
@@ -139,7 +139,61 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     return render(Host);
   }
 
-  it("deduplicates messages with the same id, keeping the last occurrence", () => {
+  it("preserves assistant text content when later duplicate has empty content (multi-tool-call scenario)", () => {
+    const messages: Message[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Record a headache",
+      } as UserMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "Let me record that...",
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "captureData", arguments: "{}" },
+          },
+        ],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "captureData", arguments: "{}" },
+          },
+          {
+            id: "tc-2",
+            type: "function",
+            function: { name: "updateMemory", arguments: "{}" },
+          },
+        ],
+      } as AssistantMessage,
+    ];
+
+    renderMessageView({ messages });
+
+    const assistantMessages = screen.getAllByTestId(
+      "copilot-assistant-message",
+    );
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.textContent).toContain(
+      "Let me record that...",
+    );
+  });
+
+  it("uses latest content when all assistant duplicates have non-empty content", () => {
     const messages: Message[] = [
       {
         id: "user-1",
@@ -158,28 +212,64 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
       } as AssistantMessage,
     ];
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
     renderMessageView({ messages });
 
     const assistantMessages = screen.getAllByTestId(
       "copilot-assistant-message",
     );
     expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.textContent).toContain(
+      "Full response from the assistant.",
+    );
 
     const userMessages = screen.getAllByTestId("copilot-user-message");
     expect(userMessages).toHaveLength(1);
-
-    const duplicateKeyWarnings = consoleSpy.mock.calls.filter(
-      (call) =>
-        typeof call[0] === "string" && call[0].includes("duplicate key"),
-    );
-    expect(duplicateKeyWarnings).toHaveLength(0);
-
-    consoleSpy.mockRestore();
   });
 
-  it("preserves tool calls when a later duplicate has content but undefined toolCalls", () => {
+  it("uses later content when earlier content is empty", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "Here is the result.",
+      } as AssistantMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #assistant-message="{ message }">
+                <div data-testid="assistant-content">{{ message.content }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("assistant-content").textContent).toContain(
+      "Here is the result.",
+    );
+  });
+
+  it("recovers toolCalls when later duplicate has content but undefined toolCalls", () => {
     const messages: Message[] = [
       {
         id: "assistant-1",
@@ -230,6 +320,141 @@ describe("CopilotChatMessageView duplicate message deduplication", () => {
     );
     expect(screen.getByTestId("assistant-tool-calls-count").textContent).toBe(
       "1",
+    );
+  });
+
+  it("keeps empty toolCalls array from later chunk", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "",
+        toolCalls: [
+          {
+            id: "tc-1",
+            type: "function",
+            function: { name: "captureData", arguments: "{}" },
+          },
+        ],
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: "Done.",
+        toolCalls: [],
+      } as AssistantMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #assistant-message="{ message }">
+                <div data-testid="assistant-tool-calls-count">{{ message.toolCalls?.length ?? 0 }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("assistant-tool-calls-count").textContent).toBe(
+      "0",
+    );
+  });
+
+  it("handles undefined content on both occurrences", () => {
+    const messages: Message[] = [
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: undefined,
+      } as AssistantMessage,
+      {
+        id: "assistant-1",
+        role: "assistant",
+        content: undefined,
+      } as AssistantMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #assistant-message="{ message }">
+                <div data-testid="assistant-content">{{ message.content }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("assistant-content").textContent).toBe("");
+  });
+
+  it("keeps last entry for non-assistant roles", () => {
+    const messages: Message[] = [
+      {
+        id: "user-1",
+        role: "user",
+        content: "Hello",
+      } as UserMessage,
+      {
+        id: "user-1",
+        role: "user",
+        content: "Hello (updated)",
+      } as UserMessage,
+    ];
+
+    const Host = defineComponent({
+      components: {
+        CopilotKitProvider,
+        CopilotChatConfigurationProvider,
+        CopilotChatMessageView,
+      },
+      setup() {
+        return { messages, agentId, threadId };
+      },
+      template: `
+        <CopilotKitProvider runtime-url="/api/copilotkit">
+          <CopilotChatConfigurationProvider :agent-id="agentId" :thread-id="threadId">
+            <CopilotChatMessageView :messages="messages">
+              <template #user-message="{ message }">
+                <div data-testid="user-content">{{ message.content }}</div>
+              </template>
+            </CopilotChatMessageView>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>
+      `,
+    });
+
+    render(Host);
+
+    expect(screen.getByTestId("user-content").textContent).toBe(
+      "Hello (updated)",
     );
   });
 
