@@ -450,13 +450,13 @@ describe("Template Generator", () => {
   // Regression guard — the test-integration-tmp leak.
   //
   // Before the cleanup fix, running the generator scaffolded a package into
-  // showcase/packages/ AND mutated three CI workflow YAMLs. cleanup() only
-  // removed the package dir; the workflow mutations leaked into the working
-  // tree and on Node 20 CI produced `Timeout calling "onTaskUpdate"` ->
-  // ELIFECYCLE on every PR.
+  // showcase/packages/ AND mutated two CI workflow YAMLs (showcase_deploy.yml
+  // and test_smoke-starter.yml). cleanup() only removed the package dir; the
+  // workflow mutations leaked into the working tree and on Node 20 CI produced
+  // `Timeout calling "onTaskUpdate"` -> ELIFECYCLE on every PR.
   //
   // This test asserts `cleanup()` restores every workflow YAML bit-for-bit.
-  // The same `cleanup()` function runs in `afterEach`, so covering it here
+  // The same `cleanup()` function runs in `beforeEach`, so covering it here
   // transitively covers the hook. The sentinel append below deliberately
   // causes transient tracking drift on the workflow YAMLs for the duration
   // of the test — a developer with a git GUI / file watcher will see flicker
@@ -937,10 +937,13 @@ describe("Template Generator — hardening regressions", () => {
   });
 
   describe("updateWorkflows — regex-failure assertions", () => {
-    // updateWorkflows walks three workflow YAML files and inserts into
-    // well-defined blocks. If the surrounding YAML drifts so the regex no
-    // longer matches, the hardening requires it to throw a targeted error
-    // that names the file and mode — not to silently write a no-op.
+    // updateWorkflows walks two workflow YAML files (showcase_deploy.yml
+    // and test_smoke-starter.yml). Inside showcase_deploy.yml it performs
+    // three regex-anchored block insertions (options:, outputs:, filters:),
+    // each of which is covered by its own test below. If the surrounding
+    // YAML drifts so the regex no longer matches, the hardening requires
+    // it to throw a targeted error that names the file and mode — not to
+    // silently write a no-op.
     // We drive the failure via a tiny shim that re-exports fs with the
     // read/write calls intercepted, letting us substitute an empty YAML
     // body that doesn't contain the expected 'options:' block.
@@ -949,19 +952,56 @@ describe("Template Generator — hardening regressions", () => {
         await import("../create-integration/index.ts");
       const { vi } = await import("vitest");
 
-      // Make only showcase_deploy.yml exist, and return a YAML body that
-      // contains no `options:` block at all. fs.existsSync returns false
-      // for the other two files so those branches are skipped.
-      const existsSpy = vi
-        .spyOn(fs, "existsSync")
-        .mockImplementation((p: fs.PathLike) => {
-          return String(p).endsWith("showcase_deploy.yml");
-        });
+      // Production uses probePath (statSync) rather than existsSync, so the
+      // spy must intercept statSync. Make only showcase_deploy.yml "exist"
+      // (return a fake Stats-like object); any other path delegates to the
+      // real statSync so vitest/tsx internals keep working. ENOENT on the
+      // other workflow(s) makes probePath return "missing" and the
+      // corresponding branch is skipped.
+      const realStat = fs.statSync;
+      const fakeStats = {
+        isFile: () => true,
+        isDirectory: () => false,
+      } as unknown as fs.Stats;
+      const statSpy = vi
+        .spyOn(fs, "statSync")
+        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
+          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+          const pStr = String(p);
+          if (pStr.endsWith("test_smoke-starter.yml")) {
+            const err = new Error(
+              `ENOENT: no such file or directory, stat '${pStr}'`,
+            ) as NodeJS.ErrnoException;
+            err.code = "ENOENT";
+            throw err;
+          }
+          return (
+            realStat as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => fs.Stats
+          )(p, ...rest);
+        }) as typeof fs.statSync);
+      const realRead = fs.readFileSync;
       const readSpy = vi
         .spyOn(fs, "readFileSync")
-        .mockImplementation(
-          () => "name: deploy\non: push\njobs:\n  noop:\n    runs-on: ubuntu\n",
-        );
+        .mockImplementation(((
+          p: fs.PathOrFileDescriptor,
+          ...rest: unknown[]
+        ) => {
+          if (
+            typeof p === "string" &&
+            p.endsWith("showcase_deploy.yml")
+          ) {
+            return "name: deploy\non: push\njobs:\n  noop:\n    runs-on: ubuntu\n";
+          }
+          return (
+            realRead as unknown as (
+              p: fs.PathOrFileDescriptor,
+              ...rest: unknown[]
+            ) => string | Buffer
+          )(p, ...rest);
+        }) as typeof fs.readFileSync);
       // Prevent the function from actually writing; it shouldn't reach
       // writeFileSync in the throwing branch, but guard anyway so a
       // regression doesn't clobber the real workflow file.
@@ -981,7 +1021,7 @@ describe("Template Generator — hardening regressions", () => {
           }),
         ).toThrow(/failed to locate the 'options:' block/);
       } finally {
-        existsSpy.mockRestore();
+        statSpy.mockRestore();
         readSpy.mockRestore();
         writeSpy.mockRestore();
       }
@@ -1012,14 +1052,50 @@ describe("Template Generator — hardening regressions", () => {
         "",
       ].join("\n");
 
-      const existsSpy = vi
-        .spyOn(fs, "existsSync")
-        .mockImplementation((p: fs.PathLike) => {
-          return String(p).endsWith("showcase_deploy.yml");
-        });
+      const realStat = fs.statSync;
+      const fakeStats = {
+        isFile: () => true,
+        isDirectory: () => false,
+      } as unknown as fs.Stats;
+      const statSpy = vi
+        .spyOn(fs, "statSync")
+        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
+          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+          const pStr = String(p);
+          if (pStr.endsWith("test_smoke-starter.yml")) {
+            const err = new Error(
+              `ENOENT: no such file or directory, stat '${pStr}'`,
+            ) as NodeJS.ErrnoException;
+            err.code = "ENOENT";
+            throw err;
+          }
+          return (
+            realStat as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => fs.Stats
+          )(p, ...rest);
+        }) as typeof fs.statSync);
+      const realRead = fs.readFileSync;
       const readSpy = vi
         .spyOn(fs, "readFileSync")
-        .mockImplementation(() => yamlBody);
+        .mockImplementation(((
+          p: fs.PathOrFileDescriptor,
+          ...rest: unknown[]
+        ) => {
+          if (
+            typeof p === "string" &&
+            p.endsWith("showcase_deploy.yml")
+          ) {
+            return yamlBody;
+          }
+          return (
+            realRead as unknown as (
+              p: fs.PathOrFileDescriptor,
+              ...rest: unknown[]
+            ) => string | Buffer
+          )(p, ...rest);
+        }) as typeof fs.readFileSync);
       const writeSpy = vi
         .spyOn(fs, "writeFileSync")
         .mockImplementation(() => {});
@@ -1036,7 +1112,7 @@ describe("Template Generator — hardening regressions", () => {
           }),
         ).toThrow(/failed to locate the 'outputs:' block/);
       } finally {
-        existsSpy.mockRestore();
+        statSpy.mockRestore();
         readSpy.mockRestore();
         writeSpy.mockRestore();
       }
@@ -1071,14 +1147,50 @@ describe("Template Generator — hardening regressions", () => {
         "",
       ].join("\n");
 
-      const existsSpy = vi
-        .spyOn(fs, "existsSync")
-        .mockImplementation((p: fs.PathLike) => {
-          return String(p).endsWith("showcase_deploy.yml");
-        });
+      const realStat = fs.statSync;
+      const fakeStats = {
+        isFile: () => true,
+        isDirectory: () => false,
+      } as unknown as fs.Stats;
+      const statSpy = vi
+        .spyOn(fs, "statSync")
+        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
+          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+          const pStr = String(p);
+          if (pStr.endsWith("test_smoke-starter.yml")) {
+            const err = new Error(
+              `ENOENT: no such file or directory, stat '${pStr}'`,
+            ) as NodeJS.ErrnoException;
+            err.code = "ENOENT";
+            throw err;
+          }
+          return (
+            realStat as unknown as (
+              p: fs.PathLike,
+              ...rest: unknown[]
+            ) => fs.Stats
+          )(p, ...rest);
+        }) as typeof fs.statSync);
+      const realRead = fs.readFileSync;
       const readSpy = vi
         .spyOn(fs, "readFileSync")
-        .mockImplementation(() => yamlBody);
+        .mockImplementation(((
+          p: fs.PathOrFileDescriptor,
+          ...rest: unknown[]
+        ) => {
+          if (
+            typeof p === "string" &&
+            p.endsWith("showcase_deploy.yml")
+          ) {
+            return yamlBody;
+          }
+          return (
+            realRead as unknown as (
+              p: fs.PathOrFileDescriptor,
+              ...rest: unknown[]
+            ) => string | Buffer
+          )(p, ...rest);
+        }) as typeof fs.readFileSync);
       const writeSpy = vi
         .spyOn(fs, "writeFileSync")
         .mockImplementation(() => {});
@@ -1095,7 +1207,7 @@ describe("Template Generator — hardening regressions", () => {
           }),
         ).toThrow(/failed to locate the 'filters:' block/);
       } finally {
-        existsSpy.mockRestore();
+        statSpy.mockRestore();
         readSpy.mockRestore();
         writeSpy.mockRestore();
       }

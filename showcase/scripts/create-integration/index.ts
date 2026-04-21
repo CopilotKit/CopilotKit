@@ -90,6 +90,18 @@ function probePath(p: string): "missing" | "exists" | "unreadable" {
   }
 }
 
+/**
+ * Escape regex metacharacters in a string so it can be safely embedded
+ * into a RegExp source. Used by updateWorkflows() to anchor slug-based
+ * idempotency checks to full-line matches — a bare `includes(slug)`
+ * collides across unrelated lines and against longer sibling slugs
+ * (e.g. `includes("- foo")` matches `"- foo-bar"`), which silently
+ * skips the insert and produces a broken workflow file.
+ */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function parseArgs(): CLIArgs {
   const args = process.argv.slice(2);
   const parsed: Record<string, string> = {};
@@ -474,23 +486,15 @@ function generateDemoPage(
   featureId: string,
   feature: Feature | undefined,
 ): string {
-  return `"use client";
-
-import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import {
-    CopilotChat,
-    useFrontendTool,
-    useRenderTool,
-    useAgentContext,
-    useConfigureSuggestions,
-    useHumanInTheLoop,
-    useInterrupt,
-} from "@copilotkit/react-core/v2";
-import { z } from "zod";
-import { DemoErrorBoundary } from "../error-boundary";
-
-export default function ${toPascalCase(featureId)}Demo() {
+  // The generated body only references `CopilotKit`, `CopilotChat`, and
+  // `useConfigureSuggestions` — the rest of the v2 hooks (and `z` from
+  // zod) were imported eagerly so operators had an autocomplete-friendly
+  // starting point. With `strict: true` tsconfig + Next's ESLint the
+  // generated package failed lint/typecheck out of the box on every
+  // unused-import warning. Derive the import list from the body instead
+  // so the emitted file is clean from the first build while preserving
+  // the "hooks available" comment block as an author-facing reference.
+  const body = `export default function ${toPascalCase(featureId)}Demo() {
     return (
         <DemoErrorBoundary demoName="${feature?.name || featureId}">
             <CopilotKit runtimeUrl="/api/copilotkit" agent="${featureId}">
@@ -533,6 +537,47 @@ function DemoContent() {
     );
 }
 `;
+
+  // Candidate hooks exported from @copilotkit/react-core/v2. `CopilotChat`
+  // is always emitted (the body unconditionally renders it). Every other
+  // hook is included only when the body's *executable code* references
+  // it as an identifier, so additions to the body in the future
+  // automatically pick up the right imports without reviving dead ones.
+  //
+  // The "Key hooks available:" documentation block names every hook
+  // inside `//` comments — we strip JS line and block comments before
+  // scanning so those reference-only mentions don't force the imports
+  // back in. Word boundaries also matter: a bare `includes("z")`
+  // matches any line containing the letter z (`organize`, `size`, ...).
+  const codeOnly = body
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "");
+  const v2Candidates = [
+    "useFrontendTool",
+    "useRenderTool",
+    "useAgentContext",
+    "useConfigureSuggestions",
+    "useHumanInTheLoop",
+    "useInterrupt",
+  ] as const;
+  const v2Imports = ["CopilotChat", ...v2Candidates.filter((h) =>
+    new RegExp(`\\b${h}\\b`).test(codeOnly),
+  )];
+  const zUsed = /\bz\b/.test(codeOnly);
+
+  const importLines = [
+    `import React from "react";`,
+    `import { CopilotKit } from "@copilotkit/react-core";`,
+    `import {\n${v2Imports.map((n) => `    ${n},`).join("\n")}\n} from "@copilotkit/react-core/v2";`,
+    ...(zUsed ? [`import { z } from "zod";`] : []),
+    `import { DemoErrorBoundary } from "../error-boundary";`,
+  ];
+
+  return `"use client";
+
+${importLines.join("\n")}
+
+${body}`;
 }
 
 // Accumulates feature ids that hit the default/placeholder branches of
@@ -1799,7 +1844,13 @@ export function updateWorkflows(args: CLIArgs) {
     // `- <entry>` line in the block (captured as `$2`) instead of being
     // hardcoded, so a YAML reflow that changes the block's indent doesn't
     // produce a misaligned insertion.
-    if (!deploy.includes(`- ${slug}`)) {
+    // Anchor to a full option list line (leading whitespace, `- <slug>`,
+    // trailing whitespace, end-of-line). A bare `includes("- <slug>")`
+    // collides against longer sibling slugs (adding `foo` when `foo-bar`
+    // exists already matches `"- foo-bar"`) and against stray
+    // occurrences in comments/env vars/step names.
+    const optionRe = new RegExp(`^\\s+- ${escapeRegex(slug)}\\s*$`, "m");
+    if (!optionRe.test(deploy)) {
       const before = deploy;
       deploy = deploy.replace(
         /(\s+options:\n(?:(\s+)- .+\n)+)/,
@@ -1813,8 +1864,12 @@ export function updateWorkflows(args: CLIArgs) {
       }
     }
 
-    // Add change detection filter if not present
-    if (!deploy.includes(`${slug}:`)) {
+    // Anchor the outputs-block idempotency check to a line that starts
+    // with `<slug>:` (optionally indented) — `includes("<slug>:")`
+    // matches slug-shaped substrings inside env vars, step names, or
+    // YAML comments and silently skips the insert.
+    const outputRe = new RegExp(`^\\s+${escapeRegex(slug)}:`, "m");
+    if (!outputRe.test(deploy)) {
       // Add output (match only lines containing ${{ to avoid matching `steps:`).
       // The indent is captured from the last existing output entry and
       // reused below so YAML reflows don't desync the appended line.
@@ -2001,7 +2056,18 @@ export function updateWorkflows(args: CLIArgs) {
 
 // Only run main() when executed directly (tsx / node). Importing this
 // module for tests must not trigger argv parsing / filesystem writes.
-const invokedAs = fileURLToPath(import.meta.url);
-if (process.argv[1] === invokedAs) {
-  main();
+// Resolve both sides through path.resolve so symlinks introduced by tsx
+// shims, pnpm, and bin links don't break the comparison (a raw ===
+// check compares the physical path from import.meta.url against argv[1]
+// which can be a symlink — they never match and main() silently
+// no-ops). Mirrors the pattern used in validate-parity.ts. argv[1] is
+// `undefined` when the module is imported via `node -e` / dynamic
+// import without an entrypoint script, so short-circuit in that case
+// to avoid a TypeError out of path.resolve.
+if (process.argv[1]) {
+  const invokedAs = path.resolve(process.argv[1]);
+  const modulePath = path.resolve(fileURLToPath(import.meta.url));
+  if (invokedAs === modulePath) {
+    main();
+  }
 }
