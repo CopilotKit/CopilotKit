@@ -9,8 +9,8 @@
     "copilotkit",
     "react",
     "renderer",
-    "ui",
-    "tanstack-intent"
+    "tanstack-intent",
+    "ui"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
