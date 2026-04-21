@@ -146,11 +146,21 @@ export function Tabs({ items, defaultValue, children }: TabsProps) {
         })}
       </div>
       <div style={{ padding: "1rem" }}>
-        {kids
-          .filter((k) => k.label === active)
-          .map((k, i) => (
-            <React.Fragment key={i}>{k.content}</React.Fragment>
-          ))}
+        {(() => {
+          // Body selection is strictly positional: `labels[i]` is paired
+          // with `kids[i]` regardless of whether `labels` came from the
+          // `items` prop or was derived from child props. This avoids the
+          // items-vs-child-label-mismatch trap (author-supplied `items`
+          // rarely match each <Tab>'s `value ?? title ?? "Tab"`) and it
+          // also sidesteps duplicate-label double-render — `.find` would
+          // at least be single, but pairing by index is the actual
+          // contract MDX authors reason about.
+          const idx = labels.findIndex((l) => l === active);
+          if (idx < 0) return null;
+          const kid = kids[idx];
+          if (!kid) return null;
+          return <React.Fragment key={idx}>{kid.content}</React.Fragment>;
+        })()}
       </div>
     </div>
   );
