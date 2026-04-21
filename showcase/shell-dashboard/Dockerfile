@@ -62,9 +62,16 @@ ENV PORT=10000
 # regardless. Don't re-declare them — they'd just be noise and create the
 # illusion that changing them at runtime does anything.
 
-COPY --from=builder /app/shell-dashboard/.next ./.next
-COPY --from=prod-deps /app/shell-dashboard/node_modules ./node_modules
-COPY --from=builder /app/shell-dashboard/package.json ./
+# Copy build artifacts with `node:node` ownership so the runtime process
+# (dropped to USER node below) can read them. The `node` user/group ships
+# in the node:20-slim base image at uid/gid 1000 — no useradd needed.
+COPY --chown=node:node --from=builder /app/shell-dashboard/.next ./.next
+COPY --chown=node:node --from=prod-deps /app/shell-dashboard/node_modules ./node_modules
+COPY --chown=node:node --from=builder /app/shell-dashboard/package.json ./
+
+# Drop root privileges — parity with showcase/ops/Dockerfile. Reduces
+# blast radius of any RCE in Next.js or a transitive dep.
+USER node
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
