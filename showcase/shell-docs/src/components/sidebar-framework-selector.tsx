@@ -10,24 +10,7 @@
 import React from "react";
 import { FrameworkSelector } from "./framework-selector";
 import { getIntegrations, getCategoryLabel } from "@/lib/registry";
-
-// Canonical category ordering for framework pickers. Mirrors the
-// ordering used on the integrations page so the selector panel reads
-// the same everywhere.
-//
-// TODO(registry): promote this to `@/lib/registry` alongside
-// getCategoryLabel so the `/` landing grid and this sidebar dropdown
-// share a single source of truth. Leaving in place for now because the
-// registry module is owned by a parallel refactor.
-const FRAMEWORK_CATEGORY_ORDER = [
-  "popular",
-  "agent-framework",
-  "provider-sdk",
-  "enterprise-platform",
-  "protocol",
-  "emerging",
-  "starter",
-] as const;
+import { FRAMEWORK_CATEGORY_ORDER } from "@/lib/docs-render";
 
 export function SidebarFrameworkSelector() {
   // Sort by explicit sort_order, falling back to alphabetical slug for
