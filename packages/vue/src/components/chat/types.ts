@@ -8,6 +8,7 @@ import type {
 } from "@ag-ui/core";
 import type { CopilotKitCoreErrorCode, ToolCallStatus } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
+import type { Attachment, AttachmentsConfig } from "@copilotkit/shared";
 import type { CopilotChatLabels } from "../../providers/types";
 import type { InterruptEvent } from "../../types";
 
@@ -20,19 +21,37 @@ export interface CopilotChatViewProps {
   suggestions?: Suggestion[];
   suggestionLoadingIndexes?: ReadonlyArray<number>;
   welcomeScreen?: boolean;
+  attachments?: Attachment[];
+  dragOver?: boolean;
   inputValue?: string;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
+  onRemoveAttachment?: (id: string) => void;
+  onAddFile?: () => void;
+  onDragOver?: (event: DragEvent) => void;
+  onDragLeave?: (event: DragEvent) => void;
+  onDrop?: (event: DragEvent) => void;
   onFinishTranscribeWithAudio?: (audioBlob: Blob) => void | Promise<void>;
 }
 
 export interface CopilotChatProps extends Omit<
   CopilotChatViewProps,
-  "messages" | "isRunning" | "suggestions" | "suggestionLoadingIndexes"
+  | "messages"
+  | "isRunning"
+  | "suggestions"
+  | "suggestionLoadingIndexes"
+  | "attachments"
+  | "onRemoveAttachment"
+  | "onAddFile"
+  | "dragOver"
+  | "onDragOver"
+  | "onDragLeave"
+  | "onDrop"
 > {
   agentId?: string;
   threadId?: string;
   labels?: Partial<CopilotChatLabels>;
+  attachments?: AttachmentsConfig;
   onError?: (event: {
     error: Error;
     code: CopilotKitCoreErrorCode;

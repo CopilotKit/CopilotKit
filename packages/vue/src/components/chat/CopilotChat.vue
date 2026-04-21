@@ -6,12 +6,17 @@ import {
 } from "@ag-ui/client";
 import {
   DEFAULT_AGENT_ID,
+  getModalityFromMimeType,
+  matchesAcceptFilter,
+  exceedsMaxSize,
+  formatFileSize,
+  readFileAsBase64,
+  generateVideoThumbnail,
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
 import {
   computed,
-  getCurrentInstance,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -32,6 +37,11 @@ import {
 } from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
 import type { Message } from "@ag-ui/core";
+import type {
+  Attachment,
+  AttachmentUploadResult,
+  InputContent,
+} from "@copilotkit/shared";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -81,10 +91,6 @@ const attrs = useAttrs();
 const componentSlots = useSlots();
 const existingConfig = useCopilotChatConfiguration();
 const { copilotkit } = useCopilotKit();
-const instance = getCurrentInstance();
-const vnodeProps = computed(
-  () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
-);
 const forwardedChatViewSlotNames = computed(() =>
   Object.keys(componentSlots).filter((slotName) => slotName !== "chat-view"),
 );
@@ -96,6 +102,10 @@ const transcriptionError = ref<string | null>(null);
 const isTranscribing = ref(false);
 const isMounted = ref(false);
 const isUnmounting = ref(false);
+const attachments = ref<Attachment[]>([]);
+const dragOver = ref(false);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const attachmentContainerRef = ref<HTMLElement | null>(null);
 
 type ActiveConnectCycle = {
   core: object;
@@ -133,6 +143,7 @@ const isMediaRecorderSupported = computed(
 const showTranscription = computed(
   () => isTranscriptionEnabled.value && isMediaRecorderSupported.value,
 );
+const attachmentsEnabled = computed(() => props.attachments?.enabled ?? false);
 const effectiveMode = computed<"input" | "transcribe" | "processing">(() =>
   isTranscribing.value ? "processing" : transcribeMode.value,
 );
@@ -142,12 +153,184 @@ const shouldAllowStop = computed(
   () => isRunning.value && messages.value.length > 0,
 );
 
-function hasListener(listenerName: string) {
-  const listener = vnodeProps.value[listenerName];
-  if (Array.isArray(listener)) {
-    return listener.length > 0;
+async function processFiles(files: File[]) {
+  const config = props.attachments;
+  if (!config?.enabled) {
+    return;
   }
-  return !!listener;
+
+  const accept = config.accept ?? "*/*";
+  const maxSize = config.maxSize ?? 20 * 1024 * 1024;
+
+  const rejectedFiles = files.filter(
+    (file) => !matchesAcceptFilter(file, accept),
+  );
+  for (const file of rejectedFiles) {
+    config.onUploadFailed?.({
+      reason: "invalid-type",
+      file,
+      message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
+    });
+  }
+
+  const validFiles = files.filter((file) => matchesAcceptFilter(file, accept));
+  for (const file of validFiles) {
+    if (exceedsMaxSize(file, maxSize)) {
+      config.onUploadFailed?.({
+        reason: "file-too-large",
+        file,
+        message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
+      });
+      continue;
+    }
+
+    const modality = getModalityFromMimeType(file.type);
+    const placeholderId = randomUUID();
+    attachments.value = [
+      ...attachments.value,
+      {
+        id: placeholderId,
+        type: modality,
+        source: { type: "data", value: "", mimeType: file.type },
+        filename: file.name,
+        size: file.size,
+        status: "uploading",
+      },
+    ];
+
+    try {
+      let source: Attachment["source"];
+      let uploadMetadata: Record<string, unknown> | undefined;
+      if (config.onUpload) {
+        const uploadResult: AttachmentUploadResult =
+          await config.onUpload(file);
+        const { metadata, ...uploadSource } = uploadResult;
+        source = uploadSource;
+        uploadMetadata = metadata;
+      } else {
+        const base64 = await readFileAsBase64(file);
+        source = { type: "data", value: base64, mimeType: file.type };
+      }
+
+      let thumbnail: string | undefined;
+      if (modality === "video") {
+        thumbnail = await generateVideoThumbnail(file);
+      }
+
+      attachments.value = attachments.value.map((attachment) =>
+        attachment.id === placeholderId
+          ? {
+              ...attachment,
+              source,
+              status: "ready",
+              thumbnail,
+              metadata: uploadMetadata,
+            }
+          : attachment,
+      );
+    } catch (error) {
+      attachments.value = attachments.value.filter(
+        (attachment) => attachment.id !== placeholderId,
+      );
+      console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
+      config.onUploadFailed?.({
+        reason: "upload-failed",
+        file,
+        message:
+          error instanceof Error
+            ? error.message
+            : `Failed to upload "${file.name}"`,
+      });
+    }
+  }
+}
+
+async function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement | null;
+  if (!target?.files?.length) {
+    return;
+  }
+  await processFiles(Array.from(target.files));
+}
+
+function handleDragOver(event: DragEvent) {
+  if (!attachmentsEnabled.value) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+  dragOver.value = true;
+}
+
+function handleDragLeave(event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  dragOver.value = false;
+}
+
+async function handleDrop(event: DragEvent) {
+  event.preventDefault();
+  event.stopPropagation();
+  dragOver.value = false;
+  if (!attachmentsEnabled.value) {
+    return;
+  }
+  const files = Array.from(event.dataTransfer?.files ?? []);
+  if (files.length > 0) {
+    await processFiles(files);
+  }
+}
+
+function removeAttachment(id: string) {
+  attachments.value = attachments.value.filter(
+    (attachment) => attachment.id !== id,
+  );
+}
+
+function consumeAttachments() {
+  const ready = attachments.value.filter(
+    (attachment) => attachment.status === "ready",
+  );
+  if (ready.length === 0) {
+    return ready;
+  }
+  attachments.value = attachments.value.filter(
+    (attachment) => attachment.status !== "ready",
+  );
+  if (fileInputRef.value) {
+    fileInputRef.value.value = "";
+  }
+  return ready;
+}
+
+async function handlePaste(event: ClipboardEvent) {
+  if (!attachmentsEnabled.value) {
+    return;
+  }
+
+  const target = event.target as HTMLElement | null;
+  if (!target || !attachmentContainerRef.value?.contains(target)) {
+    return;
+  }
+
+  const accept = props.attachments?.accept ?? "*/*";
+  const items = Array.from(event.clipboardData?.items ?? []);
+  const fileItems = items.filter((item) => {
+    if (item.kind !== "file") {
+      return false;
+    }
+    const file = item.getAsFile();
+    return file !== null && matchesAcceptFilter(file, accept);
+  });
+  if (fileItems.length === 0) {
+    return;
+  }
+
+  event.preventDefault();
+  const files = fileItems
+    .map((item) => item.getAsFile())
+    .filter((file): file is File => file !== null);
+  await processFiles(files);
 }
 
 watch(
@@ -289,10 +472,16 @@ watch(
 
 onBeforeUnmount(() => {
   isUnmounting.value = true;
+  if (typeof document !== "undefined") {
+    document.removeEventListener("paste", handlePaste);
+  }
 });
 
 onMounted(() => {
   isMounted.value = true;
+  if (typeof document !== "undefined") {
+    document.addEventListener("paste", handlePaste);
+  }
 });
 
 watch(transcriptionError, (next, _old, onCleanup) => {
@@ -330,12 +519,44 @@ async function runCurrentAgent() {
 }
 
 async function handleSubmitMessage(value: string) {
+  const hasUploading = attachments.value.some(
+    (attachment) => attachment.status === "uploading",
+  );
+  if (hasUploading) {
+    console.error("[CopilotKit] Cannot send while attachments are uploading");
+    return;
+  }
+
   emit("submit-message", value);
-  agent.value?.addMessage({
-    id: randomUUID(),
-    role: "user",
-    content: value,
-  });
+  const readyAttachments = consumeAttachments();
+  if (readyAttachments.length > 0) {
+    const contentParts: InputContent[] = [];
+    if (value.trim()) {
+      contentParts.push({ type: "text", text: value });
+    }
+    for (const attachment of readyAttachments) {
+      contentParts.push({
+        type: attachment.type,
+        source: attachment.source,
+        metadata: {
+          ...(attachment.filename ? { filename: attachment.filename } : {}),
+          ...attachment.metadata,
+        },
+      } as InputContent);
+    }
+    agent.value?.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: contentParts,
+    });
+  } else {
+    agent.value?.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: value,
+    });
+  }
+
   inputValue.value = "";
   await runCurrentAgent();
 }
@@ -382,6 +603,12 @@ function handleInputChange(value: string) {
 
 function handleAddFile() {
   emit("add-file");
+  if (!attachmentsEnabled.value) {
+    return;
+  }
+  setTimeout(() => {
+    fileInputRef.value?.click();
+  }, 100);
 }
 
 function handleStartTranscribe() {
@@ -465,6 +692,8 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   suggestions: autoSuggestions.value,
   suggestionLoadingIndexes: [],
   welcomeScreen: props.welcomeScreen,
+  attachments: attachments.value,
+  dragOver: dragOver.value,
   inputValue: inputValue.value,
   inputMode: effectiveMode.value,
   inputToolsMenu: props.inputToolsMenu,
@@ -472,7 +701,11 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   onStop: shouldAllowStop.value ? handleStop : undefined,
   onInputChange: handleInputChange,
   onSelectSuggestion: handleSelectSuggestion,
-  onAddFile: hasListener("onAddFile") ? handleAddFile : undefined,
+  onRemoveAttachment: removeAttachment,
+  onAddFile: attachmentsEnabled.value ? handleAddFile : undefined,
+  onDragOver: attachmentsEnabled.value ? handleDragOver : undefined,
+  onDragLeave: attachmentsEnabled.value ? handleDragLeave : undefined,
+  onDrop: attachmentsEnabled.value ? handleDrop : undefined,
   onStartTranscribe: showTranscription.value
     ? handleStartTranscribe
     : undefined,
@@ -498,8 +731,14 @@ const defaultChatViewBindings = computed(() => {
   if (shouldAllowStop.value) {
     listeners.onStop = handleStop;
   }
-  if (hasListener("onAddFile")) {
+  if (attachmentsEnabled.value) {
     listeners.onAddFile = handleAddFile;
+    listeners.attachments = attachments.value;
+    listeners.onRemoveAttachment = removeAttachment;
+    listeners.dragOver = dragOver.value;
+    listeners.onDragOver = handleDragOver;
+    listeners.onDragLeave = handleDragLeave;
+    listeners.onDrop = handleDrop;
   }
   if (showTranscription.value) {
     listeners.onStartTranscribe = handleStartTranscribe;
@@ -517,48 +756,61 @@ const defaultChatViewBindings = computed(() => {
     :thread-id="resolvedThreadId"
     :labels="resolvedLabels"
   >
-    <div
-      v-if="transcriptionError"
-      style="
-        position: absolute;
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-        background-color: #ef4444;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 14px;
-        z-index: 50;
-      "
-    >
-      {{ transcriptionError }}
-    </div>
-
-    <slot name="chat-view" v-bind="chatViewSlotProps">
-      <CopilotChatView
-        :messages="chatViewSlotProps.messages"
-        :auto-scroll="chatViewSlotProps.autoScroll"
-        :is-running="chatViewSlotProps.isRunning"
-        :suggestions="chatViewSlotProps.suggestions"
-        :suggestion-loading-indexes="chatViewSlotProps.suggestionLoadingIndexes"
-        :welcome-screen="chatViewSlotProps.welcomeScreen"
-        :input-value="chatViewSlotProps.inputValue"
-        :input-mode="chatViewSlotProps.inputMode"
-        :input-tools-menu="chatViewSlotProps.inputToolsMenu"
-        :on-finish-transcribe-with-audio="
-          chatViewSlotProps.onFinishTranscribeWithAudio
+    <div ref="attachmentContainerRef" style="display: contents">
+      <input
+        v-if="attachmentsEnabled"
+        ref="fileInputRef"
+        type="file"
+        multiple
+        :accept="props.attachments?.accept ?? '*/*'"
+        style="display: none"
+        @change="(event) => void handleFileUpload(event)"
+      />
+      <div
+        v-if="transcriptionError"
+        style="
+          position: absolute;
+          bottom: 100px;
+          left: 50%;
+          transform: translateX(-50%);
+          background-color: #ef4444;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          z-index: 50;
         "
-        v-bind="defaultChatViewBindings"
       >
-        <template
-          v-for="slotName in forwardedChatViewSlotNames"
-          :key="slotName"
-          #[slotName]="slotProps"
+        {{ transcriptionError }}
+      </div>
+
+      <slot name="chat-view" v-bind="chatViewSlotProps">
+        <CopilotChatView
+          :messages="chatViewSlotProps.messages"
+          :auto-scroll="chatViewSlotProps.autoScroll"
+          :is-running="chatViewSlotProps.isRunning"
+          :suggestions="chatViewSlotProps.suggestions"
+          :suggestion-loading-indexes="
+            chatViewSlotProps.suggestionLoadingIndexes
+          "
+          :welcome-screen="chatViewSlotProps.welcomeScreen"
+          :input-value="chatViewSlotProps.inputValue"
+          :input-mode="chatViewSlotProps.inputMode"
+          :input-tools-menu="chatViewSlotProps.inputToolsMenu"
+          :on-finish-transcribe-with-audio="
+            chatViewSlotProps.onFinishTranscribeWithAudio
+          "
+          v-bind="defaultChatViewBindings"
         >
-          <slot :name="slotName" v-bind="slotProps" />
-        </template>
-      </CopilotChatView>
-    </slot>
+          <template
+            v-for="slotName in forwardedChatViewSlotNames"
+            :key="slotName"
+            #[slotName]="slotProps"
+          >
+            <slot :name="slotName" v-bind="slotProps" />
+          </template>
+        </CopilotChatView>
+      </slot>
+    </div>
   </CopilotChatConfigurationProvider>
 </template>

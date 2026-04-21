@@ -11,10 +11,12 @@ import {
 } from "vue";
 import type { Message } from "@ag-ui/core";
 import type { Suggestion } from "@copilotkit/core";
+import type { Attachment } from "@copilotkit/shared";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { IconChevronDown } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
+import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
 import type {
@@ -64,6 +66,7 @@ defineSlots<{
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
     inputToolsMenu: (ToolsMenuItem | "-")[];
+    attachments: Attachment[];
     onUpdateModelValue: (value: string) => void;
     onSubmitMessage: (value: string) => void;
     onStop?: () => void;
@@ -81,6 +84,7 @@ defineSlots<{
   "welcome-screen"?: (props: {
     suggestions: Suggestion[];
     loadingIndexes: ReadonlyArray<number>;
+    attachments: Attachment[];
     modelValue: string;
     isRunning: boolean;
     inputMode: CopilotChatInputMode;
@@ -129,6 +133,9 @@ const resolvedInputValue = computed(() =>
 const hasSuggestions = computed(
   () => Array.isArray(props.suggestions) && props.suggestions.length > 0,
 );
+const hasAttachments = computed(
+  () => Array.isArray(props.attachments) && props.attachments.length > 0,
+);
 const vnodeProps = computed(
   () => (instance?.vnode.props ?? {}) as Record<string, unknown>,
 );
@@ -164,7 +171,7 @@ const hasFinishTranscribeWithAudioAction = computed(
 );
 const messagePaddingBottom = computed(
   () =>
-    `${inputContainerHeight.value + FEATHER_HEIGHT + (hasSuggestions.value ? 4 : 32)}px`,
+    `${inputContainerHeight.value + FEATHER_HEIGHT + (hasSuggestions.value || hasAttachments.value ? 4 : 32)}px`,
 );
 const showScrollToBottomButton = computed(
   () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
@@ -267,6 +274,18 @@ function handleAddFile() {
   emit("add-file");
 }
 
+function handleDragOver(event: DragEvent) {
+  props.onDragOver?.(event);
+}
+
+function handleDragLeave(event: DragEvent) {
+  props.onDragLeave?.(event);
+}
+
+function handleDrop(event: DragEvent) {
+  void props.onDrop?.(event);
+}
+
 function handleStartTranscribe() {
   emit("start-transcribe");
 }
@@ -362,12 +381,25 @@ onBeforeUnmount(() => {
     class="cpk:relative cpk:h-full"
     data-testid="copilot-chat-view"
     v-bind="$attrs"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
   >
+    <div
+      v-if="dragOver"
+      class="cpk:absolute cpk:inset-0 cpk:z-50 cpk:pointer-events-none cpk:flex cpk:items-center cpk:justify-center cpk:bg-primary/5 cpk:border-2 cpk:border-dashed cpk:border-primary/40 cpk:rounded-lg cpk:m-2"
+      data-testid="copilot-chat-drop-overlay"
+    >
+      <span class="cpk:text-sm cpk:font-medium cpk:text-primary/70">
+        Drop files here
+      </span>
+    </div>
     <slot
       v-if="shouldShowWelcomeScreen"
       name="welcome-screen"
       :suggestions="suggestions"
       :loading-indexes="suggestionLoadingIndexes"
+      :attachments="attachments ?? []"
       :model-value="resolvedInputValue"
       :is-running="isRunning"
       :input-mode="inputMode"
@@ -400,12 +432,21 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="cpk:w-full">
+            <CopilotChatAttachmentQueue
+              v-if="hasAttachments"
+              :attachments="attachments ?? []"
+              class-name="cpk:mb-2"
+              @remove-attachment="
+                (id: string) => onRemoveAttachment && onRemoveAttachment(id)
+              "
+            />
             <slot
               name="input"
               :model-value="resolvedInputValue"
               :is-running="isRunning"
               :input-mode="inputMode"
               :input-tools-menu="inputToolsMenu"
+              :attachments="attachments ?? []"
               :on-update-model-value="handleInputValueChange"
               :on-submit-message="handleSubmitMessage"
               :on-stop="hasStopAction ? handleStop : undefined"
@@ -543,6 +584,17 @@ onBeforeUnmount(() => {
         </slot>
       </div>
 
+      <div class="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
+        <CopilotChatAttachmentQueue
+          v-if="hasAttachments"
+          :attachments="attachments ?? []"
+          class-name="cpk:px-4"
+          @remove-attachment="
+            (id: string) => onRemoveAttachment && onRemoveAttachment(id)
+          "
+        />
+      </div>
+
       <div
         ref="inputContainerRef"
         class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
@@ -554,6 +606,7 @@ onBeforeUnmount(() => {
           :is-running="isRunning"
           :input-mode="inputMode"
           :input-tools-menu="inputToolsMenu"
+          :attachments="attachments ?? []"
           :on-update-model-value="handleInputValueChange"
           :on-submit-message="handleSubmitMessage"
           :on-stop="hasStopAction ? handleStop : undefined"
