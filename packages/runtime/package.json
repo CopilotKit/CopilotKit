@@ -22,6 +22,7 @@
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
   "files": [
+    "dist",
     "skills"
   ],
   "sideEffects": [
