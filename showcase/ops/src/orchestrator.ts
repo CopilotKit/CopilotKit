@@ -62,6 +62,16 @@ export async function boot(opts: BootOptions = {}): Promise<{
       }),
     ),
   );
+  // Backup failures are first-class signals: increment a dimension-labelled
+  // probe_runs series so the existing dashboards/alert rules can catch them
+  // via the same `dimension=` grouping used for every other signal, and
+  // emit a warn log for human-visible triage.
+  busUnsubs.push(
+    bus.on("internal.backup.failed", (payload) => {
+      metrics.inc("probe_runs", { dimension: "internal_backup" });
+      logger.warn("orchestrator.backup-failed", { err: payload.err });
+    }),
+  );
 
   const targets = new Map<string, Target>();
   targets.set("slack_webhook", createSlackWebhookTarget({ logger }));
@@ -182,6 +192,14 @@ export async function boot(opts: BootOptions = {}): Promise<{
         uploader,
         logger,
         now: () => new Date(),
+        // Wire the bus so `internal.backup.failed` actually fires when a
+        // run fails. Without this, the event type exists on BusEvents
+        // but nobody emits it — alert rules matching on it are dead.
+        onFailure: {
+          emit(event, payload) {
+            bus.emit(event, payload);
+          },
+        },
       });
       scheduler.register({
         id: "internal:s3-backup",
