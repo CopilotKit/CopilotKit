@@ -14,7 +14,10 @@ interface SearchResult {
 }
 
 function isExternalHref(href: string): boolean {
-  return /^(https?:)?\/\//i.test(href);
+  // Protocol-relative or http(s) URLs, plus non-navigable schemes that
+  // next/router can't handle (mailto/tel/ftp[s]) — all must leave the SPA
+  // via window.location rather than router.push.
+  return /^(https?:)?\/\//i.test(href) || /^(mailto|tel|ftp|ftps):/i.test(href);
 }
 
 function dedupeResults(items: SearchResult[]): SearchResult[] {
@@ -166,6 +169,10 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
 
   const onInputKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Don't hijack keys while an IME composition is active — Asian-language
+      // users press Enter to commit a candidate and must not trigger navigation.
+      if (e.nativeEvent.isComposing) return;
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, results.length - 1));
