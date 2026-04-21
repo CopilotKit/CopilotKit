@@ -15,16 +15,14 @@ const serviceAdapter = new ExperimentalEmptyAdapter();
 // 2. LANGGRAPH_DEPLOYMENT_URL handling. In development we fall back to
 //    localhost:8125 (the port this starter's LangGraph dev server uses —
 //    see apps/agent/package.json) and warn so the developer sees it. In
-//    production a missing URL is almost always a misconfiguration — fail
-//    loudly at module load rather than silently pointing at localhost and
-//    producing cryptic request-time errors.
-if (!process.env.LANGGRAPH_DEPLOYMENT_URL) {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error(
-      "[copilotkit/route] LANGGRAPH_DEPLOYMENT_URL is required in production. " +
-        "Set it to the deployed LangGraph endpoint for this starter.",
-    );
-  }
+//    production a missing URL is almost always a misconfiguration — but
+//    we defer the hard failure to the first request (see POST below)
+//    rather than throwing at module load. `next build` evaluates route
+//    modules with NODE_ENV=production during route collection, while
+//    runtime-only env vars (Vercel secrets, Railway env, Docker ENV at
+//    container start) are NOT injected at build time. Throwing at module
+//    load would abort otherwise-valid production builds.
+if (!process.env.LANGGRAPH_DEPLOYMENT_URL && process.env.NODE_ENV !== "production") {
   // eslint-disable-next-line no-console
   console.warn(
     "[copilotkit/route] LANGGRAPH_DEPLOYMENT_URL is not set; falling back to http://localhost:8125. Set LANGGRAPH_DEPLOYMENT_URL in production.",
@@ -43,46 +41,67 @@ if (!process.env.LANGSMITH_API_KEY) {
   );
 }
 
-const agent = new LangGraphAgent({
-  deploymentUrl:
-    process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8125",
-  graphId: "default",
-  // Only pass langsmithApiKey when it's a non-empty string; omitting
-  // the field disables LangSmith tracing without asking the SDK to
-  // authenticate with an empty key.
-  ...(process.env.LANGSMITH_API_KEY
-    ? { langsmithApiKey: process.env.LANGSMITH_API_KEY }
-    : {}),
-});
+// 3. Lazy runtime construction. We build the LangGraphAgent + runtime +
+//    handler on the first request rather than at module load, so that
+//    `next build` (which evaluates this file with NODE_ENV=production but
+//    without runtime env vars) does not bake the fallback localhost URL
+//    into the compiled artifact. The cached closure keeps per-request
+//    overhead at the same single-allocation cost as the eager form.
+let cachedHandleRequest:
+  | ((req: NextRequest) => Promise<Response>)
+  | null = null;
 
-// 3. Register the single LangGraph agent under the `default` name, which
-//    matches the <CopilotKit agent="default"> prop in layout.tsx. If you
-//    need to expose this agent under an additional id (e.g. when pointing
-//    a second frontend at this runtime), add another entry here and
-//    update the corresponding <CopilotKit agent="..."> prop.
-const runtime = new CopilotRuntime({
-  agents: {
-    default: agent,
-  },
-});
+const getHandleRequest = () => {
+  if (cachedHandleRequest) return cachedHandleRequest;
 
-// 4. Build a Next.js API route that handles the CopilotKit runtime requests.
-//    Construct the endpoint once at module load so any configuration errors
-//    fail at deploy/boot time rather than being silently downgraded into
-//    per-request 500s, and so the runtime/adapter wiring isn't rebuilt on
-//    every request.
-const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
-  runtime,
-  serviceAdapter,
-  endpoint: "/api/copilotkit",
-});
+  const deploymentUrl = process.env.LANGGRAPH_DEPLOYMENT_URL;
+  if (!deploymentUrl && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "[copilotkit/route] LANGGRAPH_DEPLOYMENT_URL is required in production. " +
+        "Set it to the deployed LangGraph endpoint for this starter.",
+    );
+  }
 
-//    Wrap handleRequest in try/catch so unhandled exceptions surface as a
-//    structured 500 rather than a raw Next.js error page, and log the failure
-//    for observability. Errors inside the streaming response are handled
-//    by the runtime itself.
+  const agent = new LangGraphAgent({
+    deploymentUrl: deploymentUrl || "http://localhost:8125",
+    graphId: "default",
+    // Only pass langsmithApiKey when it's a non-empty string; omitting
+    // the field disables LangSmith tracing without asking the SDK to
+    // authenticate with an empty key.
+    ...(process.env.LANGSMITH_API_KEY
+      ? { langsmithApiKey: process.env.LANGSMITH_API_KEY }
+      : {}),
+  });
+
+  // Register the single LangGraph agent under the `default` name, which
+  // matches the <CopilotKit agent="default"> prop in layout.tsx. If you
+  // need to expose this agent under an additional id (e.g. when pointing
+  // a second frontend at this runtime), add another entry here and
+  // update the corresponding <CopilotKit agent="..."> prop.
+  const runtime = new CopilotRuntime({
+    agents: {
+      default: agent,
+    },
+  });
+
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  cachedHandleRequest = handleRequest;
+  return handleRequest;
+};
+
+// 4. POST handler. Resolves the cached handler (building it on first
+//    request), then dispatches. Wrap in try/catch so unhandled exceptions
+//    surface as a structured 500 rather than a raw Next.js error page,
+//    and log the failure for observability. Errors inside the streaming
+//    response are handled by the runtime itself.
 export const POST = async (req: NextRequest) => {
   try {
+    const handleRequest = getHandleRequest();
     return await handleRequest(req);
   } catch (err) {
     // eslint-disable-next-line no-console

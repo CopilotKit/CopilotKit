@@ -32,8 +32,13 @@
   silently branching to "cancelled".
 - `deleteProverb` on the web side now uses a functional `setState`
   updater so concurrent state writes don't race.
-- Added stable React keys (`index:proverb`) to the proverb list so
-  reconciliation doesn't flicker on insert/delete.
+- Switched the proverb list's React key from `${index}:${proverb}` (which
+  wasn't actually stable — it shifted on any insert/delete before the
+  item) to the proverb text itself. This gives stable reconciliation
+  across agent-side insert/delete operations with the tradeoff that two
+  identical proverbs will collapse into one DOM node until the shape is
+  upgraded to `{id, text}` entries (comment in page.tsx calls out the
+  upgrade path).
 - Removed the unused `starterAgent` alias; extracted the model name
   to a `MODEL` constant for single-point swaps.
 - Wrapped `handleRequest` with a structured error response in the web

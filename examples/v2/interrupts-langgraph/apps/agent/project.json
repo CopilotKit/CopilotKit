@@ -13,13 +13,15 @@
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc -p apps/agent/tsconfig.json --noEmit"
+        "command": "tsc -p tsconfig.json --noEmit",
+        "cwd": "examples/v2/interrupts-langgraph/apps/agent"
       }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "tsc -p apps/agent/tsconfig.json --noEmit"
+        "command": "tsc -p tsconfig.json --noEmit",
+        "cwd": "examples/v2/interrupts-langgraph/apps/agent"
       }
     }
   },
