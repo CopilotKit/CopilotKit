@@ -28,6 +28,19 @@ const app = createCopilotEndpoint({
     identifyUser: () => ({ id: "jordan-beamson" }),
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
     agents: { default: agent },
+    openGenerativeUI: true,
+    a2ui: {
+      injectA2UITool: false,
+    },
+    mcpApps: {
+      servers: [
+        {
+          type: "http",
+          url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+          serverId: "example_mcp_app",
+        },
+      ],
+    },
   }),
 });
 
