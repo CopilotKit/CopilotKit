@@ -661,11 +661,25 @@ export const docsComponents = {
       </button>
     );
   },
-  Link: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-    <a href={href} style={{ color: "var(--accent)" }}>
-      {children}
-    </a>
-  ),
+  Link: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    href?: string;
+    [key: string]: unknown;
+  }) =>
+    href ? (
+      // Route internal MDX <Link> through next/link so navigation is
+      // client-side (prior impl rendered a plain <a>, triggering a full
+      // page reload on every internal link).
+      <Link href={href} {...(rest as Record<string, unknown>)}>
+        {children}
+      </Link>
+    ) : (
+      <a {...(rest as Record<string, unknown>)}>{children}</a>
+    ),
   Code: ({ children }: { children?: React.ReactNode }) => (
     <code>{children}</code>
   ),
