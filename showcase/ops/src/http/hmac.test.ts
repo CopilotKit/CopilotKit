@@ -422,9 +422,19 @@ describe("verifyHmac", () => {
       // try/finally to clean up (a thrown assertion inside the try
       // would leak the stub to every subsequent test).
       const syntheticError = new Error("simulated crypto failure (OOM)");
-      vi.spyOn(crypto, "timingSafeEqual").mockImplementationOnce(() => {
-        throw syntheticError;
-      });
+      // Capture the spy so we can assert it actually intercepted the call.
+      // `hmac.ts` uses `import crypto from "node:crypto"` and invokes
+      // `crypto.timingSafeEqual(...)` via property access on the default
+      // namespace — both this test and the module see the same namespace
+      // object, so `vi.spyOn` rebinds the property the module reads at
+      // call time. If the module ever switches to a destructured
+      // `import { timingSafeEqual }`, the spy would silently miss; the
+      // `toHaveBeenCalled` assertion below is the tripwire for that.
+      const spy = vi
+        .spyOn(crypto, "timingSafeEqual")
+        .mockImplementationOnce(() => {
+          throw syntheticError;
+        });
       const { logger: cap, warnCalls } = captureLogger();
       const r = verifyHmac({
         method,
@@ -440,6 +450,11 @@ describe("verifyHmac", () => {
       // After the synthetic crypto failure, the loop falls through to
       // bad-signature (no secret matched).
       expect(r.reason).toBe("bad-signature");
+      // Tripwire: prove the spy actually intercepted. A green test with
+      // zero spy invocations would mean we never exercised the catch
+      // branch (e.g. the module switched to a destructured import and
+      // kept the original binding).
+      expect(spy).toHaveBeenCalled();
       const unexpectedCall = warnCalls.find(
         (c) =>
           typeof c.meta === "object" &&
