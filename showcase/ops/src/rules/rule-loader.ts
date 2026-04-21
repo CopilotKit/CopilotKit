@@ -80,6 +80,30 @@ export interface RuleLoaderOptions {
   slackSafeFields?: Record<string, Set<string>>;
 }
 
+/**
+ * Deduplicate targets merged from defaults + rule-level declarations. A stable
+ * canonical key over all own-properties (sorted) guarantees that two targets
+ * with identical shape collapse to one, regardless of author-specified key
+ * order. Second+ occurrences drop; first occurrence wins (preserves the
+ * defaults-then-rule precedence implied by `mergeDefaults`).
+ */
+function dedupeTargets<T extends { kind: string; webhook?: string }>(
+  targets: T[],
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const t of targets) {
+    const rec = t as unknown as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const k of Object.keys(rec).sort()) sorted[k] = rec[k];
+    const key = JSON.stringify(sorted);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
+}
+
 export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
   const { dir, logger, slackSafeFields = {}, bus } = opts;
   let watcher: FSWatcher | null = null;
@@ -115,7 +139,15 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
     if (!merged.severity && defaults.severity)
       merged.severity = defaults.severity;
     if (defaults.targets) {
-      merged.targets = [...(defaults.targets ?? []), ...(rule.targets ?? [])];
+      // Concatenate defaults + rule-level, then dedupe by a stable shape key
+      // (kind + webhook + any other target-distinguishing fields). A rule that
+      // both inherits a default target and redeclares the same `{ kind, webhook }`
+      // produced duplicate Slack sends — every alert fired twice.
+      const combined = [
+        ...(defaults.targets ?? []),
+        ...(rule.targets ?? []),
+      ] as NonNullable<RuleDoc["targets"]>;
+      merged.targets = dedupeTargets(combined);
     }
     if (defaults.conditions) {
       merged.conditions = {
@@ -176,6 +208,14 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
 
   function compile(rule: RuleDoc): CompiledRule {
     validateTripleBrace(rule);
+    // A rule with no targets (after merging defaults) can never dispatch;
+    // fail loudly at load time rather than silently dropping alerts at runtime.
+    const mergedTargets = rule.targets ?? [];
+    if (mergedTargets.length === 0) {
+      throw new Error(
+        `rule ${rule.id}: must declare at least one target (after merging defaults)`,
+      );
+    }
     // Fail rule-load on a malformed suppress expression so bad syntax surfaces
     // at boot rather than at alert time (where it would silently pass-through
     // the alert since evalSuppress throws, and the caller catches + logs).

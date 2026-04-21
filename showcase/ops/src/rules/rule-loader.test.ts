@@ -28,7 +28,15 @@ describe("rule-loader: valid fixtures", () => {
     expect(r.conditions.guards[0]).toEqual({ minDeployAgeMin: 20 });
     expect(r.conditions.escalations).toHaveLength(1);
     expect(r.conditions.escalations[0]!.whenFailCount).toBe(4);
-    expect(r.targets).toHaveLength(2); // default + rule-level; deep-merge appends
+    // Defaults + rule-level both declare the SAME target (slack_webhook /
+    // oss_alerts). mergeDefaults dedupes by stable shape key so the compiled
+    // rule carries a single target — previously this was 2 and caused every
+    // Slack alert to fire twice.
+    expect(r.targets).toHaveLength(1);
+    expect(r.targets[0]).toEqual({
+      kind: "slack_webhook",
+      webhook: "oss_alerts",
+    });
     expect(r.conditions.rate_limit?.window).toBe("15m");
   });
 });
@@ -100,6 +108,9 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
         "conditions:",
         "  suppress:",
         '    when: "trigger === nonsense_bareword"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
         "template:",
         '  text: "x"',
         "",
@@ -130,6 +141,116 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
     ).toBeUndefined();
     expect(pin!.conditions.rate_limit).toBeNull();
     expect(ver!.conditions.rate_limit).toBeNull();
+  });
+});
+
+describe("rule-loader: target dedupe + non-empty validation", () => {
+  async function writeDir(files: Record<string, string>): Promise<string> {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-td-"));
+    for (const [name, body] of Object.entries(files)) {
+      await fs.writeFile(path.join(tmp, name), body, "utf-8");
+    }
+    return tmp;
+  }
+
+  it("dedupes identical targets inherited from defaults AND declared on the rule", async () => {
+    const dir = await writeDir({
+      "_defaults.yml": [
+        "defaults:",
+        "  targets:",
+        "    - kind: slack_webhook",
+        "      webhook: oss_alerts",
+        "  severity: warn",
+        "  conditions:",
+        "    rate_limit:",
+        "      window: 15m",
+        "  renderer: mustache",
+        "",
+      ].join("\n"),
+      "dup-targets.yml": [
+        "id: dup-targets",
+        'name: "dup"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.targets).toEqual([
+      { kind: "slack_webhook", webhook: "oss_alerts" },
+    ]);
+  });
+
+  it("keeps targets that differ by webhook — dedupe is by shape, not kind alone", async () => {
+    const dir = await writeDir({
+      "_defaults.yml": [
+        "defaults:",
+        "  targets:",
+        "    - kind: slack_webhook",
+        "      webhook: oss_alerts",
+        "  severity: warn",
+        "",
+      ].join("\n"),
+      "distinct-webhooks.yml": [
+        "id: distinct-webhooks",
+        'name: "dw"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oncall",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules[0]!.targets).toEqual([
+      { kind: "slack_webhook", webhook: "oss_alerts" },
+      { kind: "slack_webhook", webhook: "oncall" },
+    ]);
+  });
+
+  it("fails compile when a rule has zero targets after merge", async () => {
+    // Defaults declare no targets, rule declares no targets → compile must throw.
+    const dir = await writeDir({
+      "_defaults.yml": ["defaults:", "  severity: warn", ""].join("\n"),
+      "no-targets.yml": [
+        "id: no-targets",
+        'name: "nt"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+    });
+    const loader = createRuleLoader({ dir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("no-targets.yml");
+    expect(errors[0]!.error).toMatch(/at least one target/);
   });
 });
 
