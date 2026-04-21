@@ -22,6 +22,9 @@ export function Card({
   title,
   description,
   href,
+  icon,
+  className,
+  children,
 }: {
   title: string;
   description?: string;
@@ -30,12 +33,32 @@ export function Card({
   className?: string;
   children?: React.ReactNode;
 }) {
+  // Render `icon`, `className`, and `children` instead of silently
+  // dropping them — matches MDX author expectations (Mintlify-style
+  // Cards accept all three).
+  const mergedClassName = [
+    "rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors",
+    className,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const content = (
-    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 hover:bg-[var(--bg-elevated)] transition-colors">
+    <div className={mergedClassName}>
+      {icon && (
+        <div className="mb-2 text-[var(--text-muted)]" aria-hidden>
+          {icon}
+        </div>
+      )}
       <div className="font-semibold text-[var(--text)] text-sm">{title}</div>
       {description && (
         <div className="text-xs text-[var(--text-muted)] mt-1">
           {description}
+        </div>
+      )}
+      {children && (
+        <div className="text-xs text-[var(--text-secondary)] mt-2">
+          {children}
         </div>
       )}
     </div>
