@@ -227,6 +227,18 @@ export async function DocsPageView({
                         defaultCell={defaultCell}
                       />
                     ),
+                    InlineDemo: (props: Record<string, unknown>) => {
+                      const InlineDemoComp = docsComponents.InlineDemo;
+                      return (
+                        <InlineDemoComp
+                          {...(props as { integration?: string; demo?: string })}
+                          integration={
+                            defaultFramework ??
+                            (props.integration as string | undefined)
+                          }
+                        />
+                      );
+                    },
                   }}
                   options={{
                     mdxOptions: {
