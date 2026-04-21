@@ -102,6 +102,34 @@ function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Normalize a feature registry id (e.g. `"agentic-chat"`) into the
+ * agent-id convention used by deployed showcase backends, which
+ * register under underscore-separated ids (e.g. `"agentic_chat"`). The
+ * feature registry keys the demo tree with hyphens; the real backend
+ * agents are keyed with underscores. Callers that emit the agent id
+ * into runtime code (generateSmokeRoute, generateDemoPage, ...) must
+ * apply this rewrite so the emitted default lines up with the backend
+ * convention; a hyphen/underscore mismatch surfaces as a 404 /
+ * "agent not found" at smoke-test time, not at generator time.
+ *
+ * Emits a one-shot operator warning when the rewrite actually fires
+ * (hyphen present in the input) so that a generator run producing a
+ * rewritten default is visible in the console, matching the stronger
+ * warning generateSmokeRoute already emitted before this helper was
+ * factored out.
+ */
+function toAgentId(featureId: string, context: string): string {
+  const agentId = featureId.replace(/-/g, "_");
+  if (agentId !== featureId) {
+    console.warn(
+      `[create-integration] ${context}: rewrote feature id "${featureId}" → agentId="${agentId}" (hyphens → underscores). ` +
+        `Verify this matches the real agent id your backend registers.`,
+    );
+  }
+  return agentId;
+}
+
 export function parseArgs(): CLIArgs {
   const args = process.argv.slice(2);
   const parsed: Record<string, string> = {};
@@ -494,10 +522,22 @@ function generateDemoPage(
   // unused-import warning. Derive the import list from the body instead
   // so the emitted file is clean from the first build while preserving
   // the "hooks available" comment block as an author-facing reference.
+  // Normalize the agent prop to the backend's underscore-id convention.
+  // The feature registry keys the demo tree with hyphens, but real
+  // deployed packages (e.g. showcase/packages/langgraph-fastapi/src/app/
+  // demos/agentic-chat/page.tsx) register their backend agent under
+  // `agent="agentic_chat"`. Emitting the raw featureId here produces a
+  // generated page that 404s against every deployed backend; normalize
+  // via the shared toAgentId helper so the emitted agent prop matches
+  // the same rewrite generateSmokeRoute already applied to
+  // SMOKE_AGENT_ID. Shared helper → one source of truth for the
+  // convention.
+  const agentId = toAgentId(featureId, "generateDemoPage");
+
   const body = `export default function ${toPascalCase(featureId)}Demo() {
     return (
         <DemoErrorBoundary demoName="${feature?.name || featureId}">
-            <CopilotKit runtimeUrl="/api/copilotkit" agent="${featureId}">
+            <CopilotKit runtimeUrl="/api/copilotkit" agent="${agentId}">
                 <DemoContent />
             </CopilotKit>
         </DemoErrorBoundary>
@@ -1117,14 +1157,12 @@ function generateSmokeRoute(args: CLIArgs): string {
   let agentId: string;
   if (primaryFeature) {
     // Most agents register with an underscore id; the feature registry
-    // uses hyphens. Normalize so the default is a plausible backend key.
-    agentId = primaryFeature.replace(/-/g, "_");
-    if (agentId !== primaryFeature) {
-      console.warn(
-        `[create-integration] generateSmokeRoute: rewrote feature id "${primaryFeature}" → agentId="${agentId}" (hyphens → underscores). ` +
-          `Verify this matches the real agent id your backend registers; see the operator-replacement TODO in src/app/api/smoke/route.ts.`,
-      );
-    }
+    // uses hyphens. Normalize via toAgentId so the default is a
+    // plausible backend key (and any rewrite is announced). The helper
+    // is shared with generateDemoPage so the agent prop and SMOKE_AGENT_ID
+    // stay in sync — see also the operator-replacement TODO in
+    // src/app/api/smoke/route.ts.
+    agentId = toAgentId(primaryFeature, "generateSmokeRoute");
   } else {
     agentId = "agentic_chat";
     console.warn(
