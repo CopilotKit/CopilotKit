@@ -12,6 +12,7 @@
     "nextjs",
     "nodejs",
     "react",
+    "tanstack-intent",
     "textarea"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
@@ -20,6 +21,9 @@
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
+  "files": [
+    "skills"
+  ],
   "type": "module",
   "sideEffects": [
     "**/*.css"
@@ -95,6 +99,7 @@
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/intent": "^0.0.29",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/react-hooks": "^8.0.1",

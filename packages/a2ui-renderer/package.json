@@ -9,7 +9,8 @@
     "copilotkit",
     "react",
     "renderer",
-    "ui"
+    "ui",
+    "tanstack-intent"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
   "license": "MIT",
@@ -19,7 +20,8 @@
     "directory": "packages/a2ui-renderer"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "type": "module",
   "main": "./dist/index.cjs",
@@ -54,6 +56,7 @@
     "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
+    "@tanstack/intent": "^0.0.29",
     "@testing-library/react": "^16.0.0",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",

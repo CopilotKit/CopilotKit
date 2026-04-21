@@ -12,6 +12,7 @@
     "nextjs",
     "nodejs",
     "react",
+    "tanstack-intent",
     "textarea"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
@@ -20,6 +21,9 @@
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
+  "files": [
+    "skills"
+  ],
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
@@ -132,6 +136,7 @@
   "devDependencies": {
     "@copilotkit/aimock": "^1.10.0",
     "@swc/core": "1.5.28",
+    "@tanstack/intent": "^0.0.29",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^18.11.17",
