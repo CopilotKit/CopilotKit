@@ -14,15 +14,31 @@
  * `webhook_rejections{reason=...}` replaces the earlier `hmac_failures`
  * counter. Every webhook rejection (HMAC and payload validation) now
  * increments the unified counter so dashboards can't miss a category.
- * `hmac_failures` remains incrementable as a deprecated alias — callers
- * that still use `inc("hmac_failures")` count into both counters for a
- * grace period. New callers MUST use `webhook_rejections`.
+ *
+ * DEPRECATION: `hmac_failures` remains incrementable as an alias — any
+ * `webhook_rejections` increment whose reason falls into `HMAC_REASONS`
+ * also bumps `hmac_failures` so existing Grafana panels don't go dark.
+ * New callers MUST use `webhook_rejections`. Panels that sum BOTH
+ * counters will double-count HMAC rejections — switch to
+ * `webhook_rejections` only.
+ *
+ * Sunset: remove the alias (and `hmac_failures` from COUNTER_NAMES /
+ * COUNTER_HELP) once no production dashboard queries it. Track removal
+ * intent in the showcase-ops deprecation backlog rather than leaving
+ * it as a dangling "grace period" forever.
  */
 
+// HMAC-verification reason codes. Kept in sync with `HmacVerifyResult`
+// in ./hmac.ts — when we add/split/remove reasons there, mirror them
+// here so the `hmac_failures` deprecated alias still covers every HMAC-
+// category rejection. Non-HMAC reasons (invalid-json, invalid-payload,
+// unknown) must NOT appear here.
 const HMAC_REASONS = new Set([
   "stale",
   "bad-signature",
   "missing-headers",
+  "missing-timestamp",
+  "missing-signature",
   "invalid-timestamp",
   "invalid-signature-format",
 ]);

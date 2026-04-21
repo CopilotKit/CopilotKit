@@ -163,8 +163,8 @@ describe("verifyHmac", () => {
     expect(r.reason).toBe("bad-signature");
   });
 
-  it("rejects when required headers are missing", () => {
-    const a = verifyHmac({
+  it("rejects with missing-timestamp when only timestamp is absent", () => {
+    const r = verifyHmac({
       method,
       path,
       timestamp: "",
@@ -173,9 +173,12 @@ describe("verifyHmac", () => {
       secrets: [secret],
       nowSec,
     });
-    expect(a.reason).toBe("missing-headers");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("missing-timestamp");
+  });
 
-    const b = verifyHmac({
+  it("rejects with missing-signature when only signature is absent", () => {
+    const r = verifyHmac({
       method,
       path,
       timestamp: String(NOW),
@@ -184,7 +187,54 @@ describe("verifyHmac", () => {
       secrets: [secret],
       nowSec,
     });
-    expect(b.reason).toBe("missing-headers");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("missing-signature");
+  });
+
+  it("rejects with missing-headers when both are absent (legacy code retained)", () => {
+    const r = verifyHmac({
+      method,
+      path,
+      timestamp: "",
+      body,
+      signatureHeader: "",
+      secrets: [secret],
+      nowSec,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("missing-headers");
+  });
+
+  it("accepts a bare hex signature without the sha256= prefix (lenient by design)", () => {
+    const raw = sig.replace(/^sha256=/, "");
+    const r = verifyHmac({
+      method,
+      path,
+      timestamp: String(NOW),
+      body,
+      signatureHeader: raw,
+      secrets: [secret],
+      nowSec,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("signals timing-safe compare shape check: mismatched-length hex → bad-signature, not invalid-format", () => {
+    // Half-length valid hex. The signature-format regex accepts any
+    // even-length hex string; the timingSafeEqual shape-check inside
+    // the loop returns false (length mismatch) and we fall through
+    // with bad-signature rather than surfacing a compare error.
+    const r = verifyHmac({
+      method,
+      path,
+      timestamp: String(NOW),
+      body,
+      signatureHeader: "sha256=abcdef",
+      secrets: [secret],
+      nowSec,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("bad-signature");
   });
 
   it("accepts the secondary key during rotation", () => {

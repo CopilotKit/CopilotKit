@@ -22,6 +22,8 @@ export interface HmacVerifyResult {
     | "stale"
     | "bad-signature"
     | "missing-headers"
+    | "missing-timestamp"
+    | "missing-signature"
     | "invalid-timestamp"
     | "invalid-signature-format";
 }
@@ -54,8 +56,19 @@ export function verifyHmac(input: HmacVerifyInput): HmacVerifyResult {
   // to `bad-signature` with no diagnostic, which is painful to debug.
   const signatureHeader = input.signatureHeader?.trim() ?? "";
   const timestamp = input.timestamp?.trim() ?? "";
-  if (!timestamp || !signatureHeader) {
+  // Split the reason codes for missing timestamp vs missing signature
+  // so operators can diagnose a signer that forgot one header without
+  // reverse-engineering "missing-headers". The legacy `missing-headers`
+  // reason is retained for the both-missing case (rare; usually means
+  // a middleware stripped both) so existing dashboards keep working.
+  if (!timestamp && !signatureHeader) {
     return { ok: false, reason: "missing-headers" };
+  }
+  if (!timestamp) {
+    return { ok: false, reason: "missing-timestamp" };
+  }
+  if (!signatureHeader) {
+    return { ok: false, reason: "missing-signature" };
   }
   // Require an integer — floats like "1700000000.5" are almost certainly
   // a bug on the signer side, and accepting them invites drift around the
@@ -67,6 +80,12 @@ export function verifyHmac(input: HmacVerifyInput): HmacVerifyResult {
   const nowSec = input.nowSec?.() ?? Math.floor(Date.now() / 1000);
   const skew = input.maxSkewSec ?? 300;
   if (Math.abs(nowSec - ts) > skew) return { ok: false, reason: "stale" };
+  // Lenient by design: accept both `sha256=<hex>` and a bare `<hex>`
+  // string. Sender lint drift / manual curl testing has historically
+  // flip-flopped on the prefix, and the canonical message already pins
+  // the algorithm to sha256 — there's no security benefit to requiring
+  // the prefix. If that changes (e.g. multi-algo support), remove this
+  // `replace` and require the prefix explicitly.
   const providedHex = signatureHeader.replace(/^sha256=/, "");
   // Validate the hex shape before reaching for timingSafeEqual — an
   // upstream sender producing non-hex garbage (or base64 by mistake)

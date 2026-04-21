@@ -82,4 +82,49 @@ describe("metrics registry", () => {
       'showcase_ops_probe_runs{dimension="line1\\r\\nline2"}',
     );
   });
+
+  it("emits a zero-valued empty histogram with full bucket schema before any observation", () => {
+    // Regression: prior to this we emitted `_sum`/`_count` with no labels
+    // for empty histograms, then labelled series for populated ones —
+    // Prometheus scrapers relying on consistent dimensionality would
+    // silently drop one form. The empty shape must include every
+    // configured upper bound + `+Inf` and a zero sum/count with no
+    // labels.
+    const reg = createMetricsRegistry();
+    const text = renderPrometheus(reg);
+    for (const bound of ["10", "50", "100", "500", "1000", "5000", "+Inf"]) {
+      expect(text).toContain(
+        `showcase_ops_probe_duration_ms_bucket{le="${bound}"} 0`,
+      );
+    }
+    expect(text).toMatch(/^showcase_ops_probe_duration_ms_sum 0$/m);
+    expect(text).toMatch(/^showcase_ops_probe_duration_ms_count 0$/m);
+  });
+
+  it("merges `le` into existing labels for populated histograms (alphabetical sort — locked)", () => {
+    const reg = createMetricsRegistry();
+    reg.observe("probe_duration_ms", 5, { dimension: "smoke", key: "a" });
+    const text = renderPrometheus(reg);
+    // Alphabetical: dimension, key, le. This ordering is cosmetic — the
+    // Prometheus parser is order-insensitive — but locked in a test so
+    // dashboard templates / recording rules relying on this ordering
+    // don't silently break on a sort refactor.
+    expect(text).toMatch(
+      /showcase_ops_probe_duration_ms_bucket\{dimension="smoke",key="a",le="10"\}\s+1/,
+    );
+  });
+
+  it("emits mixed label sets consistently across empty and populated series", () => {
+    // Two histograms in one registry: one with observations, the other
+    // empty (N/A today but guards against a future second histogram).
+    // The populated one carries its labels; the empty-series shape must
+    // not contaminate it (no stray unlabelled _sum/_count rows).
+    const reg = createMetricsRegistry();
+    reg.observe("probe_duration_ms", 50, { dimension: "smoke" });
+    const text = renderPrometheus(reg);
+    expect(text).toMatch(
+      /showcase_ops_probe_duration_ms_sum\{dimension="smoke"\}\s+50/,
+    );
+    expect(text).not.toMatch(/^showcase_ops_probe_duration_ms_sum 0$/m);
+  });
 });
