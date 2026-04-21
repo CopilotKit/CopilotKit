@@ -15,7 +15,7 @@ export class MarkdownTipRenderer implements TipRenderer {
       /\[(.*?)\]\((.*?)\)/g,
       (_match, linkText: string, url: string) => {
         const index = links.length;
-        links.push(`${linkText} (${chalk.blue(url)})`);
+        links.push(`\x1b]8;;${url}\x07${chalk.blue(linkText)}\x1b]8;;\x07`);
         return `\x00LINK${index}\x00`;
       },
     );

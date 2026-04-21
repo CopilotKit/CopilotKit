@@ -27,14 +27,17 @@ describe("MarkdownTipRenderer", () => {
     expect(output).not.toContain("`");
   });
 
-  test("renders markdown links as text with URL", () => {
+  test("renders markdown links as OSC 8 terminal hyperlinks", () => {
     const lines = renderToLines({
       id: "t",
       message: "Visit [our docs](https://docs.copilotkit.ai)",
     });
     const output = lines.join("\n");
+    // Link text is visible
     expect(output).toContain("our docs");
-    expect(output).toContain("https://docs.copilotkit.ai");
+    // URL is embedded in OSC 8 escape sequence, not shown as plain text
+    expect(output).toContain("\x1b]8;;https://docs.copilotkit.ai\x07");
+    expect(output).toContain("\x1b]8;;\x07");
     // Markdown syntax stripped
     expect(output).not.toContain("[our docs]");
     expect(output).not.toContain("](");
@@ -68,7 +71,7 @@ describe("MarkdownTipRenderer", () => {
     const output = lines.join("\n");
     expect(output).toContain("copilotkit dev");
     expect(output).toContain("Cloud");
-    expect(output).toContain("https://cloud.copilotkit.ai");
+    expect(output).toContain("\x1b]8;;https://cloud.copilotkit.ai\x07");
     expect(output).toContain("free");
     expect(output).not.toContain("`");
     expect(output).not.toContain("**");
