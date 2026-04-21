@@ -645,18 +645,18 @@ describe("Template Generator", () => {
 describe("Template Generator — hardening regressions", () => {
   it("fails fast with a listed-ids error on unknown --features", async () => {
     cleanup();
-        try {
+    try {
       runGenerator([
-      "--name",
-      "Bad",
-      "--slug",
-      TEST_SLUG,
-      "--category",
-      "agent-framework",
-      "--language",
-      "python",
-      "--features",
-      "agentic-chat,not-a-real-feature",
+        "--name",
+        "Bad",
+        "--slug",
+        TEST_SLUG,
+        "--category",
+        "agent-framework",
+        "--language",
+        "python",
+        "--features",
+        "agentic-chat,not-a-real-feature",
       ]);
       expect.fail("Should have rejected unknown feature id");
     } catch (e: any) {
@@ -806,7 +806,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated health route has an in-process branch for TypeScript integrations", async () => {
     cleanup();
-        runGenerator([
+    runGenerator([
       "--name",
       "TS InProcess",
       "--slug",
@@ -836,7 +836,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated health route has an out-of-process probe for Python integrations", async () => {
     cleanup();
-        runGenerator([
+    runGenerator([
       "--name",
       "Py OutOfProcess",
       "--slug",
@@ -859,7 +859,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated E2E test uses the real assistant-message class, not the phantom data-role selector", async () => {
     cleanup();
-        runGenerator([
+    runGenerator([
       "--name",
       "Locator",
       "--slug",
@@ -885,7 +885,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("generated layout.tsx contains bare backticks in the inline script, not literal \\`", async () => {
     cleanup();
-        runGenerator([
+    runGenerator([
       "--name",
       "Layout",
       "--slug",
@@ -1311,7 +1311,7 @@ describe("Template Generator — hardening regressions", () => {
 
   it("demo README contains bare backticks for inline code, not literal \\` pairs", async () => {
     cleanup();
-        runGenerator([
+    runGenerator([
       "--name",
       "Readme",
       "--slug",
