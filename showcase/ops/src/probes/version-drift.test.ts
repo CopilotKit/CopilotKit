@@ -46,6 +46,42 @@ describe("version-drift probe", () => {
     expect(r.signal.pythonSummary).toBe("2 pkgs behind");
   });
 
+  it("probeErrored shadows drift flags so a registry 5xx never surfaces as drift", async () => {
+    // Regression: a fetcher that reported `npmDriftDetected: true` on a 5xx
+    // (because the caller conflated missing data with drift) previously fired
+    // a false-positive drift alert. Now probeErrored suppresses the drift
+    // flag for that side and routes through a dedicated branch.
+    const r = await versionDriftProbe.run(
+      {
+        npmDriftDetected: true,
+        pythonDriftDetected: false,
+        npmProbeErrored: true,
+        npmProbeErrorDesc: "npm registry 502",
+      },
+      ctx,
+    );
+    expect(r.signal.driftType.npmDrift).toBe(false);
+    expect(r.signal.driftType.probeErrored).toBe(true);
+    expect(r.signal.probeErrored).toBe(true);
+    expect(r.signal.driftType.stable).toBe(false);
+    expect(r.signal.npmProbeErrored).toBe(true);
+    expect(r.signal.npmProbeErrorDesc).toBe("npm registry 502");
+  });
+
+  it("probeErrored on python side leaves npm drift flag intact", async () => {
+    const r = await versionDriftProbe.run(
+      {
+        npmDriftDetected: true,
+        pythonDriftDetected: false,
+        pythonProbeErrored: true,
+      },
+      ctx,
+    );
+    expect(r.signal.driftType.npmDrift).toBe(true);
+    expect(r.signal.driftType.probeErrored).toBe(true);
+    expect(r.signal.pythonProbeErrored).toBe(true);
+  });
+
   it("driftType keys are usable in Mustache section tags (no hyphens)", async () => {
     // Regression: Mustache can't look up hyphenated keys like `npm-drift` in
     // section tags. Keys MUST be camelCase so template tags render.
