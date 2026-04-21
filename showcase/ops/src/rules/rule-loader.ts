@@ -92,6 +92,13 @@ const SUPPRESS_VALIDATION_VARS: Record<string, unknown> = Object.assign(
     // must be present at load-time validation and populated at dispatch time
     // (see alert-engine.ts suppress-var construction).
     hasCandidates: true,
+    // HF13-E2 coord: `probeErrored` is a flat alias for `signal.probeErrored`
+    // emitted by probes that distinguish "probe failed" from "probe succeeded
+    // but found nothing" (e.g. redirect-decommission widens its suppress to
+    // `hasCandidates != true && probeErrored != true` so a failed audit is
+    // NOT silently suppressed as "no candidates"). Must stay in sync with
+    // the `vars` bag constructed in alert-engine.ts shouldSuppress.
+    probeErrored: true,
   },
 );
 
