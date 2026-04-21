@@ -68,7 +68,7 @@ Some examples might be: the current user, the current page, etc. This can be sha
             // Use the injected runtime context
             // [!code highlight:9]
             instructions: ({ requestContext }) => {
-                const aguiContext = requestContext.get('ag-ui').context;
+                const aguiContext = requestContext.get('ag-ui')?.context;
                 const colleaguesContextItem = aguiContext.find(contextItem => contextItem.description === "The current user's colleagues")
                 return `
                     You are a helpful assistant that can help emailing colleagues.
