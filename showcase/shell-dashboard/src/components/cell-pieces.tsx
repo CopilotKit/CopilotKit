@@ -123,6 +123,10 @@ function LiveBadge({
   href?: string;
 }) {
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  // Eligibility for the last-transition lazy fetch: red or amber badges only.
+  // `amber` IS a live producer: `rowTone` in live-status.ts returns "amber"
+  // for rows with state === "degraded" (F5.5 verification). Do NOT remove
+  // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
   const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
   const transitionLine = row
@@ -160,6 +164,10 @@ function LiveHealth({
   href?: string;
 }) {
   const [tooltipOpen, setTooltipOpen] = useState(false);
+  // Eligibility for the last-transition lazy fetch: red or amber badges only.
+  // `amber` IS a live producer: `rowTone` in live-status.ts returns "amber"
+  // for rows with state === "degraded" (F5.5 verification). Do NOT remove
+  // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
   const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
   const transitionLine = row

@@ -1,5 +1,16 @@
 import PocketBase from "pocketbase";
 
+// MODULE-LOAD SEMANTICS (F5.4):
+// `resolvePbUrl()` reads `process.env.NEXT_PUBLIC_POCKETBASE_URL` and
+// `process.env.NODE_ENV` ONCE at module initialization (the `const
+// resolvedUrl = resolvePbUrl()` call below). The PocketBase client, the
+// `pbIsMisconfigured` flag, and the dev/prod fallback decision are frozen
+// at that point. Changing the env var at runtime has no effect — you must
+// restart the Next.js dev server (or rebuild the production image) for a
+// new value to take effect. This mirrors Next.js's own behavior for
+// `NEXT_PUBLIC_*` vars, which are inlined into the client bundle at build
+// time rather than read from `process.env` in the browser.
+//
 // Public-read client for live status + status_history. No authentication:
 // per spec §3.1/§3.2 those collections have listRule/viewRule = "" (public).
 // CORS restricts which origins may make the request (§5.2).
