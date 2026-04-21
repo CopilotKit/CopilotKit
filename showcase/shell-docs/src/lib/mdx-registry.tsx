@@ -365,22 +365,47 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  video: (props: Record<string, unknown>) => (
+  video: (props: Record<string, unknown>) => {
     // Accept user className from MDX — prior impl spread className in then
     // immediately overrode it to `undefined`, silently dropping it.
-    <video
-      {...props}
-      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
-    />
-  ),
-  img: (props: Record<string, unknown>) => (
-    // Accept user className from MDX (see note on `video` above).
-    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-    <img
-      {...props}
-      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
-    />
-  ),
+    // Merge author-provided `style` so we preserve author keys while still
+    // enforcing our layout defaults (maxWidth etc.) last.
+    const authorStyle =
+      typeof props.style === "object" && props.style !== null
+        ? (props.style as React.CSSProperties)
+        : {};
+    return (
+      <video
+        {...props}
+        style={{
+          ...authorStyle,
+          borderRadius: "0.5rem",
+          width: "100%",
+          marginBottom: "1rem",
+        }}
+      />
+    );
+  },
+  img: (props: Record<string, unknown>) => {
+    // Accept user className from MDX (see note on `video` above). Merge
+    // author `style` before our defaults so our layout guards still win.
+    const authorStyle =
+      typeof props.style === "object" && props.style !== null
+        ? (props.style as React.CSSProperties)
+        : {};
+    return (
+      // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+      <img
+        {...props}
+        style={{
+          ...authorStyle,
+          borderRadius: "0.5rem",
+          maxWidth: "100%",
+          marginBottom: "1rem",
+        }}
+      />
+    );
+  },
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
