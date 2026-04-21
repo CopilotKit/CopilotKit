@@ -113,20 +113,46 @@ describe("renderer", () => {
     expect(out.payload.text).not.toContain("undefined");
   });
 
-  it("rejects walking into array / object prototype properties (.length, .slice, ...)", () => {
+  it("rejects walking into object prototype properties (.slice, .toString, ...)", () => {
     // Regression: the DANGEROUS_PATH_SEGMENTS deny-list only blocked
     // __proto__/prototype/constructor. Templates could still reach
-    // `.length`, `.slice`, `.toString`, etc. via plain path walking
-    // because they live on Array.prototype / Object.prototype. The fix
-    // uses own-property descent, so any non-own key returns undefined.
+    // `.slice`, `.toString`, etc. via plain path walking because they
+    // live on Object.prototype. The fix uses own-property descent, so
+    // any non-own key returns undefined.
+    const r = createRenderer();
+    const out = r.render(
+      { text: "via: {{ signal.name.toString | stripAnsi }}" },
+      ctx({ signal: { name: "hello" } }),
+    );
+    // .toString lives on Object.prototype — must NOT resolve to the method.
+    expect(out.payload.text).toBe("via: ");
+  });
+
+  it("permits array .length in filter path (consistent with Mustache sections)", () => {
+    // Policy unification: Mustache sections like `{{#signal.arr.length}}…`
+    // always accessed .length directly (bypassing resolvePath). The filter
+    // pipeline previously rejected it, so `{{ signal.arr.length | truncateUtf8 }}`
+    // returned empty while the section read the count. Now both paths agree.
     const r = createRenderer();
     const out = r.render(
       { text: "len: {{ signal.failed.length | stripAnsi }}" },
       ctx({ signal: { failed: ["a", "b", "c"] } }),
     );
-    // .length is on Array.prototype, not an own property — must NOT
-    // resolve to the number 3.
-    expect(out.payload.text).toBe("len: ");
+    expect(out.payload.text).toBe("len: 3");
+  });
+
+  it("strips U+FEFF BOM from template before filter extraction", () => {
+    // The renderer uses U+FEFF as the sentinel-fence for two-phase filter
+    // expansion. A stray BOM in the template body would collide with the
+    // sentinel delimiters and corrupt splat-replacement (visible as
+    // raw sentinels surfacing in the rendered output). Strip at the edge.
+    const r = createRenderer();
+    const out = r.render(
+      { text: "\uFEFFhello \uFEFF{{ signal.slug | stripAnsi }}\uFEFF" },
+      ctx({ signal: { slug: "mastra" } }),
+    );
+    expect(out.payload.text).toBe("hello mastra");
+    expect(out.payload.text).not.toContain("\uFEFF");
   });
 
   it("truncates payloads that exceed the Slack soft limit", () => {

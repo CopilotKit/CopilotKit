@@ -99,7 +99,11 @@ function parseBudget(
     return fallback;
   }
   const n = Number(raw);
-  if (!Number.isFinite(n) || Number.isNaN(n) || n < 0) {
+  // Zero is rejected alongside negatives: `truncateUtf8(x, 0)` emits "" which
+  // silently zeroes out real content. The prior comment said "don't silently
+  // zero out" but the guard only caught negatives. Now 0 also falls back to
+  // the conservative default with a warn log.
+  if (!Number.isFinite(n) || Number.isNaN(n) || n <= 0) {
     logger.warn("filter: malformed numeric argument, applying default", {
       filter,
       raw,

@@ -38,18 +38,7 @@ const DANGEROUS_PATH_SEGMENTS = new Set([
   "constructor",
 ]);
 
-/**
- * Own-property check. Rejects inherited and non-own properties so we never
- * accidentally walk into Object/Array/Function prototype machinery
- * (`.slice`, `.toString`, etc.) via `{{ signal.failed.slice }}` style
- * paths. The earlier `DANGEROUS_PATH_SEGMENTS` Set only caught the three
- * most obvious foot-guns; own-property descent closes the general gap.
- *
- * Note on array `length`: it's technically an *own* property of arrays,
- * so this helper alone doesn't block `{{ signal.failed.length }}`. We
- * treat that as a dedicated deny case in `resolvePath` — we expose
- * array *values*, not metadata, through templates.
- */
+/** Own-property check — prevents prototype-chain walking from templates. */
 function hasOwn(obj: unknown, key: string): boolean {
   return (
     obj != null &&
@@ -58,6 +47,17 @@ function hasOwn(obj: unknown, key: string): boolean {
   );
 }
 
+/**
+ * Array `.length` is a special case — it IS an own property of arrays, so
+ * the generic own-property guard would allow it. Historically the filter
+ * path rejected it while Mustache `{{#foo.length}}` sections silently
+ * worked (Mustache bypasses our resolvePath). To unify the two rendering
+ * paths, we explicitly PERMIT array `.length` reads here — the
+ * inconsistency previously confused template authors when the same
+ * expression surfaced `undefined` via the filter pipeline but a truthy
+ * count via a section. Non-array `.length` is still blocked (strings get
+ * a length via the shape check below) so we can't leak string metadata.
+ */
 function isArrayLengthAccess(obj: unknown, key: string): boolean {
   return Array.isArray(obj) && key === "length";
 }
@@ -93,12 +93,28 @@ function extractFilters(
   const values = new Map<string, string>();
   let idx = 0;
   const template = text.replace(FILTER_RE, (_match, path, pipelineRaw) => {
-    const value = resolvePath(ctx, String(path).trim());
+    const pathStr = String(path).trim();
+    const value = resolvePath(ctx, pathStr);
     const stages = String(pipelineRaw)
       .split("|")
       .map((s) => s.trim())
       .filter(Boolean);
-    const out = applyPipeline(value, stages);
+    // Filter failure must never emit raw (unfiltered) value into Slack —
+    // that path was responsible for both mrkdwn injection (un-escaped
+    // `<`/`>`) and oversized bodies (un-truncated 50KB logs). Fail closed:
+    // substitute an explicit sentinel string and log at error so operators
+    // see the broken filter rather than the symptom downstream.
+    let out: string;
+    try {
+      out = applyPipeline(value, stages);
+    } catch (err) {
+      logger.error("renderer: filter pipeline threw, substituting [filter-error]", {
+        path: pathStr,
+        stages,
+        err: String(err),
+      });
+      out = "[filter-error]";
+    }
     const key = `${FILTER_SENTINEL_PREFIX}${idx++}${FILTER_SENTINEL_SUFFIX}`;
     values.set(key, out);
     return key;
@@ -134,13 +150,22 @@ function resolvePath(obj: unknown, path: string): unknown {
       logger.debug("renderer: missing path during resolve", { path, at: seg });
       return undefined;
     }
-    // Own-property-only descent prevents prototype walking entirely.
-    // This blocks `.slice`/`.toString`/etc. on arrays and objects, as
-    // well as any prototype pollution accessors the
-    // `DANGEROUS_PATH_SEGMENTS` deny-list might not cover. Array
-    // `.length` is technically an own property, so we reject it via the
-    // dedicated helper — templates expose values, not array metadata.
-    if (isArrayLengthAccess(cur, seg) || !hasOwn(cur, seg)) {
+    // Own-property-only descent prevents prototype walking entirely
+    // (blocks `.slice`/`.toString` on arrays/objects and any prototype
+    // pollution accessors the `DANGEROUS_PATH_SEGMENTS` deny-list might
+    // not cover).
+    //
+    // Array `.length` is permitted as a documented exception: it's an
+    // own property AND Mustache sections already accept it, so the
+    // filter pipeline must accept it too for symmetry. Without this,
+    // `{{ signal.failed.length | truncateUtf8 10 }}` returned empty
+    // while `{{#signal.failed.length}}…{{/signal.failed.length}}`
+    // rendered truthy — a silent trap for template authors.
+    if (isArrayLengthAccess(cur, seg)) {
+      cur = (cur as unknown[]).length;
+      continue;
+    }
+    if (!hasOwn(cur, seg)) {
       logger.debug("renderer: refusing non-own-property access", {
         path,
         at: seg,
@@ -181,11 +206,42 @@ function enforceSoftLimit(text: string): string {
  * JSON-safe post-processing: Mustache outputs a plain string; the structured
  * payload wrapper ensures that string is only ever serialized via JSON.stringify,
  * so all control chars (0x00-0x1F), quotes, and backslashes escape correctly.
+ *
+ * SECURITY TODO: `slackEscape` exists in filters.ts but is not applied by
+ * default. Templates that interpolate `{{signal.errorDesc}}` / `{{signal.details}}`
+ * from probe payloads (err.message, CI logs, webhook bodies) can pass
+ * un-escaped `<`, `>`, `&` through to Slack mrkdwn — enabling trivial
+ * mrkdwn injection (disguised channel mentions, user pings, fake block
+ * kit). Two remediation paths, both cluster-6-scoped (YAML changes):
+ *   1. Update every config/alerts/*.yml to pipe signal.* content through
+ *      `| slackEscape` (explicit, backwards-compatible).
+ *   2. Flag the renderer to auto-apply slackEscape on non-slackSafe paths
+ *      by default, and exempt triple-brace (`{{{ }}}`).
+ * Option 2 requires a migration of any template that currently relies on
+ * un-escaped Slack markup under signal.*. Option 1 is safer. Either way,
+ * the fix lives in YAML — this comment is here so reviewers don't miss
+ * the open vector when auditing renderer.ts in isolation.
  */
+/**
+ * Strip any literal U+FEFF BOM characters from the pre-rendered template
+ * text. The renderer uses U+FEFF as a sentinel-fence character in the
+ * two-phase filter-expansion scheme; a BOM sneaking in via template
+ * authoring (or via a filter value legitimately carrying one) would
+ * collide with the sentinel delimiters and corrupt splat-replacement.
+ *
+ * We strip only from the static template body — filter-produced values
+ * go through the sentinel map, not through Mustache, so they're
+ * structurally separated.
+ */
+function stripBom(s: string): string {
+  return s.replace(/\uFEFF/g, "");
+}
+
 export function createRenderer(): Renderer {
   return {
     render(tmpl, ctx) {
-      const { template, values } = extractFilters(tmpl.text, ctx);
+      const safeText = stripBom(tmpl.text);
+      const { template, values } = extractFilters(safeText, ctx);
       const rendered = Mustache.render(template, ctx);
       const withFilters = splatSentinels(rendered, values);
       const text = enforceSoftLimit(withFilters);
