@@ -222,7 +222,7 @@ jobs:
     needs: [detect-changes, check-lockfile]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
+    timeout-minutes: ${{ matrix.service.timeout }}
     permissions:
       id-token: write
       contents: read
@@ -430,7 +430,6 @@ jobs:
               # 3 times within this iteration before treating it as a genuine
               # non-200; legitimate failures still fail because all 3 tries
               # must return non-200.
-              HTTP_CODE="000"
               for probe_try in 1 2 3; do
                 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
                 if [ "$HTTP_CODE" = "200" ]; then
