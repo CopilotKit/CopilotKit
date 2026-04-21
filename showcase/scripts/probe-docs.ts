@@ -1,10 +1,18 @@
 // Docs-link probe.
 //
 // Reads shared/feature-registry.json; for each feature:
-//   - og_docs_url   → HTTP HEAD. 2xx = "ok", else "notfound" / "error".
-//   - shell_docs_url (relative path like "/docs/features/agentic-chat")
-//                   → check shell-docs/src/content/docs/<path>.mdx (or index.mdx).
-//                     file exists = "ok", else "notfound". No network.
+//   - og_docs_url    → HTTP HEAD. 2xx = "ok", else "notfound" / "error".
+//   - shell_docs_path (relative path like "/docs/features/agentic-chat";
+//                      falls back to legacy `shell_docs_url` if present)
+//                    → check shell-docs/src/content/docs/<path>.mdx
+//                      (or index.mdx). File exists = "ok", else "notfound".
+//                      No network.
+//
+// `shell_docs_path` is the preferred key (matches the schema in
+// `scripts/generate-registry.ts` + per-package `docs-links.json`). The legacy
+// `shell_docs_url` alias is retained for backward compatibility with older
+// `shared/feature-registry.json` snapshots; if only the legacy key is present
+// we emit a one-shot notice in dev so the stale shape doesn't go unnoticed.
 //
 // Writes shell/src/data/docs-status.json. The shell-dashboard UI reads it
 // so green ✓ / red ✗ reflect actual reachability, not just "field present."
@@ -34,7 +42,23 @@ type DocState = "ok" | "missing" | "notfound" | "error";
 interface Feature {
   id: string;
   og_docs_url?: string;
+  shell_docs_path?: string;
+  /** @deprecated use `shell_docs_path`; retained for backward compat */
   shell_docs_url?: string;
+}
+
+// One-shot dev-mode notice when a registry only carries the legacy
+// `shell_docs_url` key. Guarded by NODE_ENV so CI (and prod builds) stay
+// quiet; surfaces to devs running `pnpm dev` exactly once per process.
+let legacyKeyNoticeEmitted = false;
+function noteLegacyShellDocsKey(featureId: string): void {
+  if (legacyKeyNoticeEmitted) return;
+  if (process.env.NODE_ENV === "production") return;
+  legacyKeyNoticeEmitted = true;
+  console.warn(
+    `[probe-docs] note: feature "${featureId}" (and possibly others) uses legacy "shell_docs_url" key; ` +
+      `prefer "shell_docs_path" to match the canonical schema in generate-registry.ts`,
+  );
 }
 
 interface FeatureDocStatus {
@@ -86,10 +110,16 @@ async function main() {
   const results: Record<string, FeatureDocStatus> = {};
 
   // Probe OG URLs in parallel; shell check is sync filesystem.
+  // Prefer `shell_docs_path` (canonical) and fall back to the legacy
+  // `shell_docs_url` key — see header comment.
   const entries = await Promise.all(
     registry.features.map(async (f) => {
       const og = await probeOg(f.og_docs_url);
-      const shell = probeShell(f.shell_docs_url);
+      const shellPath = f.shell_docs_path ?? f.shell_docs_url;
+      if (f.shell_docs_path === undefined && f.shell_docs_url !== undefined) {
+        noteLegacyShellDocsKey(f.id);
+      }
+      const shell = probeShell(shellPath);
       return [f.id, { og, shell }] as const;
     }),
   );
