@@ -129,7 +129,10 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
           {items.map((item: any, index: number) => {
             if (typeof item === "string") {
               return (
-                <div key={`${item}-${index}`} style={{ flex: "1 1 0", minWidth: 0 }}>
+                <div
+                  key={`${item}-${index}`}
+                  style={{ flex: "1 1 0", minWidth: 0 }}
+                >
                   {children(item)}
                 </div>
               );
@@ -165,7 +168,11 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         >
           {items.map((item: any, index: number) => {
             if (typeof item === "string") {
-              return <React.Fragment key={`${item}-${index}`}>{children(item)}</React.Fragment>;
+              return (
+                <React.Fragment key={`${item}-${index}`}>
+                  {children(item)}
+                </React.Fragment>
+              );
             }
 
             if (item && typeof item === "object" && "id" in item) {
@@ -265,7 +272,14 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
       );
     },
     PieChart: ({ props }) => {
-      const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#6366f1"];
+      const colors = [
+        "#3b82f6",
+        "#8b5cf6",
+        "#ec4899",
+        "#f59e0b",
+        "#10b981",
+        "#6366f1",
+      ];
       const data = props.data ?? [];
 
       return (
@@ -283,7 +297,10 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                 paddingAngle={2}
               >
                 {data.map((entry: any, index: number) => (
-                  <Cell key={index} fill={entry.color ?? colors[index % colors.length]} />
+                  <Cell
+                    key={index}
+                    fill={entry.color ?? colors[index % colors.length]}
+                  />
                 ))}
               </Pie>
               <Tooltip />
@@ -375,9 +392,15 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             </thead>
             <tbody>
               {rows.map((row: any, index: number) => (
-                <tr key={index} style={{ borderBottom: `1px solid ${c.divider}` }}>
+                <tr
+                  key={index}
+                  style={{ borderBottom: `1px solid ${c.divider}` }}
+                >
                   {columns.map((column: any) => (
-                    <td key={column.key} style={{ padding: "8px 12px", color: c.cardFg }}>
+                    <td
+                      key={column.key}
+                      style={{ padding: "8px 12px", color: c.cardFg }}
+                    >
                       {String(row[column.key] ?? "")}
                     </td>
                   ))}
@@ -400,7 +423,8 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         Delayed: "#eab308",
         Cancelled: "#ef4444",
       };
-      const dotColor = props.statusColor ?? statusColors[props.status] ?? "#22c55e";
+      const dotColor =
+        props.statusColor ?? statusColors[props.status] ?? "#22c55e";
 
       return (
         <div
@@ -430,11 +454,20 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               <img
                 src={props.airlineLogo}
                 alt={props.airline}
-                style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "contain" }}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  objectFit: "contain",
+                }}
               />
-              <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>{props.airline}</span>
+              <span style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                {props.airline}
+              </span>
             </div>
-            <span style={{ fontWeight: 700, fontSize: "1.15rem" }}>{props.price}</span>
+            <span style={{ fontWeight: 700, fontSize: "1.15rem" }}>
+              {props.price}
+            </span>
           </div>
           <div
             style={{
@@ -447,7 +480,13 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
             <span>{props.flightNumber}</span>
             <span>{props.date}</span>
           </div>
-          <hr style={{ border: "none", borderTop: `1px solid ${c.divider}`, margin: 0 }} />
+          <hr
+            style={{
+              border: "none",
+              borderTop: `1px solid ${c.divider}`,
+              margin: 0,
+            }}
+          />
           <div
             style={{
               display: "flex",
@@ -455,9 +494,15 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               alignItems: "center",
             }}
           >
-            <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>{props.departureTime}</span>
-            <span style={{ fontSize: "0.75rem", color: c.muted }}>{props.duration}</span>
-            <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>{props.arrivalTime}</span>
+            <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>
+              {props.departureTime}
+            </span>
+            <span style={{ fontSize: "0.75rem", color: c.muted }}>
+              {props.duration}
+            </span>
+            <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>
+              {props.arrivalTime}
+            </span>
           </div>
           <div
             style={{
@@ -480,7 +525,13 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
               gap: "12px",
             }}
           >
-            <hr style={{ border: "none", borderTop: `1px solid ${c.divider}`, margin: 0 }} />
+            <hr
+              style={{
+                border: "none",
+                borderTop: `1px solid ${c.divider}`,
+                margin: 0,
+              }}
+            />
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
               <span
                 style={{
@@ -491,9 +542,15 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                   display: "inline-block",
                 }}
               />
-              <span style={{ fontSize: "0.8rem", color: c.muted }}>{props.status}</span>
+              <span style={{ fontSize: "0.8rem", color: c.muted }}>
+                {props.status}
+              </span>
             </div>
-            <ActionButton label="Select" doneLabel="Selected" action={props.action} />
+            <ActionButton
+              label="Select"
+              doneLabel="Selected"
+              action={props.action}
+            />
           </div>
         </div>
       );

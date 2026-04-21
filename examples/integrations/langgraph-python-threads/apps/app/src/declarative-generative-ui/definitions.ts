@@ -43,7 +43,8 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
   Metric: {
-    description: "A key metric display with label, value, and optional trend indicator.",
+    description:
+      "A key metric display with label, value, and optional trend indicator.",
     props: z.object({
       label: z.string(),
       value: z.string(),

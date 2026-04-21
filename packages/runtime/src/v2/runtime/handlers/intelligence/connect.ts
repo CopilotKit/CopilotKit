@@ -21,11 +21,14 @@ function stampCanonicalConnectEvent(
   threadId: string,
   runId: string,
 ): BaseEvent {
-  const { thread_id: _threadId, run_id: _runId, ...eventRecord } =
-    event as BaseEvent & {
-      thread_id?: unknown;
-      run_id?: unknown;
-    };
+  const {
+    thread_id: _threadId,
+    run_id: _runId,
+    ...eventRecord
+  } = event as BaseEvent & {
+    thread_id?: unknown;
+    run_id?: unknown;
+  };
 
   if (event.type === EventType.RUN_STARTED) {
     const runStarted = eventRecord as RunStartedEvent;
