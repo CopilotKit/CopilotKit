@@ -30,37 +30,51 @@ const DISTINCT_ID_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2;
 // Warn once per isolate at module load if the key is missing. Edge runtime
 // module globals are per-isolate and short-lived, so a request-scoped
 // warn-once flag is unreliable; module-load is the cleanest available hook.
+// `process` is always defined in Next.js Edge middleware — no guard needed.
 const POSTHOG_PROJECT_KEY = process.env.POSTHOG_PROJECT_KEY;
-if (!POSTHOG_PROJECT_KEY && typeof process !== "undefined") {
+if (!POSTHOG_PROJECT_KEY) {
   console.warn(
     "[middleware] POSTHOG_PROJECT_KEY is not set — analytics disabled",
   );
 }
 
-function capturePageView(
+async function capturePageView(
   pathname: string,
   distinctId: string,
-): Promise<unknown> {
+): Promise<void> {
   if (!POSTHOG_PROJECT_KEY) {
-    return Promise.resolve();
+    return;
   }
 
-  return fetch(`${POSTHOG_HOST}/capture/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: POSTHOG_PROJECT_KEY,
-      event: "docs_pageview",
-      distinct_id: distinctId,
-      properties: {
-        path: pathname,
-      },
-    }),
-  }).catch((err) => {
-    // Surface capture failures (401/403/5xx, DNS, etc.) so operators can
-    // diagnose — swallowing errors silently hides real outages.
+  try {
+    const response = await fetch(`${POSTHOG_HOST}/capture/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: POSTHOG_PROJECT_KEY,
+        event: "docs_pageview",
+        distinct_id: distinctId,
+        properties: {
+          path: pathname,
+        },
+      }),
+    });
+    // `.catch()` only fires on network-level failures — HTTP 4xx/5xx
+    // responses from PostHog resolve normally and would otherwise pass
+    // silently. Explicitly surface non-2xx so operators can diagnose
+    // auth/project-key/service-outage issues.
+    if (!response.ok) {
+      console.warn(
+        "[middleware] posthog capture non-2xx",
+        response.status,
+        response.statusText,
+      );
+    }
+  } catch (err) {
+    // Surface capture failures (DNS, TLS, connect errors) so operators
+    // can diagnose — swallowing errors silently hides real outages.
     console.warn("[middleware] posthog capture failed", err);
-  });
+  }
 }
 
 export function middleware(
@@ -104,7 +118,10 @@ export function middleware(
       maxAge: DISTINCT_ID_COOKIE_MAX_AGE,
       path: "/",
       sameSite: "lax",
-      secure: true,
+      // `secure: true` breaks local HTTP dev (the cookie silently
+      // refuses to set). Scope to production so dev still exercises the
+      // cookie round-trip.
+      secure: process.env.NODE_ENV === "production",
       httpOnly: false, // posthog-js on the client may want to read it later
     });
   }
