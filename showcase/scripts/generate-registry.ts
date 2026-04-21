@@ -24,10 +24,15 @@ const FEATURE_REGISTRY_PATH = path.join(
   "shared",
   "feature-registry.json",
 );
-const OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
-const OUTPUT_PATH = path.join(OUTPUT_DIR, "registry.json");
+// Registry is consumed by BOTH shells:
+//   - shell: home grid, integrations catalog, matrix, middleware
+//   - shell-docs: docs routes (framework lookup, MDX renderer)
+// so we dual-emit. constraints.json is shell-only (integration-explorer).
+const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
+const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
+const OUTPUT_DIRS = [SHELL_OUTPUT_DIR, SHELL_DOCS_OUTPUT_DIR];
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
-const CONSTRAINTS_OUTPUT_PATH = path.join(OUTPUT_DIR, "constraints.json");
+const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 
 function loadSchema() {
   const raw = fs.readFileSync(SCHEMA_PATH, "utf-8");
@@ -37,6 +42,69 @@ function loadSchema() {
 function loadFeatureRegistry() {
   const raw = fs.readFileSync(FEATURE_REGISTRY_PATH, "utf-8");
   return JSON.parse(raw);
+}
+
+type DocsLinkEntry = {
+  og_docs_url: string | null;
+  shell_docs_path: string | null;
+};
+
+type DocsLinks = {
+  features: Record<string, DocsLinkEntry>;
+};
+
+/**
+ * Load per-package docs-links.json. Returns best-effort normalized overrides
+ * ({ features: { <feature_id>: { og_docs_url, shell_docs_path } } }).
+ *
+ * Missing file -> empty overrides. A file with the older shape (e.g. using
+ * `shell_docs_url` instead of `shell_docs_path`) is treated as stale: we
+ * still merge what we can without erroring.
+ *
+ * A completely malformed JSON file IS a build-blocking error: the caller
+ * must pass `errors` so the failure surfaces in the aggregated error list
+ * and `main()`'s `process.exit(1)` path fires. Previously we just
+ * `console.warn`ed, which let CI continue green with a silently broken
+ * override file on disk.
+ */
+function loadDocsLinks(packageDir: string, errors: string[]): DocsLinks {
+  const docsLinksPath = path.join(packageDir, "docs-links.json");
+  if (!fs.existsSync(docsLinksPath)) {
+    return { features: {} };
+  }
+
+  try {
+    const raw = fs.readFileSync(docsLinksPath, "utf-8");
+    const parsed = JSON.parse(raw) as {
+      features?: Record<string, Record<string, unknown>>;
+    };
+
+    const features: Record<string, DocsLinkEntry> = {};
+    const rawFeatures = parsed?.features ?? {};
+    for (const [featureId, entry] of Object.entries(rawFeatures)) {
+      if (!entry || typeof entry !== "object") continue;
+      const og =
+        typeof entry.og_docs_url === "string" ? entry.og_docs_url : null;
+      // Preferred key is `shell_docs_path`; fall back to legacy
+      // `shell_docs_url` so older files still contribute something.
+      const shellPath =
+        typeof entry.shell_docs_path === "string"
+          ? entry.shell_docs_path
+          : typeof entry.shell_docs_url === "string"
+            ? entry.shell_docs_url
+            : null;
+      features[featureId] = {
+        og_docs_url: og,
+        shell_docs_path: shellPath,
+      };
+    }
+    return { features };
+  } catch (e) {
+    errors.push(
+      `${docsLinksPath}: failed to parse docs-links.json: ${(e as Error).message}`,
+    );
+    return { features: {} };
+  }
 }
 
 function findManifests(): string[] {
@@ -146,6 +214,14 @@ function main() {
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
   }
 
+  // Merge per-package docs-links.json overrides onto each integration *after*
+  // schema validation, since `docs_links` isn't part of the manifest schema.
+  // Best-effort: missing file or stale shapes are tolerated and don't error.
+  for (const manifest of integrations) {
+    const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
+    manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
+  }
+
   // Constraint validation
   const constraintsRaw = fs.readFileSync(CONSTRAINTS_PATH, "utf-8");
   const constraints = yaml.parse(constraintsRaw);
@@ -187,12 +263,15 @@ function main() {
     integrations,
   };
 
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(registry, null, 2) + "\n");
-
-  console.log(
-    `\nRegistry generated: ${OUTPUT_PATH} (${integrations.length} integrations)\n`,
-  );
+  const registryJson = JSON.stringify(registry, null, 2) + "\n";
+  for (const dir of OUTPUT_DIRS) {
+    fs.mkdirSync(dir, { recursive: true });
+    const outputPath = path.join(dir, "registry.json");
+    fs.writeFileSync(outputPath, registryJson);
+    console.log(
+      `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
+    );
+  }
 
   // Write constraints.json for the shell's client-side filtering
   fs.writeFileSync(

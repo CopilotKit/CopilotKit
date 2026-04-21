@@ -23,25 +23,71 @@ function createAgent(graphId: string = "sample_agent") {
   });
 }
 
-// Register the same agent under all names used by demo pages.
-// Each demo specifies an agent ID; they all route to the same LangGraph graph.
-const agentNames = [
-  "agentic_chat",
-  "frontend_tools",
+// Cells that share the neutral default "helpful, concise assistant" graph.
+// These cells are chrome / UI / docs demos — the agent has no specialized
+// behavior. Each still gets its own registered name so per-cell frontend
+// tool/component registrations scope correctly.
+const neutralAssistantCells = [
   "human_in_the_loop",
-  "tool-rendering",
-  "gen-ui-tool-based",
-  "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
-  "shared-state-streaming",
-  "subagents",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  // NOTE: `beautiful-chat` is NOT in this list — it has its own dedicated
+  // runtime at /api/copilotkit-beautiful-chat (needed for openGenerativeUI +
+  // a2ui + mcpApps combined-runtime shape). See the beautiful-chat page.tsx.
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
-for (const name of agentNames) {
+for (const name of neutralAssistantCells) {
   agents[name] = createAgent();
 }
+
+// Dedicated-graph agents.
+agents["tool-rendering"] = createAgent("tool_rendering");
+agents["tool-rendering-default-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "tool_rendering_reasoning_chain",
+);
+// Declarative Generative UI (A2UI — Dynamic Schema) demo uses its own graph.
+agents["declarative-gen-ui"] = createAgent("a2ui_dynamic");
+// Declarative Generative UI (A2UI — Fixed Schema) demo.
+agents["a2ui-fixed-schema"] = createAgent("a2ui_fixed");
+// Dedicated graphs for stub cells (ported from 4084).
+agents["shared-state-streaming"] = createAgent("shared_state_streaming");
+agents["subagents"] = createAgent("subagents");
+// Basic cells with their own dedicated graphs (neutral assistant variants
+// split out of main.py so main.py stays a pure default).
+agents["agentic_chat"] = createAgent("agentic_chat");
+agents["frontend_tools"] = createAgent("frontend_tools");
+// Frontend Tools (Async) — dedicated cell demonstrating an async useFrontendTool
+// handler (simulated client-side notes DB query). Backend has no tools; the
+// frontend registers `query_notes` via useFrontendTool and the agent awaits
+// its returned result.
+agents["frontend-tools-async"] = createAgent("frontend_tools_async");
+agents["gen-ui-agent"] = createAgent("gen_ui_agent");
+// Tool-Based Generative UI — chart-viz system prompt lives in its own graph.
+agents["gen-ui-tool-based"] = createAgent("gen_ui_tool_based");
+// Reasoning variants.
+agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
+agents["reasoning-default-render"] = createAgent("reasoning_agent");
+// Interrupt variants.
+agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
+agents["interrupt-headless"] = createAgent("interrupt_agent");
+// HITL dedicated (tools=[] + tailored system prompt).
+agents["hitl-in-chat"] = createAgent("hitl_in_chat");
+// In-App HITL — async frontend-tool + app-level modal (outside chat).
+agents["hitl-in-app"] = createAgent("hitl_in_app");
+// Shared state R+W and read-only agent context.
+agents["shared-state-read-write"] = createAgent("shared_state_read_write");
+agents["readonly-state-agent-context"] = createAgent(
+  "readonly_state_agent_context",
+);
+
 // Also register a default
 agents["default"] = createAgent();
 
@@ -61,6 +107,16 @@ export const POST = async (req: NextRequest) => {
       runtime: new CopilotRuntime({
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
+        // NOTE: A2UI is intentionally NOT enabled here. The A2UI cells
+        // (declarative-gen-ui and a2ui-fixed-schema) each live on their own
+        // dedicated runtime endpoint (/api/copilotkit-declarative-gen-ui and
+        // /api/copilotkit-a2ui-fixed-schema respectively), mirroring the
+        // beautiful-chat topology. Each of those runtimes configures
+        // `a2ui.injectA2UITool: false` because the backend graphs own their
+        // own A2UI-rendering tools explicitly (matching the canonical
+        // reference at examples/integrations/langgraph-python).
+        // OpenGenerativeUI lives in /api/copilotkit-ogui for the same reason.
+        // MCP Apps is in /api/copilotkit-mcp-apps.
       }),
     });
 
@@ -80,7 +136,6 @@ export const POST = async (req: NextRequest) => {
 export const GET = async () => {
   console.log("[copilotkit/route] GET /api/copilotkit (health probe)");
 
-  // Check if LangGraph server is reachable
   let langGraphStatus = "unknown";
   try {
     const res = await fetch(`${LANGGRAPH_URL}/ok`, {

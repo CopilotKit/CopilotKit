@@ -1,0 +1,89 @@
+---
+title: Programmatic Control
+icon: "lucide/Terminal"
+description: Drive agent runs directly from code — no chat UI required.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: headless-complete
+---
+
+## What is this?
+
+Programmatic control is what you reach for when you want to drive an
+agent run from code rather than from a chat composer — a button, a
+form, a cron job, a keyboard shortcut, a graph callback. CopilotKit
+exposes three primitives that cover every triggering pattern:
+
+- `agent.addMessage(...)` — append a message to the conversation without running the agent. Pair with `copilotkit.runAgent({ agent })` when you want the appended message to kick off a turn.
+- `copilotkit.runAgent({ agent })` — the same entry point `<CopilotChat />` calls under the hood. Orchestrates frontend tools, follow-up runs, and the subscriber lifecycle.
+- `agent.subscribe(subscriber)` — low-level AG-UI event subscription (`onCustomEvent`, `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, …). Pairs with `agent.runAgent({ forwardedProps: { command: { resume, interruptEvent } } })` to drive interrupt resolution from arbitrary UI.
+
+Every example on this page is pulled from two live cells:
+`headless-complete` (full chat surface, shown here for the message-send
+path) and `interrupt-headless` (button-driven interrupt resolver, shown
+here for the subscribe + resume path).
+
+## When should I use this?
+
+Use programmatic control when you want to:
+
+- Trigger agent runs from buttons, forms, or other UI elements
+- Execute specific tools directly from UI interactions (without an LLM turn)
+- Build agent features without a chat window
+- Access agent state and results programmatically
+- Create fully custom agent-driven workflows
+
+## Sending a message from code
+
+The message-send path in `headless-complete` is the canonical pattern:
+append a user message with `agent.addMessage`, then call
+`copilotkit.runAgent({ agent })`. The same `handleStop` calls
+`copilotkit.stopAgent({ agent })` to cancel mid-run. Note the
+`connectAgent` effect at the top — it opens the backend session on
+mount so the very first `runAgent` doesn't race the handshake.
+
+<Snippet region="page-send-message" title="frontend/src/app/page.tsx — connect, send, stop" />
+
+### `copilotkit.runAgent()` vs `agent.runAgent()`
+
+Both methods trigger the agent, but they operate at different levels:
+
+- **`copilotkit.runAgent({ agent })`** — the recommended default. Orchestrates the full lifecycle: executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
+- **`agent.runAgent(options)`** — low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control — the canonical example is resuming from an interrupt with `forwardedProps.command`.
+
+## Subscribing to agent events
+
+`agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber
+object accepts every AG-UI lifecycle callback — `onCustomEvent`,
+`onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming
+deltas. Use it to drive custom progress UI, forward events to
+analytics, or — the pattern below — catch LangGraph `interrupt(...)`
+events and resume with a payload.
+
+## Resolving a LangGraph interrupt from a button
+
+The `interrupt-headless` cell demonstrates the full pattern without
+`useInterrupt` or a chat surface. A plain hook subscribes to
+`on_interrupt` custom events, buffers the payload until the run
+finalizes (so the UI doesn't flash mid-stream), and exposes a
+`resolve(response)` callback that calls `copilotkit.runAgent({ agent,
+forwardedProps: { command: { resume, interruptEvent } } })` to unblock
+the graph:
+
+<Snippet region="headless-useinterrupt-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — subscribe + resume" />
+
+The resulting `{ pending, resolve }` tuple is pure data — any UI can
+drive it. The cell itself renders a simple button grid, but the same
+hook would power a modal, a toast, a sidebar form, or a voice UI.
+
+## See also
+
+- [Headless UI](./headless) — the full `useRenderedMessages` composition
+  that mirrors `<CopilotChatMessageView>` line-for-line.
+- [Human-in-the-Loop](./human-in-the-loop) — the `useHumanInTheLoop` and
+  `useInterrupt` hooks with their render-prop contracts, for the
+  "paused mid-chat" pattern this page's headless variant replaces.
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="programmatic-control" />

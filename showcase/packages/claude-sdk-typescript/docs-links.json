@@ -1,0 +1,47 @@
+{
+  "framework": "claude-sdk-typescript",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+      "shell_docs_path": null
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": null
+    }
+  },
+  "missing": [
+    {
+      "feature": "all",
+      "reason": "No claude-sdk-typescript- or claude-sdk-scoped docs exist on docs.copilotkit.ai (returns SPA 404). All OG URLs fall back to framework-agnostic top-level pages. Shell paths resolve via the framework-agnostic content tree (rendered under /claude-sdk-typescript/unselected/... which redirects to /claude-sdk-typescript/...)."
+    },
+    {
+      "feature": "subagents",
+      "reason": "No claude-sdk-scoped or root subagents/multi-agent docs exist."
+    }
+  ]
+}

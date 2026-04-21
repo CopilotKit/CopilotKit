@@ -1,0 +1,2676 @@
+[
+  {
+    "type": "page",
+    "title": "Home",
+    "subtitle": "Front door",
+    "section": "",
+    "href": "/"
+  },
+  {
+    "type": "page",
+    "title": "Integrations",
+    "subtitle": "All integrations",
+    "section": "",
+    "href": "/integrations"
+  },
+  {
+    "type": "page",
+    "title": "Feature Matrix",
+    "subtitle": "Compare features across integrations",
+    "section": "",
+    "href": "/matrix"
+  },
+  {
+    "type": "page",
+    "title": "API Reference",
+    "subtitle": "CopilotKit components and hooks",
+    "section": "",
+    "href": "/reference"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI Overview",
+    "subtitle": "The Agent-User Interaction Protocol",
+    "section": "",
+    "href": "/ag-ui"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChat",
+    "subtitle": "`CopilotChat` is a high-level chat container that wires an agent into `CopilotChatView` while providing configuration co",
+    "section": "Components",
+    "href": "/reference/components/CopilotChat"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChatAssistantMessage",
+    "subtitle": "`CopilotChatAssistantMessage` displays assistant messages with Markdown support, tool call rendering, and an action tool",
+    "section": "Components",
+    "href": "/reference/components/CopilotChatAssistantMessage"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChatInput",
+    "subtitle": "`CopilotChatInput` is the primary text input and control surface for chat interactions. It provides a multi-line textare",
+    "section": "Components",
+    "href": "/reference/components/CopilotChatInput"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChatMessageView",
+    "subtitle": "`CopilotChatMessageView` renders a list of chat messages and, optionally, a typing cursor while the agent is running. It",
+    "section": "Components",
+    "href": "/reference/components/CopilotChatMessageView"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChatUserMessage",
+    "subtitle": "`CopilotChatUserMessage` shows user-authored messages aligned to the right with optional branch navigation. The default ",
+    "section": "Components",
+    "href": "/reference/components/CopilotChatUserMessage"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotChatView",
+    "subtitle": "`CopilotChatView` is a layout component that combines a scrollable message transcript with the chat input area, suggesti",
+    "section": "Components",
+    "href": "/reference/components/CopilotChatView"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotKit",
+    "subtitle": "This provider is shared across v1 and v2 APIs. It must be imported from the",
+    "section": "Components",
+    "href": "/reference/components/CopilotKit"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotPopup",
+    "subtitle": "`CopilotPopup` renders a floating chat popup with a toggle button. It wraps [`CopilotChat`](/reference/components/Copilo",
+    "section": "Components",
+    "href": "/reference/components/CopilotPopup"
+  },
+  {
+    "type": "reference",
+    "title": "CopilotSidebar",
+    "subtitle": "`CopilotSidebar` renders a fixed sidebar panel for chat interaction. It wraps [`CopilotChat`](/reference/components/Copi",
+    "section": "Components",
+    "href": "/reference/components/CopilotSidebar"
+  },
+  {
+    "type": "reference",
+    "title": "useAgent",
+    "subtitle": "`useAgent` is a React hook that returns an [AG-UI AbstractAgent](https://docs.ag-ui.com/sdk/js/client/abstract-agent) in",
+    "section": "Hooks",
+    "href": "/reference/hooks/useAgent"
+  },
+  {
+    "type": "reference",
+    "title": "useAgentContext",
+    "subtitle": "`useAgentContext` registers a dynamic context object with the active Copilot runtime for the lifetime of the component. ",
+    "section": "Hooks",
+    "href": "/reference/hooks/useAgentContext"
+  },
+  {
+    "type": "reference",
+    "title": "useComponent",
+    "subtitle": "`useComponent` is a convenience hook built on top of `useFrontendTool`.",
+    "section": "Hooks",
+    "href": "/reference/hooks/useComponent"
+  },
+  {
+    "type": "reference",
+    "title": "useConfigureSuggestions",
+    "subtitle": "`useConfigureSuggestions` is a React hook that registers a suggestions configuration with the CopilotKit core. It suppor",
+    "section": "Hooks",
+    "href": "/reference/hooks/useConfigureSuggestions"
+  },
+  {
+    "type": "reference",
+    "title": "useCopilotChatConfiguration",
+    "subtitle": "`useCopilotChatConfiguration` is a React hook that reads the chat configuration context. It returns the configuration va",
+    "section": "Hooks",
+    "href": "/reference/hooks/useCopilotChatConfiguration"
+  },
+  {
+    "type": "reference",
+    "title": "useCopilotKit",
+    "subtitle": "`useCopilotKit` is a low-level React hook that returns the CopilotKit context value, providing direct access to the core",
+    "section": "Hooks",
+    "href": "/reference/hooks/useCopilotKit"
+  },
+  {
+    "type": "reference",
+    "title": "useDefaultRenderTool",
+    "subtitle": "`useDefaultRenderTool` is a convenience wrapper around `useRenderTool` with `name: \"*\"`.",
+    "section": "Hooks",
+    "href": "/reference/hooks/useDefaultRenderTool"
+  },
+  {
+    "type": "reference",
+    "title": "useFrontendTool",
+    "subtitle": "`useFrontendTool` registers a client-side tool with CopilotKit at component scope. When the agent decides to call the to",
+    "section": "Hooks",
+    "href": "/reference/hooks/useFrontendTool"
+  },
+  {
+    "type": "reference",
+    "title": "useHumanInTheLoop",
+    "subtitle": "`useHumanInTheLoop` registers an interactive tool that pauses agent execution until the user responds through your custo",
+    "section": "Hooks",
+    "href": "/reference/hooks/useHumanInTheLoop"
+  },
+  {
+    "type": "reference",
+    "title": "useInterrupt",
+    "subtitle": "`useInterrupt` listens for agent custom events named `on_interrupt`, captures the latest interrupt payload for a run, an",
+    "section": "Hooks",
+    "href": "/reference/hooks/useInterrupt"
+  },
+  {
+    "type": "reference",
+    "title": "useRenderTool",
+    "subtitle": "`useRenderTool` registers a chat renderer for tool calls.",
+    "section": "Hooks",
+    "href": "/reference/hooks/useRenderTool"
+  },
+  {
+    "type": "reference",
+    "title": "useRenderToolCall",
+    "subtitle": "`useRenderToolCall` returns a renderer function that maps tool calls to React elements. The returned function looks up t",
+    "section": "Hooks",
+    "href": "/reference/hooks/useRenderToolCall"
+  },
+  {
+    "type": "reference",
+    "title": "useSuggestions",
+    "subtitle": "`useSuggestions` is a React hook that provides access to the current chat suggestions for a given agent. It subscribes t",
+    "section": "Hooks",
+    "href": "/reference/hooks/useSuggestions"
+  },
+  {
+    "type": "reference",
+    "title": "API Reference",
+    "subtitle": "The v2 React API (`@copilotkit/react-core/v2`) is the next-generation interface for building copilot-powered application",
+    "section": "",
+    "href": "/reference"
+  },
+  {
+    "type": "ag-ui",
+    "title": "MCP, A2A, and AG-UI",
+    "subtitle": "The agentic ecosystem is rapidly organizing around a family of open, complementary protocols — each addressing a distinc",
+    "section": "",
+    "href": "/ag-ui/agentic-protocols"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Agents",
+    "subtitle": "Agents are the core components in the AG-UI protocol that process requests and",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/agents"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Core architecture",
+    "subtitle": "Agent User Interaction Protocol (AG-UI) is built on a flexible, event-driven",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/architecture"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Capabilities",
+    "subtitle": "Agents in the AG-UI protocol can declare what they support at runtime through",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/capabilities"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Events",
+    "subtitle": "The Agent User Interaction Protocol uses a streaming event-based architecture.",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/events"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Generative UI",
+    "subtitle": "Several recently released specs have enabled agents to return generative UI, increasing the power and flexibility of the",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/generative-ui-specs"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Messages",
+    "subtitle": "Messages form the backbone of communication in the AG-UI protocol. They",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/messages"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Middleware",
+    "subtitle": "Middleware in AG-UI provides a powerful way to transform, filter, and augment the event streams that flow through agents",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/middleware"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Reasoning",
+    "subtitle": "AG-UI provides first-class support for LLM reasoning, enabling chain-of-thought",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/reasoning"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Serialization",
+    "subtitle": "Serialization in AG-UI provides a standard way to persist and restore the event",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/serialization"
+  },
+  {
+    "type": "ag-ui",
+    "title": "State Management",
+    "subtitle": "State management is a core feature of the AG-UI protocol that enables real-time",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/state"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Tools",
+    "subtitle": "Tools are a fundamental concept in the AG-UI protocol that enable AI agents to",
+    "section": "Concepts",
+    "href": "/ag-ui/concepts/tools"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Contributing",
+    "subtitle": "Add your package under `integrations/` with docs and tests.",
+    "section": "Development",
+    "href": "/ag-ui/development/contributing"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Roadmap",
+    "subtitle": "You can follow the progress of the AG-UI Protocol on our",
+    "section": "Development",
+    "href": "/ag-ui/development/roadmap"
+  },
+  {
+    "type": "ag-ui",
+    "title": "What's New",
+    "subtitle": "- Initial release of the Agent User Interaction Protocol",
+    "section": "Development",
+    "href": "/ag-ui/development/updates"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Generative User Interfaces",
+    "subtitle": "Currently, creating custom user interfaces for agent interactions requires",
+    "section": "Draft Proposals",
+    "href": "/ag-ui/drafts/generative-ui"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Interrupt-Aware Run Lifecycle",
+    "subtitle": "Agents often need to pause execution to request human approval, gather",
+    "section": "Draft Proposals",
+    "href": "/ag-ui/drafts/interrupts"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Meta Events",
+    "subtitle": "Currently, AG-UI events are tightly coupled to agent runs. There's no",
+    "section": "Draft Proposals",
+    "href": "/ag-ui/drafts/meta-events"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Multi-modal Messages",
+    "subtitle": "Current AG-UI protocol only supports text-based user messages. As LLMs",
+    "section": "Draft Proposals",
+    "href": "/ag-ui/drafts/multimodal-messages"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Overview",
+    "subtitle": "This section contains draft changes being considered for the AG-UI protocol. These proposals are under internal review a",
+    "section": "Draft Proposals",
+    "href": "/ag-ui/drafts/overview"
+  },
+  {
+    "type": "ag-ui",
+    "title": "AG-UI Overview",
+    "subtitle": "AG-UI is an <u><strong>open</strong></u>, <u><strong>lightweight</strong></u>, <u><strong>event-based</strong></u> proto",
+    "section": "",
+    "href": "/ag-ui/introduction"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Build applications",
+    "subtitle": "AG-UI provides a concise, event-driven protocol that lets any agent stream rich,",
+    "section": "Quickstart",
+    "href": "/ag-ui/quickstart/applications"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Build clients",
+    "subtitle": "A client implementation allows you to **build conversational applications that",
+    "section": "Quickstart",
+    "href": "/ag-ui/quickstart/clients"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Introduction",
+    "subtitle": "src=\"https://copilotkit-public-assets.s3.us-east-1.amazonaws.com/docs/ag-ui/ag-ui-animation-simple.mp4\"",
+    "section": "Quickstart",
+    "href": "/ag-ui/quickstart/introduction"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Middleware",
+    "subtitle": "A middleware implementation allows you to **translate existing protocols and",
+    "section": "Quickstart",
+    "href": "/ag-ui/quickstart/middleware"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Server",
+    "subtitle": "A server implementation allows you to **emit AG-UI events directly from your",
+    "section": "Quickstart",
+    "href": "/ag-ui/quickstart/server"
+  },
+  {
+    "type": "ag-ui",
+    "title": "AbstractAgent",
+    "subtitle": "The `AbstractAgent` class provides the foundation for all agent implementations",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/abstract-agent"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Stream Compaction",
+    "subtitle": "`compactEvents` reduces verbose streaming sequences in an event array while",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/compaction"
+  },
+  {
+    "type": "ag-ui",
+    "title": "HttpAgent",
+    "subtitle": "The `HttpAgent` extends `AbstractAgent` to provide HTTP-based connectivity to",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/http-agent"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Middleware",
+    "subtitle": "The middleware system in `@ag-ui/client` provides a powerful way to transform, filter, and augment event streams flowing",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/middleware"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Overview",
+    "subtitle": "The Agent User Interaction Protocol Client SDK provides agent connectivity",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/overview"
+  },
+  {
+    "type": "ag-ui",
+    "title": "AgentSubscriber",
+    "subtitle": "The `AgentSubscriber` interface provides a comprehensive event-driven system for",
+    "section": "JS SDK › @ag-ui/client",
+    "href": "/ag-ui/sdk/js/client/subscriber"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Events",
+    "subtitle": "The Agent User Interaction Protocol SDK uses a streaming event-based",
+    "section": "JS SDK › @ag-ui/core",
+    "href": "/ag-ui/sdk/js/core/events"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Multimodal Inputs",
+    "subtitle": "`UserMessage.content` accepts either plain text or an ordered array of",
+    "section": "JS SDK › @ag-ui/core",
+    "href": "/ag-ui/sdk/js/core/multimodal-inputs"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Overview",
+    "subtitle": "The Agent User Interaction Protocol SDK uses a streaming event-based",
+    "section": "JS SDK › @ag-ui/core",
+    "href": "/ag-ui/sdk/js/core/overview"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Types",
+    "subtitle": "The Agent User Interaction Protocol SDK is built on a set of core types that",
+    "section": "JS SDK › @ag-ui/core",
+    "href": "/ag-ui/sdk/js/core/types"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Events",
+    "subtitle": "The Agent User Interaction Protocol Python SDK uses a streaming event-based",
+    "section": "Python SDK › ag_ui.core",
+    "href": "/ag-ui/sdk/python/core/events"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Multimodal Inputs",
+    "subtitle": "`UserMessage.content` accepts either plain text or an ordered list of multimodal",
+    "section": "Python SDK › ag_ui.core",
+    "href": "/ag-ui/sdk/python/core/multimodal-inputs"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Overview",
+    "subtitle": "pip install ag-ui-protocol",
+    "section": "Python SDK › ag_ui.core",
+    "href": "/ag-ui/sdk/python/core/overview"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Types",
+    "subtitle": "The Agent User Interaction Protocol Python SDK is built on a set of core types",
+    "section": "Python SDK › ag_ui.core",
+    "href": "/ag-ui/sdk/python/core/types"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Overview",
+    "subtitle": "pip install ag-ui-protocol",
+    "section": "Python SDK › ag_ui.encoder",
+    "href": "/ag-ui/sdk/python/encoder/overview"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Developing with Cursor",
+    "subtitle": "This guide will help you set up Cursor to help you build custom Agent User",
+    "section": "Tutorials",
+    "href": "/ag-ui/tutorials/cursor"
+  },
+  {
+    "type": "ag-ui",
+    "title": "Debugging",
+    "subtitle": "Debugging agent-based applications can be challenging, especially when working",
+    "section": "Tutorials",
+    "href": "/ag-ui/tutorials/debugging"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "(other)",
+    "href": "/docs/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "(other)",
+    "href": "/docs/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "(other)",
+    "href": "/docs/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "(other)",
+    "href": "/docs/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI Middleware",
+    "subtitle": "{/* TODO: Content for AG-UI middleware setup guide */}",
+    "section": "",
+    "href": "/docs/ag-ui-middleware"
+  },
+  {
+    "type": "page",
+    "title": "Chat Components",
+    "subtitle": "CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.",
+    "section": "",
+    "href": "/docs/agentic-chat-ui"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI",
+    "subtitle": "",
+    "section": "Backend",
+    "href": "/docs/backend/ag-ui"
+  },
+  {
+    "type": "page",
+    "title": "Copilot Runtime",
+    "subtitle": "",
+    "section": "Backend",
+    "href": "/docs/backend/copilot-runtime"
+  },
+  {
+    "type": "page",
+    "title": "Factory Mode",
+    "subtitle": "",
+    "section": "Backend",
+    "href": "/docs/backend/custom-agent"
+  },
+  {
+    "type": "page",
+    "title": "Advanced Configuration",
+    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/advanced-configuration"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/ag-ui"
+  },
+  {
+    "type": "page",
+    "title": "Agent Context",
+    "subtitle": "Share your application's state and context with the Built-in Agent using the `useAgentContext` hook. The agent automatic",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Coding Agents",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/coding-agents"
+  },
+  {
+    "type": "page",
+    "title": "Copilot Runtime",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/copilot-runtime"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Slots",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/custom-look-and-feel/slots"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "A2UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/a2ui"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Display-only",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/your-components/display-only"
+  },
+  {
+    "type": "page",
+    "title": "Interactive",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/generative-ui/your-components/interactive"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
+    "section": "",
+    "href": "/docs/built-in-agent"
+  },
+  {
+    "type": "page",
+    "title": "Inspector",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/inspector"
+  },
+  {
+    "type": "page",
+    "title": "MCP Servers",
+    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/mcp-servers"
+  },
+  {
+    "type": "page",
+    "title": "Model Selection",
+    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/model-selection"
+  },
+  {
+    "type": "page",
+    "title": "Prebuilt Components",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Observability",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/observability"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit Premium",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/premium/overview"
+  },
+  {
+    "type": "page",
+    "title": "Programmatic Control",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/programmatic-control"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "WrenchIcon,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Server Tools",
+    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/server-tools"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Share state bidirectionally between your React app and the Built-in Agent. Your app can read and write agent state, and ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Common Copilot Issues",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/common-issues"
+  },
+  {
+    "type": "page",
+    "title": "Error Debugging & Observability",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/error-debugging"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.10.X",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.10.X"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.8.2",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-1.8.2"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to V2",
+    "subtitle": "",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/troubleshooting/migrate-to-v2"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the textarea app.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Copilot Textarea",
+    "subtitle": "Currently, our app has a simple textarea for replying to emails. Let's replace this with an AI-powered textarea so that ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-3-copilot-textarea"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have set up our CopilotKit provider and `<CopilotTextarea />`, and we already benefit from a great AI ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-powered-textarea/step-4-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own copilot-powered apps!",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 5 minutes</div>",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/overview"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll begin by checking out the base code of the todo list app.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Setup CopilotKit",
+    "subtitle": "TailoredContent,",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-2-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Copilot Readable State",
+    "subtitle": "At this point, we have a chat popup in our app and we're able to chat directly with our copilot. This is great, but our ",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-3-copilot-readable-state"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Frontend Tools",
+    "subtitle": "Now it's time to make our copilot even more useful by enabling it to execute tools.",
+    "section": "Built in agent",
+    "href": "/docs/built-in-agent/tutorials/ai-todo-app/step-4-frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "Coding Agent Setup",
+    "subtitle": "",
+    "section": "",
+    "href": "/docs/coding-agent-setup"
+  },
+  {
+    "type": "page",
+    "title": "Coding Agents",
+    "subtitle": "",
+    "section": "",
+    "href": "/docs/coding-agents"
+  },
+  {
+    "type": "page",
+    "title": "Chat Suggestions",
+    "subtitle": "Chat suggestions let you auto-generate contextual actions in the chat window based on real-time application state. The a",
+    "section": "",
+    "href": "/docs/copilot-suggestions"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
+    "section": "Custom look and feel",
+    "href": "/docs/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Reasoning Messages",
+    "subtitle": "",
+    "section": "Custom look and feel",
+    "href": "/docs/custom-look-and-feel/reasoning-messages"
+  },
+  {
+    "type": "page",
+    "title": "Slots",
+    "subtitle": "Slots let you customize CopilotKit's pre-built chat components without building everything from scratch. Override specif",
+    "section": "Custom look and feel",
+    "href": "/docs/custom-look-and-feel/slots"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit in Action",
+    "subtitle": "Need some inspiration? Check out some things we've built with CopilotKit.",
+    "section": "",
+    "href": "/docs/examples"
+  },
+  {
+    "type": "page",
+    "title": "Common Questions",
+    "subtitle": "We've got answers to some common questions!",
+    "section": "",
+    "href": "/docs/faq"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Actions",
+    "subtitle": "Frontend actions let your AI agents directly interact with and update your application's UI. They bridge the gap between",
+    "section": "",
+    "href": "/docs/frontend-actions"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "Frontend tools let your AI agents directly interact with and update your application's UI. They bridge the gap between y",
+    "section": "",
+    "href": "/docs/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "A2UI",
+    "subtitle": "A2UI (Agent-to-UI) is a declarative specification for generative UI. It allows agents to render structured UI components",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/a2ui"
+  },
+  {
+    "type": "page",
+    "title": "Display components",
+    "subtitle": "Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the to",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/display"
+  },
+  {
+    "type": "page",
+    "title": "Generative UI",
+    "subtitle": "CopilotKit supports multiple approaches to generative UI:",
+    "section": "",
+    "href": "/docs/generative-ui"
+  },
+  {
+    "type": "page",
+    "title": "Interactive components",
+    "subtitle": "Interactive generative UI creates flows where the agent pauses execution and waits for user input before continuing. Thi",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/interactive"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Open Generative UI",
+    "subtitle": "Open Generative UI lets the agent generate complete, sandboxed UI on the fly — HTML, CSS, and JavaScript — and stream it",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/open-generative-ui"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "State rendering lets you build UI that reflects your agent's state in real-time. As your agent progresses through nodes ",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "Tool rendering lets you customize how your agent's backend tool calls appear in the chat. Instead of showing raw tool ex",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Display Components",
+    "subtitle": "Display-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the t",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/your-components/display-only"
+  },
+  {
+    "type": "page",
+    "title": "Interactive Components",
+    "subtitle": "Interactive generative UI extends display components with user interaction. Your agent renders components that users can",
+    "section": "Generative ui",
+    "href": "/docs/generative-ui/your-components/interactive"
+  },
+  {
+    "type": "page",
+    "title": "Headless UI",
+    "subtitle": "CopilotKit's headless hooks give you complete control over the chat experience — manage messages, streaming, and tool ca",
+    "section": "",
+    "href": "/docs/headless"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "Human-in-the-loop (HITL) allows agents to request human input or approval during execution, making AI systems more relia",
+    "section": "",
+    "href": "/docs/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "{/* ── Hero ── */}",
+    "section": "",
+    "href": "/docs"
+  },
+  {
+    "type": "page",
+    "title": "Inspector",
+    "subtitle": "",
+    "section": "",
+    "href": "/docs/inspector"
+  },
+  {
+    "type": "page",
+    "title": "Declarative (A2UI)",
+    "subtitle": "Build an A2A agent, configure it to use A2UI, use the A2UI composer to generate widgets, and render them in your Copilot",
+    "section": "Integrations",
+    "href": "/docs/integrations/a2a/generative-ui/declarative-a2ui"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "frameworkName=\"A2A\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/a2a"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/a2a/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "id=\"frontend-actions-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "{/* TODO: Re-add once the dojo example is updated and works */}",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"frontend-tools-based-hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "frameworkName=\"ADK\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-read-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-write-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Predictive state updates",
+    "subtitle": "{/* TODO: Re-add once the dojo example is updated and works */}",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "Workflow Execution",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state/state-inputs-outputs"
+  },
+  {
+    "type": "page",
+    "title": "Workflow Execution",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/adk/shared-state/workflow-execution"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Authentication",
+    "subtitle": "CopilotKit supports user authentication for AG2 backends in two deployment modes:",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/auth"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "AG2 agents can maintain state across a session through `ContextVariables`. CopilotKit can render this state in your appl",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render thes",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"AG2\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Readables",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/readables"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/shared-state/read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/ag2/shared-state/write"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "frameworkName=\"Open Agent Spec\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec"
+  },
+  {
+    "type": "page",
+    "title": "Agent Spec LangGraph Integration with AG-UI",
+    "subtitle": "Wire an Agent Spec agent backed by LangGraph to CopilotKit’s UI via the AG‑UI event protocol. You’ll run a FastAPI endpo",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/langgraph"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "- Node.js 20+",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Agent Spec agentic chat supports streaming text and tool events. For advanced shared state patterns, mirror what you sur",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Agent Spec WayFlow Integration with AG-UI",
+    "subtitle": "Wire an Agent Spec agent backed by WayFlow to CopilotKit’s UI via the AG‑UI event protocol. You’ll run a FastAPI endpoin",
+    "section": "Integrations",
+    "href": "/docs/integrations/agent-spec/wayflow"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "id=\"frontend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"frontend-tools-based-hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"Agno\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/agno/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "id=\"frontend-actions-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "id=\"agent-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"tool-based-generative-ui-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"AWS Strands\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-read-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-write-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/aws-strands/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Advanced Configuration",
+    "subtitle": "The `BuiltInAgent` accepts a full set of configuration options to control model behavior, tool calling, and more.",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/advanced-configuration"
+  },
+  {
+    "type": "page",
+    "title": "Factory Mode",
+    "subtitle": "",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/custom-agent"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "The **Built-in Agent** is CopilotKit's simplest agent option, i.e what you get \"built-in\". It connects directly to an LL",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent"
+  },
+  {
+    "type": "page",
+    "title": "MCP Servers",
+    "subtitle": "MCP (Model Context Protocol) servers provide additional tools and capabilities to your agent. The Built-in Agent support",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/mcp-servers"
+  },
+  {
+    "type": "page",
+    "title": "Model Selection",
+    "subtitle": "The Built-in Agent uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood, giving you access to models from Open",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/model-selection"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Server Tools",
+    "subtitle": "Server tools are functions that run on your backend that the Built-in Agent can invoke. They're defined using `defineToo",
+    "section": "Integrations",
+    "href": "/docs/integrations/built-in-agent/server-tools"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Disabling state streaming",
+    "subtitle": "By default, CopilotKit will stream both your messages and tool calls to the frontend when you use `copilotkit_stream`. Y",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/advanced/disabling-state-streaming"
+  },
+  {
+    "type": "page",
+    "title": "Manually emitting messages",
+    "subtitle": "While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manual",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/advanced/emit-messages"
+  },
+  {
+    "type": "page",
+    "title": "Exiting the agent loop",
+    "subtitle": "After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the `copilotkit_exi",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/advanced/exit-agent"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-generative-ui.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "CrewAI Flows",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/human-in-the-loop/flow"
+  },
+  {
+    "type": "page",
+    "title": "Human in the Loop (HITL)",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"CrewAI Flows\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows"
+  },
+  {
+    "type": "page",
+    "title": "Multi-Agent Flows",
+    "subtitle": "When building agentic applications, you often want to orchestrate complex flows together that require the coordination o",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/multi-agent-flows"
+  },
+  {
+    "type": "page",
+    "title": "Loading Agent State",
+    "subtitle": "When setting the `threadId` property in CopilotKit, i.e:",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/persistence/loading-agent-state"
+  },
+  {
+    "type": "page",
+    "title": "Threads",
+    "subtitle": "CrewAI Flows supports threads, a way to group messages together and maintain a continuous chat history across sessions. ",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/persistence/loading-message-history"
+  },
+  {
+    "type": "page",
+    "title": "Message Persistence",
+    "subtitle": "To learn about how to load previous messages and agent states, check out the",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/persistence/message-persistence"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "<ImageZoom",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/write-agent-state.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "CoAgents maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system a",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Predictive state updates",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/crewai-flows/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "Select an integration",
+    "subtitle": "Not sure which integration to pick? Use the matrix below to see which features each framework supports.",
+    "section": "",
+    "href": "/docs/integrations"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Disabling state streaming",
+    "subtitle": "By default, CopilotKit will stream both your state and tool calls to the frontend.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/disabling-state-streaming"
+  },
+  {
+    "type": "page",
+    "title": "Manually emitting messages",
+    "subtitle": "While most agent interactions happen automatically through shared state updates as the agent runs, you can also **manual",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/emit-messages"
+  },
+  {
+    "type": "page",
+    "title": "Exiting the agent loop",
+    "subtitle": "After your agent has finished a workflow, you'll usually want to explicitly end that loop by calling the CopilotKit exit",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/exit-agent"
+  },
+  {
+    "type": "page",
+    "title": "Loading Agent State",
+    "subtitle": "When setting the `threadId` property in CopilotKit, i.e:",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/persistence/loading-agent-state"
+  },
+  {
+    "type": "page",
+    "title": "Threads",
+    "subtitle": "LangGraph supports threads, a way to group messages together and ultimately maintain a continuous chat history. CopilotK",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/persistence/loading-message-history"
+  },
+  {
+    "type": "page",
+    "title": "Message Persistence",
+    "subtitle": "To learn about how to load previous messages and agent states, check out the",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/advanced/persistence/message-persistence"
+  },
+  {
+    "type": "page",
+    "title": "Readables",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Authentication",
+    "subtitle": "CopilotKit supports user authentication for LangGraph agents in two deployment modes:",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/auth"
+  },
+  {
+    "type": "page",
+    "title": "Common LangGraph issues",
+    "subtitle": "Welcome to the CoAgents Troubleshooting Guide! If you're having trouble getting tool calls to work, you've come to the r",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/coagent-troubleshooting/common-coagent-issues"
+  },
+  {
+    "type": "page",
+    "title": "Error Debugging & Observability",
+    "subtitle": "CopilotKit provides comprehensive error handling capabilities to help you debug issues and monitor your application's be",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/coagent-troubleshooting/error-debugging"
+  },
+  {
+    "type": "page",
+    "title": "Migrate from v0.2 to v0.3",
+    "subtitle": "Starting with `v0.3`, we changed how messages are synced between the agent (LangGraph) and CopilotKit. Essentially, both",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/coagent-troubleshooting/migrate-from-v0.2-to-v0.3"
+  },
+  {
+    "type": "page",
+    "title": "Configurable",
+    "subtitle": "LangGraph agents are able to take execution parameters, such as auth tokens and similar properties.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/configurable"
+  },
+  {
+    "type": "page",
+    "title": "Headless UI",
+    "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Slots",
+    "subtitle": "Every CopilotKit chat component is built from composable **slots** — named sub-components that you can override individu",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/custom-look-and-feel/slots"
+  },
+  {
+    "type": "page",
+    "title": "Deep Agents",
+    "subtitle": "Before you begin, you'll need the following:",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/deep-agents"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "id=\"frontend-actions-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "MCP Apps are MCP servers that expose tools with associated UI resources. When the agent calls one of these tools, Copilo",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "id=\"agent-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Display-only",
+    "subtitle": "`useComponent` lets you register a React component as a tool your agent can invoke. When the agent calls the tool, Copil",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/your-components/display-only"
+  },
+  {
+    "type": "page",
+    "title": "Interactive",
+    "subtitle": "id=\"frontend-tools-based-hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/your-components/interactive"
+  },
+  {
+    "type": "page",
+    "title": "Interrupt-based",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/generative-ui/your-components/interrupt-based"
+  },
+  {
+    "type": "page",
+    "title": "Interrupts",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/human-in-the-loop/interrupt-flow"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"LangGraph\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph"
+  },
+  {
+    "type": "page",
+    "title": "Multi-Agent Flows",
+    "subtitle": "<img",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/multi-agent-flows"
+  },
+  {
+    "type": "page",
+    "title": "Prebuilt Components",
+    "subtitle": "CopilotKit ships three prebuilt chat components that connect directly to your LangGraph agent. Each is a wrapper around ",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "A headless UI gives you full control over the chat experience — you bring your own components, layout, and styling while",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/premium/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Programmatic Control",
+    "subtitle": "MessageCircle,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/programmatic-control"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "State streaming",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "Input/Output Schemas",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/shared-state/state-inputs-outputs"
+  },
+  {
+    "type": "page",
+    "title": "Workflow Execution",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/shared-state/workflow-execution"
+  },
+  {
+    "type": "page",
+    "title": "Subgraphs",
+    "subtitle": "id=\"subgraphs-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/subgraphs"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to AG-UI",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/troubleshooting/migrate-to-agui"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 15 minutes</div>",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You now know the basics of how to build complex agentic experiences into your own appli",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll use the [research-canvas example](https://github.com/CopilotKit/CopilotKit/tree/main/examples/showcases/research-c",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: Start the Agent",
+    "subtitle": "Before we start integrating the LangGraph agent, let's understand how it works.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-2-start-the-agent"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Setup CopilotKit",
+    "subtitle": "Now that we have both our application and agent running, let's connect them using CopilotKit. The necessary dependencies",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-3-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Agentic Chat UI",
+    "subtitle": "At this point, we have a LangGraph agent running in LangGraph Studio and have a simple copilot. Now, let's",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-4-agentic-chat-ui"
+  },
+  {
+    "type": "page",
+    "title": "Step 5: Human in the Loop",
+    "subtitle": "Now that we have the ability to chat with our agent, we can move on to implementing human-in-the-loop. This is where the",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-5-human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Step 6: Shared State",
+    "subtitle": "In LangGraph, your agents are stateful. This means that they as your graph traverses nodes, the overall application stat",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-6-shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Step 7: Agentic Generative UI",
+    "subtitle": "We're almost done! In this step, we're going to add generative UI to the application so that we can visualize the agent",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-7-generative-ui"
+  },
+  {
+    "type": "page",
+    "title": "Step 8: Progressive State Updates",
+    "subtitle": "At this point, we've got a pretty functional application. We can run the agent, see the progress in the chat, and see th",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/agent-native-app/step-8-progressive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "<div>**Time to complete:** 20 minutes</div>",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app"
+  },
+  {
+    "type": "page",
+    "title": "Next Steps",
+    "subtitle": "This is the end of the tutorial. You can now start building your own CoAgents into your appications!",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/next-steps"
+  },
+  {
+    "type": "page",
+    "title": "Step 1: Checkout the repo",
+    "subtitle": "We'll be working with the CopilotKit repository, specifically using a branch called `coagents-travel-tutorial-start`. Th",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-1-checkout-repo"
+  },
+  {
+    "type": "page",
+    "title": "Step 2: LangGraph Agent",
+    "subtitle": "Before we start integrating the LangGraph agent, let's understand how it works.",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-2-langgraph-agent"
+  },
+  {
+    "type": "page",
+    "title": "Step 3: Setup CopilotKit",
+    "subtitle": "Now that we have the application and agent running, we're ready to connect both via CopilotKit. For this tutorial, we wi",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-3-setup-copilotkit"
+  },
+  {
+    "type": "page",
+    "title": "Step 4: Integrate the Agent",
+    "subtitle": "At this point, we have a LangGraph agent running in LangGraph Studioand have our own non-agentic copilot that we can int",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-4-integrate-the-agent"
+  },
+  {
+    "type": "page",
+    "title": "Step 5: Stream Progress",
+    "subtitle": "Now that we have integrated the LangGraph agent into the application, we can start utilizing features that will enhance ",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-5-stream-progress"
+  },
+  {
+    "type": "page",
+    "title": "Step 6: Human in the Loop",
+    "subtitle": "Now its time to add human in the loop to the application. This will allow the user to approve, reject, or modify mutativ",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/tutorials/ai-travel-app/step-6-human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Video: Research Canvas",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/videos/research-canvas-with-tako.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/langgraph/videos/research-canvas"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "id=\"agent-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"frontend-tools-based-hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"LlamaIndex\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex"
+  },
+  {
+    "type": "page",
+    "title": "Multi-Agent Flows",
+    "subtitle": "When building agentic applications, you often want to orchestrate complex flows together that require the coordination o",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/multi-agent-flows"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-read-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-write-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Predictive state updates",
+    "subtitle": "{/* TODO: Re-add once the dojo example is updated and works */}",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "Workflow Execution",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state/state-inputs-outputs"
+  },
+  {
+    "type": "page",
+    "title": "Workflow Execution",
+    "subtitle": "Not all state properties are relevant for frontend-backend sharing.",
+    "section": "Integrations",
+    "href": "/docs/integrations/llamaindex/shared-state/workflow-execution"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Readables",
+    "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useCopilotReadble`.",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "id=\"frontend-actions-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "id=\"agent-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"tool-based-generative-ui-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"human-in-the-loop-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"Mastra\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-read-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-write-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "<img",
+    "section": "Integrations",
+    "href": "/docs/integrations/mastra/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Code Contributions",
+    "subtitle": "We are grateful for your interest in contributing to CopilotKit. We welcome new contributors and appreciate your help in",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/(other)/contributing/code-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Advanced: Package Linking",
+    "subtitle": "In this guide, we'll teach you how to link the CopilotKit packages to your own project to test your changes. This way, y",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/(other)/contributing/code-contributions/package-linking"
+  },
+  {
+    "type": "page",
+    "title": "Documentation Contributions",
+    "subtitle": "We understand that as we move quickly, sometimes our documentation website can be a bit outdated. Therefore, we highly v",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/(other)/contributing/docs-contributions"
+  },
+  {
+    "type": "page",
+    "title": "Anonymous Telemetry",
+    "subtitle": "We use anonymous telemetry (metadata-only) to learn how to improve CopilotKit.",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/(other)/telemetry"
+  },
+  {
+    "type": "page",
+    "title": "Readables",
+    "subtitle": "One of the most common use cases for CopilotKit is to register app state and context using `useAgentContext`.",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/agent-app-context"
+  },
+  {
+    "type": "page",
+    "title": "Authentication",
+    "subtitle": "Forward user authentication from your frontend to your AG-UI server:",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/auth"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "For human-in-the-loop interactions with custom UI, use `useHumanInTheLoop` to create approval workflows:",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/custom-look-and-feel/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Frontend Tools",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/frontend-tools"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-loop",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Introduction",
+    "subtitle": "frameworkName=\"Microsoft Agent Framework\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "{/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Predictive state updates",
+    "subtitle": "id=\"predictive-state-updates-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/microsoft-agent-framework/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "State Rendering",
+    "subtitle": "id=\"agent-state-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/generative-ui/state-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Tool Rendering",
+    "subtitle": "id=\"backend-tools-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/generative-ui/tool-rendering"
+  },
+  {
+    "type": "page",
+    "title": "Pydantic AI Agents",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/human-in-the-loop/agent"
+  },
+  {
+    "type": "page",
+    "title": "Human in the Loop (HITL)",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Human-in-the-Loop",
+    "subtitle": "id=\"frontend-tools-based-hitl-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/human-in-the-loop"
+  },
+  {
+    "type": "page",
+    "title": "Overview",
+    "subtitle": "frameworkName=\"Pydantic AI\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai"
+  },
+  {
+    "type": "page",
+    "title": "Multi-Agent Flows",
+    "subtitle": "<img",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/multi-agent-flows"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/quickstart/pydantic-ai"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "Reading agent state",
+    "subtitle": "id=\"shared-state-read-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/shared-state/in-app-agent-read"
+  },
+  {
+    "type": "page",
+    "title": "Writing agent state",
+    "subtitle": "id=\"shared-state-write-example\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/shared-state/in-app-agent-write"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "src=\"https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif\"",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Predictive state updates",
+    "subtitle": "TailoredContent,",
+    "section": "Integrations",
+    "href": "/docs/integrations/pydantic-ai/shared-state/predictive-state-updates"
+  },
+  {
+    "type": "page",
+    "title": "A2A (Agents<->Agents)",
+    "subtitle": "A2A, or the Agent2Agent protocol, is a protocol introduced by Google for AI agents to interact and collaborate securely ",
+    "section": "Learn",
+    "href": "/docs/learn/a2a-protocol"
+  },
+  {
+    "type": "page",
+    "title": "AG-UI (Agents<->Users)",
+    "subtitle": "AG-UI is a lightweight, event-based protocol that standardizes how AI agents connect to user-facing applications.",
+    "section": "Learn",
+    "href": "/docs/learn/ag-ui-protocol"
+  },
+  {
+    "type": "page",
+    "title": "Agentic Protocols",
+    "subtitle": "CopilotKit is fully compatible with three major agentic protocols: AG-UI, MCP, and A2A.",
+    "section": "Learn",
+    "href": "/docs/learn/agentic-protocols"
+  },
+  {
+    "type": "page",
+    "title": "How does CopilotKit work?",
+    "subtitle": "CopilotKit is thoughtfully architected to scale with you, your teams, and your product.",
+    "section": "Learn",
+    "href": "/docs/learn/architecture"
+  },
+  {
+    "type": "page",
+    "title": "MCP (Agents<->Tools)",
+    "subtitle": "TailoredContent,",
+    "section": "Learn",
+    "href": "/docs/learn/connect-mcp-servers"
+  },
+  {
+    "type": "page",
+    "title": "Generative UI Overview",
+    "subtitle": "---",
+    "section": "Learn",
+    "href": "/docs/learn/generative-ui"
+  },
+  {
+    "type": "page",
+    "title": "A2UI",
+    "subtitle": "",
+    "section": "Learn",
+    "href": "/docs/learn/generative-ui/specs/a2ui"
+  },
+  {
+    "type": "page",
+    "title": "Generative UI Specs",
+    "subtitle": "",
+    "section": "Learn",
+    "href": "/docs/learn/generative-ui/specs"
+  },
+  {
+    "type": "page",
+    "title": "MCP Apps",
+    "subtitle": "",
+    "section": "Learn",
+    "href": "/docs/learn/generative-ui/specs/mcp-apps"
+  },
+  {
+    "type": "page",
+    "title": "Open-JSON-UI",
+    "subtitle": "**Open-JSON-UI** is an open standardization of OpenAI's internal declarative Generative UI schema, designed to enable ag",
+    "section": "Learn",
+    "href": "/docs/learn/generative-ui/specs/open-json-ui"
+  },
+  {
+    "type": "page",
+    "title": "Learn CopilotKit",
+    "subtitle": "Step-by-step tutorials and guides for building AI-powered applications.",
+    "section": "",
+    "href": "/docs/learn"
+  },
+  {
+    "type": "page",
+    "title": "A2A and MCP Handshake",
+    "subtitle": "AG-UI now includes **handshakes** with both **MCP** and **A2A** protocols, ensuring smooth interoperability across the f",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/a2a-mcp-handshake"
+  },
+  {
+    "type": "page",
+    "title": "A2UI Launches with full AG-UI Support",
+    "subtitle": "CopilotKit has been working closely with Google on A2A and A2UI integrations, and is proud to be a **launch partner for ",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/a2ui-launch"
+  },
+  {
+    "type": "page",
+    "title": "Generative UI Spec Support",
+    "subtitle": "",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/generative-ui-spec-support"
+  },
+  {
+    "type": "page",
+    "title": "Recent Updates",
+    "subtitle": "CopilotKit and AG-UI make MCP Apps usable inside real, user-facing applications. [More →](/learn/whats-new/mcp-apps-supp",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new"
+  },
+  {
+    "type": "page",
+    "title": "LangGraph Deep Agents in CopilotKit",
+    "subtitle": "They go beyond basic agents. They can plan multi-step workflows, manage their own file systems for context, spawn subage",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/langgraph-deep-agents"
+  },
+  {
+    "type": "page",
+    "title": "Full MCP Apps Support",
+    "subtitle": "src=\"/videos/mcp-apps-demo.mp4\"",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/mcp-apps-support"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit v1.50",
+    "subtitle": "CopilotKit v1.50 is now available. This page gives an overview of what is new, what is coming, and what just stays the s",
+    "section": "Learn",
+    "href": "/docs/learn/whats-new/v1-50"
+  },
+  {
+    "type": "page",
+    "title": "Prebuilt Components",
+    "subtitle": "CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.",
+    "section": "",
+    "href": "/docs/prebuilt-components"
+  },
+  {
+    "type": "page",
+    "title": "Fully Headless UI",
+    "subtitle": "",
+    "section": "Premium",
+    "href": "/docs/premium/headless-ui"
+  },
+  {
+    "type": "page",
+    "title": "Observability",
+    "subtitle": "",
+    "section": "Premium",
+    "href": "/docs/premium/observability"
+  },
+  {
+    "type": "page",
+    "title": "CopilotKit Premium",
+    "subtitle": "",
+    "section": "Premium",
+    "href": "/docs/premium/overview"
+  },
+  {
+    "type": "page",
+    "title": "Programmatic Control",
+    "subtitle": "Programmatic control lets you run agents outside of a chat UI — trigger agent runs, access results, and manage state ent",
+    "section": "",
+    "href": "/docs/programmatic-control"
+  },
+  {
+    "type": "page",
+    "title": "Quickstart",
+    "subtitle": "Starting from scratch? Use our CLI to get started in minutes, it will bootstrap a",
+    "section": "",
+    "href": "/docs/quickstart"
+  },
+  {
+    "type": "page",
+    "title": "LangChainAdapter",
+    "subtitle": "{",
+    "section": "Reference",
+    "href": "/docs/reference/v1/classes/llm-adapters/LangChainAdapter"
+  },
+  {
+    "type": "page",
+    "title": "Shared State",
+    "subtitle": "Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state ",
+    "section": "",
+    "href": "/docs/shared-state"
+  },
+  {
+    "type": "page",
+    "title": "Common Copilot Issues",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/common-issues"
+  },
+  {
+    "type": "page",
+    "title": "Error Debugging",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/error-debugging"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.10.X",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/migrate-to-1.10.X"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to 1.8.2",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/migrate-to-1.8.2"
+  },
+  {
+    "type": "page",
+    "title": "Migrate to V2",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/migrate-to-v2"
+  },
+  {
+    "type": "page",
+    "title": "Error Observability Connectors",
+    "subtitle": "",
+    "section": "Troubleshooting",
+    "href": "/docs/troubleshooting/observability-connectors"
+  }
+]

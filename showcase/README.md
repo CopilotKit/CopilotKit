@@ -8,7 +8,7 @@ Per-framework demos of CopilotKit (LangGraph, CrewAI, Mastra, Claude Agent SDK, 
 showcase/
   packages/<slug>/              # one per framework (17 total) — Dockerfile, src/app/demos/*/, src/agents/ or equivalent
   shell/                        # hub: home page, /matrix, canonical /integrations/[slug]/[demo]/{preview,code}
-  shell-internal/               # internal-only feature × integration grid (port 3002)
+  shell-dashboard/              # internal-only feature × integration grid (port 3002)
   shared/
     feature-registry.json       # canonical features + categories (feeds the grid rows)
     constraints.yaml            # allowlist for which demos a package can expose
@@ -27,7 +27,7 @@ showcase/
 - macOS or Linux
 - [Homebrew](https://brew.sh/)
 - Docker engine. Any of: Docker Desktop, **Colima** (recommended, no GUI / no sign-in), or OrbStack.
-- Node 22+ and npm (for `shell` / `shell-internal` dev servers — they're not in the compose)
+- Node 22+ and npm (for `shell` / `shell-dashboard` dev servers — they're not in the compose)
 
 ### Colima install (one time)
 
@@ -107,17 +107,17 @@ SHOWCASE_LOCAL=1 npm run dev    # now /preview iframes http://localhost:<port>/d
 
 In production the env var is unset → Railway URLs, unchanged.
 
-## shell-internal — feature × integration matrix
+## shell-dashboard — feature × integration matrix
 
 Internal overview of which packages support which features, linking to the canonical `/preview` and `/code` routes on `shell`. Lives at http://localhost:3002 and reads the same `registry.json` `shell` does.
 
 ```sh
-cd showcase/shell-internal
+cd showcase/shell-dashboard
 npm install
 npm run dev
 ```
 
-Column ordering lives in `shell-internal/src/lib/sort-order.ts` — internal to this app, not part of the public registry.
+Column ordering lives in `shell-dashboard/src/lib/sort-order.ts` — internal to this app, not part of the public registry.
 
 ## Iterating on a demo
 
@@ -125,7 +125,7 @@ Column ordering lives in `shell-internal/src/lib/sort-order.ts` — internal to 
 2. Rebundle so `/code` in `shell` reflects the edit: `cd showcase && npx tsx scripts/bundle-demo-content.ts`.
 3. If you changed `manifest.yaml` or added a feature to `shared/feature-registry.json`: `npx tsx scripts/generate-registry.ts`.
 4. Rebuild + restart the container: `./scripts/dev-local.sh up <slug>`.
-5. The grid in `shell-internal` and `/preview` in `shell` now show the new state.
+5. The grid in `shell-dashboard` and `/preview` in `shell` now show the new state.
 
 ## Relationship to Railway
 

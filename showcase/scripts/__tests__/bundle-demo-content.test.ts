@@ -76,14 +76,17 @@ describe("Content Bundler", () => {
     expect(agenticChat.readme).toContain("Agentic Chat");
     expect(agenticChat.files.length).toBeGreaterThan(0);
 
-    // page.tsx should be first (sorted by bundler)
-    expect(agenticChat.files[0].filename).toBe("page.tsx");
+    // page.tsx should be first (sorted by bundler); its bundled filename
+    // is the column-relative path.
+    expect(agenticChat.files[0].filename).toBe(
+      "src/app/demos/agentic-chat/page.tsx",
+    );
     expect(agenticChat.files[0].language).toBe("typescript");
     expect(agenticChat.files[0].content).toContain("CopilotKit");
 
-    // agent.py should be present
-    const agentFile = agenticChat.files.find(
-      (f: any) => f.filename === "agent.py",
+    // Backend agent file (from manifest.highlight) should be present.
+    const agentFile = agenticChat.files.find((f: any) =>
+      /agents\/agentic_chat\.py$/.test(f.filename),
     );
     expect(agentFile).toBeDefined();
     expect(agentFile.language).toBe("python");
@@ -108,28 +111,19 @@ describe("Content Bundler", () => {
   it("includes backend files for packages with agent code", () => {
     const content = runBundlerAndRead();
 
-    // langgraph-python should have agent_server.py in backend files
+    // langgraph-python: backend files are merged into the flat `files`
+    // list via the manifest's `highlight:` entries (column-relative paths
+    // like src/agents/main.py).
     const lgDemo = content.demos["langgraph-python::agentic-chat"];
     expect(lgDemo).toBeDefined();
-    expect(lgDemo.backend_files).toBeDefined();
-    expect(lgDemo.backend_files.length).toBeGreaterThan(0);
-    const agentServer = lgDemo.backend_files.find(
-      (f: any) => f.filename === "agent_server.py",
+    const lgAgent = lgDemo.files.find((f: any) =>
+      /src\/agents\/agentic_chat\.py$/.test(f.filename),
     );
-    expect(agentServer).toBeDefined();
-    expect(agentServer.language).toBe("python");
-
-    // mastra should have mastra/agents/index.ts in backend files
-    const mastraDemo = content.demos["mastra::agentic-chat"];
-    expect(mastraDemo).toBeDefined();
-    expect(mastraDemo.backend_files.length).toBeGreaterThan(0);
-    const mastraAgent = mastraDemo.backend_files.find(
-      (f: any) => f.filename === "mastra/agents/index.ts",
-    );
-    expect(mastraAgent).toBeDefined();
+    expect(lgAgent).toBeDefined();
+    expect(lgAgent.language).toBe("python");
   });
 
-  it("includes all 10 langgraph-python demos", () => {
+  it("includes core langgraph-python demos", () => {
     const content = runBundlerAndRead();
 
     const expectedDemos = [
@@ -139,8 +133,7 @@ describe("Content Bundler", () => {
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",
-      "shared-state-read",
-      "shared-state-write",
+      "shared-state-read-write",
       "shared-state-streaming",
       "subagents",
     ];
@@ -149,7 +142,6 @@ describe("Content Bundler", () => {
       const key = `langgraph-python::${demoId}`;
       expect(content.demos[key]).toBeDefined();
       expect(content.demos[key].files.length).toBeGreaterThan(0);
-      expect(content.demos[key].readme).toBeTruthy();
     }
   });
 

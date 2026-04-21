@@ -32,8 +32,28 @@ const SHARED_TS_DIR = path.join(SHOWCASE, "shared", "typescript", "tools");
 // exact pattern instead of duplicating a near-copy that drifts. The host
 // portion is deliberately scoped to localhost / 127.0.0.1 so documented
 // corporate gateways or Azure endpoints on port 8000 are never clobbered.
-const AGENT_URL_LOCALHOST_8000_RE =
-  /^(AGENT_URL\s*=\s*https?:\/\/(?:localhost|127\.0\.0\.1):)8000\b/gm;
+const AGENT_URL_LOCALHOST_8000_RE = makeAgentUrlLocalhostPortRE(8000);
+
+/**
+ * Factory for AGENT_URL host-scoped port matchers. Produces a regex that
+ * matches lines of the form `AGENT_URL=http(s)://(localhost|127.0.0.1):<port>`
+ * (global+multiline). The consistency test uses this to assert the generator
+ * rewrote the documented 8000 port to 8123 in starters — previously that side
+ * did `.source.replace(/8000\b/, "8123\b")` string munging which is brittle.
+ * Keeping the construction here means a single edit to the host allowlist
+ * propagates to every caller.
+ */
+export function makeAgentUrlLocalhostPortRE(port: number): RegExp {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    throw new Error(
+      `makeAgentUrlLocalhostPortRE: port must be a positive integer ≤ 65535, got ${port}`,
+    );
+  }
+  return new RegExp(
+    `^(AGENT_URL\\s*=\\s*https?:\\/\\/(?:localhost|127\\.0\\.0\\.1):)${port}\\b`,
+    "gm",
+  );
+}
 
 // Replace floating dist-tags (like 'beta', 'next') with known-good version
 // ranges for reproducible Docker installs. The monorepo lockfile keeps the

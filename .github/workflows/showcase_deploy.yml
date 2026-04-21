@@ -50,7 +50,9 @@ on:
           - starter-spring-ai
           - starter-strands
           - aimock
-          - shell-dojolike
+          - shell-dojo
+          - shell-dashboard
+          - shell-docs
 
 concurrency:
   group: showcase-deploy-${{ github.ref }}-${{ github.event.inputs.service || 'auto' }}
@@ -113,7 +115,9 @@ jobs:
             starter_spring_ai: 'showcase/starters/spring-ai/**'
             starter_strands: 'showcase/starters/strands/**'
             aimock: 'showcase/aimock/**'
-            shell_dojolike: 'showcase/shell-dojolike/**'
+            shell_dojo: 'showcase/shell-dojo/**'
+            shell_dashboard: 'showcase/shell-dashboard/**'
+            shell_docs: 'showcase/shell-docs/**'
 
       - name: Build service matrix
         id: build-matrix
@@ -162,7 +166,9 @@ jobs:
             {"dispatch_name":"starter-spring-ai","filter_key":"starter_spring_ai","context":"showcase/starters/spring-ai","image":"showcase-starter-spring-ai","railway_id":"3559ece3-7ba3-41ac-b24c-1f780133ec58","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"starter-strands","filter_key":"starter_strands","context":"showcase/starters/strands","image":"showcase-starter-strands","railway_id":"06db2bb8-e15d-4c6a-97ad-e14777c92d9f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health"},
-            {"dispatch_name":"shell-dojolike","filter_key":"shell_dojolike","context":"showcase/shell-dojolike","image":"showcase-shell-dojolike","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"","health_path":"/"}
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":"showcase/shell-dojo","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"}
           ]'
 
           DISPATCH="${{ github.event.inputs.service }}"
@@ -352,9 +358,14 @@ jobs:
               exit 1
             fi
 
-            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id')
-            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status')
-            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl')
+            # `// empty` so a missing edge yields "" instead of the literal
+            # string "null". Matches the PRIOR_DEPLOY_ID extraction above —
+            # without it, the `$DEPLOY_ID = $PRIOR_DEPLOY_ID` comparison and
+            # the `$DOMAIN != "null"` guard break in inconsistent ways when
+            # Railway's edges array is transiently empty.
+            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
+            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
+            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
             echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
 
             # Skip stale deployments: if we see the prior deployment, the fresh
@@ -390,7 +401,7 @@ jobs:
                 exit 1
               fi
               HEALTH_URL="https://${DOMAIN}${HEALTH_PATH}"
-              # Services like `shell` and `shell-dojolike` probe `/` (a Next.js
+              # Services like `shell` and `shell-dojo` probe `/` (a Next.js
               # homepage), which can transiently 5xx or bounce through a 301
               # chain during cold starts — a single bad response would reset
               # HEALTHY_STREAK and throw away progress. Retry the probe up to
@@ -514,7 +525,7 @@ jobs:
             .jobs[]?
             | select(.name | test("^build \\(.+\\)$"))
             | "\(.name | capture("^build \\((?<s>.+)\\)$").s)\t\(.conclusion // "unknown")"
-          ' 2>/dev/null)
+          ')
           if [ -z "$pairs" ]; then
             echo "::warning::No matrix-leg jobs found in run; notify will use softer wording"
             echo "have_detail=false" >> "$GITHUB_OUTPUT"
@@ -601,10 +612,10 @@ jobs:
           # if the list exceeds the budget. Duplicate the helper inline
           # because YAML run blocks don't share shell functions.
           truncate_csv() {
-            local budget=$1 input=$2 out="" item proposed
+            local budget=$1 input=$2 out="" item proposed ws
             # Input is comma-separated (jq join(", ")) — normalise to
             # space separation for the shell word-split below.
-            local ws="${input//,/ }"
+            ws="${input//,/ }"
             for item in $ws; do
               if [ -z "$out" ]; then
                 proposed="$item"
@@ -674,7 +685,7 @@ jobs:
             # No service changes matched the paths filter — run proved
             # nothing either way. Don't flip state.
             OUTCOME="skip"
-          elif [ "$BUILD" = "failure" ] || [ -n "$BUILD" ]; then
+          elif [ "$BUILD" = "failure" ]; then
             # Build failed. Distinguish full failure (every leg failed) from
             # partial failure (some legs passed, some failed). The previous
             # wording said "FAILED — N service(s) targeted" which implied
