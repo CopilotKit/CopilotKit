@@ -126,9 +126,7 @@ export function RouterPivot({
   // /docs/<feature> → sees the loading placeholder immediately, not a
   // flash of the pivot grid.
   if (!hasHydrated) {
-    return (
-      <div className="text-xs text-[var(--text-muted)]">Loading…</div>
-    );
+    return <div className="text-xs text-[var(--text-muted)]">Loading…</div>;
   }
 
   // If we have a redirect target we'll be redirected in a tick —
