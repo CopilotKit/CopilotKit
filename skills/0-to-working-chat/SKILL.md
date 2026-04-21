@@ -241,9 +241,8 @@ interface Env {
 
 // Module-scoped cache. `env` arrives per-request, so we initialize lazily
 // the first time we see it. Subsequent requests in the same isolate reuse.
-let cachedHandler:
-  | ((request: Request) => Response | Promise<Response>)
-  | null = null;
+let cachedHandler: ((request: Request) => Response | Promise<Response>) | null =
+  null;
 
 function getHandler(env: Env) {
   if (cachedHandler) return cachedHandler;

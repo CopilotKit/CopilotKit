@@ -189,9 +189,7 @@ observability — use your server framework's tooling. See
 Expected:
 
 ```tsx
-<CopilotKitProvider
-  publicApiKey={import.meta.env.VITE_CPK_PUBLIC_API_KEY}
-/>
+<CopilotKitProvider publicApiKey={import.meta.env.VITE_CPK_PUBLIC_API_KEY} />
 ```
 
 Fail condition: key inlined as a string literal in committed source.
@@ -235,8 +233,7 @@ interface Env {
   OPENAI_API_KEY: string;
 }
 
-let cachedHandler: ((r: Request) => Response | Promise<Response>) | null =
-  null;
+let cachedHandler: ((r: Request) => Response | Promise<Response>) | null = null;
 
 function getHandler(env: Env) {
   if (cachedHandler) return cachedHandler;

@@ -66,17 +66,17 @@ Read both before executing the migration.
 
 ### Rename table (summary — full table in references/rename-table.md)
 
-| v1 API                              | v2 API                            | Subpath                     |
-| ----------------------------------- | --------------------------------- | --------------------------- |
-| `CopilotKit` provider               | `CopilotKitProvider`              | `@copilotkit/react-core/v2` |
-| `useCopilotAction` (data)           | `useFrontendTool`                 | `@copilotkit/react-core/v2` |
-| `useCopilotAction` (render/HITL)    | `useHumanInTheLoop`               | `@copilotkit/react-core/v2` |
-| `useCoAgent`                        | `useAgent`                        | `@copilotkit/react-core/v2` |
-| `useCopilotReadable`                | `useAgentContext`                 | `@copilotkit/react-core/v2` |
-| `CopilotKitErrorCode` (SCREAMING)   | `CopilotKitCoreErrorCode` (snake) | `@copilotkit/react-core/v2` |
+| v1 API                              | v2 API                                                                       | Subpath                     |
+| ----------------------------------- | ---------------------------------------------------------------------------- | --------------------------- |
+| `CopilotKit` provider               | `CopilotKitProvider`                                                         | `@copilotkit/react-core/v2` |
+| `useCopilotAction` (data)           | `useFrontendTool`                                                            | `@copilotkit/react-core/v2` |
+| `useCopilotAction` (render/HITL)    | `useHumanInTheLoop`                                                          | `@copilotkit/react-core/v2` |
+| `useCoAgent`                        | `useAgent`                                                                   | `@copilotkit/react-core/v2` |
+| `useCopilotReadable`                | `useAgentContext`                                                            | `@copilotkit/react-core/v2` |
+| `CopilotKitErrorCode` (SCREAMING)   | `CopilotKitCoreErrorCode` (snake)                                            | `@copilotkit/react-core/v2` |
 | `publicApiKey` prop                 | `publicApiKey` (unchanged; canonical) — `publicLicenseKey` accepted as alias | provider prop               |
-| `imageUploadsEnabled` prop          | `attachments={{ enabled: true }}` | `<CopilotChat>` prop        |
-| `CopilotPopup` etc. from `react-ui` | same names from `react-core/v2`   | `@copilotkit/react-core/v2` |
+| `imageUploadsEnabled` prop          | `attachments={{ enabled: true }}`                                            | `<CopilotChat>` prop        |
+| `CopilotPopup` etc. from `react-ui` | same names from `react-core/v2`                                              | `@copilotkit/react-core/v2` |
 
 ### Import-path audit (grep for v1 imports)
 

@@ -135,15 +135,15 @@ connection isn't being buffered (proxies, compression).
 
 ### Deprecated-alias cheat sheet
 
-| Deprecated / alias                                         | Canonical                                                           |
-| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| Deprecated / alias                                         | Canonical                                                                    |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `publicLicenseKey` (alias)                                 | `publicApiKey` (canonical; resolution is `publicApiKey ?? publicLicenseKey`) |
-| `agents__unsafe_dev_only`                                  | (no prod alias — use `runtimeUrl` or `publicApiKey`)                |
-| `selfManagedAgents`                                        | (no prod alias — same as above)                                     |
-| `imageUploadsEnabled`                                      | `attachments={{ enabled: true }}`                                   |
-| `createCopilotEndpoint*` aliases (still accepted)          | `createCopilotRuntimeHandler`                                       |
-| `createCopilotExpressHandler` / `createCopilotHonoHandler` | mount `createCopilotRuntimeHandler` in the framework's native route |
-| `beforeRequestMiddleware` / `afterRequestMiddleware`       | `hooks.onRequest` / `hooks.onBeforeHandler`                         |
+| `agents__unsafe_dev_only`                                  | (no prod alias — use `runtimeUrl` or `publicApiKey`)                         |
+| `selfManagedAgents`                                        | (no prod alias — same as above)                                              |
+| `imageUploadsEnabled`                                      | `attachments={{ enabled: true }}`                                            |
+| `createCopilotEndpoint*` aliases (still accepted)          | `createCopilotRuntimeHandler`                                                |
+| `createCopilotExpressHandler` / `createCopilotHonoHandler` | mount `createCopilotRuntimeHandler` in the framework's native route          |
+| `beforeRequestMiddleware` / `afterRequestMiddleware`       | `hooks.onRequest` / `hooks.onBeforeHandler`                                  |
 
 ## Common Mistakes
 

@@ -180,8 +180,8 @@ Wrong:
 
 ```typescript
 new CopilotKitIntelligence({
-  apiUrl: "https://api.copilotkit.ai/api",         // double /api prefix
-  wsUrl: "wss://api.copilotkit.ai/socket",          // /socket is not a real path
+  apiUrl: "https://api.copilotkit.ai/api", // double /api prefix
+  wsUrl: "wss://api.copilotkit.ai/socket", // /socket is not a real path
   apiKey,
   organizationId,
 });
