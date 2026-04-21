@@ -59,10 +59,15 @@ type DocsLinks = {
  *
  * Missing file -> empty overrides. A file with the older shape (e.g. using
  * `shell_docs_url` instead of `shell_docs_path`) is treated as stale: we
- * still merge what we can without erroring. Completely malformed JSON is
- * logged and treated as empty.
+ * still merge what we can without erroring.
+ *
+ * A completely malformed JSON file IS a build-blocking error: the caller
+ * must pass `errors` so the failure surfaces in the aggregated error list
+ * and `main()`'s `process.exit(1)` path fires. Previously we just
+ * `console.warn`ed, which let CI continue green with a silently broken
+ * override file on disk.
  */
-function loadDocsLinks(packageDir: string): DocsLinks {
+function loadDocsLinks(packageDir: string, errors: string[]): DocsLinks {
   const docsLinksPath = path.join(packageDir, "docs-links.json");
   if (!fs.existsSync(docsLinksPath)) {
     return { features: {} };
@@ -95,8 +100,8 @@ function loadDocsLinks(packageDir: string): DocsLinks {
     }
     return { features };
   } catch (e) {
-    console.warn(
-      `  WARN: failed to parse ${docsLinksPath}, treating as empty: ${e}`,
+    errors.push(
+      `${docsLinksPath}: failed to parse docs-links.json: ${(e as Error).message}`,
     );
     return { features: {} };
   }
@@ -214,7 +219,7 @@ function main() {
   // Best-effort: missing file or stale shapes are tolerated and don't error.
   for (const manifest of integrations) {
     const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
-    manifest.docs_links = loadDocsLinks(pkgDir);
+    manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
   }
 
   // Constraint validation
