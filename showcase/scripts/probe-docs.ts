@@ -77,8 +77,17 @@ const NOINDEX_PATTERN =
 
 async function probeOg(url: string | undefined): Promise<DocState> {
   if (!url) return "missing";
+  // Hard timeout: without it, a hung upstream would stall the whole probe
+  // run indefinitely (no default fetch timeout in Node). 10s is generous
+  // enough for slow docs sites while still bounding CI cost.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    const res = await fetch(url, { method: "GET", redirect: "follow" });
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      signal: controller.signal,
+    });
     if (res.status === 404) return "notfound";
     if (res.status < 200 || res.status >= 400) return "error";
     const matched = res.headers.get("x-matched-path") ?? "";
@@ -87,8 +96,16 @@ async function probeOg(url: string | undefined): Promise<DocState> {
     const body = await res.text();
     if (NOINDEX_PATTERN.test(body)) return "notfound";
     return "ok";
-  } catch {
+  } catch (err) {
+    // Log the URL + kind so a spike of "error" states can be diagnosed
+    // (abort vs. DNS vs. TLS). Silent returns made the output useless.
+    const e = err as Error & { code?: string; cause?: { code?: string } };
+    const code = e.code ?? e.cause?.code ?? "";
+    const detail = code ? `${e.name}:${code}` : e.name;
+    console.warn(`[probe-docs] probeOg failed ${url} (${detail}): ${e.message}`);
     return "error";
+  } finally {
+    clearTimeout(timer);
   }
 }
 
