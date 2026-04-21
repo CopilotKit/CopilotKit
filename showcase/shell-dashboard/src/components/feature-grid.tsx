@@ -111,6 +111,35 @@ function aggregateConnection(
   return "live";
 }
 
+/**
+ * Resolve the shell URL used to build Demo/Code links.
+ *
+ * `NEXT_PUBLIC_SHELL_URL` is inlined at build time. In production builds we
+ * REFUSE to silently fall back to `http://localhost:3000` — those links ship
+ * in the deployed bundle and render as broken "localhost:3000" references
+ * for every visitor on Vercel/Railway. Instead, surface a sentinel URL
+ * (`about:blank#shell-url-missing`) so the link visibly breaks and operators
+ * see the misconfiguration on first click; also emit a build-time warning
+ * on the server render path.
+ *
+ * In development/test we retain the historical localhost fallback to keep
+ * local iteration friction-free.
+ */
+function resolveShellUrl(): string {
+  const env = process.env.NEXT_PUBLIC_SHELL_URL;
+  if (env && env.length > 0) return env;
+  if (process.env.NODE_ENV === "production") {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[feature-grid] FATAL-CONFIG: NEXT_PUBLIC_SHELL_URL is unset in a " +
+        "production build; Demo / Code / docs-shell links will render as " +
+        "about:blank#shell-url-missing. Rebuild with the env var set.",
+    );
+    return "about:blank#shell-url-missing";
+  }
+  return "http://localhost:3000";
+}
+
 export function FeatureGrid({
   title,
   subtitle,
@@ -122,10 +151,14 @@ export function FeatureGrid({
   renderCell: CellRenderer;
   minColWidth?: number;
 }) {
-  const shellUrl = process.env.NEXT_PUBLIC_SHELL_URL || "http://localhost:3000";
-  const integrations = getIntegrations();
-  const features = getFeatures();
-  const categories = getFeatureCategories();
+  const shellUrl = resolveShellUrl();
+  // `getIntegrations()` / `getFeatures()` call `.sort()` / array spread on
+  // every invocation, returning a fresh array identity. Memoize once per
+  // mount so downstream `useMemo`s keyed on these arrays don't identity-
+  // invalidate every render (C5 F9).
+  const integrations = useMemo(() => getIntegrations(), []);
+  const features = useMemo(() => getFeatures(), []);
+  const categories = useMemo(() => getFeatureCategories(), []);
 
   // One subscription per dimension — each resolves into `rows` that we
   // merge into a single keyed `LiveStatusMap` (spec §5.4).
@@ -201,7 +234,7 @@ export function FeatureGrid({
                 const tallyTitle = tally.unknown
                   ? "dashboard offline — live signal unavailable (§5.3)"
                   : total
-                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (E2E + Smoke per feature; Health counted once per integration)`
+                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (E2E + Smoke per feature; Health counted once per integration; QA not tallied — informational only)`
                     : "no countable signals for this column";
                 return (
                   <th
@@ -352,6 +385,9 @@ export function LiveIndicator({ status }: { status: ConnectionStatus }) {
     <span
       data-testid="live-indicator"
       data-status={status}
+      data-tone={
+        status === "live" ? "green" : status === "connecting" ? "amber" : "red"
+      }
       className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]"
       title={`Live data: ${label}`}
     >

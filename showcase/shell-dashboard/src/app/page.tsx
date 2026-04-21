@@ -56,6 +56,11 @@ export default function Page() {
 }
 
 function Legend() {
+  // Aging thresholds below (`<6h`, `<7d`, `<30d`) describe intent /
+  // spec §5.4 policy — the probe aging logic lives in the ops service
+  // (showcase/ops/src/writers/status-writer.ts) and the values shown
+  // here are informational copy, not live-derived. If the probes'
+  // "degraded" cutoff changes, update this Legend too (C5 F11).
   return (
     <div className="px-8 pb-8 mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[var(--text-muted)]">
       <div className="flex items-center gap-1.5">

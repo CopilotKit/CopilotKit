@@ -9,17 +9,21 @@ import type { Integration, Feature } from "@/lib/registry";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
 describe("LiveIndicator", () => {
+  // Note: tone assertions use `data-tone` (stable) rather than the raw
+  // CSS-class selector (`bg-[var(--ok)]`) — class names are a Tailwind
+  // implementation detail and shift when themes move (C5 F23).
   it("renders live → green solid dot", () => {
     const { getByTestId } = render(<LiveIndicator status="live" />);
     const el = getByTestId("live-indicator");
     expect(el.getAttribute("data-status")).toBe("live");
-    expect(el.querySelector("span.bg-\\[var\\(--ok\\)\\]")).not.toBeNull();
+    expect(el.getAttribute("data-tone")).toBe("green");
   });
 
   it("renders connecting → amber pulse dot", () => {
     const { getByTestId } = render(<LiveIndicator status="connecting" />);
     const el = getByTestId("live-indicator");
     expect(el.getAttribute("data-status")).toBe("connecting");
+    expect(el.getAttribute("data-tone")).toBe("amber");
     expect(el.querySelector(".animate-pulse")).not.toBeNull();
   });
 
@@ -27,6 +31,7 @@ describe("LiveIndicator", () => {
     const { getByTestId } = render(<LiveIndicator status="error" />);
     const el = getByTestId("live-indicator");
     expect(el.getAttribute("data-status")).toBe("error");
+    expect(el.getAttribute("data-tone")).toBe("red");
     expect(el.textContent).toContain("offline");
   });
 });
