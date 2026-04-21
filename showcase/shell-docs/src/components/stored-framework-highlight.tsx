@@ -13,8 +13,15 @@ import React from "react";
 import { useFramework } from "./framework-provider";
 
 export function StoredFrameworkHighlight({ slug }: { slug: string }) {
-  const { framework } = useFramework();
-  if (framework !== slug) return null;
+  // Read `storedFramework` (the REMEMBERED preference) rather than
+  // `framework` (the strictly-URL-derived active framework). This
+  // component is mounted inside the `/docs/*` pivot, where `framework`
+  // is always null — keying off it would mean the badge never rendered.
+  //
+  // Covered by: visit /docs/ after previously picking LangChain → the
+  // LangChain card shows the "Your choice" badge + accent ring.
+  const { storedFramework } = useFramework();
+  if (storedFramework !== slug) return null;
   return (
     <>
       <span

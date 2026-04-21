@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev --port 3003",
     "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/generate-search-index.ts && next build",
-    "start": "next start",
+    "start": "next start -p 3003",
     "lint": "next lint"
   },
   "dependencies": {
@@ -15,10 +15,7 @@
     "next-mdx-remote": "^5.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-markdown": "^9.0.0",
-    "react-syntax-highlighter": "^15.6.0",
     "rehype-highlight": "^7.0.2",
-    "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.0",
     "yaml": "^2.7.0"
   },
@@ -26,10 +23,12 @@
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-syntax-highlighter": "^15.5.0",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.18"
   }
 }

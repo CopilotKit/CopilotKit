@@ -19,6 +19,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
 import {
   CONTENT_DIR,
+  FRAMEWORK_CATEGORY_ORDER,
   buildNavTree,
   loadDoc,
   readMeta,
@@ -47,18 +48,9 @@ function findFrameworksWithCell(cell: string): string[] {
   return matches;
 }
 
-// Category ordering for the framework picker grid — mirrors the
-// integrations page and the sidebar dropdown so the UX reads the same
-// everywhere.
-const FRAMEWORK_CATEGORY_ORDER = [
-  "popular",
-  "agent-framework",
-  "provider-sdk",
-  "enterprise-platform",
-  "protocol",
-  "emerging",
-  "starter",
-] as const;
+// Category ordering for the framework picker grid is imported from
+// @/lib/docs-render so the landing grid, sidebar dropdown, and this
+// overview share a single source of truth.
 
 // Docs-section cards shown beneath the framework picker. Each href
 // targets the framework-agnostic route under `/docs/<slug>` — when the

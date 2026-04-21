@@ -1,5 +1,12 @@
+/* highlight.js themes load BEFORE tailwindcss so Tailwind utility
+ * layers can override specific selectors if ever needed. Both light
+ * and dark themes are imported; the dark variant is scoped via
+ * `prefers-color-scheme: dark` so only one paints at a time. shell-docs
+ * does not yet ship a dark theme, but the stylesheet is ready for it. */
+@import "highlight.js/styles/github.css" layer(highlightjs);
+@import "highlight.js/styles/github-dark-dimmed.css" layer(highlightjs)
+  (prefers-color-scheme: dark);
 @import "tailwindcss";
-@import "highlight.js/styles/github.css";
 
 :root {
   /* Backgrounds — match reference (oklch(0.9038 0.0149 286.1) ≈ #e6e6ec).

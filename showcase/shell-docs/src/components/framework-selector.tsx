@@ -40,6 +40,11 @@ export interface FrameworkSelectorProps {
 /**
  * Strip a known framework prefix off the pathname. Returns the remainder
  * slug (no leading slash) or `null` when the path isn't framework-scoped.
+ *
+ * Only inspects the FIRST path segment — we deliberately do NOT recurse
+ * into deeper segments so paths like `/<fw>/<fw>/x` preserve the inner
+ * `<fw>/x` as the tail (the inner segment is part of the feature slug,
+ * not a framework switch).
  */
 function stripFrameworkPrefix(
   pathname: string,
@@ -47,6 +52,7 @@ function stripFrameworkPrefix(
 ): string | null {
   const parts = pathname.split("/").filter(Boolean);
   if (parts.length === 0) return null;
+  // Guard: only the first segment is considered a framework prefix.
   if (!knownFrameworks.includes(parts[0])) return null;
   return parts.slice(1).join("/");
 }
@@ -66,7 +72,8 @@ export function FrameworkSelector({
 }: FrameworkSelectorProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
-  const { framework, knownFrameworks, setStoredFramework } = useFramework();
+  const { framework, storedFramework, knownFrameworks, setStoredFramework } =
+    useFramework();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -75,9 +82,15 @@ export function FrameworkSelector({
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
+      // `e.target` is typed as `EventTarget | null`; `Node.contains`
+      // requires an actual `Node`. Guard instead of casting so we don't
+      // silently invoke `contains` with non-DOM targets (e.g. events
+      // dispatched against `window`).
+      const target = e.target instanceof Node ? e.target : null;
+      if (!target) return;
       if (
-        panelRef.current?.contains(e.target as Node) ||
-        buttonRef.current?.contains(e.target as Node)
+        panelRef.current?.contains(target) ||
+        buttonRef.current?.contains(target)
       ) {
         return;
       }
@@ -116,7 +129,11 @@ export function FrameworkSelector({
 
   function selectFramework(slug: string) {
     setStoredFramework(slug);
-    router.push(hrefFor(slug));
+    // replace vs push: picking a backend is a pivot on the same logical
+    // page, not a forward navigation. Using `push` clutters the back
+    // stack with every framework the user clicked through, which makes
+    // the browser Back button useless. `replace` keeps history sane.
+    router.replace(hrefFor(slug));
     setOpen(false);
   }
 
@@ -236,19 +253,24 @@ export function FrameworkSelector({
               : "absolute top-full left-0 mt-1 w-[340px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg z-50 p-2"
           }
         >
-          {framework && (
+          {(framework || storedFramework) && (
             <button
               type="button"
               className="w-full text-left px-2 py-1.5 text-[11px] text-[var(--text-muted)] hover:text-[var(--text)] cursor-pointer"
               onClick={() => {
                 setStoredFramework(null);
-                // Navigate to the equivalent /docs/<feature> page when we can
+                // If we're on a framework-scoped route, flip back to the
+                // equivalent `/docs/<feature>` page. On `/docs/*` and
+                // other non-scoped routes, clearing a stale stored pick
+                // is purely a preference change — no navigation needed,
+                // which is why the escape hatch is reachable even when
+                // `framework` is null.
                 const frameworkTail = stripFrameworkPrefix(
                   pathname,
                   knownFrameworks,
                 );
                 if (frameworkTail !== null) {
-                  router.push(
+                  router.replace(
                     frameworkTail ? `/docs/${frameworkTail}` : "/docs",
                   );
                 }

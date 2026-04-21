@@ -20,6 +20,52 @@ import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
 
+// Dev-only warning helper for stub components that discard their props.
+// Fires once per component name so HMR / re-renders don't spam the console.
+const __warnedStubs = new Set<string>();
+function warnStub(name: string, propKeys: string[]): void {
+  if (process.env.NODE_ENV === "production") return;
+  if (propKeys.length === 0) return;
+  const key = `${name}:${propKeys.sort().join(",")}`;
+  if (__warnedStubs.has(key)) return;
+  __warnedStubs.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[mdx-registry] <${name}> is a non-functional shim — these props were discarded: ${propKeys.join(", ")}. ` +
+      `Override <${name}> in the consuming renderer to make it interactive.`,
+  );
+}
+
+// Wrap a children-only stub so it warns in dev when additional props are
+// passed. Keeps runtime behavior identical (render children) for compat.
+function stub(name: string) {
+  const Stub = ({
+    children,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) => {
+    const extras = Object.keys(rest);
+    if (extras.length > 0) warnStub(name, extras);
+    return <div>{children}</div>;
+  };
+  Stub.displayName = `MdxStub(${name})`;
+  return Stub;
+}
+
+// Dev-only once-per-key log for silent null returns so MDX authors learn
+// their embed didn't render.
+const __warnedNull = new Set<string>();
+function warnSilentNull(component: string, reason: string): void {
+  if (process.env.NODE_ENV === "production") return;
+  const key = `${component}:${reason}`;
+  if (__warnedNull.has(key)) return;
+  __warnedNull.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
+}
+
 export const docsComponents = {
   Callout,
   Cards,
@@ -28,12 +74,29 @@ export const docsComponents = {
   Accordion,
   PropertyReference,
   FeatureIntegrations: ({ feature }: { feature?: string }) => {
-    if (!feature) return null;
+    if (!feature) {
+      warnSilentNull("FeatureIntegrations", "no `feature` prop provided");
+      return null;
+    }
     const reg = getRegistry();
     const supporting = reg.integrations.filter(
       (i) => i.deployed && i.features?.includes(feature),
     );
-    if (supporting.length === 0) return null;
+    if (supporting.length === 0) {
+      warnSilentNull(
+        "FeatureIntegrations",
+        `no deployed integrations support feature="${feature}"`,
+      );
+      if (process.env.NODE_ENV !== "production") {
+        return (
+          <div className="my-6 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+            [mdx-registry] No deployed integrations support feature &quot;
+            {feature}&quot;.
+          </div>
+        );
+      }
+      return null;
+    }
     return (
       <div className="my-6">
         <div className="text-xs font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
@@ -60,10 +123,24 @@ export const docsComponents = {
     integration?: string;
     demo?: string;
   }) => {
-    if (!integration || !demo) return null;
+    if (!integration || !demo) {
+      warnSilentNull(
+        "InlineDemo",
+        `missing required props (integration=${integration ?? "undefined"}, demo=${demo ?? "undefined"})`,
+      );
+      return null;
+    }
     const reg = getRegistry();
     const int = reg.integrations.find((i) => i.slug === integration);
-    if (!int || !int.deployed) return null;
+    if (!int || !int.deployed) {
+      warnSilentNull(
+        "InlineDemo",
+        !int
+          ? `no integration with slug="${integration}" in registry`
+          : `integration "${integration}" is not deployed`,
+      );
+      return null;
+    }
     // Iframe the integration demo directly (its own backend host). The
     // demo-detail page (<integrations/.../[demo]>) is only served by the
     // SHELL host (showcase.copilotkit.ai), so the "Open full demo" link
@@ -172,26 +249,39 @@ export const docsComponents = {
     </div>
   ),
   video: (props: Record<string, unknown>) => (
+    // Accept user className from MDX — prior impl spread className in then
+    // immediately overrode it to `undefined`, silently dropping it.
     <video
       {...props}
-      className={undefined}
       style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
     />
   ),
   img: (props: Record<string, unknown>) => (
+    // Accept user className from MDX (see note on `video` above).
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
     <img
       {...props}
-      className={undefined}
       style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
     />
   ),
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Snippet: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Snippet: ({ children }: { children?: React.ReactNode }) => {
+    // DocsPageView overrides this at consumer sites. If the base registry
+    // is used directly without override, surface a visible dev-mode hint
+    // so authors notice their Snippet isn't rendering real content.
+    if (process.env.NODE_ENV !== "production") {
+      warnSilentNull("Snippet", "runtime override required (base stub)");
+      return (
+        <div className="my-4 rounded-md border border-dashed border-[var(--border)] px-3 py-2 text-xs font-mono text-[var(--text-faint)]">
+          [Snippet] runtime override required
+          {children ? <div className="mt-1">{children}</div> : null}
+        </div>
+      );
+    }
+    return <div>{children}</div>;
+  },
   Info: Callout,
   Caution: ({ children }: { children: React.ReactNode }) => (
     <Callout type="warn">{children}</Callout>
@@ -208,9 +298,11 @@ export const docsComponents = {
   IframeSwitcher: ({
     children,
     src,
+    title,
   }: {
     children?: React.ReactNode;
     src?: string;
+    title?: string;
   }) =>
     src ? (
       <div
@@ -223,7 +315,10 @@ export const docsComponents = {
       >
         <iframe
           src={src}
+          title={title || "Embedded content"}
           style={{ width: "100%", height: "400px", border: "none" }}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+          loading="lazy"
         />
       </div>
     ) : (
@@ -263,9 +358,7 @@ export const docsComponents = {
   InstallSDKSnippet: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  MCPApps: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  MCPApps: stub("MCPApps"),
   MCPSetup: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -287,9 +380,7 @@ export const docsComponents = {
   ObservabilityConnectors: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  Inspector: ({ children }: { children?: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  Inspector: stub("Inspector"),
   DefaultToolRendering: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -335,7 +426,7 @@ export const docsComponents = {
   ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  YouTubeVideo: ({ id }: { id?: string }) =>
+  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) =>
     id ? (
       <div
         style={{
@@ -346,6 +437,7 @@ export const docsComponents = {
       >
         <iframe
           src={`https://www.youtube.com/embed/${id}`}
+          title={title || "YouTube video"}
           style={{
             position: "absolute",
             top: 0,
@@ -355,6 +447,8 @@ export const docsComponents = {
             border: "none",
             borderRadius: "0.5rem",
           }}
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
+          loading="lazy"
           allowFullScreen
         />
       </div>
@@ -528,24 +622,64 @@ export const docsComponents = {
       {children}
     </a>
   ),
-  Button: ({ children }: { children?: React.ReactNode }) => (
-    <button
-      style={{
-        padding: "0.5rem 1rem",
-        borderRadius: "0.375rem",
-        border: "1px solid var(--border)",
-        background: "var(--bg-surface)",
-        cursor: "pointer",
-      }}
-    >
-      {children}
-    </button>
-  ),
-  Link: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
-    <a href={href} style={{ color: "var(--accent)" }}>
-      {children}
-    </a>
-  ),
+  Button: ({
+    children,
+    onClick,
+    type,
+    disabled,
+    "aria-label": ariaLabel,
+  }: {
+    children?: React.ReactNode;
+    onClick?: React.MouseEventHandler<HTMLButtonElement>;
+    type?: "button" | "submit" | "reset";
+    disabled?: boolean;
+    "aria-label"?: string;
+  }) => {
+    if (process.env.NODE_ENV !== "production" && !onClick) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[mdx-registry] <Button> rendered without onClick — this is a non-interactive stub. If interactivity is required, wire it up in the consuming MDX renderer.",
+      );
+    }
+    return (
+      <button
+        // Default to type="button" so a Button inside a <form> (rare in
+        // MDX, but possible) does not trigger a submit.
+        type={type ?? "button"}
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        style={{
+          padding: "0.5rem 1rem",
+          borderRadius: "0.375rem",
+          border: "1px solid var(--border)",
+          background: "var(--bg-surface)",
+          cursor: "pointer",
+        }}
+      >
+        {children}
+      </button>
+    );
+  },
+  Link: ({
+    children,
+    href,
+    ...rest
+  }: {
+    children?: React.ReactNode;
+    href?: string;
+    [key: string]: unknown;
+  }) =>
+    href ? (
+      // Route internal MDX <Link> through next/link so navigation is
+      // client-side (prior impl rendered a plain <a>, triggering a full
+      // page reload on every internal link).
+      <Link href={href} {...(rest as Record<string, unknown>)}>
+        {children}
+      </Link>
+    ) : (
+      <a {...(rest as Record<string, unknown>)}>{children}</a>
+    ),
   Code: ({ children }: { children?: React.ReactNode }) => (
     <code>{children}</code>
   ),

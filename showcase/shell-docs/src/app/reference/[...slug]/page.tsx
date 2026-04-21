@@ -1,9 +1,7 @@
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import matter from "gray-matter";
 import { PropertyReference } from "@/components/property-reference";
 import {
   Callout,
@@ -13,30 +11,13 @@ import {
   Accordion,
 } from "@/components/mdx-components";
 import { SidebarNav } from "@/components/sidebar-nav";
-
-const CONTENT_DIR = path.join(process.cwd(), "src/content/reference");
-
-type NavItem = { slug: string; title: string; category: string };
-
-function getAllItems(): NavItem[] {
-  const items: NavItem[] = [];
-
-  for (const subdir of ["components", "hooks"]) {
-    const dir = path.join(CONTENT_DIR, subdir);
-    if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
-      const raw = fs.readFileSync(path.join(dir, f), "utf-8");
-      const { data } = matter(raw);
-      items.push({
-        slug: `${subdir}/${f.replace(/\.mdx$/, "")}`,
-        title: (data.title as string) || f.replace(/\.mdx$/, ""),
-        category: subdir === "components" ? "Components" : "Hooks",
-      });
-    }
-  }
-
-  return items;
-}
+import {
+  REFERENCE_CONTENT_DIR,
+  loadAllReferenceItems,
+  referenceStaticParams,
+} from "@/lib/reference-items";
+import { stripLeadingImports } from "@/lib/docs-render";
+import { safeReadFileSync } from "@/lib/safe-fs";
 
 // next-mdx-remote components map
 const mdxComponents = {
@@ -50,17 +31,7 @@ const mdxComponents = {
 };
 
 export function generateStaticParams() {
-  const params: { slug: string[] }[] = [];
-
-  for (const subdir of ["components", "hooks"]) {
-    const dir = path.join(CONTENT_DIR, subdir);
-    if (!fs.existsSync(dir)) continue;
-    for (const f of fs.readdirSync(dir).filter((f) => f.endsWith(".mdx"))) {
-      params.push({ slug: [subdir, f.replace(/\.mdx$/, "")] });
-    }
-  }
-
-  return params;
+  return referenceStaticParams();
 }
 
 export default async function ReferenceSlugPage({
@@ -70,24 +41,40 @@ export default async function ReferenceSlugPage({
 }) {
   const { slug } = await params;
   const slugPath = slug.join("/");
-  const filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
-
-  if (!fs.existsSync(filePath)) {
+  // slugPath is user-supplied (URL segments). Route the filesystem read
+  // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
+  // can't escape REFERENCE_CONTENT_DIR.
+  const raw = safeReadFileSync(
+    REFERENCE_CONTENT_DIR,
+    `${slugPath}.mdx`,
+  );
+  if (raw === null) {
     notFound();
   }
 
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const { content, data } = matter(raw);
+  let content = "";
+  let data: Record<string, unknown> = {};
+  try {
+    const parsed = matter(raw);
+    content = parsed.content;
+    data = parsed.data;
+  } catch (err) {
+    console.error(
+      `[reference] Failed to parse frontmatter in ${slugPath}.mdx:`,
+      err,
+    );
+    notFound();
+  }
 
-  // Strip import lines — next-mdx-remote doesn't support them
-  const cleanedContent = content
-    .split("\n")
-    .filter((line) => !line.match(/^import\s+/))
-    .join("\n");
+  const cleanedContent = stripLeadingImports(content);
 
-  const allItems = getAllItems();
-  const title = (data.title as string) || slug[slug.length - 1];
-  const description = data.description as string | undefined;
+  const allItems = loadAllReferenceItems();
+  const title =
+    typeof data.title === "string" && data.title.length > 0
+      ? data.title
+      : slug[slug.length - 1];
+  const description =
+    typeof data.description === "string" ? data.description : undefined;
 
   return (
     <div className="flex min-h-[calc(100vh-53px)]">

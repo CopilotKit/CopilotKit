@@ -51,11 +51,22 @@ const FrameworkContext = createContext<FrameworkContextValue | null>(null);
 
 const STORAGE_KEY = "selectedFramework";
 
+// Log each failure mode once per session so we don't spam the console
+// on repeated reads/writes when localStorage is unavailable (SSR, private
+// mode, storage disabled), but we still surface the failure to devs the
+// first time it happens.
+let readLogged = false;
+let writeLogged = false;
+
 function readStoredFramework(): string | null {
   if (typeof window === "undefined") return null;
   try {
     return window.localStorage.getItem(STORAGE_KEY);
-  } catch {
+  } catch (err) {
+    if (!readLogged) {
+      console.warn("[framework-provider] localStorage read failed", err);
+      readLogged = true;
+    }
     return null;
   }
 }
@@ -68,8 +79,13 @@ function writeStoredFramework(slug: string | null) {
     } else {
       window.localStorage.setItem(STORAGE_KEY, slug);
     }
-  } catch {
-    // localStorage may be unavailable (SSR, private mode, etc.) — silent no-op
+  } catch (err) {
+    // localStorage may be unavailable (SSR, private mode, etc.) — log
+    // once per session so the failure isn't completely silent.
+    if (!writeLogged) {
+      console.warn("[framework-provider] localStorage write failed", err);
+      writeLogged = true;
+    }
   }
 }
 
@@ -95,13 +111,20 @@ export function FrameworkProvider({
   }, []);
 
   // Whenever the URL asserts a framework, persist it so the preference
-  // follows the user when they navigate back to /docs/*
+  // follows the user when they navigate back to /docs/*.
+  //
+  // `stored` is intentionally NOT a dep: including it causes this effect
+  // to re-run every time we update stored from within (infinite-ish
+  // ping-pong with the state setter below). We only care about URL
+  // changes as the trigger. The internal `!== stored` check short-circuits
+  // the no-op case using the latest closed-over value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (urlFramework && urlFramework !== stored) {
       writeStoredFramework(urlFramework);
       setStored(urlFramework);
     }
-  }, [urlFramework, stored]);
+  }, [urlFramework]);
 
   // ACTIVE framework is strictly URL-derived. localStorage NEVER promotes
   // itself into `framework` — it lives in `storedFramework` where it can
@@ -110,6 +133,15 @@ export function FrameworkProvider({
   const framework = urlFramework;
 
   const setStoredFramework = (slug: string | null) => {
+    // Validate the slug against the known registry. Callers passing a
+    // slug we don't recognise would poison the stored preference (e.g.
+    // leaking a route segment like "docs"). Drop + warn instead.
+    if (slug !== null && !knownFrameworks.includes(slug)) {
+      console.warn(
+        `[framework-provider] setStoredFramework called with unknown slug "${slug}" — ignoring`,
+      );
+      return;
+    }
     writeStoredFramework(slug);
     setStored(slug);
   };
@@ -131,14 +163,11 @@ export function FrameworkProvider({
 export function useFramework(): FrameworkContextValue {
   const ctx = useContext(FrameworkContext);
   if (!ctx) {
-    // Graceful fallback for trees that forgot to wrap in the provider —
-    // return a neutral, read-only value rather than throwing.
-    return {
-      framework: null,
-      storedFramework: null,
-      knownFrameworks: [],
-      setStoredFramework: () => {},
-    };
+    // Fail loudly: a silent fallback masks wiring bugs (components
+    // rendered outside the provider tree would silently report "no
+    // framework" forever). Matches every other context pattern in the
+    // app.
+    throw new Error("useFramework must be used within FrameworkProvider");
   }
   return ctx;
 }

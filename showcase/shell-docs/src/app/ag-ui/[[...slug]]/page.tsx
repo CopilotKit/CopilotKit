@@ -1,21 +1,16 @@
 import React from "react";
 import fs from "fs";
 import path from "path";
+import matter from "gray-matter";
 import { notFound } from "next/navigation";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import Link from "next/link";
-import {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-} from "@/components/mdx-components";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { PropertyReference } from "@/components/property-reference";
-import { getRegistry } from "@/lib/registry";
+import { docsComponents } from "@/lib/mdx-registry";
+import { stripLeadingImports } from "@/lib/docs-render";
+import { resolveWithinDir, safeReadFileSync } from "@/lib/safe-fs";
 
 const CONTENT_DIR = path.join(process.cwd(), "src/content/ag-ui");
 
@@ -143,18 +138,40 @@ const NAV_DEFINITION: NavTab[] = [
   },
 ];
 
-// Read the title for a given slug from its MDX file
+// Fallback title derived from the slug itself when we can't read a better
+// one from the file (missing file, IO error, malformed frontmatter, etc.).
+function titleFromSlug(slug: string): string {
+  return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+}
+
+// Read the title for a given slug from its MDX file. Uses gray-matter so
+// frontmatter parsing is scoped to the frontmatter block (previously a
+// global `title:` regex could match any `title:` line buried in an MDX
+// body). Guards fs reads so a single malformed file doesn't crash the
+// whole nav build.
 function getTitleForSlug(slug: string): string {
   const filePath = path.join(CONTENT_DIR, `${slug}.mdx`);
   if (!fs.existsSync(filePath)) {
-    return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+    return titleFromSlug(slug);
   }
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const fmMatch = raw.match(/title:\s*["']?(.+?)["']?\s*$/m);
-  if (fmMatch) return fmMatch[1].replace(/["']$/, "");
-  const headingMatch = raw.match(/^#\s+(.+)$/m);
-  if (headingMatch) return headingMatch[1];
-  return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, "utf-8");
+  } catch (err) {
+    console.error(`[ag-ui] Failed to read ${filePath}:`, err);
+    return titleFromSlug(slug);
+  }
+  try {
+    const { data, content } = matter(raw);
+    if (typeof data.title === "string" && data.title.length > 0) {
+      return data.title;
+    }
+    const headingMatch = content.match(/^#\s+(.+)$/m);
+    if (headingMatch) return headingMatch[1];
+  } catch (err) {
+    console.error(`[ag-ui] Failed to parse frontmatter in ${filePath}:`, err);
+  }
+  return titleFromSlug(slug);
 }
 
 // Resolved nav types used for rendering
@@ -189,72 +206,19 @@ function getNavTabs(): ResolvedTab[] {
   }));
 }
 
+// AG-UI-specific MDX component map: spread the full shared `docsComponents`
+// registry (which already provides Callout/Cards/Tabs/FrameworkTabs/Snippet/
+// PropertyReference/Steps/Step/InlineDemo/etc.) so AG-UI MDX no longer
+// silently renders raw JSX when it uses anything outside a tiny local
+// subset. The shared `InlineDemo` in mdx-registry is also the canonical
+// implementation whose "Open full demo →" link uses an absolute
+// `${NEXT_PUBLIC_SHELL_URL}/integrations/...` URL — the previous local
+// copy used a relative `/integrations/...` URL that 404'd on the docs
+// host (which has no /integrations route). Steps/Step now render through
+// the real @/components/docs-steps component rather than a local no-op
+// shim that discarded numbering.
 const components = {
-  Callout,
-  Cards,
-  Card,
-  Accordions,
-  Accordion,
-  PropertyReference,
-  InlineDemo: ({
-    integration,
-    demo,
-  }: {
-    integration?: string;
-    demo?: string;
-  }) => {
-    if (!integration || !demo) return null;
-    const reg = getRegistry();
-    const int = reg.integrations.find((i) => i.slug === integration);
-    if (!int || !int.deployed) return null;
-    const demoUrl = `${int.backend_url}/demos/${demo}`;
-    return (
-      <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
-          <span className="text-xs font-mono text-[var(--text-muted)]">
-            Live Demo: {int.name} — {demo}
-          </span>
-          <a
-            href={`/integrations/${integration}?demo=${demo}`}
-            className="text-xs text-[var(--accent)] hover:underline"
-          >
-            Open full demo →
-          </a>
-        </div>
-        <iframe
-          src={demoUrl}
-          className="w-full"
-          style={{ height: "500px" }}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          loading="lazy"
-        />
-      </div>
-    );
-  },
-  Note: Callout,
-  Warning: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="warn">{children}</Callout>
-  ),
-  Tip: ({ children }: { children: React.ReactNode }) => (
-    <Callout type="info">{children}</Callout>
-  ),
-  // Mintlify components we shim
-  CardGroup: Cards,
-  Steps: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Step: ({
-    children,
-    title,
-  }: {
-    children: React.ReactNode;
-    title?: string;
-  }) => (
-    <div style={{ marginBottom: "1rem" }}>
-      {title && (
-        <h4 style={{ fontWeight: 600, marginBottom: "0.25rem" }}>{title}</h4>
-      )}
-      {children}
-    </div>
-  ),
+  ...docsComponents,
 };
 
 function OverviewContent() {
@@ -399,25 +363,54 @@ export default async function AgUiDocPage({
     return <OverviewContent />;
   }
 
-  // Doc page: sidebar + MDX content
-  let filePath = path.join(CONTENT_DIR, `${slugPath}.mdx`);
+  // Doc page: sidebar + MDX content. slugPath is user-supplied (URL
+  // segments) so route every filesystem access through resolveWithinDir
+  // so a crafted path like `..%2F..%2Fsecrets` can't escape CONTENT_DIR.
+  const mdxResolved = resolveWithinDir(CONTENT_DIR, `${slugPath}.mdx`);
+  const indexResolved = resolveWithinDir(
+    CONTENT_DIR,
+    path.join(slugPath, "index.mdx"),
+  );
 
-  if (!fs.existsSync(filePath)) {
-    const indexPath = path.join(CONTENT_DIR, slugPath, "index.mdx");
-    if (fs.existsSync(indexPath)) {
-      filePath = indexPath;
-    } else {
-      notFound();
-    }
+  let filePath: string;
+  if (mdxResolved && fs.existsSync(mdxResolved)) {
+    filePath = mdxResolved;
+  } else if (indexResolved && fs.existsSync(indexResolved)) {
+    filePath = indexResolved;
+  } else {
+    notFound();
   }
 
-  const source = fs.readFileSync(filePath, "utf-8");
-  const content = source.replace(/^---[\s\S]*?---\n?/, "");
-  const titleMatch =
-    source.match(/title:\s*["']?(.+?)["']?\s*$/m) ||
-    content.match(/^#\s+(.+)$/m);
-  const title =
-    titleMatch?.[1] || slugPath.split("/").pop()?.replace(/-/g, " ") || "AG-UI";
+  const source = safeReadFileSync(CONTENT_DIR, path.relative(CONTENT_DIR, filePath));
+  if (source === null) {
+    console.error(`[ag-ui] Failed to read ${filePath}`);
+    notFound();
+  }
+
+  let content = "";
+  let title = titleFromSlug(slugPath) || "AG-UI";
+  try {
+    const parsed = matter(source);
+    content = stripLeadingImports(parsed.content);
+    if (typeof parsed.data.title === "string" && parsed.data.title.length > 0) {
+      title = parsed.data.title;
+    } else {
+      const headingMatch = parsed.content.match(/^#\s+(.+)$/m);
+      if (headingMatch) title = headingMatch[1];
+    }
+    // The page wrapper below renders `title` inside its own <h1>. If the
+    // MDX body also leads with a `# Title` heading — which is the common
+    // case, since that's how we extract the title when frontmatter is
+    // absent — MDXRemote renders a second h1 and the page shows two
+    // stacked titles. Strip one leading `# …` line (skipping any blank
+    // lines above it) so the body picks up from the body text. We only
+    // strip the FIRST heading and only when it's the first non-blank
+    // content line, so code fences and deeper headings are untouched.
+    content = content.replace(/^(\s*\n)*#\s+.+\n?/, "");
+  } catch (err) {
+    console.error(`[ag-ui] Failed to parse MDX in ${filePath}:`, err);
+    notFound();
+  }
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
