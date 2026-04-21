@@ -17,7 +17,9 @@ export interface RuleLoadErrorEmitter {
   ): void;
 }
 import { DefaultsSchema, RuleSchema, type RuleDoc } from "./schema.js";
-import { evalSuppress } from "../alerts/alert-engine.js";
+// Import from the DSL leaf module rather than alert-engine to avoid the
+// type↔value cycle (alert-engine imports `CompiledRule` from this file).
+import { evalSuppress } from "../alerts/dsl.js";
 
 // Sample vars used at rule-load time to confirm a suppress expression parses
 // cleanly. Keeping them locally in the loader avoids a runtime dependency on
@@ -81,11 +83,22 @@ export interface RuleLoaderOptions {
 }
 
 /**
- * Deduplicate targets merged from defaults + rule-level declarations. A stable
- * canonical key over all own-properties (sorted) guarantees that two targets
- * with identical shape collapse to one, regardless of author-specified key
- * order. Second+ occurrences drop; first occurrence wins (preserves the
- * defaults-then-rule precedence implied by `mergeDefaults`).
+ * Deduplicate targets merged from defaults + rule-level declarations.
+ *
+ * Key scope: `{kind, webhook}` only — NOT the full object. TargetSchema
+ * uses `.passthrough()` so authors can attach arbitrary extra fields
+ * (labels, metadata, future extensions). Keying on the full object meant
+ * an extra field on one copy (e.g. rule adds `mention: "@oncall"` while
+ * defaults omit it) prevented dedupe and fired every alert twice — the
+ * exact bug this dedupe was added to fix.
+ *
+ * By restricting the key to the routing-identity pair `{kind, webhook}`,
+ * two targets pointing at the same destination collapse regardless of
+ * attached metadata. First occurrence wins — this preserves the
+ * defaults-then-rule precedence implied by `mergeDefaults` (so the
+ * rule-level target's extra fields are NOT silently picked up; the
+ * default's fields survive). Callers that need a rule-level target to
+ * override a default must do so by declaring a distinct `webhook`.
  */
 function dedupeTargets<T extends { kind: string; webhook?: string }>(
   targets: T[],
@@ -93,10 +106,10 @@ function dedupeTargets<T extends { kind: string; webhook?: string }>(
   const seen = new Set<string>();
   const out: T[] = [];
   for (const t of targets) {
-    const rec = t as unknown as Record<string, unknown>;
-    const sorted: Record<string, unknown> = {};
-    for (const k of Object.keys(rec).sort()) sorted[k] = rec[k];
-    const key = JSON.stringify(sorted);
+    // Use a delimiter that can't appear in kind/webhook values so
+    // `{kind:"a", webhook:"b"}` and `{kind:"a:b", webhook:""}` don't
+    // collide.
+    const key = `${t.kind}\u0000${t.webhook ?? ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(t);
@@ -309,7 +322,33 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
     if (watcher) {
       void watcher.close();
     }
-    watcher = chokidar.watch(dir, { ignoreInitial: true, persistent: true });
+    // Scope chokidar to YAML files only. Previously the watcher observed
+    // every file in `dir`, so editor swap files (`foo.yml~`, `.foo.yml.swp`,
+    // `.DS_Store`, README.md) each triggered a full reload. The reload is
+    // idempotent so this wasn't incorrect, just wasteful — but under a
+    // rapid-edit loop (e.g. vim saving with a backup file) each save fired
+    // TWO reloads (swap file create+unlink). The YAML-only filter keeps the
+    // debounce timer from battering the rule set on every tick.
+    watcher = chokidar.watch(dir, {
+      ignoreInitial: true,
+      persistent: true,
+      // Non-yaml files never contribute rules; ignore noisy neighbors.
+      // The filter returns true to IGNORE the path.
+      ignored: (p) => {
+        // chokidar sometimes invokes the predicate with the dir itself
+        // (first call) — passing through the dir is required or the
+        // watcher never starts.
+        if (p === dir) return false;
+        const base = path.basename(p);
+        // Allow subdirectories so nested rules work if ever introduced.
+        // The explicit extension check is cheaper than stat()'ing.
+        if (base.endsWith(".yml") || base.endsWith(".yaml")) return false;
+        // If it has no extension at all (likely a directory), let chokidar
+        // decide whether to descend.
+        if (!base.includes(".")) return false;
+        return true;
+      },
+    });
     let timer: NodeJS.Timeout | null = null;
     // Monotonic sequence: each scheduled reload bumps this, and the async
     // loadWithErrors() result is only applied if it's still the latest. A

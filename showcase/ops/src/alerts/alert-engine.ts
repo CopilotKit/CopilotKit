@@ -5,6 +5,11 @@ import type { TypedEventBus } from "../events/event-bus.js";
 import type { Renderer } from "../render/renderer.js";
 import type { CompiledRule } from "../rules/rule-loader.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
+import { parseDuration, evalSuppress } from "./dsl.js";
+// Re-export so existing callers (rule-loader, tests) that import from
+// alert-engine.js continue to work without touching every import site.
+// Fresh modules should import from ./dsl.js directly.
+export { parseDuration, evalSuppress } from "./dsl.js";
 import {
   emptyTriggerFlags,
   type Logger,
@@ -43,8 +48,20 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
   let rules: CompiledRule[] = [];
   const unsubs: Array<() => void> = [];
 
+  // Tracks whether we've emitted the "window closed" log; once-only so the
+  // operator gets a single line in the log stream at the transition boundary
+  // rather than every subsequent check reprinting it.
+  let bootstrapWindowClosedLogged = false;
   function bootstrapActive(): boolean {
-    return now().getTime() - bootTime < bootstrapWindowMs;
+    const active = now().getTime() - bootTime < bootstrapWindowMs;
+    if (!active && !bootstrapWindowClosedLogged && bootstrapWindowMs > 0) {
+      bootstrapWindowClosedLogged = true;
+      logger.info("alert-engine.bootstrap-window-ended", {
+        bootstrapWindowMs,
+        bootAt: new Date(bootTime).toISOString(),
+      });
+    }
+    return active;
   }
 
   async function handleStatusChanged(evt: {
@@ -115,8 +132,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
   }): Promise<void> {
     const rule = rules.find((r) => r.id === evt.ruleId);
     if (!rule) return;
-    // For cron-only rules without a prior error, render directly with whatever
-    // signal the probe produced (may be undefined for probe-less rules).
+    // For cron-driven rules we forward to dispatchCronAlert, which inspects
+    // the probe's result (if any) to derive both the transition AND any
+    // signal-derived trigger flags (set_drifted, cancelled_*, etc.). A rule
+    // that declares e.g. `set_drifted` must see that flag reflected in its
+    // `triggered` array — NOT the synthetic "first" we previously hardcoded.
     await dispatchCronAlert(rule, evt);
   }
 
@@ -223,17 +243,31 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
 
     // Suppression expression eval (limited DSL):
     //   trigger == "sustained_red" && lastAlertAgeMin < 15
+    //
+    // Parse-time validation happens at rule-load; a throw here means a
+    // runtime-unknown identifier or a var shape the rule didn't anticipate.
+    // Fail OPEN on eval error — a broken suppress clause must not silently
+    // suppress every matching alert. Log at error level so operators notice.
     if (rule.conditions.suppress) {
       const vars = {
         trigger: triggered[0] ?? transition,
         lastAlertAgeMin: ageMin,
       };
-      if (evalSuppress(rule.conditions.suppress.when, vars)) {
-        logger.debug("alert-engine.suppressed", {
+      try {
+        if (evalSuppress(rule.conditions.suppress.when, vars)) {
+          logger.debug("alert-engine.suppressed", {
+            rule: rule.id,
+            reason: "expression",
+          });
+          return true;
+        }
+      } catch (err) {
+        logger.error("alert-engine.suppress-eval-failed", {
           rule: rule.id,
-          reason: "expression",
+          when: rule.conditions.suppress.when,
+          err: String(err),
         });
-        return true;
+        // Fall through — alert is allowed to fire.
       }
     }
 
@@ -363,7 +397,42 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       await dispatchOnError(rule, { outcome, result: fakeResult });
       return;
     }
-    const triggered = ["first"];
+    // Resolve triggers from the probe's real signal + the synthesized cron
+    // transition ("first"). Rules declaring signal-derived flags like
+    // `set_drifted` / `cancelled_*` / `set_changed` will now light up those
+    // flags on cron ticks, instead of everyone silently collapsing onto
+    // ["first"]. Pure cron-only rules (no string triggers declared, only a
+    // cron_only schedule) fall back to ["first"] so the tick still dispatches
+    // — that's the whole point of declaring a cron trigger.
+    const signalFlags = deriveSignalFlags(fakeResult.signal);
+    let triggered = resolveTriggers(rule, "first", signalFlags);
+    if (triggered.length === 0) {
+      // Two fall-back cases keep previously-working rules firing:
+      //  1. Rule explicitly declares `first` as a string trigger (pre-fix
+      //     semantics for rules that only want first-observation dispatch).
+      //  2. Rule is cron-only — no string triggers, but has a cron schedule.
+      //     Those MUST fire on every tick; there's no other mechanism for
+      //     them to surface. Dormancy here would silently break weekly
+      //     reports and invariant probes.
+      const isCronOnly =
+        rule.cronTriggers.length > 0 && rule.stringTriggers.length === 0;
+      if (rule.stringTriggers.includes("first") || isCronOnly) {
+        triggered = ["first"];
+      }
+    }
+    if (triggered.length === 0) {
+      // Dormant: declared triggers didn't match this tick. Surface at debug
+      // so the same "silent zero" diagnostic used by handleStatusChanged is
+      // available here too.
+      logger.debug("alert-engine.no-triggers-matched", {
+        ruleId: rule.id,
+        transition: "first",
+        signalFlags,
+        declared: rule.stringTriggers,
+        path: "cron",
+      });
+      return;
+    }
     // Apply same dedupe + rate-limit gating as status.changed alerts. Bootstrap
     // suppression must ONLY kick in when the transition looks like a "fresh
     // red" (mirror handleStatusChanged's isFreshRed gate) — green/degraded
@@ -464,9 +533,20 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     // Escalation check: at or past the configured fail count boundary so
     // operators keep seeing escalations on every tick past the threshold
     // (rate-limit governs frequency).
+    //
+    // Escalation evaluation is order-dependent: the last matching escalation
+    // in declaration order wins for `severity`. To make the result stable
+    // regardless of YAML author ordering, we sort by whenFailCount ascending
+    // so higher thresholds override lower ones naturally. Without this,
+    // declaring `[{whenFailCount:10,severity:critical}, {whenFailCount:4,severity:error}]`
+    // at failCount=10 would yield `error` (last match) instead of the
+    // intuitive `critical` (highest matching threshold).
     let escalated = false;
     let severity: Severity = rule.severity;
-    for (const esc of rule.conditions.escalations) {
+    const sortedEscalations = [...rule.conditions.escalations].sort(
+      (a, b) => a.whenFailCount - b.whenFailCount,
+    );
+    for (const esc of sortedEscalations) {
       if (evt.outcome.failCount >= esc.whenFailCount) {
         escalated = true;
         if (esc.severity) severity = esc.severity;
@@ -569,6 +649,10 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
   };
 }
 
+// TODO(cluster-consolidation): status-writer.ts has a near-identical
+// deriveDimensionWithWarn with once-per-key warn logging. Consolidate into
+// a shared util under src/types/ or src/util/ once both clusters can touch
+// the same file — cluster 2 owns status-writer, cluster 3 owns types/.
 function deriveDimension(key: string): string {
   const idx = key.indexOf(":");
   return idx > 0 ? key.slice(0, idx) : "unknown";
@@ -616,7 +700,18 @@ function deriveSignalFlags(
 /**
  * Resolve which declared triggers on a rule actually fire for this event.
  * Combines the state-machine transition with signal-derived flags; returns
- * names in rule declaration order so dedupe behavior is stable.
+ * names in the order they match the rule's declaration list.
+ *
+ * IMPORTANT: the returned order tracks the rule's declaration, NOT a stable
+ * dedupe-bucket ordering. `buildDedupeKey` uses `triggered[0]` — the first
+ * matched trigger — so reordering YAML `triggers:` will change the dedupe
+ * bucket for the same underlying transition. Keep the order intentional.
+ *
+ * Prototype-walk guard: the inner `signalFlags[declared]` lookup is gated
+ * on `Object.hasOwn` so a YAML rule that declares `toString` / `constructor`
+ * / `hasOwnProperty` / `__proto__` as a trigger cannot silently resolve
+ * against `Object.prototype`. Without the guard, `signalFlags.toString`
+ * returns a function reference — truthy — and fires spurious alerts.
  */
 function resolveTriggers(
   rule: CompiledRule,
@@ -624,12 +719,15 @@ function resolveTriggers(
   signalFlags: Partial<Record<keyof TriggerFlags, boolean>>,
 ): string[] {
   const matched: string[] = [];
+  const flagsRec = signalFlags as Record<string, unknown>;
   for (const declared of rule.stringTriggers) {
     if (declared === transition) {
       matched.push(declared);
       continue;
     }
-    if ((signalFlags as Record<string, boolean>)[declared]) {
+    // Own-property check prevents walking into Object.prototype for names
+    // like `toString`, `constructor`, `hasOwnProperty`, `__proto__`.
+    if (Object.hasOwn(flagsRec, declared) && flagsRec[declared] === true) {
       matched.push(declared);
     }
   }
@@ -647,21 +745,6 @@ function globMatch(pattern: string, value: string): boolean {
       "$",
   );
   return re.test(value);
-}
-
-const UNIT_MS: Record<string, number> = {
-  s: 1_000,
-  m: 60_000,
-  h: 3_600_000,
-  d: 86_400_000,
-};
-
-export function parseDuration(spec: string | number): number {
-  if (typeof spec === "number") return spec;
-  const m = spec.match(/^(\d+)([smhd])$/);
-  if (!m) throw new Error(`invalid duration: ${spec}`);
-  const [, num, unit] = m;
-  return Number(num) * UNIT_MS[unit!]!;
 }
 
 /**
@@ -684,217 +767,4 @@ function stableStringify(value: unknown): string {
     for (const k of Object.keys(obj).sort()) sorted[k] = obj[k];
     return sorted;
   });
-}
-
-/**
- * Minimal expression evaluator for YAML `conditions.suppress.when`.
- * Supports: identifiers, string literals ("..." or '...'), number literals,
- * boolean/null, binary ops (==, !=, <=, >=, <, >), logical (&&, ||), unary !,
- * and parenthesized sub-expressions.
- *
- * Rejects any other syntax — in particular no function calls, member access,
- * indexing, or object/array literals — so YAML-authored suppression rules
- * cannot reach arbitrary JS.
- */
-export function evalSuppress(
-  expr: string,
-  vars: Record<string, unknown>,
-): boolean {
-  try {
-    const tokens = tokenizeSuppress(expr);
-    const parser = new SuppressParser(tokens, vars);
-    const value = parser.parseOr();
-    parser.expectEnd();
-    return Boolean(value);
-  } catch (err) {
-    throw new Error(`invalid suppress expression: ${expr} (${String(err)})`);
-  }
-}
-
-type Tok =
-  | { t: "ident"; v: string }
-  | { t: "str"; v: string }
-  | { t: "num"; v: number }
-  | { t: "bool"; v: boolean }
-  | { t: "null" }
-  | {
-      t: "op";
-      v: "==" | "!=" | "<=" | ">=" | "<" | ">" | "&&" | "||" | "!" | "(" | ")";
-    };
-
-function tokenizeSuppress(src: string): Tok[] {
-  const out: Tok[] = [];
-  let i = 0;
-  while (i < src.length) {
-    const c = src[i]!;
-    if (c === " " || c === "\t" || c === "\n" || c === "\r") {
-      i++;
-      continue;
-    }
-    if (c === '"' || c === "'") {
-      const quote = c;
-      let j = i + 1;
-      let value = "";
-      while (j < src.length && src[j] !== quote) {
-        if (src[j] === "\\" && j + 1 < src.length) {
-          value += src[j + 1];
-          j += 2;
-        } else {
-          value += src[j];
-          j++;
-        }
-      }
-      if (src[j] !== quote) throw new Error(`unterminated string at ${i}`);
-      out.push({ t: "str", v: value });
-      i = j + 1;
-      continue;
-    }
-    if (c >= "0" && c <= "9") {
-      let j = i;
-      while (j < src.length && /[0-9.]/.test(src[j]!)) j++;
-      const n = Number(src.slice(i, j));
-      if (!Number.isFinite(n)) throw new Error(`bad number at ${i}`);
-      out.push({ t: "num", v: n });
-      i = j;
-      continue;
-    }
-    if (/[A-Za-z_]/.test(c)) {
-      let j = i;
-      while (j < src.length && /[A-Za-z0-9_]/.test(src[j]!)) j++;
-      const word = src.slice(i, j);
-      if (word === "true") out.push({ t: "bool", v: true });
-      else if (word === "false") out.push({ t: "bool", v: false });
-      else if (word === "null") out.push({ t: "null" });
-      else out.push({ t: "ident", v: word });
-      i = j;
-      continue;
-    }
-    const two = src.slice(i, i + 2);
-    if (
-      two === "==" ||
-      two === "!=" ||
-      two === "<=" ||
-      two === ">=" ||
-      two === "&&" ||
-      two === "||"
-    ) {
-      out.push({ t: "op", v: two });
-      i += 2;
-      continue;
-    }
-    if (c === "<" || c === ">" || c === "!" || c === "(" || c === ")") {
-      out.push({
-        t: "op",
-        v: c as "<" | ">" | "!" | "(" | ")",
-      });
-      i++;
-      continue;
-    }
-    throw new Error(`unexpected character ${JSON.stringify(c)} at ${i}`);
-  }
-  return out;
-}
-
-class SuppressParser {
-  private pos = 0;
-  constructor(
-    private readonly tokens: Tok[],
-    private readonly vars: Record<string, unknown>,
-  ) {}
-
-  private peek(): Tok | undefined {
-    return this.tokens[this.pos];
-  }
-
-  private consume(): Tok {
-    const t = this.tokens[this.pos++];
-    if (!t) throw new Error("unexpected end of expression");
-    return t;
-  }
-
-  expectEnd(): void {
-    if (this.pos !== this.tokens.length)
-      throw new Error(`unexpected token at pos ${this.pos}`);
-  }
-
-  parseOr(): unknown {
-    let left = this.parseAnd();
-    while (this.matchOp("||")) {
-      const right = this.parseAnd();
-      left = Boolean(left) || Boolean(right);
-    }
-    return left;
-  }
-
-  parseAnd(): unknown {
-    let left = this.parseEq();
-    while (this.matchOp("&&")) {
-      const right = this.parseEq();
-      left = Boolean(left) && Boolean(right);
-    }
-    return left;
-  }
-
-  parseEq(): unknown {
-    let left = this.parseRel();
-    while (true) {
-      if (this.matchOp("==")) {
-        const r = this.parseRel();
-        left = left === r;
-      } else if (this.matchOp("!=")) {
-        const r = this.parseRel();
-        left = left !== r;
-      } else break;
-    }
-    return left;
-  }
-
-  parseRel(): unknown {
-    let left = this.parseUnary();
-    while (true) {
-      if (this.matchOp("<=")) left = Number(left) <= Number(this.parseUnary());
-      else if (this.matchOp(">="))
-        left = Number(left) >= Number(this.parseUnary());
-      else if (this.matchOp("<"))
-        left = Number(left) < Number(this.parseUnary());
-      else if (this.matchOp(">"))
-        left = Number(left) > Number(this.parseUnary());
-      else break;
-    }
-    return left;
-  }
-
-  parseUnary(): unknown {
-    if (this.matchOp("!")) return !this.parseUnary();
-    return this.parsePrimary();
-  }
-
-  parsePrimary(): unknown {
-    const t = this.consume();
-    if (t.t === "num") return t.v;
-    if (t.t === "str") return t.v;
-    if (t.t === "bool") return t.v;
-    if (t.t === "null") return null;
-    if (t.t === "ident") {
-      if (!(t.v in this.vars)) throw new Error(`unknown identifier: ${t.v}`);
-      return this.vars[t.v];
-    }
-    if (t.t === "op" && t.v === "(") {
-      const val = this.parseOr();
-      const close = this.consume();
-      if (close.t !== "op" || close.v !== ")")
-        throw new Error("missing closing paren");
-      return val;
-    }
-    throw new Error(`unexpected token ${JSON.stringify(t)}`);
-  }
-
-  private matchOp(op: string): boolean {
-    const p = this.peek();
-    if (p && p.t === "op" && p.v === op) {
-      this.pos++;
-      return true;
-    }
-    return false;
-  }
 }
