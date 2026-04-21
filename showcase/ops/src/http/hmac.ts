@@ -114,14 +114,28 @@ export function verifyHmac(input: HmacVerifyInput): HmacVerifyResult {
         return { ok: true };
       }
     } catch (err) {
-      // Most thrown errors here are length mismatches on malformed hex
-      // input (expected), but crypto / Buffer can also throw for
-      // genuinely unexpected reasons (OOM, odd platform quirks). Log at
-      // debug so operators can grep when a sender starts failing for a
-      // non-obvious reason.
-      input.logger?.debug("hmac.verify.compare-error", {
-        err: String(err),
-      });
+      // Split error classification: benign length-mismatches (expected on
+      // malformed hex) stay at debug to avoid log spam, while genuinely
+      // unexpected crypto-layer failures (OOM, platform quirks, bad
+      // inputs that slipped past the hex-shape regex) surface at warn
+      // with a stable errorId so operators can alert on them and
+      // distinguish real breakage from the noisy happy-path rejection.
+      const message =
+        err instanceof Error ? err.message : String(err);
+      const isLengthMismatch =
+        /input buffers must have the same byte length/i.test(message) ||
+        /Input buffers must have the same length/i.test(message);
+      if (isLengthMismatch) {
+        input.logger?.debug("hmac.verify.compare-error", {
+          reason: "length-mismatch",
+          err: message,
+        });
+      } else {
+        input.logger?.warn("hmac.verify.compare-error", {
+          errorId: "HMAC_COMPARE_UNEXPECTED_ERROR",
+          err: message,
+        });
+      }
     }
   }
   return { ok: false, reason: "bad-signature" };
