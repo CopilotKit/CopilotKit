@@ -10,7 +10,6 @@ import json
 import sys
 import uuid
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 import boto3
 import yaml
@@ -20,7 +19,7 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 
-def get_stack_config(stack_name: Optional[str] = None) -> Dict:
+def get_stack_config(stack_name: str | None = None) -> dict:
     """
     Get complete stack configuration including outputs from main stack.
 
@@ -38,7 +37,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
         print_msg("Configuration file not found", "error")
         sys.exit(1)
 
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config = yaml.safe_load(f)
 
     # Get stack name from config if not provided
@@ -49,7 +48,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
             sys.exit(1)
 
     # Get pattern from config
-    pattern = config.get("backend", {}).get("pattern", "langgraph-single-agent")
+    pattern = config.get("backend", {}).get("pattern", "strands-single-agent")
 
     cfn = boto3.client("cloudformation")
 
@@ -89,7 +88,7 @@ def get_stack_config(stack_name: Optional[str] = None) -> Dict:
         sys.exit(1)
 
 
-def get_ssm_params(stack_name: str, *param_names: str) -> Dict[str, str]:
+def get_ssm_params(stack_name: str, *param_names: str) -> dict[str, str]:
     """
     Fetch multiple SSM parameters for a stack.
 
@@ -116,9 +115,7 @@ def get_ssm_params(stack_name: str, *param_names: str) -> Dict[str, str]:
         sys.exit(1)
 
 
-def authenticate_cognito(
-    user_pool_id: str, client_id: str, username: str, password: str
-) -> Tuple[str, str, str]:
+def authenticate_cognito(user_pool_id: str, client_id: str, username: str, password: str) -> tuple[str, str, str]:
     """
     Authenticate with Cognito.
 
@@ -227,14 +224,6 @@ def create_mock_jwt(user_id: str) -> str:
     Returns:
         str: A mock JWT string (header.payload.signature).
     """
-    header = (
-        base64.urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode())
-        .rstrip(b"=")
-        .decode()
-    )
-    payload = (
-        base64.urlsafe_b64encode(json.dumps({"sub": user_id}).encode())
-        .rstrip(b"=")
-        .decode()
-    )
+    header = base64.urlsafe_b64encode(json.dumps({"alg": "none", "typ": "JWT"}).encode()).rstrip(b"=").decode()
+    payload = base64.urlsafe_b64encode(json.dumps({"sub": user_id}).encode()).rstrip(b"=").decode()
     return f"{header}.{payload}."

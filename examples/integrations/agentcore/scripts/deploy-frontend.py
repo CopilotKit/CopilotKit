@@ -25,12 +25,8 @@ import subprocess  # nosec B404 - subprocess used securely with explicit paramet
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Optional
 
 # Minimum Python version check
-if sys.version_info < (3, 8):
-    print("Error: Python 3.8 or higher is required")
-    sys.exit(1)
 
 # Constants
 BRANCH_NAME = "main"
@@ -76,7 +72,7 @@ def run_command(
     command: list,
     capture_output: bool = True,
     check: bool = True,
-    cwd: Optional[str] = None,
+    cwd: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Execute a command securely via subprocess.
@@ -114,7 +110,7 @@ def check_prerequisite(command: str) -> bool:
     return shutil.which(command) is not None
 
 
-def parse_config_yaml(config_path: Path) -> Dict[str, str]:
+def parse_config_yaml(config_path: Path) -> dict[str, str]:
     """
     Parse config.yaml using regex (no PyYAML dependency).
 
@@ -124,7 +120,7 @@ def parse_config_yaml(config_path: Path) -> Dict[str, str]:
     Returns:
         Dictionary with stack_name_base and pattern values
     """
-    config = {"stack_name_base": "", "pattern": "langgraph-single-agent"}
+    config = {"stack_name_base": "", "pattern": "strands-single-agent"}
 
     if not config_path.exists():
         return config
@@ -165,7 +161,7 @@ def get_file_size_human(filepath: str) -> str:
 # --- AWS CLI wrappers ---
 
 
-def get_stack_outputs(stack_name: str) -> Dict[str, str]:
+def get_stack_outputs(stack_name: str) -> dict[str, str]:
     """
     Fetch CloudFormation stack outputs via AWS CLI.
 
@@ -239,12 +235,10 @@ def upload_to_s3(local_path: str, bucket: str, key: str) -> None:
         bucket: S3 bucket name
         key: S3 object key
     """
-    run_command(
-        ["aws", "s3", "cp", local_path, f"s3://{bucket}/{key}", "--no-progress"]
-    )
+    run_command(["aws", "s3", "cp", local_path, f"s3://{bucket}/{key}", "--no-progress"])
 
 
-def start_amplify_deployment(app_id: str, branch: str, source_url: str) -> Dict:
+def start_amplify_deployment(app_id: str, branch: str, source_url: str) -> dict:
     """
     Start an Amplify deployment via AWS CLI.
 
@@ -338,7 +332,7 @@ def get_amplify_app_domain(app_id: str) -> str:
 
 def generate_aws_exports(
     stack_name: str,
-    outputs: Dict[str, str],
+    outputs: dict[str, str],
     region: str,
     pattern: str,
     frontend_dir: Path,
@@ -397,9 +391,7 @@ def create_deployment_zip(build_dir: Path, output_path: Path) -> None:
         output_path: Path for the output zip file (without .zip extension)
     """
     # shutil.make_archive adds .zip automatically
-    shutil.make_archive(
-        str(output_path.with_suffix("")), "zip", root_dir=str(build_dir)
-    )
+    shutil.make_archive(str(output_path.with_suffix("")), "zip", root_dir=str(build_dir))
 
 
 def main() -> int:
@@ -437,9 +429,7 @@ def main() -> int:
     except subprocess.CalledProcessError:
         log_error("AWS credentials not configured or invalid")
         log_info("Run 'aws configure' to set up your AWS credentials")
-        log_info(
-            "Or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables"
-        )
+        log_info("Or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables")
         return 1
 
     # Get stack name
@@ -503,10 +493,7 @@ def main() -> int:
     node_modules = frontend_dir / "node_modules"
     package_json = frontend_dir / "package.json"
 
-    if (
-        not node_modules.exists()
-        or package_json.stat().st_mtime > node_modules.stat().st_mtime
-    ):
+    if not node_modules.exists() or package_json.stat().st_mtime > node_modules.stat().st_mtime:
         log_info("Installing dependencies...")
         try:
             run_command(["npm", "install"], capture_output=False)

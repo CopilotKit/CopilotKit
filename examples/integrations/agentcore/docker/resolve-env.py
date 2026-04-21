@@ -2,16 +2,18 @@
 Resolves STACK_NAME and MEMORY_ID from config.yaml + CloudFormation
 and writes them to /env/agent.env for the agent container.
 """
-import boto3
+
 import os
 import re
+
+import boto3
 import yaml
 
 with open("/config.yaml") as f:
     cfg = yaml.safe_load(f)
 
 base = re.sub(r"-(lg|st)$", "", cfg["stack_name_base"])
-agent = os.environ.get("AGENT", "langgraph")
+agent = os.environ.get("AGENT", "strands")
 suffix = "lg" if agent == "langgraph" else "st"
 stack_name = f"{base}-{suffix}"
 

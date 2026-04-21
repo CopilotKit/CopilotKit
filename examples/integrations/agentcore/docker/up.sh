@@ -12,8 +12,8 @@ ENV_FILE="$SCRIPT_DIR/.env"
 [[ -f "$ENV_FILE" ]] || { echo "ERROR: .env not found. Run: cp .env.example .env"; exit 1; }
 
 # Read AGENT from .env
-AGENT=$(grep "^AGENT=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "langgraph")
-AGENT="${AGENT:-langgraph}"
+AGENT=$(grep "^AGENT=" "$ENV_FILE" 2>/dev/null | cut -d= -f2 || echo "strands")
+AGENT="${AGENT:-strands}"
 
 # Derive stack name from config.yaml
 BASE=$(python3 -c "

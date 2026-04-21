@@ -13,7 +13,7 @@ services:
   agent:
     build:
       context: ..
-      dockerfile: agents/${AGENT:-langgraph}-single-agent/Dockerfile
+      dockerfile: agents/${AGENT:-strands}-single-agent/Dockerfile
       platforms:
         - linux/arm64
     ports:
@@ -32,7 +32,7 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ../agents/${AGENT:-langgraph}-single-agent
+          path: ../agents/${AGENT:-strands}-single-agent
           target: /app
           ignore:
             - __pycache__/

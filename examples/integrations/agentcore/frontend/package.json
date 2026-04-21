@@ -47,7 +47,10 @@
     "@types/node": "^25.0.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^10.2.0",
     "fast-check": "^4.5.3",
     "jsdom": "^23.0.1",
     "prettier": "^3.8.1",
@@ -55,7 +58,7 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.2.9",
     "typescript": "^5",
-    "vite": "^7.3.1",
+    "vite": "^7.3.2",
     "vitest": "^4.0.18"
   }
 }

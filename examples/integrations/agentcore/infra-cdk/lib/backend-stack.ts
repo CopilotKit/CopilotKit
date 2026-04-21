@@ -702,16 +702,6 @@ export class BackendStack extends cdk.NestedStack {
       value: gateway.attrGatewayArn,
       description: "AgentCore Gateway ARN",
     });
-
-    new cdk.CfnOutput(this, "GatewayTargetId", {
-      value: gatewayTarget.ref,
-      description: "AgentCore Gateway Target ID",
-    });
-
-    new cdk.CfnOutput(this, "ToolLambdaArn", {
-      description: "ARN of the sample tool Lambda",
-      value: toolLambda.functionArn,
-    });
   }
 
   private createMachineAuthentication(config: AppConfig): void {

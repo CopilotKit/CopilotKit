@@ -6,10 +6,9 @@ from __future__ import annotations
 import json
 import logging
 import os
-import traceback
 
 from ag_ui.core import RunAgentInput, RunErrorEvent
-from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, PredictStateMapping
+from ag_ui_strands import PredictStateMapping, StrandsAgent, StrandsAgentConfig, ToolBehavior
 from ag_ui_strands.config import ToolCallContext
 from bedrock_agentcore.memory.integrations.strands.config import AgentCoreMemoryConfig
 from bedrock_agentcore.memory.integrations.strands.session_manager import (
@@ -20,7 +19,6 @@ from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
 from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
-
 from tools.query_data import query_data
 from tools.todos import manage_todos
 from utils.auth import extract_user_id_from_context, get_gateway_access_token
@@ -81,9 +79,7 @@ def create_strands_agent(actor_id: str, session_id: str) -> StrandsAgent:
     if not memory_id:
         raise ValueError("MEMORY_ID environment variable is required")
 
-    agentcore_memory_config = AgentCoreMemoryConfig(
-        memory_id=memory_id, session_id=session_id, actor_id=actor_id
-    )
+    agentcore_memory_config = AgentCoreMemoryConfig(memory_id=memory_id, session_id=session_id, actor_id=actor_id)
     session_manager = AgentCoreMemorySessionManager(
         agentcore_memory_config=agentcore_memory_config,
         region_name=os.environ.get("AWS_DEFAULT_REGION", "us-east-1"),
@@ -104,7 +100,6 @@ def create_strands_agent(actor_id: str, session_id: str) -> StrandsAgent:
     async def todos_state_from_args(ctx: ToolCallContext) -> dict:
         todos = (ctx.tool_input or {}).get("todos", [])
         return {"todos": todos}
-
 
     # Frontend tools (generative UI / canvas controls): let the agent continue after
     # calling them so it generates a proper conclusion text. The run then finishes
@@ -183,11 +178,7 @@ async def invocations(payload: dict, context: RequestContext):
         actor_id = extract_user_id_from_context(context)
     except ValueError:
         # Fall back to forwarded props if JWT extraction fails (e.g. local dev).
-        forwarded = (
-            input_data.forwarded_props
-            if isinstance(input_data.forwarded_props, dict)
-            else {}
-        )
+        forwarded = input_data.forwarded_props if isinstance(input_data.forwarded_props, dict) else {}
         actor_id = next(
             (forwarded[k] for k in ACTOR_ID_KEYS if k in forwarded and forwarded[k]),
             None,
@@ -195,8 +186,7 @@ async def invocations(payload: dict, context: RequestContext):
 
     if not actor_id:
         raise ValueError(
-            "Missing actor identity. Provide forwardedProps.actor_id/user_id "
-            "or include sub claim in the bearer token."
+            "Missing actor identity. Provide forwardedProps.actor_id/user_id or include sub claim in the bearer token."
         )
 
     # Use thread_id from the request (set by CopilotKit runtime) or fall back

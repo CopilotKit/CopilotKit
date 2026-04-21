@@ -14,6 +14,7 @@ from bedrock_agentcore.runtime import RequestContext
 
 logger = logging.getLogger(__name__)
 
+
 def extract_user_id_from_context(context: RequestContext) -> str:
     """
     Securely extract the user ID from the JWT token in the request context.
@@ -52,11 +53,7 @@ def extract_user_id_from_context(context: RequestContext) -> str:
         )
 
     # Remove "Bearer " prefix to get the raw JWT token
-    token = (
-        auth_header.replace("Bearer ", "")
-        if auth_header.startswith("Bearer ")
-        else auth_header
-    )
+    token = auth_header.replace("Bearer ", "") if auth_header.startswith("Bearer ") else auth_header
 
     # Decode without signature verification — AgentCore Runtime already validated the token.
     # We use options to skip all verification since this is a trusted, pre-validated token.
@@ -68,20 +65,13 @@ def extract_user_id_from_context(context: RequestContext) -> str:
 
     user_id = claims.get("sub")
     if not user_id:
-        raise ValueError(
-            "JWT token does not contain a 'sub' claim. "
-            "Cannot determine user identity."
-        )
+        raise ValueError("JWT token does not contain a 'sub' claim. Cannot determine user identity.")
 
     logger.info("Extracted user_id from JWT: %s", user_id)
     return user_id
 
 
-@requires_access_token(
-    provider_name=os.environ.get("GATEWAY_CREDENTIAL_PROVIDER_NAME", ""),
-    auth_flow="M2M",
-    scopes=[]
-)
+@requires_access_token(provider_name=os.environ.get("GATEWAY_CREDENTIAL_PROVIDER_NAME", ""), auth_flow="M2M", scopes=[])
 def get_gateway_access_token(access_token: str) -> str:
     """
     Fetch OAuth2 access token for AgentCore Gateway authentication.

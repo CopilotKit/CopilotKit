@@ -24,16 +24,15 @@ Usage:
 
 import argparse
 import atexit
-import os
 import getpass
 import json
+import os
 import signal
 import socket
 import subprocess  # nosec B404 - subprocess used securely with explicit parameters
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Optional
 
 import requests
 from colorama import Fore, Style
@@ -54,7 +53,7 @@ from utils import (
 )
 
 # Global variable to track agent process
-_agent_process: Optional[subprocess.Popen] = None
+_agent_process: subprocess.Popen | None = None
 
 
 def generate_trace_id() -> str:
@@ -88,9 +87,7 @@ def check_port_available(port: int = 8080) -> bool:
         return False
 
 
-def start_local_agent(
-    memory_id: str, region: str, stack_name: str, pattern: str
-) -> subprocess.Popen:
+def start_local_agent(memory_id: str, region: str, stack_name: str, pattern: str) -> subprocess.Popen:
     """
     Start the local agent in a background process.
 
@@ -172,7 +169,7 @@ def start_local_agent(
 
         # Wait for agent to start (check port becomes available)
         print("Waiting for agent to start on port 8080...")
-        for i in range(30):  # Wait up to 30 seconds
+        for _i in range(30):  # Wait up to 30 seconds
             if check_port_available(8080):
                 print_msg("Agent started successfully", "success")
                 return _agent_process
@@ -221,7 +218,7 @@ def invoke_agent(
     prompt: str,
     session_id: str,
     user_id: str = "local-test-user",
-    headers: Optional[Dict[str, str]] = None,
+    headers: dict[str, str] | None = None,
 ) -> None:
     """
     Invoke agent and print raw streaming events in real-time.
@@ -248,9 +245,7 @@ def invoke_agent(
     headers["Content-Type"] = "application/json"
 
     try:
-        response = requests.post(
-            url, headers=headers, json=payload, stream=True, timeout=60
-        )
+        response = requests.post(url, headers=headers, json=payload, stream=True, timeout=60)
 
         if response.status_code != 200:
             print(f"Error: HTTP {response.status_code}: {response.text}")
@@ -265,9 +260,7 @@ def invoke_agent(
                 chunk = json.loads(line[6:])
 
                 # LangGraph: AIMessageChunk with content array
-                if chunk.get("type") == "AIMessageChunk" and isinstance(
-                    chunk.get("content"), list
-                ):
+                if chunk.get("type") == "AIMessageChunk" and isinstance(chunk.get("content"), list):
                     for block in chunk["content"]:
                         if block.get("type") == "text" and block.get("text"):
                             print(block["text"], end="", flush=True)
@@ -293,9 +286,7 @@ def invoke_agent(
                     print(chunk["data"], end="", flush=True)
 
                 # Strands: tool use
-                elif chunk.get("current_tool_use") and chunk.get(
-                    "current_tool_use", {}
-                ).get("name"):
+                elif chunk.get("current_tool_use") and chunk.get("current_tool_use", {}).get("name"):
                     tool = chunk["current_tool_use"]
                     if chunk.get("delta", {}).get("toolUse", {}).get("input") == "":
                         print(
@@ -327,7 +318,7 @@ def invoke_agent(
         print(f"Error: {e}")
 
 
-def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
+def run_chat(local_mode: bool, config: dict[str, str]) -> None:
     """
     Run interactive chat session.
 
@@ -339,12 +330,8 @@ def run_chat(local_mode: bool, config: Dict[str, str]) -> None:
 
     print_section("Interactive Agent Chat")
     print(f"Session ID: {session_id}")
-    print(
-        f"Mode: {'Local (localhost:8080)' if local_mode else 'Remote (deployed agent)'}"
-    )
-    print(
-        f"\n{Fore.YELLOW}💡 Type 'exit' or 'quit' to end, or press Ctrl+C{Style.RESET_ALL}\n"
-    )
+    print(f"Mode: {'Local (localhost:8080)' if local_mode else 'Remote (deployed agent)'}")
+    print(f"\n{Fore.YELLOW}💡 Type 'exit' or 'quit' to end, or press Ctrl+C{Style.RESET_ALL}\n")
 
     while True:
         try:
@@ -412,10 +399,10 @@ def parse_arguments() -> argparse.Namespace:
 Examples:
   # Remote agent (prompts for credentials)
   uv run scripts/test-agent.py
-  
+
   # Local agent on localhost:8080 (uses pattern from config.yaml)
   uv run scripts/test-agent.py --local
-  
+
   # Override pattern for local testing
   uv run scripts/test-agent.py --local --pattern strands-single-agent
 
@@ -449,7 +436,7 @@ def main():
     print("=" * 60 + "\n")
 
     args = parse_arguments()
-    config: Dict[str, str] = {}
+    config: dict[str, str] = {}
 
     # Get stack configuration
     stack_cfg = get_stack_config()
@@ -457,11 +444,7 @@ def main():
     # LOCAL MODE
     if args.local:
         # Determine pattern: CLI arg > config.yaml > default (only needed for local mode)
-        pattern = (
-            args.pattern
-            if args.pattern
-            else stack_cfg.get("pattern", "langgraph-single-agent")
-        )
+        pattern = args.pattern if args.pattern else stack_cfg.get("pattern", "strands-single-agent")
         print(f"Using pattern: {pattern}\n")
         print_section("LOCAL MODE - Auto-starting agent")
 

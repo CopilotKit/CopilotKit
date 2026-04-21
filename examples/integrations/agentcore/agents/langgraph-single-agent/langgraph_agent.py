@@ -14,10 +14,9 @@ from langchain.agents import create_agent
 from langchain_aws import ChatBedrock
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph_checkpoint_aws import AgentCoreMemorySaver
-
+from tools import AgentState, query_data, todo_tools
 from utils.auth import extract_user_id_from_context
 from utils.ssm import get_ssm_parameter
-from tools import query_data, AgentState, todo_tools
 
 app = BedrockAgentCoreApp()
 
@@ -93,11 +92,7 @@ async def invocations(payload: dict, context: RequestContext):
         actor_id = extract_user_id_from_context(context)
     except ValueError:
         # Fall back to forwarded props if JWT extraction fails (e.g. local dev).
-        forwarded = (
-            input_data.forwarded_props
-            if isinstance(input_data.forwarded_props, dict)
-            else {}
-        )
+        forwarded = input_data.forwarded_props if isinstance(input_data.forwarded_props, dict) else {}
         actor_id = next(
             (forwarded[k] for k in ACTOR_ID_KEYS if k in forwarded and forwarded[k]),
             None,
@@ -105,8 +100,7 @@ async def invocations(payload: dict, context: RequestContext):
 
     if not actor_id:
         raise ValueError(
-            "Missing actor identity. Provide forwardedProps.actor_id/user_id "
-            "or include sub claim in the bearer token."
+            "Missing actor identity. Provide forwardedProps.actor_id/user_id or include sub claim in the bearer token."
         )
 
     try:
