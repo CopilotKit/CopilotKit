@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: echo ok
 `,
-  "starter-smoke.yml": `name: Starter Smoke
+  "test_smoke-starter.yml": `name: Starter Smoke
 on: { workflow_dispatch: {} }
 jobs:
   smoke:
@@ -560,14 +560,8 @@ describe("Template Generator", () => {
     // `starter:` matrix in test_smoke-starter.yml, AND inserts
     // options/outputs/filters/build-job entries into showcase_deploy.yml.
     runGenerator(args);
-    const smokePath = path.join(
-      TMP_WORKFLOWS_DIR,
-      "test_smoke-starter.yml",
-    );
-    const deployPath = path.join(
-      TMP_WORKFLOWS_DIR,
-      "showcase_deploy.yml",
-    );
+    const smokePath = path.join(TMP_WORKFLOWS_DIR, "test_smoke-starter.yml");
+    const deployPath = path.join(TMP_WORKFLOWS_DIR, "showcase_deploy.yml");
     const afterFirstRun = fs.readFileSync(smokePath, "utf-8");
     const deployAfterFirstRun = fs.readFileSync(deployPath, "utf-8");
     expect(afterFirstRun).toMatch(
@@ -1058,45 +1052,41 @@ describe("Template Generator — hardening regressions", () => {
         isFile: () => true,
         isDirectory: () => false,
       } as unknown as fs.Stats;
-      const statSpy = vi
-        .spyOn(fs, "statSync")
-        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
-          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
-          const pStr = String(p);
-          if (pStr.endsWith("test_smoke-starter.yml")) {
-            const err = new Error(
-              `ENOENT: no such file or directory, stat '${pStr}'`,
-            ) as NodeJS.ErrnoException;
-            err.code = "ENOENT";
-            throw err;
-          }
-          return (
-            realStat as unknown as (
-              p: fs.PathLike,
-              ...rest: unknown[]
-            ) => fs.Stats
-          )(p, ...rest);
-        }) as typeof fs.statSync);
+      const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+        const pStr = String(p);
+        if (pStr.endsWith("test_smoke-starter.yml")) {
+          const err = new Error(
+            `ENOENT: no such file or directory, stat '${pStr}'`,
+          ) as NodeJS.ErrnoException;
+          err.code = "ENOENT";
+          throw err;
+        }
+        return (
+          realStat as unknown as (
+            p: fs.PathLike,
+            ...rest: unknown[]
+          ) => fs.Stats
+        )(p, ...rest);
+      }) as typeof fs.statSync);
       const realRead = fs.readFileSync;
-      const readSpy = vi
-        .spyOn(fs, "readFileSync")
-        .mockImplementation(((
-          p: fs.PathOrFileDescriptor,
-          ...rest: unknown[]
-        ) => {
-          if (
-            typeof p === "string" &&
-            p.endsWith("showcase_deploy.yml")
-          ) {
-            return "name: deploy\non: push\njobs:\n  noop:\n    runs-on: ubuntu\n";
-          }
-          return (
-            realRead as unknown as (
-              p: fs.PathOrFileDescriptor,
-              ...rest: unknown[]
-            ) => string | Buffer
-          )(p, ...rest);
-        }) as typeof fs.readFileSync);
+      const readSpy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("showcase_deploy.yml")) {
+          return "name: deploy\non: push\njobs:\n  noop:\n    runs-on: ubuntu\n";
+        }
+        return (
+          realRead as unknown as (
+            p: fs.PathOrFileDescriptor,
+            ...rest: unknown[]
+          ) => string | Buffer
+        )(p, ...rest);
+      }) as typeof fs.readFileSync);
       // Prevent the function from actually writing; it shouldn't reach
       // writeFileSync in the throwing branch, but guard anyway so a
       // regression doesn't clobber the real workflow file.
@@ -1152,45 +1142,41 @@ describe("Template Generator — hardening regressions", () => {
         isFile: () => true,
         isDirectory: () => false,
       } as unknown as fs.Stats;
-      const statSpy = vi
-        .spyOn(fs, "statSync")
-        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
-          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
-          const pStr = String(p);
-          if (pStr.endsWith("test_smoke-starter.yml")) {
-            const err = new Error(
-              `ENOENT: no such file or directory, stat '${pStr}'`,
-            ) as NodeJS.ErrnoException;
-            err.code = "ENOENT";
-            throw err;
-          }
-          return (
-            realStat as unknown as (
-              p: fs.PathLike,
-              ...rest: unknown[]
-            ) => fs.Stats
-          )(p, ...rest);
-        }) as typeof fs.statSync);
+      const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+        const pStr = String(p);
+        if (pStr.endsWith("test_smoke-starter.yml")) {
+          const err = new Error(
+            `ENOENT: no such file or directory, stat '${pStr}'`,
+          ) as NodeJS.ErrnoException;
+          err.code = "ENOENT";
+          throw err;
+        }
+        return (
+          realStat as unknown as (
+            p: fs.PathLike,
+            ...rest: unknown[]
+          ) => fs.Stats
+        )(p, ...rest);
+      }) as typeof fs.statSync);
       const realRead = fs.readFileSync;
-      const readSpy = vi
-        .spyOn(fs, "readFileSync")
-        .mockImplementation(((
-          p: fs.PathOrFileDescriptor,
-          ...rest: unknown[]
-        ) => {
-          if (
-            typeof p === "string" &&
-            p.endsWith("showcase_deploy.yml")
-          ) {
-            return yamlBody;
-          }
-          return (
-            realRead as unknown as (
-              p: fs.PathOrFileDescriptor,
-              ...rest: unknown[]
-            ) => string | Buffer
-          )(p, ...rest);
-        }) as typeof fs.readFileSync);
+      const readSpy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("showcase_deploy.yml")) {
+          return yamlBody;
+        }
+        return (
+          realRead as unknown as (
+            p: fs.PathOrFileDescriptor,
+            ...rest: unknown[]
+          ) => string | Buffer
+        )(p, ...rest);
+      }) as typeof fs.readFileSync);
       const writeSpy = vi
         .spyOn(fs, "writeFileSync")
         .mockImplementation(() => {});
@@ -1247,45 +1233,41 @@ describe("Template Generator — hardening regressions", () => {
         isFile: () => true,
         isDirectory: () => false,
       } as unknown as fs.Stats;
-      const statSpy = vi
-        .spyOn(fs, "statSync")
-        .mockImplementation(((p: fs.PathLike, ...rest: unknown[]) => {
-          if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
-          const pStr = String(p);
-          if (pStr.endsWith("test_smoke-starter.yml")) {
-            const err = new Error(
-              `ENOENT: no such file or directory, stat '${pStr}'`,
-            ) as NodeJS.ErrnoException;
-            err.code = "ENOENT";
-            throw err;
-          }
-          return (
-            realStat as unknown as (
-              p: fs.PathLike,
-              ...rest: unknown[]
-            ) => fs.Stats
-          )(p, ...rest);
-        }) as typeof fs.statSync);
+      const statSpy = vi.spyOn(fs, "statSync").mockImplementation(((
+        p: fs.PathLike,
+        ...rest: unknown[]
+      ) => {
+        if (String(p).endsWith("showcase_deploy.yml")) return fakeStats;
+        const pStr = String(p);
+        if (pStr.endsWith("test_smoke-starter.yml")) {
+          const err = new Error(
+            `ENOENT: no such file or directory, stat '${pStr}'`,
+          ) as NodeJS.ErrnoException;
+          err.code = "ENOENT";
+          throw err;
+        }
+        return (
+          realStat as unknown as (
+            p: fs.PathLike,
+            ...rest: unknown[]
+          ) => fs.Stats
+        )(p, ...rest);
+      }) as typeof fs.statSync);
       const realRead = fs.readFileSync;
-      const readSpy = vi
-        .spyOn(fs, "readFileSync")
-        .mockImplementation(((
-          p: fs.PathOrFileDescriptor,
-          ...rest: unknown[]
-        ) => {
-          if (
-            typeof p === "string" &&
-            p.endsWith("showcase_deploy.yml")
-          ) {
-            return yamlBody;
-          }
-          return (
-            realRead as unknown as (
-              p: fs.PathOrFileDescriptor,
-              ...rest: unknown[]
-            ) => string | Buffer
-          )(p, ...rest);
-        }) as typeof fs.readFileSync);
+      const readSpy = vi.spyOn(fs, "readFileSync").mockImplementation(((
+        p: fs.PathOrFileDescriptor,
+        ...rest: unknown[]
+      ) => {
+        if (typeof p === "string" && p.endsWith("showcase_deploy.yml")) {
+          return yamlBody;
+        }
+        return (
+          realRead as unknown as (
+            p: fs.PathOrFileDescriptor,
+            ...rest: unknown[]
+          ) => string | Buffer
+        )(p, ...rest);
+      }) as typeof fs.readFileSync);
       const writeSpy = vi
         .spyOn(fs, "writeFileSync")
         .mockImplementation(() => {});
