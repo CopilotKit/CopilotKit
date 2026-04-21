@@ -11,14 +11,19 @@ export interface ImageDriftSignal {
   staleServices: string[];
   triggered: string[];
   /**
-   * Services for which `fetchLatestDigest` returned null (GHCR outage, 404,
-   * auth failure, etc). Sorted. Treated as red — we cannot assert freshness
-   * without a successful upstream lookup. Distinguishing this from
-   * `staleServices` lets operators tell "rebuild these" from "GHCR is down".
+   * Services for which `fetchLatestDigest` returned null OR threw (GHCR
+   * outage, 404, auth failure, transient 5xx, etc). Sorted. Treated as red
+   * — we cannot assert freshness without a successful upstream lookup.
+   * Distinguishing this from `staleServices` lets operators tell
+   * "rebuild these" from "GHCR is down". A single service's lookup failure
+   * is isolated into this bucket and does NOT reject the whole probe —
+   * one transient GHCR 502 must not blind us to drift on every other
+   * service.
    */
   errored: string[];
   triggeredCount: number;
   erroredCount: number;
+  staleServicesCount: number;
   rebuildNoun: string;
 }
 
@@ -29,7 +34,8 @@ export interface ImageDriftSignal {
  * - `signal.triggered` — union of staleServices + errored (message-friendly flat list).
  *   Ordering: stale first (sorted), then errored (sorted). A single service is
  *   categorized into exactly one bucket so the two sub-lists are disjoint.
- * - `signal.triggeredCount` / `signal.erroredCount` — counts for templates.
+ * - `signal.triggeredCount` / `signal.erroredCount` / `signal.staleServicesCount`
+ *   — counts for templates.
  * - `signal.rebuildNoun` — "rebuild" / "rebuilds" based on triggered.length.
  * Probe state is red when EITHER bucket is non-empty; green only when both are empty.
  */
@@ -52,12 +58,19 @@ export const imageDriftProbe: Probe<ImageDriftInput, ImageDriftSignal> = {
 
     const stale: string[] = [];
     const errored: string[] = [];
+    // Per-service try/catch — mirrors aimock-wiring's resilience pattern so
+    // one transient GHCR 502 degrades to a partial report rather than killing
+    // drift detection for every service.
     for (const { service, digest } of deduped) {
-      const latest = await input.fetchLatestDigest(service);
-      if (latest === null) {
+      try {
+        const latest = await input.fetchLatestDigest(service);
+        if (latest === null) {
+          errored.push(service);
+        } else if (latest !== digest) {
+          stale.push(service);
+        }
+      } catch {
         errored.push(service);
-      } else if (latest !== digest) {
-        stale.push(service);
       }
     }
     stale.sort();
@@ -72,6 +85,7 @@ export const imageDriftProbe: Probe<ImageDriftInput, ImageDriftSignal> = {
       errored,
       triggeredCount: triggered.length,
       erroredCount: errored.length,
+      staleServicesCount: stale.length,
       rebuildNoun: triggered.length === 1 ? "rebuild" : "rebuilds",
     };
     return {

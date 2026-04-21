@@ -96,6 +96,50 @@ describe("image-drift probe", () => {
     expect(r.signal.rebuildNoun).toBe("rebuilds");
   });
 
+  it("isolates a throwing fetchLatestDigest to errored bucket (partial-failure resilience)", async () => {
+    // Regression: previously `for (const ...) await input.fetchLatestDigest(service)`
+    // had no try/catch — one transient GHCR 502 rejected the whole probe, so a
+    // single flaky lookup would blind operators to real drift on every other
+    // service. Mirrors aimock-wiring's per-service try/catch pattern.
+    const r = await imageDriftProbe.run(
+      {
+        deployed: [
+          { service: "a", digest: "sha256:1" },
+          { service: "b", digest: "sha256:2" },
+          { service: "c", digest: "sha256:3" },
+        ],
+        fetchLatestDigest: async (s) => {
+          if (s === "b") throw new Error("GHCR 502");
+          if (s === "c") return "sha256:NEW";
+          return "sha256:1";
+        },
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.staleServices).toEqual(["c"]);
+    expect(r.signal.errored).toEqual(["b"]);
+    expect(r.signal.staleServicesCount).toBe(1);
+    expect(r.signal.erroredCount).toBe(1);
+    // stale-first, errored-last (contract).
+    expect(r.signal.triggered).toEqual(["c", "b"]);
+  });
+
+  it("surfaces staleServicesCount matching staleServices.length", async () => {
+    const r = await imageDriftProbe.run(
+      {
+        deployed: [
+          { service: "a", digest: "sha256:1" },
+          { service: "b", digest: "sha256:2" },
+        ],
+        fetchLatestDigest: async () => "sha256:NEW",
+      },
+      ctx,
+    );
+    expect(r.signal.staleServicesCount).toBe(2);
+    expect(r.signal.erroredCount).toBe(0);
+  });
+
   it("dedupes duplicate (service, digest) input entries", async () => {
     // Regression: duplicates in input.deployed could previously cause the same
     // service to appear in BOTH stale and errored buckets if fetchLatestDigest
