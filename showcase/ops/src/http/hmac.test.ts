@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { canonicalPayload, computeSignature, verifyHmac } from "./hmac.js";
 
 const NOW = 1_700_000_000;
@@ -405,62 +405,51 @@ describe("verifyHmac", () => {
       ).toBe(false);
     });
 
+    // Guard: if a crypto spy throws mid-test and we forget to restore,
+    // downstream tests would see the injected error. `restoreAllMocks`
+    // on the spy set up by `vi.spyOn` below auto-reverts.
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it("logs unexpected crypto errors at warn with stable errorId", () => {
-      // Simulate a crypto-layer failure by providing a secret whose
-      // digest computation we disrupt. We can't easily inject a throw
-      // into Node's crypto from here without monkey-patching, so the
-      // next-best thing is to assert that WHEN the catch branch fires
-      // on a non-length-mismatch error, it routes to warn with the
-      // documented errorId. We verify this via a targeted monkey-patch
-      // of the logger capture + forcing an error through Buffer.from
-      // by passing a malformed hex that bypasses our regex.
-      //
-      // Our regex /^[0-9a-f]+$/i + even-length check filters malformed
-      // hex before reaching timingSafeEqual, so the only way to reach
-      // the catch-with-non-length-mismatch branch from public API is
-      // via an unexpected runtime error (OOM, platform quirk) — hard
-      // to reproduce deterministically.
-      //
-      // Instead we exercise the classifier directly via a synthetic
-      // throw: monkey-patch timingSafeEqual to throw a non-length
-      // error, then call verifyHmac and assert routing.
-      const origTimingSafeEqual = crypto.timingSafeEqual;
+      // Simulate a crypto-layer failure. Our regex + even-length check
+      // filters malformed hex before reaching timingSafeEqual, so the
+      // only way to reach the catch-with-non-length-mismatch branch
+      // from public API is via an unexpected runtime error (OOM,
+      // platform quirk). We force that via `vi.spyOn` with auto-restore
+      // — safer than manually reassigning a global and relying on
+      // try/finally to clean up (a thrown assertion inside the try
+      // would leak the stub to every subsequent test).
       const syntheticError = new Error("simulated crypto failure (OOM)");
-      // Deliberate runtime stub — we reassign Node's crypto.timingSafeEqual
-      // for the duration of this test only, restored in `finally` below.
-      (crypto as { timingSafeEqual: (...args: unknown[]) => boolean }).timingSafeEqual =
-        () => {
-          throw syntheticError;
-        };
-      try {
-        const { logger: cap, warnCalls } = captureLogger();
-        const r = verifyHmac({
-          method,
-          path,
-          timestamp: String(NOW),
-          body,
-          signatureHeader: sig,
-          secrets: [secret],
-          nowSec,
-          logger: cap,
-        });
-        expect(r.ok).toBe(false);
-        // After the synthetic crypto failure, the loop falls through to
-        // bad-signature (no secret matched).
-        expect(r.reason).toBe("bad-signature");
-        const unexpectedCall = warnCalls.find(
-          (c) =>
-            typeof c.meta === "object" &&
-            c.meta !== null &&
-            "errorId" in c.meta &&
-            (c.meta as { errorId?: string }).errorId ===
-              "HMAC_COMPARE_UNEXPECTED_ERROR",
-        );
-        expect(unexpectedCall).toBeDefined();
-        expect(unexpectedCall!.msg).toBe("hmac.verify.compare-error");
-      } finally {
-        crypto.timingSafeEqual = origTimingSafeEqual;
-      }
+      vi.spyOn(crypto, "timingSafeEqual").mockImplementationOnce(() => {
+        throw syntheticError;
+      });
+      const { logger: cap, warnCalls } = captureLogger();
+      const r = verifyHmac({
+        method,
+        path,
+        timestamp: String(NOW),
+        body,
+        signatureHeader: sig,
+        secrets: [secret],
+        nowSec,
+        logger: cap,
+      });
+      expect(r.ok).toBe(false);
+      // After the synthetic crypto failure, the loop falls through to
+      // bad-signature (no secret matched).
+      expect(r.reason).toBe("bad-signature");
+      const unexpectedCall = warnCalls.find(
+        (c) =>
+          typeof c.meta === "object" &&
+          c.meta !== null &&
+          "errorId" in c.meta &&
+          (c.meta as { errorId?: string }).errorId ===
+            "HMAC_COMPARE_UNEXPECTED_ERROR",
+      );
+      expect(unexpectedCall).toBeDefined();
+      expect(unexpectedCall!.msg).toBe("hmac.verify.compare-error");
     });
   });
 });
