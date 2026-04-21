@@ -516,11 +516,7 @@ export function inlineSnippets(
         // Previously a permission error / missing file mid-render
         // crashed the entire docs page. Log and leave the original
         // <Component /> reference in the rendered output.
-        console.error(
-          "[docs-render] failed to read snippet",
-          snippetPath,
-          err,
-        );
+        console.error("[docs-render] failed to read snippet", snippetPath, err);
         return match;
       }
       snippetContent = snippetContent.replace(/^---[\s\S]*?---\r?\n?/, "");

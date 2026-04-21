@@ -381,7 +381,10 @@ export default async function AgUiDocPage({
     notFound();
   }
 
-  const source = safeReadFileSync(CONTENT_DIR, path.relative(CONTENT_DIR, filePath));
+  const source = safeReadFileSync(
+    CONTENT_DIR,
+    path.relative(CONTENT_DIR, filePath),
+  );
   if (source === null) {
     console.error(`[ag-ui] Failed to read ${filePath}`);
     notFound();

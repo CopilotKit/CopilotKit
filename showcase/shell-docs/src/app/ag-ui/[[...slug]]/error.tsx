@@ -28,9 +28,8 @@ export default function AgUiError({
           Something went wrong
         </h2>
         <p className="text-sm text-[var(--text-muted)] mb-4">
-          We hit an error rendering this page. Please refresh, and if it
-          keeps happening, report it with the ID below so we can track it
-          down.
+          We hit an error rendering this page. Please refresh, and if it keeps
+          happening, report it with the ID below so we can track it down.
         </p>
         {error.digest && (
           <p className="text-xs text-[var(--text-faint)] mb-4 font-mono">

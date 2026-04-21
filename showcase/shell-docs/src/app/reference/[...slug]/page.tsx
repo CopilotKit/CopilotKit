@@ -44,10 +44,7 @@ export default async function ReferenceSlugPage({
   // slugPath is user-supplied (URL segments). Route the filesystem read
   // through safeReadFileSync so crafted paths like `..%2F..%2Fsecrets`
   // can't escape REFERENCE_CONTENT_DIR.
-  const raw = safeReadFileSync(
-    REFERENCE_CONTENT_DIR,
-    `${slugPath}.mdx`,
-  );
+  const raw = safeReadFileSync(REFERENCE_CONTENT_DIR, `${slugPath}.mdx`);
   if (raw === null) {
     notFound();
   }

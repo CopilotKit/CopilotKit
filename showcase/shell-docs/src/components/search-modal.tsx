@@ -48,10 +48,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
   }, [selectedIndex]);
 
   useEffect(() => {
-    const focusId = window.setTimeout(
-      () => inputRef.current?.focus(),
-      50,
-    );
+    const focusId = window.setTimeout(() => inputRef.current?.focus(), 50);
     let cancelled = false;
     import("@/data/registry.json")
       .then((mod) => {

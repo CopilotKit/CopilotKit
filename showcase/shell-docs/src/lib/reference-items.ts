@@ -128,5 +128,7 @@ export function loadAllReferenceItems(): ReferenceItem[] {
  * are statically generated too.
  */
 export function referenceStaticParams(): { slug: string[] }[] {
-  return loadAllReferenceItems().map((item) => ({ slug: item.slug.split("/") }));
+  return loadAllReferenceItems().map((item) => ({
+    slug: item.slug.split("/"),
+  }));
 }
