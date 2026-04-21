@@ -24,5 +24,34 @@ describe("redirect-decommission probe", () => {
     );
     expect(r.state).toBe("green");
     expect(r.signal.hasCandidates).toBe(false);
+    expect(r.signal.probeErrored).toBe(false);
+  });
+
+  it("surfaces probeErrored + probeErrorDesc when upstream audit fails", async () => {
+    // Regression: without this flag, the monthly suppression guard
+    // (signal.hasCandidates != true) silently swallows a failed audit — a
+    // broken SEO audit for N months would produce zero alerts. Templates
+    // should render a dedicated "audit failed" branch when this fires.
+    const r = await redirectDecommissionProbe.run(
+      {
+        body: "",
+        candidateCount: 0,
+        probeErrored: true,
+        probeErrorDesc: "serp api 5xx",
+      },
+      ctx,
+    );
+    expect(r.signal.probeErrored).toBe(true);
+    expect(r.signal.probeErrorDesc).toBe("serp api 5xx");
+    expect(r.signal.hasCandidates).toBe(false);
+  });
+
+  it("defaults probeErrored/probeErrorDesc to false/empty when caller omits them", async () => {
+    const r = await redirectDecommissionProbe.run(
+      { body: "", candidateCount: 0 },
+      ctx,
+    );
+    expect(r.signal.probeErrored).toBe(false);
+    expect(r.signal.probeErrorDesc).toBe("");
   });
 });

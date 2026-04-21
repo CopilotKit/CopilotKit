@@ -15,12 +15,30 @@ export interface RedirectDecommissionInput {
   body: string;
   /** Candidate count; when zero, template suppresses via signal.hasCandidates. */
   candidateCount: number;
+  /**
+   * Optional: set to true when the upstream SEO audit itself errored (SERP
+   * fetch failure, auth issue, etc). Surfaces as `signal.probeErrored` so
+   * the monthly rule can route via `on_error` / a dedicated template
+   * branch instead of silently suppressing the monthly report via the
+   * `signal.hasCandidates != true` guard.
+   */
+  probeErrored?: boolean;
+  /** Optional short description of the probe error, for template rendering. */
+  probeErrorDesc?: string;
 }
 
 export interface RedirectDecommissionSignal {
   body: string;
   candidateCount: number;
   hasCandidates: boolean;
+  /**
+   * True when the upstream audit errored. Templates should render an
+   * operator-visible "audit failed" branch rather than rely on
+   * `hasCandidates` — a failed audit has `hasCandidates=false` and would
+   * otherwise be silently suppressed identically to a healthy zero-count.
+   */
+  probeErrored: boolean;
+  probeErrorDesc: string;
 }
 
 /**
@@ -45,6 +63,8 @@ export const redirectDecommissionProbe: Probe<
         body: input.body,
         candidateCount: input.candidateCount,
         hasCandidates: input.candidateCount > 0,
+        probeErrored: input.probeErrored === true,
+        probeErrorDesc: input.probeErrorDesc ?? "",
       },
       observedAt: ctx.now().toISOString(),
     };
