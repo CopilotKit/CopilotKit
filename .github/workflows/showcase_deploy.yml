@@ -175,7 +175,7 @@ jobs:
             {"dispatch_name":"starter-strands","filter_key":"starter_strands","context":"showcase/starters/strands","image":"showcase-starter-strands","railway_id":"06db2bb8-e15d-4c6a-97ad-e14777c92d9f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health"},
             {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":"showcase/shell-dojo","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","build_args_shell_url":"https://showcase.copilotkit.ai","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"}
           ]'
 
@@ -277,6 +277,16 @@ jobs:
           if [ -n "${{ matrix.service.build_args_sha }}" ]; then
             ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
             ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
+          fi
+          # shell-dashboard needs NEXT_PUBLIC_SHELL_URL at build time —
+          # Next.js inlines NEXT_PUBLIC_* during `next build`, so the
+          # Railway runtime env var alone can't rescue a bad build.
+          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
+            if [ -n "$ARGS" ]; then
+              ARGS="${ARGS}"$'\n'"NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
+            else
+              ARGS="NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
+            fi
           fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
