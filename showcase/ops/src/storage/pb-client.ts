@@ -282,21 +282,62 @@ export function createPbClient(config: PbClientConfig): PbClient {
         // Drain the body before retrying so the underlying connection can
         // be reused by the runtime's HTTP agent — otherwise some fetch
         // implementations will leave the socket half-consumed and open a
-        // fresh one on every retry.
-        await res.text().catch(() => {});
+        // fresh one on every retry. Log drain errors at debug so
+        // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence isn't lost
+        // (F2.3) — callers rarely need this, but it's invaluable when
+        // diagnosing socket-level flakiness.
+        await res.text().catch((drainErr: unknown) => {
+          logger.debug("pb-client.body-drain-failed", {
+            path,
+            status: res.status,
+            err: String(drainErr),
+          });
+        });
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
       if (res.status >= 500 && attempts < maxAttempts) {
         const waitMs = Math.min(2 ** attempts * 100, remainingBudgetMs());
         if (waitMs <= 0) return res;
-        // Same reasoning as the 429 branch: drain before backing off.
-        await res.text().catch(() => {});
+        // Same reasoning as the 429 branch: drain before backing off,
+        // and surface drain errors at debug (F2.3).
+        await res.text().catch((drainErr: unknown) => {
+          logger.debug("pb-client.body-drain-failed", {
+            path,
+            status: res.status,
+            err: String(drainErr),
+          });
+        });
         await new Promise((r) => setTimeout(r, waitMs));
         continue;
       }
       return res;
     }
+  }
+
+  // Internal delete helper that distinguishes a real delete from a 404
+  // idempotent-miss. `deleteByFilter` uses this so retention-run
+  // counters only increment on actual removals (F2.6). The public
+  // `delete()` method stays `Promise<void>` to keep the PbClient
+  // interface simple for callers that don't care.
+  async function deleteReturningBool(
+    collection: string,
+    id: string,
+  ): Promise<boolean> {
+    const res = await request(
+      `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (res.status === 404) {
+      // Delete-of-missing is idempotent but we want to surface the gap
+      // for anyone asking "why didn't my delete do anything?".
+      logger.debug("pb-client.delete-missing", { collection, id });
+      return false;
+    }
+    if (!res.ok) {
+      throw new Error(`pb delete failed: ${res.status}`);
+    }
+    return true;
   }
 
   const client: PbClient = {
@@ -413,19 +454,11 @@ export function createPbClient(config: PbClientConfig): PbClient {
     },
 
     async delete(collection: string, id: string): Promise<void> {
-      const res = await request(
-        `/api/collections/${encodeURIComponent(collection)}/records/${encodeURIComponent(id)}`,
-        { method: "DELETE" },
-      );
-      if (res.status === 404) {
-        // Delete-of-missing is idempotent but we want to surface the gap
-        // for anyone asking "why didn't my delete do anything?".
-        logger.debug("pb-client.delete-missing", { collection, id });
-        return;
-      }
-      if (!res.ok) {
-        throw new Error(`pb delete failed: ${res.status}`);
-      }
+      // Public surface preserves void — most callers don't care about
+      // delete-of-missing vs real delete. `deleteByFilter` needs to
+      // distinguish (F2.6) and uses the internal `deleteReturningBool`
+      // helper instead.
+      await deleteReturningBool(collection, id);
     },
 
     async deleteByFilter(collection: string, filter: string): Promise<number> {
@@ -438,6 +471,18 @@ export function createPbClient(config: PbClientConfig): PbClient {
             `pb deleteByFilter exceeded ${DELETE_BY_FILTER_MAX_ITERATIONS} iterations (collection=${collection}) — refusing to loop further`,
           );
         }
+        // F2.5: long deletes silently consumed minutes of wall-clock on
+        // large collections. Log progress every 10 iterations so
+        // operators can watch retention runs make forward progress (and
+        // spot stalls before the iteration cap trips).
+        if (iterations > 1 && iterations % 10 === 1) {
+          logger.info("pb-client.delete-by-filter-progress", {
+            collection,
+            filter,
+            iterations: iterations - 1,
+            deleted,
+          });
+        }
         const page = await client.list<{ id: string }>(collection, {
           filter,
           perPage: 200,
@@ -445,8 +490,11 @@ export function createPbClient(config: PbClientConfig): PbClient {
         });
         if (page.items.length === 0) break;
         for (const item of page.items) {
-          await client.delete(collection, item.id);
-          deleted += 1;
+          // F2.6: only increment `deleted` when the server reports a
+          // real removal. A 404 (raced with external delete) used to
+          // bump the counter, overstating retention-run effectiveness.
+          const removed = await deleteReturningBool(collection, item.id);
+          if (removed) deleted += 1;
         }
         if (page.items.length < 200) break;
       }

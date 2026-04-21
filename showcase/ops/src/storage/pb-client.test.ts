@@ -505,4 +505,142 @@ describe("pb-client", () => {
       pb.deleteByFilter("status", "dimension = 'x'"),
     ).rejects.toThrow(/exceeded 100 iterations/);
   });
+
+  it("logs body-drain failures at debug on 429/5xx retry (F2.3)", async () => {
+    // F2.3: previously body-drain rejections were swallowed silently —
+    // ECONNRESET / ERR_STREAM_PREMATURE_CLOSE evidence was lost. Now we
+    // log at debug so operators diagnosing socket-level flakiness have
+    // a trail. Verifies both 429 and 5xx paths.
+    const debugCalls: Array<{ msg: string; obj?: unknown }> = [];
+    const customLogger = {
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: (msg: string, obj?: unknown) => debugCalls.push({ msg, obj }),
+    };
+    const realSetTimeout = setTimeout;
+    const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+      fn: (...args: unknown[]) => void,
+      _ms?: number,
+    ) => {
+      return realSetTimeout(fn, 0);
+    }) as unknown as typeof setTimeout);
+    try {
+      let attempts = 0;
+      // Build a Response that throws when `.text()` is called — fetch
+      // implementations surface premature socket close that way.
+      const makeThrowingResponse = (status: number): Response => {
+        return {
+          status,
+          ok: false,
+          headers: new Headers(),
+          text: async () => {
+            throw new Error("ERR_STREAM_PREMATURE_CLOSE");
+          },
+          json: async () => ({}),
+        } as unknown as Response;
+      };
+      const fetchImpl = makeFetch(() => {
+        attempts += 1;
+        if (attempts === 1) return makeThrowingResponse(429);
+        if (attempts === 2) return makeThrowingResponse(503);
+        return new Response(JSON.stringify({ id: "ok" }), { status: 200 });
+      });
+      const pb = createPbClient({
+        url: "http://pb",
+        logger: customLogger,
+        fetchImpl,
+      });
+      const out = await pb.getOne<{ id: string }>("status", "x");
+      expect(out?.id).toBe("ok");
+      const drainLogs = debugCalls.filter(
+        (c) => c.msg === "pb-client.body-drain-failed",
+      );
+      // One drain failure on 429, one on 5xx.
+      expect(drainLogs).toHaveLength(2);
+      expect((drainLogs[0]!.obj as { status: number }).status).toBe(429);
+      expect((drainLogs[1]!.obj as { status: number }).status).toBe(503);
+      expect(String((drainLogs[0]!.obj as { err: string }).err)).toContain(
+        "ERR_STREAM_PREMATURE_CLOSE",
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("deleteByFilter does NOT count 404 responses as deletes (F2.6)", async () => {
+    // F2.6: the inner loop used to increment `deleted` unconditionally —
+    // so if another worker / external process deleted a row between our
+    // list() and our delete(), we'd get a 404 and STILL bump the counter.
+    // The returned count would overstate the retention-run's real
+    // effectiveness. Now we only count real (200/204) deletes; 404s are
+    // logged at debug and excluded from the tally.
+    let deleteCalls = 0;
+    const fetchImpl = makeFetch((url, init) => {
+      if (init?.method === "DELETE") {
+        deleteCalls += 1;
+        // First 2 deletes succeed; next 2 already-deleted (404);
+        // last 1 succeeds. Real deletions = 3, not 5.
+        if (deleteCalls === 3 || deleteCalls === 4) {
+          return new Response("not found", { status: 404 });
+        }
+        return new Response(null, { status: 204 });
+      }
+      // Single page of 5 items (< 200 so loop terminates after one pass).
+      const items = Array.from({ length: 5 }, (_, i) => ({ id: `r${i}` }));
+      return new Response(JSON.stringify({ items }), { status: 200 });
+    });
+    const pb = createPbClient({ url: "http://pb", logger, fetchImpl });
+    const removed = await pb.deleteByFilter("status", "dimension = 'x'");
+    expect(removed).toBe(3);
+    expect(deleteCalls).toBe(5);
+  });
+
+  it("deleteByFilter logs progress every 10 iterations (F2.5)", async () => {
+    // F2.5: long retention runs against large collections used to
+    // proceed silently until the iteration cap tripped or the loop
+    // completed. Operators had no signal of forward progress. We now
+    // log at info every 10 iterations so a multi-minute cleanup is
+    // visible in the tail.
+    const infoCalls: Array<{ msg: string; obj?: unknown }> = [];
+    const customLogger = {
+      info: (msg: string, obj?: unknown) => infoCalls.push({ msg, obj }),
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    };
+    // 25 full pages (200 each) then one empty page to terminate. Enough
+    // iterations to trigger the progress log at 11 and 21.
+    let listCalls = 0;
+    const fetchImpl = makeFetch((url, init) => {
+      if (init?.method === "DELETE") {
+        return new Response(null, { status: 204 });
+      }
+      listCalls += 1;
+      if (listCalls <= 25) {
+        const items = Array.from({ length: 200 }, (_, i) => ({
+          id: `r${listCalls}-${i}`,
+        }));
+        return new Response(JSON.stringify({ items }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    });
+    const pb = createPbClient({
+      url: "http://pb",
+      logger: customLogger,
+      fetchImpl,
+    });
+    const removed = await pb.deleteByFilter("status", "dimension = 'x'");
+    // 25 pages * 200 items = 5000 real deletes.
+    expect(removed).toBe(5000);
+    const progressLogs = infoCalls.filter(
+      (c) => c.msg === "pb-client.delete-by-filter-progress",
+    );
+    // Logs fire at iteration 11 (after 10 pages) and 21 (after 20 pages).
+    expect(progressLogs.length).toBeGreaterThanOrEqual(2);
+    // The first progress log should report 10 completed iterations.
+    expect(
+      (progressLogs[0]!.obj as { iterations: number }).iterations,
+    ).toBe(10);
+  });
 });
