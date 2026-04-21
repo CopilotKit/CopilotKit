@@ -7,16 +7,20 @@ in order; each phase has a verification step before moving to the next.
 
 1. Commit or stash any uncommitted work.
 2. Create a migration branch: `git checkout -b migrate-copilotkit-v2`.
-3. Pin v2 package versions in `package.json`:
+3. Pin v2 package versions in `package.json`. Use a tilde range during the
+   migration to avoid accidental drift:
 
 ```json
 {
   "dependencies": {
-    "@copilotkit/react-core": "^1.56.2",
-    "@copilotkit/runtime": "^1.56.2"
+    "@copilotkit/react-core": "~1.56.2",
+    "@copilotkit/runtime": "~1.56.2"
   }
 }
 ```
+
+After the migration is complete and validated end-to-end, widen the
+range (e.g. `^1.56.2`) if you want automatic minor-version updates.
 
 4. Remove `@copilotkit/react-ui` from `dependencies` if present — v2 chat
    components moved to `@copilotkit/react-core/v2`. If you still need the
@@ -42,7 +46,8 @@ grep -rnE "copilotRuntime(NextJSAppRouter|NodeHttp|NodeExpress|Hono|ServiceAdapt
 grep -rnE "OpenAIAdapter|AnthropicAdapter|GroqAdapter|LangChainAdapter" src/ server/
 
 # props that renamed / deprecate:
-grep -rn "publicApiKey" src/
+#   publicApiKey: NOT deprecated — it's the canonical v2 name. No action
+#   required. `publicLicenseKey` is accepted as an alias.
 grep -rn "imageUploadsEnabled" src/
 grep -rn "agents__unsafe_dev_only\|selfManagedAgents" src/
 
@@ -62,44 +67,67 @@ reading the surrounding code.
 
 ### 2a — Import paths
 
+All replacements below use `perl -i -pe` instead of `sed -i` because
+`sed -i` is not portable across BSD (macOS) and GNU (Linux) — BSD sed
+requires `-i ''` and breaks on the GNU form. `perl -i -pe` works
+identically everywhere. The scans are scoped to `src/` (frontend) and
+`src/ app/ server/` (runtime endpoint) to avoid descending into
+`node_modules/`.
+
 ```bash
 # react-core root → /v2
 find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | \
-  xargs -0 sed -i 's#from "@copilotkit/react-core"#from "@copilotkit/react-core/v2"#g'
+  xargs -0 perl -i -pe 's#from "\@copilotkit/react-core"#from "\@copilotkit/react-core/v2"#g'
 
 # react-ui component imports → react-core/v2
 find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | \
-  xargs -0 sed -i 's#from "@copilotkit/react-ui"#from "@copilotkit/react-core/v2"#g'
+  xargs -0 perl -i -pe 's#from "\@copilotkit/react-ui"#from "\@copilotkit/react-core/v2"#g'
 
 # stylesheet import
 find src -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.css' \) -print0 | \
-  xargs -0 sed -i 's#@copilotkit/react-ui/styles.css#@copilotkit/react-core/v2/styles.css#g'
+  xargs -0 perl -i -pe 's#\@copilotkit/react-ui/styles\.css#\@copilotkit/react-core/v2/styles.css#g'
 
-# runtime → /v2
-find . -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | \
-  xargs -0 sed -i 's#from "@copilotkit/runtime"#from "@copilotkit/runtime/v2"#g'
+# runtime → /v2 (scope to wherever your server code lives; NOT `.`)
+find src app server -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 2>/dev/null | \
+  xargs -0 perl -i -pe 's#from "\@copilotkit/runtime"#from "\@copilotkit/runtime/v2"#g'
 ```
 
-### 2b — Provider + hook renames (safe 1:1)
+### 2b — Provider + prop renames (safe 1:1)
 
 ```bash
 # Provider component
-find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 sed -i \
-  -e 's#\bCopilotKit\b#CopilotKitProvider#g'
+find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 \
+  perl -i -pe 's#\bCopilotKit\b#CopilotKitProvider#g'
 
-# Hooks with no semantic change
-find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 sed -i \
-  -e 's#\buseCopilotReadable\b#useAgentContext#g' \
-  -e 's#\buseCoAgent\b#useAgent#g'
-
-# Props
-find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 sed -i \
-  -e 's#\bpublicApiKey\b#publicLicenseKey#g'
+# Readable-context hook rename (signature stays {description, value})
+find src -type f \( -name '*.ts' -o -name '*.tsx' \) -print0 | xargs -0 \
+  perl -i -pe 's#\buseCopilotReadable\b#useAgentContext#g'
 ```
 
-WARNING: The `CopilotKit` rename is case-sensitive. It WILL rename
-`CopilotKit` in any identifier (e.g. a local variable named
-`myCopilotKit`) — review the diff.
+WARNING: The `CopilotKit` regex uses `\b` word boundaries, which
+correctly avoids matching inside identifiers with adjacent word-class
+characters (`CopilotKitProvider`, `CopilotKitCoreErrorCode`,
+`CopilotKitErrorCode`, `useCopilotKit`, `myCopilotKit` all stay intact
+because the next/previous character is a word-class letter). The
+remaining edge cases to review manually:
+
+- Bare `CopilotKit` appearing in comments or prose that refers to the
+  product/library name — these should NOT become `CopilotKitProvider`.
+- String literals containing the bare word `CopilotKit` (rare but
+  possible in error messages / test fixtures).
+
+Always review the diff after running.
+
+> NOTE: `useCoAgent` → `useAgent` is deliberately NOT in this phase.
+> The return shape changes (`{ state, setState, running }` → `{ agent }`
+> with state on `agent.state`, `isRunning` on `agent.isRunning`), so a
+> mechanical identifier rename leaves every destructure broken. See
+> Phase 3b below.
+
+> NOTE: `publicApiKey` → `publicLicenseKey` is ALSO deliberately NOT
+> in this phase. As of v2, `publicApiKey` is the canonical supported
+> name; `publicLicenseKey` is an accepted alias. Renaming canonical →
+> alias is the wrong direction. Leave `publicApiKey` in place.
 
 ### 2c — Attachments prop
 
@@ -147,19 +175,36 @@ parameters: z.object({
 });
 ```
 
-### 3b — useCoAgent → useAgent return shape
+### 3b — useCoAgent → useAgent (rename + return-shape rewrite)
 
-Every former `useCoAgent` call site now reads state differently:
+`useCoAgent` was deliberately excluded from the Phase 2b mechanical
+sed because the return shape differs — a bare identifier rename leaves
+every destructure broken. Rewrite each call site by hand:
 
 ```tsx
 // v1
 const { state, setState, running } = useCoAgent({ name: "research" });
 
-// v2
-const { agent, isRunning } = useAgent({ agentId: "research" });
-const state = agent.state;
-agent.setState({ ...state, foo: "bar" });
+// v2 — useAgent returns only { agent }; state/mutation/status live on
+// the agent instance itself.
+const { agent } = useAgent({ agentId: "research" });
+const state = agent?.state;
+const isRunning = agent?.isRunning;
+agent?.setState({ ...agent.state, foo: "bar" });
 ```
+
+Notes:
+
+- `useAgent` returns `{ agent }`. `agent` may be `undefined` while the
+  runtime is still loading — guard with optional chaining.
+- There is no separate `setState`, `running`, or state selector on the
+  hook's return value. Read/mutate via `agent.state` / `agent.isRunning`
+  / `agent.setState(...)`.
+- To trigger a run, use `copilotkit.runAgent({ agent })` from
+  `useCopilotKit()`.
+
+Source: `packages/react-core/src/v2/hooks/use-agent.tsx` — the return
+statement is `return { agent };` (no other fields).
 
 ### 3c — Error-code equality rewrite
 
@@ -212,7 +257,17 @@ export const POST = async (req: Request) => {
   return handleRequest(req);
 };
 
-// v2 — app/api/copilotkit/[...slug]/route.ts
+// v2 — app/api/copilotkit/[[...slug]]/route.ts
+//
+// IMPORTANT: v2's createCopilotRuntimeHandler serves multiple sub-paths
+// under `basePath` (e.g. /info, /agent/run, /agent/connect, /transcribe,
+// /threads/*). If you keep the old single-file `app/api/copilotkit/route.ts`
+// Next.js will only route the exact `/api/copilotkit` URL to your handler —
+// every sub-path 404s. Move the file to an optional catch-all
+// `[[...slug]]/route.ts` (or a non-optional `[...slug]/route.ts` if you
+// don't need the bare basePath to hit this handler) so Next.js forwards
+// the full path. Leaving the v1 single-route folder in place with v2
+// handlers will break chat with `runtime_info_fetch_failed` at boot.
 import {
   CopilotRuntime,
   createCopilotRuntimeHandler,

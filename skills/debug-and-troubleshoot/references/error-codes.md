@@ -91,22 +91,35 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
 <CopilotKitProvider
   runtimeUrl="/api/copilotkit"
   onError={({ code, error, context }) => {
+    // Always capture telemetry FIRST — early returns in the switch below
+    // would otherwise short-circuit past it. Surfacing every code to
+    // telemetry makes the UI branches purely presentational.
+    telemetry.captureException(error, { tags: { code }, extra: context });
+
     switch (code) {
       case "runtime_info_fetch_failed":
-        return banner("Can't reach the assistant service.");
+        banner("Can't reach the assistant service.");
+        break;
       case "agent_not_found":
-        return banner("This assistant is unavailable right now.");
+        banner("This assistant is unavailable right now.");
+        break;
       case "agent_thread_locked":
-        return toast("Assistant is busy — try again in a moment.");
+        toast("Assistant is busy — try again in a moment.");
+        break;
       case "tool_handler_failed":
       case "tool_argument_parse_failed":
-        return toast("Something went wrong running that action.");
+        toast("Something went wrong running that action.");
+        break;
       case "transcription_service_not_configured":
-        return toast("Voice input isn't available.");
+        toast("Voice input isn't available.");
+        break;
       case "transcription_rate_limited":
-        return toast("Transcription is rate-limited — try again shortly.");
+        toast("Transcription is rate-limited — try again shortly.");
+        break;
       default:
-        telemetry.captureException(error, { tags: { code }, extra: context });
+        // Telemetry already captured above; nothing else to do for
+        // unknown codes unless you want a generic fallback toast.
+        break;
     }
   }}
 />;

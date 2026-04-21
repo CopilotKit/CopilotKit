@@ -135,13 +135,13 @@ connection isn't being buffered (proxies, compression).
 
 ### Deprecated-alias cheat sheet
 
-| Deprecated                                                 | Canonical                                                           |
+| Deprecated / alias                                         | Canonical                                                           |
 | ---------------------------------------------------------- | ------------------------------------------------------------------- |
-| `publicApiKey`                                             | `publicLicenseKey`                                                  |
-| `agents__unsafe_dev_only`                                  | (no prod alias — use `runtimeUrl` or `publicLicenseKey`)            |
+| `publicLicenseKey` (alias)                                 | `publicApiKey` (canonical; resolution is `publicApiKey ?? publicLicenseKey`) |
+| `agents__unsafe_dev_only`                                  | (no prod alias — use `runtimeUrl` or `publicApiKey`)                |
 | `selfManagedAgents`                                        | (no prod alias — same as above)                                     |
 | `imageUploadsEnabled`                                      | `attachments={{ enabled: true }}`                                   |
-| `createCopilotEndpoint*` aliases                           | `createCopilotRuntimeHandler`                                       |
+| `createCopilotEndpoint*` aliases (still accepted)          | `createCopilotRuntimeHandler`                                       |
 | `createCopilotExpressHandler` / `createCopilotHonoHandler` | mount `createCopilotRuntimeHandler` in the framework's native route |
 | `beforeRequestMiddleware` / `afterRequestMiddleware`       | `hooks.onRequest` / `hooks.onBeforeHandler`                         |
 
@@ -152,17 +152,21 @@ connection isn't being buffered (proxies, compression).
 Wrong:
 
 ```ts
-if (event.code === "API_NOT_FOUND") {
-  /* never matches */
-}
+onError: ({ code }) => {
+  if (code === "API_NOT_FOUND") {
+    /* never matches */
+  }
+};
 ```
 
 Correct:
 
 ```ts
-if (event.code === "runtime_info_fetch_failed") {
-  /* matches */
-}
+onError: ({ code }) => {
+  if (code === "runtime_info_fetch_failed") {
+    /* matches */
+  }
+};
 ```
 
 v2 codes are snake_case on `CopilotKitCoreErrorCode`

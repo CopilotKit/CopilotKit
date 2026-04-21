@@ -8,7 +8,8 @@ description: >
   useAgent, useCopilotReadable → useAgentContext), CopilotKit →
   CopilotKitProvider, runtime endpoint port, CopilotKitErrorCode
   (SCREAMING_SNAKE) → CopilotKitCoreErrorCode (snake_case), imageUploadsEnabled
-  → attachments, publicApiKey → publicLicenseKey, @copilotkit/react-ui chat
+  → attachments, publicApiKey unchanged (publicLicenseKey accepted as alias),
+  @copilotkit/react-ui chat
   components relocated to @copilotkit/react-core/v2. Load when the user has a
   v1 CopilotKit codebase and wants to upgrade, or when you encounter
   useCopilotAction / useCoAgent / useCopilotReadable / CopilotKit provider /
@@ -73,7 +74,7 @@ Read both before executing the migration.
 | `useCoAgent`                        | `useAgent`                        | `@copilotkit/react-core/v2` |
 | `useCopilotReadable`                | `useAgentContext`                 | `@copilotkit/react-core/v2` |
 | `CopilotKitErrorCode` (SCREAMING)   | `CopilotKitCoreErrorCode` (snake) | `@copilotkit/react-core/v2` |
-| `publicApiKey` prop                 | `publicLicenseKey` prop           | provider prop               |
+| `publicApiKey` prop                 | `publicApiKey` (unchanged; canonical) — `publicLicenseKey` accepted as alias | provider prop               |
 | `imageUploadsEnabled` prop          | `attachments={{ enabled: true }}` | `<CopilotChat>` prop        |
 | `CopilotPopup` etc. from `react-ui` | same names from `react-core/v2`   | `@copilotkit/react-core/v2` |
 
@@ -144,9 +145,10 @@ import { CopilotKit } from "@copilotkit/react-core";
   {children}
 </CopilotKit>;
 
-// v2
+// v2 (publicApiKey stays — it's the canonical v2 name; publicLicenseKey
+// is an accepted alias and the two resolve as `publicApiKey ?? publicLicenseKey`.)
 import { CopilotKitProvider } from "@copilotkit/react-core/v2";
-<CopilotKitProvider runtimeUrl="/api/copilotkit" publicLicenseKey="...">
+<CopilotKitProvider runtimeUrl="/api/copilotkit" publicApiKey="...">
   {children}
 </CopilotKitProvider>;
 ```
@@ -313,14 +315,17 @@ const { state, setState, running } = useCoAgent({ name: "research" });
 Correct:
 
 ```tsx
-const { agent, isRunning } = useAgent({ agentId: "research" });
-const state = agent.state;
-agent.setState({ ...state, foo: "bar" });
+const { agent } = useAgent({ agentId: "research" });
+const state = agent?.state;
+const isRunning = agent?.isRunning;
+agent?.setState({ ...agent.state, foo: "bar" });
 ```
 
-Return shape differs — `agent` replaces the old state-returning callback.
+`useAgent` returns `{ agent }` only — `agent` can be `undefined` while
+the runtime is still loading, so guard with optional chaining. State,
+`isRunning`, and mutation live on the agent instance itself.
 
-Source: packages/react-core/src/v2/hooks/use-agent.tsx:11-51
+Source: packages/react-core/src/v2/hooks/use-agent.tsx:333-335 (return { agent })
 
 ### HIGH checking against v1 SCREAMING_SNAKE error codes
 
