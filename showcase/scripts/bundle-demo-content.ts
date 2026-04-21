@@ -130,7 +130,45 @@ function detectLanguage(filename: string): string {
 // Skip generated / OS noise when walking demo folders.
 const SKIP_EXACT = new Set([".DS_Store", "Thumbs.db"]);
 const SKIP_DIRS = new Set(["__pycache__", "node_modules", ".next"]);
-const SKIP_EXTENSIONS = new Set([".pyc"]);
+// Extensions to skip entirely. Includes compiled Python artefacts (.pyc) and
+// binary-like assets we should NEVER pass through `fs.readFileSync(..., "utf-8")`
+// — doing so mangles the bytes and injects garbage strings into the bundled
+// `demo-content.json`. Images, fonts, archives, and PDFs all belong here.
+const SKIP_EXTENSIONS = new Set([
+  ".pyc",
+  // Images
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".bmp",
+  ".avif",
+  ".tiff",
+  // Fonts
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
+  // Documents / archives
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".tgz",
+  ".bz2",
+  ".7z",
+  ".rar",
+  // Media
+  ".mp4",
+  ".mp3",
+  ".wav",
+  ".mov",
+  ".webm",
+  ".ogg",
+]);
 
 // ---------------------------------------------------------------------------
 // Region extraction
@@ -435,9 +473,24 @@ function main() {
         // multi-file regions we concatenate bodies with a blank separator and
         // use the FIRST file's line span (there's no single coherent range
         // across files — this is a best-effort pointer for tooling).
+        //
+        // `perFileRegions` can carry entries whose filename is NOT in
+        // `files` — specifically the demo-root README (README.md / README.mdx),
+        // which `collectDemoFiles` pulls out into the `readme` field rather
+        // than appending to `files`. Iterating only `fileOrder` would drop
+        // those regions silently. Build the effective order as: files (stable)
+        // first, then any leftover perFileRegions keys (typically README) in
+        // lexical order so multi-file regions prefer the demo source's span
+        // over the README's — README regions either fill in untouched names
+        // or get concatenated at the tail like any other contributor.
         const regions: Record<string, Region> = {};
         const fileOrder = files.map((f) => f.filename);
-        for (const filename of fileOrder) {
+        const knownInFiles = new Set(fileOrder);
+        const leftoverKeys = Object.keys(perFileRegions)
+          .filter((k) => !knownInFiles.has(k))
+          .sort();
+        const effectiveOrder = [...fileOrder, ...leftoverKeys];
+        for (const filename of effectiveOrder) {
           const fileRegs = perFileRegions[filename];
           if (!fileRegs) continue;
           for (const [name, slices] of Object.entries(fileRegs)) {
