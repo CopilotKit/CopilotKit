@@ -140,8 +140,24 @@ const NAV_DEFINITION: NavTab[] = [
 
 // Fallback title derived from the slug itself when we can't read a better
 // one from the file (missing file, IO error, malformed frontmatter, etc.).
+// Title Case the result: `multimodal-inputs` → `Multimodal Inputs`. The
+// previous `toLowerCase()`-preserving fallback produced lowercase labels
+// in the sidebar whenever frontmatter was missing, which clashed with
+// the docs-render default (e.g. reference breadcrumb, framework nav) of
+// Title-Cased fallbacks.
 function titleFromSlug(slug: string): string {
-  return slug.split("/").pop()?.replace(/-/g, " ") || slug;
+  const last = slug.split("/").pop() || slug;
+  return last.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Process-scoped cache so `getTitleForSlug` doesn't re-read and re-parse
+// the same MDX file once per entry in NAV_DEFINITION on every request.
+// In prod the nav tree is static so caching is safe for the life of the
+// Node process; in dev we skip the cache so MDX edits show up without a
+// server restart. Mirrors the cache pattern in reference-items.ts.
+const __titleCache = new Map<string, string>();
+function isProd(): boolean {
+  return process.env.NODE_ENV === "production";
 }
 
 // Read the title for a given slug from its MDX file. Uses gray-matter so
@@ -150,6 +166,16 @@ function titleFromSlug(slug: string): string {
 // body). Guards fs reads so a single malformed file doesn't crash the
 // whole nav build.
 function getTitleForSlug(slug: string): string {
+  if (isProd()) {
+    const cached = __titleCache.get(slug);
+    if (cached !== undefined) return cached;
+  }
+  const title = readTitleForSlug(slug);
+  if (isProd()) __titleCache.set(slug, title);
+  return title;
+}
+
+function readTitleForSlug(slug: string): string {
   const filePath = path.join(CONTENT_DIR, `${slug}.mdx`);
   if (!fs.existsSync(filePath)) {
     return titleFromSlug(slug);

@@ -291,6 +291,13 @@ jobs:
         run: |
           # Capture the current deployment ID BEFORE redeploying so the verify
           # step can distinguish the fresh deployment from the prior one.
+          # Railway's `deployments` query has no explicit orderBy argument;
+          # the API's default is createdAt DESC, which is exactly what we
+          # want here (edges[0] == most recent). Confirmed against the
+          # public GraphQL schema. If Railway ever changes the default,
+          # this query needs an explicit orderBy — the `first: 1` pagination
+          # would otherwise return an arbitrary deployment and the
+          # stale-deployment guard in the verify step would break open.
           PRIOR_RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
@@ -556,8 +563,18 @@ jobs:
           # budget so Slack single-line formatting still fits.
           truncate_csv() {
             local budget=$1 input=$2 out="" item proposed
-            # Split on single space (entries come from shell word-split),
-            # then render as comma-separated.
+            # Split on whitespace (entries come from shell word-split),
+            # then render as comma-separated. Disable globbing inside the
+            # loop so a slug containing a shell glob character (*, ?, [)
+            # can't expand against the filesystem — defense in depth even
+            # though our current slug set is controlled via the matrix.
+            local _old_glob
+            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
+            set -f
+            # Use explicit IFS so whitespace tokenisation is predictable
+            # regardless of the caller's environment.
+            local _old_ifs="$IFS"
+            IFS=$' \t\n'
             for item in $input; do
               if [ -z "$out" ]; then
                 proposed="$item"
@@ -577,6 +594,8 @@ jobs:
                 break
               fi
             done
+            IFS="$_old_ifs"
+            [ "$_old_glob" = 0 ] && set +f
             printf '%s' "$out"
           }
           succeeded_list=$(truncate_csv 200 "$succeeded")
@@ -616,6 +635,16 @@ jobs:
             # Input is comma-separated (jq join(", ")) — normalise to
             # space separation for the shell word-split below.
             ws="${input//,/ }"
+            # Disable globbing while iterating so an (unexpected) glob
+            # char in a slug can't expand against the filesystem; restore
+            # the prior setting on the way out. Also lock IFS to
+            # whitespace for deterministic word-splitting regardless of
+            # caller environment.
+            local _old_glob
+            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
+            set -f
+            local _old_ifs="$IFS"
+            IFS=$' \t\n'
             for item in $ws; do
               if [ -z "$out" ]; then
                 proposed="$item"
@@ -633,6 +662,8 @@ jobs:
                 break
               fi
             done
+            IFS="$_old_ifs"
+            [ "$_old_glob" = 0 ] && set +f
             printf '%s' "$out"
           }
           SERVICES=$(truncate_csv 200 "${{ steps.summary.outputs.services }}")

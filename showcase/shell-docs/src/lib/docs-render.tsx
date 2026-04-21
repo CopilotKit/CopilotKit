@@ -39,6 +39,32 @@ export const FRAMEWORK_CATEGORY_ORDER = [
 export type FrameworkCategory = (typeof FRAMEWORK_CATEGORY_ORDER)[number];
 
 // ---------------------------------------------------------------------------
+// Demo-content cell lookup
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the list of integration slugs that have bundled demo content for
+ * the given `defaultCell` key. Used by the pivot UI (both the
+ * framework-agnostic `/docs/<slug>` route and the scoped `/<framework>/<slug>`
+ * route) to answer "which frameworks actually implement this snippet?"
+ *
+ * The demo-content bundle is imported lazily and the iteration shape is
+ * parameterized so both routes call through the same helper without
+ * introducing a circular dependency between the two page.tsx files.
+ */
+export function findFrameworksWithCell(
+  cell: string,
+  integrationSlugs: Iterable<string>,
+  demos: Record<string, unknown>,
+): string[] {
+  const matches: string[] = [];
+  for (const slug of integrationSlugs) {
+    if (demos[`${slug}::${cell}`]) matches.push(slug);
+  }
+  return matches;
+}
+
+// ---------------------------------------------------------------------------
 // Nav tree types
 // ---------------------------------------------------------------------------
 
