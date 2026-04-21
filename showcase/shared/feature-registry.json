@@ -2,16 +2,32 @@
   "version": "1.0.0",
   "categories": [
     {
+      "id": "dev-ex",
+      "name": "Dev Ex"
+    },
+    {
       "id": "chat-ui",
       "name": "Chat & UI"
     },
     {
-      "id": "generative-ui",
-      "name": "Generative UI"
+      "id": "platform",
+      "name": "Platform"
     },
     {
-      "id": "agent-capabilities",
-      "name": "Agent Capabilities"
+      "id": "controlled-generative-ui",
+      "name": "Controlled Generative UI"
+    },
+    {
+      "id": "declarative-generative-ui",
+      "name": "Declarative Generative UI"
+    },
+    {
+      "id": "open-generative-ui",
+      "name": "Open-Ended Generative UI"
+    },
+    {
+      "id": "operational-generative-ui",
+      "name": "Operational Generative UI"
     },
     {
       "id": "interactivity",
@@ -26,318 +42,306 @@
       "name": "Multi-Agent"
     },
     {
-      "id": "platform",
-      "name": "Platform"
-    },
-    {
-      "id": "a2ui",
-      "name": "A2UI"
-    },
-    {
-      "id": "mobile",
-      "name": "Mobile"
-    },
-    {
-      "id": "web-frameworks",
-      "name": "Web Frameworks"
-    },
-    {
       "id": "byoc",
       "name": "BYOC (Bring Your Own Components)"
-    },
-    {
-      "id": "deep-agents",
-      "name": "Deep Agents"
     }
   ],
   "features": [
     {
-      "id": "agentic-chat",
-      "name": "Agentic Chat",
-      "category": "chat-ui",
-      "description": "Natural conversation with frontend tool execution"
+      "id": "beautiful-chat",
+      "name": "Beautiful Chat",
+      "category": "dev-ex",
+      "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
+      "kind": "primary"
     },
     {
-      "id": "chat-prebuilt",
-      "name": "Pre-built Chat Components",
+      "id": "cli-start",
+      "name": "CLI Start Command",
+      "category": "dev-ex",
+      "description": "One-liner to scaffold a new CopilotKit app via the official CLI",
+      "kind": "primary"
+    },
+    {
+      "id": "agentic-chat",
+      "name": "Pre-Built CopilotChat",
       "category": "chat-ui",
-      "description": "Using CopilotKit's pre-built chat components"
+      "description": "Pre-built <CopilotChat /> component for full-screen/embedded chat",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+      "shell_docs_url": "/docs/features/agentic-chat"
+    },
+    {
+      "id": "prebuilt-sidebar",
+      "name": "Pre-Built: Sidebar",
+      "category": "chat-ui",
+      "description": "Docked sidebar chat via <CopilotSidebar />",
+      "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-sidebar",
+      "shell_docs_url": "/docs/features/prebuilt-sidebar"
+    },
+    {
+      "id": "prebuilt-popup",
+      "name": "Pre-Built: Popup",
+      "category": "chat-ui",
+      "description": "Floating popup chat via <CopilotPopup />",
+      "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-popup",
+      "shell_docs_url": "/docs/features/prebuilt-popup"
     },
     {
       "id": "chat-slots",
       "name": "Chat Customization (Slots)",
       "category": "chat-ui",
-      "description": "Customizing chat components via the slot system"
+      "description": "Customizing chat components via the slot system",
+      "og_docs_url": "https://docs.copilotkit.ai/features/chat-slots",
+      "shell_docs_url": "/docs/features/chat-slots"
+    },
+    {
+      "id": "chat-customization-css",
+      "name": "Chat Customization (CSS)",
+      "category": "chat-ui",
+      "description": "Customizing chat components via CSS",
+      "og_docs_url": "https://docs.copilotkit.ai/features/chat-customization-css",
+      "shell_docs_url": "/docs/features/chat-customization-css"
     },
     {
       "id": "headless-simple",
       "name": "Headless Chat (Simple)",
       "category": "chat-ui",
-      "description": "Simple headless UI getting started"
+      "description": "Simple headless UI getting started",
+      "og_docs_url": "https://docs.copilotkit.ai/features/headless-simple",
+      "shell_docs_url": "/docs/features/headless-simple"
     },
     {
       "id": "headless-complete",
       "name": "Headless Chat (Complete)",
       "category": "chat-ui",
-      "description": "Full headless UI with messages, tools, gen UI"
-    },
-    {
-      "id": "agentic-chat-reasoning",
-      "name": "Agentic Chat (Reasoning)",
-      "category": "chat-ui",
-      "description": "Chat with visible reasoning/thinking chain display"
+      "description": "Full headless UI with messages, tools, gen UI",
+      "og_docs_url": "https://docs.copilotkit.ai/features/headless-complete",
+      "shell_docs_url": "/docs/features/headless-complete"
     },
     {
       "id": "gen-ui-tool-based",
       "name": "Controlled Gen-UI (Display)",
-      "category": "generative-ui",
-      "description": "Agent renders typed React components via the useComponent hook"
+      "category": "controlled-generative-ui",
+      "description": "Agent renders typed React components via the useComponent hook",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+      "shell_docs_url": "/docs/features/gen-ui-tool-based"
     },
     {
       "id": "hitl-in-chat",
-      "name": "Controlled Gen-UI (Interactive) / In-Chat HITL",
-      "category": "generative-ui",
-      "description": "Interactive components from the agent; user approves actions from within the chat"
+      "name": "In-Chat HITL (useHumanInTheLoop — ergonomic API)",
+      "category": "controlled-generative-ui",
+      "description": "Interactive approval/decision surface rendered inline in the chat. Uses the high-level `useHumanInTheLoop` hook — handles the interrupt lifecycle for you.",
+      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+      "shell_docs_url": "/docs/features/hitl-in-chat"
     },
     {
       "id": "gen-ui-interrupt",
-      "name": "Controlled Gen-UI (Interrupt)",
-      "category": "generative-ui",
-      "description": "Interrupt-based component rendering"
+      "name": "In-Chat HITL (useInterrupt — low-level primitive)",
+      "category": "controlled-generative-ui",
+      "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle.",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-interrupt",
+      "shell_docs_url": "/docs/features/gen-ui-interrupt"
+    },
+    {
+      "id": "interrupt-headless",
+      "name": "Headless Interrupt",
+      "category": "controlled-generative-ui",
+      "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent \u2014 no chat, no useInterrupt render prop",
+      "kind": "testing"
     },
     {
       "id": "declarative-gen-ui",
-      "name": "Declarative Generative UI (A2UI)",
-      "category": "generative-ui",
-      "description": "Declarative mapping of agent state to rendered components"
+      "name": "Declarative Generative UI (A2UI \u2014 Dynamic Schema)",
+      "category": "declarative-generative-ui",
+      "description": "Canonical A2UI BYOC \u2014 custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+      "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
+      "shell_docs_url": "/docs/features/declarative-gen-ui"
+    },
+    {
+      "id": "a2ui-fixed-schema",
+      "name": "Declarative Generative UI (A2UI \u2014 Fixed Schema)",
+      "category": "declarative-generative-ui",
+      "description": "A2UI rendering against a known, fixed client-side schema",
+      "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed-schema",
+      "shell_docs_url": "/docs/features/a2ui-fixed-schema"
     },
     {
       "id": "mcp-apps",
       "name": "MCP Apps",
-      "category": "generative-ui",
-      "description": "MCP server integration with UI display"
+      "category": "open-generative-ui",
+      "description": "MCP server integration with UI display",
+      "og_docs_url": "https://docs.copilotkit.ai/features/mcp-apps",
+      "shell_docs_url": "/docs/features/mcp-apps"
     },
     {
       "id": "open-gen-ui",
       "name": "Fully Open-Ended Generative UI",
-      "category": "generative-ui",
-      "description": "Agent-generated UI from arbitrary component libraries"
+      "category": "open-generative-ui",
+      "description": "Agent-generated UI from arbitrary component libraries",
+      "og_docs_url": "https://docs.copilotkit.ai/features/open-gen-ui",
+      "shell_docs_url": "/docs/features/open-gen-ui"
     },
     {
-      "id": "gen-ui-agent",
-      "name": "Agentic Generative UI (In-Chat State Rendering)",
-      "category": "generative-ui",
-      "description": "Long-running agent tasks with generated UI"
+      "id": "open-gen-ui-advanced",
+      "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
+      "category": "open-generative-ui",
+      "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe"
+    },
+    {
+      "id": "tool-rendering-default-catchall",
+      "name": "Tool Rendering (Default Catch-all)",
+      "category": "operational-generative-ui",
+      "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "shell_docs_url": "/docs/features/tool-rendering"
+    },
+    {
+      "id": "tool-rendering-custom-catchall",
+      "name": "Tool Rendering (Custom Catch-all)",
+      "category": "operational-generative-ui",
+      "description": "Single branded wildcard renderer that paints every tool call \u2014 one card handles them all",
+      "kind": "primary",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "shell_docs_url": "/docs/features/tool-rendering"
     },
     {
       "id": "tool-rendering",
       "name": "Tool Rendering",
-      "category": "generative-ui",
-      "description": "Backend agent tools rendered as UI components"
+      "category": "operational-generative-ui",
+      "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest",
+      "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+      "shell_docs_url": "/docs/features/tool-rendering"
+    },
+    {
+      "id": "tool-rendering-reasoning-chain",
+      "name": "Tool Rendering + Reasoning Chain",
+      "category": "operational-generative-ui",
+      "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
+      "kind": "testing"
+    },
+    {
+      "id": "agentic-chat-reasoning",
+      "name": "Reasoning",
+      "category": "operational-generative-ui",
+      "description": "Visible reasoning/thinking chain alongside the final answer",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat-reasoning",
+      "shell_docs_url": "/docs/features/agentic-chat-reasoning"
+    },
+    {
+      "id": "reasoning-default-render",
+      "name": "Reasoning (Default Render)",
+      "category": "operational-generative-ui",
+      "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
+      "kind": "testing"
+    },
+    {
+      "id": "gen-ui-agent",
+      "name": "Agentic Generative UI (In-Chat State Rendering)",
+      "category": "operational-generative-ui",
+      "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
+      "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+      "shell_docs_url": "/docs/features/gen-ui-agent"
     },
     {
       "id": "frontend-tools",
       "name": "Frontend Tools (In-app actions)",
       "category": "interactivity",
-      "description": "Frontend tool execution triggered by the agent"
-    },
-    {
-      "id": "frontend-tools-sync",
-      "name": "Frontend Tools (Sync)",
-      "category": "interactivity",
-      "description": "Synchronous frontend tool execution"
+      "description": "Frontend tool execution triggered by the agent",
+      "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+      "shell_docs_url": "/docs/features/frontend-tools"
     },
     {
       "id": "frontend-tools-async",
       "name": "Frontend Tools (Async)",
       "category": "interactivity",
-      "description": "Asynchronous frontend tool execution"
+      "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
+      "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+      "shell_docs_url": "/docs/features/frontend-tools"
     },
     {
       "id": "hitl-in-app",
-      "name": "In-App Human in the Loop",
+      "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
       "category": "interactivity",
-      "description": "User approves agent actions from in-app UI surfaces outside the chat"
+      "description": "Agent calls useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
+      "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
+      "shell_docs_url": "/docs/features/hitl-in-app"
     },
     {
-      "id": "state-rendering",
-      "name": "State Rendering",
+      "id": "shared-state-read-write",
+      "name": "Shared State (Read + Write)",
       "category": "agent-state",
-      "description": "Rendering agent execution state"
-    },
-    {
-      "id": "shared-state-read",
-      "name": "Shared State (Reading)",
-      "category": "agent-state",
-      "description": "Reading agent state from UI"
-    },
-    {
-      "id": "shared-state-write",
-      "name": "Shared State (Writing)",
-      "category": "agent-state",
-      "description": "Writing to agent state from UI"
+      "description": "Bidirectional agent state \u2014 UI writes preferences, agent writes notes back"
     },
     {
       "id": "shared-state-streaming",
       "name": "State Streaming",
       "category": "agent-state",
-      "description": "Per-token state delta streaming from agent to UI"
+      "description": "Per-token state delta streaming from agent to UI",
+      "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+      "shell_docs_url": "/docs/features/shared-state-streaming"
     },
     {
-      "id": "shared-state-io",
-      "name": "Shared State (I/O Schemas)",
+      "id": "readonly-state-agent-context",
+      "name": "Readonly State (Agent Context)",
       "category": "agent-state",
-      "description": "Structured output schemas"
-    },
-    {
-      "id": "shared-state",
-      "name": "Shared State",
-      "category": "agent-state",
-      "description": "Bidirectional state sharing between agent and UI"
-    },
-    {
-      "id": "readables",
-      "name": "Readables (Client Context)",
-      "category": "agent-state",
-      "description": "Passing client-side context to agent"
+      "description": "Frontend provides read-only context to the agent via useAgentContext"
     },
     {
       "id": "subagents",
       "name": "Sub-Agents",
       "category": "multi-agent",
-      "description": "Multiple agents with visible task delegation"
-    },
-    {
-      "id": "a2a-chat",
-      "name": "A2A Chat",
-      "category": "multi-agent",
-      "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
+      "description": "Multiple agents with visible task delegation",
+      "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+      "shell_docs_url": "/docs/features/subagents"
     },
     {
       "id": "auth",
       "name": "Authentication",
       "category": "platform",
-      "description": "Framework-native authentication"
+      "description": "Framework-native authentication",
+      "og_docs_url": "https://docs.copilotkit.ai/features/auth",
+      "shell_docs_url": "/docs/features/auth"
     },
     {
       "id": "agent-config",
       "name": "Agent Config Object",
       "category": "platform",
-      "description": "Forwarded props / config objects"
+      "description": "Forwarded props / config objects",
+      "og_docs_url": "https://docs.copilotkit.ai/features/agent-config",
+      "shell_docs_url": "/docs/features/agent-config"
     },
     {
       "id": "voice",
       "name": "Voice",
       "category": "platform",
-      "description": "Real-time voice interaction"
+      "description": "Real-time voice interaction",
+      "og_docs_url": "https://docs.copilotkit.ai/features/voice",
+      "shell_docs_url": "/docs/features/voice"
     },
     {
       "id": "multimodal",
       "name": "Multi-modal / File Uploads",
       "category": "platform",
-      "description": "File upload and agent processing"
-    },
-    {
-      "id": "vnext-chat",
-      "name": "vNext Chat",
-      "category": "platform",
-      "description": "Experimental next-generation chat using CopilotKit vNext runtime"
-    },
-    {
-      "id": "a2ui-fixed",
-      "name": "A2UI (Fixed Schema)",
-      "category": "a2ui",
-      "description": "Static A2UI schema rendering"
-    },
-    {
-      "id": "a2ui-fixed-streaming",
-      "name": "A2UI (Fixed Schema Streaming)",
-      "category": "a2ui",
-      "description": "Streaming static A2UI"
-    },
-    {
-      "id": "a2ui-dynamic",
-      "name": "A2UI (Dynamic Schema)",
-      "category": "a2ui",
-      "description": "Agent-generated A2UI schemas"
-    },
-    {
-      "id": "a2ui-chat",
-      "name": "A2UI Chat",
-      "category": "a2ui",
-      "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
-    },
-    {
-      "id": "mobile-react-native",
-      "name": "Mobile (React Native)",
-      "category": "mobile",
-      "description": "React Native support"
-    },
-    {
-      "id": "mobile-swiftui",
-      "name": "Mobile (SwiftUI)",
-      "category": "mobile",
-      "description": "SwiftUI support"
-    },
-    {
-      "id": "mobile-android",
-      "name": "Mobile (Android)",
-      "category": "mobile",
-      "description": "Android support"
-    },
-    {
-      "id": "web-angular",
-      "name": "Web (Angular)",
-      "category": "web-frameworks",
-      "description": "Angular support"
-    },
-    {
-      "id": "web-svelte",
-      "name": "Web (Svelte)",
-      "category": "web-frameworks",
-      "description": "Svelte support"
-    },
-    {
-      "id": "web-vue",
-      "name": "Web (Vue)",
-      "category": "web-frameworks",
-      "description": "Vue support"
-    },
-    {
-      "id": "web-tanstack",
-      "name": "Web (TanStack)",
-      "category": "web-frameworks",
-      "description": "TanStack Start support"
+      "description": "File upload and agent processing",
+      "og_docs_url": "https://docs.copilotkit.ai/features/multimodal",
+      "shell_docs_url": "/docs/features/multimodal"
     },
     {
       "id": "byoc-hashbrown",
       "name": "BYOC Hashbrown",
       "category": "byoc",
-      "description": "Hashbrown-style generative UI"
-    },
-    {
-      "id": "byoc-a2ui",
-      "name": "BYOC A2UI v0.9",
-      "category": "byoc",
-      "description": "Hashbrown-style generative UI on top of A2UI 0.9"
+      "description": "Hashbrown-style generative UI",
+      "og_docs_url": "https://docs.copilotkit.ai/features/byoc-hashbrown",
+      "shell_docs_url": "/docs/features/byoc-hashbrown"
     },
     {
       "id": "byoc-json-render",
       "name": "BYOC json-render",
       "category": "byoc",
-      "description": "Hashbrown-style generative UI built on json-render"
-    },
-    {
-      "id": "byoc-tambo",
-      "name": "BYOC Tambo",
-      "category": "byoc",
-      "description": "Hashbrown-style generative UI built on Tambo"
-    },
-    {
-      "id": "deep-agents",
-      "name": "Deep Agents",
-      "category": "deep-agents",
-      "description": "Deep agent architecture with nested agent orchestration"
+      "description": "Hashbrown-style generative UI built on json-render",
+      "og_docs_url": "https://docs.copilotkit.ai/features/byoc-json-render",
+      "shell_docs_url": "/docs/features/byoc-json-render"
     }
   ]
 }

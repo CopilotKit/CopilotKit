@@ -276,15 +276,24 @@ fi
 # --- end provider-aware guard ---
 
 echo "[entrypoint] Starting Python agent server on port 8123..."
-# Use process substitution so ``$!`` captures the uvicorn PID, NOT the sed
-# PID. A plain ``uvicorn ... | sed ... &`` bug is insidious: if uvicorn
-# crashes immediately, sed stays alive reading a closed pipe; the liveness
-# probe below passes ("kill -0 $AGENT_PID" succeeds because sed is the
-# PID), Next.js then starts against a dead agent, and when sed eventually
-# exits 0 ``wait -n`` reports EXIT_CODE=0 "clean exit" masking the real
-# failure. Process substitution feeds sed on stdout+stderr without pipeline
-# semantics, so ``$!`` here is the actual python PID.
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 > >(sed 's/^/[agent] /') 2>&1 &
+# Launch uvicorn directly, with no stdout/stderr wrapper. Earlier revisions
+# piped both streams through ``> >(sed 's/^/[agent] /') 2>&1`` for
+# per-process log prefixes; in Railway (sleepApplication=true, V2 runtime)
+# that pattern reliably produced zero ``[agent]``/``[nextjs]`` log output
+# AND caused ``/api/health`` to return 503 with ``agent: "down"`` because
+# Next.js could not reach the agent on ``localhost:8123``. Meanwhile the
+# package entrypoint (showcase/packages/langroid/entrypoint.sh) uses the
+# plain-``&`` pattern without sed and stays green on the same Railway
+# runtime with full uvicorn INFO logs visible. Match the working package
+# pattern here: plain backgrounded process, ``$!`` captures uvicorn
+# directly, logs flow to the container stdout without a middle-wrapper.
+#
+# PYTHONUNBUFFERED=1 forces Python to line-flush stdout/stderr so import-
+# time tracebacks (e.g. langroid module load failures) reach the container
+# log immediately instead of sitting in userspace buffers until process
+# exit closes them off.
+export PYTHONUNBUFFERED=1
+cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 &
 AGENT_PID=$!
 sleep 2
 if kill -0 "$AGENT_PID" 2>/dev/null; then
@@ -292,6 +301,45 @@ if kill -0 "$AGENT_PID" 2>/dev/null; then
 else
   echo "[entrypoint] ERROR: Agent server failed to start — exiting"
   exit 1
+fi
+
+# Readiness wait: poll the agent's /health endpoint until it returns 200
+# or we hit a 30s ceiling. Two reasons this is load-bearing in Railway:
+#
+#   1. Cold-start race. Railway sleeps idle services (sleepApplication=true
+#      on this starter's service instance). First traffic after sleep wakes
+#      the container, which races Next.js (ready in <1s) against Python +
+#      langroid imports (can take 10-20s). Without a readiness gate,
+#      Next.js answers the first ``/api/health`` probe with ``agent:"down"``
+#      because uvicorn has not yet bound port 8123 — producing the exact
+#      503 that the showcase-deploy workflow's verify step asserts against.
+#
+#   2. Explicit ``127.0.0.1`` (not ``localhost``) avoids any IPv6-first
+#      resolution the container's glibc/musl might do. uvicorn binds
+#      ``0.0.0.0`` (IPv4 only); a Node/Next.js fetch to ``localhost`` on
+#      Node 22+ can try ``::1`` first and hit ECONNREFUSED before falling
+#      back. Next.js's ``/api/health`` route keeps the ``localhost:8123``
+#      string for dev-time symmetry, and Node's happy-eyeballs ultimately
+#      works — but at bootstrap time we probe IPv4 explicitly here so this
+#      loop cannot false-negative for resolver reasons.
+echo "[entrypoint] Waiting for agent /health to become ready (up to 30s)..."
+AGENT_READY=0
+for i in $(seq 1 30); do
+  # ``kill -0`` first so a crashed uvicorn short-circuits the wait rather
+  # than burning the full 30s before the outer check reports failure.
+  if ! kill -0 "$AGENT_PID" 2>/dev/null; then
+    echo "[entrypoint] ERROR: Agent process exited during readiness wait (iter=$i) — exiting"
+    exit 1
+  fi
+  if curl -sSf -o /dev/null --max-time 2 "http://127.0.0.1:8123/health" 2>/dev/null; then
+    echo "[entrypoint] Agent /health ready after ${i}s"
+    AGENT_READY=1
+    break
+  fi
+  sleep 1
+done
+if [ "$AGENT_READY" != "1" ]; then
+  echo "[entrypoint] WARNING: Agent /health did not respond within 30s — starting Next.js anyway; /api/health will report agent:down until the agent comes up"
 fi
 
 echo "========================================="
@@ -305,11 +353,7 @@ PORT=${PORT:-10000}
 # of which don't interpret NODE_ENV the way Next.js does. `env` prefix binds
 # the value to this single exec so the agent spawned above keeps the host
 # environment intact.
-# Same process-substitution pattern as the agent launch above — ``$!`` must
-# capture the Next.js PID, not the sed PID, or the survivor-kill logic and
-# ``wait -n`` exit-code interpretation below silently misdiagnose which
-# child died.
-env NODE_ENV=production npx next start --port $PORT > >(sed 's/^/[nextjs] /') 2>&1 &
+env NODE_ENV=production npx next start --port $PORT &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
