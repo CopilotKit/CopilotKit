@@ -15,6 +15,7 @@ COPY showcase/shared/ ./shared/
 COPY showcase/packages/ ./packages/
 COPY showcase/scripts/ ./scripts/
 COPY showcase/shell/ ./shell/
+COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 
 # Bake commit info into Next.js build
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
@@ -37,7 +38,6 @@ COPY --from=builder /app/shell/.next ./.next
 COPY --from=builder /app/shell/node_modules ./node_modules
 COPY --from=builder /app/shell/package.json ./
 COPY --from=builder /app/shell/public ./public
-COPY --from=builder /app/shell/src/content ./src/content
 
 EXPOSE 10000
 CMD ["npx", "next", "start", "-p", "10000"]
