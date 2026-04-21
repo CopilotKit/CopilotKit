@@ -71,6 +71,38 @@ describe("smoke probe", () => {
     expect(r.signal.links.health).toBe("https://x/health");
   });
 
+  it("differentiates our own timeout abort from generic fetch errors", async () => {
+    // Regression: post-timeout the AbortController rejects with DOMException
+    // "This operation was aborted" — indistinguishable from an externally
+    // triggered cancellation. Surface as `timeout after Nms` so operators
+    // can tell "probe gave up" from "network error".
+    const fetchImpl: typeof fetch = (async (
+      _url: string,
+      init: { signal: AbortSignal },
+    ) => {
+      // Wait until the controller aborts, then reject like the real fetch.
+      await new Promise<void>((_, reject) => {
+        init.signal.addEventListener("abort", () => {
+          const e = new Error("This operation was aborted");
+          e.name = "AbortError";
+          reject(e);
+        });
+      });
+    }) as unknown as typeof fetch;
+
+    const r = await smokeProbe.run(
+      {
+        slug: "mastra",
+        url: "https://x/api/smoke",
+        fetchImpl,
+        timeoutMs: 5,
+      },
+      ctx,
+    );
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toBe("timeout after 5ms");
+  });
+
   it("returns empty health URL when smoke URL is unparseable", async () => {
     const r = await smokeProbe.run(
       { slug: "mastra", url: "not a url", fetchImpl: fakeFetch(200) },

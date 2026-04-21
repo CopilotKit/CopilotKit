@@ -59,7 +59,19 @@ export const smokeProbe: Probe<SmokeInput, SmokeSignal> = {
       };
     } catch (err) {
       const latencyMs = ctx.now().getTime() - started;
-      const errMsg = err instanceof Error ? err.message : String(err);
+      // Differentiate our own timeout abort from other AbortErrors / rejection
+      // reasons. Without this branch the caller sees the DOM-ish
+      // "This operation was aborted" which is indistinguishable from an
+      // externally-triggered cancellation.
+      const timedOut =
+        err instanceof Error &&
+        (err.name === "AbortError" || err.name === "TimeoutError") &&
+        controller.signal.aborted;
+      const errMsg = timedOut
+        ? `timeout after ${input.timeoutMs ?? 15_000}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err);
       return {
         key: `smoke:${input.slug}`,
         state: "red",
