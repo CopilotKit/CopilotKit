@@ -222,6 +222,25 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
           },
           filter ? { filter } : undefined,
         );
+        // Cleanup-race guard (HF-C1): if the effect cleanup ran while
+        // subscribe() was awaiting, `cancel` was never set and the
+        // eventually-returned `unsub` would be leaked (orphan SSE
+        // subscription that keeps receiving callbacks forever). Tear it
+        // down right here and bail; callers already saw `alive=false` so
+        // no further state transitions are needed.
+        if (!alive) {
+          try {
+            await unsub();
+          } catch (unsubErr) {
+            // eslint-disable-next-line no-console
+            console.debug(
+              "[useLiveStatus] orphan unsubscribe failed (best-effort)",
+              { topic: dimension ?? "<all>", err: unsubErr },
+            );
+          }
+          reconnecting = false;
+          return;
+        }
         cancel = (): void => {
           void unsub();
         };

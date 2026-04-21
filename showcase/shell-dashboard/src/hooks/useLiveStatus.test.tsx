@@ -442,6 +442,93 @@ describe("useLiveStatus", () => {
     expect(result.current.rows).toHaveLength(500);
   });
 
+  it("unmount during pending subscribe() resolves cleanly (HF-C1)", async () => {
+    // Hold the subscribe() promise open so we can unmount mid-await. The
+    // hook captures the unsub into `cancel` only after the await resolves;
+    // if the effect cleanup runs during the await, the previous impl left
+    // `cancel` null and the eventually-returned unsub was leaked — an
+    // orphan SSE subscription would keep firing callbacks forever.
+    let resolveSubscribe: (() => void) | null = null;
+    const subscribePending = new Promise<void>((resolve) => {
+      resolveSubscribe = resolve;
+    });
+
+    // Monkey-patch the subscribe mock for this test only: gate on our
+    // external promise before resolving, so we can unmount in between.
+    const originalSubscribe = (
+      // Bypass: we rewire through mockState so subsequent tests aren't
+      // affected (beforeEach resets mockState, not mock fns themselves).
+      () => null
+    )();
+    void originalSubscribe;
+
+    // Seed one row so fetchInitial resolves quickly.
+    mockState.initial = [
+      {
+        id: "1",
+        key: "smoke:a/b",
+        dimension: "smoke",
+        state: "green",
+        signal: {},
+        observed_at: "2026-04-20T00:00:00Z",
+        transitioned_at: "2026-04-20T00:00:00Z",
+        fail_count: 0,
+        first_failure_at: null,
+      },
+    ];
+
+    // We already have a subscribe mock in place from vi.mock at module
+    // scope. Wrap our own gating by swapping its implementation for this
+    // test: await the gate, then return an unsub that increments
+    // unsubscribeCalls. Use the fact that the hook calls
+    // pb.collection("status").subscribe — reach through the module mock.
+    const pbMod = await import("../lib/pb");
+    const gatedSubscribe = vi.fn(
+      async (_topic: string, cb: Listener, _opts?: unknown) => {
+        mockState.subscribeCalls += 1;
+        mockState.listener = cb;
+        await subscribePending; // hold until the test opens the gate
+        return async () => {
+          mockState.unsubscribeCalls += 1;
+          mockState.listener = null;
+        };
+      },
+    );
+    // Patch the collection().subscribe path on the mocked pb for this test.
+    // The mocked pb.collection returns a minimal stub (see vi.mock above),
+    // not a real PocketBase RecordService — casting through `unknown` to a
+    // narrowed shape is the correct seam.
+    const pbHandle = pbMod.pb as unknown as {
+      collection: (name: string) => Record<string, unknown>;
+    };
+    const origCollection = pbHandle.collection;
+    pbHandle.collection = (name: string) => {
+      const base = origCollection(name);
+      return { ...base, subscribe: gatedSubscribe };
+    };
+
+    try {
+      const { unmount } = renderHook(() => useLiveStatus("smoke"));
+
+      // Wait until subscribe has been invoked (await is in-flight).
+      await waitFor(() => expect(gatedSubscribe).toHaveBeenCalled());
+      expect(mockState.unsubscribeCalls).toBe(0);
+
+      // Unmount while subscribe() is still awaiting.
+      unmount();
+
+      // Now resolve the subscribe() promise — the hook receives `unsub`
+      // after cleanup has already run. The fix must invoke unsub itself.
+      resolveSubscribe!();
+
+      await waitFor(() => expect(mockState.unsubscribeCalls).toBe(1));
+      // Listener must not remain wired up after the orphan tear-down.
+      expect(mockState.listener).toBeNull();
+    } finally {
+      pbHandle.collection = origCollection;
+    }
+  });
+
   it("filters subscribe events by dimension (client-side defense)", async () => {
     const { result } = renderHook(() => useLiveStatus("smoke"));
     await waitFor(() => expect(result.current.status).toBe("live"));
