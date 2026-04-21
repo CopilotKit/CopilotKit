@@ -27,6 +27,16 @@ export function ErrorBoundaryCard({
   reset,
 }: ErrorBoundaryCardProps) {
   const pathname = usePathname();
+  // Depend on stable primitives (message + digest) rather than the `error`
+  // object itself. Next.js re-wraps the error across renders (and remounts
+  // the boundary on `reset()`), so a dep array of `[scope, error, pathname]`
+  // fires the effect repeatedly on identity change and emits duplicate
+  // console.error lines / telemetry. `message` and `digest` are strings and
+  // identity-stable for a given error. Fall back to empty-string for
+  // `message` in case an exception without a message slipped through
+  // (e.g. `throw new Error()`); `digest` is already optional on the type.
+  const errorMessage = error?.message ?? "";
+  const errorDigest = error?.digest;
   useEffect(() => {
     // Log the full Error instance (not just .message/.digest) so the
     // stack trace reaches the server log / browser devtools. Include
@@ -35,7 +45,8 @@ export function ErrorBoundaryCard({
       `[${scope}] Page render error${pathname ? ` on ${pathname}` : ""}:`,
       error,
     );
-  }, [scope, error, pathname]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, errorMessage, errorDigest, pathname]);
 
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
