@@ -118,12 +118,22 @@ jobs:
           path: showcase/tests/test-results/
           retention-days: 7
 
-      - name: Build Slack payload
+      # Sanitize the failure summary and stash it in $GITHUB_ENV so the
+      # inline Slack payload can reference it via `env.summary`. We don't
+      # write to a payload file because slackapi/slack-github-action@v2.1.0
+      # rejects payload files that don't end in `.json`/`.yaml`/`.yml`
+      # (mktemp produces extensionless files), and `jq --rawfile` can also
+      # crash under `set -e` on edge-case inputs, leaving an empty/missing
+      # payload and silently suppressing the alert. Inline `payload:` with
+      # `toJSON(format(...))` sidesteps both failure modes — quotes,
+      # backslashes, newlines in the summary are safely JSON-encoded by
+      # toJSON, and there's no intermediate file to mishandle. This is the
+      # same pattern used in test_smoke-starter-deployed.yml (PR #4068) and
+      # showcase_validate.yml.
+      - name: Prepare Slack alert fields
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
-        id: slack-payload
         env:
           SUMMARY_RAW: ${{ steps.failure-cause.outputs.summary }}
-          STARTER: ${{ matrix.starter }}
         run: |
           # Strip ANSI sequences (SGR, OSC, and G0/G1 charset designators), then truncate
           # to 200 bytes and drop any trailing partial UTF-8 bytes so we don't emit mojibake.
@@ -133,21 +143,13 @@ jobs:
           if [ -z "$SUMMARY" ]; then
             SUMMARY="(no failure detail captured — see job log)"
           fi
-          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          JOB_URL="${URL}/job/${{ github.job }}"
-
-          SLACK_MSG=$(mktemp)
-          SLACK_PAYLOAD=$(mktemp)
-
-          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          # Emit via heredoc so embedded `=`, quotes, or newlines don't
+          # break KEY=VALUE parsing in $GITHUB_ENV.
           {
-            printf ':x: *Starter smoke test failing: %s*\n' "$STARTER"
-            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
-            printf '```\n%s\n```\n' "$SUMMARY"
-          } > "$SLACK_MSG"
-          jq -n --rawfile text "$SLACK_MSG" '{text: $text}' > "$SLACK_PAYLOAD"
-          rm -f "$SLACK_MSG"
-          echo "payload_path=${SLACK_PAYLOAD}" >> "$GITHUB_OUTPUT"
+            echo "summary<<EOF_SUMMARY_7a4c"
+            printf '%s\n' "$SUMMARY"
+            echo "EOF_SUMMARY_7a4c"
+          } >> "$GITHUB_ENV"
 
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
@@ -155,8 +157,5 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload-file-path: ${{ steps.slack-payload.outputs.payload_path }}
-
-      - name: Clean up Slack payload tmpfile
-        if: always() && steps.slack-payload.outputs.payload_path
-        run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Starter smoke test failing: {0}*\n<{1}/{2}/actions/runs/{3}|View run> · <{1}/{2}/actions/runs/{3}/job/{4}|View job>\n```{5}```', matrix.starter, github.server_url, github.repository, github.run_id, github.job, env.summary)) }} }
