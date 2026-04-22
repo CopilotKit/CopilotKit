@@ -201,6 +201,49 @@
   scrollbar-color: oklch(0.5 0 0) transparent;
 }
 
+/*
+ * Restore list defaults inside prose.
+ *
+ * scope-preflight.mjs rewrites Tailwind's preflight
+ *   `ol, ul, menu { list-style: none; margin: 0; padding: 0 }`
+ * into `[data-copilotkit] ul, ul[data-copilotkit], ... { ... }`
+ * (specificity 0,1,1). The typography plugin's prose rule is
+ *   `.cpk\:prose :where(ul) { list-style-type: disc; padding-inline-start: 1.625em; ... }`
+ * but `:where()` contributes 0 to specificity, so the rule is only (0,1,0)
+ * and the scoped reset wins — markdown lists inside chat messages render
+ * without bullets, numbers, padding, or spacing.
+ *
+ * These rules sit at (0,2,1) and restore the typography defaults without
+ * touching the preflight itself.
+ */
+[data-copilotkit] .cpk\:prose ul {
+  list-style-type: disc;
+  padding-inline-start: 1.625em;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+[data-copilotkit] .cpk\:prose ol {
+  list-style-type: decimal;
+  padding-inline-start: 1.625em;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+[data-copilotkit] .cpk\:prose ol[type="A"] {
+  list-style-type: upper-alpha;
+}
+[data-copilotkit] .cpk\:prose ol[type="a"] {
+  list-style-type: lower-alpha;
+}
+[data-copilotkit] .cpk\:prose ol[type="I"] {
+  list-style-type: upper-roman;
+}
+[data-copilotkit] .cpk\:prose ol[type="i"] {
+  list-style-type: lower-roman;
+}
+[data-copilotkit] .cpk\:prose ol[type="1"] {
+  list-style-type: decimal;
+}
+
 [data-copilotkit] .prose input[type="checkbox"] {
   appearance: none;
   background-color: #fff;
