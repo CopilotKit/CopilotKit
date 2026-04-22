@@ -2,7 +2,7 @@
   "name": "copilotkit-vscode-extension",
   "displayName": "CopilotKit",
   "version": "0.1.0",
-  "description": "Live-preview A2UI catalog components, explore useCopilotAction / useCoAgent hook renders, and inspect AG-UI agent runs — all from the VS Code sidebar.",
+  "description": "Preview generative-UI components, explore CopilotKit hooks, and inspect AG-UI agent runs — all without leaving your editor.",
   "categories": [
     "Other",
     "Visualization"
