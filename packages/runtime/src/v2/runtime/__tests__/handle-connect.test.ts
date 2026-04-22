@@ -228,7 +228,9 @@ describe("handleConnectAgent", () => {
         afterRequestMiddleware: undefined,
         runner,
         mode: "intelligence",
-        identifyUser: vi.fn().mockResolvedValue({ id: "user-1" }),
+        identifyUser: vi
+          .fn()
+          .mockResolvedValue({ id: "user-1", name: "User One" }),
         intelligence: platform,
       } as unknown as CopilotRuntime;
     };
@@ -384,7 +386,9 @@ describe("handleConnectAgent", () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
-      const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
+      const identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "resolved-user", name: "Resolved User" });
       const runtime = createIntelligenceRuntime(platform);
       runtime.identifyUser = identifyUser;
       const request = createConnectRequest(
@@ -414,7 +418,28 @@ describe("handleConnectAgent", () => {
         ɵconnectThread: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(platform);
-      runtime.identifyUser = vi.fn().mockResolvedValue({ id: "" });
+      runtime.identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "", name: "User" });
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      expect(platform.ɵconnectThread).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when identifyUser returns an invalid name", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+      runtime.identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "user-1", name: "" });
 
       const response = await handleConnectAgent({
         runtime,

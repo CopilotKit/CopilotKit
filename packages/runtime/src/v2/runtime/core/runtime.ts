@@ -141,6 +141,7 @@ interface BaseCopilotRuntimeOptions extends CopilotRuntimeMiddlewares {
 
 export interface CopilotRuntimeUser {
   id: string;
+  name: string;
 }
 
 export type IdentifyUserCallback = (

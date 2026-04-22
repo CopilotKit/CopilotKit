@@ -11,7 +11,9 @@ import { IntelligenceAgentRunner } from "../runner/intelligence";
 
 describe("runtime construction", () => {
   const agents = {};
-  const identifyUser = vi.fn().mockResolvedValue({ id: "user-1" });
+  const identifyUser = vi
+    .fn()
+    .mockResolvedValue({ id: "user-1", name: "User One" });
   const createMockIntelligence = (): CopilotKitIntelligence =>
     ({
       ɵgetRunnerWsUrl: vi.fn().mockReturnValue("ws://runner.example"),

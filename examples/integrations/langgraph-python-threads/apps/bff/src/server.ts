@@ -25,7 +25,7 @@ const app = createCopilotEndpoint({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
     intelligence,
-    identifyUser: () => ({ id: "jordan-beamson" }),
+    identifyUser: () => ({ id: "jordan-beamson", name: "Jordan Beamson" }),
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
     agents: { default: agent },
     openGenerativeUI: true,
