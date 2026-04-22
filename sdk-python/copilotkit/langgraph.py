@@ -3,6 +3,7 @@ LangChain specific utilities for CopilotKit
 """
 
 import uuid
+import json
 import warnings
 import asyncio
 from typing import List, Optional, Any, Union, Dict
