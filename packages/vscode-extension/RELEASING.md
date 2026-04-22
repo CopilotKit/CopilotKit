@@ -9,10 +9,18 @@ The flow mirrors the [`CopilotKit/aimock`](https://github.com/CopilotKit/aimock)
 
 ## Prerequisites (one-time, maintainer)
 
-Secrets must be configured in the **`production`** GitHub environment (repo → Settings → Environments → production → Environment secrets), not as plain repo secrets:
+Configuration lives in the **`production`** GitHub environment (repo → Settings → Environments → production), split between non-secret **variables** and **secrets**:
 
-- `VSCE_PAT` — VS Code Marketplace Personal Access Token (Azure DevOps, scope: Marketplace → Manage, tied to the `copilotkit` publisher).
-- `OVSX_PAT` — Open VSX Personal Access Token.
+Environment **variables** (non-secret, consumed by `azure/login@v2`):
+
+- `AZURE_CLIENT_ID` — client ID of the `copilotkit-vscode-publish` Entra Service Principal.
+- `AZURE_TENANT_ID` — tenant ID for copilotkit.ai.
+- `AZURE_SUBSCRIPTION_ID` — subscription the SP is scoped into.
+
+Environment **secrets**:
+
+- `OVSX_PAT` — Open VSX Personal Access Token (bot-owned, quarterly rotation). OIDC is not yet supported on Open VSX, so a PAT is still required here.
+- `VSCE_PAT` — **retained as explicit rollback only.** No longer referenced by the workflow; Marketplace auth is OIDC. Delete this secret once OIDC publishing has been confirmed green at least once in production (see [Rollback guidance](#rollback-guidance)).
 - `SLACK_WEBHOOK` (optional) — webhook for the #oss-alerts release ping. Publish succeeds without it.
 
 ### One-time Open VSX setup (first release only)
@@ -72,11 +80,13 @@ On every push to `main` under `packages/vscode-extension/**`, `.github/workflows
 2. Calls `vsce show <publisher>.<name>` and checks whether that exact version is already listed on the Marketplace.
 3. If already published → no-op (green, zero side effects). This makes every non-release push to main safe.
 4. Otherwise: install, build, `vsce package` → single `extension.vsix`, upload artifact.
-5. Publish the same `.vsix` to VS Code Marketplace with `$VSCE_PAT`.
-6. Publish the same `.vsix` to Open VSX with `$OVSX_PAT`.
+5. Marketplace auth is GitHub OIDC → Entra federated Service Principal → `vsce publish --azure-credential`. No user PAT. The SP is `copilotkit-vscode-publish` in the copilotkit.ai tenant with Contributor role on the Marketplace `copilotkit` publisher. `azure/login@v2` sources `AZURE_CLIENT_ID` / `AZURE_TENANT_ID` / `AZURE_SUBSCRIPTION_ID` from the `production` environment **variables** (not secrets) and populates the `AzureCliCredential` chain that `vsce` reads by default. A `verify-pat --azure-credential` pre-flight step catches auth issues before we publish.
+6. Publish the same `.vsix` to Open VSX with `$OVSX_PAT` (bot-owned PAT, quarterly rotation — OIDC is not yet supported on Open VSX).
 7. Create tag `vscode-extension-v<version>` and push it.
 8. Cut a GitHub Release using the CHANGELOG section for that version (or auto-generated notes if absent).
 9. Post a Slack message to `SLACK_WEBHOOK` if configured.
+
+The federated credential on the Entra SP is pinned to subject `repo:CopilotKit/CopilotKit:environment:production`, which means the workflow's `environment: production` must match **exactly** (case-sensitive) for the OIDC token exchange to succeed.
 
 Both publishes use `continue-on-error` so a partial failure is visible. The final "Report publish results" step fails the job if either registry ultimately failed — you never land in "Marketplace succeeded, Open VSX silently skipped."
 
@@ -125,7 +135,29 @@ If a bad version ships:
 2. Run `scripts/release/vscode-extension-release.sh patch --summary "…" --type Fixed` to ship the fix and merge.
 3. If the regression is severe enough to warrant pulling the listing, the Marketplace / Open VSX admin UIs each offer a per-version unlist (different from unpublish) — use that as a last resort; prefer shipping forward.
 
+## Rollback guidance
+
+### OIDC auth failures
+
+If the `Login to Azure` or `Verify Marketplace credential` step fails on the first OIDC publish, check these in order:
+
+1. **SP not added as Contributor on the Marketplace publisher.** `copilotkit-vscode-publish` must be a member of the `copilotkit` publisher at <https://marketplace.visualstudio.com/manage/publishers/copilotkit> with the Contributor (or higher) role.
+2. **Federated credential subject mismatch.** The credential on the Entra app must have subject **exactly** `repo:CopilotKit/CopilotKit:environment:production` (case-sensitive, no trailing slash). The workflow's `environment: production` must match that subject byte-for-byte.
+3. **Tenant conditional access policy blocking workload identities.** The copilotkit.ai tenant may have CA policies that block service principals from non-corporate IPs. Check Entra → Security → Conditional Access and exclude the `copilotkit-vscode-publish` SP from any policy that filters on location.
+4. **Missing `permissions: id-token: write` on the `publish` job.** Without this, GitHub will not mint an OIDC token and `azure/login@v2` will fail with "Unable to get ACTIONS_ID_TOKEN_REQUEST_URL env variable".
+
+### Temporary rollback to PAT
+
+`VSCE_PAT` is retained in the `production` environment secrets specifically as a rollback lever for this cutover window. To revert:
+
+1. Check out `.github/workflows/publish-vscode-extension.yml`, replace `--azure-credential` with `--pat "$VSCE_PAT"`, and re-add the `env: { VSCE_PAT: ${{ secrets.VSCE_PAT }} }` block on the `Publish to VS Code Marketplace` step.
+2. Push. Ship the release. Debug OIDC out of band.
+
+### Retiring the PAT
+
+Once OIDC publishing has been confirmed green in CI at least once, **delete `VSCE_PAT` from the `production` environment**. That commit — the one that removes the last Marketplace PAT from the pipeline — is the actual completion of this migration. Until then the PAT is still a live credential and still needs to be treated as one for rotation / incident response purposes.
+
 ## Notes and future work
 
-- **ADO PAT retirement (2026-12-01):** Azure DevOps is sunsetting long-lived Marketplace PATs. CopilotKit has a separate playbook in Notion for migrating `VSCE_PAT` to the Entra ID / OIDC flow before that date.
+- **ADO PAT retirement (2026-12-01):** Azure DevOps is sunsetting long-lived Marketplace PATs. This workflow has been migrated to OIDC / federated credentials ahead of that date; `VSCE_PAT` is retained only as a short-lived rollback lever (see above).
 - **If the npm monorepo release pipeline ever needs to coordinate with VSIX releases** (e.g. pin the extension to a known-good `@copilotkit/*` version), extend `release.config.json` with a `vscode-extension` scope and gate it on the same version-on-main trigger — do not try to bolt VSIX publishing onto `scripts/release/publish-release.ts` which is npm-only.

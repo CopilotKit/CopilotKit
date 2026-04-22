@@ -27,6 +27,7 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -65,14 +66,11 @@ jobs:
 
       - name: Check if version already published to Marketplace
         id: check
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           # Use `vsce show` to read Marketplace metadata. Unlike `npm view`
           # there's no fast per-version endpoint, so we parse the full version
           # list and look for an exact match. `vsce show` does not require
-          # auth for public extensions but we pass the PAT if available to
-          # avoid anonymous rate limits.
+          # auth for public extensions — no token needed.
           EXT_ID="${{ steps.pkg.outputs.ext_id }}"
           WANT="${{ steps.pkg.outputs.version }}"
 
@@ -128,19 +126,26 @@ jobs:
           path: packages/vscode-extension/extension.vsix
           if-no-files-found: error
 
+      - name: Login to Azure (OIDC → Entra SP)
+        if: steps.check.outputs.published == 'false'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Marketplace credential
+        if: steps.check.outputs.published == 'false'
+        working-directory: packages/vscode-extension
+        run: npx --yes @vscode/vsce@^3 verify-pat --azure-credential copilotkit
+
       - name: Publish to VS Code Marketplace
         if: steps.check.outputs.published == 'false'
         id: publish_vsce
         continue-on-error: true
         working-directory: packages/vscode-extension
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           set -u
-          if [ -z "${VSCE_PAT:-}" ]; then
-            echo "::error::VSCE_PAT secret is not configured in the 'production' environment"
-            exit 1
-          fi
 
           # Retry wrapper for transient registry failures (502/503/504, timeouts, DNS).
           # Treats "version already exists" as idempotent success — covers the case
@@ -188,7 +193,7 @@ jobs:
           retry_publish npx --yes @vscode/vsce@^3 publish \
             --no-dependencies \
             --packagePath extension.vsix \
-            --pat "$VSCE_PAT"
+            --azure-credential
 
       - name: Publish to Open VSX
         if: steps.check.outputs.published == 'false'
