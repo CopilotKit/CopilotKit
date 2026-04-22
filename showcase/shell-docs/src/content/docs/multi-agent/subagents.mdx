@@ -14,7 +14,7 @@ by exposing each of them as a tool. The supervisor decides what to
 delegate, the sub-agents do their narrow job, and their results flow
 back up to the supervisor's next step.
 
-This is fundamentally the same shape as tool-calling — but each "tool"
+This is fundamentally the same shape as tool-calling, but each "tool"
 is itself a full-blown agent with its own system prompt and (often) its
 own tools, memory, and model.
 
@@ -37,15 +37,15 @@ canonical example.
 
 ## Setting up sub-agents
 
-Each sub-agent is a full `create_agent(...)` call — with its own model,
+Each sub-agent is a full `create_agent(...)` call with its own model,
 its own system prompt, and (optionally) its own tools. They don't share
 memory or tools with the supervisor; the supervisor only ever sees
 what the sub-agent returns.
 
 <Snippet region="subagent-setup" title="backend/agent.py — three sub-agents" />
 
-Keep sub-agent system prompts laser-focused. The point of this pattern
-is that each one does one thing well — if a sub-agent needs to know
+Keep sub-agent system prompts narrow and focused. The point of this pattern
+is that each one does one thing well. If a sub-agent needs to know
 the whole user context to do its job, that's a signal the boundary is
 wrong.
 
@@ -57,8 +57,8 @@ around `sub_agent.invoke(...)` that:
 1. Runs the sub-agent synchronously on the supplied `task` string.
 2. Records the delegation into a `delegations` slot in shared agent
    state (so the UI can render a live log).
-3. Returns the sub-agent's final message as a `ToolMessage` — the
-   supervisor sees it as a normal tool result on its next turn.
+3. Returns the sub-agent's final message as a `ToolMessage`, which the
+   supervisor sees as a normal tool result on its next turn.
 
 <Snippet region="supervisor-delegation-tools" title="backend/agent.py — supervisor tools" />
 
@@ -76,7 +76,7 @@ and render one card per entry.
 <Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
 
 The result: as the supervisor fans work out to its sub-agents, the log
-grows in real time — giving the user visibility into a process that
+grows in real time, giving the user visibility into a process that
 would otherwise be a long opaque spinner.
 
 ## Related

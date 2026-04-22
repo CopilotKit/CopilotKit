@@ -10,7 +10,7 @@ snippet_cell: prebuilt-popup
 
 `<CopilotPopup>` is a prebuilt floating launcher that opens an overlay chat
 window on top of your page content. It's the lightest-weight way to add a
-copilot to an existing app — drop it in once, and a bubble appears in the
+copilot to an existing app. Drop it in once and a bubble appears in the
 corner ready to chat.
 
 ## When should I use this?
@@ -25,6 +25,8 @@ If you need chat to live alongside your content rather than on top of it,
 use [CopilotSidebar](/prebuilt-components/sidebar). For a fully embedded
 chat pane, use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
+Here's the popup in action. Click the launcher button to open the chat:
+
 <InlineDemo demo="prebuilt-popup" />
 
 <img
@@ -35,8 +37,8 @@ chat pane, use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once — the provider wires the runtime,
-session, and agent registry — then render `<CopilotPopup>` as a sibling of
+Wrap your app in `<CopilotKit>` once (the provider wires the runtime,
+session, and agent registry) and render `<CopilotPopup>` as a sibling of
 your main content. The showcase cell opens the popup by default and
 customizes the input placeholder via `labels`:
 
@@ -58,7 +60,7 @@ its own. Commonly used options:
 ## Styling
 
 `CopilotPopup` participates in the slot system, so every piece of its UI
-is customizable — from Tailwind classes on the message view to a full
+is customizable, from Tailwind classes on the message view to a full
 component swap for the header or toggle button. See
 [custom look and feel](/custom-look-and-feel/slots) for the full slot
 reference.

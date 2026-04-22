@@ -8,7 +8,7 @@ snippet_cell: agentic-chat
 
 ## What is this?
 
-`<CopilotChat>` is the base prebuilt chat surface — drop it in wherever you
+`<CopilotChat>` is the base prebuilt chat surface. Drop it in wherever you
 want the chat to render and size it to fit your layout. `<CopilotSidebar>`
 and `<CopilotPopup>` are both thin wrappers over the same primitives; if you
 need a dedicated chat page or an inline pane alongside other content, this
@@ -36,8 +36,8 @@ For a floating bubble that overlays content, use [CopilotPopup](/prebuilt-compon
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once — the provider wires the runtime, session,
-and agent registry — then render `<CopilotChat>` inside the layout of your
+Wrap your app in `<CopilotKit>` once (the provider wires the runtime, session,
+and agent registry) and render `<CopilotChat>` inside the layout of your
 choosing:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
@@ -62,7 +62,7 @@ export default function YourComponent() {
 
 ## Common props
 
-`<CopilotChat>` is the root primitive — `<CopilotSidebar>` and `<CopilotPopup>`
+`<CopilotChat>` is the root primitive. `<CopilotSidebar>` and `<CopilotPopup>`
 accept the same slots and labels, plus a few wrapper-specific props.
 
 | Prop | Description |
