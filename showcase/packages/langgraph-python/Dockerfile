@@ -41,7 +41,8 @@ WORKDIR /app
 # image too, not just the generated starter.
 RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
  && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
- && mkdir -p /home/app && chown app:app /home/app
+ && mkdir -p /home/app && chown app:app /home/app \
+ && chown app:app /app
 
 # Python venv (prebuilt in agent-builder stage — no pip in the runner).
 COPY --chown=app:app --from=agent-builder /opt/venv /opt/venv
