@@ -463,10 +463,26 @@ export class CopilotRuntime<const T extends Parameter[] | [] = []> {
       }
 
       if (isAgentsListEmpty) {
-        const model =
-          serviceAdapter.getLanguageModel?.() ??
-          `${serviceAdapter.provider}/${serviceAdapter.model}`;
-        agentsList.default = new BuiltInAgent({ model });
+        const languageModel = serviceAdapter.getLanguageModel?.();
+        if (languageModel) {
+          // Adapter exposes a pre-configured LanguageModel (e.g. OpenAI/Anthropic adapters)
+          agentsList.default = new BuiltInAgent({ model: languageModel });
+        } else if (serviceAdapter.provider && serviceAdapter.model) {
+          // Adapter exposes provider/model strings
+          agentsList.default = new BuiltInAgent({
+            model: `${serviceAdapter.provider}/${serviceAdapter.model}`,
+          });
+        } else {
+          throw new CopilotKitMisuseError({
+            message:
+              `Service adapter "${serviceAdapter.name ?? "unknown"}" does not provide model information. ` +
+              `When using adapters like LangChainAdapter without an explicit agents list, ` +
+              `please provide a default agent in the runtime config. Example:\n` +
+              `  new CopilotRuntime({\n` +
+              `    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o" }) }\n` +
+              `  })`,
+          });
+        }
       }
 
       const actions = this.params?.actions;

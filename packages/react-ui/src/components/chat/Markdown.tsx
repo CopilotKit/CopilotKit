@@ -122,39 +122,42 @@ const defaultComponents: Components = {
   ),
 };
 
-const MemoizedReactMarkdown: FC<Options> = memo(
-  ReactMarkdown,
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.components === nextProps.components &&
-    prevProps.urlTransform === nextProps.urlTransform,
-);
+const MemoizedReactMarkdown: FC<Options> = memo(ReactMarkdown);
 
-type MarkdownProps = {
+type MarkdownProps = Omit<Options, "children"> & {
   content: string;
-  components?: Components;
-  urlTransform?: Options["urlTransform"];
 };
 
 export const Markdown = ({
   content,
   components,
-  urlTransform,
+  remarkPlugins,
+  rehypePlugins,
+  ...rest
 }: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
   );
+  const mergedRemarkPlugins = useMemo<Options["remarkPlugins"]>(
+    () => [
+      remarkGfm,
+      [remarkMath, { singleDollarTextMath: false }],
+      ...(remarkPlugins ?? []),
+    ],
+    [remarkPlugins],
+  );
+  const mergedRehypePlugins = useMemo<Options["rehypePlugins"]>(
+    () => [rehypeRaw, ...(rehypePlugins ?? [])],
+    [rehypePlugins],
+  );
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
+        {...rest}
         components={mergedComponents}
-        remarkPlugins={[
-          remarkGfm,
-          [remarkMath, { singleDollarTextMath: false }],
-        ]}
-        rehypePlugins={[rehypeRaw]}
-        {...(urlTransform !== undefined ? { urlTransform } : {})}
+        remarkPlugins={mergedRemarkPlugins}
+        rehypePlugins={mergedRehypePlugins}
       >
         {content}
       </MemoizedReactMarkdown>

@@ -159,16 +159,40 @@ jobs:
           # pipeline would defeat `pipefail` and also swallow real
           # sort/shasum/cut failures; we only tolerate grep's no-match.
           actual_hash=$(printf '%s\n' "$stderr" | { grep -E '^\[FAIL\]' || true; } | LC_ALL=C sort -u | shasum -a 256 | cut -d' ' -f1)
-          # Determine set-drift status for the weekly Slack payload so a
-          # count-equal-but-set-changed week is visible, not silently clean.
-          if [ "$actual" -eq "${{ steps.baseline.outputs.count }}" ] && [ "$actual_hash" != "${{ steps.baseline.outputs.hash }}" ]; then
-            set_status="SET DRIFTED"
+          # Classify the week into one of three states for the weekly Slack
+          # payload. "FAIL=N" was reframed to "DRIFT=N" because the old
+          # wording read as a regression even when N matched the ratchet
+          # baseline exactly (a stable week). Presentation-only — the
+          # underlying ratchet logic, baseline file format, and hashing are
+          # unchanged.
+          #   stable     — count matches baseline AND hash matches
+          #   REGRESSION — count grew OR hash mismatch (set drifted)
+          #   IMPROVED   — count shrank (baseline needs ratcheting)
+          baseline_count="${{ steps.baseline.outputs.count }}"
+          baseline_hash="${{ steps.baseline.outputs.hash }}"
+          run_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ "$actual" -gt "$baseline_count" ] || { [ "$actual" -eq "$baseline_count" ] && [ "$actual_hash" != "$baseline_hash" ]; }; then
+            set_status="REGRESSION"
+            delta=$((actual - baseline_count))
+            slack_text=":rotating_light: *Showcase pin-drift (weekly)*: DRIFT=${actual} (baseline ${baseline_count}, +${delta}) [REGRESSION] | <${run_url}|View run>"
+          elif [ "$actual" -lt "$baseline_count" ]; then
+            set_status="IMPROVED"
+            delta=$((baseline_count - actual))
+            slack_text=":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: DRIFT=${actual} (baseline ${baseline_count}, -${delta}) [IMPROVED, ratchet me]"
           else
-            set_status="ok"
+            set_status="stable"
+            slack_text=":chart_with_downwards_trend: *Showcase pin-drift (weekly)*: DRIFT=${actual} (baseline ${baseline_count}) [stable]"
           fi
           echo "actual=$actual" >> "$GITHUB_OUTPUT"
           echo "actual_hash=$actual_hash" >> "$GITHUB_OUTPUT"
           echo "set_status=$set_status" >> "$GITHUB_OUTPUT"
+          # Emit Slack text via EOF delimiter so embedded special chars
+          # (colons, pipes, angle brackets) can't break $GITHUB_OUTPUT parsing.
+          {
+            echo "slack_text<<__PIN_DRIFT_EOF__"
+            printf '%s\n' "$slack_text"
+            echo "__PIN_DRIFT_EOF__"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Notify Slack (weekly drift report)
         # Skip cleanly when the webhook secret is unset (forks / pre-provision)
@@ -178,18 +202,20 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          # Defensive: wrap dynamic values via toJSON(format(...)) so that
-          # if hash/count/set_status ever contains characters that would
-          # break the JSON payload (quotes, backslashes, newlines), the
-          # value is safely JSON-encoded instead of injected as raw text.
+          # Defensive: wrap the pre-composed Slack text via toJSON(...) so
+          # that any characters that would break the JSON payload (quotes,
+          # backslashes, newlines) are safely JSON-encoded instead of
+          # injected as raw text. The text itself is composed in the
+          # validate step above so we can emit one of three state-specific
+          # messages (stable / REGRESSION / IMPROVED).
           payload: |
-            { "text": ${{ toJSON(format(':chart_with_downwards_trend: *Showcase pin-drift (weekly)*: FAIL={0} (baseline {1}) [{2}] | <https://github.com/{3}/actions/runs/{4}|View run>', steps.validate.outputs.actual, steps.baseline.outputs.count, steps.validate.outputs.set_status, github.repository, github.run_id)) }} }
+            { "text": ${{ toJSON(steps.validate.outputs.slack_text) }} }
 
       - name: Log result (no Slack)
         if: ${{ env.SLACK_WEBHOOK == '' }}
         run: |
           echo "::warning::SLACK_WEBHOOK_OSS_ALERTS not set; weekly drift report not sent to Slack."
-          echo "Weekly pin-drift report: FAIL=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }} set_status=${{ steps.validate.outputs.set_status }} actual_hash=${{ steps.validate.outputs.actual_hash }} baseline_hash=${{ steps.baseline.outputs.hash }}"
+          echo "Weekly pin-drift report: DRIFT=${{ steps.validate.outputs.actual }} baseline=${{ steps.baseline.outputs.count }} set_status=${{ steps.validate.outputs.set_status }} actual_hash=${{ steps.validate.outputs.actual_hash }} baseline_hash=${{ steps.baseline.outputs.hash }}"
 
       - name: Notify Slack (job failure)
         # Surface silent crashes (baseline read, validate-pins internal error,

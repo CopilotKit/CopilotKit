@@ -1,29 +1,20 @@
 """
-LangGraph agent for the CopilotKit Controlled Generative UI demo.
+Default LangGraph agent — neutral "helpful, concise assistant".
 
-The frontend registers `render_bar_chart` and `render_pie_chart` tools via
-`useComponent`. CopilotKit's LangGraph middleware injects those tools into
-the model request at runtime so the agent can call them.
+This is the fallthrough graph for demos that don't require anything more
+specialized. Cells that need tailored behavior (chart viz, weather-only,
+etc.) should have their own dedicated graph under `src/agents/` and
+explicit wiring in the CopilotKit route.
 """
 
 from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 from copilotkit import CopilotKitMiddleware
 
-SYSTEM_PROMPT = """You are a data visualization assistant.
-
-When the user asks for a chart, call `render_bar_chart` or `render_pie_chart`
-with a concise title, short description, and a `data` array of
-`{label, value}` items. Pick bar for comparisons over a small set of
-categories; pick pie for composition / share-of-whole.
-
-Keep chat responses brief -- let the chart do the talking."""
-
-model = ChatOpenAI(model="gpt-4o-mini")
 
 graph = create_agent(
-    model=model,
+    model=ChatOpenAI(model="gpt-4o-mini"),
     tools=[],
     middleware=[CopilotKitMiddleware()],
-    system_prompt=SYSTEM_PROMPT,
+    system_prompt="You are a helpful, concise assistant.",
 )

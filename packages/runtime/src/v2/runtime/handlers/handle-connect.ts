@@ -44,6 +44,7 @@ export async function handleConnectAgent({
         runtime,
         request,
         threadId: connectRequest.input.threadId,
+        runId: connectRequest.input.runId,
         lastSeenEventId: connectRequest.lastSeenEventId,
       });
     }
@@ -51,6 +52,7 @@ export async function handleConnectAgent({
     return handleSseConnect({
       runtime,
       request,
+      agentId,
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {

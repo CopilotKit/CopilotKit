@@ -44,8 +44,41 @@ if [ "$SPRING_READY" -ne 1 ]; then
 fi
 
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
-npx next start --port ${PORT:-10000} &
+# Scope NODE_ENV=production to the Next.js invocation ONLY so it doesn't
+# leak into the Java agent process. See Dockerfile comment for rationale.
+env NODE_ENV=production npx next start --port ${PORT:-10000} &
 NODE_PID=$!
+
+# Watchdog: Railway deploys of showcase packages have been observed to hit a
+# silent agent hang — the Spring Boot process stays alive (so `wait -n`
+# never fires and the container never restarts) but stops responding on
+# :8000. Poll Spring Boot's /health endpoint every 30s; after 3 consecutive
+# failures (~90s of unreachable agent), kill the java process so `wait -n`
+# returns and Railway restarts the container. The startup probe above
+# already gates the initial readiness window; this watchdog takes over for
+# steady-state monitoring. Generalized from
+# showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+(
+    FAILS=0
+    while sleep 30; do
+        if ! kill -0 "$JAVA_PID" 2>/dev/null; then
+            break
+        fi
+        if curl -fsS --max-time 5 http://127.0.0.1:8000/health > /dev/null 2>&1; then
+            FAILS=0
+        else
+            FAILS=$((FAILS + 1))
+            echo "[watchdog] Agent health probe failed (count=$FAILS)"
+            if [ $FAILS -ge 3 ]; then
+                echo "[watchdog] Agent unresponsive for ~90s — killing PID $JAVA_PID to trigger container restart"
+                kill -9 "$JAVA_PID" 2>/dev/null || true
+                break
+            fi
+        fi
+    done
+) &
+WATCHDOG_PID=$!
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8000/health)"
 
 # Wait for either process to exit. `wait -n` without PID args works on all
 # bash >= 4.3 (align with other showcase entrypoints such as google-adk);
@@ -110,6 +143,13 @@ if [ -n "$SURVIVOR_PID" ]; then
     # return non-zero; we don't care — we've already captured EXIT_CODE
     # from the first-to-die child.
     wait "$SURVIVOR_PID" 2>/dev/null || true
+fi
+
+# Clean up the watchdog if it's still running (e.g. Next.js exited, not Java).
+# Without this the backgrounded watchdog would continue polling /health on a
+# dying container until the platform SIGKILLs the process tree.
+if [ -n "${WATCHDOG_PID:-}" ] && kill -0 "$WATCHDOG_PID" 2>/dev/null; then
+    kill "$WATCHDOG_PID" 2>/dev/null || true
 fi
 
 exit "$EXIT_CODE"

@@ -432,6 +432,13 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
-    answer = response[-1].content
+    if isinstance(response, str):
+        answer = response
+    elif isinstance(response, dict):
+        answer = json.dumps(response)
+    elif isinstance(response, list):
+        answer = response[-1].content
+    else:
+        answer = str(response)
 
     return answer, response

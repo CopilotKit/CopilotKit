@@ -182,6 +182,18 @@ jobs:
         # cache miss.
         run: pnpm exec tsx validate-parity.ts
 
+      - name: Run validate-fixture-tool-surface (aimock drift)
+        working-directory: showcase/scripts
+        # Cross-references every aimock fixture's returned tool-call names
+        # against the tool surface of each demo whose suggestion prompt
+        # contains the fixture's match substring. Catches the class of
+        # drift that caused the 2026-04-22 regression where generic
+        # substring matches (e.g. "pie chart") cross-fired across demos
+        # with different tool surfaces, leaving the UI blank in prod.
+        # See showcase/scripts/validate-fixture-tool-surface.ts and the
+        # postmortem linked from there.
+        run: pnpm exec tsx validate-fixture-tool-surface.ts
+
       - name: Run validate-workflow-starters (parity with workflows)
         working-directory: showcase/scripts
         # Gate: for every directory under showcase/starters/ (excluding

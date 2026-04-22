@@ -1,0 +1,67 @@
+.cpk-alert {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  color: white;
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
+}
+.cpk-alert-advisory {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+.cpk-alert-watch {
+  background: linear-gradient(135deg, #f97316, #c2410c);
+}
+.cpk-alert-warning {
+  background: linear-gradient(135deg, #ef4444, #991b1b);
+}
+.cpk-alert-icon {
+  font-size: 40px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+.cpk-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.cpk-alert-severity {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.cpk-alert-event {
+  font-size: 18px;
+  font-weight: 700;
+}
+.cpk-alert-area {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.cpk-alert-pulse {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    400px circle at var(--mx, 80%) 50%,
+    rgba(255, 255, 255, 0.18),
+    transparent 60%
+  );
+  animation: cpk-alert-pulse 2.4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes cpk-alert-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}

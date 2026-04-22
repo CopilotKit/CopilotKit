@@ -58,6 +58,12 @@ export interface ManifestDemo {
   readonly id: DemoId;
   readonly name?: string;
   /**
+   * Informational demos (e.g. cli-start): when set, the row surfaces this
+   * copy-pasteable command in the dashboard instead of a live preview.
+   * Such demos have no on-disk folder — parity / bundling skip them.
+   */
+  readonly command?: string;
+  /**
    * Relative URL path for the demo. `id` is the CATALOG identifier
    * (stable; matched against spec/qa filenames and shell-side registry
    * entries), whereas `route` is the deliberate URL / filesystem path
@@ -403,6 +409,21 @@ export function parseManifest(
         }
         demoName = d.name;
       }
+      // demo-level `command`: optional informational demos (e.g. cli-start).
+      // When set, the row surfaces this copy-pasteable command in the
+      // dashboard instead of a live preview. Such demos have no on-disk
+      // folder — parity / bundling skip them.
+      let demoCommand: string | undefined;
+      if (hasOwnProp(d, "command") && d.command !== undefined) {
+        if (typeof d.command !== "string" || d.command.length === 0) {
+          return {
+            kind: "malformed",
+            subkind: "shape",
+            error: `expected demos[${i}].command to be a non-empty string, got ${describeType(d.command)}`,
+          };
+        }
+        demoCommand = d.command;
+      }
       // demo-level `route`: optional. When present, must be a non-empty
       // string beginning with "/demos/" so downstream consumers
       // (bundle-demo-content, validate-parity) can uniformly strip that
@@ -427,10 +448,16 @@ export function parseManifest(
         }
         demoRoute = d.route;
       }
-      const demoEntry: { id: DemoId; name?: string; route?: string } = {
+      const demoEntry: {
+        id: DemoId;
+        name?: string;
+        command?: string;
+        route?: string;
+      } = {
         id: brandedId,
       };
       if (demoName !== undefined) demoEntry.name = demoName;
+      if (demoCommand !== undefined) demoEntry.command = demoCommand;
       if (demoRoute !== undefined) demoEntry.route = demoRoute;
       validated.push(Object.freeze(demoEntry));
     }

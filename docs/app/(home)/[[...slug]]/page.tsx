@@ -21,6 +21,7 @@ import { Mermaid } from "@theguild/remark-mermaid/mermaid";
 import { Cards, Card } from "fumadocs-ui/components/card";
 import { PropertyReference } from "@/components/react/property-reference";
 import { InsecurePasswordProtected } from "@/components/react/insecure-password-protected";
+import { ThreadsEarlyAccess } from "@/components/react/threads-early-access";
 import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
 import { NavigationLink } from "@/components/react/subdocs-menu";
@@ -39,6 +40,7 @@ const premiumFeatureTitles = [
 const mdxComponents = {
   ...defaultMdxComponents,
   InsecurePasswordProtected: InsecurePasswordProtected,
+  ThreadsEarlyAccess: ThreadsEarlyAccess,
   LinkToCopilotCloud: LinkToCopilotCloud,
   Accordions: Accordions,
   Accordion: Accordion,
@@ -270,8 +272,13 @@ export async function generateMetadata({
 
   if (!page) notFound();
 
+  const docType = (page.data as any).doc_type;
+
   return {
     title: page.data.title,
     description: page.data.description,
+    ...(docType && {
+      other: { "doc-type": docType },
+    }),
   } satisfies Metadata;
 }
