@@ -41,36 +41,24 @@ Once the namespace is claimed, subsequent CI publishes run unattended.
 
 ## Cutting a release
 
-From a clean checkout on any branch (typically a release branch off `main`):
+Cutting a release is two file edits, one commit, one PR.
 
-```bash
-# Bump the patch version, prepend a CHANGELOG entry, and commit.
-scripts/release/vscode-extension-release.sh patch \
-    --summary "Fix Hook Explorer crash on empty workspace" --type Fixed
+1. Bump `packages/vscode-extension/package.json` — increment the `version` field (e.g. `0.1.0` → `0.1.1` for a patch, `0.2.0` for a minor, `1.0.0` for a major).
+2. Prepend an entry to `packages/vscode-extension/CHANGELOG.md`:
+   ```md
+   ## 0.1.1 — 2026-04-22
 
-# Multiple summaries grouped by type:
-scripts/release/vscode-extension-release.sh minor \
-    --summary "Add AG-UI Inspector panel" --type Added \
-    --summary "Rework sidebar layout" --type Changed
+   ### Fixed
+   - Hook Explorer crash on empty workspaces
 
-# Explicit SemVer:
-scripts/release/vscode-extension-release.sh 0.3.0 \
-    --summary "Stabilize A2UI Preview for GA" --type Added
+   ### Added
+   - New "Copy AG-UI run URL" command
+   ```
+   Use Keep-a-Changelog subsections: `Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`.
+3. Commit both files with subject **`chore: release vX.Y.Z`** (conventional prefix required by commitlint).
+4. Push, open a PR, get review, merge with a merge commit (NOT squash — the `chore: release` commit must land on `main` as-is so the publish workflow's self-gate can find it).
 
-# Preview without mutating anything:
-scripts/release/vscode-extension-release.sh patch \
-    --summary "Fix typo in README" --type Fixed --dry-run
-```
-
-Valid `--type` values (mirroring [Keep a Changelog](https://keepachangelog.com/)): `Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`. Omit `--type` and entries default to `Changed`.
-
-The script:
-
-1. Runs `pnpm version <bump> --no-git-tag-version` inside `packages/vscode-extension`.
-2. Prepends a new `## <version> — <ISO date>` section to `packages/vscode-extension/CHANGELOG.md` using your `--summary`/`--type` pairs.
-3. Creates commit `chore(vscode-extension): release v<version>`.
-
-It does **not** tag and does **not** push. You then open a PR and merge it via `gh pr merge --merge` (no squash — we preserve release commits in history).
+On merge, CI auto-publishes to the VS Code Marketplace and Open VSX, tags `vscode-extension-vX.Y.Z`, cuts a GitHub Release, and posts to `#oss-alerts`.
 
 ## CI publish flow
 
@@ -132,7 +120,7 @@ After CI goes green:
 If a bad version ships:
 
 1. Fix the regression on a branch, open a PR, land it on `main`.
-2. Run `scripts/release/vscode-extension-release.sh patch --summary "…" --type Fixed` to ship the fix and merge.
+2. Bump the patch version in `packages/vscode-extension/package.json`, prepend a `### Fixed` entry to `CHANGELOG.md`, commit as `chore: release vX.Y.Z`, open a PR, and merge.
 3. If the regression is severe enough to warrant pulling the listing, the Marketplace / Open VSX admin UIs each offer a per-version unlist (different from unpublish) — use that as a last resort; prefer shipping forward.
 
 ## Rollback guidance
