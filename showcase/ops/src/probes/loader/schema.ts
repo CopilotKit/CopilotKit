@@ -53,7 +53,13 @@ const BaseFields = {
   kind: ProbeKindEnum,
   id: z.string().min(1),
   schedule: z.string().min(1),
-  timeout_ms: z.number().int().positive().max(300_000).optional(),
+  // 900_000ms (15 min) upper bound accommodates the slow-path probes
+  // (e2e-smoke daily L4 runs a full Playwright matrix against Railway
+  // preview envs, historically 8-12 minutes). The previous 300_000 cap
+  // rejected those configs at load time. Keep the positive() / int()
+  // guards — a negative or non-integer timeout is a typo, not a valid
+  // long-running budget.
+  timeout_ms: z.number().int().positive().max(900_000).optional(),
   /**
    * Max simultaneous per-target invocations per tick. Bounded [1, 32] —
    * smaller than 1 would deadlock; larger than 32 would risk stampeding

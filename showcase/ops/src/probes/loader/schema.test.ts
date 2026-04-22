@@ -99,6 +99,28 @@ describe("ProbeConfigSchema", () => {
     expect(() => ProbeConfigSchema.parse(input)).toThrow();
   });
 
+  it("accepts timeout_ms up to 900_000 (15 min, e2e-smoke daily budget)", () => {
+    const input = {
+      kind: "e2e_smoke",
+      id: "e2e-smoke-daily",
+      schedule: "0 0 * * *",
+      timeout_ms: 900000,
+      target: { key: "e2e_smoke:l4", suite: "l4" },
+    };
+    expect(() => ProbeConfigSchema.parse(input)).not.toThrow();
+  });
+
+  it("rejects timeout_ms above 900_000", () => {
+    const input = {
+      kind: "e2e_smoke",
+      id: "e2e-smoke-daily",
+      schedule: "0 0 * * *",
+      timeout_ms: 900001,
+      target: { key: "e2e_smoke:l4" },
+    };
+    expect(() => ProbeConfigSchema.parse(input)).toThrow();
+  });
+
   it("accepts any non-empty schedule string (cron validation happens at scheduler-register time)", () => {
     // Schema accepts any non-empty string; cron validation happens at
     // scheduler-register time so load-time validation stays simple and the
