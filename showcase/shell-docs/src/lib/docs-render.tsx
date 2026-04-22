@@ -678,6 +678,31 @@ export function convertTablesInJSX(content: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Framework / cell lookups
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the slugs of integrations that have a demo region tagged for
+ * the given feature cell. Pure helper — the caller supplies the list of
+ * candidate integration slugs and the demo-content map so this file
+ * stays framework-agnostic and free of registry imports.
+ *
+ * Shape of `demos`: keys are `"<integrationSlug>::<cell>"`; values are
+ * opaque demo records (we only check key presence here).
+ */
+export function findFrameworksWithCell(
+  cell: string,
+  integrationSlugs: readonly string[],
+  demos: Record<string, unknown>,
+): string[] {
+  const matches: string[] = [];
+  for (const slug of integrationSlugs) {
+    if (demos[`${slug}::${cell}`]) matches.push(slug);
+  }
+  return matches;
+}
+
+// ---------------------------------------------------------------------------
 // Frontmatter helpers
 // ---------------------------------------------------------------------------
 

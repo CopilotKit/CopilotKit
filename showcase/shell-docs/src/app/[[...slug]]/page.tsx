@@ -25,14 +25,6 @@ import {
   type Integration,
 } from "@/lib/registry";
 
-function findFrameworksWithCell(cell: string): string[] {
-  const matches: string[] = [];
-  for (const integration of getIntegrations()) {
-    if (demos[`${integration.slug}::${cell}`]) matches.push(integration.slug);
-  }
-  return matches;
-}
-
 // Category ordering for the framework picker grid is imported from
 // @/lib/docs-render so the landing grid, sidebar dropdown, and this
 // overview share a single source of truth.

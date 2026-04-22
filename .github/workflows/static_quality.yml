@@ -166,7 +166,17 @@ jobs:
 
       - name: Validate current commit (last commit) with commitlint
         if: github.event_name == 'push'
-        run: npx commitlint --last --verbose
+        run: |
+          # Skip merge commits. GitHub's "Create a merge commit" option takes
+          # the message from the PR body, which can contain markdown lists
+          # that parse as additional (empty) commit subjects and fail
+          # subject-empty / type-empty — see commit 5ed233f01.
+          parents=$(git rev-list --parents -n 1 HEAD | awk '{print NF - 1}')
+          if [ "$parents" -gt 1 ]; then
+            echo "HEAD is a merge commit ($parents parents) — skipping commitlint."
+            exit 0
+          fi
+          npx commitlint --last --verbose
 
       - name: Validate PR commits with commitlint
         id: commitlint
