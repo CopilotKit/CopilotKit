@@ -220,7 +220,20 @@ export function useThreads({
 
     return new Error("Runtime URL is not configured");
   }, [copilotkit.runtimeUrl]);
-  const isLoading = runtimeError ? false : storeIsLoading;
+
+  // Tracks whether we've dispatched the first real context to the store.
+  // The store itself starts with `isLoading: false`, so before we dispatch
+  // consumers would otherwise see an empty, non-loading state (empty-list
+  // flash). While runtimeUrl is set and we haven't dispatched yet, we
+  // synthesize `isLoading: true` so the UI keeps its loading indicator until
+  // the first fetch is in flight (at which point the store's own
+  // isLoading takes over).
+  const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
+  const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
+
+  const isLoading = runtimeError
+    ? false
+    : preConnectLoading || storeIsLoading;
   const error = runtimeError ?? storeError;
 
   useEffect(() => {
@@ -264,6 +277,7 @@ export function useThreads({
     };
 
     store.setContext(context);
+    setHasDispatchedContext(true);
   }, [
     store,
     copilotkit.runtimeUrl,

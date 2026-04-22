@@ -507,11 +507,18 @@ describe("useThreads", () => {
       )
       .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
 
-    const { rerender } = renderHook(() => useThreads(defaultInput));
+    const { result, rerender } = renderHook(() => useThreads(defaultInput));
 
     // Give effects a tick to settle; no fetch should occur while Connecting.
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(fetchMock).not.toHaveBeenCalled();
+
+    // While waiting for Connected, the hook must surface isLoading=true so
+    // consumers don't render an empty-state flash before the first fetch
+    // is even dispatched. The store's own isLoading is false at this
+    // point (no contextChanged action yet), so the hook synthesizes it.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.threads).toEqual([]);
 
     // Flip to Connected with wsUrl populated, re-render. The effect now
     // dispatches exactly one list fetch (+ one subscribe after it lands).
@@ -539,5 +546,10 @@ describe("useThreads", () => {
       ([url]) => typeof url === "string" && /\/threads\?agentId=/.test(url),
     );
     expect(listCalls).toHaveLength(1);
+
+    // After the fetch settles, isLoading returns to false.
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 });
