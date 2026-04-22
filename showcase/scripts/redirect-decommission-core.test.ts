@@ -74,9 +74,7 @@ describe("computeRedirectDecommission", () => {
 
       expect(result.hasCandidates).toBe(true);
       expect(result.candidateCount).toBe(3);
-      expect(result.body).toContain(
-        ":warning: *3 redirect(s) with zero hits",
-      );
+      expect(result.body).toContain(":warning: *3 redirect(s) with zero hits");
       expect(result.body).toContain(":bar_chart:");
     });
 
@@ -155,7 +153,9 @@ describe("computeRedirectDecommission", () => {
   describe("malformed input", () => {
     it("throws when input is null", () => {
       expect(() =>
-        computeRedirectDecommission(null as unknown as RedirectDecommissionInput),
+        computeRedirectDecommission(
+          null as unknown as RedirectDecommissionInput,
+        ),
       ).toThrow(/input must be an object/);
     });
 
@@ -223,9 +223,7 @@ describe("computeRedirectDecommission", () => {
       const top10Section = result.body.split("Top 10 most-hit redirects:")[1];
       expect(top10Section).toBeDefined();
       // Count the indented rows between "Top 10" header and the next blank line
-      const rows = top10Section!
-        .split("\n")
-        .filter((l) => l.startsWith("  X"));
+      const rows = top10Section!.split("\n").filter((l) => l.startsWith("  X"));
       expect(rows.length).toBe(10);
     });
 

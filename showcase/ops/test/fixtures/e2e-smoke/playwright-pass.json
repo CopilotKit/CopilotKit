@@ -21,9 +21,7 @@
           "tests": [
             {
               "expectedStatus": "passed",
-              "results": [
-                { "status": "passed", "duration": 512, "errors": [] }
-              ]
+              "results": [{ "status": "passed", "duration": 512, "errors": [] }]
             }
           ]
         },
@@ -33,9 +31,7 @@
           "tests": [
             {
               "expectedStatus": "passed",
-              "results": [
-                { "status": "passed", "duration": 722, "errors": [] }
-              ]
+              "results": [{ "status": "passed", "duration": 722, "errors": [] }]
             }
           ]
         }

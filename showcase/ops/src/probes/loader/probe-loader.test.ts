@@ -99,7 +99,11 @@ describe("createProbeLoader", () => {
   });
 
   it("emits probes.reload.failed on malformed YAML + peer files still load", async () => {
-    await fs.writeFile(path.join(dir, "bad.yml"), ": : :\nnot valid\n", "utf-8");
+    await fs.writeFile(
+      path.join(dir, "bad.yml"),
+      ": : :\nnot valid\n",
+      "utf-8",
+    );
     await fs.writeFile(
       path.join(dir, "good.yml"),
       [

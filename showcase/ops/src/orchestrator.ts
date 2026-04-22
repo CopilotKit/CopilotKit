@@ -241,14 +241,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
     for (const entry of scheduler.list()) {
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
-        scheduler
-          .unregister(entry.id)
-          .catch((err) =>
-            logger.error("orchestrator.probe-unregister-failed", {
-              id: entry.id,
-              err: String(err),
-            }),
-          );
+        scheduler.unregister(entry.id).catch((err) =>
+          logger.error("orchestrator.probe-unregister-failed", {
+            id: entry.id,
+            err: String(err),
+          }),
+        );
       }
     }
     // Register / re-register each desired probe. `scheduler.register` is

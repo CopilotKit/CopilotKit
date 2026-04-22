@@ -68,7 +68,9 @@ describe("e2eSmokeDriver", () => {
 
   it("reports green when reporter JSON says all pass (happy path)", async () => {
     const passFixture = path.join(FIXTURES, "playwright-pass.json");
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: passFixture });
+    const runner: PlaywrightRunner = async () => ({
+      reporterJsonPath: passFixture,
+    });
     const driver = createE2eSmokeDriver({ runner });
     const r = await driver.run(baseCtx(), {
       key: "e2e_smoke:l1-3",
@@ -83,7 +85,9 @@ describe("e2eSmokeDriver", () => {
 
   it("reports red with failureSummary when reporter JSON says fail", async () => {
     const failFixture = path.join(FIXTURES, "playwright-fail.json");
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: failFixture });
+    const runner: PlaywrightRunner = async () => ({
+      reporterJsonPath: failFixture,
+    });
     const driver = createE2eSmokeDriver({ runner });
     const r = await driver.run(baseCtx(), {
       key: "e2e_smoke:l1-3",
@@ -93,7 +97,9 @@ describe("e2eSmokeDriver", () => {
     const signal = r.signal as { suite: string; failureSummary: string };
     expect(signal.failureSummary.length).toBeGreaterThan(0);
     // Must include the failing test's error message, not just the title.
-    expect(signal.failureSummary).toMatch(/expected.*received|assertion|Error/i);
+    expect(signal.failureSummary).toMatch(
+      /expected.*received|assertion|Error/i,
+    );
   });
 
   it("enforces driver-level timeout: Playwright hangs → red with 'timeout' errorDesc", async () => {
@@ -113,16 +119,21 @@ describe("e2eSmokeDriver", () => {
     });
     expect(r.state).toBe("red");
     const signal = r.signal as { failureSummary: string; errorDesc?: string };
-    const combined = (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
+    const combined =
+      (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
     expect(combined.toLowerCase()).toMatch(/timeout/);
     expect(cleaned).toBe(true);
   });
 
   it("reports red with parse errorDesc when reporter JSON is malformed", async () => {
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "e2e-smoke-malformed-"));
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "e2e-smoke-malformed-"),
+    );
     const malformed = path.join(tmp, "reporter.json");
     await fs.writeFile(malformed, "{not valid json", "utf-8");
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: malformed });
+    const runner: PlaywrightRunner = async () => ({
+      reporterJsonPath: malformed,
+    });
     const driver = createE2eSmokeDriver({ runner });
     const r = await driver.run(baseCtx(), {
       key: "e2e_smoke:l1-3",
@@ -130,7 +141,8 @@ describe("e2eSmokeDriver", () => {
     });
     expect(r.state).toBe("red");
     const signal = r.signal as { failureSummary: string; errorDesc?: string };
-    const combined = (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
+    const combined =
+      (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
     expect(combined.toLowerCase()).toMatch(/parse|invalid|json|malformed/);
     await fs.rm(tmp, { recursive: true, force: true });
   });
@@ -164,7 +176,9 @@ describe("e2eSmokeDriver", () => {
 
   it("defaults suite to 'l1-3' when input omits suite", async () => {
     const passFixture = path.join(FIXTURES, "playwright-pass.json");
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: passFixture });
+    const runner: PlaywrightRunner = async () => ({
+      reporterJsonPath: passFixture,
+    });
     const driver = createE2eSmokeDriver({ runner });
     const r = await driver.run(baseCtx(), { key: "e2e_smoke:l1-3" });
     expect(r.state).toBe("green");

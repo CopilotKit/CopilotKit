@@ -24,8 +24,7 @@ interface CallRecord {
  */
 function makeFetch(
   queue: Array<
-    | { status: number; body: unknown; contentType?: string }
-    | { throws: Error }
+    { status: number; body: unknown; contentType?: string } | { throws: Error }
   >,
 ): { fetchImpl: typeof fetch; calls: CallRecord[] } {
   const calls: CallRecord[] = [];
@@ -75,9 +74,7 @@ function railwayProjectResponse(
                       environmentId: "env-1",
                       source: { image: s.image },
                       domains: {
-                        serviceDomains: s.domain
-                          ? [{ domain: s.domain }]
-                          : [],
+                        serviceDomains: s.domain ? [{ domain: s.domain }] : [],
                       },
                     },
                   },

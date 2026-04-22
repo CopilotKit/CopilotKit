@@ -229,10 +229,7 @@ export function createE2eSmokeDriver(
           state: "red",
           signal: {
             suite,
-            failureSummary: truncateUtf8(
-              `reporter read failed: ${msg}`,
-              1200,
-            ),
+            failureSummary: truncateUtf8(`reporter read failed: ${msg}`, 1200),
             errorDesc: "reporter-missing",
           },
           observedAt,
@@ -253,10 +250,7 @@ export function createE2eSmokeDriver(
           state: "red",
           signal: {
             suite,
-            failureSummary: truncateUtf8(
-              `reporter parse failed: ${msg}`,
-              1200,
-            ),
+            failureSummary: truncateUtf8(`reporter parse failed: ${msg}`, 1200),
             errorDesc: "reporter-parse-failed",
           },
           observedAt,
@@ -327,4 +321,3 @@ function collectFailureLines(parsed: PlaywrightReporterJson): string[] {
   walk(parsed.suites);
   return out;
 }
-

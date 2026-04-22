@@ -87,9 +87,7 @@ const defaultRunner: ValidatePinsRunner = {
       child.stdout.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
       child.stderr.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
       child.on("error", reject);
-      child.on("close", (code) =>
-        resolve({ stdout, stderr, exitCode: code }),
-      );
+      child.on("close", (code) => resolve({ stdout, stderr, exitCode: code }));
     });
   },
 };
@@ -228,9 +226,8 @@ export function createPinDriftDriver(
       // the probe owns the setStatus enum and boolean flags the legacy
       // rule templates consume. We then decorate the signal with the
       // driver's additional fields (hash, delta, failed).
-      const baselineForProbe = drift.status === "no_baseline"
-        ? null
-        : drift.baselineCount;
+      const baselineForProbe =
+        drift.status === "no_baseline" ? null : drift.baselineCount;
       const inner = await pinDriftProbe.run(
         {
           actualCount: drift.actualCount,

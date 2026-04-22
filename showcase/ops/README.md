@@ -206,8 +206,14 @@ schedule: "*/15 * * * *"
 timeout_ms: 10000
 max_concurrency: 6
 targets:
-  - { key: "smoke:mastra", url: "https://showcase-mastra-production.up.railway.app/smoke" }
-  - { key: "smoke:agno",   url: "https://showcase-agno-production.up.railway.app/smoke" }
+  - {
+      key: "smoke:mastra",
+      url: "https://showcase-mastra-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:agno",
+      url: "https://showcase-agno-production.up.railway.app/smoke",
+    }
 ```
 
 **Dynamic discovery** — probes that enumerate targets from an external source (Railway API, pnpm workspace, etc.). Used by `image_drift` and `version_drift`:
@@ -239,15 +245,15 @@ target:
 
 Every `kind` resolves to a driver registered in `src/probes/drivers/index.ts`. The driver owns the emitted ProbeResult's `key` prefix, which must match a declared `Dimension` in `src/types/index.ts` (closed enum) so the rule-YAML side can narrow cleanly.
 
-| YAML `kind`             | Driver file                                  | Emitted key prefix(es)                  | Shape      |
-| ----------------------- | -------------------------------------------- | --------------------------------------- | ---------- |
-| `smoke`                 | `drivers/smoke.ts`                           | `smoke:<slug>` **and** `health:<slug>`  | static     |
-| `e2e_smoke`             | `drivers/e2e-smoke.ts`                       | `e2e_smoke:<suite>`                     | static     |
-| `image_drift`           | `drivers/image-drift.ts`                     | `image_drift:<service>`                 | discovery  |
-| `version_drift`         | `drivers/version-drift.ts`                   | `version_drift:<pkg>`                   | discovery  |
-| `pin_drift`             | `drivers/pin-drift.ts`                       | `pin_drift:overall`                     | single     |
-| `redirect_decommission` | `drivers/redirect-decommission.ts`           | `redirect_decommission:overall`         | single     |
-| `aimock_wiring`         | `drivers/aimock-wiring.ts`                   | `aimock_wiring:global`                  | single     |
+| YAML `kind`             | Driver file                        | Emitted key prefix(es)                 | Shape     |
+| ----------------------- | ---------------------------------- | -------------------------------------- | --------- |
+| `smoke`                 | `drivers/smoke.ts`                 | `smoke:<slug>` **and** `health:<slug>` | static    |
+| `e2e_smoke`             | `drivers/e2e-smoke.ts`             | `e2e_smoke:<suite>`                    | static    |
+| `image_drift`           | `drivers/image-drift.ts`           | `image_drift:<service>`                | discovery |
+| `version_drift`         | `drivers/version-drift.ts`         | `version_drift:<pkg>`                  | discovery |
+| `pin_drift`             | `drivers/pin-drift.ts`             | `pin_drift:overall`                    | single    |
+| `redirect_decommission` | `drivers/redirect-decommission.ts` | `redirect_decommission:overall`        | single    |
+| `aimock_wiring`         | `drivers/aimock-wiring.ts`         | `aimock_wiring:global`                 | single    |
 
 The `smoke` driver is the only one that emits **two** keys per target invocation: the primary `smoke:<slug>` ProbeResult is the driver's return value (written by the invoker), and the paired `health:<slug>` ProbeResult is side-emitted through `ctx.writer.write()` before returning. One YAML static target = two writer ticks per cycle. See the JSDoc on `smokeDriver` for why the paired emission is a writer side-channel rather than an array return.
 
@@ -255,10 +261,10 @@ The `smoke` driver is the only one that emits **two** keys per target invocation
 
 Registered in `src/probes/discovery/index.ts`. Closed enum — a typo in `discovery.source` fails the load with `probe-loader: <file>: discovery.source 'X' is not registered (registered: …)`.
 
-| Source              | Used by         | Reads                                                                                                                        |
-| ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `railway-services`  | `image_drift`   | Railway GraphQL `project.services` via `RAILWAY_TOKEN` + `RAILWAY_PROJECT_ID`. Filter by `namePrefix` / `nameRegex`.         |
-| `pnpm-packages`     | `version_drift` | `pnpm-workspace.yaml` + per-package manifests via `fs`. Filter by `pathPrefix` / `nameGlob`.                                 |
+| Source             | Used by         | Reads                                                                                                                |
+| ------------------ | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `railway-services` | `image_drift`   | Railway GraphQL `project.services` via `RAILWAY_TOKEN` + `RAILWAY_PROJECT_ID`. Filter by `namePrefix` / `nameRegex`. |
+| `pnpm-packages`    | `version_drift` | `pnpm-workspace.yaml` + per-package manifests via `fs`. Filter by `pathPrefix` / `nameGlob`.                         |
 
 A new source is added by implementing the `DiscoverySource` interface (`src/probes/types.ts`), writing ≥95% unit coverage against a fake backend, and registering it in the orchestrator's discovery registry at boot alongside the existing entries.
 
@@ -473,14 +479,14 @@ There is no CI workflow that auto-builds showcase-ops. Deploys are manual until 
 
 The four legacy GitHub Actions cron workflows (`showcase_smoke-monitor`, `showcase_drift-detection`, `showcase_drift-report`, `showcase_redirect-report`) are replaced by in-process probes driven by showcase-ops. Each legacy workflow lane maps to one YAML probe config + one driver in `src/probes/drivers/`:
 
-| Legacy workflow                            | New probe YAML                            | Driver                  | Discovery           |
-| ------------------------------------------ | ----------------------------------------- | ----------------------- | ------------------- |
-| `showcase_smoke-monitor.yml` (smoke)       | `config/probes/smoke.yml`                 | `smoke`                 | — (static list)     |
-| `showcase_smoke-monitor.yml` (image drift) | `config/probes/image-drift.yml`           | `image_drift`           | `railway-services`  |
-| `showcase_drift-detection.yml` (L1-3)      | `config/probes/e2e-smoke.yml`             | `e2e_smoke`             | —                   |
-| `showcase_drift-detection.yml` (L4 daily)  | `config/probes/e2e-smoke-daily.yml`       | `e2e_smoke`             | —                   |
-| `showcase_drift-detection.yml` (version)   | `config/probes/version-drift.yml`         | `version_drift`         | `pnpm-packages`     |
-| `showcase_drift-report.yml` (pin)          | `config/probes/pin-drift.yml`             | `pin_drift`             | —                   |
-| `showcase_redirect-report.yml`             | `config/probes/redirect-decommission.yml` | `redirect_decommission` | —                   |
+| Legacy workflow                            | New probe YAML                            | Driver                  | Discovery          |
+| ------------------------------------------ | ----------------------------------------- | ----------------------- | ------------------ |
+| `showcase_smoke-monitor.yml` (smoke)       | `config/probes/smoke.yml`                 | `smoke`                 | — (static list)    |
+| `showcase_smoke-monitor.yml` (image drift) | `config/probes/image-drift.yml`           | `image_drift`           | `railway-services` |
+| `showcase_drift-detection.yml` (L1-3)      | `config/probes/e2e-smoke.yml`             | `e2e_smoke`             | —                  |
+| `showcase_drift-detection.yml` (L4 daily)  | `config/probes/e2e-smoke-daily.yml`       | `e2e_smoke`             | —                  |
+| `showcase_drift-detection.yml` (version)   | `config/probes/version-drift.yml`         | `version_drift`         | `pnpm-packages`    |
+| `showcase_drift-report.yml` (pin)          | `config/probes/pin-drift.yml`             | `pin_drift`             | —                  |
+| `showcase_redirect-report.yml`             | `config/probes/redirect-decommission.yml` | `redirect_decommission` | —                  |
 
 **Deferred**: the auto-rebuild action from `showcase_smoke-monitor.yml` (automatically rebuild+redeploy on image drift) is NOT wired in this PR. Image drift still alerts via `image-drift.yml`; operators must manually redeploy off that Slack post. A follow-up PR adds a `railway-redeploy` action kind to alert-engine's target registry so the rule itself can close the loop.

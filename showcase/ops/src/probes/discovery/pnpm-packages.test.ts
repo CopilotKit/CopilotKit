@@ -197,10 +197,7 @@ describe("pnpmPackagesDiscoverySource", () => {
   });
 
   it("supports literal (non-glob) workspace entries", async () => {
-    await writeFile(
-      "pnpm-workspace.yaml",
-      `packages:\n  - "showcase/ops"\n`,
-    );
+    await writeFile("pnpm-workspace.yaml", `packages:\n  - "showcase/ops"\n`);
     await writeFile(
       "showcase/ops/package.json",
       JSON.stringify({ name: "@x/ops", version: "0.1.0" }),
@@ -310,10 +307,7 @@ describe("pnpmPackagesDiscoverySource", () => {
 
   it("package.json missing `version` throws SchemaError", async () => {
     await writeFile("pnpm-workspace.yaml", `packages:\n  - "packages/*"\n`);
-    await writeFile(
-      "packages/x/package.json",
-      JSON.stringify({ name: "x" }),
-    );
+    await writeFile("packages/x/package.json", JSON.stringify({ name: "x" }));
     await expect(
       pnpmPackagesDiscoverySource.enumerate(BASE_CTX, { rootDir: tmpDir }),
     ).rejects.toBeInstanceOf(DiscoverySourceSchemaError);
@@ -478,10 +472,7 @@ describe("pnpmPackagesDiscoverySource", () => {
         "x/package.json",
         JSON.stringify({ name: "cwd-pkg", version: "0.0.1" }),
       );
-      const records = await pnpmPackagesDiscoverySource.enumerate(
-        BASE_CTX,
-        {},
-      );
+      const records = await pnpmPackagesDiscoverySource.enumerate(BASE_CTX, {});
       expect(records.map((r) => r.name)).toEqual(["cwd-pkg"]);
     } finally {
       process.chdir(origCwd);

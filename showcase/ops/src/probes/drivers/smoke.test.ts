@@ -46,12 +46,15 @@ function mkCtx(writer?: ProbeResultWriter): ProbeContext {
  * single Response instance across multiple fake-fetch calls fails the
  * second `.text()` read with "Body has already been consumed".
  */
-function responseFor(url: string, opts: {
-  smokeStatus?: number;
-  healthStatus?: number;
-  smokeBody?: string;
-  healthBody?: string;
-}): Response {
+function responseFor(
+  url: string,
+  opts: {
+    smokeStatus?: number;
+    healthStatus?: number;
+    smokeBody?: string;
+    healthBody?: string;
+  },
+): Response {
   const isHealth = /\/health(\b|\/|\?|$)/.test(url);
   const status = isHealth
     ? (opts.healthStatus ?? 200)
@@ -200,9 +203,9 @@ describe("smokeDriver", () => {
     // Health tick should also show a timeout (same fake-fetch behaviour).
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("red");
-    expect(
-      (writes[0]!.signal as { errorDesc?: string }).errorDesc,
-    ).toBe("timeout after 5ms");
+    expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toBe(
+      "timeout after 5ms",
+    );
   });
 
   it("/smoke 200 with malformed JSON body → smoke red with parse reason", async () => {
@@ -236,9 +239,9 @@ describe("smokeDriver", () => {
     expect(r.state).toBe("green");
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("red");
-    expect(
-      (writes[0]!.signal as { errorDesc?: string }).errorDesc,
-    ).toContain("503");
+    expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toContain(
+      "503",
+    );
   });
 
   it("missing writer logs a warning and does not throw", async () => {
@@ -313,9 +316,7 @@ describe("smokeDriver", () => {
     // Every fake-fetch call received a URL matching one of the expected
     // smoke or health URLs — no cross-contamination.
     for (const href of calls) {
-      expect(href).toMatch(
-        /^https:\/\/x-svc\d\.example\/(smoke|health)$/,
-      );
+      expect(href).toMatch(/^https:\/\/x-svc\d\.example\/(smoke|health)$/);
     }
     // Each slug's smoke + health URL was invoked exactly once.
     expect(calls.length).toBe(20);

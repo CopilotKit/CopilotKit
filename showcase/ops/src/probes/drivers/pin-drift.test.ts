@@ -40,7 +40,9 @@ function makeRepoRoot(baselineText: string | null): string {
 function shellHash(lines: string[]): string {
   if (lines.length === 0) return "";
   const d = Array.from(new Set(lines)).sort();
-  return createHash("sha256").update(d.join("\n") + "\n").digest("hex");
+  return createHash("sha256")
+    .update(d.join("\n") + "\n")
+    .digest("hex");
 }
 
 function mockRunner(opts: {
@@ -405,9 +407,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   // here cover the branches that the driver tests don't exercise
   // (non-array failLines, null state, etc.).
   it("rejects null currentWorkingState", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: "",
@@ -417,9 +418,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   });
 
   it("rejects currentWorkingState without failLines or failed", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: "",
@@ -429,9 +429,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   });
 
   it("throws on malformed baseline JSON", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: "{not json",
@@ -441,9 +440,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   });
 
   it("throws on baseline array (wrong top-level type)", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: "[1,2]",
@@ -453,9 +451,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   });
 
   it("throws on bad validatePinsFailCount type", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: JSON.stringify({
@@ -468,9 +465,8 @@ describe("pin-drift-core (direct unit coverage)", () => {
   });
 
   it("throws on bad validatePinsFailHash format", async () => {
-    const { computePinDrift, PinDriftBaselineError } = await import(
-      "./pin-drift-core.js"
-    );
+    const { computePinDrift, PinDriftBaselineError } =
+      await import("./pin-drift-core.js");
     expect(() =>
       computePinDrift({
         failBaselineJson: JSON.stringify({

@@ -26,11 +26,13 @@ const SAMPLE_REDIRECTS = [
   { id: "A2", source: "/a2-old", destination: "/a2" },
 ];
 
-function mkLoader(stubCompute?: (i: unknown) => {
-  body: string;
-  candidateCount: number;
-  hasCandidates: boolean;
-}) {
+function mkLoader(
+  stubCompute?: (i: unknown) => {
+    body: string;
+    candidateCount: number;
+    hasCandidates: boolean;
+  },
+) {
   return async () => ({
     seoRedirects: SAMPLE_REDIRECTS,
     computeRedirectDecommission:
@@ -43,7 +45,9 @@ function mkLoader(stubCompute?: (i: unknown) => {
   });
 }
 
-function mkFetch(response: Partial<Response> & { json?: () => Promise<unknown> }) {
+function mkFetch(
+  response: Partial<Response> & { json?: () => Promise<unknown> },
+) {
   return vi.fn(async () => response as unknown as Response);
 }
 
@@ -161,7 +165,12 @@ describe("redirectDecommissionDriver", () => {
     const fetchImpl = mkFetch({
       ok: true,
       status: 200,
-      json: async () => ({ results: [["A1", 1], ["A2", 2]] }),
+      json: async () => ({
+        results: [
+          ["A1", 1],
+          ["A2", 2],
+        ],
+      }),
       text: async () => "",
     });
     const driver = createRedirectDecommissionDriver({

@@ -32,9 +32,10 @@ interface ResponseSpec {
   throws?: Error;
 }
 
-function scriptedFetch(
-  queue: ResponseSpec[],
-): { fetchImpl: typeof fetch; urls: string[] } {
+function scriptedFetch(queue: ResponseSpec[]): {
+  fetchImpl: typeof fetch;
+  urls: string[];
+} {
   const urls: string[] = [];
   let idx = 0;
   const fetchImpl: typeof fetch = async (url) => {

@@ -55,15 +55,8 @@ export function buildProbeInvoker(
   cfg: ProbeConfig,
   deps: ProbeInvokerDeps,
 ): () => Promise<void> {
-  const {
-    driver,
-    discoveryRegistry,
-    writer,
-    logger,
-    env,
-    now,
-    fetchImpl,
-  } = deps;
+  const { driver, discoveryRegistry, writer, logger, env, now, fetchImpl } =
+    deps;
 
   return async function invoke(): Promise<void> {
     const inputs = await resolveInputs(
@@ -238,9 +231,7 @@ interface ExecuteOneOpts {
  * and discovery-sourced inputs so a discovery bug produces the same
  * structured error as a hand-typo in YAML.
  */
-async function executeOne(
-  opts: ExecuteOneOpts,
-): Promise<ProbeResult<unknown>> {
+async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
   const {
     input,
     key,
@@ -261,7 +252,11 @@ async function executeOne(
       key,
       err: parsed.error.message,
     });
-    return syntheticError(key, `inputSchema rejected: ${parsed.error.message}`, now);
+    return syntheticError(
+      key,
+      `inputSchema rejected: ${parsed.error.message}`,
+      now,
+    );
   }
   // Drivers that emit paired results (e.g. smoke → smoke+health) push the
   // secondary tick via `ctx.writer.write(...)`. The primary result the
@@ -274,12 +269,7 @@ async function executeOne(
     if (timeoutMs === undefined) {
       return await driver.run(ctx, parsed.data);
     }
-    return await withTimeout(
-      driver.run(ctx, parsed.data),
-      timeoutMs,
-      key,
-      now,
-    );
+    return await withTimeout(driver.run(ctx, parsed.data), timeoutMs, key, now);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logger.error("probe.run-failed", {

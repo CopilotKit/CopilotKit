@@ -38,12 +38,15 @@ import {
   type RedirectEntryLite,
 } from "./redirect-decommission-core";
 
-const seoRedirects: RedirectEntryLite[] = (
-  (seoRedirectsModule as { seoRedirects?: RedirectEntryLite[] }).seoRedirects ??
-  (seoRedirectsModule as unknown as { default?: { seoRedirects?: RedirectEntryLite[] } })
-    .default?.seoRedirects ??
-  []
-) as RedirectEntryLite[];
+const seoRedirects: RedirectEntryLite[] = ((
+  seoRedirectsModule as { seoRedirects?: RedirectEntryLite[] }
+).seoRedirects ??
+  (
+    seoRedirectsModule as unknown as {
+      default?: { seoRedirects?: RedirectEntryLite[] };
+    }
+  ).default?.seoRedirects ??
+  []) as RedirectEntryLite[];
 
 const POSTHOG_HOST = "https://eu.i.posthog.com";
 const DAYS = 30;

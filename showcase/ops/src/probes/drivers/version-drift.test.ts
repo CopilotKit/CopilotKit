@@ -364,10 +364,9 @@ describe("versionDriftDriver", () => {
       let capturedUrl = "";
       const fetchImpl = (async (url: string | URL | Request) => {
         capturedUrl = String(url);
-        return new Response(
-          JSON.stringify({ info: { version: "0.115.0" } }),
-          { status: 200 },
-        );
+        return new Response(JSON.stringify({ info: { version: "0.115.0" } }), {
+          status: 200,
+        });
       }) as unknown as typeof fetch;
       await versionDriftDriver.run(BASE_CTX, {
         key: "version_drift:fastapi",

@@ -145,9 +145,7 @@ function extractFailed(state: unknown): string[] {
   const obj = state as Record<string, unknown>;
   let lines: string[] | undefined;
   if (Array.isArray(obj.failLines)) {
-    lines = obj.failLines.filter(
-      (l): l is string => typeof l === "string",
-    );
+    lines = obj.failLines.filter((l): l is string => typeof l === "string");
   } else if (Array.isArray(obj.failed)) {
     lines = obj.failed.filter((l): l is string => typeof l === "string");
   }

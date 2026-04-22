@@ -122,9 +122,7 @@ describe("buildProbeInvoker", () => {
   });
 
   it("supports nested key_template paths like ${service.name}", async () => {
-    const inputSchema = z
-      .object({ key: z.string() })
-      .passthrough();
+    const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
       inputSchema,
@@ -141,10 +139,7 @@ describe("buildProbeInvoker", () => {
       name: "nested-src",
       configSchema: z.object({}).passthrough(),
       async enumerate() {
-        return [
-          { service: { name: "one" } },
-          { service: { name: "two" } },
-        ];
+        return [{ service: { name: "one" } }, { service: { name: "two" } }];
       },
     };
     const discoveryRegistry = createDiscoveryRegistry();

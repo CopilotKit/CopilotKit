@@ -27,7 +27,9 @@ const FIXTURES = path.resolve(
 function shellHash(lines: string[]): string {
   if (lines.length === 0) return "";
   const d = Array.from(new Set(lines)).sort();
-  return createHash("sha256").update(d.join("\n") + "\n").digest("hex");
+  return createHash("sha256")
+    .update(d.join("\n") + "\n")
+    .digest("hex");
 }
 
 function makeBaseline(count: number, hash: string): string {
@@ -51,7 +53,10 @@ describe("pin-drift-core parity (ops driver ↔ scripts CLI)", () => {
     },
     {
       name: "improved count-down",
-      baseline: makeBaseline(3, shellHash(["[FAIL] a", "[FAIL] b", "[FAIL] c"])),
+      baseline: makeBaseline(
+        3,
+        shellHash(["[FAIL] a", "[FAIL] b", "[FAIL] c"]),
+      ),
       state: { failed: ["[FAIL] a"] },
     },
     {
@@ -68,12 +73,7 @@ describe("pin-drift-core parity (ops driver ↔ scripts CLI)", () => {
       name: "raw failLines filter",
       baseline: "",
       state: {
-        failLines: [
-          "[WARN] noise",
-          "[FAIL] a",
-          "[FAIL] b",
-          "unrelated",
-        ],
+        failLines: ["[WARN] noise", "[FAIL] a", "[FAIL] b", "unrelated"],
       },
     },
   ];

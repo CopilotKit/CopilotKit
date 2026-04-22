@@ -126,14 +126,20 @@ async function queryPostHog(
  */
 async function loadRedirectsAndCore(): Promise<{
   seoRedirects: Array<{ id: string; source: string; destination: string }>;
-  computeRedirectDecommission: (
-    i: unknown,
-  ) => { body: string; candidateCount: number; hasCandidates: boolean };
+  computeRedirectDecommission: (i: unknown) => {
+    body: string;
+    candidateCount: number;
+    hasCandidates: boolean;
+  };
 }> {
-  const seoMod = (await import(
-    // eslint-disable-next-line import/no-relative-packages
-    "../../../../shell/src/lib/seo-redirects"
-  )) as {
+  // Non-literal module specifiers keep `tsc -p tsconfig.build.json` from
+  // following these paths out of rootDir at build time — they resolve at
+  // runtime against the monorepo tree the container ships. The same two
+  // files are covered by the probe's typecheck-scoped unit tests (via
+  // explicit imports) so signatures stay checked even though the build
+  // doesn't compile the transitive closure.
+  const seoModPath = "../../../../shell/src/lib/seo-redirects";
+  const seoMod = (await import(seoModPath)) as {
     seoRedirects?: Array<{ id: string; source: string; destination: string }>;
     default?: {
       seoRedirects?: Array<{
@@ -146,10 +152,8 @@ async function loadRedirectsAndCore(): Promise<{
   const seoRedirects =
     seoMod.seoRedirects ?? seoMod.default?.seoRedirects ?? [];
 
-  const coreMod = (await import(
-    // eslint-disable-next-line import/no-relative-packages
-    "../../../../scripts/redirect-decommission-core"
-  )) as {
+  const coreModPath = "../../../../scripts/redirect-decommission-core";
+  const coreMod = (await import(coreModPath)) as {
     computeRedirectDecommission?: (i: unknown) => {
       body: string;
       candidateCount: number;
