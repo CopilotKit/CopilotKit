@@ -40,6 +40,27 @@ import { usePinToSend } from "../../hooks/use-pin-to-send";
 // Height of the feather gradient overlay (h-24 = 6rem = 96px)
 const FEATHER_HEIGHT = 96;
 
+// Pin-to-send uses a softer, shorter feather than pin-to-bottom so readable
+// content isn't obscured (h-12 = 3rem = 48px).
+const PIN_TO_SEND_FEATHER_HEIGHT = 48;
+
+const PinToSendSoftFeather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  style,
+  ...props
+}) => (
+  <div
+    className={cn(
+      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-12 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
+      "cpk:from-white cpk:to-transparent",
+      "cpk:dark:from-[rgb(33,33,33)]",
+      className,
+    )}
+    style={style}
+    {...props}
+  />
+);
+
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
   {
@@ -512,47 +533,63 @@ export namespace CopilotChatView {
     ...props
   }) => {
     const spacerRef = useRef<HTMLDivElement>(null);
-    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
     usePinToSend({
       scrollRef,
       contentRef,
       spacerRef,
       topOffset: 16,
-      inputContainerHeight,
-      featherHeight: FEATHER_HEIGHT,
     });
 
+    // Pin-to-send uses a SOFTER feather than pin-to-bottom:
+    //   - default: h-24 + from-white via-white to-transparent (fully opaque
+    //     bottom half, aggressive). Good for streaming-to-bottom where
+    //     the edge is always churning.
+    //   - pin-to-send: h-12 + from-white to-transparent (gradual fade,
+    //     no opaque midline). Gives a visual soft edge above the input
+    //     without obscuring otherwise-readable content.
+    // Consumers can still override with the `feather` slot.
+    const BoundFeather = renderSlot(feather, PinToSendSoftFeather, {});
+
+    // Feather and scroll-to-bottom button live OUTSIDE the scroll container.
+    // `position: absolute` children of an `overflow: auto` element are
+    // positioned relative to the scroll *content*, which means they scroll
+    // away with it. Placing them as siblings of the scroll container
+    // (inside a `relative` wrapper) keeps them pinned to the viewport bottom.
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
         <div
-          ref={nonAutoScrollRefCallback}
           className={cn(
-            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
             className,
           )}
-          {...props}
         >
           <div
-            ref={contentRef}
-            className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            ref={nonAutoScrollRefCallback}
+            className="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+            {...props}
           >
-            {children}
+            <div
+              ref={contentRef}
+              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            >
+              {children}
+            </div>
+            <div
+              ref={spacerRef}
+              data-pin-to-send-spacer
+              aria-hidden="true"
+              style={{ height: 0, flex: "0 0 auto" }}
+            />
           </div>
-          <div
-            ref={spacerRef}
-            data-pin-to-send-spacer
-            aria-hidden="true"
-            style={{ height: 0, flex: "0 0 auto" }}
-          />
-          {/* Feather gradient overlay */}
+          {/* Soft feather — pinned to wrapper bottom */}
           {BoundFeather}
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                bottom: `${inputContainerHeight + PIN_TO_SEND_FEATHER_HEIGHT + 16}px`,
               }}
             >
               {renderSlot(
@@ -591,7 +628,16 @@ export namespace CopilotChatView {
   }) => {
     const mode = normalizeAutoScroll(autoScroll);
     const [hasMounted, setHasMounted] = useState(false);
-    const { scrollRef, contentRef, scrollToBottom } = useStickToBottom();
+    // Plain refs for the "none" and "pin-to-send" paths. Do NOT use
+    // useStickToBottom() here — its internal effects would attach scroll-following
+    // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
+    // gets its refs via <StickToBottom> below, scoped to that branch only.
+    const scrollRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLElement | null>(null);
+    const scrollToBottom = useCallback(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }, []);
     const [showScrollButton, setShowScrollButton] = useState(false);
     // Tracks the scroll container element for the non-autoScroll path so the
     // context value is reactive (element state, not a ref).
@@ -606,7 +652,7 @@ export namespace CopilotChatView {
         scrollRef.current = el;
         setNonAutoScrollEl(el);
       },
-      // scrollRef is a stable object from useStickToBottom; safe to omit.
+      // scrollRef is a stable ref object; safe to omit.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [],
     );
