@@ -6,17 +6,19 @@ import React, {
   useLayoutEffect,
 } from "react";
 import { ScrollElementContext } from "./scroll-element-context";
-import { WithSlots, SlotValue, renderSlot } from "../../lib/slots";
+import type { WithSlots, SlotValue } from "../../lib/slots";
+import { renderSlot } from "../../lib/slots";
 import CopilotChatMessageView from "./CopilotChatMessageView";
-import CopilotChatInput, {
+import type {
   CopilotChatInputProps,
   CopilotChatInputMode,
 } from "./CopilotChatInput";
+import CopilotChatInput from "./CopilotChatInput";
 import CopilotChatSuggestionView, {
   CopilotChatSuggestionViewProps,
 } from "./CopilotChatSuggestionView";
-import { Suggestion } from "@copilotkit/core";
-import { Message } from "@ag-ui/core";
+import type { Suggestion } from "@copilotkit/core";
+import type { Message } from "@ag-ui/core";
 import type { Attachment } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { twMerge } from "tailwind-merge";
@@ -37,29 +39,8 @@ import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type { AutoScrollMode } from "./normalize-auto-scroll";
 import { usePinToSend } from "../../hooks/use-pin-to-send";
 
-// Height of the feather gradient overlay (h-24 = 6rem = 96px)
-const FEATHER_HEIGHT = 96;
-
-// Pin-to-send uses a softer, shorter feather than pin-to-bottom so readable
-// content isn't obscured (h-12 = 3rem = 48px).
-const PIN_TO_SEND_FEATHER_HEIGHT = 48;
-
-const PinToSendSoftFeather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
-  className,
-  style,
-  ...props
-}) => (
-  <div
-    className={cn(
-      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-12 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
-      "cpk:from-white cpk:to-transparent",
-      "cpk:dark:from-[rgb(33,33,33)]",
-      className,
-    )}
-    style={style}
-    {...props}
-  />
-);
+// Vertical gap between the scroll-to-bottom button and the input container.
+const SCROLL_BUTTON_OFFSET = 16;
 
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
@@ -476,7 +457,6 @@ export namespace CopilotChatView {
             </div>
           </StickToBottom.Content>
 
-          {/* Feather gradient overlay */}
           {BoundFeather}
 
           {/* Scroll to bottom button - hidden during resize */}
@@ -484,7 +464,7 @@ export namespace CopilotChatView {
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
               }}
             >
               {renderSlot(
@@ -541,21 +521,13 @@ export namespace CopilotChatView {
       topOffset: 16,
     });
 
-    // Pin-to-send uses a SOFTER feather than pin-to-bottom:
-    //   - default: h-24 + from-white via-white to-transparent (fully opaque
-    //     bottom half, aggressive). Good for streaming-to-bottom where
-    //     the edge is always churning.
-    //   - pin-to-send: h-12 + from-white to-transparent (gradual fade,
-    //     no opaque midline). Gives a visual soft edge above the input
-    //     without obscuring otherwise-readable content.
-    // Consumers can still override with the `feather` slot.
-    const BoundFeather = renderSlot(feather, PinToSendSoftFeather, {});
-
-    // Feather and scroll-to-bottom button live OUTSIDE the scroll container.
-    // `position: absolute` children of an `overflow: auto` element are
-    // positioned relative to the scroll *content*, which means they scroll
-    // away with it. Placing them as siblings of the scroll container
+    // The feather and scroll-to-bottom button live OUTSIDE the scroll
+    // container. `position: absolute` children of an `overflow: auto` element
+    // are positioned relative to the scroll *content*, which means they
+    // scroll away with it. Placing them as siblings of the scroll container
     // (inside a `relative` wrapper) keeps them pinned to the viewport bottom.
+    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
+
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
         <div
@@ -582,14 +554,13 @@ export namespace CopilotChatView {
               style={{ height: 0, flex: "0 0 auto" }}
             />
           </div>
-          {/* Soft feather — pinned to wrapper bottom */}
           {BoundFeather}
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + PIN_TO_SEND_FEATHER_HEIGHT + 16}px`,
+                bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
               }}
             >
               {renderSlot(
@@ -722,7 +693,6 @@ export namespace CopilotChatView {
               {children}
             </div>
 
-            {/* Feather gradient overlay */}
             {BoundFeather}
 
             {/* Scroll to bottom button for manual mode */}
@@ -730,7 +700,7 @@ export namespace CopilotChatView {
               <div
                 className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
                 style={{
-                  bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                  bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px`,
                 }}
               >
                 {renderSlot(
@@ -812,22 +782,14 @@ export namespace CopilotChatView {
     </Button>
   );
 
+  // Default renders an empty div — no visual, but the element is still in the
+  // tree so a slot override of the form `scrollView={{ feather: "my-class" }}`
+  // can apply classes (and any consumer with a full component override gets
+  // the className/style forwarding they expect).
   export const Feather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
     className,
-    style,
     ...props
-  }) => (
-    <div
-      className={cn(
-        "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
-        "cpk:from-white cpk:via-white cpk:to-transparent",
-        "cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]",
-        className,
-      )}
-      style={style}
-      {...props}
-    />
-  );
+  }) => <div className={className} {...props} />;
 
   export const WelcomeMessage: React.FC<
     React.HTMLAttributes<HTMLDivElement>
