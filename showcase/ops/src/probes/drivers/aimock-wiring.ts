@@ -49,9 +49,24 @@ const aimockWiringInputSchema = z
 
 type AimockWiringDriverInput = z.infer<typeof aimockWiringInputSchema>;
 
+/**
+ * Driver-level Signal type: either the legacy probe's full signal OR a
+ * bare `{ errorDesc }` envelope for driver-produced `state:"error"` ticks
+ * (env-missing, listServices auth failure, etc.). Modelling this as a
+ * union drops the old `as unknown as AimockWiringSignal` cast and lets
+ * TypeScript narrow correctly at the consumer based on `state` — success
+ * ticks always carry `AimockWiringSignal`, error ticks carry the bare
+ * envelope. status-writer stores both shapes as-is under `signal` and
+ * downstream templates already guard on `state === "error"` before
+ * indexing into signal fields.
+ */
+export type AimockWiringDriverSignal =
+  | AimockWiringSignal
+  | { errorDesc: string };
+
 export const aimockWiringDriver: ProbeDriver<
   AimockWiringDriverInput,
-  AimockWiringSignal
+  AimockWiringDriverSignal
 > = {
   kind: aimockWiringProbe.dimension,
   inputSchema: aimockWiringInputSchema,
@@ -79,26 +94,49 @@ export const aimockWiringDriver: ProbeDriver<
         signal: {
           errorDesc:
             "RAILWAY_TOKEN, RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, and AIMOCK_URL must all be set",
-        } as unknown as AimockWiringSignal,
+        },
         observedAt: ctx.now().toISOString(),
       };
     }
+    // `ctx.fetchImpl` is the canonical injection point for test stubs —
+    // every other network-calling driver (image-drift, version-drift,
+    // redirect-decommission) already honours it. Fall back to
+    // `globalThis.fetch` in production where the orchestrator never sets
+    // `fetchImpl` explicitly.
+    const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
     const adapter = createRailwayAdapter(
       { token, projectId, environmentId },
       logger,
+      fetchImpl,
     );
     // Probe body: flip call-order `(input, ctx)` to match the legacy shape
     // and thread the Railway adapter through. The probe already isolates
     // per-service env-fetch throws into the `errored` bucket, so an auth
-    // blip on one service never poisons the tick.
-    return aimockWiringProbe.run(
-      {
-        aimockUrl,
-        listServices: adapter.listServices,
-        getServiceEnv: adapter.getServiceEnv,
-      },
-      ctx,
-    );
+    // blip on one service never poisons the tick. BUT `listServices`
+    // throws escape the probe entirely (the probe calls it without a
+    // try/catch because a failed service list means we literally have no
+    // services to iterate). We catch those here and convert to a keyed
+    // synthetic-error ProbeResult so the writer records a `state:"error"`
+    // tick rather than the invoker catching a generic driver throw.
+    try {
+      return await aimockWiringProbe.run(
+        {
+          aimockUrl,
+          listServices: adapter.listServices,
+          getServiceEnv: adapter.getServiceEnv,
+        },
+        ctx,
+      );
+    } catch (err) {
+      const errorDesc = err instanceof Error ? err.message : String(err);
+      logger.warn("probe.aimock-wiring.run-failed", { errorDesc });
+      return {
+        key: input.key,
+        state: "error",
+        signal: { errorDesc },
+        observedAt: ctx.now().toISOString(),
+      };
+    }
   },
 };
 
@@ -112,6 +150,7 @@ export const aimockWiringDriver: ProbeDriver<
 function createRailwayAdapter(
   opts: { token: string; projectId: string; environmentId: string },
   logger: Logger,
+  fetchImpl: typeof fetch,
 ): {
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
@@ -122,7 +161,7 @@ function createRailwayAdapter(
     query: string,
     variables: Record<string, unknown>,
   ): Promise<T> {
-    const res = await fetch(endpoint, {
+    const res = await fetchImpl(endpoint, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${opts.token}`,
