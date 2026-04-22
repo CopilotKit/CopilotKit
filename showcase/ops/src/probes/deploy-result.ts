@@ -26,6 +26,13 @@ export interface DeployResultSignal {
    * "build ran and everything failed".
    */
   gateSkipped: boolean;
+  /**
+   * Free-form discriminator co-emitted with `gateSkipped: true` explaining
+   * WHY the gate skipped (`lockfile-failed`, `verify-image-refs-failed`,
+   * `detect-changes-*`, etc.). Passed through so rule templates can render
+   * a reason-specific message instead of a generic "gated off" line.
+   */
+  gateReason?: string;
 }
 
 /**
@@ -97,6 +104,7 @@ export function deployEventToProbeResult(
     runId: event.runId,
     runUrl: event.runUrl,
     gateSkipped: event.gateSkipped === true,
+    gateReason: event.gateReason,
   };
 
   return {

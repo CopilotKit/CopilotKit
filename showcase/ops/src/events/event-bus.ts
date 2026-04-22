@@ -17,6 +17,14 @@ export interface DeployResultEvent {
    * older senders that pre-date the field still decode cleanly.
    */
   gateSkipped?: boolean;
+  /**
+   * Free-form discriminator co-emitted with `gateSkipped: true`:
+   * `lockfile-failed`, `lockfile-cancelled`, `verify-image-refs-failed`,
+   * `verify-image-refs-cancelled`, `detect-changes-<result>`. Empty string
+   * normalised to undefined at the webhook boundary so downstream checks
+   * only need to guard one shape.
+   */
+  gateReason?: string;
 }
 
 /**

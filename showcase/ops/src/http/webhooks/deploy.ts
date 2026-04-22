@@ -59,6 +59,14 @@ const deployPayloadSchema = z
     // the build matrix never ran (e.g. lockfile gate failed). Treated as a
     // distinct signal downstream from an all-services failure.
     gateSkipped: z.boolean().optional(),
+    // Optional free-form discriminator co-emitted with `gateSkipped: true`
+    // (`lockfile-failed`, `lockfile-cancelled`, `verify-image-refs-failed`,
+    // `verify-image-refs-cancelled`, `detect-changes-<result>`). The
+    // alert template uses this to render a reason-specific message instead
+    // of a generic "gate skipped" line. Empty string accepted so the
+    // workflow can always pass the jq `--arg gateReason` shape without
+    // branching on presence.
+    gateReason: z.string().optional(),
   })
   .strict();
 
@@ -247,6 +255,14 @@ export function registerDeployWebhook(
     // on the "seen" branch rather than racing through emit.
     dedupe.record(dedupeKey);
 
+    // Workflow emits `--arg gateReason "$GATE_REASON"` unconditionally, so
+    // a gate-inactive run sends the empty string. Normalise to undefined
+    // here so downstream probe + template code only has to guard
+    // `gateReason !== undefined`, not `gateReason && gateReason !== ""`.
+    const gateReason =
+      typeof result.data.gateReason === "string" && result.data.gateReason.length > 0
+        ? result.data.gateReason
+        : undefined;
     const event: DeployResultEvent = {
       runId: result.data.runId,
       runUrl: result.data.runUrl,
@@ -255,6 +271,7 @@ export function registerDeployWebhook(
       succeeded: result.data.succeeded,
       cancelled: result.data.cancelled,
       gateSkipped: result.data.gateSkipped,
+      gateReason,
     };
     deps.bus.emit("deploy.result", event);
     deps.logger.info("webhook.deploy.accepted", {
