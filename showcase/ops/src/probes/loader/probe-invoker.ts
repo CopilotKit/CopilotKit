@@ -4,6 +4,7 @@ import type {
   Logger,
   ProbeContext,
   ProbeResult,
+  ProbeResultWriter,
 } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
 
@@ -92,6 +93,7 @@ export function buildProbeInvoker(
           now,
           logger,
           probeId: cfg.id,
+          writer,
         });
         try {
           await writer.write(result);
@@ -225,6 +227,7 @@ interface ExecuteOneOpts {
   now: () => Date;
   logger: Logger;
   probeId: string;
+  writer: ProbeResultWriter;
 }
 
 /**
@@ -236,7 +239,8 @@ interface ExecuteOneOpts {
 async function executeOne(
   opts: ExecuteOneOpts,
 ): Promise<ProbeResult<unknown>> {
-  const { input, key, driver, timeoutMs, env, now, logger, probeId } = opts;
+  const { input, key, driver, timeoutMs, env, now, logger, probeId, writer } =
+    opts;
   const parsed = driver.inputSchema.safeParse(input);
   if (!parsed.success) {
     logger.error("probe.input-rejected", {
@@ -247,7 +251,11 @@ async function executeOne(
     });
     return syntheticError(key, `inputSchema rejected: ${parsed.error.message}`, now);
   }
-  const ctx: ProbeContext = { now, logger, env };
+  // Drivers that emit paired results (e.g. smoke → smoke+health) push the
+  // secondary tick via `ctx.writer.write(...)`. The primary result the
+  // driver RETURNS still flows through the invoker's own `writer.write`
+  // call one level up so write-outcome bookkeeping stays centralized.
+  const ctx: ProbeContext = { now, logger, env, writer };
   try {
     if (timeoutMs === undefined) {
       return await driver.run(ctx, parsed.data);

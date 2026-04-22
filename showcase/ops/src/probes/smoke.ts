@@ -114,7 +114,7 @@ export const SMOKE_SLACK_SAFE_FIELDS = ["links.smoke", "links.health"] as const;
  * `{{#signal.links.health}}...{{/signal.links.health}}` rather than linking
  * to a misleading smoke URL.
  */
-function deriveHealthUrl(url: string): string {
+export function deriveHealthUrl(url: string): string {
   try {
     const u = new URL(url);
     // Match `/smoke` at the end, optionally followed by a single trailing slash.
