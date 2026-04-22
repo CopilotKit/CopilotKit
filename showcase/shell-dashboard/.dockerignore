@@ -1,0 +1,28 @@
+# shell-dashboard-specific .dockerignore (F6.21).
+#
+# The Dockerfile sets `context: .` (repo root) and relies on a chain of
+# COPY commands that pull exactly the files/subtrees it needs — NOT on
+# the root-level `.dockerignore` inadvertently excluding everything
+# else. When a nested .dockerignore exists, Docker uses it only if it's
+# at the build-context root, so this file is a no-op during normal
+# deploys. It's kept as a deliberate signal that this directory's build
+# depends on specific files being present, and to override the root
+# ignore-list in the case where somebody moves the build context into
+# this directory (e.g., a local `docker build ./showcase/shell-dashboard`
+# invocation for smoke testing).
+#
+# Files the build DOES need under this directory (keep these visible):
+#   package.json, package-lock.json, public/, src/, next.config.ts,
+#   tsconfig.json, tailwind.config.ts, postcss.config.mjs
+#
+# Things we never want shipped into any build (local or CI):
+node_modules
+.next
+coverage
+test-results
+playwright-report
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
