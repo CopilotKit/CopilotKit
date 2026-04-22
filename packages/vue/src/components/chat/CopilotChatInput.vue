@@ -106,6 +106,11 @@ const measurements = ref({
 const resizeEvaluationRafRef = ref<number | null>(null);
 const ignoreResizeRef = ref(false);
 const measurementCanvasRef = ref<HTMLCanvasElement | null>(null);
+const containerCacheRef = ref<{
+  compactWidth: number;
+} | null>(null);
+const didWarnMissingFontRef = ref(false);
+const didWarnMissingCanvasContextRef = ref(false);
 let resizeObserver: ResizeObserver | null = null;
 let documentPointerDownHandler: ((event: MouseEvent) => void) | null = null;
 
@@ -160,7 +165,8 @@ const containerClass = computed(() => [
 ]);
 
 const rootAttrs = computed(() => {
-  const { class: _className, ...rest } = attrs;
+  const rest = { ...attrs };
+  delete rest.class;
   return rest;
 });
 
@@ -565,6 +571,67 @@ function updateLayout(nextLayout: "compact" | "expanded") {
   layout.value = nextLayout;
 }
 
+function resolveTextareaFont(textarea: HTMLTextAreaElement): string | null {
+  const textareaStyles = window.getComputedStyle(textarea);
+  if (textareaStyles.font?.trim()) {
+    return textareaStyles.font;
+  }
+
+  if (textareaStyles.fontSize && textareaStyles.fontFamily) {
+    const fallbackFont =
+      `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ` +
+      `${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ` +
+      `${textareaStyles.fontFamily}`;
+    if (fallbackFont.trim()) {
+      return fallbackFont;
+    }
+  }
+
+  if (process.env.NODE_ENV !== "production" && !didWarnMissingFontRef.value) {
+    didWarnMissingFontRef.value = true;
+    console.warn(
+      "[CopilotChatInput] Could not resolve textarea font for layout measurement. " +
+        "Text-width-based expansion will be skipped until the next container resize.",
+    );
+  }
+  return null;
+}
+
+function updateContainerCache() {
+  const grid = gridRef.value;
+  const addContainer = addButtonContainerRef.value;
+  const actionsContainer = actionsContainerRef.value;
+  if (!grid || !addContainer || !actionsContainer) {
+    containerCacheRef.value = null;
+    return null;
+  }
+
+  const gridStyles = window.getComputedStyle(grid);
+  const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
+  const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
+  const columnGap = parseFloat(gridStyles.columnGap) || 0;
+  const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
+  if (gridAvailableWidth <= 0) {
+    containerCacheRef.value = null;
+    return null;
+  }
+
+  const addWidth = addContainer.getBoundingClientRect().width;
+  const actionsWidth = actionsContainer.getBoundingClientRect().width;
+  const compactWidth = Math.max(
+    gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
+    0,
+  );
+  if (compactWidth <= 0) {
+    containerCacheRef.value = null;
+    return null;
+  }
+
+  const cache = { compactWidth };
+  containerCacheRef.value = cache;
+  return cache;
+}
+
 function evaluateLayout() {
   if (props.mode !== "input") {
     updateLayout("compact");
@@ -582,11 +649,12 @@ function evaluateLayout() {
   }
 
   const textarea = textareaRef.value;
-  const grid = gridRef.value;
-  const addContainer = addButtonContainerRef.value;
-  const actionsContainer = actionsContainerRef.value;
-
-  if (!textarea || !grid || !addContainer || !actionsContainer) {
+  if (
+    !textarea ||
+    !gridRef.value ||
+    !addButtonContainerRef.value ||
+    !actionsContainerRef.value
+  ) {
     return;
   }
 
@@ -601,52 +669,49 @@ function evaluateLayout() {
   let shouldExpand = hasExplicitBreak || renderedMultiline;
 
   if (!shouldExpand) {
-    const gridStyles = window.getComputedStyle(grid);
-    const paddingLeft = parseFloat(gridStyles.paddingLeft) || 0;
-    const paddingRight = parseFloat(gridStyles.paddingRight) || 0;
-    const columnGap = parseFloat(gridStyles.columnGap) || 0;
-    const gridAvailableWidth = grid.clientWidth - paddingLeft - paddingRight;
-
-    if (gridAvailableWidth > 0) {
-      const addWidth = addContainer.getBoundingClientRect().width;
-      const actionsWidth = actionsContainer.getBoundingClientRect().width;
-      const compactWidth = Math.max(
-        gridAvailableWidth - addWidth - actionsWidth - columnGap * 2,
+    const cache = containerCacheRef.value ?? updateContainerCache();
+    if (cache && cache.compactWidth > 0) {
+      const compactInnerWidth = Math.max(
+        cache.compactWidth -
+          measurements.value.paddingLeft -
+          measurements.value.paddingRight,
         0,
       );
 
-      const canvas =
-        measurementCanvasRef.value ?? document.createElement("canvas");
-      if (!measurementCanvasRef.value) {
-        measurementCanvasRef.value = canvas;
-      }
-      const context = canvas.getContext("2d");
-      if (context) {
-        const textareaStyles = window.getComputedStyle(textarea);
-        const font =
-          textareaStyles.font ||
-          `${textareaStyles.fontStyle} ${textareaStyles.fontVariant} ${textareaStyles.fontWeight} ${textareaStyles.fontSize}/${textareaStyles.lineHeight} ${textareaStyles.fontFamily}`;
-        context.font = font;
-        const compactInnerWidth = Math.max(
-          compactWidth -
-            measurements.value.paddingLeft -
-            measurements.value.paddingRight,
-          0,
-        );
+      if (compactInnerWidth > 0) {
+        const canvas =
+          measurementCanvasRef.value ?? document.createElement("canvas");
+        if (!measurementCanvasRef.value) {
+          measurementCanvasRef.value = canvas;
+        }
 
-        if (compactInnerWidth > 0) {
-          const lines =
-            inputValue.value.length > 0 ? inputValue.value.split("\n") : [""];
-          let longestLine = 0;
-          for (const line of lines) {
-            const width = context.measureText(line || " ").width;
-            if (width > longestLine) {
-              longestLine = width;
+        const context = canvas.getContext("2d");
+        if (context) {
+          const resolvedFont = resolveTextareaFont(textarea);
+          if (resolvedFont) {
+            context.font = resolvedFont;
+            const lines =
+              inputValue.value.length > 0 ? inputValue.value.split("\n") : [""];
+            let longestLine = 0;
+            for (const line of lines) {
+              const width = context.measureText(line || " ").width;
+              if (width > longestLine) {
+                longestLine = width;
+              }
+            }
+            if (longestLine > compactInnerWidth) {
+              shouldExpand = true;
             }
           }
-          if (longestLine > compactInnerWidth) {
-            shouldExpand = true;
-          }
+        } else if (
+          process.env.NODE_ENV !== "production" &&
+          !didWarnMissingCanvasContextRef.value
+        ) {
+          didWarnMissingCanvasContextRef.value = true;
+          console.warn(
+            "[CopilotChatInput] canvas.getContext('2d') returned null. " +
+              "Text-width-based expansion will be skipped.",
+          );
         }
       }
     }
@@ -655,10 +720,16 @@ function evaluateLayout() {
   updateLayout(shouldExpand ? "expanded" : "compact");
 }
 
-function scheduleLayoutEvaluation() {
+function scheduleLayoutEvaluation(invalidateCache: boolean) {
   if (ignoreResizeRef.value) {
     ignoreResizeRef.value = false;
     return;
+  }
+
+  if (invalidateCache) {
+    containerCacheRef.value = null;
+    didWarnMissingFontRef.value = false;
+    didWarnMissingCanvasContextRef.value = false;
   }
 
   if (resizeEvaluationRafRef.value !== null) {
@@ -807,15 +878,26 @@ onMounted(() => {
   evaluateLayout();
 
   if (typeof ResizeObserver !== "undefined") {
-    resizeObserver = new ResizeObserver(() => {
-      scheduleLayoutEvaluation();
+    const containerTargets = new Set<HTMLElement>();
+    if (gridRef.value) containerTargets.add(gridRef.value);
+    if (addButtonContainerRef.value)
+      containerTargets.add(addButtonContainerRef.value);
+    if (actionsContainerRef.value)
+      containerTargets.add(actionsContainerRef.value);
+
+    resizeObserver = new ResizeObserver((entries) => {
+      const shouldInvalidate = entries.some((entry) =>
+        containerTargets.has(entry.target as HTMLElement),
+      );
+      scheduleLayoutEvaluation(shouldInvalidate);
     });
+
     if (gridRef.value) resizeObserver.observe(gridRef.value);
-    if (textareaRef.value) resizeObserver.observe(textareaRef.value);
     if (addButtonContainerRef.value)
       resizeObserver.observe(addButtonContainerRef.value);
     if (actionsContainerRef.value)
       resizeObserver.observe(actionsContainerRef.value);
+    if (textareaRef.value) resizeObserver.observe(textareaRef.value);
   }
 
   documentPointerDownHandler = (event: MouseEvent) => {
