@@ -101,9 +101,10 @@ export function CopilotChat({
   // Apply priority: props > existing config > defaults
   const resolvedAgentId =
     agentId ?? existingConfig?.agentId ?? DEFAULT_AGENT_ID;
+  const providedThreadId = threadId ?? existingConfig?.threadId;
   const resolvedThreadId = useMemo(
-    () => threadId ?? existingConfig?.threadId ?? randomUUID(),
-    [threadId, existingConfig?.threadId],
+    () => providedThreadId ?? randomUUID(),
+    [providedThreadId],
   );
 
   const { agent } = useAgent({
@@ -195,7 +196,24 @@ export function CopilotChat({
     ...restProps
   } = props;
 
+  // Tracks the last threadId for which connectAgent has completed (success or
+  // failure). When the user supplies a threadId, we're in "resume existing
+  // thread" mode — the welcome screen should be suppressed until the connect
+  // resolves, otherwise switching threads flashes the welcome screen while the
+  // new thread's messages are still en route.
+  const [lastConnectedThreadId, setLastConnectedThreadId] = useState<
+    string | null
+  >(null);
+  const isConnecting =
+    !!providedThreadId && lastConnectedThreadId !== resolvedThreadId;
+
   useEffect(() => {
+    // When no threadId was supplied by the caller, resolvedThreadId is a UUID
+    // minted in this browser tab. The backend has never seen it, so /connect
+    // would always 404. Skip the call — a real thread is only created once
+    // the user runs the agent for the first time.
+    if (!providedThreadId) return;
+
     let detached = false;
 
     // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
@@ -216,6 +234,25 @@ export function CopilotChat({
         // connectAgent already emits via the subscriber system, but catch
         // here to prevent unhandled rejections from unexpected errors.
         console.error("CopilotChat: connectAgent failed", error);
+      } finally {
+        // Whether the connect succeeded or failed, we're no longer in the
+        // transitional "connecting" state for this thread — unblock the
+        // welcome-screen-suppression so the view can settle.
+        //
+        // Defer one animation frame so any trailing React commits from the
+        // bootstrap replay (final assistant message content) paint before
+        // isConnecting flips off. Without this, suggestions + copy button
+        // can briefly appear against an incompletely-laid-out message tree
+        // and visibly snap once the last text chunk lands.
+        if (!detached) {
+          const raf =
+            typeof requestAnimationFrame === "function"
+              ? requestAnimationFrame
+              : (cb: () => void) => setTimeout(cb, 16);
+          raf(() => {
+            if (!detached) setLastConnectedThreadId(resolvedThreadId);
+          });
+        }
       }
     };
     connect(agent);
@@ -233,7 +270,7 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId]);
+  }, [resolvedThreadId, agent, resolvedAgentId, providedThreadId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -556,6 +593,8 @@ export function CopilotChat({
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
+    isConnecting,
+    hasExplicitThreadId: !!providedThreadId,
   };
 
   // Always create a provider with merged values
