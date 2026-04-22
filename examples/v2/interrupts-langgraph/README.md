@@ -101,6 +101,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **If the chat returns an "Internal error while dispatching CopilotKit request" 500:**
 Check the Next.js server logs for `[copilotkit/route] runtime construction failed:` or `[copilotkit/route] handleRequest dispatch failed:`. Common causes:
+
 - `LANGGRAPH_DEPLOYMENT_URL` unset in production (required — check `apps/web/.env`)
 - LangGraph server not running at the configured URL (check `pnpm --filter agent-langgraph-interrupt dev` started cleanly)
 - `OPENAI_API_KEY` missing from `apps/agent/.env`

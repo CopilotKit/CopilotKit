@@ -22,7 +22,7 @@
   corrected project-structure diagram comment to reference
   `pnpm-workspace.yaml`.
 - `apps/web/tsconfig.json`: dropped dead `.next/dev/types/**` include.
-- `apps/web/.env.example`: clarified that LANGSMITH_* vars forward to the
+- `apps/web/.env.example`: clarified that LANGSMITH\_\* vars forward to the
   agent.
 - Root `.gitignore`: ignore `dist/`.
 - `turbo.json`: add `start` task.
