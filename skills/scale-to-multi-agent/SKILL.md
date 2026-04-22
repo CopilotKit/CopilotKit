@@ -12,13 +12,8 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/setup-endpoint
-  - copilotkit/built-in-agent
-  - copilotkit/agent-access
-  - copilotkit/switching-agents
-  - copilotkit/threads
-  - copilotkit/client-side-tools
-  - copilotkit/chat-components
+  - copilotkit/runtime
+  - copilotkit/react-core
 sources:
   - "CopilotKit/CopilotKit:dev-docs/architecture/multi-agent.md"
   - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-agent.tsx"

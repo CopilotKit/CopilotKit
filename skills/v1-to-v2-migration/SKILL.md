@@ -18,11 +18,8 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/provider-setup
-  - copilotkit/setup-endpoint
-  - copilotkit/client-side-tools
-  - copilotkit/human-in-the-loop
-  - copilotkit/agent-access
+  - copilotkit/runtime
+  - copilotkit/react-core
   - copilotkit/debug-and-troubleshoot
 sources:
   - "CopilotKit/CopilotKit:packages/react-core/src/index.tsx"

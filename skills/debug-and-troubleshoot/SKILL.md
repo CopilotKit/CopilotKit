@@ -15,8 +15,7 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/provider-setup
-  - copilotkit/debug-mode
+  - copilotkit/react-core
 sources:
   - "CopilotKit/CopilotKit:packages/core/src/core/core.ts"
   - "CopilotKit/CopilotKit:packages/shared/src/utils/errors.ts"

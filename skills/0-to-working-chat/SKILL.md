@@ -14,11 +14,8 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/setup-endpoint
-  - copilotkit/built-in-agent
-  - copilotkit/provider-setup
-  - copilotkit/chat-components
-  - copilotkit/client-side-tools
+  - copilotkit/runtime
+  - copilotkit/react-core
 sources:
   - "CopilotKit/CopilotKit:examples/v2/react-router/app/routes/api.copilotkit.$.tsx"
   - "CopilotKit/CopilotKit:examples/v2/react-router/app/routes/_index.tsx"

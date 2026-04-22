@@ -14,7 +14,7 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/provider-setup
+  - copilotkit/react-core
   - copilotkit/0-to-working-chat
 sources:
   - "CopilotKit/CopilotKit:packages/react-core/src/v2/providers/CopilotKitProvider.tsx"

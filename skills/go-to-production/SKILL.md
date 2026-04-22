@@ -13,11 +13,8 @@ type: lifecycle
 library: copilotkit
 library_version: "1.56.2"
 requires:
-  - copilotkit/setup-endpoint
-  - copilotkit/middleware
-  - copilotkit/agent-runners
-  - copilotkit/provider-setup
-  - copilotkit/debug-mode
+  - copilotkit/runtime
+  - copilotkit/react-core
   - copilotkit/debug-and-troubleshoot
 sources:
   - "CopilotKit/CopilotKit:packages/react-core/src/v2/providers/CopilotKitProvider.tsx"
