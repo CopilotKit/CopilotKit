@@ -1,26 +1,3 @@
----
-name: agent-runners
-description: >
-  Pick an AgentRunner for the CopilotRuntime — InMemoryAgentRunner (default, ephemeral,
-  globalThis-keyed), SqliteAgentRunner from @copilotkit/sqlite-runner (file-backed via the
-  better-sqlite3 peer), or a custom subclass of the AgentRunner abstract base. Covers the
-  run/connect/isRunning/stop contract, the "Thread already running" 409 semantics, the mutual
-  exclusion between passing `runner` and setting `intelligence` (Intelligence mode auto-wires
-  IntelligenceAgentRunner and rejects a user-supplied runner), and why the default in-memory
-  runner is unsafe for production. Does NOT persist messages — only agent run state (use
-  Intelligence mode for durable message history).
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/runner/agent-runner.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/runner/in-memory.ts"
-  - "CopilotKit/CopilotKit:packages/sqlite-runner/src/sqlite-runner.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
----
-
 # CopilotKit Agent Runners
 
 `AgentRunner` is the abstraction that owns thread run state — active runs, the event stream
@@ -316,9 +293,9 @@ Source: `packages/runtime/src/v2/runtime/runner/in-memory.ts:63-96`.
 
 ## References
 
-- [InMemoryAgentRunner — internals and hot-reload note](references/in-memory.md)
-- [SqliteAgentRunner — schema, retention, ops](references/sqlite.md)
-- [Custom runner — Redis/Postgres skeleton](references/custom-runner.md)
+- [InMemoryAgentRunner — internals and hot-reload note](agent-runners-in-memory.md)
+- [SqliteAgentRunner — schema, retention, ops](agent-runners-sqlite.md)
+- [Custom runner — Redis/Postgres skeleton](agent-runners-custom.md)
 
 ## See also
 

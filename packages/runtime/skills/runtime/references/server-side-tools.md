@@ -1,23 +1,3 @@
----
-name: server-side-tools
-description: >
-  Define server-side tools for BuiltInAgent via defineTool({ name, description, parameters,
-  execute }) and register them on BuiltInAgent config.tools (Simple Mode) or inside a
-  Factory Mode factory. parameters must be a Standard Schema V1 validator (Zod, Valibot,
-  ArkType, ...) — plain JSON Schema objects throw. Covers the server-vs-client tradeoff
-  (server tools for I/O and secrets, client tools for UI and browser APIs), the reserved
-  AG-UI tool names (AGUISendStateSnapshot, AGUISendStateDelta), graceful error handling in
-  execute, and merge order when a frontend tool and a server tool share a name (server wins).
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/built-in-agent
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/agent/index.ts"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/built-in-agent/server-tools.mdx"
----
-
 # CopilotKit Server-Side Tools
 
 Server-side tools run in the runtime process. They are the right choice when the tool needs

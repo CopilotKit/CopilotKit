@@ -1,25 +1,3 @@
----
-name: middleware
-description: >
-  Wire auth, logging, telemetry, and rate-limiting into the CopilotKit runtime via
-  hooks.onRequest / onBeforeHandler / onResponse / onError on createCopilotRuntimeHandler
-  (newer, route-aware, preferred) or the legacy beforeRequestMiddleware /
-  afterRequestMiddleware on CopilotRuntime (backwards-compat, pre-routing). Covers throwing
-  Response to short-circuit, route-aware authorization via onBeforeHandler({ route }), the
-  non-blocking afterRequestMiddleware contract, and the discipline of delegating the
-  auth/rate-limit/observability implementation to your server framework. This skill does NOT
-  teach those cross-cutting concerns themselves.
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/middleware.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/hooks.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/fetch-handler.ts"
----
-
 # CopilotKit Runtime Middleware
 
 Two coexisting middleware surfaces:

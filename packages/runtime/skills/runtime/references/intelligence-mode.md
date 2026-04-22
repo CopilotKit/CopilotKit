@@ -1,27 +1,3 @@
----
-name: intelligence-mode
-description: >
-  Enable durable threads, realtime websocket transport, and managed multi-instance durability
-  by pointing CopilotKitIntelligence at the CopilotKit-managed cloud Intelligence instance.
-  Currently only the managed cloud instance runs Intelligence; self-hosting is on the roadmap
-  (organizationId is reserved for future self-hosted deployments). Covers CopilotKitIntelligence
-  client config ({ apiUrl, wsUrl, apiKey, organizationId }), the required identifyUser
-  callback, lockTtlSeconds / lockHeartbeatIntervalSeconds clamps (3600 / 3000), the
-  generateThreadNames default (true) that triggers a naming LLM call per new thread, the
-  /threads/* route family that only exists in Intelligence mode, and the /info handshake
-  that tells the frontend to flip transport.
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-  - copilotkit/agent-runners
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/intelligence-platform/client.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/runner/intelligence.ts"
----
-
 # CopilotKit Intelligence Mode
 
 Intelligence currently ships as a managed cloud service. The only supported `apiUrl` /

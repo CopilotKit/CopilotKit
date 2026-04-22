@@ -1,33 +1,3 @@
----
-name: wiring-external-agents
-description: >
-  Connect Mastra, LangGraph, CrewAI Crews, CrewAI Flows, PydanticAI, Google ADK, LlamaIndex,
-  Agno, AWS Strands, Microsoft Agent Framework, AG2, or A2A into CopilotRuntime. Every
-  framework is registered the same way — as an AbstractAgent instance on
-  CopilotRuntime({ agents }). Uses framework-specific classes (MastraAgent, LangGraphAgent,
-  CrewAIAgent, LlamaIndexAgent, AgnoAgent, A2AAgent) when available, otherwise the bare
-  HttpAgent from @ag-ui/client. MCP Apps is runtime-level middleware, not an agent — wire
-  via CopilotRuntime({ mcpApps }) instead.
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-sources:
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/mastra/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/langgraph/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/crewai-flows/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/pydantic-ai/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/adk/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/llamaindex/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/agno/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/aws-strands/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/microsoft-agent-framework/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/ag2/quickstart.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/a2a/quickstart.mdx"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
----
-
 # CopilotKit — Wire External Agent Frameworks
 
 `CopilotRuntime` takes any `AbstractAgent` subclass. Every framework below ships a
@@ -50,7 +20,7 @@ ready-made subclass you construct and hand to `agents: { ... }`.
 
 MCP Apps is NOT a framework — it's a runtime middleware:
 `new CopilotRuntime({ agents, mcpApps: { servers: [...] } })`. See
-[references/mcp-apps-middleware.md](references/mcp-apps-middleware.md).
+[wiring-mcp-apps-middleware.md](wiring-mcp-apps-middleware.md).
 
 ## Setup
 
@@ -94,7 +64,7 @@ const runtime = new CopilotRuntime({
   // the Mastra agent has Memory enabled (the runtime always supplies a
   // threadId, so Memory-enabled agents effectively always need it). Agents
   // without Memory can omit it — `examples/integrations/mastra` calls
-  // `getLocalAgents({ mastra })` with no resourceId. See references/mastra.md.
+  // `getLocalAgents({ mastra })` with no resourceId. See wiring-mastra.md.
   agents: MastraAgent.getLocalAgents({ mastra, resourceId: "default" }),
 });
 
@@ -106,7 +76,7 @@ const handler = createCopilotRuntimeHandler({
 export default { fetch: handler };
 ```
 
-See [references/mastra.md](references/mastra.md).
+See [wiring-mastra.md](wiring-mastra.md).
 
 ### LangGraph
 
@@ -135,7 +105,7 @@ const handler = createCopilotRuntimeHandler({
 export default { fetch: handler };
 ```
 
-See [references/langgraph.md](references/langgraph.md).
+See [wiring-langgraph.md](wiring-langgraph.md).
 
 ### Multi-framework single runtime
 
@@ -357,19 +327,19 @@ Source: `packages/runtime/src/v2/runtime/core/runtime.ts:111-128`.
 
 ## References
 
-- [Mastra](references/mastra.md)
-- [LangGraph](references/langgraph.md)
-- [CrewAI Crews](references/crewai-crews.md)
-- [CrewAI Flows](references/crewai-flows.md)
-- [PydanticAI](references/pydantic-ai.md)
-- [Google ADK](references/adk.md)
-- [LlamaIndex](references/llamaindex.md)
-- [Agno](references/agno.md)
-- [AWS Strands](references/aws-strands.md)
-- [Microsoft Agent Framework](references/ms-agent-framework.md)
-- [AG2](references/ag2.md)
-- [A2A](references/a2a.md)
-- [MCP Apps middleware](references/mcp-apps-middleware.md)
+- [Mastra](wiring-mastra.md)
+- [LangGraph](wiring-langgraph.md)
+- [CrewAI Crews](wiring-crewai-crews.md)
+- [CrewAI Flows](wiring-crewai-flows.md)
+- [PydanticAI](wiring-pydantic-ai.md)
+- [Google ADK](wiring-adk.md)
+- [LlamaIndex](wiring-llamaindex.md)
+- [Agno](wiring-agno.md)
+- [AWS Strands](wiring-aws-strands.md)
+- [Microsoft Agent Framework](wiring-ms-agent-framework.md)
+- [AG2](wiring-ag2.md)
+- [A2A](wiring-a2a.md)
+- [MCP Apps middleware](wiring-mcp-apps-middleware.md)
 
 ## See also
 

@@ -1,29 +1,3 @@
----
-name: built-in-agent
-description: >
-  Instantiate the in-tree BuiltInAgent in Factory Mode (preferred default, AG-UI-compliant)
-  with TanStack AI, Vercel AI SDK, or a custom AG-UI event generator — or in Simple Mode
-  (classic config) for quickstart-only. Covers AgentFactoryContext { input, abortController,
-  abortSignal }, the converter helpers (convertInputToTanStackAI,
-  convertMessagesToVercelAISDKMessages, convertToolsToVercelAITools,
-  convertToolDefinitionsToVercelAITools, resolveModel), tool-loop semantics via maxSteps (default undefined — AI SDK stops after one generation),
-  the TanStack AI reasoning-event caveat (reasoning events are silently dropped — use AI SDK
-  if reasoning UI is required), forwardSystemMessages / forwardDeveloperMessages defaults
-  (false), and manual AGUISendStateSnapshot / AGUISendStateDelta wiring in Factory Mode.
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/agent/index.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/agent/converters/tanstack.ts"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/built-in-agent/custom-agent.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/built-in-agent/advanced-configuration.mdx"
-  - "CopilotKit/CopilotKit:docs/content/docs/integrations/built-in-agent/model-selection.mdx"
-  - "CopilotKit/CopilotKit:examples/v2/react-router/app/routes/api.copilotkit.$.tsx"
----
-
 # CopilotKit BuiltInAgent
 
 `BuiltInAgent` has two modes:
@@ -538,9 +512,9 @@ Source: `packages/runtime/src/agent/index.ts:670-672`.
 
 ## References
 
-- [Model identifiers — supported strings](references/model-identifiers.md)
-- [Factory modes — TanStack AI / AI SDK / custom cookbook](references/factory-modes.md)
-- [Helper utilities — converter function signatures](references/helper-utilities.md)
+- [Model identifiers — supported strings](built-in-agent-model-identifiers.md)
+- [Factory modes — TanStack AI / AI SDK / custom cookbook](built-in-agent-factory-modes.md)
+- [Helper utilities — converter function signatures](built-in-agent-helper-utilities.md)
 
 ## See also
 

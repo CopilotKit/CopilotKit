@@ -1,24 +1,3 @@
----
-name: transcription
-description: >
-  Implement a TranscriptionService subclass to enable the runtime's POST /transcribe endpoint.
-  There is no built-in OpenAITranscription class — transcription is always DIY. Covers the
-  multipart ('audio' form field) and JSON (base64 + mimeType) payload shapes, the MIME-type
-  whitelist, and the runtime's keyword-based auto-categorization of thrown errors into
-  TranscriptionErrorCode values (service_not_configured / invalid_audio_format /
-  audio_too_long / audio_too_short / rate_limited / auth_failed / provider_error /
-  network_error / invalid_request).
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/setup-endpoint
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/transcription-service/transcription-service.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/handlers/handle-transcribe.ts"
-  - "CopilotKit/CopilotKit:packages/shared/src/transcription-errors.ts"
----
-
 # CopilotKit Transcription
 
 Subclass `TranscriptionService`, pass an instance to `CopilotRuntime({ transcriptionService })`,

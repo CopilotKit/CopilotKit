@@ -1,25 +1,3 @@
----
-name: setup-endpoint
-description: >
-  Mount a CopilotKit runtime on any JS server via createCopilotRuntimeHandler — the canonical
-  fetch-based primitive that works on Cloudflare Workers, Bun, Deno, Vercel Edge, React Router
-  v7 loader/action, TanStack Start server routes, and Next.js App Router. Express/Hono are
-  supported only by delegating from their route handlers to the fetch primitive — the
-  createCopilotExpressHandler and createCopilotHonoHandler adapters are discouraged. Covers
-  basePath, multi-route vs single-route mode, CORS, and the /info, /agent/:id/run,
-  /agent/:id/connect, /agent/:id/stop/:threadId, /transcribe, /threads/* route table.
-type: core
-library: copilotkit
-library_version: "1.56.2"
-requires: []
-sources:
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/fetch-handler.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/hooks.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/endpoints/express.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/endpoints/hono.ts"
-  - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/endpoints/node.ts"
----
-
 # CopilotKit Runtime Endpoint
 
 `createCopilotRuntimeHandler` is the strongly-preferred primitive. It returns a
