@@ -1,17 +1,33 @@
 # Probe: smoke
 #
-# Per-service GET /smoke health check across every showcase starter on
-# Railway. Static-targets shape — one entry per known service slug —
-# because the smoke domain is small, bounded, and operator-authored:
-# discovery would add moving parts (Railway auth, service-list drift,
-# filter predicates) for no upside when the slug list changes roughly
-# never. When a new showcase lands, add a line here.
+# Per-service L1+L2 health check across every showcase service on
+# Railway. Discovery-driven: the `railway-services` source enumerates
+# every `showcase-*` service in the orchestrator's project, and the
+# driver fans out one invocation per service.
 #
-# Each driver invocation issues TWO HTTP GETs: `url` (the /smoke
-# endpoint) and the derived /health endpoint. The smoke driver emits
-# the primary `smoke:<slug>` ProbeResult as its return value and
-# side-emits the paired `health:<slug>` ProbeResult through
-# ctx.writer, so a single YAML target produces two writer ticks.
+# Each driver invocation issues THREE HTTP calls:
+#   1. GET  `${publicUrl}/smoke`            → primary `smoke:<slug>` tick
+#   2. GET  `${publicUrl}/health`           → side-emit `health:<slug>`
+#   3. POST `${publicUrl}/api/copilotkit/`  → side-emit `agent:<slug>`
+#
+# (1) and (2) are L1: liveness + health. (3) is L2: the CopilotKit
+# runtime is mounted and answering — any non-404 response is green;
+# 404 or transport failure is red. Matches the `checkAgentEndpoint`
+# contract in the e2e helpers.
+#
+# `slug` is derived by stripping the `showcase-` prefix from the Railway
+# service name. So `showcase-ag2` → keys `smoke:ag2` / `health:ag2` /
+# `agent:ag2`, and `showcase-starter-ag2` → `smoke:starter-ag2` /
+# `health:starter-ag2` / `agent:starter-ag2`. This keeps the 17 package
+# + 17 starter services observable as 34 × 3 = 102 independent probe
+# rows — each can flip green/red without blinding its siblings.
+#
+# Auto-discovery: adding a new `showcase-*` service on Railway
+# automatically picks it up on the next tick — no YAML edit required.
+# Only infra services (aimock/ops/pocketbase/shell*) are excluded,
+# because they don't expose a CopilotKit runtime or health endpoints.
+# If a new non-monitored service is created with the `showcase-`
+# prefix, extend `filter.nameExcludes` here.
 #
 # Schedule mirrors the pre-YAML cron cadence (every 15 minutes) — the
 # accompanying alert rule in config/alerts/ covers green→red /
@@ -20,81 +36,37 @@
 #
 # timeout_ms (10s) bounds the WHOLE driver invocation at the invoker
 # level; the driver re-applies the same bound inside each HTTP call
-# so one hung endpoint can't steal budget from its paired probe.
+# so one hung endpoint can't steal budget from its paired probes.
 # max_concurrency (6) caps simultaneous per-tick driver invocations —
-# at 17 services the tick takes ≤ 3 pool-cycles and stays well under
-# any Railway edge rate limit.
+# at 34 services the tick takes ≤ 6 pool-cycles and stays well under
+# any Railway edge rate limit. Per-tick socket bound:
+# max_concurrency × 3 endpoints = 18 inflight.
 kind: smoke
 id: smoke
 schedule: "*/15 * * * *"
 timeout_ms: 10000
 max_concurrency: 6
-targets:
-  - {
-      key: "smoke:ag2",
-      url: "https://showcase-ag2-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:agno",
-      url: "https://showcase-agno-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:claude-sdk-python",
-      url: "https://showcase-claude-sdk-python-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:claude-sdk-typescript",
-      url: "https://showcase-claude-sdk-typescript-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:crewai-crews",
-      url: "https://showcase-crewai-crews-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:google-adk",
-      url: "https://showcase-google-adk-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:langgraph-fastapi",
-      url: "https://showcase-langgraph-fastapi-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:langgraph-python",
-      url: "https://showcase-langgraph-python-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:langgraph-typescript",
-      url: "https://showcase-langgraph-typescript-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:langroid",
-      url: "https://showcase-langroid-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:llamaindex",
-      url: "https://showcase-llamaindex-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:mastra",
-      url: "https://showcase-mastra-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:ms-agent-dotnet",
-      url: "https://showcase-ms-agent-dotnet-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:ms-agent-python",
-      url: "https://showcase-ms-agent-python-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:pydantic-ai",
-      url: "https://showcase-pydantic-ai-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:spring-ai",
-      url: "https://showcase-spring-ai-production.up.railway.app/smoke",
-    }
-  - {
-      key: "smoke:strands",
-      url: "https://showcase-strands-production.up.railway.app/smoke",
-    }
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+    # Infra services that don't expose /smoke, /health, or the
+    # CopilotKit runtime. Keep this list aligned with the excludes in
+    # `src/probes/aimock-wiring.ts` — when a new infra service lands
+    # on Railway under the `showcase-` prefix, add it in both places.
+    nameExcludes:
+      - "showcase-aimock"
+      - "showcase-ops"
+      - "showcase-pocketbase"
+      - "showcase-shell"
+      - "showcase-shell-dashboard"
+      - "showcase-shell-docs"
+      - "showcase-shell-dojo"
+  # key_template is interpolated against each RailwayServiceInfo record.
+  # `${name}` is the full Railway service name (`showcase-ag2`). The
+  # driver re-derives the slug by stripping the `showcase-` prefix, so
+  # the writer sees `smoke:showcase-ag2` as the top-line key and
+  # `health:ag2` / `agent:ag2` as the side-emit keys. We keep the
+  # `smoke:` prefix carrying the full service name so existing alert
+  # rules that dedupe on `smoke:*` continue to match.
+  key_template: "smoke:${name}"
