@@ -83,6 +83,56 @@ describe("parseSSEResponse", () => {
     });
   });
 
+  it("normalizes array content in TOOL_CALL_RESULT (MCP adapters)", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-1",
+        messageId: "m-result",
+        role: "tool",
+        content: [
+          { type: "text", text: '{"metric":"cpu","value":42}' },
+          { type: "text", text: " extra info" },
+        ],
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toContainEqual({
+      id: "m-result",
+      role: "tool",
+      content: '{"metric":"cpu","value":42} extra info',
+      toolCallId: "tc-1",
+    });
+  });
+
+  it("filters non-text parts when normalizing array content in TOOL_CALL_RESULT", async () => {
+    const response = buildSSEResponse([
+      { type: "RUN_STARTED", threadId: "t-1", runId: "r-1" },
+      {
+        type: "TOOL_CALL_RESULT",
+        toolCallId: "tc-1",
+        messageId: "m-result",
+        role: "tool",
+        content: [
+          { type: "text", text: "valid" },
+          { type: "image", data: "binary" },
+          null,
+          { type: "text", text: " part" },
+        ],
+      },
+      { type: "RUN_FINISHED", threadId: "t-1", runId: "r-1" },
+    ]);
+    const result = await parseSSEResponse(response);
+    expect(result.messages).toContainEqual({
+      id: "m-result",
+      role: "tool",
+      content: "valid part",
+      toolCallId: "tc-1",
+    });
+  });
+
   it("uses MESSAGES_SNAPSHOT when present", async () => {
     const snapshotMessages = [
       { id: "u-1", role: "user", content: "hi" },

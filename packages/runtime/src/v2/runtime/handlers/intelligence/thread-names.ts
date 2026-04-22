@@ -99,7 +99,7 @@ async function runTitleGenerationAttempt(params: {
   prompt: string;
 }): Promise<string | null> {
   const { runtime, request, agentId, threadId, prompt } = params;
-  const agent = await cloneAgentForRequest(runtime, agentId);
+  const agent = await cloneAgentForRequest(runtime, agentId, request);
   if (isHandlerResponse(agent)) {
     logger.warn(
       { agentId, threadId },

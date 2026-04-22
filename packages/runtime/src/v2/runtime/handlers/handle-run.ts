@@ -30,7 +30,7 @@ export async function handleRunAgent({
   });
 
   try {
-    const agent = await cloneAgentForRequest(runtime, agentId);
+    const agent = await cloneAgentForRequest(runtime, agentId, request);
     if (agent instanceof Response) {
       return agent;
     }
@@ -55,6 +55,13 @@ export async function handleRunAgent({
     agent.setState(input.state);
     agent.threadId = input.threadId;
 
+    if (runtime.debug?.lifecycle && runtime.debugLogger) {
+      runtime.debugLogger.debug(
+        { agentName: agentId, threadId: input.threadId },
+        "Agent run started",
+      );
+    }
+
     if (isIntelligenceRuntime(runtime)) {
       return handleIntelligenceRun({
         runtime,
@@ -65,7 +72,15 @@ export async function handleRunAgent({
       });
     }
 
-    return handleSseRun({ runtime, request, agent, input });
+    return handleSseRun({
+      runtime,
+      request,
+      agent,
+      input,
+      agentId,
+      debug: runtime.debug,
+      logger: runtime.debugLogger,
+    });
   } catch (error) {
     console.error("Error running agent:", error);
     console.error(

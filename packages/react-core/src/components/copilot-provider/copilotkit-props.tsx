@@ -1,7 +1,7 @@
 import { ForwardedParametersInput } from "@copilotkit/runtime-client-gql";
 import { ReactNode } from "react";
 import { AuthState } from "../../context/copilot-context";
-import { CopilotErrorHandler } from "@copilotkit/shared";
+import { CopilotErrorHandler, DebugConfig } from "@copilotkit/shared";
 import { CopilotKitProviderProps } from "../../v2";
 /**
  * Props for CopilotKit.
@@ -68,15 +68,19 @@ export interface CopilotKitProps extends Omit<
 
   /**
    * Additional headers to be sent with the request.
+   * Can be a static object or a function that returns headers dynamically
+   * (useful for refreshing auth tokens).
    *
    * For example:
-   * ```json
-   * {
-   *   "Authorization": "Bearer X"
-   * }
+   * ```tsx
+   * // Static headers
+   * headers={{ "Authorization": "Bearer X" }}
+   *
+   * // Dynamic headers (re-evaluated on each render)
+   * headers={() => ({ "Authorization": `Bearer ${getToken()}` })}
    * ```
    */
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Record<string, string>);
 
   /**
    * The children to be rendered within the CopilotKit.
@@ -191,4 +195,20 @@ export interface CopilotKitProps extends Omit<
    * to enabled.
    */
   enableInspector?: boolean;
+
+  /**
+   * Enable debug logging. On the server (`CopilotRuntime`), this enables
+   * structured Pino logging of the AG-UI event pipeline. On the client,
+   * this configuration is forwarded to the AG-UI transport layer
+   * (`transformChunks`) for transport-level debug output.
+   *
+   * Pass `true` for full output, or an object for granular control:
+   *
+   * ```tsx
+   * <CopilotKit debug={true} runtimeUrl="...">
+   *   {children}
+   * </CopilotKit>
+   * ```
+   */
+  debug?: DebugConfig;
 }

@@ -3,7 +3,17 @@ import { NextResponse } from "next/server";
 const INTEGRATION_SLUG = "crewai-crews";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+// Upstream fetch timeout. Kept strictly shorter than ``maxDuration`` (60s)
+// so that a hung upstream can't exhaust the whole route budget: a stuck
+// agent surfaces as a clean ``timeout`` stage within ~25s, leaving room
+// for the response JSON to be written before Next.js kills the request.
+// Previously the inner fetch shared the full 45s timeout, which — when
+// the agent hung — caused the smoke route itself to hang for 30s+ of the
+// 60s budget before the platform cut it, producing HTTP 000 at the
+// caller instead of a structured ``stage: "timeout"`` response.
+const UPSTREAM_TIMEOUT_MS = 25_000;
 
 export async function GET() {
   const start = Date.now();
@@ -35,7 +45,7 @@ export async function GET() {
           forwardedProps: {},
         },
       }),
-      signal: AbortSignal.timeout(25000),
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
     const latency = Date.now() - start;

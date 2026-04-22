@@ -1,0 +1,403 @@
+{
+  "fixtures": [
+    {
+      "match": {
+        "userMessage": "weather"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_weather",
+            "arguments": "{\"location\":\"Tokyo\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "weather summary"
+      },
+      "response": {
+        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pie chart"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"revenue by category\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show pie"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "pieChart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Breakdown of revenue across product categories\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_data",
+            "arguments": "{\"query\":\"monthly sales\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "show bar"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "barChart",
+            "arguments": "{\"title\":\"Monthly Sales\",\"description\":\"Sales performance January through June\",\"data\":[{\"label\":\"Jan\",\"value\":15000},{\"label\":\"Feb\",\"value\":22000},{\"label\":\"Mar\",\"value\":18000},{\"label\":\"Apr\",\"value\":31000},{\"label\":\"May\",\"value\":27000},{\"label\":\"Jun\",\"value\":35000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "schedule"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "schedule_meeting",
+            "arguments": "{\"reason\":\"Team sync to discuss Q3 roadmap\",\"duration_minutes\":30}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "meeting"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "scheduleTime",
+            "arguments": "{\"reasonForScheduling\":\"Weekly standup\",\"meetingDuration\":15}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sales"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "pipeline"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "todo"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "get_sales_todos",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "flight"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "fly"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA123\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"08:00\",\"arrivalTime\":\"16:30\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$349\",\"currency\":\"USD\"},{\"airline\":\"Delta\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=delta.com&sz=128\",\"flightNumber\":\"DL456\",\"origin\":\"SFO\",\"destination\":\"JFK\",\"date\":\"Tue, Apr 15\",\"departureTime\":\"10:15\",\"arrivalTime\":\"18:45\",\"duration\":\"5h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$289\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "theme"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "toggle"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "toggleTheme",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "hello"
+      },
+      "response": {
+        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Hello"
+      },
+      "response": {
+        "content": "Hello! I can help you with weather lookups, creating pie and bar charts, scheduling meetings, managing sales todos, searching flights, and toggling the theme. What would you like to do?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "help"
+      },
+      "response": {
+        "content": "Here are the things I can help with:\n- Check the weather for any location\n- Create pie charts and bar charts from data\n- Schedule meetings with a reason and duration\n- Manage your sales pipeline and todos\n- Search for flights between cities\n- Toggle the UI theme between light and dark\n\nJust ask me about any of these!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "hi"
+      },
+      "response": {
+        "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Based on the following context, write a concise"
+      },
+      "response": {
+        "content": "A short input value used to parameterize the crew's tasks and agents."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "plan"
+      },
+      "response": {
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "steps"
+      },
+      "response": {
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "mars"
+      },
+      "response": {
+        "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "dashboard"
+      },
+      "response": {
+        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "report"
+      },
+      "response": {
+        "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "summarize"
+      },
+      "response": {
+        "content": "Here's a summary of your current sales pipeline:\n\n- **Total Pipeline Value**: $185,000\n- **Active Deals**: 5 deals across Prospect, Qualified, and Proposal stages\n- **Top Deal**: Acme Corp at $50,000 (Proposal stage)\n- **Win Rate**: 62% this quarter\n\nThe pipeline is healthy with good distribution across stages. Would you like to drill into any specific metric?"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "expand"
+      },
+      "response": {
+        "content": "# Project Proposal: Q2 Initiative\n\n## Executive Summary\nThis proposal outlines the strategic objectives, timeline, and resource allocation for the Q2 project initiative.\n\n## Objectives\n1. Increase customer engagement by 25%\n2. Launch three new product features\n3. Reduce operational costs by 15%\n\n## Timeline\n- **Week 1-2**: Discovery and requirements gathering\n- **Week 3-6**: Development and implementation\n- **Week 7-8**: Testing and quality assurance\n- **Week 9-10**: Staged rollout and monitoring\n\n## Budget\nEstimated total: $45,000\n- Development: $25,000\n- Testing: $10,000\n- Infrastructure: $10,000\n\n## Success Metrics\n- Customer satisfaction score > 4.5\n- Feature adoption rate > 60%\n- Zero critical bugs at launch"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "rewrite"
+      },
+      "response": {
+        "content": "Dear Team,\n\nI am writing to formally document the proceedings and key decisions from today's meeting.\n\n**Attendees**: Full project team\n**Date**: Today's session\n\n**Key Discussion Points**:\n1. Project timeline was reviewed and approved\n2. Resource allocation was confirmed\n3. Next milestones were established\n\n**Action Items**:\n- Complete phase one deliverables by end of week\n- Schedule follow-up review meeting\n- Distribute updated project documentation\n\nPlease review and confirm your respective action items.\n\nBest regards"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "detailed"
+      },
+      "response": {
+        "content": "# Budget Report - Q3\n\n## Overview\n- **Total Budget**: $150,000\n- **Spent to Date**: $89,500 (59.7%)\n- **Remaining**: $60,500\n\n## Breakdown by Category\n- **Personnel**: $52,000 (58.1% of spend)\n- **Infrastructure**: $18,500 (20.7%)\n- **Software Licenses**: $12,000 (13.4%)\n- **Miscellaneous**: $7,000 (7.8%)\n\n## Key Highlights\n- Personnel costs are tracking 5% under budget\n- Infrastructure spend increased due to scaling needs\n- Software license renewal saved $3,000 through annual plan\n\n## Recommendations\n- Reallocate $5,000 from personnel to infrastructure\n- Prepay Q4 licenses for additional savings"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "formal letter"
+      },
+      "response": {
+        "content": "Dear Sir/Madam,\n\nI am writing to formally present the enclosed draft text for your review and consideration.\n\nThe document has been prepared in accordance with standard formatting guidelines and organizational protocols. All relevant sections have been reviewed for accuracy and completeness.\n\nPlease find the revised content enclosed. Should you require any modifications or have questions regarding the content, please do not hesitate to contact me at your earliest convenience.\n\nI look forward to your feedback.\n\nYours sincerely,\nThe Document Editor"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "deal"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "manage_sales_todos",
+            "arguments": "{\"todos\": [{\"id\": \"new-1\", \"title\": \"New Enterprise Deal\", \"stage\": \"prospect\", \"value\": 50000, \"dueDate\": \"2026-05-01\", \"assignee\": \"Alice\", \"completed\": false}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "sample deals"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "manage_sales_todos",
+            "arguments": "{\"todos\": [{\"id\": \"new-1\", \"title\": \"New Enterprise Deal\", \"stage\": \"prospect\", \"value\": 50000, \"dueDate\": \"2026-05-01\", \"assignee\": \"Alice\", \"completed\": false}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "trip"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"ANA\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=ana.co.jp&sz=128\",\"flightNumber\":\"NH7\",\"origin\":\"SFO\",\"destination\":\"NRT\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"11:30\",\"arrivalTime\":\"15:30+1\",\"duration\":\"11h 00m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$850\",\"currency\":\"USD\"},{\"airline\":\"JAL\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=jal.co.jp&sz=128\",\"flightNumber\":\"JL1\",\"origin\":\"SFO\",\"destination\":\"NRT\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"13:00\",\"arrivalTime\":\"17:00+1\",\"duration\":\"11h 00m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$920\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "paris"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "search_flights",
+            "arguments": "{\"flights\":[{\"airline\":\"Air France\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=airfrance.com&sz=128\",\"flightNumber\":\"AF85\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"16:00\",\"arrivalTime\":\"11:30+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$780\",\"currency\":\"USD\"},{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA990\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"18:15\",\"arrivalTime\":\"13:45+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$720\",\"currency\":\"USD\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "alice"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Alice"
+      },
+      "response": {
+        "content": "Nice to meet you, Alice! I see you're in Tokyo -- wonderful city. How can I help you today? I can check the weather, look up flights, manage your sales pipeline, or help with other tasks."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "city"
+      },
+      "response": {
+        "content": "Based on our conversation, you said you live in Tokyo!"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "background"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #667eea 0%, #764ba2 100%)\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

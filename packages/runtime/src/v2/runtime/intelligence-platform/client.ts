@@ -663,12 +663,14 @@ export class CopilotKitIntelligence {
   async ɵconnectThread(params: {
     threadId: string;
     userId: string;
+    runId?: string;
     lastSeenEventId?: string | null;
   }): Promise<ConnectThreadResponse> {
     const result = await this.#request<
       ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
     >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
       userId: params.userId,
+      ...(params.runId !== undefined ? { runId: params.runId } : {}),
       ...(params.lastSeenEventId !== undefined
         ? { lastSeenEventId: params.lastSeenEventId }
         : {}),
