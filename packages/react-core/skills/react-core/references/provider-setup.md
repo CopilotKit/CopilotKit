@@ -1,23 +1,3 @@
----
-name: provider-setup
-description: >
-  Mount CopilotKitProvider in a React app — runtimeUrl, headers, credentials,
-  properties, publicApiKey, onError, debug, showDevConsole. Load when
-  setting up CopilotKit for the first time, fixing provisional-agent or
-  "connecting forever" issues, adding the "use client" boundary for Next.js
-  App Router, rotating auth headers, or wiring a global onError handler.
-  publicApiKey is canonical; publicLicenseKey is an alias.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires: []
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/providers/CopilotKitProvider.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/index.ts"
-  - "CopilotKit/CopilotKit:packages/core/src/core/core.ts"
----
-
 # CopilotKit Provider Setup (React)
 
 Mount `CopilotKitProvider` once near the root of the React tree. Every

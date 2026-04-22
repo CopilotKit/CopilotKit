@@ -1,27 +1,3 @@
----
-name: client-side-tools
-description: >
-  Register browser-side tools agents invoke via useFrontendTool<T>(tool,
-  deps?). Covers Standard Schema V1 parameters (zod / valibot / arktype),
-  FrontendToolHandlerContext { toolCall, agent, signal }, followUp split
-  (boolean on FrontendTool default-TRUE for agent-invoked; boolean |
-  'generate' | string on copilotkit.runTool), agentId scope, stale-closure
-  via deps. UI-kit rule — check consumer's shadcn / MUI / Chakra / Ant /
-  Mantine before writing raw JSX in render. Load when defining
-  browser-side actions, search tools, or any tool whose handler needs DOM
-  / localStorage / router access.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-frontend-tool.tsx"
-  - "CopilotKit/CopilotKit:packages/core/src/types.ts"
-  - "CopilotKit/CopilotKit:packages/core/src/core/run-handler.ts"
----
-
 # CopilotKit Client-Side Tools (React)
 
 This skill builds on `copilotkit/provider-setup`. Tools registered via

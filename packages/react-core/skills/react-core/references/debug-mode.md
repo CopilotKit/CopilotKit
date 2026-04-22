@@ -1,23 +1,3 @@
----
-name: debug-mode
-description: >
-  Enable client-side debug tooling via showDevConsole ('auto' | true | false)
-  and the debug prop (DebugConfig = { events, lifecycle, verbose }). The web
-  inspector lazy-loads @copilotkit/web-inspector via @lit-labs/react. Load
-  when turning on the inspector for local dev, logging full message
-  payloads during a bug repro, or keeping dev tooling out of production.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/providers/CopilotKitProvider.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/components/CopilotKitInspector.tsx"
-  - "CopilotKit/CopilotKit:packages/web-inspector/src/index.ts"
----
-
 # CopilotKit Debug Mode (React)
 
 This skill builds on `copilotkit/provider-setup`. Both debug surfaces are

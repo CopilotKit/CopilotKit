@@ -1,23 +1,3 @@
----
-name: threads
-description: >
-  List / rename / archive / delete durable Intelligence threads via
-  useThreads. Returns { threads, isLoading, error, hasMoreThreads,
-  fetchMoreThreads, renameThread, archiveThread, deleteThread }.
-  Intelligence-mode only — in SSE mode the hook errors with "Runtime URL is
-  not configured". deleteThread is irreversible (use archiveThread for
-  soft-delete UX). Load when building a thread sidebar, thread-switcher UI,
-  or an archived-threads view.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/agent-access
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-threads.tsx"
----
-
 # CopilotKit Threads (React)
 
 This skill builds on `copilotkit/agent-access`. Durable threads only exist

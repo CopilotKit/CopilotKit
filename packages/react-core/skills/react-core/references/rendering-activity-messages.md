@@ -1,26 +1,3 @@
----
-name: rendering-activity-messages
-description: >
-  Register renderers for non-chat activity messages (MCP Apps outputs,
-  generative UI surfaces, custom activity types) via ReactActivityMessageRenderer
-  entries passed to CopilotKitProvider and consumed via useRenderActivityMessage.
-  User-provided renderers precede built-ins (MCPAppsActivityType,
-  OpenGenerativeUIActivityType) and can override them. Silent-fail when
-  content schema mismatches — safeParse returns null with only a console.warn.
-  Resolver order: (activityType, agentId) > (activityType, unscoped) > '*'
-  > null. Load when rendering non-chat agent output: workflow progress,
-  MCP-app cards, custom tool dashboards.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-render-activity-message.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/types/react-activity-message-renderer.ts"
----
-
 # CopilotKit Rendering Activity Messages (React)
 
 This skill builds on `copilotkit/provider-setup`. Activity-message

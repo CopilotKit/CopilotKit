@@ -1,25 +1,3 @@
----
-name: custom-message-renderers
-description: >
-  Inject custom UI before or after specific messages via useRenderCustomMessages.
-  Only usable inside CopilotChatConfigurationProvider — returns null
-  outside a chat tree. First non-null result wins. stateSnapshot is
-  undefined before runId resolves. Sorted so agent-scoped renderers run
-  first; pass renderers via the renderCustomMessages prop on
-  CopilotKitProvider. Load when adding copy buttons, debug panels, state
-  snapshots, or any UI that should live between messages.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-  - copilotkit/chat-components
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-render-custom-messages.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/types/react-custom-message-renderer.ts"
----
-
 # CopilotKit Custom Message Renderers (React)
 
 This skill builds on `copilotkit/provider-setup` and

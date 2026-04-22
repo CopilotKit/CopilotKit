@@ -1,27 +1,3 @@
----
-name: agent-access
-description: >
-  Access agents via useAgent({ agentId, threadId, updates, throttleMs }) and
-  push JSON-serializable shared state via useAgentContext({ description,
-  value }). Covers per-thread clone WeakMap, UseAgentUpdate filter,
-  ProxiedCopilotRuntimeAgent provisional agent, agent.addMessage /
-  setState / abortRun. useAgent returns { agent }; run status comes from
-  agent.isRunning (subscribe via UseAgentUpdate.OnRunStatusChanged).
-  useAgentContext has no agentId parameter and context is always global —
-  the core addContext API also ignores any agentId field, so per-agent
-  context scoping is not supported.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-agent.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-agent-context.tsx"
-  - "CopilotKit/CopilotKit:packages/core/src/core/core.ts"
----
-
 # CopilotKit Agent Access (React)
 
 This skill builds on `copilotkit/provider-setup`. `useAgent` reads from the

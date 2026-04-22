@@ -1,22 +1,3 @@
----
-name: capabilities
-description: >
-  Read AgentCapabilities declared by an agent via useCapabilities(agentId?).
-  Populated from the runtime /info handshake — returns undefined until the
-  connection resolves. Use to feature-gate voice input, tool UI, or any
-  capability-conditional UI. Load when conditionally hiding a feature based
-  on what the connected agent supports.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/agent-access
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-capabilities.tsx"
-  - "CopilotKit/CopilotKit:packages/runtime/src/agent/index.ts"
----
-
 # CopilotKit Capabilities (React)
 
 This skill builds on `copilotkit/agent-access`. `useCapabilities` internally

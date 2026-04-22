@@ -1,27 +1,3 @@
----
-name: rendering-tool-calls
-description: >
-  Register per-tool renderers via useRenderTool (primary), useComponent
-  (render-only tool), useDefaultRenderTool (sanctioned wildcard fallback).
-  useRenderToolCall is a resolver — NOT a registration hook. Status values
-  are camelCase 'inProgress' | 'executing' | 'complete'. InProgress
-  parameters are Partial<T>. Same UI-kit-detection rule as client-side-tools.
-  Load when showing progress UI, result cards, or a generic card for any
-  tool the agent calls.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-  - copilotkit/client-side-tools
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-render-tool.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-render-tool-call.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-default-render-tool.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-component.tsx"
----
-
 # CopilotKit Rendering Tool Calls (React)
 
 This skill builds on `copilotkit/provider-setup` and

@@ -1,28 +1,3 @@
----
-name: human-in-the-loop
-description: >
-  Gate tool execution behind user approval via useHumanInTheLoop. The
-  synthesized handler returns a Promise that ONLY resolves when
-  respond(result) is called. Never calling respond (including reject paths)
-  hangs the agent run forever and keeps the thread locked. respond is
-  undefined outside status === "executing". Unmounting mid-executing
-  abandons the run. Status values are camelCase 'inProgress' | 'executing' |
-  'complete'. Same UI-kit rule as client-side-tools. Load when gating
-  destructive actions, prompting for input mid-run, or building approval
-  modals.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-  - copilotkit/client-side-tools
-  - copilotkit/rendering-tool-calls
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-human-in-the-loop.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/types/human-in-the-loop.ts"
----
-
 # CopilotKit Human-in-the-Loop (React)
 
 This skill builds on `copilotkit/provider-setup`, `copilotkit/client-side-tools`,

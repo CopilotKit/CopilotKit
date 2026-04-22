@@ -1,26 +1,3 @@
----
-name: suggestions
-description: >
-  Configure dynamic (LLM-generated) or static suggestion pills via
-  useConfigureSuggestions(config | null, deps?). Read / reload / clear via
-  useSuggestions({ agentId }). SuggestionAvailability controls when pills
-  show ('before-first-message' | 'after-first-message' | 'always' |
-  'disabled'); 'disabled' normalizes to null (no-op). min/maxSuggestions
-  default 1/3. Load when building first-message starters, follow-up
-  suggestions after each response, or agent-aware prompt shortcuts.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-  - copilotkit/chat-components
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-configure-suggestions.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-suggestions.tsx"
-  - "CopilotKit/CopilotKit:packages/core/src/types.ts"
----
-
 # CopilotKit Suggestions (React)
 
 This skill builds on `copilotkit/provider-setup` and

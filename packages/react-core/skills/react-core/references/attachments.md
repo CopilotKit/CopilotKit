@@ -1,25 +1,3 @@
----
-name: attachments
-description: >
-  Manage file / image / audio / video / document attachments in chat via
-  useAttachments — drag-and-drop, click-to-upload, clipboard paste, custom
-  backends (onUpload), 20MB byte-sized default maxSize, queue draining via
-  consumeAttachments. Powers the attachments prop on <CopilotChat>. Replaces
-  the v1 imageUploadsEnabled flag. Load when enabling image uploads, wiring
-  S3 / presigned URL backends, or building a custom chat surface that
-  supports paste-to-attach.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-  - copilotkit/chat-components
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-attachments.tsx"
-  - "CopilotKit/CopilotKit:docs/content/docs/(root)/migration-guides/migrate-attachments.mdx"
----
-
 # CopilotKit Attachments (React)
 
 This skill builds on `copilotkit/provider-setup` and

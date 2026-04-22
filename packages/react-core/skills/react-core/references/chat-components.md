@@ -1,24 +1,3 @@
----
-name: chat-components
-description: >
-  Drop in CopilotChat / CopilotPopup / CopilotSidebar, or compose the
-  headless CopilotChatView with CopilotChatInput / CopilotChatMessageView
-  slot primitives. All v2 chat components ship from
-  @copilotkit/react-core/v2 — NOT from @copilotkit/react-ui (v2 react-ui is
-  CSS-only). CopilotPanel does not exist. Load when building a chat surface,
-  swapping the default UI, or debugging "component not exported" errors.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/provider-setup
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/components/chat/index.ts"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/components/chat/CopilotChat.tsx"
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/components/chat/CopilotChatView.tsx"
----
-
 # CopilotKit Chat Components (React)
 
 This skill builds on `copilotkit/provider-setup`. Read it first — every

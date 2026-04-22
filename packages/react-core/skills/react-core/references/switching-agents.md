@@ -1,26 +1,3 @@
----
-name: switching-agents
-description: >
-  Build multi-agent UIs — one useAgent({ agentId }) per panel, agentId
-  filter on tools / renderers / context, key-remount pattern for
-  <CopilotChat> when swapping agents in the same slot. No useAgents() hook
-  exists — discover available agents via copilotkit.subscribe({
-  onAgentsChanged }). Load when building a dropdown/tabs agent switcher,
-  side-by-side chat panels, or scoping tools to specific agents.
-type: framework
-framework: react
-library: copilotkit
-library_version: "1.56.2"
-requires:
-  - copilotkit/agent-access
-  - copilotkit/client-side-tools
-  - copilotkit/rendering-tool-calls
-sources:
-  - "CopilotKit/CopilotKit:packages/react-core/src/v2/hooks/use-agent.tsx"
-  - "CopilotKit/CopilotKit:packages/core/src/core/agent-registry.ts"
-  - "CopilotKit/CopilotKit:examples/v2/react-router/app/routes/_index.tsx"
----
-
 # CopilotKit Switching Agents (React)
 
 This skill builds on `copilotkit/agent-access`, `copilotkit/client-side-tools`,
@@ -251,4 +228,4 @@ Source: `packages/react-core/src/v2/hooks/index.ts` (no `useAgents` export)
 
 ## References
 
-- [Agent switcher recipes](references/agent-switcher-recipes.md) — dropdown, tabs, keyboard shortcuts
+- [Agent switcher recipes](switching-agents-recipes.md) — dropdown, tabs, keyboard shortcuts
