@@ -3122,8 +3122,7 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
       groupBy: ["dimension"],
       windowMs: 30_000,
       minMatches: 3,
-      template:
-        "<!channel> {{count}} smoke-red across fleet: {{services}}",
+      template: "<!channel> {{count}} smoke-red across fleet: {{services}}",
       targets: ["slack-oss-alerts"],
       ...overrides,
     };
@@ -3267,21 +3266,9 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
 
     // Advance to windowMs+1. New matching signal arrives → bucket A' opens.
     vi.advanceTimersByTime(windowMs + 1);
-    store.ingest(
-      rule,
-      mkSignal("smoke", "d"),
-      t0 + windowMs + 1,
-    );
-    store.ingest(
-      rule,
-      mkSignal("smoke", "e"),
-      t0 + windowMs + 2_000,
-    );
-    store.ingest(
-      rule,
-      mkSignal("smoke", "f"),
-      t0 + windowMs + 3_000,
-    );
+    store.ingest(rule, mkSignal("smoke", "d"), t0 + windowMs + 1);
+    store.ingest(rule, mkSignal("smoke", "e"), t0 + windowMs + 2_000);
+    store.ingest(rule, mkSignal("smoke", "f"), t0 + windowMs + 3_000);
 
     // Both buckets share groupValues → identical composite dedupe key.
     expect(onFlush).toHaveBeenCalledTimes(2);
