@@ -21,6 +21,15 @@ triggers:
   - set_drifted
   - set_errored
   - red_to_green
+  # cron_only heartbeat on the same cadence as the aimock-wiring probe
+  # (see config/probes/aimock-wiring.yml). Pairing the probe schedule with
+  # a rule-level cron trigger means a long green-run still produces an
+  # engine tick — the engine's synthesized `resolvedState=green` outcome
+  # is available for any template that wants to render a periodic "still
+  # healthy" report. Keep the cron string identical to the probe's
+  # schedule; a mismatch would desynchronise the two signals and produce
+  # interleaved firings.
+  - cron_only: { schedule: "0 */6 * * *" }
 
 targets:
   - kind: slack_webhook
