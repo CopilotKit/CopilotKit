@@ -120,7 +120,7 @@ function AgUiIcon({ className }: { className?: string }) {
 type Brand = "copilotkit" | "ag-ui";
 
 const COPILOTKIT_LINKS = [
-  { href: "/docs", label: "Docs" },
+  { href: "/", label: "Docs" },
   { href: "/integrations", label: "Integrations" },
   { href: "/reference", label: "Reference" },
 ];

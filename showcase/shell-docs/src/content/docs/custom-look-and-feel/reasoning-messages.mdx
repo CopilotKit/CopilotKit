@@ -2,7 +2,6 @@
 title: Reasoning Messages
 icon: "lucide/Brain"
 description: "Customize how reasoning (thinking) tokens from models like o1, o3, and o4-mini are displayed."
-snippet_framework: langgraph-python
 snippet_cell: agentic-chat-reasoning
 ---
 
@@ -28,7 +27,7 @@ built-in card that:
 No extra configuration is needed — if your model emits reasoning tokens,
 the card appears automatically.
 
-<InlineDemo integration="langgraph-python" demo="reasoning-default-render" />
+<InlineDemo demo="reasoning-default-render" />
 
 <Snippet
   cell="reasoning-default-render"
@@ -159,7 +158,7 @@ slot props. Your component receives the same top-level props as the built-in one
 | `messages` | `Message[]` | All messages in the conversation |
 | `isRunning` | `boolean` | Whether the agent is currently running |
 
-<InlineDemo integration="langgraph-python" demo="agentic-chat-reasoning" />
+<InlineDemo demo="agentic-chat-reasoning" />
 
 <Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
 

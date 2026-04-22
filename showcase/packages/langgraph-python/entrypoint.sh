@@ -83,7 +83,11 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into the Python langgraph process and any shell subprocesses; scope
+# it here so non-Next children see the host's environment.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
@@ -95,7 +99,35 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+#
+# Startup grace: langgraph_cli dev does a heavy cold-start (graph compile
+# + uvicorn boot). On fresh Railway containers this can exceed the 90s
+# (3-strike) budget introduced in PR #4116, matching the restart loop
+# observed on langgraph-typescript (deployment
+# 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9, 04-20 17:05 UTC). Wait up to 180s
+# for the first healthy /ok probe before arming the strike counter; if
+# /ok comes up sooner, fall through immediately. If 180s elapses without
+# success, arm the counter anyway — the steady-state watchdog will then
+# handle a true hang.
 (
+  GRACE=180
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $LANGGRAPH_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/ok > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
   FAILS=0
   while sleep 30; do
     if ! kill -0 $LANGGRAPH_PID 2>/dev/null; then
@@ -115,7 +147,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/ok)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/ok, startup grace 180s)"
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog. The watchdog's job is to

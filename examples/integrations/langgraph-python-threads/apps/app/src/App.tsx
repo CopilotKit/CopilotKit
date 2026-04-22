@@ -6,6 +6,7 @@ import { ExampleCanvas } from "@/components/example-canvas";
 import { ThreadsDrawer } from "@/components/threads-drawer";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { useExampleSuggestions, useGenerativeUIExamples } from "@/hooks";
+import { demonstrationCatalog } from "@/declarative-generative-ui/renderers";
 import styles from "@/components/threads-drawer/threads-drawer.module.css";
 
 const runtimeUrl = "/api/copilotkit";
@@ -42,7 +43,12 @@ function HomePage() {
 export default function App() {
   return (
     <ThemeProvider>
-      <CopilotKitProvider runtimeUrl={runtimeUrl}>
+      <CopilotKitProvider
+        runtimeUrl={runtimeUrl}
+        a2ui={{ catalog: demonstrationCatalog }}
+        openGenerativeUI={{}}
+        useSingleEndpoint={false}
+      >
         <HomePage />
       </CopilotKitProvider>
     </ThemeProvider>

@@ -16,6 +16,23 @@ import {
 } from "@/lib/status";
 import { getDocsStatus } from "@/lib/docs-status";
 
+// Read NEXT_PUBLIC_SHELL_URL at module scope so a missing value fails the
+// build (`next build` evaluates top-level module code for this server
+// component). Previously this fell back silently to http://localhost:3000
+// when the env var wasn't set, which baked localhost into every demo/code
+// link in the deployed dashboard because Next.js inlines NEXT_PUBLIC_* at
+// build time and a runtime env var can't rescue a bad build.
+function requireShellUrl(): string {
+  const url = process.env.NEXT_PUBLIC_SHELL_URL;
+  if (!url) {
+    throw new Error(
+      "NEXT_PUBLIC_SHELL_URL must be set at build time for shell-dashboard",
+    );
+  }
+  return url;
+}
+const SHELL_URL: string = requireShellUrl();
+
 export interface CellContext {
   integration: Integration;
   feature: Feature;
@@ -112,7 +129,7 @@ export function FeatureGrid({
   renderCell: CellRenderer;
   minColWidth?: number;
 }) {
-  const shellUrl = process.env.NEXT_PUBLIC_SHELL_URL || "http://localhost:3000";
+  const shellUrl = SHELL_URL;
   const integrations = getIntegrations();
   const features = getFeatures();
   const categories = getFeatureCategories();

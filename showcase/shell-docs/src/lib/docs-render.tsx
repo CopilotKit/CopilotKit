@@ -228,6 +228,7 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
       const subPrefix = prefix ? `${prefix}/${spreadMatch[1]}` : spreadMatch[1];
       if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
         const subMeta = readMeta(subDir);
+        if (subMeta?.root) continue;
         const subChildren = buildNavTree(subDir, subPrefix);
         if (subChildren.length > 0) {
           const groupTitle =
@@ -255,6 +256,7 @@ export function buildNavTree(dir: string, prefix: string = ""): NavNode[] {
       nodes.push({ type: "page", title, slug });
     } else if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
       const subMeta = readMeta(subDir);
+      if (subMeta?.root) continue;
       const subPrefix = prefix ? `${prefix}/${entry}` : entry;
 
       if (subMeta?.pages) {
@@ -313,8 +315,9 @@ export function buildNavTreeFromFilesystem(
       ? `${prefix}/${entry.name.replace(".mdx", "")}`
       : entry.name.replace(".mdx", "");
     if (entry.isDirectory()) {
-      const subChildren = buildNavTree(path.join(dir, entry.name), slug);
       const subMeta = readMeta(path.join(dir, entry.name));
+      if (subMeta?.root) continue;
+      const subChildren = buildNavTree(path.join(dir, entry.name), slug);
       if (subChildren.length > 0) {
         const groupTitle = subMeta?.title || entry.name.replace(/-/g, " ");
         nodes.push({

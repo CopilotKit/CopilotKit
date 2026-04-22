@@ -6,7 +6,7 @@
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -73,6 +73,12 @@ fi
 # restarts the container. We kill the agent (not the whole script) so
 # `set -e` + `wait -n; exit $?` handles the restart through the normal
 # path rather than a forced `exit` that bypasses logging.
+#
+# Some frameworks (langgraph-*) have slow cold-start paths that can exceed
+# the 90s strike budget on a fresh Railway container. For those, an
+# initial startup-grace window waits for the first healthy probe (or a
+# per-framework ceiling) before the strike counter is armed. See
+# getWatchdogGraceSeconds() for the mapping.
 (
   FAILS=0
   while sleep 30; do
@@ -133,5 +139,5 @@ else
 fi
 
 # Clean up surviving processes (including watchdog)
-kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 exit $EXIT_CODE

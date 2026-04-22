@@ -4,6 +4,30 @@
  * Combines the canonical template frontend with per-framework agent backends
  * to produce standalone clonable starters at showcase/starters/<slug>/.
  *
+ * Dockerfiles are emitted from
+ * ``showcase/starters/template/dockerfiles/Dockerfile.{typescript,python,
+ * java,dotnet}`` as true multi-stage builds: a builder stage carries the
+ * full language toolchain (node, pip, maven, dotnet-sdk) and produces
+ * compiled/bundled artifacts, a runtime stage ships only a minimal base
+ * (node:22-slim, python:3.12-slim, eclipse-temurin:21-jre,
+ * mcr.microsoft.com/dotnet/aspnet:9.0) plus the built artifacts. No
+ * `pip install`, `pnpm install`, `tsx`, or `*-cli dev` invocations run
+ * in the runtime stage — cold start is a straight `node`/`python`/`java`
+ * /`dotnet` invocation. Target: ≥40% runtime image-size reduction per
+ * slug versus the pre-multi-stage baseline.
+ *
+ * Per-slug prod-mode compiles (claude-sdk-typescript `tsc`, mastra
+ * `mastra build`) are emitted via getAgentBuildSteps() (builder-stage
+ * compile commands) and getAgentBuildCopy() (runtime-stage COPY of the
+ * compiled artifacts) and substituted into the TS template via the
+ * AGENT_BUILD_STEPS / AGENT_BUILD_COPY tokens. Frameworks without a
+ * compile step emit empty strings for both — the template falls through
+ * to a plain `node`/`npm start` invocation.
+ *
+ * Local `docker build` MUST pass `--platform linux/amd64`; the deploy
+ * workflow (.github/workflows/showcase_deploy.yml) pins the same platform
+ * so arm64-only artifacts never reach Railway/GHCR.
+ *
  * Usage:
  *   npx tsx generate-starters.ts [--slug langgraph-python] [--dry-run] [--check]
  */
@@ -610,10 +634,78 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  *   - $AGENT_PID: captured after backgrounded agent launch. All frameworks'
  *     getEntrypointBlock() outputs set this.
  */
+/**
+ * Per-framework startup grace (seconds) — how long the watchdog waits after
+ * agent spawn before its first strike counts. Lets slow-starting agents
+ * reach their health endpoint without the 90s (3-strike) watchdog killing
+ * the process in a restart loop.
+ *
+ * `langgraph-*` agents use `langgraph-cli dev`, which on first boot does a
+ * Studio browser handshake + `@langchain/langgraph-api` JIT spawn + graph
+ * compile; on cold Railway containers this routinely exceeds the 90s
+ * strike threshold, producing the 04-20 restart loop on deployment
+ * 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. 180s is the observed upper bound
+ * across cold-start samples plus a safety margin.
+ *
+ * `mastra` starters spawn `mastra dev`, which runs a tsx-based build +
+ * Mastra server boot on first request and was observed restart-looping
+ * on Railway starting 04-20 18:18 UTC — same kill-loop shape as langgraph.
+ *
+ * `claude-sdk-typescript` starters spawn `tsx agent/index.ts` which
+ * performs a full tsx type-strip + @anthropic-ai/claude-agent-sdk init;
+ * observed restart-looping on Railway starting 04-20 16:54 UTC on the
+ * package-level deploy (same generator-emitted watchdog shape).
+ *
+ * All other starters keep the 0s grace they had before PR #4116: crewai-
+ * crews and the other uvicorn-based agents are responsive within the
+ * 2–3s `sleep` that precedes `AGENT_HEALTH_CHECK`, so adding a grace
+ * here would only delay legitimate restart on true hangs.
+ */
+function getWatchdogGraceSeconds(fw: FrameworkDef): number {
+  if (fw.slug.startsWith("langgraph-")) return 180;
+  if (fw.slug === "mastra") return 180;
+  if (fw.slug === "claude-sdk-typescript") return 180;
+  return 0;
+}
+
 function getWatchdogBlock(fw: FrameworkDef): string {
   const healthPath = getAgentHealthPath(fw);
   const agentPort = 8123; // Starter agents all bind to :8123.
   const healthUrl = `http://127.0.0.1:${agentPort}${healthPath}`;
+  const graceSeconds = getWatchdogGraceSeconds(fw);
+  // Grace loop: wait for first successful health probe up to `graceSeconds`
+  // before handing off to the steady-state strike counter. If the agent
+  // reports ready sooner, fall through immediately so the watchdog becomes
+  // effective as early as possible. If the agent hasn't reported ready by
+  // the deadline, still hand off — the watchdog will then strike and kill
+  // per normal, but only after giving slow cold-starts a fair shot.
+  //
+  // We deliberately do NOT `exit 1` on grace timeout (contrast with
+  // spring-ai's startup wait which exits): an agent that's still loading
+  // after 180s might just be a very cold container, and the steady-state
+  // watchdog handles the true-hang case in another 90s.
+  const graceBlock =
+    graceSeconds > 0
+      ? `  GRACE=${graceSeconds}
+  echo "[watchdog] Startup grace: waiting up to \${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 ${healthUrl} > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after \${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
+`
+      : "";
   return `# Watchdog: Railway deploys of showcase starters have been observed to hit a
 # silent agent hang — the agent process stays alive (so \`wait -n\` never
 # fires and the container never restarts) but stops responding on its health
@@ -622,8 +714,14 @@ function getWatchdogBlock(fw: FrameworkDef): string {
 # restarts the container. We kill the agent (not the whole script) so
 # \`set -e\` + \`wait -n; exit $?\` handles the restart through the normal
 # path rather than a forced \`exit\` that bypasses logging.
+#
+# Some frameworks (langgraph-*) have slow cold-start paths that can exceed
+# the 90s strike budget on a fresh Railway container. For those, an
+# initial startup-grace window waits for the first healthy probe (or a
+# per-framework ceiling) before the strike counter is armed. See
+# getWatchdogGraceSeconds() for the mapping.
 (
-  FAILS=0
+${graceBlock}  FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       # Agent already dead — wait -n in the main shell will handle it.
@@ -643,7 +741,7 @@ function getWatchdogBlock(fw: FrameworkDef): string {
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing ${healthUrl})"`;
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing ${healthUrl}${graceSeconds > 0 ? `, startup grace ${graceSeconds}s` : ""})"`;
 }
 
 // Previously the entrypoint used:
@@ -708,10 +806,30 @@ sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
       if (fw.slug === "mastra") {
+        // Prod-mode: the Dockerfile frontend stage runs `mastra build` which
+        // bundles the Mastra server into `.mastra/output/index.mjs`. Booting
+        // via `node` (instead of `npx mastra dev`) skips the tsx-based
+        // first-request build path that was blowing past the 180s watchdog
+        // grace on Railway cold containers — same failure class as
+        // langgraph-typescript pre-#4132. The per-slug build step lives in
+        // getAgentBuildSteps() above.
         return `echo "[entrypoint] Starting Mastra agent on port 8123..."
-PORT=8123 npx mastra dev ${AGENT_LOG_PREFIX} &
+PORT=8123 node /app/.mastra/output/index.mjs ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 3
+${AGENT_HEALTH_CHECK}`;
+      }
+      if (fw.slug === "claude-sdk-typescript") {
+        // Prod-mode: the Dockerfile frontend stage runs `tsc` over
+        // agent/index.ts into /app/dist/agent/index.js so boot is a straight
+        // `node` invocation. Previous `npx tsx agent/index.ts` did a full
+        // in-process TS compile on every cold start and was blowing past
+        // the 180s watchdog grace on Railway (same class as langgraph-ts
+        // pre-#4132). Flags in getAgentBuildSteps() match the package.
+        return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
+PORT=8123 node /app/dist/agent/index.js ${AGENT_LOG_PREFIX} &
+AGENT_PID=$!
+sleep 2
 ${AGENT_HEALTH_CHECK}`;
       }
       return `echo "[entrypoint] Starting TypeScript agent on port 8123..."
@@ -762,6 +880,75 @@ cd /app
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
   }
+}
+
+/**
+ * Per-slug Dockerfile build steps emitted in the frontend (builder) stage,
+ * AFTER `npm run build` (the Next.js build). Lets TS starters whose agents
+ * need a prod-mode compile push that work off the cold-start hot path.
+ *
+ * Pairs with getAgentBuildCopy() (runs in the runner stage) and with
+ * getEntrypointBlock() (invokes the compiled artifact at boot).
+ *
+ * Only emitted for TS starters that explicitly opt in — other slugs get ""
+ * and their Dockerfile rebuild cache stays identical to pre-change.
+ *
+ * Mirrors PR #4132's langgraph-typescript fix: dev-mode `npx tsx` / `mastra
+ * dev` at container boot was doing a fresh in-process TS compile on every
+ * cold start, routinely blowing past the 180s watchdog grace on Railway
+ * cold containers. Pushing the compile to image build time turns cold
+ * start into a straight `node` invocation.
+ */
+function getAgentBuildSteps(fw: FrameworkDef): string {
+  if (fw.slug === "claude-sdk-typescript") {
+    // Compile agent/index.ts → /app/dist/agent/index.js. Flags match
+    // showcase/packages/claude-sdk-typescript/Dockerfile so starter and
+    // package produce equivalent runtime shapes.
+    return `# Compile TypeScript agent server to JS so boot is a straight \`node\` call
+# instead of \`npx tsx\` (which does a fresh in-process TS compile on each
+# cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
+# so the starter and package produce equivalent runtime shapes. See also
+# getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx tsc --outDir /app/dist --rootDir . \\
+    --module commonjs --moduleResolution node \\
+    --target es2020 --esModuleInterop true --skipLibCheck true \\
+    agent/index.ts
+`;
+  }
+  if (fw.slug === "mastra") {
+    // Run `mastra build` which bundles the server into
+    // .mastra/output/index.mjs. The runner stage then invokes it via
+    // `node` so cold start doesn't pay the tsx-based first-request build.
+    return `# Build Mastra application to .mastra/output/index.mjs so boot is a
+# straight \`node\` call instead of \`npx mastra dev\` (which does a
+# tsx-based build on first request — observed blowing past 180s watchdog
+# grace on Railway, same failure class as langgraph-typescript pre-#4132).
+# See also getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx mastra build --dir src/mastra
+`;
+  }
+  return "";
+}
+
+/**
+ * Per-slug Dockerfile COPY lines emitted in the runner stage AFTER the base
+ * agent-code COPY. Moves compiled artifacts produced by getAgentBuildSteps()
+ * from the frontend stage into the runner image.
+ */
+function getAgentBuildCopy(fw: FrameworkDef): string {
+  if (fw.slug === "claude-sdk-typescript") {
+    return `# Precompiled agent entry (from frontend stage). entrypoint.sh invokes
+# \`node /app/dist/agent/index.js\` instead of \`npx tsx agent/index.ts\`.
+COPY --chown=app:app --from=frontend /app/dist ./dist
+`;
+  }
+  if (fw.slug === "mastra") {
+    return `# Precompiled Mastra server (from frontend stage). entrypoint.sh invokes
+# \`node /app/.mastra/output/index.mjs\` instead of \`npx mastra dev\`.
+COPY --chown=app:app --from=frontend /app/.mastra ./.mastra
+`;
+  }
+  return "";
 }
 
 // ---------------------------------------------------------------------------
@@ -918,6 +1105,17 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     ? "RUN mkdir -p /app/.langgraph_api && chown app:app /app/.langgraph_api\n"
     : "";
 
+  // Guard: an empty AGENT_DIR would turn the Dockerfile's
+  // `RUN rm -f {{AGENT_DIR}}/package.json {{AGENT_DIR}}/package-lock.json`
+  // into a root-level `rm -f /package.json /package-lock.json` after
+  // substitution, quietly wiping /app roots. Keep `rm -f` for tolerance of
+  // already-missing files, but never let this field be empty or root-like.
+  if (!fw.agentDir || fw.agentDir === "/" || fw.agentDir.startsWith("/")) {
+    throw new Error(
+      `Invalid agentDir for ${fw.slug}: ${JSON.stringify(fw.agentDir)} — must be non-empty and relative.`,
+    );
+  }
+
   const vars: Record<string, string> = {
     SLUG: fw.slug,
     NAME: fw.name,
@@ -929,6 +1127,8 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     WATCHDOG_BLOCK: getWatchdogBlock(fw),
     DOCKER_EXTRA_COPY: dockerExtraCopy,
     LANGGRAPH_MKDIR: langgraphMkdir,
+    AGENT_BUILD_STEPS: getAgentBuildSteps(fw),
+    AGENT_BUILD_COPY: getAgentBuildCopy(fw),
   };
 
   // 1. Copy frontend files into src/
@@ -1036,6 +1236,34 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     );
   } else {
     copyDirSync(agentSrc, agentDest);
+  }
+
+  // Strip files that only exist in the PACKAGE for prod-mode and are dead
+  // code / broken-dep-resolution in the STARTER. langgraph-typescript's
+  // server.mjs imports @langchain/langgraph-api/server (not in starter
+  // extraDependencies — resolution relies on transitive hoist through
+  // @langchain/langgraph-cli), and the starter's entrypoint uses
+  // `npx @langchain/langgraph-cli dev` — server.mjs is never invoked.
+  if (fw.slug === "langgraph-typescript") {
+    const serverMjs = path.join(agentDest, "server.mjs");
+    if (fs.existsSync(serverMjs)) {
+      fs.unlinkSync(serverMjs);
+    }
+    // Also drop the `start` script that references the now-deleted
+    // server.mjs — otherwise `npm start` from the cloned starter fails
+    // with "Cannot find module 'server.mjs'". The Docker path uses
+    // `npx @langchain/langgraph-cli dev` via entrypoint.sh, not npm start.
+    const agentPkgPath = path.join(agentDest, "package.json");
+    if (fs.existsSync(agentPkgPath)) {
+      const agentPkg = JSON.parse(fs.readFileSync(agentPkgPath, "utf8"));
+      if (agentPkg.scripts && "start" in agentPkg.scripts) {
+        delete agentPkg.scripts.start;
+        fs.writeFileSync(
+          agentPkgPath,
+          JSON.stringify(agentPkg, null, 2) + "\n",
+        );
+      }
+    }
   }
 
   // For spring-ai: the source copies src/main/{java,resources} flattened into
@@ -1545,4 +1773,6 @@ export {
   getEntrypointBlock,
   getWatchdogBlock,
   getAgentHealthPath,
+  getAgentBuildSteps,
+  getAgentBuildCopy,
 };

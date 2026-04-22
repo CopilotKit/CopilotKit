@@ -58,13 +58,15 @@ const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
 const PACKAGES_DIR = path.join(ROOT, "packages");
-// demo-content is consumed by BOTH shells:
+// demo-content is consumed by ALL shells:
 //   - shell: integration pages + demo drawer read the bundle at runtime
 //   - shell-docs: <Snippet> (docs routes) imports directly at build time
-// so we dual-emit. Paths array is iterated at write time.
+//   - shell-dojo: demo content renders inside the dojo's cell viewer
+// so we multi-emit. Paths array is iterated at write time.
 const OUTPUT_PATHS = [
   path.join(ROOT, "shell", "src", "data", "demo-content.json"),
   path.join(ROOT, "shell-docs", "src", "data", "demo-content.json"),
+  path.join(ROOT, "shell-dojo", "src", "data", "demo-content.json"),
 ];
 
 interface DemoFile {

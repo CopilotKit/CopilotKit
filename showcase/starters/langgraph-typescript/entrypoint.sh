@@ -6,7 +6,7 @@
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -55,7 +55,31 @@ fi
 # restarts the container. We kill the agent (not the whole script) so
 # `set -e` + `wait -n; exit $?` handles the restart through the normal
 # path rather than a forced `exit` that bypasses logging.
+#
+# Some frameworks (langgraph-*) have slow cold-start paths that can exceed
+# the 90s strike budget on a fresh Railway container. For those, an
+# initial startup-grace window waits for the first healthy probe (or a
+# per-framework ceiling) before the strike counter is armed. See
+# getWatchdogGraceSeconds() for the mapping.
 (
+  GRACE=180
+  echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/ok > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
   FAILS=0
   while sleep 30; do
     if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -76,7 +100,7 @@ fi
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/ok)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/ok, startup grace 180s)"
 
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
@@ -115,5 +139,5 @@ else
 fi
 
 # Clean up surviving processes (including watchdog)
-kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 exit $EXIT_CODE
