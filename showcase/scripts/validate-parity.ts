@@ -26,7 +26,9 @@
  *   npx tsx scripts/validate-parity.ts --baseline=9
  *   VALIDATE_PARITY_REPO_ROOT=/tmp/fixture npx tsx scripts/validate-parity.ts
  *
- * Exit codes (aligned with audit.ts / validate-pins.ts):
+ * Exit codes (aligned with audit.ts on codes 0/1/3/4; intentionally
+ * diverges from validate-pins.ts on code 2 — validate-pins.ts uses
+ * 2=internal error, whereas this tool uses 2=invalid CLI input):
  *   0 — no MUST failures
  *   1 — one or more MUST failures
  *   2 — invalid CLI input (bad --baseline / VALIDATE_PARITY_BASELINE)
@@ -69,8 +71,10 @@ const DEFAULT_PACKAGES_DIR = path.join(ROOT, "packages");
  */
 export const BASELINE_DEMO_COUNT = 9;
 
-// Exit code taxonomy mirrors audit.ts / validate-pins.ts so CI callers
+// Exit code taxonomy aligned with audit.ts on codes 0/1/3/4 so CI callers
 // can disambiguate "no anomalies" / "anomalies" / "unreadable" / "internal".
+// Intentionally diverges from validate-pins.ts on code 2 (invalid-input here
+// vs internal-error in validate-pins.ts) — the tools are NOT aligned on 2.
 // `as const` narrows each to its literal type so the union below
 // (`ValidateParityExitCode`) is a literal union — guarding callers that
 // switch on the value from accidentally matching arbitrary numbers.
@@ -84,9 +88,10 @@ const EXIT_INTERNAL = 4 as const;
  * Strip the leading "/demos/" prefix from a demo route and return the
  * on-disk directory name (the segment under src/app/demos/). Returns
  * `undefined` when the route is `undefined` OR when the resulting
- * segment is empty (a route of exactly "/demos/" is malformed — but
- * parseManifest already enforces a non-empty tail, so this fallback
- * is a defence-in-depth guard, not a primary validation).
+ * segment is empty. parseManifest rejects routes of exactly "/demos/"
+ * at validation time (demos[i].route must have a non-empty tail), so
+ * the empty-segment fallback here is defence-in-depth for callers that
+ * bypass parseManifest — not a primary validation.
  *
  * Keep in sync with bundle-demo-content.ts, which applies the same
  * route → dir transformation when copying per-demo READMEs into the
@@ -133,6 +138,7 @@ function formatErrorChain(err: unknown): string {
 
   let current: unknown = err;
   let depth = 0;
+  let truncated = false;
   while (current !== undefined && current !== null && depth < MAX_DEPTH) {
     const prefix = depth === 0 ? "" : `${"  ".repeat(depth)}caused by: `;
     lines.push(
@@ -148,11 +154,19 @@ function formatErrorChain(err: unknown): string {
 
     const next = (current as { cause?: unknown }).cause;
     if (next === undefined) break;
+    // If we're at the last allowed depth and there IS still a cause to
+    // follow, the chain is being truncated. Mark it so the emitter
+    // below fires — but don't emit when the chain ended naturally at
+    // MAX_DEPTH (cur.cause undefined), which the `break` above handles.
+    if (depth + 1 >= MAX_DEPTH) {
+      truncated = true;
+      break;
+    }
     current = next;
     depth++;
   }
 
-  if (depth === MAX_DEPTH) {
+  if (truncated) {
     lines.push(
       `${"  ".repeat(depth + 1)}[cause chain truncated at depth ${MAX_DEPTH}]`,
     );
@@ -472,7 +486,7 @@ export function listFiles(p: string, suffix: string): ListResult {
  *   Callers discriminate with `instanceof` (see auditPackage).
  *
  * Delegates to lib/manifest.ts :: parseManifest for shape validation so
- * audit.ts / validate-pins.ts / validate-parity.ts apply identical rules.
+ * audit.ts / validate-parity.ts / capture-previews.ts apply identical rules.
  */
 export function loadManifest(
   slug: string,
@@ -542,14 +556,16 @@ export function auditPackage(
         ...legacyDemoDirResult.entries,
       ]),
     ),
+    // Forward ALL listing-failed warnings from both probes regardless of
+    // whether the other probe returned entries. An EACCES on one path
+    // must not be silently swallowed just because the other path
+    // happened to be readable — callers rely on these warnings to
+    // elevate to unreadable-demos-dir MUSTs. A genuinely-missing path
+    // (ENOENT) produces no warning from listDirs, so this does not add
+    // noise for columns using only one of the two layouts.
     warnings: [
-      // Only emit listing warnings if NEITHER directory is readable — a
-      // missing top-level demos/ is normal for columns still on the
-      // legacy layout, and vice versa.
-      ...(topLevelDemoDirResult.entries.length === 0 &&
-      legacyDemoDirResult.entries.length === 0
-        ? [...topLevelDemoDirResult.warnings, ...legacyDemoDirResult.warnings]
-        : []),
+      ...topLevelDemoDirResult.warnings,
+      ...legacyDemoDirResult.warnings,
     ],
   };
 
@@ -577,10 +593,25 @@ export function auditPackage(
       (w): w is Extract<PackageIssue, { category: "listing-failed" }> =>
         w.category === "listing-failed" && w.path === target,
     );
-  const demosDirUnreadable =
-    findListingFailed(demoDirResult, topLevelDemosDir) ??
-    findListingFailed(demoDirResult, legacyDemosDir);
-  const demosDirPath = demosDirUnreadable?.path ?? topLevelDemosDir;
+  const topLevelDemosUnreadable = findListingFailed(
+    demoDirResult,
+    topLevelDemosDir,
+  );
+  const legacyDemosUnreadable = findListingFailed(
+    demoDirResult,
+    legacyDemosDir,
+  );
+  // Collect all demos-dir listing failures so BOTH paths are surfaced on
+  // the MUST when both fail (previously only the first match was
+  // reported, hiding the second EACCES root cause).
+  const demosDirUnreadableAll: Extract<
+    PackageIssue,
+    { category: "listing-failed" }
+  >[] = [];
+  if (topLevelDemosUnreadable)
+    demosDirUnreadableAll.push(topLevelDemosUnreadable);
+  if (legacyDemosUnreadable) demosDirUnreadableAll.push(legacyDemosUnreadable);
+  const demosDirUnreadable = demosDirUnreadableAll[0];
   const specsDirUnreadable = findListingFailed(specResult, specsDirPath);
   const qaDirUnreadable = findListingFailed(qaResult, qaDirPath);
 
@@ -606,14 +637,19 @@ export function auditPackage(
       error: qaDirUnreadable.error,
     });
   }
-  if (!demosDirUnreadable) {
+  if (demosDirUnreadableAll.length === 0) {
     warnings.push(...demoDirResult.warnings);
   } else {
-    mustErrors.push({
-      category: "unreadable-demos-dir",
-      path: demosDirPath,
-      error: demosDirUnreadable.error,
-    });
+    // Emit one unreadable-demos-dir MUST per failing path — if BOTH the
+    // top-level and legacy demos/ directories EACCES'd, report both so
+    // operators see every root cause rather than just the first.
+    for (const failing of demosDirUnreadableAll) {
+      mustErrors.push({
+        category: "unreadable-demos-dir",
+        path: failing.path,
+        error: failing.error,
+      });
+    }
   }
 
   let manifest: Manifest | null;
@@ -676,10 +712,12 @@ export function auditPackage(
 
   // Shape validation (top-level mapping, demos array-of-objects-with-id,
   // etc.) is performed by parseManifest in ./lib/manifest.ts. By the
-  // time we reach this point, `manifest.demos` (if set) is guaranteed
-  // to be `ManifestDemo[]` with string `id` on every entry — no need
-  // to re-guard here.
-  const demos = manifest.demos ?? [];
+  // time we reach this point, `manifest.demos` is guaranteed to be
+  // `readonly ManifestDemo[]` (parseManifest normalizes missing /
+  // null-valued `demos:` to a shared EMPTY_DEMOS sentinel), so no
+  // nullish fallback is needed here — dropping the `?? []` keeps the
+  // Manifest contract single-sourced at parseManifest.
+  const demos = manifest.demos;
   // Informational-only demos (e.g. cli-start with a `command:` field)
   // live in the registry but have no on-disk folder to audit. They're
   // identified by the `command` field; exclude them from parity checks.
@@ -1035,14 +1073,16 @@ function runParityImpl(
       : DEFAULT_PACKAGES_DIR);
 
   // Only read process.argv when invoked from the top-level
-  // CLI entrypoint (i.e. when no explicit baseline was passed). In-
-  // process callers that hand in an explicit baseline must not have
-  // their behaviour perturbed by argv they didn't write. The env var
+  // CLI entrypoint (i.e. when NEITHER packagesDir NOR baselineDemoCount
+  // was passed explicitly). In-process callers that hand in either
+  // parameter must not have their behaviour perturbed by argv they
+  // didn't write (e.g. vitest's own argv → "unrecognised argument"
+  // errors for tests passing only packagesDir). The env var
   // (VALIDATE_PARITY_BASELINE) is also skipped when the caller passes
   // an explicit value — the parameter is the highest-precedence source.
   let cliOpts: MainOptions = {};
   let envBaselineCoerced: number | null = null;
-  if (baselineDemoCount === undefined) {
+  if (packagesDir === undefined && baselineDemoCount === undefined) {
     // CLI-flag baseline overrides env default. Both --baseline= and
     // VALIDATE_PARITY_BASELINE are validated as positive integers —
     // NaN / "abc" / "0" / "-1" are rejected with a clear reason rather

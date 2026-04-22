@@ -10,6 +10,11 @@
  * Suggestions are rendered client-side by CopilotKit hooks and should be
  * visible even without an agent backend.
  *
+ * Note on id/route gap: some demos are described by a canonical manifest id
+ * (e.g. "hitl-in-chat") but are served from a shorter legacy route path
+ * (e.g. "/demos/hitl"). Test describe() blocks below use the canonical id
+ * while page.goto() targets the actual route — this is intentional.
+ *
  * To run with aimock (deterministic LLM responses for agent-dependent tests):
  *   npx aimock --fixtures showcase/aimock --port 4010 --validate-on-load &
  *   cd showcase/packages/langgraph-python
@@ -30,7 +35,9 @@ test.describe("Demo: agentic-chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/agentic-chat");
     // Wait for the chat input to confirm hydration
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });
@@ -67,8 +74,35 @@ test.describe("Demo: agentic-chat", () => {
 
     // The chat input should now contain the suggestion's message text,
     // or the message should appear in the chat as a sent message.
-    // CopilotKit may either populate the input or send the message directly.
-    const input = page.getByPlaceholder("Type a message");
+    //
+    // The branching below is intentional: CopilotKit's suggestion click
+    // handler is not deterministic across package implementations — some
+    // suggestion configurations populate the input (so the user can edit
+    // before sending), others send immediately. We race against both
+    // outcomes and assert the matching one. Failures in either branch
+    // surface concretely: the "populated" branch fails with a substring
+    // mismatch on the input value, the "sent" branch fails with a
+    // visibility timeout on the chat message.
+    //
+    // Reading inputValue() immediately after click() races the click
+    // handler — the read can resolve before the handler runs, putting us
+    // into the "sent" branch incorrectly and producing a confusing 5s
+    // visibility timeout. Wait until either outcome is observably true
+    // before branching.
+    const input = page.locator('textarea[placeholder^="Type a message"]');
+    await page.waitForFunction(
+      () => {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          'textarea[placeholder^="Type a message"]',
+        );
+        const hasValue = !!textarea && textarea.value.length > 0;
+        const hasSentMessage =
+          document.querySelector(".copilotKitUserMessage") !== null;
+        return hasValue || hasSentMessage;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
     const inputValue = await input.inputValue();
 
     if (inputValue) {
@@ -83,10 +117,12 @@ test.describe("Demo: agentic-chat", () => {
   });
 });
 
-test.describe("Demo: hitl (Human in the Loop)", () => {
+test.describe("Demo: hitl-in-chat (Human in the Loop)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/hitl");
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });
@@ -99,7 +135,9 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
     await expect(container).toBeVisible();
 
     // The chat input should be inside this container
-    await expect(container.getByPlaceholder("Type a message")).toBeVisible();
+    await expect(
+      container.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible();
   });
 
   test("suggestion buttons are rendered with correct text", async ({
@@ -120,7 +158,31 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
 
     await suggestion.click();
 
-    const input = page.getByPlaceholder("Type a message");
+    // Intentional branching: same non-deterministic race as in the
+    // agentic-chat suite — suggestion click may populate the input or
+    // send the message immediately depending on the package's
+    // useConfigureSuggestions wiring. Each branch asserts its own
+    // concrete outcome so a regression fails with a clear error (either
+    // an input substring mismatch or a chat message visibility
+    // timeout), not a generic both-branches-false failure.
+    //
+    // Wait for an observable outcome before reading inputValue() — the
+    // raw read races the click handler and can misroute us into the
+    // "sent" branch with a confusing 5s timeout.
+    const input = page.locator('textarea[placeholder^="Type a message"]');
+    await page.waitForFunction(
+      () => {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          'textarea[placeholder^="Type a message"]',
+        );
+        const hasValue = !!textarea && textarea.value.length > 0;
+        const hasSentMessage =
+          document.querySelector(".copilotKitUserMessage") !== null;
+        return hasValue || hasSentMessage;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
     const inputValue = await input.inputValue();
 
     if (inputValue) {
@@ -138,7 +200,9 @@ test.describe("Demo: hitl (Human in the Loop)", () => {
 test.describe("Demo: tool-rendering", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/tool-rendering");
-    await expect(page.getByPlaceholder("Type a message")).toBeVisible({
+    await expect(
+      page.locator('textarea[placeholder^="Type a message"]'),
+    ).toBeVisible({
       timeout: 15000,
     });
   });
@@ -170,7 +234,29 @@ test.describe("Demo: tool-rendering", () => {
 
     await suggestion.click();
 
-    const input = page.getByPlaceholder("Type a message");
+    // Intentional branching: same non-deterministic race as in the
+    // other demo suites — suggestion click may populate the input or
+    // send the message immediately. Each branch asserts its own
+    // concrete outcome so the failure mode (input substring mismatch
+    // vs. chat-message visibility timeout) stays diagnosable.
+    //
+    // Wait for an observable outcome before reading inputValue() — the
+    // raw read races the click handler and can misroute us into the
+    // "sent" branch with a confusing 5s timeout.
+    const input = page.locator('textarea[placeholder^="Type a message"]');
+    await page.waitForFunction(
+      () => {
+        const textarea = document.querySelector<HTMLTextAreaElement>(
+          'textarea[placeholder^="Type a message"]',
+        );
+        const hasValue = !!textarea && textarea.value.length > 0;
+        const hasSentMessage =
+          document.querySelector(".copilotKitUserMessage") !== null;
+        return hasValue || hasSentMessage;
+      },
+      undefined,
+      { timeout: 10000 },
+    );
     const inputValue = await input.inputValue();
 
     if (inputValue) {

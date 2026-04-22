@@ -23,7 +23,8 @@
 
 #### Note: Stub Demo
 
-- [ ] This demo is currently a stub (TODO: implement)
+> **Status: Stub** — This demo is currently a stub (TODO: implement)
+
 - [ ] Verify the basic CopilotChat loads and accepts messages
 - [ ] Verify the agent responds to messages
 - [ ] No custom UI components are expected beyond the chat interface

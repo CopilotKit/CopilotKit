@@ -21,7 +21,19 @@ pre-commit:
       stage_fixed: true
     lint-fix:
       tags: lint
-      run: pnpm run lint && pnpm run format
+      # Scope oxlint and oxfmt to just the files staged for commit — running
+      # `--fix .` / `--write .` across the whole monorepo on every commit is
+      # both slow and blurs the hook's purpose (touch files that aren't part
+      # of this change). Guard against empty `{staged_files}` expansion: when
+      # a commit touches only non-matching files (markdown, YAML), lefthook
+      # still invokes this hook with an empty expansion, and oxlint/oxfmt
+      # would default to operating on the current directory, defeating the
+      # scoping entirely. stage_fixed re-stages whatever the hooks modify.
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      run: |
+        if [ -n "{staged_files}" ]; then
+          pnpm exec oxlint --fix {staged_files} && pnpm exec oxfmt --write {staged_files}
+        fi
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages
