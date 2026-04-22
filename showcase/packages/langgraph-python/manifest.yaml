@@ -28,7 +28,7 @@ managed_platform:
 starter:
   path: showcase/starters/langgraph-python
   name: Sales Dashboard
-  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  description: Full-featured sales pipeline with 4 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python
   demo_url: https://showcase-starter-langgraph-python-production-3f57.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app
@@ -54,8 +54,6 @@ features:
   - declarative-gen-ui
   - a2ui-fixed-schema
   - mcp-apps
-  - open-gen-ui
-  - open-gen-ui-advanced
   - gen-ui-agent
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
@@ -362,29 +360,6 @@ demos:
       - src/agents/mcp_apps_agent.py
       - src/app/demos/mcp-apps/page.tsx
       - src/app/api/copilotkit-mcp-apps/route.ts
-  - id: open-gen-ui
-    name: Open-Ended Generative UI
-    description: Minimal — enable open-ended gen UI in the runtime, nothing else
-    tags:
-      - generative-ui
-    route: /demos/open-gen-ui
-    animated_preview_url:
-    highlight:
-      - src/agents/open_gen_ui_agent.py
-      - src/app/demos/open-gen-ui/page.tsx
-      - src/app/api/copilotkit-ogui/route.ts
-  - id: open-gen-ui-advanced
-    name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
-    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
-    tags:
-      - generative-ui
-    route: /demos/open-gen-ui-advanced
-    animated_preview_url:
-    highlight:
-      - src/agents/open_gen_ui_advanced_agent.py
-      - src/app/demos/open-gen-ui-advanced/page.tsx
-      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
-      - src/app/api/copilotkit-ogui/route.ts
   - id: interrupt-headless
     name: Headless Interrupt (testing)
     description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop

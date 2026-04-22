@@ -81,7 +81,7 @@ export function FrameworkSelector({
   // Close on outside-click / Escape
   useEffect(() => {
     if (!open) return;
-    const handleClick = (e: MouseEvent | TouchEvent) => {
+    const handleClick = (e: MouseEvent) => {
       // `e.target` is typed as `EventTarget | null`; `Node.contains`
       // requires an actual `Node`. Guard instead of casting so we don't
       // silently invoke `contains` with non-DOM targets (e.g. events
@@ -100,14 +100,9 @@ export function FrameworkSelector({
       if (e.key === "Escape") setOpen(false);
     };
     document.addEventListener("mousedown", handleClick);
-    // iOS Safari doesn't always fire `mousedown` for taps that land
-    // outside focusable UI — mirror the handler on `touchstart` so the
-    // panel closes on mobile as expected.
-    document.addEventListener("touchstart", handleClick);
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("touchstart", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
   }, [open]);
@@ -123,10 +118,16 @@ export function FrameworkSelector({
     if (frameworkTail !== null) {
       return frameworkTail ? `/${slug}/${frameworkTail}` : `/${slug}`;
     }
-    // Case 2: currently on /docs/<rest> — switch to framework-scoped
+    // Case 2: currently on /docs/<rest> — switch to framework-scoped (legacy)
     const docsTail = stripDocsPrefix(pathname);
     if (docsTail !== null && docsTail.length > 0) {
       return `/${slug}/${docsTail}`;
+    }
+    // Case 3: currently on /<unscoped-slug> (e.g. /quickstart) — preserve the
+    // feature slug so switching frameworks keeps the user on the same topic.
+    const unscopedTail = pathname.split("/").filter(Boolean).join("/");
+    if (unscopedTail) {
+      return `/${slug}/${unscopedTail}`;
     }
     // Fallback: framework landing page
     return `/${slug}`;
@@ -275,9 +276,7 @@ export function FrameworkSelector({
                   knownFrameworks,
                 );
                 if (frameworkTail !== null) {
-                  router.replace(
-                    frameworkTail ? `/docs/${frameworkTail}` : "/docs",
-                  );
+                  router.replace(frameworkTail ? `/${frameworkTail}` : "/");
                 }
                 setOpen(false);
               }}
@@ -298,31 +297,15 @@ export function FrameworkSelector({
                 </div>
                 {opts.map((opt) => {
                   const isActive = opt.slug === framework;
-                  // Undeployed frameworks must not be selectable — picking
-                  // one persists the slug to storedFramework, which then
-                  // traps the user in a RouterPivot redirect loop on every
-                  // `/docs/*` visit because the destination doesn't exist.
-                  const isDisabled = !opt.deployed;
                   return (
                     <button
                       key={opt.slug}
                       type="button"
-                      disabled={isDisabled}
-                      aria-disabled={isDisabled}
-                      onClick={() => {
-                        if (isDisabled) return;
-                        selectFramework(opt.slug);
-                      }}
-                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors ${
-                        isDisabled
-                          ? "cursor-not-allowed opacity-60 text-[var(--text-muted)]"
-                          : "cursor-pointer"
-                      } ${
+                      onClick={() => selectFramework(opt.slug)}
+                      className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-[13px] transition-colors cursor-pointer ${
                         isActive
                           ? "bg-[var(--accent-light)] text-[var(--accent)]"
-                          : isDisabled
-                            ? ""
-                            : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
+                          : "text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] hover:text-[var(--text)]"
                       }`}
                     >
                       {opt.logo ? (

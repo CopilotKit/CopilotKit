@@ -27,7 +27,6 @@ generative_ui:
       - hitl-in-chat
       - hitl-in-app
       - gen-ui-interrupt
-      - open-gen-ui
 
   constrained-explicit:
     allowed:
@@ -56,8 +55,6 @@ generative_ui:
       - declarative-gen-ui
       - a2ui-fixed-schema
       - mcp-apps
-      - open-gen-ui
-      - open-gen-ui-advanced
       - tool-rendering
       - useComponent
       - multi-modal
@@ -67,31 +64,9 @@ generative_ui:
       - shared-state-streaming
       - subagents
       - voice
-
-  open:
-    allowed:
-      - open-gen-ui
-      - open-gen-ui-advanced
-      - frontend-tools
-      - frontend-tools-async
-      - multi-modal
-      - suggestions
-      - shared-state-read-write
-      - readonly-state-agent-context
-      - shared-state-streaming
-      - subagents
-      - voice
-    excluded:
-      - tool-rendering
-      - hitl
-      - gen-ui-tool-based
-      - gen-ui-interrupt
-      - useComponent
-      - agentic-chat
 
 interaction_modalities:
   headless:
     excluded:
-      - open-gen-ui
       - voice
   # sidebar, embedded, popup, chat: no exclusions

@@ -74,8 +74,10 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    expect(langgraph.features.length).toBe(32);
-    expect(langgraph.demos.length).toBe(32);
+    // Count matches current manifest after #4029 scrubbed open-gen-ui (5→4
+    // GenUI strategies).
+    expect(langgraph.features.length).toBe(30);
+    expect(langgraph.demos.length).toBe(30);
   });
 
   it("sorts integrations by sort_order", () => {

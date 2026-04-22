@@ -119,8 +119,10 @@ function AgUiIcon({ className }: { className?: string }) {
 
 type Brand = "copilotkit" | "ag-ui";
 
+const AG_UI_PREFIXES = ["/ag-ui"];
+
 const COPILOTKIT_LINKS = [
-  { href: "/docs", label: "Docs" },
+  { href: "/", label: "Docs" },
   { href: "/integrations", label: "Integrations" },
   { href: "/reference", label: "Reference" },
 ];
@@ -133,15 +135,22 @@ const AG_UI_LINKS = [
   { href: "/ag-ui/sdk/python/core/overview", label: "Python SDK" },
 ];
 
-// Match `/ag-ui` exactly OR `/ag-ui/...`, but NOT `/ag-ui-anything` —
-// a bare `startsWith("/ag-ui")` would incorrectly classify a hypothetical
-// `/ag-ui-foo` slug as AG-UI, which misroutes the nav.
 function activeBrandFromPath(pathname: string): Brand {
-  if (pathname === "/ag-ui" || pathname.startsWith("/ag-ui/")) return "ag-ui";
-  return "copilotkit";
+  return AG_UI_PREFIXES.some((p) => pathname.startsWith(p))
+    ? "ag-ui"
+    : "copilotkit";
 }
 
-export function BrandNav() {
+export interface BrandNavProps {
+  // Note: the framework selector previously lived in the top bar. It's
+  // now rendered at the top of the docs sidebar instead — mirroring the
+  // docs.copilotkit.ai reference. Props preserved for API compatibility
+  // with the current call site but intentionally unused here.
+  frameworkOptions?: unknown;
+  frameworkCategoryOrder?: unknown;
+}
+
+export function BrandNav(_props: BrandNavProps = {}) {
   const pathname = usePathname();
   const active = activeBrandFromPath(pathname);
   const links = active === "copilotkit" ? COPILOTKIT_LINKS : AG_UI_LINKS;
@@ -239,10 +248,9 @@ export function BrandNav() {
             className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
             onClick={() => setMobileMenuOpen(false)}
           />
-          {/* Panel — explicitly layered above the backdrop (z-[51] vs z-50)
-              so layering doesn't rely on DOM sibling order. */}
+          {/* Panel */}
           <div
-            className="fixed top-0 right-0 bottom-0 z-[51] w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
+            className="fixed top-0 right-0 bottom-0 z-50 w-[280px] bg-[var(--bg-surface)] border-l border-[var(--border)] flex flex-col"
             style={{
               boxShadow: "-8px 0 30px rgba(0,0,0,0.1)",
               animation: "mobileMenuSlideIn 0.2s ease",
@@ -283,31 +291,16 @@ export function BrandNav() {
                 </Link>
               ))}
             </div>
-            {/* Cross-brand link at bottom — mirrors the top-nav brand
-                switcher, pointing at whichever brand ISN'T currently
-                active. Previously hardcoded to `/ag-ui`, which sent
-                users from an AG-UI page back to the AG-UI homepage
-                (same brand) instead of crossing over to CopilotKit. */}
+            {/* AG-UI link at bottom */}
             <div className="mt-auto px-4 py-4 border-t border-[var(--border)]">
-              {active === "ag-ui" ? (
-                <Link
-                  href="/"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
-                >
-                  <CopilotKitIcon />
-                  CopilotKit
-                </Link>
-              ) : (
-                <Link
-                  href="/ag-ui"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
-                >
-                  <AgUiIcon />
-                  AG-UI
-                </Link>
-              )}
+              <Link
+                href="/ag-ui"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 rounded-md px-3 py-2.5 text-[13px] font-medium text-[var(--text-muted)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition-all"
+              >
+                <AgUiIcon />
+                AG-UI
+              </Link>
             </div>
           </div>
           <style jsx global>{`

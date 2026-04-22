@@ -2,7 +2,6 @@
 title: "Open Generative UI"
 icon: "lucide/Code"
 description: "Let agents generate fully interactive HTML/CSS/JS UIs that stream live into the chat."
-snippet_framework: langgraph-python
 snippet_cell: open-gen-ui
 ---
 
@@ -21,7 +20,7 @@ Key benefits:
 - **Secure sandboxing** — content runs in an isolated iframe without same-origin access
 - **Sandbox functions** — optionally expose host functions to the generated UI for two-way communication
 
-<InlineDemo integration="langgraph-python" demo="open-gen-ui" />
+<InlineDemo demo="open-gen-ui" />
 
 ## Minimal setup
 
@@ -52,7 +51,7 @@ Sandbox functions let the generated UI call back into your host application
 push items into your cart, or a data view can ask the host to fetch data the
 iframe can't reach directly.
 
-<InlineDemo integration="langgraph-python" demo="open-gen-ui-advanced" />
+<InlineDemo demo="open-gen-ui-advanced" />
 
 ### Runtime is unchanged
 

@@ -12,6 +12,8 @@ import {
   forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
+  getAgentBuildSteps,
+  getAgentBuildCopy,
   generateStarterToDir,
   FRAMEWORKS,
   PIN_OVERRIDES,
@@ -613,16 +615,27 @@ describe("generate-starters", () => {
       expect(block).toContain("@langchain/langgraph-cli dev");
     });
 
-    it("TypeScript mastra: returns mastra dev", () => {
+    it("TypeScript mastra: returns prod-mode node + .mastra/output/index.mjs", () => {
+      // Prod-mode (#4133): mastra starters run a precompiled bundle via
+      // `node` rather than `npx mastra dev` at container boot. The
+      // tsx-based build has been pushed to image build time via
+      // getAgentBuildSteps() so cold start is a straight `node` call —
+      // mirrors PR #4132's fix for langgraph-typescript.
       const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("mastra dev");
+      expect(block).toContain("node /app/.mastra/output/index.mjs");
+      expect(block).not.toContain("npx mastra dev");
     });
 
-    it("TypeScript generic: returns npx tsx", () => {
+    it("TypeScript claude-sdk: returns prod-mode node + /app/dist/agent/index.js", () => {
+      // Prod-mode (#4133): claude-sdk-typescript starter runs the
+      // precompiled JS via `node` rather than `npx tsx agent/index.ts`.
+      // The tsc compile is pushed to image build time via
+      // getAgentBuildSteps() — mirrors PR #4132's langgraph-typescript fix.
       const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("npx tsx agent/index.ts");
+      expect(block).toContain("node /app/dist/agent/index.js");
+      expect(block).not.toContain("npx tsx");
     });
 
     it("Java: returns java -jar", () => {
@@ -635,6 +648,70 @@ describe("generate-starters", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "ms-agent-dotnet")!;
       const block = getEntrypointBlock(fw);
       expect(block).toContain("dotnet ProverbsAgent.dll");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Prod-mode Dockerfile build-step emitters (getAgentBuildSteps /
+  // getAgentBuildCopy).
+  //
+  // Rationale: PR #4133 pushed TS compiles off the cold-start hot path by
+  // running them in the Dockerfile frontend (builder) stage and COPYing
+  // the compiled artifacts into the runner. The per-slug opt-in is keyed
+  // by fw.slug so that only the slots we've verified (claude-sdk-typescript
+  // via tsc, mastra via `mastra build`) receive the build step — other
+  // starters emit "" and their Dockerfile stays unchanged. Guard both the
+  // slot content AND the "" fallthrough so a future refactor can't
+  // silently re-enable tsx/mastra-dev at runtime.
+  // ---------------------------------------------------------------------
+  describe("getAgentBuildSteps() / getAgentBuildCopy(): prod-mode emitters", () => {
+    it("claude-sdk-typescript: builder stage emits tsc compile", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("tsc");
+      expect(steps).toContain("/app/dist");
+      expect(steps).toContain("agent/index.ts");
+    });
+
+    it("claude-sdk-typescript: runner stage COPYs /app/dist from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain("COPY --chown=app:app --from=frontend /app/dist");
+    });
+
+    it("mastra: builder stage emits `mastra build`", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("mastra build");
+      expect(steps).toContain("src/mastra");
+    });
+
+    it("mastra: runner stage COPYs /app/.mastra from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain(
+        "COPY --chown=app:app --from=frontend /app/.mastra",
+      );
+    });
+
+    it("langgraph-typescript: emits empty build step (uses runtime server.mjs)", () => {
+      // langgraph-typescript was migrated separately in PR #4132 via a
+      // server.mjs entrypoint — the generator does not add a Dockerfile
+      // build step for it here. Guard the "" fallthrough so we catch any
+      // accidental opt-in that would fork the runtime shape.
+      const fw = FRAMEWORKS.find((f) => f.slug === "langgraph-typescript")!;
+      expect(getAgentBuildSteps(fw)).toBe("");
+      expect(getAgentBuildCopy(fw)).toBe("");
+    });
+
+    it("python starters: emit empty strings (Python prod-mode happens in agent-builder stage, not per-slug)", () => {
+      // Python prod-mode is encoded in the shared Dockerfile.python
+      // template (pip venv in agent-builder stage) — per-slug emitters
+      // stay silent so Python slugs keep their shared runtime shape.
+      for (const fw of FRAMEWORKS.filter((f) => f.language === "python")) {
+        expect(getAgentBuildSteps(fw)).toBe("");
+        expect(getAgentBuildCopy(fw)).toBe("");
+      }
     });
   });
 

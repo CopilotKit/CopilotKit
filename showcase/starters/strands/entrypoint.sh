@@ -6,7 +6,7 @@
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -117,5 +117,5 @@ else
 fi
 
 # Clean up surviving processes (including watchdog)
-kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 exit $EXIT_CODE

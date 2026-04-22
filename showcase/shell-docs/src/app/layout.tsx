@@ -15,7 +15,6 @@ export const RESERVED_ROUTE_SLUGS = [
   "reference",
   "api",
   "matrix",
-  "integrations",
 ] as const;
 
 const plusJakartaSans = Plus_Jakarta_Sans({

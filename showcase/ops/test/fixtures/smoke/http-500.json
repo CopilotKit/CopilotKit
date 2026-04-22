@@ -1,0 +1,14 @@
+{
+  "_fixture": {
+    "description": "Realistic 500-class failure: a service returned a JSON error envelope. The driver marks red and surfaces `http 500: <truncated body>` as errorDesc, so the alert template can render the failing cause without the operator opening the runbook."
+  },
+  "status": 500,
+  "headers": {
+    "content-type": "application/json"
+  },
+  "body": {
+    "error": "internal_server_error",
+    "message": "upstream aimock connection refused",
+    "requestId": "01JSR4XCTD23XVH05C8NMZ7QW0"
+  }
+}

@@ -2,13 +2,15 @@
 
 import {
   Archive,
+  ArchiveRestore,
   ChevronLeft,
   ChevronRight,
   Plus,
   Rows3,
   Trash2,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useThreads } from "@copilotkit/react-core/v2";
 import styles from "./threads-drawer.module.css";
 
@@ -23,11 +25,13 @@ interface DrawerThread {
   name: string | null;
   updatedAt: string;
   archived: boolean;
+  lastRunAt?: string;
 }
 
 const THREAD_ENTRY_ANIMATION_MS = 420;
 const TITLE_ANIMATION_MS = 360;
 const UNTITLED_THREAD_LABEL = "New thread";
+const RUNTIME_BASE_PATH = "/api/copilotkit";
 
 function formatThreadTimestamp(updatedAt: string): string {
   const timestamp = new Date(updatedAt);
@@ -49,6 +53,11 @@ export default function ThreadsDrawer({
 }: ThreadsDrawerProps) {
   const [showArchived, setShowArchived] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const deleteTriggerRef = useRef<HTMLElement | null>(null);
 
   const {
     threads,
@@ -65,11 +74,39 @@ export default function ThreadsDrawer({
     limit: 20,
   });
 
+  const restoreThread = useCallback(
+    async (id: string) => {
+      const response = await fetch(
+        `${RUNTIME_BASE_PATH}/threads/${encodeURIComponent(id)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ agentId, archived: false }),
+        },
+      );
+      if (!response.ok) {
+        throw new Error(
+          `Restore failed: ${response.status} ${response.statusText}`,
+        );
+      }
+    },
+    [agentId],
+  );
+
   const hasMountedRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
+  const stableThreadsRef = useRef<DrawerThread[]>(threads);
   const previousThreadIdsRef = useRef<Set<string>>(new Set());
   const previousNamesRef = useRef<Map<string, string | null>>(new Map());
   const entryTimeoutsRef = useRef<Map<string, number>>(new Map());
   const titleTimeoutsRef = useRef<Map<string, number>>(new Map());
+
+  if (!isLoading) {
+    hasLoadedOnceRef.current = true;
+    stableThreadsRef.current = threads;
+  }
+  const displayThreads: DrawerThread[] =
+    isLoading && hasLoadedOnceRef.current ? stableThreadsRef.current : threads;
   const [enteringThreadIds, setEnteringThreadIds] = useState<
     Record<string, true>
   >({});
@@ -89,6 +126,11 @@ export default function ThreadsDrawer({
   }, []);
 
   useEffect(() => {
+    // Skip diffing while the store is refetching (e.g. after a filter change
+    // clears the list). Otherwise every thread would be treated as newly
+    // added once the new page lands.
+    if (isLoading) return;
+
     const nextThreadIds = new Set(threads.map((t) => t.id));
 
     if (!hasMountedRef.current) {
@@ -125,6 +167,12 @@ export default function ThreadsDrawer({
 
     const renamedThreadIds = threads
       .filter((t) => {
+        // Only reveal when an already-tracked thread's name transitions from
+        // null → named. Threads appearing for the first time (e.g. on a
+        // filter switch) already have their final name and should not trigger
+        // the title reveal animation — that would layer a blur/translateY
+        // onto the row's enter animation and produce a visible jitter.
+        if (!previousNamesRef.current.has(t.id)) return false;
         const prev = previousNamesRef.current.get(t.id) ?? null;
         return prev === null && t.name !== null;
       })
@@ -153,12 +201,11 @@ export default function ThreadsDrawer({
 
     previousThreadIdsRef.current = nextThreadIds;
     previousNamesRef.current = new Map(threads.map((t) => [t.id, t.name]));
-  }, [threads]);
+  }, [threads, isLoading]);
 
-  if (isLoading) return null;
+  const isInitialLoading = isLoading && !hasLoadedOnceRef.current;
   if (error) {
     console.error("Unable to load threads", error);
-    return null;
   }
 
   if (!isOpen) {
@@ -194,162 +241,342 @@ export default function ThreadsDrawer({
     );
   }
 
+  const closeDeleteDialog = () => {
+    setPendingDelete(null);
+    const trigger = deleteTriggerRef.current;
+    deleteTriggerRef.current = null;
+    trigger?.focus?.();
+  };
+
   return (
-    <aside
-      aria-label="Threads drawer"
-      className={cx(styles.drawer, styles.drawerOpen)}
-    >
-      <div className={styles.drawerSurface}>
-        <div className={styles.drawerHeader}>
-          <div className={styles.drawerHeaderMain}>
-            <h2 className={styles.drawerTitle}>Threads</h2>
-            <p className={styles.drawerSubtitle}>
-              {threads.length}{" "}
-              {threads.length === 1 ? "conversation" : "conversations"}
-            </p>
-          </div>
-          <div className={styles.headerActions}>
-            <button
-              aria-label="Create thread"
-              className={styles.newThreadButton}
-              type="button"
-              onClick={() => onThreadChange(undefined)}
-            >
-              <Plus size={14} />
-              <span>New thread</span>
-            </button>
-            <button
-              aria-label="Collapse threads drawer"
-              className={styles.iconButton}
-              type="button"
-              onClick={() => setIsOpen(false)}
-            >
-              <ChevronLeft size={18} />
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.filterBar}>
-          <label className={styles.toggleLabel}>
-            <input
-              checked={showArchived}
-              className={styles.toggleCheckbox}
-              type="checkbox"
-              onChange={(e) => setShowArchived(e.target.checked)}
-            />
-            <span>Show archived</span>
-          </label>
-        </div>
-
-        <div className={styles.drawerContent}>
-          {threads.length === 0 ? (
-            <div className={styles.emptyState}>
-              <div className={styles.emptyCard}>
-                <p className={styles.emptyTitle}>No threads yet</p>
-                <p className={styles.emptyMessage}>
-                  Create a thread to start a fresh conversation.
-                </p>
-              </div>
+    <>
+      <aside
+        aria-label="Threads drawer"
+        className={cx(styles.drawer, styles.drawerOpen)}
+      >
+        <div className={styles.drawerSurface}>
+          <div className={styles.drawerHeader}>
+            <div className={styles.drawerHeaderMain}>
+              <h2 className={styles.drawerTitle}>Threads</h2>
             </div>
-          ) : (
-            <div className={styles.threadList}>
-              {threads.map((thread) => {
-                const hasTitle = thread.name !== null;
-                const title = thread.name ?? UNTITLED_THREAD_LABEL;
-                const confirmMsg = `Delete "${title}"? This cannot be undone.`;
+            <div className={styles.headerActions}>
+              <button
+                aria-label="Create thread"
+                className={styles.newThreadButton}
+                type="button"
+                onClick={() => onThreadChange(undefined)}
+              >
+                <Plus size={14} />
+                <span>New thread</span>
+              </button>
+              <button
+                aria-label="Collapse threads drawer"
+                className={styles.iconButton}
+                type="button"
+                onClick={() => setIsOpen(false)}
+              >
+                <ChevronLeft size={18} />
+              </button>
+            </div>
+          </div>
 
-                return (
-                  <div key={thread.id} className={styles.threadRow}>
-                    <button
-                      aria-current={threadId === thread.id ? "page" : undefined}
-                      className={cx(
-                        styles.threadItem,
-                        threadId === thread.id && styles.threadItemSelected,
-                        enteringThreadIds[thread.id] &&
-                          styles.threadItemAnimatingIn,
-                        thread.archived && styles.threadItemArchived,
-                      )}
-                      type="button"
-                      onClick={() => onThreadChange(thread.id)}
-                    >
-                      <span aria-hidden className={styles.threadAccent} />
-                      <span className={styles.threadBody}>
-                        <span
-                          className={cx(
-                            styles.threadTitle,
-                            !hasTitle && styles.threadTitlePlaceholder,
-                            revealedTitleIds[thread.id] &&
-                              styles.threadTitleAnimated,
-                          )}
-                        >
-                          {title}
-                          {thread.archived && (
-                            <span className={styles.archivedBadge}>
-                              Archived
-                            </span>
-                          )}
+          <div className={styles.filterBar}>
+            <div
+              aria-label="Thread filter"
+              className={styles.segmented}
+              role="tablist"
+            >
+              <button
+                aria-selected={!showArchived}
+                className={cx(
+                  styles.segmentedOption,
+                  !showArchived && styles.segmentedOptionActive,
+                )}
+                role="tab"
+                type="button"
+                onClick={() => setShowArchived(false)}
+              >
+                Active
+              </button>
+              <button
+                aria-selected={showArchived}
+                className={cx(
+                  styles.segmentedOption,
+                  showArchived && styles.segmentedOptionActive,
+                )}
+                role="tab"
+                type="button"
+                onClick={() => setShowArchived(true)}
+              >
+                All
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.drawerContent}>
+            {error ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyCard}>
+                  <p className={styles.emptyTitle}>
+                    Couldn&rsquo;t load threads
+                  </p>
+                  <p className={styles.emptyMessage}>
+                    The thread list failed to load. Try reloading the page.
+                  </p>
+                  <button
+                    className={styles.loadMoreButton}
+                    type="button"
+                    onClick={() => window.location.reload()}
+                  >
+                    Reload
+                  </button>
+                </div>
+              </div>
+            ) : isInitialLoading ? (
+              <div
+                aria-busy="true"
+                aria-label="Loading threads"
+                className={styles.loadingList}
+                role="status"
+              >
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className={styles.loadingRow}>
+                    <span className={styles.loadingAccent} />
+                    <span className={styles.loadingBody}>
+                      <span className={styles.loadingTitleBar} />
+                      <span className={styles.loadingMetaBar} />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : displayThreads.length === 0 ? (
+              <div className={styles.emptyState}>
+                <div className={styles.emptyCard}>
+                  <p className={styles.emptyTitle}>No threads yet</p>
+                  <p className={styles.emptyMessage}>
+                    Create a thread to start a fresh conversation.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.threadList}>
+                {displayThreads.map((thread) => {
+                  const hasTitle = thread.name !== null;
+                  const title = thread.name ?? UNTITLED_THREAD_LABEL;
+
+                  return (
+                    <div key={thread.id} className={styles.threadRow}>
+                      <button
+                        aria-current={
+                          threadId === thread.id ? "page" : undefined
+                        }
+                        className={cx(
+                          styles.threadItem,
+                          threadId === thread.id && styles.threadItemSelected,
+                          enteringThreadIds[thread.id] &&
+                            styles.threadItemAnimatingIn,
+                          thread.archived && styles.threadItemArchived,
+                        )}
+                        type="button"
+                        onClick={() => onThreadChange(thread.id)}
+                      >
+                        <span aria-hidden className={styles.threadAccent} />
+                        <span className={styles.threadBody}>
+                          <span
+                            className={cx(
+                              styles.threadTitle,
+                              !hasTitle && styles.threadTitlePlaceholder,
+                              revealedTitleIds[thread.id] &&
+                                styles.threadTitleAnimated,
+                            )}
+                          >
+                            {title}
+                            {thread.archived && (
+                              <span className={styles.archivedBadge}>
+                                Archived
+                              </span>
+                            )}
+                          </span>
+                          <span className={styles.threadMeta}>
+                            {formatThreadTimestamp(
+                              thread.lastRunAt ?? thread.updatedAt,
+                            )}
+                          </span>
                         </span>
-                        <span className={styles.threadMeta}>
-                          {formatThreadTimestamp(thread.updatedAt)}
-                        </span>
-                      </span>
-                    </button>
-                    <div className={styles.threadActions}>
-                      {!thread.archived && (
+                      </button>
+                      <div className={styles.threadActions}>
+                        {thread.archived ? (
+                          <button
+                            aria-label={`Restore ${title}`}
+                            className={cx(
+                              styles.iconButton,
+                              styles.threadActionButton,
+                              styles.tooltip,
+                            )}
+                            data-tooltip="Restore thread"
+                            type="button"
+                            onClick={() => {
+                              restoreThread(thread.id).catch((err: unknown) => {
+                                console.error("Unable to restore thread", err);
+                              });
+                            }}
+                          >
+                            <ArchiveRestore size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            aria-label={`Archive ${title}`}
+                            className={cx(
+                              styles.iconButton,
+                              styles.threadActionButton,
+                              styles.tooltip,
+                            )}
+                            data-tooltip="Archive thread"
+                            type="button"
+                            onClick={() => {
+                              if (threadId === thread.id)
+                                onThreadChange(undefined);
+                              archiveThread(thread.id).catch((err: unknown) => {
+                                console.error("Unable to archive thread", err);
+                              });
+                            }}
+                          >
+                            <Archive size={14} />
+                          </button>
+                        )}
                         <button
-                          aria-label={`Archive ${title}`}
+                          aria-label={`Delete ${title}`}
                           className={cx(
                             styles.iconButton,
                             styles.threadActionButton,
+                            styles.deleteButton,
+                            styles.tooltip,
                           )}
+                          data-tooltip="Delete thread"
                           type="button"
-                          onClick={() => {
-                            if (threadId === thread.id)
-                              onThreadChange(undefined);
-                            archiveThread(thread.id).catch((err: unknown) => {
-                              console.error("Unable to archive thread", err);
-                            });
+                          onClick={(e) => {
+                            deleteTriggerRef.current = e.currentTarget;
+                            setPendingDelete({ id: thread.id, title });
                           }}
                         >
-                          <Archive size={14} />
+                          <Trash2 size={14} />
                         </button>
-                      )}
-                      <button
-                        aria-label={`Delete ${title}`}
-                        className={cx(
-                          styles.iconButton,
-                          styles.threadActionButton,
-                          styles.deleteButton,
-                        )}
-                        type="button"
-                        onClick={() => {
-                          if (!window.confirm(confirmMsg)) return;
-                          if (threadId === thread.id) onThreadChange(undefined);
-                          deleteThread(thread.id).catch((err: unknown) => {
-                            console.error("Unable to delete thread", err);
-                          });
-                        }}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              {hasMoreThreads && (
-                <button
-                  className={styles.loadMoreButton}
-                  disabled={isFetchingMoreThreads}
-                  type="button"
-                  onClick={fetchMoreThreads}
-                >
-                  {isFetchingMoreThreads ? "Loading\u2026" : "Load more"}
-                </button>
-              )}
-            </div>
-          )}
+                  );
+                })}
+                {hasMoreThreads && (
+                  <button
+                    className={styles.loadMoreButton}
+                    disabled={isFetchingMoreThreads}
+                    type="button"
+                    onClick={fetchMoreThreads}
+                  >
+                    {isFetchingMoreThreads ? "Loading\u2026" : "Load more"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+      {pendingDelete && (
+        <ConfirmDialog
+          confirmLabel="Delete"
+          description={`Delete "${pendingDelete.title}"? This cannot be undone.`}
+          destructive
+          title="Delete thread"
+          onCancel={closeDeleteDialog}
+          onConfirm={() => {
+            const { id } = pendingDelete;
+            closeDeleteDialog();
+            if (threadId === id) onThreadChange(undefined);
+            deleteThread(id).catch((err: unknown) => {
+              console.error("Unable to delete thread", err);
+            });
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+interface ConfirmDialogProps {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function ConfirmDialog({
+  title,
+  description,
+  confirmLabel,
+  cancelLabel = "Cancel",
+  destructive = false,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  const titleId = useId();
+  const descId = useId();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCancel();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className={styles.dialogOverlay}
+      role="presentation"
+      onClick={onCancel}
+    >
+      <div
+        aria-describedby={descId}
+        aria-labelledby={titleId}
+        aria-modal="true"
+        className={styles.dialog}
+        role="dialog"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className={styles.dialogTitle} id={titleId}>
+          {title}
+        </h3>
+        <p className={styles.dialogDescription} id={descId}>
+          {description}
+        </p>
+        <div className={styles.dialogActions}>
+          <button
+            autoFocus
+            className={cx(styles.dialogButton, styles.dialogButtonSecondary)}
+            type="button"
+            onClick={onCancel}
+          >
+            {cancelLabel}
+          </button>
+          <button
+            className={cx(
+              styles.dialogButton,
+              destructive
+                ? styles.dialogButtonDestructive
+                : styles.dialogButtonPrimary,
+            )}
+            type="button"
+            onClick={onConfirm}
+          >
+            {confirmLabel}
+          </button>
         </div>
       </div>
-    </aside>
+    </div>,
+    document.body,
   );
 }

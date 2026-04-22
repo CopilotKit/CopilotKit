@@ -10,9 +10,9 @@
     "lint": "oxlint .",
     "format": "oxfmt --write .",
     "check-format": "oxfmt --check .",
-    "test": "nx run-many -t test",
+    "test": "nx run-many -t test --projects=packages/**",
     "test:watch": "pnpm run test && nx watch --all -- pnpm run test",
-    "test:coverage": "nx run-many -t test:coverage",
+    "test:coverage": "nx run-many -t test:coverage --projects=packages/**",
     "dev": "pnpm run build && nx watch --projects=packages/** -- pnpm run build",
     "dev:examples": "pnpm run build:examples && nx watch --projects=examples/** -- pnpm run build:examples",
     "storybook:angular": "pnpm -C examples/v2/angular/storybook dev",
@@ -89,7 +89,8 @@
       "serve-static@<=1.16.0": "1.16.0",
       "prismjs@<=1.30.0": "1.30.0",
       "pino@<=10.1.1": "10.1.1",
-      "@copilotkit/license-verifier": "0.0.1-a1"
+      "@copilotkit/license-verifier": "0.2.0",
+      "next": "^16.0.10"
     }
   }
 }

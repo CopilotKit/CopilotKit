@@ -25,29 +25,58 @@ concurrency:
   group: showcase-capture-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   capture:
-    name: Capture Preview GIFs
+    name: Capture Preview MP4s
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     runs-on: ubuntu-latest
-    # Disabled — preview GIFs removed from repo, awaiting external storage setup
-    # Loop prevention: when re-enabled, the conditions below prevent an infinite cycle:
-    #   capture commits registry.json → push matches showcase/** → deploy runs →
-    #   workflow_run triggers capture again. We break the loop by skipping when either
-    #   trigger path was caused by this workflow's own commit (identified by commit message).
+    # Captures demo previews as MP4 and uploads them to a GitHub release.
+    # Loop prevention: capture commits registry.json with the message below,
+    # which could re-trigger via push or the completed-deploy workflow_run.
+    # Skip when the triggering commit came from this workflow itself.
     if: >-
-      false &&
       (github.event_name != 'workflow_run' ||
-       !startsWith(github.event.workflow_run.head_commit.message, 'Auto-capture preview GIFs')) &&
+       !startsWith(github.event.workflow_run.head_commit.message, 'Update preview URLs in registry')) &&
       (github.event_name != 'push' ||
-       !startsWith(github.event.head_commit.message, 'Auto-capture preview GIFs'))
+       !startsWith(github.event.head_commit.message, 'Update preview URLs in registry'))
     timeout-minutes: 30
     steps:
+      - name: Mint devops-bot token
+        # PROTECT_OUR_MAIN requires a PR for pushes to main; the default
+        # GITHUB_TOKEN fails with GH013 on the `Commit registry updates`
+        # step below. devops-bot (app-id 1108748) is a configured bypass
+        # actor on that ruleset — mint its installation token here and use
+        # it for checkout + push. Mirrors the pattern in
+        # CopilotKit/internal-skills's sync-versions.yml.
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: "1108748"
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Ensure preview release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view showcase-previews --repo ${{ github.repository }} >/dev/null 2>&1 || \
+          gh release create showcase-previews --repo ${{ github.repository }} \
+            --title "Showcase Preview Videos" \
+            --notes "Auto-generated demo preview videos for the showcase platform. Updated by CI." \
+            --latest=false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -98,22 +127,119 @@ jobs:
             npx tsx showcase/scripts/capture-previews.ts $ARGS || true
           fi
 
-      - name: Update manifests and registry
+      - name: Commit registry updates
         run: |
-          # Check if any new GIFs were created that need manifest updates
-          if git diff --name-only | grep -q "previews/"; then
-            # Regenerate registry from updated manifests
-            npx tsx showcase/scripts/generate-registry.ts || true
-          fi
-
-      - name: Commit and push
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add showcase/shell/public/previews/ showcase/shell/src/data/registry.json showcase/packages/*/manifest.yaml
-          if git diff --staged --quiet; then
-            echo "No preview changes to commit"
+          # Commit as the devops-bot installation. The `<app-id>+<slug>[bot]`
+          # email is the conventional GitHub App noreply form; paired with
+          # the app-token used for checkout, the push lands on protected
+          # main via the bot's PROTECT_OUR_MAIN bypass.
+          git config user.name "devops-bot[bot]"
+          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
+          cd showcase/shell/src/data
+          if git diff --quiet registry.json; then
+            echo "No registry changes"
           else
-            git commit -m "Auto-capture preview GIFs for updated demos"
+            git add registry.json
+            git commit -m "Update preview URLs in registry"
             git push
           fi
+
+      # Slack failure alert. This workflow only runs on main-branch pushes,
+      # workflow_run completions, and manual dispatch — all of which
+      # constitute "production" events where silent failures (e.g. the
+      # GH013 PROTECT_OUR_MAIN regression that motivated PR #4159) must
+      # surface in #oss-alerts. Extracts failed step name + first
+      # meaningful error line so the payload is triage-ready rather than
+      # forcing a click-through, per the oss-alerts detail policy.
+      #
+      # Must NEVER fail the job (runs on failure() already; a crash here
+      # would compound the original failure and could block the notify
+      # step). All extraction uses best-effort fallbacks so a malformed
+      # jobs response or truncated log still yields sane defaults.
+      - name: Extract failure details for Slack
+        id: extract
+        if: failure() && env.SLACK_WEBHOOK != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set +e  # best-effort: never block the notify step below
+
+          # --- Find the currently-running job and its first failed step ---
+          # The jobs API returns every job in the run. Match by job name
+          # first (mirrors `jobs.capture.name`); fall back to first job
+          # with a failed step if name match misses (e.g. future rename).
+          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
+          job_id=$(printf '%s' "$jobs_json" | jq -r '
+            .jobs // []
+            | map(select(.name == "Capture Preview MP4s"))
+            | (.[0].id // empty)
+          ' 2>/dev/null)
+          if [ -z "$job_id" ]; then
+            job_id=$(printf '%s' "$jobs_json" | jq -r '
+              .jobs // []
+              | map(select(.steps // [] | map(.conclusion) | index("failure")))
+              | (.[0].id // empty)
+            ' 2>/dev/null)
+          fi
+          failed_step=$(printf '%s' "$jobs_json" | jq -r --arg id "$job_id" '
+            .jobs // []
+            | map(select((.id|tostring) == $id))
+            | (.[0].steps // [])
+            | map(select(.conclusion == "failure"))
+            | (.[0].name // "unknown step")
+          ' 2>/dev/null)
+          [ -z "$failed_step" ] && failed_step="unknown step"
+
+          # --- Pull log and extract first meaningful error line ------------
+          # `gh run view --log-failed` output is TSV: job\tstep\ttimestamp +
+          # content. Strip the three leading columns, strip ANSI escape
+          # codes + BOM, skip runner/group/env header noise, grab first
+          # line matching a recognised error marker. Truncate to ~300
+          # chars so the Slack payload stays under the 800-char budget.
+          error_excerpt="see workflow run for details"
+          if [ -n "$job_id" ]; then
+            log_excerpt=$(gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed --job="$job_id" 2>/dev/null \
+              | awk -F'\t' 'NF>=3 { sub(/^[\xEF\xBB\xBF]?[0-9T:.\-Z ]+/, "", $3); print $3 }' \
+              | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
+              | grep -vE '^(##\[|shell: |env: |Run |[[:space:]]*$)' \
+              | grep -m1 -E '^\[(FAIL|ERROR)\]|^Error:|^error:|^::error' \
+              | head -c 300)
+            if [ -n "$log_excerpt" ]; then
+              error_excerpt="$log_excerpt"
+            fi
+          fi
+
+          # --- Emit to $GITHUB_ENV using heredoc delimiter -----------------
+          # Heredoc delimiter protects against values with `=` or newlines
+          # breaking the KEY=VALUE format.
+          {
+            echo "failed_step<<EOF_FAILED_STEP_b3f2"
+            printf '%s\n' "$failed_step"
+            echo "EOF_FAILED_STEP_b3f2"
+            echo "error_excerpt<<EOF_ERROR_EXCERPT_b3f2"
+            printf '%s\n' "$error_excerpt"
+            echo "EOF_ERROR_EXCERPT_b3f2"
+          } >> "$GITHUB_ENV"
+
+          exit 0  # belt-and-suspenders: never propagate a failure
+
+      - name: Notify Slack (failure)
+        if: failure() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if github.repository or extracted failed_step / error_excerpt
+          # contain characters that would break the JSON payload (quotes,
+          # backslashes, newlines), the value is safely JSON-encoded.
+          # Matches the pattern used in showcase_validate.yml.
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase: Capture Previews*: failed — {0}: {1} | <https://github.com/{2}/actions/runs/{3}|View run>', env.failed_step, env.error_excerpt, github.repository, github.run_id)) }} }
+
+      - name: Log (no Slack — webhook unset)
+        if: failure() && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::showcase_capture-previews failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."

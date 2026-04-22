@@ -152,7 +152,6 @@
         "enum": [
           "constrained-declarative",
           "constrained-explicit",
-          "open",
           "a2ui-fixed-schema",
           "a2ui-dynamic-schema"
         ]

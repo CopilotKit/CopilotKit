@@ -46,6 +46,7 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
+import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
   handleClearThreads,
   handleListThreads,
@@ -342,6 +343,8 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
+    case "cpk-debug-events":
+      return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
 }
 
@@ -417,6 +420,7 @@ function validateHttpMethod(
     case "info":
     case "threads/list":
     case "threads/messages":
+    case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
         Allow: "GET",

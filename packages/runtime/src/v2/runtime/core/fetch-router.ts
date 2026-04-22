@@ -74,6 +74,17 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "transcribe" };
   }
 
+  // /cpk-debug-events (1 segment)
+  // Reserved route name: the `cpk-` prefix makes collision with a
+  // user-named agent essentially impossible (the router only treats
+  // `agent/:agentId/...` patterns as agent lookups, so a bare
+  // `cpk-debug-events` segment would never fall through to one —
+  // the prefix is the real guard, not this branch's position).
+  // Handler returns 404 in production.
+  if (len >= 1 && segments[len - 1] === "cpk-debug-events") {
+    return { method: "cpk-debug-events" };
+  }
+
   // /agent/:agentId/run (3 segments)
   if (
     len >= 3 &&

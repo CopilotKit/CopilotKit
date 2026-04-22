@@ -13,12 +13,13 @@ import { CopilotRuntime } from "../core/runtime";
 import { InMemoryAgentRunner } from "../runner/in-memory";
 
 describe("thread handlers", () => {
-  const createIdentifyUser = () => vi.fn().mockResolvedValue({ id: "user-1" });
+  const createIdentifyUser = () =>
+    vi.fn().mockResolvedValue({ id: "user-1", name: "User One" });
 
   const createIntelligenceRuntime = (options?: {
     identifyUser?: (
       request: Request,
-    ) => { id: string } | Promise<{ id: string }>;
+    ) => { id: string; name: string } | Promise<{ id: string; name: string }>;
     intelligence?: Record<string, unknown>;
   }) =>
     ({
@@ -95,7 +96,25 @@ describe("thread handlers", () => {
     };
     const runtime = createIntelligenceRuntime({
       intelligence,
-      identifyUser: vi.fn().mockResolvedValue({ id: "" }),
+      identifyUser: vi.fn().mockResolvedValue({ id: "", name: "User" }),
+    });
+
+    const response = await handleListThreads({
+      runtime,
+      request: new Request("https://example.com/threads?agentId=agent-1"),
+    });
+
+    expect(response.status).toBe(400);
+    expect(intelligence.listThreads).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when identifyUser returns an invalid name for thread list", async () => {
+    const intelligence = {
+      listThreads: vi.fn(),
+    };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "" }),
     });
 
     const response = await handleListThreads({
@@ -261,7 +280,50 @@ describe("thread handlers", () => {
     };
     const runtime = createIntelligenceRuntime({
       intelligence,
-      identifyUser: vi.fn().mockResolvedValue({ id: "" }),
+      identifyUser: vi.fn().mockResolvedValue({ id: "", name: "User" }),
+    });
+
+    const updateResponse = await handleUpdateThread({
+      runtime,
+      request: createMutationRequest("/threads/thread-1", "PATCH", {
+        agentId: "agent-1",
+      }),
+      threadId: "thread-1",
+    });
+    expect(updateResponse.status).toBe(400);
+
+    const archiveResponse = await handleArchiveThread({
+      runtime,
+      request: createMutationRequest("/threads/thread-1/archive", "POST", {
+        agentId: "agent-1",
+      }),
+      threadId: "thread-1",
+    });
+    expect(archiveResponse.status).toBe(400);
+
+    const deleteResponse = await handleDeleteThread({
+      runtime,
+      request: createMutationRequest("/threads/thread-1", "DELETE", {
+        agentId: "agent-1",
+      }),
+      threadId: "thread-1",
+    });
+    expect(deleteResponse.status).toBe(400);
+
+    expect(intelligence.updateThread).not.toHaveBeenCalled();
+    expect(intelligence.archiveThread).not.toHaveBeenCalled();
+    expect(intelligence.deleteThread).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 when identifyUser returns an invalid name for thread mutations", async () => {
+    const intelligence = {
+      updateThread: vi.fn(),
+      archiveThread: vi.fn(),
+      deleteThread: vi.fn(),
+    };
+    const runtime = createIntelligenceRuntime({
+      intelligence,
+      identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "" }),
     });
 
     const updateResponse = await handleUpdateThread({

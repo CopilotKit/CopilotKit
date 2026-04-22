@@ -1,0 +1,28 @@
+{
+  "name": "web-langgraph-interrupt",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/web/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter web-langgraph-interrupt dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "pnpm --filter web-langgraph-interrupt build"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter web-langgraph-interrupt lint"
+      }
+    }
+  },
+  "tags": []
+}

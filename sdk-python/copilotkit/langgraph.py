@@ -6,7 +6,7 @@ import uuid
 import json
 import warnings
 import asyncio
-from typing import List, Optional, Any, Union, Dict, Callable, cast
+from typing import List, Optional, Any, Union, Dict
 from typing_extensions import TypedDict
 from langgraph.graph import MessagesState
 
@@ -44,82 +44,6 @@ class CopilotKitProperties(TypedDict):
 class CopilotKitState(MessagesState):
     """CopilotKit state"""
     copilotkit: CopilotKitProperties
-
-
-def copilotkit_messages_to_langchain(
-        use_function_call: bool = False
-    ) -> Callable[[List[Message]], List[BaseMessage]]:
-    """
-    Convert CopilotKit messages to LangChain messages
-    """
-    def _copilotkit_messages_to_langchain(messages: List[Message]) -> List[BaseMessage]:
-        result = []
-        processed_action_executions = set()
-        for message in cast(Any, messages):
-            if message["type"] == "TextMessage":
-                if message["role"] == "user":
-                    result.append(HumanMessage(content=message["content"], id=message["id"]))
-                elif message["role"] == "system":
-                    result.append(SystemMessage(content=message["content"], id=message["id"]))
-                elif message["role"] == "assistant":
-                    result.append(AIMessage(content=message["content"], id=message["id"]))
-            elif message["type"] == "ActionExecutionMessage":
-                if use_function_call:
-                    result.append(AIMessage(
-                        id=message["id"],
-                        content="",
-                        additional_kwargs={
-                            'function_call':{
-                                'name': message["name"],
-                                'arguments': json.dumps(message["arguments"]),
-                            }
-                        } 
-                    ))
-                else:
-                    # convert multiple tool calls to a single message
-                    message_id = message.get("parentMessageId")
-                    if message_id is None:
-                        message_id = message["id"]
-
-                    if message_id in processed_action_executions:
-                        continue
-
-                    processed_action_executions.add(message_id)
-
-                    all_tool_calls = []
-
-                    # Find all tool calls for this message (only ActionExecutionMessage type)
-                    for msg in messages:
-                        if msg.get("type") != "ActionExecutionMessage":
-                            continue
-                        if msg.get("parentMessageId", None) == message_id or msg["id"] == message_id:
-                            all_tool_calls.append(msg)
-
-                    tool_calls = [{
-                        "name": t["name"],
-                        "args": t["arguments"],
-                        "id": t["id"],
-                    } for t in all_tool_calls]
-
-                    result.append(
-                        AIMessage(
-                            id=message_id,
-                            content="",
-                            tool_calls=tool_calls
-                        )
-                    )
-
-            elif message["type"] == "ResultMessage":
-                result.append(ToolMessage(
-                    id=message["id"],
-                    content=message["result"],
-                    name=message["actionName"],
-                    tool_call_id=message["actionExecutionId"]
-                ))
-
-        return result
-
-    return _copilotkit_messages_to_langchain
 
 
 def langchain_messages_to_copilotkit(
@@ -509,6 +433,13 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
-    answer = response[-1].content
+    if isinstance(response, str):
+        answer = response
+    elif isinstance(response, dict):
+        answer = json.dumps(response)
+    elif isinstance(response, list):
+        answer = response[-1].content
+    else:
+        answer = str(response)
 
     return answer, response

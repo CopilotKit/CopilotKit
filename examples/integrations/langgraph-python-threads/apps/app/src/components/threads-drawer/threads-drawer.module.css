@@ -63,12 +63,6 @@
   color: var(--foreground);
 }
 
-.drawerSubtitle {
-  margin: 0;
-  font-size: 0.75rem;
-  color: var(--muted-foreground);
-}
-
 .headerActions {
   display: flex;
   align-items: center;
@@ -134,23 +128,47 @@
   border-bottom: 1px solid var(--border);
 }
 
-.toggleLabel {
+.segmented {
   display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
+  width: 100%;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--secondary);
+  gap: 0.15rem;
+}
+
+.segmentedOption {
+  flex: 1;
+  min-height: 1.75rem;
+  padding: 0.3rem 0.75rem;
+  border: 0;
+  border-radius: calc(var(--radius) - 0.15rem);
+  background: transparent;
   font-family: var(--font-body);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--muted-foreground);
   cursor: pointer;
-  user-select: none;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    box-shadow 140ms ease;
 }
 
-.toggleCheckbox {
-  width: 0.9rem;
-  height: 0.9rem;
-  accent-color: var(--primary);
-  cursor: pointer;
+.segmentedOption:hover {
+  color: var(--foreground);
+}
+
+.segmentedOption:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.segmentedOptionActive {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
 }
 
 .drawerContent {
@@ -168,6 +186,9 @@
   flex-direction: column;
   gap: 0.25rem;
   overflow-y: auto;
+  /* Reserve scrollbar space so the list doesn't shift horizontally
+     when the scrollbar appears during the thread-enter animation. */
+  scrollbar-gutter: stable;
   padding: 0.75rem 0.5rem;
 }
 
@@ -180,7 +201,7 @@
   width: 100%;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.6rem 3.5rem 0.6rem 0.65rem;
+  padding: 0.6rem 0.65rem;
   border: 0;
   border-radius: var(--radius);
   background: transparent;
@@ -189,12 +210,18 @@
   cursor: pointer;
   transition:
     background-color 140ms ease,
-    box-shadow 140ms ease;
+    box-shadow 140ms ease,
+    padding-right 140ms ease;
 }
 
 .threadItem:hover,
 .threadItem:focus-visible {
   background: var(--secondary);
+}
+
+.threadRow:hover .threadItem,
+.threadRow:focus-within .threadItem {
+  padding-right: 3.5rem;
 }
 
 .threadItemSelected {
@@ -255,8 +282,13 @@
   color: var(--muted-foreground);
 }
 
-.threadItemArchived {
-  opacity: 0.55;
+.threadItemArchived .threadTitle {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.threadItemArchived .threadAccent {
+  opacity: 0.5;
 }
 
 .archivedBadge {
@@ -311,6 +343,9 @@
   transform: translateY(-50%) scale(0.96);
   opacity: 0;
   pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .threadRow:hover .threadActions,
@@ -325,6 +360,39 @@
   height: 1.75rem;
 }
 
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 0.3rem);
+  left: 50%;
+  transform: translateX(-50%) translateY(2px);
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.3rem;
+  border: 1px solid var(--border);
+  background: var(--foreground);
+  color: var(--background);
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 110ms ease 200ms,
+    transform 110ms ease 200ms;
+  z-index: 20;
+}
+
+.tooltip:hover::after,
+.tooltip:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
 .deleteButton {
   color: var(--destructive);
 }
@@ -333,6 +401,64 @@
 .deleteButton:focus-visible {
   background: rgb(220 38 38 / 0.1);
   color: var(--destructive);
+}
+
+.loadingList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.2rem 0;
+}
+
+.loadingRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.65rem;
+  border-radius: var(--radius);
+}
+
+.loadingAccent {
+  flex: none;
+  width: 0.35rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+}
+
+.loadingBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.loadingTitleBar {
+  height: 0.6rem;
+  width: 60%;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+}
+
+.loadingMetaBar {
+  height: 0.45rem;
+  width: 35%;
+  border-radius: 999px;
+  background: var(--secondary);
+  animation: threadsDrawerPulse 1.4s ease-in-out infinite;
+  animation-delay: 140ms;
+}
+
+@keyframes threadsDrawerPulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
 }
 
 .emptyState {
@@ -385,6 +511,120 @@
   min-height: 100svh;
   height: 100dvh;
   overflow: auto;
+}
+
+.dialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(2px);
+  animation: dialogOverlayEnter 140ms ease-out;
+}
+
+.dialog {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.1rem 1.1rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 0.25rem);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 0.25);
+  font-family: var(--font-body);
+  animation: dialogEnter 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialogTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+.dialogDescription {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+
+.dialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.dialogButton {
+  min-height: 2.25rem;
+  padding: 0.5rem 0.95rem;
+  border: 0;
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    opacity 140ms ease;
+}
+
+.dialogButton:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.dialogButtonSecondary {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.dialogButtonSecondary:hover {
+  background: var(--border);
+}
+
+.dialogButtonPrimary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.dialogButtonPrimary:hover {
+  opacity: 0.9;
+}
+
+.dialogButtonDestructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.dialogButtonDestructive:hover {
+  opacity: 0.9;
+}
+
+@keyframes dialogOverlayEnter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes threadItemEnter {

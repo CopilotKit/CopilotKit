@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@ag-ui/client": "0.0.52",
+    "@copilotkit/a2ui-renderer": "1.56.2",
     "@copilotkit/react-core": "1.56.2",
     "@copilotkit/react-ui": "1.56.2",
     "@hono/node-server": "^1.19.14",
