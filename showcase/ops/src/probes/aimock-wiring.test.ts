@@ -432,9 +432,7 @@ describe("aimock-wiring probe", () => {
     );
     expect(r.state).toBe("red");
     expect(r.signal.probeErrored).toBe(true);
-    expect(r.signal.probeErrorDesc).toBe(
-      "aimockUrl parse failed: not a url",
-    );
+    expect(r.signal.probeErrorDesc).toBe("aimockUrl parse failed: not a url");
     expect(r.signal.configError).toBe(true);
     expect(r.signal.hasErrored).toBe(true);
     expect(r.signal.erroredCount).toBe(1);

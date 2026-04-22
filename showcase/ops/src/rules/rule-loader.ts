@@ -324,7 +324,8 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
     // template's validation.
     const sources: string[] = [];
     if (rule.template?.text) sources.push(rule.template.text);
-    if (rule.on_error?.template?.text) sources.push(rule.on_error.template.text);
+    if (rule.on_error?.template?.text)
+      sources.push(rule.on_error.template.text);
     const safeForDim =
       slackSafeFields[rule.signal.dimension] ?? new Set<string>();
     const re = /\{\{\{\s*([^}]+?)\s*\}\}\}/g;

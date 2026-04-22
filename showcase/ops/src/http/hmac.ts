@@ -135,8 +135,7 @@ export function verifyHmac(input: HmacVerifyInput): HmacVerifyResult {
       // inputs that slipped past the hex-shape regex) surface at warn
       // with a stable errorId so operators can alert on them and
       // distinguish real breakage from the noisy happy-path rejection.
-      const message =
-        err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
       const isLengthMismatch =
         /input buffers must have the same byte length/i.test(message) ||
         /Input buffers must have the same length/i.test(message);

@@ -269,9 +269,7 @@ describe("useLastTransition", () => {
     act(() => {
       rerender({ k: KEY_A });
     });
-    await waitFor(() =>
-      expect(result.current.row?.id).toBe("hA"),
-    );
+    await waitFor(() => expect(result.current.row?.id).toBe("hA"));
     expect(mockState.fetchCount).toBeGreaterThan(countBefore);
     expect(mockState.fetchCount).toBeGreaterThan(firstFetchCount);
   }, 60_000);

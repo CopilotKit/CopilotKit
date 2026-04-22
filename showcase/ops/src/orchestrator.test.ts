@@ -38,8 +38,7 @@ async function pickPort(): Promise<number> {
     s.once("error", reject);
     s.listen(0, "127.0.0.1", () => {
       const addr = s.address();
-      if (typeof addr === "object" && addr)
-        s.close(() => resolve(addr.port));
+      if (typeof addr === "object" && addr) s.close(() => resolve(addr.port));
       else {
         s.close();
         reject(new Error("port-pick failed"));
@@ -74,7 +73,7 @@ describe("orchestrator /health wiring (F1.1)", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
   });
 
-  it("/health returns 503 with loop:\"no-jobs\" when scheduler has zero jobs", async () => {
+  it('/health returns 503 with loop:"no-jobs" when scheduler has zero jobs', async () => {
     // Boot with empty configDir → zero rules → zero cron entries.
     // bootstrapWindowMs=0 so the alert engine isn't chatty in logs.
     const booted = await boot({
@@ -96,7 +95,7 @@ describe("orchestrator /health wiring (F1.1)", () => {
     expect(body.schedulerJobs).toBe(0);
   });
 
-  it("/health returns 503 with loop:\"stopped\" after stop() completes", async () => {
+  it('/health returns 503 with loop:"stopped" after stop() completes', async () => {
     const booted = await boot({
       configDir: tempDir,
       port,
@@ -254,7 +253,7 @@ describe("orchestrator /health wiring (F1.1)", () => {
     expect(sigHupEmission!.error.length).toBeGreaterThan(0);
   });
 
-  it("/health returns 200 with loop:\"ok\" and schedulerJobs>=1 when a rule is loaded (happy path)", async () => {
+  it('/health returns 200 with loop:"ok" and schedulerJobs>=1 when a rule is loaded (happy path)', async () => {
     // E2 happy-path coverage. Pre-fix we only asserted the pathological
     // no-jobs and stopped states; an accidental regression where the
     // cron scheduler silently registered zero jobs despite a valid rule
@@ -507,9 +506,7 @@ describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () 
    * inner handler keeps the emit on the happy path.
    */
   it("cron handler emits rule.scheduled with result=undefined when invoker throws", async () => {
-    let handlerRef:
-      | ((...args: unknown[]) => Promise<void> | void)
-      | undefined;
+    let handlerRef: ((...args: unknown[]) => Promise<void> | void) | undefined;
     const stubScheduler = {
       register: vi.fn(
         (entry: {
@@ -545,9 +542,10 @@ describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () 
     );
 
     // Resolver returns an invoker that throws — simulates a probe bug.
-    const resolver: Parameters<typeof diffCronSchedules>[3] = () => async () => {
-      throw new Error("probe boom");
-    };
+    const resolver: Parameters<typeof diffCronSchedules>[3] =
+      () => async () => {
+        throw new Error("probe boom");
+      };
 
     diffCronSchedules(
       stubScheduler,

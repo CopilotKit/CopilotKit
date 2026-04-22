@@ -987,10 +987,7 @@ function deriveSignalFlags(
   // aimock-wiring-drift rule would silently collapse on "config is broken"
   // instead of firing the errored-state branch.
   const erroredArr = Array.isArray(s.errored) ? (s.errored as unknown[]) : null;
-  if (
-    (erroredArr && erroredArr.length > 0) ||
-    s.probeErrored === true
-  )
+  if ((erroredArr && erroredArr.length > 0) || s.probeErrored === true)
     flags.set_errored = true;
 
   // HF13-E1: gate_skipped — fires when the deploy workflow's lockfile /

@@ -958,8 +958,8 @@ describe("pb-client", () => {
     // Logs fire at iteration 11 (after 10 pages) and 21 (after 20 pages).
     expect(progressLogs.length).toBeGreaterThanOrEqual(2);
     // The first progress log should report 10 completed iterations.
-    expect(
-      (progressLogs[0]!.obj as { iterations: number }).iterations,
-    ).toBe(10);
+    expect((progressLogs[0]!.obj as { iterations: number }).iterations).toBe(
+      10,
+    );
   });
 });

@@ -455,11 +455,10 @@ describe("useLiveStatus", () => {
 
     // Monkey-patch the subscribe mock for this test only: gate on our
     // external promise before resolving, so we can unmount in between.
-    const originalSubscribe = (
+    const originalSubscribe =
       // Bypass: we rewire through mockState so subsequent tests aren't
       // affected (beforeEach resets mockState, not mock fns themselves).
-      () => null
-    )();
+      (() => null)();
     void originalSubscribe;
 
     // Seed one row so fetchInitial resolves quickly.

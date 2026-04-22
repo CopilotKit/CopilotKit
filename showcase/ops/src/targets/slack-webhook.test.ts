@@ -50,9 +50,9 @@ describe("slack-webhook target", () => {
     const fetchImpl = (async () =>
       new Response("", { status: 200 })) as unknown as typeof fetch;
     const t = createSlackWebhookTarget({ logger, env: {}, fetchImpl });
-    await expect(
-      t.send(payload, { kind: "slack_webhook" }),
-    ).rejects.toThrow(/not set/);
+    await expect(t.send(payload, { kind: "slack_webhook" })).rejects.toThrow(
+      /not set/,
+    );
   });
 
   it("ignores HTTP-date Retry-After and falls through to exponential backoff", async () => {
@@ -503,10 +503,7 @@ describe("slack-webhook target", () => {
   // when `.text()` is invoked. We can't observe socket-pool state from
   // userland, so we assert the moral equivalent — the caller actually
   // invokes `res.text()` on the failing response before sleeping.
-  function instrumentedResponse(
-    res: Response,
-    onText: () => void,
-  ): Response {
+  function instrumentedResponse(res: Response, onText: () => void): Response {
     return new Proxy(res, {
       get(target, prop) {
         if (prop === "text") {

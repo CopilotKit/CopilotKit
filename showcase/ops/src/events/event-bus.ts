@@ -195,10 +195,9 @@ export function createEventBus(): TypedEventBus {
       // be reachable. Surfacing this prevents subtle "why isn't my
       // subscription firing" debugging trips. Kept at debug level — this
       // is intentional behavior on shutdown, just worth noting.
-      const count = emitter.eventNames().reduce(
-        (n, name) => n + emitter.listenerCount(name),
-        0,
-      );
+      const count = emitter
+        .eventNames()
+        .reduce((n, name) => n + emitter.listenerCount(name), 0);
       if (count > 0) {
         logger.debug("event-bus: removeAll detaching active listeners", {
           count,

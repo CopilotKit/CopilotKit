@@ -126,9 +126,7 @@ describe("metrics registry", () => {
     expect(text).toContain(
       "# TYPE showcase_ops_internal_backup_failures_total counter",
     );
-    expect(text).toMatch(
-      /^showcase_ops_internal_backup_failures_total\s+2$/m,
-    );
+    expect(text).toMatch(/^showcase_ops_internal_backup_failures_total\s+2$/m);
     // Must not have leaked into probe_runs.
     expect(text).toMatch(/^showcase_ops_probe_runs 0$/m);
   });

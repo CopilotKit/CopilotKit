@@ -930,9 +930,7 @@ describe("status-writer", () => {
     });
     const realDateNow = Date.now;
     let simulatedNow = 1_000_000_000;
-    const nowSpy = vi
-      .spyOn(Date, "now")
-      .mockImplementation(() => simulatedNow);
+    const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => simulatedNow);
     try {
       await writer.write({
         ...probeResult("red"),
@@ -1011,9 +1009,9 @@ describe("status-writer", () => {
         data: { data: { url: { code: "validation_required" } } },
       }),
     ).toBe("pb_schema_error");
-    expect(
-      classifyWriterError({ message: "bad request", status: 400 }),
-    ).toBe("pb_schema_error");
+    expect(classifyWriterError({ message: "bad request", status: 400 })).toBe(
+      "pb_schema_error",
+    );
   });
 
   it("R21-a: errorInfo reads PbHttpError.statusCode so classifyWriterError routes 401/403/429/400 correctly", async () => {

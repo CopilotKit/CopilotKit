@@ -105,7 +105,7 @@ export function errorInfo(err: unknown): WriterErrorInfo {
       message:
         typeof maybe.message === "string"
           ? maybe.message
-          : safeJson(err) ?? String(err),
+          : (safeJson(err) ?? String(err)),
     };
     const s = pickStatus(maybe);
     if (s !== undefined) info.status = s;
@@ -172,7 +172,10 @@ export function classifyWriterError(
   ) {
     return "network_error";
   }
-  if (lower.includes("validation_not_unique") || lower.includes("is not unique")) {
+  if (
+    lower.includes("validation_not_unique") ||
+    lower.includes("is not unique")
+  ) {
     return "pb_schema_error";
   }
   return "unknown";
@@ -535,4 +538,3 @@ export function createStatusWriter(deps: StatusWriterDeps): StatusWriter {
     },
   };
 }
-

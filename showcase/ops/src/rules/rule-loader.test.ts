@@ -162,7 +162,6 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
     expect(errors[0]!.error).toMatch(/unknown filter.*truncateUtfBAD/);
   });
 
-
   it("accepts a suppress expression referencing hasCandidates (flat signal alias)", async () => {
     // Regression: cluster 6's redirect-decommission-monthly.yml references
     // the flat `hasCandidates` identifier in suppress.when. rule-loader must
@@ -771,10 +770,16 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
         env: { dashboardUrl: "https://d", repo: "r/r" },
       },
     );
-    expect((rendered.payload as { text: string }).text).toContain("npm registry 500");
-    expect((rendered.payload as { text: string }).text).toContain("probe errored");
+    expect((rendered.payload as { text: string }).text).toContain(
+      "npm registry 500",
+    );
+    expect((rendered.payload as { text: string }).text).toContain(
+      "probe errored",
+    );
     // And non-empty — the core bug was "alert fires with empty message".
-    expect((rendered.payload as { text: string }).text.trim().length).toBeGreaterThan(0);
+    expect(
+      (rendered.payload as { text: string }).text.trim().length,
+    ).toBeGreaterThan(0);
   });
 
   it("deploy-result: cancelled_prebuild is in triggers list AND template branch renders", async () => {
@@ -825,7 +830,9 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
         env: { dashboardUrl: "https://d", repo: "r/r" },
       },
     );
-    expect((rendered.payload as { text: string }).text).toContain("cancelled before any build started");
+    expect((rendered.payload as { text: string }).text).toContain(
+      "cancelled before any build started",
+    );
   });
 
   it("redirect-decommission-monthly: probeErrored branch renders probeErrorDesc (body branch otherwise)", async () => {
@@ -969,9 +976,8 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     // Per-dimension slackSafe sets must mirror orchestrator.ts wiring so the
     // whole-dir load succeeds. Other dimensions triple-brace only
     // event.*/env.* which are handled by validateTripleBrace.
-    const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } = await import(
-      "../probes/redirect-decommission.js"
-    );
+    const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } =
+      await import("../probes/redirect-decommission.js");
     const { SMOKE_SLACK_SAFE_FIELDS } = await import("../probes/smoke.js");
     const loader = createRuleLoader({
       dir: REAL_CONFIG_DIR,
@@ -1000,15 +1006,22 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         "set_errored",
         "red_to_green",
       ]);
-      const ctx = makeCtx(rule!, {
-        unwired: ["svc-a", "svc-b"],
-        unwiredCount: 2,
-        unwiredNoun: "services",
-        erroredPreview: [],
-        probeErrorDesc: "",
-      }, { trigger: { set_drifted: true } });
-      const text = (renderer.render({ text: rule!.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule!,
+        {
+          unwired: ["svc-a", "svc-b"],
+          unwiredCount: 2,
+          unwiredNoun: "services",
+          erroredPreview: [],
+          probeErrorDesc: "",
+        },
+        { trigger: { set_drifted: true } },
+      );
+      const text = (
+        renderer.render({ text: rule!.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("aimock wiring drift");
       expect(text).toContain("2 services bypassing");
       expect(text).toContain("svc-a");
@@ -1020,16 +1033,23 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("set_errored branch renders erroredCount + erroredPreview + probeErrorDesc", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
-      const ctx = makeCtx(rule, {
-        unwired: [],
-        unwiredCount: 0,
-        unwiredNoun: "services",
-        erroredCount: 3,
-        erroredPreview: ["svc-1: timeout", "svc-2: 500", "svc-3: auth"],
-        probeErrorDesc: "Railway API 502",
-      }, { trigger: { set_errored: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          unwired: [],
+          unwiredCount: 0,
+          unwiredNoun: "services",
+          erroredCount: 3,
+          erroredPreview: ["svc-1: timeout", "svc-2: 500", "svc-3: auth"],
+          probeErrorDesc: "Railway API 502",
+        },
+        { trigger: { set_errored: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("aimock wiring probe errored");
       expect(text).toContain("3 service");
       expect(text).toContain("svc-1: timeout");
@@ -1042,8 +1062,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
       const ctx = makeCtx(rule, {}, { trigger: { red_to_green: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("aimock wiring recovered");
       expect(text).toContain("Dashboard");
     });
@@ -1071,8 +1094,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         },
         { trigger: { set_drifted: true }, event: { runUrl } },
       );
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       // Raw URL (including literal `&`) must survive to Slack. Pre-fix the
       // `&` was HTML-escaped to `&amp;` by default double-brace, breaking
       // the link parser.
@@ -1097,8 +1123,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         },
         { trigger: { set_errored: true }, event: { runUrl } },
       );
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain(runUrl);
       expect(text).not.toContain("&amp;");
     });
@@ -1108,12 +1137,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
       const runUrl =
         "https://github.com/foo/bar/actions/runs/789?check_suite_focus=true&foo=baz";
-      const ctx = makeCtx(rule, {}, {
-        trigger: { red_to_green: true },
-        event: { runUrl },
-      });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {},
+        {
+          trigger: { red_to_green: true },
+          event: { runUrl },
+        },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain(runUrl);
       expect(text).not.toContain("&amp;");
     });
@@ -1133,12 +1169,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         "sustained_red",
         "red_to_green",
       ]);
-      const ctx = makeCtx(rule!, {
-        suite: "L2",
-        failureSummary: "assertion failed at step 3\nstack: ...\n",
-      }, { trigger: { green_to_red: true, isRedTick: true } });
-      const text = (renderer.render({ text: rule!.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule!,
+        {
+          suite: "L2",
+          failureSummary: "assertion failed at step 3\nstack: ...\n",
+        },
+        { trigger: { green_to_red: true, isRedTick: true } },
+      );
+      const text = (
+        renderer.render({ text: rule!.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("Showcase E2E suite failed");
       expect(text).toContain("assertion failed at step 3");
       // Code fence framing survives truncateUtf8 and stripAnsi filters.
@@ -1148,12 +1191,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("sustained_red (isRedTick) branch renders failureSummary", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "e2e-smoke-failure")!;
-      const ctx = makeCtx(rule, {
-        suite: "L1",
-        failureSummary: "still red: timeout",
-      }, { trigger: { sustained_red: true, isRedTick: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          suite: "L1",
+          failureSummary: "still red: timeout",
+        },
+        { trigger: { sustained_red: true, isRedTick: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("still red: timeout");
       expect(text).toContain("Showcase E2E suite failed");
     });
@@ -1161,11 +1211,18 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("red_to_green branch renders recovery with run link", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "e2e-smoke-failure")!;
-      const ctx = makeCtx(rule, { suite: "L2", failureSummary: "" }, {
-        trigger: { red_to_green: true },
-      });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        { suite: "L2", failureSummary: "" },
+        {
+          trigger: { red_to_green: true },
+        },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("Showcase E2E suite recovered");
       expect(text).toContain("https://run.example/1");
     });
@@ -1181,17 +1238,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       const rule = rules.find((r) => r.id === "image-drift");
       expect(rule).toBeDefined();
       expect(rule!.stringTriggers).toEqual(["set_changed", "set_errored"]);
-      const ctx = makeCtx(rule!, {
-        staleServices: ["svc-a", "svc-b"],
-        errored: [],
-        triggered: ["svc-a", "svc-b"],
-        rebuildNoun: "rebuilds",
-        staleServicesCount: 2,
-        erroredCount: 0,
-        triggeredCount: 2,
-      }, { trigger: { set_changed: true } });
-      const text = (renderer.render({ text: rule!.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule!,
+        {
+          staleServices: ["svc-a", "svc-b"],
+          errored: [],
+          triggered: ["svc-a", "svc-b"],
+          rebuildNoun: "rebuilds",
+          staleServicesCount: 2,
+          erroredCount: 0,
+          triggeredCount: 2,
+        },
+        { trigger: { set_changed: true } },
+      );
+      const text = (
+        renderer.render({ text: rule!.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("Image drift detected");
       expect(text).toContain("2 rebuilds triggered");
       expect(text).toContain("0 errored");
@@ -1200,17 +1264,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("set_errored branch renders errored count (stale=0, errored=1)", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "image-drift")!;
-      const ctx = makeCtx(rule, {
-        staleServices: [],
-        errored: ["ghcr-down-svc"],
-        triggered: ["ghcr-down-svc"],
-        rebuildNoun: "rebuild",
-        staleServicesCount: 0,
-        erroredCount: 1,
-        triggeredCount: 1,
-      }, { trigger: { set_errored: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          staleServices: [],
+          errored: ["ghcr-down-svc"],
+          triggered: ["ghcr-down-svc"],
+          rebuildNoun: "rebuild",
+          staleServicesCount: 0,
+          erroredCount: 1,
+          triggeredCount: 1,
+        },
+        { trigger: { set_errored: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("Image drift detected");
       expect(text).toContain("0 rebuild triggered");
       expect(text).toContain("1 errored");
@@ -1229,17 +1300,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       // Cron-only rule → stringTriggers empty, cronTriggers populated.
       expect(rule!.stringTriggers).toEqual([]);
       expect(rule!.cronTriggers.length).toBeGreaterThan(0);
-      const ctx = makeCtx(rule!, {
-        actualCount: 5,
-        baselineCount: null,
-        setStatus: "no_baseline",
-        noBaseline: true,
-        stable: false,
-        regressed: false,
-        improved: false,
-      }, { trigger: { first: true } });
-      const text = (renderer.render({ text: rule!.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule!,
+        {
+          actualCount: 5,
+          baselineCount: null,
+          setStatus: "no_baseline",
+          noBaseline: true,
+          stable: false,
+          regressed: false,
+          improved: false,
+        },
+        { trigger: { first: true } },
+      );
+      const text = (
+        renderer.render({ text: rule!.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("FAIL=5");
       expect(text).toContain("first run — no baseline yet");
       // The raw enum tag must NOT leak to Slack on the first-run branch.
@@ -1249,17 +1327,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("noBaseline=false stable branch renders actual + baseline + setStatus", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
-      const ctx = makeCtx(rule, {
-        actualCount: 3,
-        baselineCount: 3,
-        setStatus: "stable",
-        noBaseline: false,
-        stable: true,
-        regressed: false,
-        improved: false,
-      }, { trigger: { first: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          actualCount: 3,
+          baselineCount: 3,
+          setStatus: "stable",
+          noBaseline: false,
+          stable: true,
+          regressed: false,
+          improved: false,
+        },
+        { trigger: { first: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("FAIL=3");
       expect(text).toContain("baseline 3");
       expect(text).toContain("[stable]");
@@ -1269,17 +1354,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("noBaseline=false regressed branch renders setStatus=regressed", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
-      const ctx = makeCtx(rule, {
-        actualCount: 7,
-        baselineCount: 3,
-        setStatus: "regressed",
-        noBaseline: false,
-        stable: false,
-        regressed: true,
-        improved: false,
-      }, { trigger: { first: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          actualCount: 7,
+          baselineCount: 3,
+          setStatus: "regressed",
+          noBaseline: false,
+          stable: false,
+          regressed: true,
+          improved: false,
+        },
+        { trigger: { first: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("FAIL=7");
       expect(text).toContain("baseline 3");
       expect(text).toContain("[regressed]");
@@ -1290,8 +1382,9 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
       expect(rule.onError).toBeDefined();
       const ctx = makeCtx(rule, {}, {});
-      const text = (renderer.render(rule.onError!.template, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render(rule.onError!.template, ctx).payload as { text: string }
+      ).text;
       expect(text).toContain("job failed");
       expect(text).toContain("https://run.example/1");
     });
@@ -1311,17 +1404,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         "sustained_red",
         "red_to_green",
       ]);
-      const ctx = makeCtx(rule!, {
-        slug: "coagents-starter",
-        errorDesc: "http 503",
-        links: {
-          smoke: "https://svc.example/smoke",
-          health: "https://svc.example/health",
+      const ctx = makeCtx(
+        rule!,
+        {
+          slug: "coagents-starter",
+          errorDesc: "http 503",
+          links: {
+            smoke: "https://svc.example/smoke",
+            health: "https://svc.example/health",
+          },
+          failCount: 1,
         },
-        failCount: 1,
-      }, { trigger: { green_to_red: true, isRedTick: true } });
-      const text = (renderer.render({ text: rule!.template!.text }, ctx)
-        .payload as { text: string }).text;
+        { trigger: { green_to_red: true, isRedTick: true } },
+      );
+      const text = (
+        renderer.render({ text: rule!.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("coagents-starter");
       expect(text).toContain("down, error: http 503");
       // Triple-brace signal.links.* (added via SMOKE_SLACK_SAFE_FIELDS)
@@ -1335,17 +1435,24 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("sustained_red branch renders failCount (attempt: N) and error", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "smoke-red-tick")!;
-      const ctx = makeCtx(rule, {
-        slug: "mastra-starter",
-        errorDesc: "timeout after 15000ms",
-        links: {
-          smoke: "https://m.example/smoke",
-          health: "https://m.example/health",
+      const ctx = makeCtx(
+        rule,
+        {
+          slug: "mastra-starter",
+          errorDesc: "timeout after 15000ms",
+          links: {
+            smoke: "https://m.example/smoke",
+            health: "https://m.example/health",
+          },
+          failCount: 3,
         },
-        failCount: 3,
-      }, { trigger: { sustained_red: true, isRedTick: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+        { trigger: { sustained_red: true, isRedTick: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("mastra-starter");
       expect(text).toContain("attempt: 3");
       expect(text).toContain("timeout after 15000ms");
@@ -1354,12 +1461,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("red_to_green branch renders recovery + firstFailureAt", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "smoke-red-tick")!;
-      const ctx = makeCtx(rule, {
-        slug: "langgraph-starter",
-        firstFailureAt: "2026-04-19T23:00:00Z",
-      }, { trigger: { red_to_green: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          slug: "langgraph-starter",
+          firstFailureAt: "2026-04-19T23:00:00Z",
+        },
+        { trigger: { red_to_green: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("langgraph-starter");
       expect(text).toContain("recovered");
       expect(text).toContain("was down since 2026-04-19T23:00:00Z");
@@ -1368,18 +1482,25 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("escalated block renders !channel ping with firstFailureAt", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "smoke-red-tick")!;
-      const ctx = makeCtx(rule, {
-        slug: "agno-starter",
-        errorDesc: "http 500",
-        firstFailureAt: "2026-04-19T22:00:00Z",
-        links: {
-          smoke: "https://a.example/smoke",
-          health: "https://a.example/health",
+      const ctx = makeCtx(
+        rule,
+        {
+          slug: "agno-starter",
+          errorDesc: "http 500",
+          firstFailureAt: "2026-04-19T22:00:00Z",
+          links: {
+            smoke: "https://a.example/smoke",
+            health: "https://a.example/health",
+          },
+          failCount: 4,
         },
-        failCount: 4,
-      }, { trigger: { sustained_red: true, isRedTick: true }, escalated: true });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+        { trigger: { sustained_red: true, isRedTick: true }, escalated: true },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("<!channel>");
       expect(text).toContain("agno-starter");
       expect(text).toContain("failing for 1 hour");
@@ -1402,16 +1523,23 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         "cancelled_prebuild",
         "gate_skipped",
       ]);
-      const ctx = makeCtx(rule, {
-        partial: true,
-        failedCount: 2,
-        totalCount: 5,
-        failedList: ["svc-a", "svc-b"],
-        succeededList: ["svc-c", "svc-d", "svc-e"],
-        servicesList: ["svc-a", "svc-b", "svc-c", "svc-d", "svc-e"],
-      }, { trigger: { green_to_red: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          partial: true,
+          failedCount: 2,
+          totalCount: 5,
+          failedList: ["svc-a", "svc-b"],
+          succeededList: ["svc-c", "svc-d", "svc-e"],
+          servicesList: ["svc-a", "svc-b", "svc-c", "svc-d", "svc-e"],
+        },
+        { trigger: { green_to_red: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("Showcase deploy");
       expect(text).toContain("2/5 service(s) failed");
       expect(text).toContain("svc-a");
@@ -1422,16 +1550,23 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("green_to_red total-failure branch renders servicesList (not partial)", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "deploy-result")!;
-      const ctx = makeCtx(rule, {
-        partial: false,
-        failedCount: 3,
-        totalCount: 3,
-        failedList: ["svc-a", "svc-b", "svc-c"],
-        succeededList: [],
-        servicesList: ["svc-a", "svc-b", "svc-c"],
-      }, { trigger: { green_to_red: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          partial: false,
+          failedCount: 3,
+          totalCount: 3,
+          failedList: ["svc-a", "svc-b", "svc-c"],
+          succeededList: [],
+          servicesList: ["svc-a", "svc-b", "svc-c"],
+        },
+        { trigger: { green_to_red: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("FAILED — 3 service(s) targeted");
       expect(text).toContain("svc-a");
     });
@@ -1439,11 +1574,18 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("red_to_green branch renders recovered + firstFailureAt", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "deploy-result")!;
-      const ctx = makeCtx(rule, {
-        firstFailureAt: "2026-04-19T10:00:00Z",
-      }, { trigger: { red_to_green: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          firstFailureAt: "2026-04-19T10:00:00Z",
+        },
+        { trigger: { red_to_green: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("recovered");
       expect(text).toContain("2026-04-19T10:00:00Z");
     });
@@ -1451,12 +1593,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     it("cancelled_midmatrix branch renders mid-matrix cancellation message", async () => {
       const { rules, renderer } = await loadRealRules();
       const rule = rules.find((r) => r.id === "deploy-result")!;
-      const ctx = makeCtx(rule, {
-        cancelled: true,
-        cancelledMidMatrix: true,
-      }, { trigger: { cancelled_midmatrix: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const ctx = makeCtx(
+        rule,
+        {
+          cancelled: true,
+          cancelledMidMatrix: true,
+        },
+        { trigger: { cancelled_midmatrix: true } },
+      );
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("cancelled mid-matrix");
       expect(text).toContain("newer run");
     });
@@ -1476,8 +1625,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       // Simulate alert-engine having set the derived trigger flag without
       // propagating a signal echo. Pre-fix this branch would NOT render.
       const ctx = makeCtx(rule, {}, { trigger: { gate_skipped: true } });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).toContain("build matrix gated off");
     });
 
@@ -1488,8 +1640,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       // wasn't. Post-fix, the gate-skipped branch must NOT render since we
       // gate on `trigger.gate_skipped`, not `signal.gateSkipped`.
       const ctx = makeCtx(rule, { gateSkipped: true }, { trigger: {} });
-      const text = (renderer.render({ text: rule.template!.text }, ctx)
-        .payload as { text: string }).text;
+      const text = (
+        renderer.render({ text: rule.template!.text }, ctx).payload as {
+          text: string;
+        }
+      ).text;
       expect(text).not.toContain("build matrix gated off");
     });
   });
@@ -1629,9 +1784,7 @@ describe("rule-loader: rate_limit.window load-time validation (R28 bucket-a)", (
   // unit at boot with a clear "must be e.g. 15m/1h/3d" message.
   it("rejects a rule whose rate_limit.window is missing a unit suffix ('15')", async () => {
     const os = await import("node:os");
-    const tmp = await fs.mkdtemp(
-      path.join(os.tmpdir(), "showcase-ops-rlw-"),
-    );
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rlw-"));
     await fs.writeFile(
       path.join(tmp, "bad-rlwindow.yml"),
       [
@@ -1666,9 +1819,7 @@ describe("rule-loader: rate_limit.window load-time validation (R28 bucket-a)", (
 
   it("rejects a rule whose rate_limit.window contains an internal space ('1 hour')", async () => {
     const os = await import("node:os");
-    const tmp = await fs.mkdtemp(
-      path.join(os.tmpdir(), "showcase-ops-rlw2-"),
-    );
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rlw2-"));
     await fs.writeFile(
       path.join(tmp, "bad-rlwindow-human.yml"),
       [
@@ -1775,9 +1926,7 @@ describe("rule-loader: signal.filter.dimension load-time validation (R28 bucket-
   // `FilterSchema.dimension` is also `DimensionEnum.optional()`.
   it("rejects a rule whose signal.filter.dimension is typoed ('smokee')", async () => {
     const os = await import("node:os");
-    const tmp = await fs.mkdtemp(
-      path.join(os.tmpdir(), "showcase-ops-fdim-"),
-    );
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-fdim-"));
     await fs.writeFile(
       path.join(tmp, "bad-filter-dim.yml"),
       [

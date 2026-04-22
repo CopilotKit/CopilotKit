@@ -63,7 +63,9 @@ describe("FILTER_RE (shared)", () => {
   });
 
   it("captures chained pipeline filters in a single match", () => {
-    const ms = matches("{{ signal.x | stripAnsi | truncateUtf8 10 | slackEscape }}");
+    const ms = matches(
+      "{{ signal.x | stripAnsi | truncateUtf8 10 | slackEscape }}",
+    );
     expect(ms).toHaveLength(1);
     expect(ms[0]![2]!.trim()).toBe("stripAnsi | truncateUtf8 10 | slackEscape");
   });

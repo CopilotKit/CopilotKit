@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  createScheduler,
-  SchedulerStoppedError,
-} from "./scheduler.js";
+import { createScheduler, SchedulerStoppedError } from "./scheduler.js";
 import { logger } from "../logger.js";
 
 describe("scheduler", () => {

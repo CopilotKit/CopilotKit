@@ -91,10 +91,10 @@ export function useLiveStatus(dimension?: string): UseLiveStatusResult {
           // from everyone. Debug-level log preserves the evidence without
           // polluting the default console.
           // eslint-disable-next-line no-console
-          console.debug(
-            "[useLiveStatus] unsubscribe failed (best-effort)",
-            { topic: dimension ?? "<all>", err },
-          );
+          console.debug("[useLiveStatus] unsubscribe failed (best-effort)", {
+            topic: dimension ?? "<all>",
+            err,
+          });
         }
         cancel = null;
       }

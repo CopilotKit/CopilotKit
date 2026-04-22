@@ -234,10 +234,7 @@ export function registerDeployWebhook(
     // `deploy.result` events — GitHub Actions retries are serial today
     // but the handler is racy in principle and an infra change could
     // expose it.
-    const bodySha = crypto
-      .createHash("sha256")
-      .update(raw)
-      .digest("hex");
+    const bodySha = crypto.createHash("sha256").update(raw).digest("hex");
     const dedupeKey = `${result.data.runId}:${bodySha}`;
     if (dedupe.seen(dedupeKey)) {
       deps.logger.info("webhook.deploy.duplicate", {

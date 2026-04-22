@@ -1274,7 +1274,9 @@ describe("alert-engine (additional behaviors)", () => {
     e.reload([
       baseRule({
         stringTriggers: ["set_errored"],
-        template: { text: "{{#trigger.set_errored}}ERR{{/trigger.set_errored}}" },
+        template: {
+          text: "{{#trigger.set_errored}}ERR{{/trigger.set_errored}}",
+        },
       }),
     ]);
     bus.emit("status.changed", {
@@ -1887,9 +1889,7 @@ describe("alert-engine R7 (A1/A4/A5/A9)", () => {
     });
     await new Promise((r) => setImmediate(r));
     expect(sent).toHaveLength(1);
-    expect((sent[0] as { payload: { text: string } }).payload.text).toBe(
-      "ERR",
-    );
+    expect((sent[0] as { payload: { text: string } }).payload.text).toBe("ERR");
     e.stop();
   });
 
@@ -1910,15 +1910,11 @@ describe("alert-engine R7 (A1/A4/A5/A9)", () => {
     });
     e.reload([rule]);
     // Seed at the new dedupe-key shape (rule-id prefixed).
-    await store.record(
-      "rule-alpha",
-      "rule-alpha:smoke:mastra:green_to_red",
-      {
-        at: "2026-04-20T01:55:00Z", // 5 minutes ago — inside the 15m window.
-        hash: "h",
-        preview: "",
-      },
-    );
+    await store.record("rule-alpha", "rule-alpha:smoke:mastra:green_to_red", {
+      at: "2026-04-20T01:55:00Z", // 5 minutes ago — inside the 15m window.
+      hash: "h",
+      preview: "",
+    });
     bus.emit("status.changed", {
       outcome: {
         previousState: "green",
@@ -2279,8 +2275,7 @@ describe("alert-engine trigger.isRedTick coverage (HF-A2)", () => {
       ]);
       bus.emit("status.changed", {
         outcome: {
-          previousState:
-            c.transition === "green_to_red" ? "green" : "red",
+          previousState: c.transition === "green_to_red" ? "green" : "red",
           newState: c.newState as State,
           transition: c.transition,
           failCount: 1,
@@ -2736,9 +2731,9 @@ describe("alert-engine R24: metrics wiring (alert_matches + alert_sends)", () =>
     expect(
       counterValue(metrics, "alert_matches", "rule=r24-metrics-match"),
     ).toBe(1);
-    expect(
-      counterValue(metrics, "alert_sends", "target=slack_webhook"),
-    ).toBe(1);
+    expect(counterValue(metrics, "alert_sends", "target=slack_webhook")).toBe(
+      1,
+    );
     e.stop();
   });
 
@@ -3099,4 +3094,3 @@ describe("alert-engine R24: shouldSuppress fail-closed (bucket-a#7)", () => {
     e.stop();
   });
 });
-
