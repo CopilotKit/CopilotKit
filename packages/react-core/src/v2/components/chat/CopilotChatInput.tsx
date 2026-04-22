@@ -384,6 +384,12 @@ export function CopilotChatInput({
   );
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Skip key handling during IME composition (e.g. CJK input).
+    // The compositionend event will fire separately when composition ends.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) {
+      return;
+    }
+
     if (commandQuery !== null && mode === "input") {
       if (e.key === "ArrowDown") {
         if (filteredCommands.length > 0) {
@@ -455,10 +461,12 @@ export function CopilotChatInput({
 
     onSubmitMessage(trimmed);
 
+    // Always clear the input after sending, including controlled mode.
+    // In controlled mode, onChange("") notifies the parent to reset its state.
     if (!isControlled) {
       setInternalValue("");
-      onChange?.("");
     }
+    onChange?.("");
 
     if (inputRef.current) {
       inputRef.current.focus();
@@ -470,6 +478,12 @@ export function CopilotChatInput({
     value: resolvedValue,
     onChange: handleChange,
     onKeyDown: handleKeyDown,
+    onCompositionStart: () => {
+      isComposingRef.current = true;
+    },
+    onCompositionEnd: () => {
+      isComposingRef.current = false;
+    },
     autoFocus: autoFocus,
     className: twMerge(
       "cpk:w-full cpk:py-3",
@@ -612,9 +626,14 @@ export function CopilotChatInput({
     }
   };
 
+  // Track whether an IME composition is active so we can avoid
+  // resetting textarea.value during measurement (which would break
+  // the composition session).
+  const isComposingRef = useRef(false);
+
   const ensureMeasurements = useCallback(() => {
     const textarea = inputRef.current;
-    if (!textarea) {
+    if (!textarea || isComposingRef.current) {
       return;
     }
 

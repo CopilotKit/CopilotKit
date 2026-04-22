@@ -158,11 +158,25 @@ export function copilotRuntimeNodeHttpEndpoint(
     }
   };
 
+  // Duck-type check for Request-like objects (handles polyfilled Request from @hono/node-server)
+  function isRequestLike(obj: unknown): obj is Request {
+    return (
+      obj instanceof Request ||
+      (typeof obj === "object" &&
+        obj !== null &&
+        "url" in obj &&
+        "method" in obj &&
+        "headers" in obj &&
+        typeof (obj as any).url === "string" &&
+        typeof (obj as any).method === "string")
+    );
+  }
+
   return function (
     reqOrRequest: IncomingMessage | Request,
     res?: ServerResponse,
   ): Promise<void> | Promise<Response> | Response {
-    if (reqOrRequest instanceof Request) {
+    if (isRequestLike(reqOrRequest) && !res) {
       return honoApp.fetch(reqOrRequest as Request);
     }
     if (!res) {

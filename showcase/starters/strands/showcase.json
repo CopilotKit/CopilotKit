@@ -1,0 +1,8 @@
+{
+  "slug": "strands",
+  "name": "Strands",
+  "language": "python",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}

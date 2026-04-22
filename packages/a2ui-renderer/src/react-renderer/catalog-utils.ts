@@ -11,7 +11,7 @@ const BASIC_CATALOG_ID =
  * a frontend-provided schema with a server-side one.
  */
 export const A2UI_SCHEMA_CONTEXT_DESCRIPTION =
-  "A2UI Component Schema — available components for generating UI surfaces. Use these component names and props when creating A2UI operations.";
+  "A2UI Component Schema — available components for generating UI surfaces. Use these component names and properties when creating A2UI operations.";
 
 /**
  * Check whether a catalog is a superset of the basic catalog
@@ -85,28 +85,54 @@ export function buildCatalogContextValue(
 }
 
 /**
- * Extract component schemas from a catalog in the same format used by
- * the A2UI middleware (`A2UIComponentSchema[]`). Each component's Zod
- * schema is converted to JSON Schema via zod-to-json-schema.
+ * A2UI v0.9 inline catalog format — matches the structure defined by the
+ * A2UI specification (basic_catalog.json).  Each component is keyed by
+ * name and uses `allOf` to compose ComponentCommon with component-specific
+ * properties so the schema mirrors the flat wire format the LLM must produce.
+ */
+export interface InlineCatalogSchema {
+  catalogId: string;
+  components: Record<string, Record<string, unknown>>;
+}
+
+/**
+ * Extract component schemas from a catalog in the A2UI v0.9 inline catalog
+ * format.  This mirrors `generateInlineCatalog` from `@a2ui/web_core` so
+ * the schema the LLM sees matches the spec and the flat wire format:
+ *
+ *   { "Column": { "allOf": [
+ *       { "$ref": "common_types.json#/$defs/ComponentCommon" },
+ *       { "properties": { "component": {"const":"Column"}, "gap": ..., "children": ... },
+ *         "required": ["component"] }
+ *   ]}}
  *
  * When sent via `useAgentContext` with `A2UI_SCHEMA_CONTEXT_DESCRIPTION`,
  * the middleware can optionally overwrite it with a server-side schema.
  */
 export function extractCatalogComponentSchemas(
   catalog?: Catalog<ComponentApi>,
-): Array<{ name: string; props: Record<string, unknown> }> {
+): InlineCatalogSchema {
   const resolved = catalog ?? basicCatalog;
-  const schemas: Array<{ name: string; props: Record<string, unknown> }> = [];
+  const components: Record<string, Record<string, unknown>> = {};
 
   for (const [name, comp] of resolved.components) {
-    schemas.push({
-      name,
-      props: zodToJsonSchema(comp.schema, { target: "openApi3" }) as Record<
-        string,
-        unknown
-      >,
-    });
+    const zodSchema = zodToJsonSchema(comp.schema, {
+      target: "jsonSchema2019-09",
+    }) as { properties?: Record<string, unknown>; required?: string[] };
+
+    components[name] = {
+      allOf: [
+        { $ref: "common_types.json#/$defs/ComponentCommon" },
+        {
+          properties: {
+            component: { const: name },
+            ...(zodSchema.properties ?? {}),
+          },
+          required: ["component", ...(zodSchema.required ?? [])],
+        },
+      ],
+    };
   }
 
-  return schemas;
+  return { catalogId: resolved.id, components };
 }

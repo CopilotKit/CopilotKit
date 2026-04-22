@@ -2,6 +2,7 @@
 
 import uuid
 import json
+import math
 from typing import Optional, List, Callable, Any, cast, Union, TypedDict, Literal
 
 from langgraph.graph.state import CompiledStateGraph
@@ -18,6 +19,22 @@ except ImportError:
     from langchain_core.messages import BaseMessage, SystemMessage
     
 from langchain_core.runnables import RunnableConfig, ensure_config
+
+def _serialize_state(state):
+    """Recursively convert Pydantic BaseModel instances to dicts for serialization."""
+    try:
+        from pydantic import BaseModel as PydanticBaseModel
+    except ImportError:
+        return state
+
+    if isinstance(state, PydanticBaseModel):
+        return state.model_dump()
+    elif isinstance(state, dict):
+        return {k: _serialize_state(v) for k, v in state.items()}
+    elif isinstance(state, (list, tuple)):
+        return type(state)(_serialize_state(item) for item in state)
+    return state
+
 from langchain_core.messages import HumanMessage
 
 from partialjson.json_parser import JSONParser
@@ -30,6 +47,20 @@ from .agent import Agent
 from .logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _sanitize_for_json(obj):
+    """Replace NaN and Infinity float values with None for valid JSON serialization."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+    return obj
+
 
 class CopilotKitConfig(TypedDict):
     """
@@ -236,7 +267,12 @@ class LangGraphAgent(Agent):
             actions=actions,
             agent_name=self.name
         )
-        current_graph_state.update(state)
+        # Only update graph state with keys that merge_state explicitly produced,
+        # not keys that were simply passed through from state_input unchanged.
+        # This preserves graph-owned state keys that the frontend may have sent stale values for.
+        for key, value in state.items():
+            if key not in state_input or value is not state_input.get(key):
+                current_graph_state[key] = value
         lg_interrupt_meta_event = next((ev for ev in (meta_events or []) if ev.get("name") == "LangGraphInterruptEvent"), None)
         has_active_interrupts = active_interrupts is not None and len(active_interrupts) > 0
 
@@ -435,7 +471,9 @@ class LangGraphAgent(Agent):
                     manually_emitted_state = None
 
                 if manually_emit_intermediate_state:
-                    manually_emitted_state = cast(Any, event["data"])
+                    manually_emitted_state = _merge_emit_state(current_graph_state, cast(Any, event["data"]))
+                    if isinstance(manually_emitted_state, dict):
+                        current_graph_state.update(manually_emitted_state)
                     yield self._emit_state_sync_event(
                         thread_id=thread_id,
                         run_id=run_id,
@@ -489,7 +527,7 @@ class LangGraphAgent(Agent):
                         active=not exiting_node
                     ) + "\n"
 
-                yield langchain_dumps(event) + "\n"
+                yield langchain_dumps(_sanitize_for_json(event)) + "\n"
         except Exception as error:
             # Emit error information through streaming protocol before terminating
             # This preserves the semantic error details that would otherwise be lost
@@ -591,6 +629,9 @@ class LangGraphAgent(Agent):
         # Filter by schema keys if available
         state = self.filter_state_on_schema_keys(state, 'output')
 
+        # Convert Pydantic BaseModel instances to dicts for serialization
+        state = _serialize_state(state)
+
         return langchain_dumps({
             "event": "on_copilotkit_state_sync",
             "thread_id": thread_id,
@@ -598,7 +639,7 @@ class LangGraphAgent(Agent):
             "agent_name": self.name,
             "node_name": node_name,
             "active": active,
-            "state": state,
+            "state": _sanitize_for_json(state),
             "running": running,
             "role": "assistant"
         })
@@ -636,10 +677,13 @@ class LangGraphAgent(Agent):
         state_copy = state.copy()
         state_copy.pop("messages", None)
 
+        # Convert Pydantic BaseModel instances to dicts for serialization
+        state_copy = _serialize_state(state_copy)
+
         return {
             "threadId": thread_id,
             "threadExists": True,
-            "state": state_copy,
+            "state": _sanitize_for_json(state_copy),
             "messages": messages
         }
 
@@ -687,7 +731,8 @@ class LangGraphAgent(Agent):
             if hasattr(self, schema_keys_name) and getattr(self, schema_keys_name):
                 return filter_by_schema_keys(state, getattr(self, schema_keys_name))
         except Exception:
-            return state
+            pass
+        return state
 
     def get_interrupt_event(self, value):
         if not isinstance(value, str) and "__copilotkit_interrupt_value__" in value:
@@ -723,6 +768,13 @@ class LangGraphAgent(Agent):
                 return history_list[idx - 1]  # return one snapshot *before* the one that includes the message
 
         raise ValueError("Message ID not found in history")
+
+
+def _merge_emit_state(current_state: dict, emitted_state: Any) -> dict:
+    """Merge emitted state on top of current graph state instead of replacing it."""
+    if isinstance(emitted_state, dict):
+        return {**current_state, **emitted_state}
+    return cast(Any, emitted_state)
 
 class _StreamingStateExtractor:
     def __init__(self, emit_intermediate_state: List[dict]):

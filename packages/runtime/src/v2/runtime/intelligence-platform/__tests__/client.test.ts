@@ -554,6 +554,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: "event-1",
       });
 
@@ -563,6 +564,7 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: "event-1",
       });
     });
@@ -571,13 +573,22 @@ describe("CopilotKitIntelligence", () => {
       const payload = {
         mode: "bootstrap",
         latestEventId: "event-2",
-        events: [{ type: "MESSAGES_SNAPSHOT", messages: [] }],
+        events: [
+          {
+            type: "RUN_STARTED",
+            threadId: "t-1",
+            run_id: "backend-run-1",
+            input: { messages: [] },
+          },
+          { type: "RUN_FINISHED" },
+        ],
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: "event-1",
       });
 
@@ -596,6 +607,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
+        runId: "run-1",
         lastSeenEventId: "event-2",
       });
 

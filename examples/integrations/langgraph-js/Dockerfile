@@ -1,19 +1,17 @@
-# Stage 1: Build everything in monorepo
+# Stage 1: Build the Next.js frontend
 FROM node:20-slim AS builder
 
 WORKDIR /app
-RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY apps/web/package.json ./apps/web/
-COPY apps/agent/package.json ./apps/agent/
-RUN pnpm install --no-frozen-lockfile
+COPY package.json ./
+RUN npm install --ignore-scripts
 
-COPY apps/ ./apps/
-COPY turbo.json ./
+COPY app/ ./app/
+COPY public/ ./public/
+COPY next.config.ts tsconfig.json postcss.config.mjs ./
 
 ENV NODE_OPTIONS="--max-old-space-size=4096"
-RUN pnpm --filter web build
+RUN npx next build
 
 # Stage 2: Production image
 FROM node:20-slim AS runner
@@ -23,15 +21,14 @@ RUN npm install -g @langchain/langgraph-cli
 WORKDIR /app
 
 # Next.js build artifacts
-COPY --from=builder /app/apps/web/.next ./apps/web/.next
-COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
-COPY --from=builder /app/apps/web/package.json ./apps/web/
-COPY --from=builder /app/apps/web/public ./apps/web/public
-
-# Agent code + dependencies
-COPY --from=builder /app/apps/agent ./apps/agent
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/public ./public
+
+# Agent code + dependencies
+COPY agent/ ./agent/
+RUN cd agent && npm install --ignore-scripts
 
 # Copy entrypoint
 COPY entrypoint.sh ./

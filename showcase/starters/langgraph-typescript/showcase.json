@@ -1,0 +1,8 @@
+{
+  "slug": "langgraph-typescript",
+  "name": "LangGraph TypeScript",
+  "language": "typescript",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}

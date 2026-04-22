@@ -39,6 +39,7 @@ is a situation where a user and an agent are working together to solve a problem
     Configure your Strands agent to maintain state. Here's an example that tracks searches:
 
     ```python title="agent/main.py"
+    import os
     import json
     from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, create_strands_app
     from strands import Agent, tool
@@ -89,7 +90,7 @@ is a situation where a user and an agent are working together to solve a problem
 
     agui_agent = StrandsAgent(
         agent=strands_agent,
-        name="searchAgent",
+        name="strands_agent",
         description="A helpful assistant for storing searches",
         config=config,
     )
@@ -122,7 +123,7 @@ is a situation where a user and an agent are working together to solve a problem
       // [!code highlight:13]
       // styles omitted for brevity
       useAgent({
-        agentId: "searchAgent",
+        agentId: "strands_agent",
         render: ({ state }) => (
           <div>
             {state.searches?.map((search, index) => (
@@ -168,7 +169,7 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:3]
       const { agent } = useAgent({
-        agentId: "searchAgent",
+        agentId: "strands_agent",
       })
 
       // ...

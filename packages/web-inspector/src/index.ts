@@ -287,6 +287,14 @@ export class WebInspectorElement extends LitElement {
       onAgentsChanged: ({ agents }) => {
         this.processAgentsChanged(agents);
       },
+      onAgentRunStarted: ({ agent }) => {
+        // Per-thread clones are not in the agent registry, so
+        // onAgentsChanged never fires for them. Subscribe here so
+        // the inspector captures their AG-UI events.
+        if (agent?.agentId) {
+          this.subscribeToAgent(agent);
+        }
+      },
       onContextChanged: ({ context }) => {
         this.contextStore = this.normalizeContextStore(context);
         this.requestUpdate();
@@ -488,6 +496,9 @@ export class WebInspectorElement extends LitElement {
       onMessagesChanged: () => {
         this.syncAgentMessages(agent);
       },
+      onStateChanged: () => {
+        this.syncAgentState(agent);
+      },
       onRawEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RAW_EVENT", event);
       },
@@ -573,16 +584,23 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
-    const messages = this.normalizeAgentMessages(
-      (agent as { messages?: unknown }).messages,
-    );
-    if (messages) {
-      this.agentMessages.set(agent.agentId, messages);
-    } else {
-      this.agentMessages.delete(agent.agentId);
-    }
+    try {
+      const messages = this.normalizeAgentMessages(
+        (agent as { messages?: unknown }).messages,
+      );
+      if (messages) {
+        this.agentMessages.set(agent.agentId, messages);
+      } else {
+        this.agentMessages.delete(agent.agentId);
+      }
 
-    this.requestUpdate();
+      this.requestUpdate();
+    } catch (error) {
+      console.error(
+        `[CopilotKit Inspector] Failed to sync messages for agent "${agent.agentId}":`,
+        error,
+      );
+    }
   }
 
   private syncAgentState(agent: AbstractAgent): void {
@@ -590,15 +608,22 @@ export class WebInspectorElement extends LitElement {
       return;
     }
 
-    const state = (agent as { state?: unknown }).state;
+    try {
+      const state = (agent as { state?: unknown }).state;
 
-    if (state === undefined || state === null) {
-      this.agentStates.delete(agent.agentId);
-    } else {
-      this.agentStates.set(agent.agentId, this.sanitizeForLogging(state));
+      if (state === undefined || state === null) {
+        this.agentStates.delete(agent.agentId);
+      } else {
+        this.agentStates.set(agent.agentId, this.sanitizeForLogging(state));
+      }
+
+      this.requestUpdate();
+    } catch (error) {
+      console.error(
+        `[CopilotKit Inspector] Failed to sync state for agent "${agent.agentId}":`,
+        error,
+      );
     }
-
-    this.requestUpdate();
   }
 
   private updateContextOptions(agentIds: Set<string>): void {

@@ -1,0 +1,178 @@
+{
+  "Full Profile": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://user-profile"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 16,
+              "children": [
+                "header",
+                "stats",
+                "h-skills",
+                "skills",
+                "h-activity",
+                "a1",
+                "a2",
+                "a3",
+                "a4",
+                "a5",
+                "h-contact",
+                "contact"
+              ]
+            },
+            {
+              "id": "header",
+              "component": "ProfileHeader",
+              "name": "Sarah Chen",
+              "role": "Senior Software Engineer",
+              "bio": "Building developer tools at CopilotKit. Passionate about making AI accessible to every developer. Previously at Vercel and Stripe.",
+              "initials": "SC"
+            },
+            {
+              "id": "stats",
+              "component": "StatRow",
+              "stats": [
+                { "label": "Commits", "value": "2,847" },
+                { "label": "PRs Merged", "value": "312" },
+                { "label": "Reviews", "value": "1,205" },
+                { "label": "Streak", "value": "47d" }
+              ]
+            },
+            {
+              "id": "h-skills",
+              "component": "Text",
+              "text": "Skills & Technologies"
+            },
+            {
+              "id": "skills",
+              "component": "SkillTag",
+              "skills": [
+                "TypeScript",
+                "React",
+                "Rust",
+                "Node.js",
+                "PostgreSQL",
+                "GraphQL",
+                "Kubernetes",
+                "Tailwind CSS",
+                "Next.js",
+                "Python"
+              ]
+            },
+            {
+              "id": "h-activity",
+              "component": "Text",
+              "text": "Recent Activity"
+            },
+            {
+              "id": "a1",
+              "component": "ActivityItem",
+              "action": "Merged PR",
+              "target": "#3847 — Add streaming support to runtime",
+              "time": "2 hours ago",
+              "icon": "pr"
+            },
+            {
+              "id": "a2",
+              "component": "ActivityItem",
+              "action": "Reviewed",
+              "target": "#3842 — Fix CSP policy for webview extensions",
+              "time": "4 hours ago",
+              "icon": "review"
+            },
+            {
+              "id": "a3",
+              "component": "ActivityItem",
+              "action": "Deployed",
+              "target": "copilotkit-runtime v2.14.0 to production",
+              "time": "Yesterday",
+              "icon": "deploy"
+            },
+            {
+              "id": "a4",
+              "component": "ActivityItem",
+              "action": "Committed",
+              "target": "feat: add oxc-parser fixture validation",
+              "time": "Yesterday",
+              "icon": "commit"
+            },
+            {
+              "id": "a5",
+              "component": "ActivityItem",
+              "action": "Commented on",
+              "target": "#3830 — Discuss new A2UI catalog format",
+              "time": "2 days ago",
+              "icon": "comment"
+            },
+            { "id": "h-contact", "component": "Text", "text": "Contact" },
+            {
+              "id": "contact",
+              "component": "ContactCard",
+              "items": [
+                { "type": "Email", "value": "sarah@copilotkit.ai" },
+                { "type": "GitHub", "value": "@sarahchen" },
+                { "type": "Location", "value": "San Francisco, CA" },
+                { "type": "Timezone", "value": "PST (UTC-8)" }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Minimal Profile": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://user-profile"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 12,
+              "children": ["header", "stats"]
+            },
+            {
+              "id": "header",
+              "component": "ProfileHeader",
+              "name": "New User",
+              "role": "Just joined",
+              "initials": "NU"
+            },
+            {
+              "id": "stats",
+              "component": "StatRow",
+              "stats": [
+                { "label": "Commits", "value": "0" },
+                { "label": "PRs Merged", "value": "0" },
+                { "label": "Reviews", "value": "0" }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
