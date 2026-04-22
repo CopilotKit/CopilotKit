@@ -2582,3 +2582,68 @@ describe("alert-engine dispatchCronAlert preserves error state (HF-A6)", () => {
   });
 });
 
+// Regression: dispatchCronAlert must NOT early-return when a rule declares only
+// `on_error` + a cron trigger and omits the top-level `template` field. Pre-fix
+// the `if (!rule.template) return;` guard skipped the entire tick before the
+// onError branch could run, silencing an otherwise-schema-valid rule shape.
+// RuleSchema.template is optional (src/rules/schema.ts:143) so this shape is
+// legal; the fix scopes the early-return to the case where neither path has a
+// template to render (no top-level, and tick won't route to onError).
+describe("alert-engine dispatchCronAlert onError-only rule", () => {
+  it("fires onError on cron error tick when rule has no top-level template", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-onerror-only",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        // No top-level `template` — only onError is declared.
+        onError: { template: { text: "errored! {{signal.errorDesc}}" } },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-onerror-only",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "error",
+        signal: { errorDesc: "GHCR 500" },
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("errored! GHCR 500");
+    e.stop();
+  });
+});
+

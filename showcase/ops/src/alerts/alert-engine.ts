@@ -417,8 +417,14 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     rule: CompiledRule,
     evt: { ruleId: string; scheduledAt: string; result?: ProbeResult<unknown> },
   ): Promise<void> {
-    if (!rule.template) return;
     const probeState = evt.result?.state;
+    // Guard: a rule without a top-level template is still valid if it declares
+    // `on_error: { template: ... }` — error ticks route to dispatchOnError which
+    // renders rule.onError.template, not rule.template. Only early-return when
+    // this tick has no template-rendering path available (no top-level template
+    // AND won't use the onError branch).
+    const willUseOnError = probeState === "error" && !!rule.onError;
+    if (!rule.template && !willUseOnError) return;
     // If the probe reports error, downstream WriteOutcome should keep the
     // alert engine's state-machine in a consistent shape — newState must be
     // one of the real `State` values. Default to "green" when missing.
@@ -569,6 +575,10 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       triggered,
       lastAlertAgeMin,
     );
+    // Rules declaring only on_error (no top-level template) reach this point
+    // on non-error ticks. Nothing to render on the main path — just return.
+    // The error branch above returns early via dispatchOnError.
+    if (!rule.template) return;
     const rendered = renderer.render(rule.template, ctx);
     const sent = await sendToTargets(rule, rendered);
     if (!sent) {
