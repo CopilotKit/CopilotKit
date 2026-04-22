@@ -60,7 +60,10 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # Watchdog: Railway deploys of showcase packages have been observed to hit a
 # silent agent hang — the langgraph process stays alive (so `wait -n` never
 # fires and the container never restarts) but stops responding on :8123.
-# Poll the langgraph-cli /ok endpoint every 30s; after 3 consecutive failures
+# Poll the liveness sidecar on :8124/ok every 30s (bound synchronously by
+# server.mjs BEFORE startServer, so it is up within ms of node boot —
+# independent of the multi-second graph import + worker_thread spawn that
+# gates the main Hono bind on :8123). After 3 consecutive failures
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
@@ -82,7 +85,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       # Agent died during startup — wait -n in the main shell will handle it.
       exit 0
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8123/ok > /dev/null 2>&1; then
+    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
       echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
       break
     fi
@@ -97,7 +100,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       break
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8123/ok > /dev/null 2>&1; then
+    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
       FAILS=0
     else
       FAILS=$((FAILS + 1))
@@ -111,7 +114,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/ok, startup grace 180s)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8124/ok, startup grace 180s)"
 echo "[entrypoint] All processes running. Waiting..."
 
 # Only wait on agent + next.js — NOT the watchdog. The watchdog's job is to

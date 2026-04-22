@@ -18,11 +18,44 @@
 
 import process from "node:process";
 import path from "node:path";
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { startServer } from "@langchain/langgraph-api/server";
 import { getStaticGraphSchema } from "@langchain/langgraph-api/schema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Liveness side-car. The main @langchain/langgraph-api Hono server on :8123
+// only starts accepting connections AFTER `registerFromEnv` finishes the
+// initial graph import + `Starting N workers` loop — on Railway this can take
+// longer than the watchdog's 180s grace when the graph drags in the full
+// schema-worker tsx pipeline. Running a bare HTTP server on a sibling port
+// lets the entrypoint watchdog verify the process is alive and its event
+// loop is responsive during cold-start, independent of how slow the Hono
+// bind is. A true hang (event loop pinned) still fails this probe and
+// triggers the container restart.
+function startLivenessProbe() {
+  const livenessPort = Number(process.env.HEALTH_PORT ?? 8124);
+  const livenessHost = process.env.HOST ?? "0.0.0.0";
+  const server = http.createServer((req, res) => {
+    if (req.url === "/ok") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end('{"status":"ok"}');
+      return;
+    }
+    res.writeHead(404, { "content-type": "application/json" });
+    res.end('{"status":"not_found"}');
+  });
+  server.listen(livenessPort, livenessHost, () => {
+    console.log(
+      `[server] Liveness probe listening on ${livenessHost}:${livenessPort}`,
+    );
+  });
+  server.on("error", (err) => {
+    console.warn(`[server] Liveness probe error: ${err?.message ?? err}`);
+  });
+  return server;
+}
 
 // Graph spec mirrors langgraph.json. We pin the compiled .js entry because the
 // production parser walks the source file with the TypeScript API; pointing at
@@ -58,6 +91,10 @@ async function main() {
   const cwd = __dirname; // src/agent
   const port = Number(process.env.PORT ?? 8123);
   const host = process.env.HOST ?? "0.0.0.0";
+
+  // Bring the liveness probe up synchronously before any await — gives the
+  // watchdog a valid /ok target within milliseconds of `node` boot.
+  startLivenessProbe();
 
   // Kick off pre-warm and startServer in parallel. startServer registers
   // graphs synchronously and binds the port — /ok is live before schemas
