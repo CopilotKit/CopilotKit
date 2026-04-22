@@ -379,7 +379,22 @@ describe("buildProbeInvoker", () => {
       kind: "smoke",
       inputSchema,
       async run(ctx, input) {
-        await new Promise((r) => setTimeout(r, 100));
+        // Observe abortSignal: reject promptly when the invoker aborts
+        // due to timeout. This is the well-behaved driver pattern we
+        // expect downstream drivers to adopt.
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, 100);
+          if (ctx.abortSignal) {
+            ctx.abortSignal.addEventListener(
+              "abort",
+              () => {
+                clearTimeout(timer);
+                reject(ctx.abortSignal?.reason ?? new Error("aborted"));
+              },
+              { once: true },
+            );
+          }
+        });
         return {
           key: (input as { key: string }).key,
           state: "green",
@@ -406,5 +421,151 @@ describe("buildProbeInvoker", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
     expect(writes[0]!.key).toBe("smoke:slow");
+    const signal = writes[0]!.signal as { errorDesc?: string };
+    expect(signal.errorDesc).toMatch(/driver timeout after 25ms/);
+  });
+
+  it("times out invoker-level even when driver ignores abortSignal", async () => {
+    // Driver that never observes abortSignal — its promise eventually
+    // resolves after the timeout. The invoker still returns a synthetic
+    // timeout ProbeResult as soon as the AbortController fires, rather
+    // than waiting for the driver's promise to settle. This is the
+    // load-bearing contract: a misbehaved driver cannot stall the tick.
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    let driverResolved = false;
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        await new Promise((r) => setTimeout(r, 80));
+        driverResolved = true;
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 20,
+      targets: [{ key: "smoke:ignores-abort" }],
+    };
+    const { writer, writes } = mkWriter();
+    const start = Date.now();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    const elapsed = Date.now() - start;
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+    // The invoker must return promptly on timeout — NOT wait for the
+    // driver's 80ms sleep to complete. Allow some slack for CI jitter
+    // but stay well under 80ms.
+    expect(elapsed).toBeLessThan(70);
+    // The slow driver may still be in flight when we finish, which is
+    // the whole point of this test: invoker does not block on it.
+    // Can't assert `driverResolved === false` deterministically in all
+    // environments, but reference it so the variable isn't flagged.
+    void driverResolved;
+  });
+
+  it("passes an abortSignal to drivers and sets an abort reason on timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    let seenSignal: AbortSignal | undefined;
+    let abortReason: unknown;
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        seenSignal = ctx.abortSignal;
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 100);
+          ctx.abortSignal?.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              abortReason = ctx.abortSignal?.reason;
+              reject(new Error("aborted-by-driver"));
+            },
+            { once: true },
+          );
+        });
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 15,
+      targets: [{ key: "smoke:abort-observer" }],
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(seenSignal).toBeInstanceOf(AbortSignal);
+    expect(seenSignal?.aborted).toBe(true);
+    // reason is whatever the invoker passed to abort(); the driver
+    // snapshotted it inside the abort listener before the invoker
+    // returned, so we can assert its shape.
+    expect(abortReason).toBeInstanceOf(Error);
+    expect((abortReason as Error).message).toMatch(/driver timeout after 15ms/);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+  });
+
+  it("does not abort when driver completes before timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    let observedAborted: boolean | undefined;
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        // Driver finishes fast; abortSignal should remain un-aborted.
+        observedAborted = ctx.abortSignal?.aborted;
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 500,
+      targets: [{ key: "smoke:fast" }],
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(observedAborted).toBe(false);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("green");
   });
 });
