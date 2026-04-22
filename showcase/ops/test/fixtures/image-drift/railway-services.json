@@ -1,0 +1,79 @@
+{
+  "data": {
+    "project": {
+      "services": {
+        "edges": [
+          {
+            "node": {
+              "id": "svc-a-id",
+              "name": "showcase-a",
+              "serviceInstances": {
+                "edges": [
+                  {
+                    "node": {
+                      "environmentId": "env-1",
+                      "source": {
+                        "image": "ghcr.io/copilotkit/showcase-a:latest"
+                      },
+                      "domains": {
+                        "serviceDomains": [
+                          { "domain": "showcase-a.up.railway.app" }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "svc-b-id",
+              "name": "showcase-b",
+              "serviceInstances": {
+                "edges": [
+                  {
+                    "node": {
+                      "environmentId": "env-1",
+                      "source": {
+                        "image": "ghcr.io/copilotkit/showcase-b:latest"
+                      },
+                      "domains": {
+                        "serviceDomains": [
+                          { "domain": "showcase-b.up.railway.app" }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "node": {
+              "id": "svc-c-id",
+              "name": "showcase-c",
+              "serviceInstances": {
+                "edges": [
+                  {
+                    "node": {
+                      "environmentId": "env-1",
+                      "source": {
+                        "image": "ghcr.io/copilotkit/showcase-c:latest"
+                      },
+                      "domains": {
+                        "serviceDomains": [
+                          { "domain": "showcase-c.up.railway.app" }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}
