@@ -1,0 +1,24 @@
+id: tools-red-fleet
+name: "Fleet-wide tools-red escalation"
+owner: "@oss"
+
+# Cross-service aggregation for the L4 tool-invocation dimension. Mirrors
+# smoke-red-fleet.yml — see that file's comments for rationale and timing.
+signal:
+  dimension: tools
+
+triggers:
+  - green_to_red
+  - sustained_red
+  - red_to_green
+
+aggregation:
+  groupBy: [dimension]
+  windowMs: 120000
+  minMatches: 3
+  template: |
+    <!channel> tools red across fleet — {{count}} services: {{services}}
+
+conditions:
+  rate_limit:
+    window: 10m

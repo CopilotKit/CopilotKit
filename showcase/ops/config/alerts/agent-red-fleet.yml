@@ -1,0 +1,24 @@
+id: agent-red-fleet
+name: "Fleet-wide agent-red escalation"
+owner: "@oss"
+
+# Cross-service aggregation for the L2 agent-reachability dimension. Mirrors
+# smoke-red-fleet.yml — see that file's comments for rationale and timing.
+signal:
+  dimension: agent
+
+triggers:
+  - green_to_red
+  - sustained_red
+  - red_to_green
+
+aggregation:
+  groupBy: [dimension]
+  windowMs: 120000
+  minMatches: 3
+  template: |
+    <!channel> agent red across fleet — {{count}} services: {{services}}
+
+conditions:
+  rate_limit:
+    window: 10m
