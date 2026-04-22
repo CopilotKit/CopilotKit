@@ -105,7 +105,15 @@ export const smokeProbe: Probe<SmokeInput, SmokeSignal> = {
  * `deriveHealthUrl`). Neither flows from untrusted user input — they're
  * operator-configured service URLs. Safe to emit without HTML-escape.
  */
-export const SMOKE_SLACK_SAFE_FIELDS = ["links.smoke", "links.health"] as const;
+export const SMOKE_SLACK_SAFE_FIELDS = [
+  "links.smoke",
+  "links.health",
+  // errorDesc is pre-sanitized at the probe driver's 8 assignment sites
+  // (probes/drivers/smoke.ts via sanitizeErrorDesc) — triple-brace is
+  // intentional so already-stripped HTML / mrkdwn control tokens render
+  // as literal characters in Slack rather than being double-escaped.
+  "errorDesc",
+] as const;
 
 /**
  * Derive a plausible health URL from the smoke URL by swapping a trailing

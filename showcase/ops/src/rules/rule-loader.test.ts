@@ -979,12 +979,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } =
       await import("../probes/redirect-decommission.js");
     const { SMOKE_SLACK_SAFE_FIELDS } = await import("../probes/smoke.js");
+    // Mirror orchestrator.ts L1-L4 safe-field wiring: agent/chat/tools have
+    // no probe module, so their safe-field set is defined inline (errorDesc
+    // only, pre-sanitized by the shared smoke driver).
+    const L1_L4_SLACK_SAFE_FIELDS = ["errorDesc"] as const;
     const loader = createRuleLoader({
       dir: REAL_CONFIG_DIR,
       logger,
       slackSafeFields: {
         redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
         smoke: new Set(SMOKE_SLACK_SAFE_FIELDS),
+        agent: new Set(L1_L4_SLACK_SAFE_FIELDS),
+        chat: new Set(L1_L4_SLACK_SAFE_FIELDS),
+        tools: new Set(L1_L4_SLACK_SAFE_FIELDS),
       },
     });
     const { rules, errors } = await loader.loadWithErrors();
@@ -1479,32 +1486,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       expect(text).toContain("was down since 2026-04-19T23:00:00Z");
     });
 
-    it("escalated block renders !channel ping with firstFailureAt", async () => {
-      const { rules, renderer } = await loadRealRules();
-      const rule = rules.find((r) => r.id === "smoke-red-tick")!;
-      const ctx = makeCtx(
-        rule,
-        {
-          slug: "agno-starter",
-          errorDesc: "http 500",
-          firstFailureAt: "2026-04-19T22:00:00Z",
-          links: {
-            smoke: "https://a.example/smoke",
-            health: "https://a.example/health",
-          },
-          failCount: 4,
-        },
-        { trigger: { sustained_red: true, isRedTick: true }, escalated: true },
-      );
-      const text = (
-        renderer.render({ text: rule.template!.text }, ctx).payload as {
-          text: string;
-        }
-      ).text;
-      expect(text).toContain("<!channel>");
-      expect(text).toContain("agno-starter");
-      expect(text).toContain("failing for 1 hour");
-      expect(text).toContain("since 2026-04-19T22:00:00Z");
+    it("fleet rule owns <!channel> escalation (migrated from per-service red-tick)", async () => {
+      // Plan Item 4: <!channel> moved off smoke-red-tick onto smoke-red-fleet.
+      // The per-service rule still fires per-match via its own targets; the
+      // fleet rule is the single pager for cross-service outages. Per-service
+      // red-tick template must NOT contain <!channel>; fleet rule template
+      // MUST. Both invariants asserted together so a future refactor can't
+      // silently drop one without the other surfacing.
+      const { rules } = await loadRealRules();
+      const perService = rules.find((r) => r.id === "smoke-red-tick")!;
+      const fleet = rules.find((r) => r.id === "smoke-red-fleet")!;
+      expect(perService.template!.text).not.toContain("<!channel>");
+      expect(fleet.aggregation).toBeDefined();
+      expect(fleet.aggregation!.template).toContain("<!channel>");
     });
   });
 
