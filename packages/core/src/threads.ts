@@ -51,6 +51,7 @@ interface ThreadRecord {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  lastRunAt?: string;
 }
 
 interface ThreadRuntimeContext {
@@ -186,9 +187,14 @@ const threadDomainEvents = createActionGroup("Thread Domain", {
 });
 
 function sortThreadsByUpdatedAt(threads: ThreadRecord[]): ThreadRecord[] {
-  return [...threads].sort((left, right) =>
-    right.updatedAt.localeCompare(left.updatedAt),
-  );
+  // Prefer lastRunAt so the order reflects actual agent activity and stays
+  // stable when a user performs metadata-only actions like archive or rename.
+  // Fall back to updatedAt (and then createdAt) for threads that have never run.
+  return [...threads].sort((left, right) => {
+    const leftKey = left.lastRunAt ?? left.updatedAt ?? left.createdAt;
+    const rightKey = right.lastRunAt ?? right.updatedAt ?? right.createdAt;
+    return rightKey.localeCompare(leftKey);
+  });
 }
 
 function upsertThread(

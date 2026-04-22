@@ -85,6 +85,21 @@ export type CopilotChatViewProps = WithSlots<
     onDragLeave?: (e: React.DragEvent) => void;
     onDrop?: (e: React.DragEvent) => void;
     /**
+     * When `true`, suppresses the welcome screen while a thread's initial
+     * connect is in flight. Prevents the "How can I help you today?" flash
+     * that would otherwise appear between mounting an empty cloned agent and
+     * the bootstrap messages arriving from /connect.
+     */
+    isConnecting?: boolean;
+    /**
+     * When `true`, the caller has explicitly picked a thread (via `threadId`
+     * prop or `CopilotChatConfigurationProvider`). Suppresses the welcome
+     * screen unconditionally — a caller-managed thread targets a specific
+     * conversation and should render its messages (or an empty panel during
+     * connect) rather than a generic "start a new chat" greeting.
+     */
+    hasExplicitThreadId?: boolean;
+    /**
      * @deprecated Use the `input` slot's `disclaimer` prop instead:
      * ```tsx
      * <CopilotChat input={{ disclaimer: MyDisclaimer }} />
@@ -142,6 +157,8 @@ export function CopilotChatView({
   onDragOver,
   onDragLeave,
   onDrop,
+  isConnecting = false,
+  hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
   disclaimer,
   children,
@@ -222,10 +239,22 @@ export function CopilotChatView({
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
     containerRef: inputContainerRef,
     showDisclaimer: true,
+    // This input is the last flex child of the chat column, so it sits at
+    // the bottom where the license banner would overlap. The welcome-screen
+    // input (below) intentionally omits this flag.
+    bottomAnchored: true,
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
 
-  const hasSuggestions = Array.isArray(suggestions) && suggestions.length > 0;
+  // Hide suggestions while a thread is connecting or a run is in flight.
+  // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
+  // suggestions would render against a still-assembling message tree and
+  // visibly jump as each final text chunk reflows the layout.
+  const hasSuggestions =
+    !isConnecting &&
+    !isRunning &&
+    Array.isArray(suggestions) &&
+    suggestions.length > 0;
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, {
         suggestions,
@@ -261,7 +290,13 @@ export function CopilotChatView({
   const isEmpty = messages.length === 0;
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
-  const shouldShowWelcomeScreen = isEmpty && !welcomeScreenDisabled;
+  // Suppress the welcome screen (1) while the initial connect is in flight
+  // and (2) whenever the caller has picked a specific thread. The caller-
+  // managed case targets a conversation directly, so the generic welcome
+  // greeting is never the right thing to show — even for a thread that
+  // happens to have no messages yet.
+  const shouldShowWelcomeScreen =
+    isEmpty && !welcomeScreenDisabled && !isConnecting && !hasExplicitThreadId;
 
   if (shouldShowWelcomeScreen) {
     // Create a separate input for welcome screen with static positioning and disclaimer visible

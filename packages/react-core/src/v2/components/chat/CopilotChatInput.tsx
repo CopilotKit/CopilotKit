@@ -87,6 +87,16 @@ type CopilotChatInputRestProps = {
   containerRef?: React.Ref<HTMLDivElement>;
   /** Whether to show the disclaimer. Default: true for absolute positioning, false for static */
   showDisclaimer?: boolean;
+  /**
+   * When `true`, the input reserves bottom space for the floating CopilotKit
+   * license banner (`--copilotkit-license-banner-offset`) so the two don't
+   * overlap. Set this for inputs that sit at the bottom of their container
+   * (absolute positioning, or the last child of a full-height flex column).
+   * Leave `false` for inputs rendered mid-layout (e.g. the welcome screen).
+   * Default: `false`, except when `positioning === "absolute"` where it is
+   * implicitly `true`.
+   */
+  bottomAnchored?: boolean;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">;
 
 type CopilotChatInputBaseProps = WithSlots<
@@ -130,6 +140,7 @@ export function CopilotChatInput({
   keyboardHeight = 0,
   containerRef,
   showDisclaimer,
+  bottomAnchored = false,
   textArea,
   sendButton,
   startTranscribeButton,
@@ -1097,6 +1108,14 @@ export function CopilotChatInput({
         transform:
           keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : undefined,
         transition: "transform 0.2s ease-out",
+        // Reserve room when the fixed license banner is visible so it doesn't
+        // overlap the input. Applied only for bottom-anchored inputs (either
+        // `positioning === "absolute"`, or an explicitly-flagged flex-last-child
+        // input in run state). The welcome-screen input sits mid-layout and
+        // must stay still when the banner is present.
+        ...(positioning === "absolute" || bottomAnchored
+          ? { paddingBottom: "var(--copilotkit-license-banner-offset, 0px)" }
+          : {}),
       }}
       {...props}
     >

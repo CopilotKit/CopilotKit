@@ -1,5 +1,6 @@
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import {
+  CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateThreadStore,
   ɵselectThreads,
   ɵselectThreadsError,
@@ -30,6 +31,13 @@ export interface Thread {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
+   * when the thread has never been run. Prefer this over `updatedAt` for
+   * user-facing "last activity" displays — it is not bumped by metadata-only
+   * actions like rename or archive.
+   */
+  lastRunAt?: string;
 }
 
 /**
@@ -179,13 +187,14 @@ export function useThreads({
   const threads: Thread[] = useMemo(
     () =>
       coreThreads.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+        ({ id, agentId, name, archived, createdAt, updatedAt, lastRunAt }) => ({
           id,
           agentId,
           name,
           archived,
           createdAt,
           updatedAt,
+          ...(lastRunAt !== undefined ? { lastRunAt } : {}),
         }),
       ),
     [coreThreads],
@@ -221,22 +230,41 @@ export function useThreads({
     };
   }, [store]);
 
+  // Defer setting the context until the runtime reports Connected. Before
+  // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
+  // context early would issue a list fetch with `wsUrl: undefined`, then a
+  // second list fetch (and a `/threads/subscribe`) once the flag lands.
+  // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
+  //
+  // We still dispatch `null` during Disconnected/Error so the store clears
+  // state deterministically when the runtime goes away.
+  const runtimeStatus = copilotkit.runtimeConnectionStatus;
   useEffect(() => {
-    const context: ɵThreadRuntimeContext | null = copilotkit.runtimeUrl
-      ? {
-          runtimeUrl: copilotkit.runtimeUrl,
-          headers: { ...copilotkit.headers },
-          wsUrl: copilotkit.intelligence?.wsUrl,
-          agentId,
-          includeArchived,
-          limit,
-        }
-      : null;
+    if (!copilotkit.runtimeUrl) {
+      store.setContext(null);
+      return;
+    }
+
+    // Wait for /info to land so we can include `wsUrl` in the initial
+    // context and avoid a redundant second list fetch.
+    if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+      return;
+    }
+
+    const context: ɵThreadRuntimeContext = {
+      runtimeUrl: copilotkit.runtimeUrl,
+      headers: { ...copilotkit.headers },
+      wsUrl: copilotkit.intelligence?.wsUrl,
+      agentId,
+      includeArchived,
+      limit,
+    };
 
     store.setContext(context);
   }, [
     store,
     copilotkit.runtimeUrl,
+    runtimeStatus,
     headersKey,
     copilotkit.intelligence?.wsUrl,
     agentId,
