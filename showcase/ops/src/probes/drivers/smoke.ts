@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { deriveHealthUrl } from "../smoke.js";
+import {
+  classifyShape,
+  showcaseShapeSchema,
+  type ShowcaseServiceShape,
+} from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -80,20 +85,31 @@ const smokeInputSchema = z
      * (`discovery/railway-services.ts`). Controls which URL contract the
      * driver exercises:
      *
-     *   - `package` (default) → legacy `/smoke` + `/health` + `/api/copilotkit/`.
-     *   - `starter`           → `/api/health` (primary + side-emit) +
-     *                           `/api/copilotkit/`. Starters have no
-     *                           `/smoke` route; using the legacy contract
-     *                           produces 34 false-red alerts per tick.
+     *   - `package` → legacy `/smoke` + `/health` + `/api/copilotkit/`.
+     *   - `starter` → `/api/health` (primary + side-emit) +
+     *                 `/api/copilotkit/`. Starters have no `/smoke`
+     *                 route; using the legacy contract produces one
+     *                 false-red row per starter per endpoint.
      *
-     * Missing → treated as `package` so static-YAML callers keep working.
+     * Optional in the schema so static-YAML callers can pre-pin shape
+     * explicitly; when absent in discovery-mode input the driver
+     * reclassifies from `input.name` at run() entry. When both `input.name`
+     * and an explicit `input.shape` are present and the classifier
+     * disagrees with the explicit value, the driver throws — silent
+     * drift between the classifier and caller-supplied shape is the
+     * exact failure mode this contract is meant to prevent.
      */
-    shape: z.enum(["package", "starter"]).optional(),
+    shape: showcaseShapeSchema.optional(),
   })
   .passthrough()
   .refine((v) => v.url || (v.name && v.publicUrl), {
     message:
       "smoke driver requires either `url` (static) or `name`+`publicUrl` (discovery)",
+  })
+  .refine((v) => !(v.url && v.shape), {
+    message:
+      "`shape` is not permitted when `url` is set; shape applies only to discovered `publicUrl`",
+    path: ["shape"],
   });
 
 type SmokeDriverInput = z.infer<typeof smokeInputSchema>;
@@ -123,7 +139,17 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch.bind(globalThis);
     const timeoutMs = readTimeoutMs(ctx);
     const slug = deriveSlug(input);
-    const shape = input.shape ?? "package";
+    // Shape resolution: when the discovery record carries a `name`, run
+    // the classifier and use its verdict. If the caller also pinned
+    // `input.shape` explicitly (static-YAML override), fail loud on any
+    // disagreement — a silent default to `package` is exactly what
+    // produces the per-starter false-red row flood that shape detection
+    // is meant to eliminate. When only `input.shape` is present (static
+    // mode with no `name`), honour it verbatim. When neither is present,
+    // fall back to `package` — the only way to hit this branch is a
+    // static-URL call with no shape pinned, which schema-refines above
+    // already guarantee can't also carry a `shape` field.
+    const shape = resolveShape(input);
     const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input, shape);
     // Primary key for the smoke ProbeResult. In DISCOVERY mode (when
     // `input.name` is set), `input.key` arrives as `smoke:showcase-ag2`
@@ -136,21 +162,19 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
     // exact `input.key` in the primary result.
     const primaryKey = input.name ? `smoke:${slug}` : input.key;
 
-    // Issue the smoke + health + agent probes SEQUENTIALLY rather than
-    // in parallel. Parallel would cut wall-clock but would triple the
-    // inflight socket count per target; at max_concurrency=6 * 34
-    // services * 3 endpoints that's 612 simultaneous TCP connections to
-    // Railway, which has historically triggered edge-side rate
-    // limiting. Sequential keeps the bound at max_concurrency * 3 = 18 —
-    // still well under any edge threshold.
+    // Sequential issue of smoke + health + agent to keep inflight socket
+    // count bounded at max_concurrency × 3 — Railway's edge has
+    // historically rate-limited at higher parallelism, so we eat the
+    // wall-clock cost to stay well under any edge threshold.
     //
-    // Starter shape: smoke and health share the same endpoint
-    // (`/api/health`) because starters expose no `/smoke` route. To
-    // keep the probe HTTP count consistent across shapes (2 GETs + 1
-    // POST per tick), we call `/api/health` ONCE and reuse the result
-    // for both the primary `smoke:<slug>` tick and the `health:<slug>`
-    // side-emit — dashboards keyed on either row still populate, and
-    // we don't pay a second round-trip for the same JSON.
+    // Starter shape hits the same endpoint (`/api/health`) for both the
+    // primary smoke tick and the health side-emit. We intentionally run
+    // TWO independent GETs rather than reusing the first result: the
+    // `smoke:<slug>` and `health:<slug>` rows feed separate alert
+    // dimensions (`dimension: smoke` vs `dimension: health`) that
+    // dashboards compare for correlation, and a single-GET-reuse would
+    // make the two rows byte-identical and defeat that signal. The extra
+    // round-trip is a cheap liveness check against the same endpoint.
     const smokeResult = await probeOne({
       fetchImpl,
       url: smokeUrl,
@@ -161,22 +185,19 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
       method: "GET",
     });
 
-    // Side-emit #1: health tick. Reuse the smoke result when the two
-    // endpoints coincide (starter shape); otherwise run the classic
-    // second GET against `/health`.
+    // Side-emit #1: health tick. Always a fresh GET — even when smokeUrl
+    // === healthUrl (starter shape), see the comment block above for why
+    // we do NOT reuse the smoke result.
     const healthKey = `health:${slug}`;
-    const healthResult =
-      smokeUrl === healthUrl
-        ? { ...smokeResult, key: healthKey }
-        : await probeOne({
-            fetchImpl,
-            url: healthUrl,
-            key: healthKey,
-            slug,
-            timeoutMs,
-            now: ctx.now,
-            method: "GET",
-          });
+    const healthResult = await probeOne({
+      fetchImpl,
+      url: healthUrl,
+      key: healthKey,
+      slug,
+      timeoutMs,
+      now: ctx.now,
+      method: "GET",
+    });
     await sideEmit(ctx, healthResult, healthKey);
 
     // Side-emit #2: agent endpoint POST. Non-404 2xx-5xx response is
@@ -333,9 +354,9 @@ async function probeOne(opts: {
  * This matches the acceptance contract of `checkAgentEndpoint` in
  * `showcase/tests/e2e/helpers.ts`: any non-404 response is proof-of-life.
  * We don't GET /info first like the helper does — the helper runs in
- * Playwright where it can afford two round-trips; the probe budget is
- * per-tick tight (3 endpoints × 34 services × sequential) so we keep it
- * to a single POST.
+ * Playwright where it can afford two round-trips; the probe budget per
+ * tick is tight (N services × sequential endpoints) so we keep the agent
+ * check to a single POST.
  */
 async function probeAgent(opts: {
   fetchImpl: typeof fetch;
@@ -433,6 +454,27 @@ async function probeAgent(opts: {
  * a distinct `health:bare` / `agent:bare` side-tick rather than a
  * blank one.
  */
+/**
+ * Resolve the deployment shape for a driver invocation. Classifier wins
+ * when `input.name` is present — silent defaulting at the boundary
+ * inverts the fix this driver exists to make, so we throw on any
+ * explicit-vs-classifier disagreement rather than pick one. When
+ * `input.name` is absent, honour `input.shape` verbatim; when both are
+ * absent, fall back to `package` (static-URL callers historically).
+ */
+function resolveShape(input: SmokeDriverInput): ShowcaseServiceShape {
+  if (input.name) {
+    const classified = classifyShape(input.name);
+    if (input.shape && input.shape !== classified) {
+      throw new Error(
+        `Shape mismatch: classifier="${classified}" input="${input.shape}" — check discovery wiring`,
+      );
+    }
+    return classified;
+  }
+  return input.shape ?? "package";
+}
+
 function deriveSlug(input: SmokeDriverInput): string {
   if (input.name) {
     const stripped = input.name.replace(/^showcase-/, "");
@@ -472,17 +514,17 @@ interface DerivedUrls {
  */
 function deriveUrls(
   input: SmokeDriverInput,
-  shape: "package" | "starter",
+  shape: ShowcaseServiceShape,
 ): DerivedUrls {
   if (input.publicUrl) {
     const base = input.publicUrl.replace(/\/$/, "");
     if (shape === "starter") {
       // Starters expose `/api/health` as the canonical liveness route
-      // (see `showcase/starters/template/frontend/app/api/health/route.ts`).
-      // There is no `/smoke` and no separate `/health` route — so the
-      // primary smoke probe and the health side-emit both target
-      // `/api/health`. The run() loop re-uses the single GET result
-      // rather than round-tripping twice.
+      // (see any starter's `app/api/health/route.ts`). There is no
+      // `/smoke` and no separate `/health` route — both the primary
+      // smoke probe and the health side-emit target `/api/health`. The
+      // two calls are intentionally independent round-trips; see the
+      // run() comment block for why.
       return {
         smokeUrl: `${base}/api/health`,
         healthUrl: `${base}/api/health`,

@@ -57,8 +57,15 @@ import {
  * Classification is derived from the Railway service name, so adding a
  * new starter requires no YAML edit — the next tick picks it up with
  * `shape: "starter"` automatically.
+ *
+ * Single-source tuple: the driver schemas import `showcaseShapeSchema`
+ * below so every consumer of `shape` shares the exact enum — adding a new
+ * archetype (e.g. `static`) is a one-line edit here plus a matching
+ * classifier branch, not a cross-file ripple.
  */
-export type ShowcaseServiceShape = "package" | "starter";
+export const SHOWCASE_SHAPES = ["package", "starter"] as const;
+export type ShowcaseServiceShape = (typeof SHOWCASE_SHAPES)[number];
+export const showcaseShapeSchema = z.enum(SHOWCASE_SHAPES);
 
 export interface RailwayServiceInfo {
   name: string;
@@ -82,11 +89,33 @@ export interface RailwayServiceInfo {
  * ONLY the literal `showcase-starter-` prefix is classified as starter.
  * Everything else — `showcase-ag2`, `showcase-shell`, `some-other-svc` —
  * falls to `package`. Keeping the rule a simple prefix check keeps it
- * auditable in the YAML comments and matches the 17 starter Railway
- * service names 1:1.
+ * auditable in the YAML comments.
+ *
+ * Ambiguity warning: when a name matches the `showcase-` umbrella but
+ * doesn't match either archetype pattern cleanly (i.e. `showcase-foo`
+ * where `foo` isn't a known package slug and isn't prefixed `starter-`),
+ * we cannot tell from the name alone whether it's a new package or a
+ * mis-named starter. Default to `package` (safe — probes the legacy
+ * `/smoke` + `/health` surface which most new services support) but emit
+ * a one-shot audit warning via `opts.logger` when supplied so operators
+ * adding a new archetype see the nudge on the first tick.
  */
-export function classifyShape(name: string): ShowcaseServiceShape {
-  return name.startsWith("showcase-starter-") ? "starter" : "package";
+export function classifyShape(
+  name: string,
+  opts: {
+    logger?: {
+      warn: (msg: string, meta?: Record<string, unknown>) => void;
+    };
+  } = {},
+): ShowcaseServiceShape {
+  if (name.startsWith("showcase-starter-")) return "starter";
+  // Umbrella-match but not an obvious package: the bare `showcase-` with
+  // no further segment, or the literal `showcase-starter` with no trailing
+  // slug. Both are likely wiring typos on a new service.
+  if (name === "showcase-" || name === "showcase-starter") {
+    opts.logger?.warn("railway.name_shape_unknown", { name });
+  }
+  return "package";
 }
 
 const FilterSchema = z
@@ -293,7 +322,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         imageRef,
         publicUrl,
         env,
-        shape: classifyShape(svc.name),
+        shape: classifyShape(svc.name, { logger: ctx.logger }),
       });
     }
     return out;

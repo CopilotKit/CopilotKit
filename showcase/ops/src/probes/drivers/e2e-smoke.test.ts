@@ -6,7 +6,9 @@ import {
   type E2eBrowserContext,
   type E2ePage,
   type E2eSmokeLevelSignal,
+  type E2eSmokePackageSignal,
   type E2eSmokeSignal,
+  type E2eSmokeStarterSignal,
 } from "./e2e-smoke.js";
 import { logger } from "../../logger.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
@@ -325,8 +327,9 @@ describe("e2eSmokeDriver error paths", () => {
       backendUrl: "https://x.example.com",
       demos: ["tool-rendering"],
     });
-    const sig = result.signal as E2eSmokeSignal;
+    const sig = result.signal as E2eSmokePackageSignal;
     expect(result.state).toBe("red");
+    expect(sig.shape).toBe("package");
     expect(sig.errorDesc).toBe("launcher-error");
     expect(sig.l3).toBe("red");
     expect(sig.l4).toBe("red");
@@ -343,7 +346,7 @@ describe("e2eSmokeDriver error paths", () => {
       backendUrl: "https://x.example.com",
     });
     expect(result.state).toBe("red");
-    const sig = result.signal as E2eSmokeSignal;
+    const sig = result.signal as E2eSmokePackageSignal;
     expect(sig.failureSummary).toMatch(/ERR_CONNECTION_REFUSED/);
   });
 
@@ -351,8 +354,8 @@ describe("e2eSmokeDriver error paths", () => {
     // Hanging launcher: resolves only when its AbortSignal fires (which
     // it will, from the driver's hard-timeout). Ensures the driver maps
     // the abort into `errorDesc: "timeout"` rather than masquerading as
-    // `launcher-error`. Tests the Procedure 0 fail-loud distinction
-    // between "chromium missing" and "remote stack slow".
+    // `launcher-error` — the user-facing distinction matters: "chromium
+    // missing" and "remote stack slow" need separate alert routing.
     let rejectLauncher: ((err: Error) => void) | undefined;
     const launcher = async (): Promise<E2eBrowser> =>
       await new Promise<E2eBrowser>((_res, rej) => {
@@ -372,7 +375,8 @@ describe("e2eSmokeDriver error paths", () => {
     setTimeout(() => rejectLauncher?.(new Error("launcher aborted")), 60);
     const result = await p;
     expect(result.state).toBe("red");
-    const sig = result.signal as E2eSmokeSignal;
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.shape).toBe("package");
     expect(sig.errorDesc).toBe("timeout");
     expect(sig.failureSummary).toMatch(/timeout after/);
   });
@@ -433,7 +437,7 @@ describe("e2eSmokeDriver side-emits", () => {
 // registry-lookup path (starters aren't keyed in registry.json).
 
 describe("e2eSmokeDriver starter shape", () => {
-  it("aggregate green-skipped when shape='starter' — L3 and L4 both skipped", async () => {
+  it("aggregate green-skipped when shape='starter' — full signal contract locked in", async () => {
     // The fake browser is never used, but we still wire it in to verify
     // the driver short-circuits BEFORE launching chromium (no newContext
     // calls, no pages opened).
@@ -447,15 +451,73 @@ describe("e2eSmokeDriver starter shape", () => {
       shape: "starter",
     });
     expect(result.state).toBe("green");
+    // Full signal contract — exhaustive field check so a regression that
+    // drops any field fails this test. Narrow via the discriminator so
+    // TS surfaces missing fields at compile time too.
     const sig = result.signal as E2eSmokeSignal;
-    expect(sig.l3).toBe("skipped");
-    expect(sig.l4).toBe("skipped");
+    expect(sig.shape).toBe("starter");
+    if (sig.shape !== "starter") throw new Error("unreachable");
+    const starterSig: E2eSmokeStarterSignal = sig;
+    expect(starterSig.slug).toBe("starter-ag2");
+    expect(starterSig.backendUrl).toBe(
+      "https://showcase-starter-ag2-production.up.railway.app",
+    );
+    expect(starterSig.l3).toBe("skipped");
+    expect(starterSig.l4).toBe("skipped");
+    expect(starterSig.failureSummary).toBe("");
+    expect(starterSig.note).toBe("starter: no /demos/* routing");
+    // errorDesc MUST NOT exist on a green-starter row — alert templates
+    // render errorDesc as failure reason and surfacing one on green
+    // would flap red in downstream views.
+    expect(
+      (starterSig as unknown as { errorDesc?: unknown }).errorDesc,
+    ).toBeUndefined();
     // Zero chromium contexts opened — shape check happens before launch.
     expect(state.contextsOpened).toBe(0);
     // No side-emits written for skipped levels so dashboards don't count
     // them as flaps; operators reading the primary aggregate see the
     // explicit `skipped` state.
     expect(writer.results).toHaveLength(0);
+  });
+
+  it("starter short-circuit runs BEFORE demos resolver — throwing resolver doesn't surface", async () => {
+    // Locks in the ordering: shape check → return, without ever calling
+    // the demos resolver. A refactor that moves the shape check below
+    // the resolver lookup would let registry outages surface as false
+    // reds on starters — this test catches that.
+    const { browser } = makeBrowser([]);
+    const throwingResolver = (): Promise<string[]> => {
+      throw new Error("registry.json missing — should not be called");
+    };
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      demosResolver: throwingResolver,
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      backendUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.shape).toBe("starter");
+  });
+
+  it("shape-mismatch throws: explicit input.shape disagrees with classifier", async () => {
+    // C1: silent-defaulting at the driver boundary inverts the fix.
+    // Passing shape='package' with a `showcase-starter-*` name must fail
+    // loud so silent drift between discovery and driver is unmissable.
+    const { browser } = makeBrowser([{ assistantText: "Hi" }]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    await expect(
+      driver.run(baseCtx(), {
+        key: "e2e-smoke:starter-ag2",
+        name: "showcase-starter-ag2",
+        backendUrl: "https://showcase-starter-ag2.up.railway.app",
+        shape: "package",
+      }),
+    ).rejects.toThrow(/Shape mismatch/);
   });
 
   it("starter shape: never navigates to /demos/* (no registry lookup needed)", async () => {

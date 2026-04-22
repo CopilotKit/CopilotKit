@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { smokeDriver, type SmokeDriverSignal } from "./smoke.js";
 import { logger } from "../../logger.js";
 import type {
@@ -675,8 +677,7 @@ describe("smokeDriver", () => {
   // Starters are single-app Next.js integrations deployed from
   // showcase/starters/*. They expose `/api/health` (returning JSON) but
   // no `/smoke`, no `/health`, and no `/demos/*`. Without shape branching
-  // every starter registers 51 false red alerts per tick (17 services ×
-  // 3 endpoints).
+  // each starter emits one false-red row per probed endpoint per tick.
   // -------------------------------------------------------------------
 
   it("starter shape: primary smoke probe hits /api/health, green on 200", async () => {
@@ -716,10 +717,48 @@ describe("smokeDriver", () => {
     expect(calls).not.toContain(
       "https://showcase-starter-ag2-production.up.railway.app/health",
     );
+    // Contract: smoke and health rows feed separate alert dimensions so
+    // the driver MUST issue TWO independent GETs against /api/health
+    // rather than reusing the first response. Dashboards that correlate
+    // smoke vs health red flips rely on the rows being independent
+    // observations; a shared result would make them byte-identical and
+    // defeat the correlation signal.
+    const healthCalls = calls.filter((c) => c.endsWith("/api/health"));
+    expect(healthCalls).toHaveLength(2);
     // Health side-emit still produced (mirrors primary) so dashboards
     // keyed on `health:<slug>` stay populated.
     const health = writes.find((w) => w.key === "health:starter-ag2");
     expect(health?.state).toBe("green");
+  });
+
+  it("starter shape: /api/health 404 → both smoke:<slug> and health:<slug> flip red", async () => {
+    // Distinct from the 503 case (service answering but degraded): a 404
+    // means the starter's /api/health route is not mounted at all. Both
+    // the primary smoke tick and the health side-emit must flip red so
+    // dashboards keyed on either dimension catch the outage.
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health\b/.test(href)) {
+        return new Response("", { status: 404 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toContain("404");
+    const health = writes.find((w) => w.key === "health:starter-ag2");
+    expect(health?.state).toBe("red");
+    expect((health?.signal as SmokeDriverSignal).errorDesc).toContain("404");
   });
 
   it("starter shape: /api/health 503 → primary smoke red with http 503", async () => {
@@ -819,67 +858,179 @@ describe("smokeDriver", () => {
   // red so we actually catch unmounted routes.
   // -------------------------------------------------------------------
 
-  it("agent probe follows 308 redirects and judges the final response", async () => {
-    const seenPaths: string[] = [];
-    // Simulate Railway edge: 308 with Location, then the real handler.
-    // We can't actually send 308 from a synthetic Response + have fetch
-    // follow — testing the effect via the probe's behaviour after the
-    // redirect lands on a 404 target URL. The driver MUST request with
-    // `redirect: "follow"` so the undici runtime handles the redirect.
-    let sawRedirectOption = false;
+  // Real-server 308 tests: stand up an ephemeral http.Server that replies
+  // with a genuine 308 + Location to the first path, then the terminal
+  // status on the redirect target. A regression that drops
+  // `redirect: "follow"` from the agent POST will fail these — the driver
+  // would classify the raw 308 as proof-of-life and miss the final 404.
+  it("agent probe follows a real 308 redirect to a 200 and stays green", async () => {
+    const { url, close } = await startRealRedirectServer({
+      first: { status: 308, locationPath: "/final" },
+      final: { status: 200, body: '{"ok":true}' },
+    });
+    try {
+      // Restore real fetch — we're intentionally talking to a real socket.
+      vi.unstubAllGlobals();
+      const { writer, writes } = mkWriter();
+      await smokeDriver.run(mkCtx(writer), {
+        key: "smoke:mastra",
+        url: `${url}/smoke`,
+      });
+      const agent = writes.find((w) => w.key === "agent:mastra")!;
+      expect(agent.state).toBe("green");
+      expect((agent.signal as SmokeDriverSignal).status).toBe(200);
+    } finally {
+      await close();
+    }
+  });
+
+  it("agent probe follows a real 308 redirect to a 404 and flips red", async () => {
+    const { url, close } = await startRealRedirectServer({
+      first: { status: 308, locationPath: "/final" },
+      final: { status: 404, body: "<html>not found</html>" },
+    });
+    try {
+      vi.unstubAllGlobals();
+      const { writer, writes } = mkWriter();
+      await smokeDriver.run(mkCtx(writer), {
+        key: "smoke:mastra",
+        url: `${url}/smoke`,
+      });
+      const agent = writes.find((w) => w.key === "agent:mastra")!;
+      expect(agent.state).toBe("red");
+      expect((agent.signal as SmokeDriverSignal).errorDesc).toMatch(
+        /route not mounted|agent endpoint 404/,
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  // Regression guard for discovery-mode `redirect: "follow"` propagation.
+  // Earlier coverage asserted the option only for static-URL mode; a
+  // refactor could drop the option in the discovery branch without the
+  // original test catching it.
+  it("discovery + package: agent POST carries `redirect: 'follow'`", async () => {
+    let sawRedirect = false;
     const fetchImpl: typeof fetch = (async (
       url: string | URL,
       init?: RequestInit,
     ) => {
       const href = typeof url === "string" ? url : url.toString();
-      seenPaths.push(href);
       if (/\/api\/copilotkit/.test(href)) {
         if ((init as RequestInit | undefined)?.redirect === "follow") {
-          sawRedirectOption = true;
+          sawRedirect = true;
         }
-        // Simulate the post-redirect reply: runtime got our `{}` and
-        // responded with 400. That's a non-404 → proof-of-life → green.
-        return new Response('{"error":"missing fields"}', { status: 400 });
+        return new Response("{}", { status: 200 });
       }
       return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
     }) as unknown as typeof fetch;
     vi.stubGlobal("fetch", fetchImpl);
-    const { writer, writes } = mkWriter();
+    const { writer } = mkWriter();
     await smokeDriver.run(mkCtx(writer), {
-      key: "smoke:mastra",
-      url: "https://x.example/smoke",
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
     });
-    expect(sawRedirectOption).toBe(true);
-    const agent = writes.find((w) => w.key === "agent:mastra")!;
-    expect(agent.state).toBe("green");
-    expect((agent.signal as SmokeDriverSignal).status).toBe(400);
+    expect(sawRedirect).toBe(true);
   });
 
-  it("agent probe red when 308 redirect lands on a 404 (route actually missing)", async () => {
+  it("discovery + starter: agent POST carries `redirect: 'follow'`", async () => {
+    let sawRedirect = false;
     const fetchImpl: typeof fetch = (async (
       url: string | URL,
-      _init?: RequestInit,
+      init?: RequestInit,
     ) => {
       const href = typeof url === "string" ? url : url.toString();
       if (/\/api\/copilotkit/.test(href)) {
-        // Post-redirect reply: edge says "page not found". Under the old
-        // contract the raw 308 was treated as green — this test locks in
-        // that we now see the terminal 404 and flip red.
-        return new Response("<html>not found</html>", { status: 404 });
+        if ((init as RequestInit | undefined)?.redirect === "follow") {
+          sawRedirect = true;
+        }
+        return new Response("{}", { status: 200 });
       }
-      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      return new Response("", { status: 404 });
     }) as unknown as typeof fetch;
     vi.stubGlobal("fetch", fetchImpl);
-    const { writer, writes } = mkWriter();
+    const { writer } = mkWriter();
     await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      shape: "starter",
+    });
+    expect(sawRedirect).toBe(true);
+  });
+
+  it("shape-mismatch throws: explicit input.shape disagrees with classifier", async () => {
+    // C1 regression guard: silent-defaulting at the driver boundary
+    // inverts the whole fix. If discovery marks a service as
+    // `showcase-starter-*` (classifier → "starter") but the caller also
+    // pins `shape: "package"`, the driver must fail loud rather than
+    // pick one — silent drift is exactly the failure mode this contract
+    // prevents.
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    await expect(
+      smokeDriver.run(mkCtx(writer), {
+        key: "smoke:starter-ag2",
+        name: "showcase-starter-ag2",
+        publicUrl: "https://showcase-starter-ag2.up.railway.app",
+        shape: "package",
+      }),
+    ).rejects.toThrow(/Shape mismatch/);
+  });
+
+  it("inputSchema rejects `url` + `shape` combo (shape only valid with publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({
       key: "smoke:mastra",
       url: "https://x.example/smoke",
+      shape: "starter",
     });
-    const agent = writes.find((w) => w.key === "agent:mastra")!;
-    expect(agent.state).toBe("red");
-    expect((agent.signal as SmokeDriverSignal).errorDesc).toMatch(
-      /route not mounted|agent endpoint 404/,
-    );
+    expect(parsed.success).toBe(false);
+  });
+
+  it("mixed-driver wiring: spread of RailwayServiceInfo carries `shape` through .passthrough() end-to-end", async () => {
+    // Regression guard for the discovery → driver edge: the orchestrator
+    // builds driver input as `{ ...discoveryRecord, key, slug }`. If the
+    // driver schema stops carrying `shape` through `.passthrough()`, the
+    // field would be silently dropped and starters would fall back to
+    // `package` shape — producing the very false-red row flood this
+    // contract exists to prevent.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    const discoveryRecord = {
+      name: "showcase-starter-ag2",
+      imageRef: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      env: { FOO: "bar" },
+      shape: "starter" as const,
+    };
+    await smokeDriver.run(mkCtx(writer), {
+      ...discoveryRecord,
+      key: "smoke:starter-ag2",
+    });
+    for (const c of calls) {
+      expect(c).not.toMatch(/\.app\/smoke(\b|\?|$)/);
+      expect(c).not.toMatch(/\.app\/health(\b|\?|$)/);
+    }
   });
 
   it("discovery input with trailing `/` on publicUrl strips it before appending paths", async () => {
@@ -917,4 +1068,50 @@ describe("smokeDriver", () => {
  */
 function smokeInputSchema_safeParse(input: unknown): { success: boolean } {
   return smokeDriver.inputSchema.safeParse(input);
+}
+
+/**
+ * Stand up an ephemeral HTTP server that answers the first path with a
+ * real 308 redirect (Location header → `/final`) and the terminal path
+ * with the configured status + body. Used to verify that the driver's
+ * agent POST actually follows redirects via `redirect: "follow"` rather
+ * than classifying the raw 308 as proof-of-life.
+ */
+async function startRealRedirectServer(spec: {
+  first: { status: number; locationPath: string };
+  final: { status: number; body: string };
+}): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = http.createServer((req, res) => {
+    const url = req.url ?? "/";
+    if (url === spec.first.locationPath) {
+      res.writeHead(spec.final.status, {
+        "Content-Type": "text/html; charset=utf-8",
+      });
+      res.end(spec.final.body);
+      return;
+    }
+    // First hop — handles the `/api/copilotkit/` POST. Respond 308 with
+    // Location so undici follows to `/final`.
+    if (/\/api\/copilotkit/.test(url)) {
+      res.writeHead(spec.first.status, {
+        Location: spec.first.locationPath,
+      });
+      res.end();
+      return;
+    }
+    // Smoke / health GETs land on `/smoke` / `/health` — respond 200 with
+    // a JSON body so those rows don't accidentally fail.
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end('{"status":"ok"}');
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const addr = server.address() as AddressInfo;
+  const url = `http://127.0.0.1:${addr.port}`;
+  return {
+    url,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      }),
+  };
 }

@@ -494,7 +494,7 @@ describe("railwayServicesSource", () => {
   // single-app integration at `/` with health at `/api/health`; packages
   // are the shell-based showcases with `/smoke`, `/health`, and
   // `/demos/*` routing. Without the field, probes hit `/smoke` on every
-  // starter and produce 17×3 false-red alerts per tick.
+  // starter and emit one false-red row per starter per probed endpoint.
   // -----------------------------------------------------------------
 
   it("tags services whose name starts with `showcase-starter-` as shape='starter'", async () => {
@@ -582,12 +582,12 @@ describe("railwayServicesSource", () => {
     expect(byName["showcase-starter-mastra"]).toBe("starter");
   });
 
-  it("threads ctx.abortSignal into every Railway GraphQL fetch (CR A1)", async () => {
-    // Regression guard: the source previously called the gql helper
-    // without plumbing an abortSignal, so a slow Railway endpoint kept
-    // its sockets open past the invoker's per-tick timeout. This test
-    // captures init.signal on every fetch and asserts the same signal
-    // ctx carries is forwarded.
+  it("threads ctx.abortSignal into every Railway GraphQL fetch", async () => {
+    // Invariant: a slow Railway endpoint must not keep sockets open past
+    // the invoker's per-tick timeout. The source plumbs `ctx.abortSignal`
+    // into every GraphQL round-trip; this test captures `init.signal` on
+    // every fetch and asserts the controller signal ctx carries is the
+    // one the source forwards.
     const captured: Array<AbortSignal | undefined> = [];
     const fetchImpl: typeof fetch = async (_url, init) => {
       captured.push((init as RequestInit | undefined)?.signal ?? undefined);
