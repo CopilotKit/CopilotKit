@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
-    "start": "node --import tsx server.mjs"
+    "start": "node --import tsx liveness.mjs"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "1.51.4",
