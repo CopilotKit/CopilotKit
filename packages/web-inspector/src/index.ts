@@ -6,8 +6,8 @@ import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
 import { icons } from "lucide";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
   type CopilotKitCoreSubscriber,
   type CopilotKitCoreErrorCode,
@@ -37,12 +37,12 @@ import {
 import {
   loadInspectorState,
   saveInspectorState,
-  type PersistedState,
   isValidAnchor,
   isValidPosition,
   isValidSize,
   isValidDockMode,
 } from "./lib/persistence";
+import type { PersistedState } from "./lib/persistence";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
@@ -3395,7 +3395,7 @@ ${argsString}</pre
           </div>
 
           <a
-            href="https://copilotkit.ai/threads-early-access"
+            href="https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ"
             target="_blank"
             style="
               display:block;
@@ -3474,11 +3474,15 @@ ${argsString}</pre
   }
 
   private _submitThreadsCode(value: string): void {
-    if (value.trim().toLowerCase() === "earlyaccess") {
+    if (value.trim().toLowerCase() === "easyaccess") {
       document.cookie =
         "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
       this._threadsUnlocked = true;
       this._threadsGateError = null;
+      window.open(
+        "https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ",
+        "_blank",
+      );
     } else {
       this._threadsGateError =
         "Incorrect code. Sign up at copilotkit.ai/threads-early-access to get yours.";
@@ -4945,7 +4949,7 @@ ${prettyEvent}</pre
     }
 
     if (typeof value === "string") {
-      return value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      return value.length > 50 ? `${value.slice(0, 50)}...` : value;
     }
 
     if (typeof value === "number" || typeof value === "boolean") {
