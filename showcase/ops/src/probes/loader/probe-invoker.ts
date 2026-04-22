@@ -264,13 +264,62 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
   // call one level up so write-outcome bookkeeping stays centralized.
   // Drivers that call external HTTP endpoints (e.g. image-drift) use
   // `ctx.fetchImpl` so tests can stub the fetch layer at the boundary.
-  const ctx: ProbeContext = { now, logger, env, writer, fetchImpl };
+  //
+  // AbortController wiring: the invoker races the driver promise against
+  // a synthetic-timeout ProbeResult AND aborts the controller on timeout
+  // so in-flight driver work (subprocesses, browsers, sockets) can stop
+  // instead of orphaning. Drivers that observe `ctx.abortSignal` reject
+  // their own promise on abort; drivers that don't still get a timeout
+  // ProbeResult from the invoker's race path. Either way the invoker
+  // returns promptly.
+  const abortCtrl = new AbortController();
+  const timeoutReason = `driver timeout after ${timeoutMs}ms`;
+  let timedOut = false;
+  const timer: ReturnType<typeof setTimeout> | null =
+    timeoutMs !== undefined
+      ? setTimeout(() => {
+          timedOut = true;
+          abortCtrl.abort(new Error(timeoutReason));
+        }, timeoutMs)
+      : null;
+  const ctx: ProbeContext = {
+    now,
+    logger,
+    env,
+    writer,
+    fetchImpl,
+    abortSignal: abortCtrl.signal,
+  };
   try {
     if (timeoutMs === undefined) {
       return await driver.run(ctx, parsed.data);
     }
-    return await withTimeout(driver.run(ctx, parsed.data), timeoutMs, key, now);
+    // Race the driver promise against a timeout promise. On timeout the
+    // race resolves to a synthetic-error ProbeResult even if the driver
+    // ignored abortSignal — the abort still fires so a well-behaved
+    // driver can stop its real work. A driver that observes abortSignal
+    // will typically reject; we catch that below and return the same
+    // synthetic-error.
+    const timeoutPromise = new Promise<ProbeResult<unknown>>((resolve) => {
+      abortCtrl.signal.addEventListener(
+        "abort",
+        () => {
+          if (timedOut) {
+            resolve(syntheticError(key, timeoutReason, now));
+          }
+        },
+        { once: true },
+      );
+    });
+    return await Promise.race([driver.run(ctx, parsed.data), timeoutPromise]);
   } catch (err) {
+    // If the driver rejected *because* it observed our abort, surface
+    // the timeout synthetic-error rather than the driver's opaque
+    // "AbortError" message. Otherwise fall through to the normal
+    // error-to-synthetic path so siblings still proceed.
+    if (timedOut) {
+      return syntheticError(key, timeoutReason, now);
+    }
     const message = err instanceof Error ? err.message : String(err);
     logger.error("probe.run-failed", {
       probeId,
@@ -279,31 +328,8 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       err: message,
     });
     return syntheticError(key, message, now);
-  }
-}
-
-/**
- * Race a driver promise against a timer. Timeout path resolves to a
- * synthetic `state:"error"` ProbeResult — never rejects — so callers
- * can uniformly write the result without an extra try/catch branch.
- */
-async function withTimeout(
-  p: Promise<ProbeResult<unknown>>,
-  ms: number,
-  key: string,
-  now: () => Date,
-): Promise<ProbeResult<unknown>> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<ProbeResult<unknown>>((resolve) => {
-    timer = setTimeout(
-      () => resolve(syntheticError(key, `driver timeout after ${ms}ms`, now)),
-      ms,
-    );
-  });
-  try {
-    return await Promise.race([p, timeoutPromise]);
   } finally {
-    if (timer !== undefined) clearTimeout(timer);
+    if (timer !== null) clearTimeout(timer);
   }
 }
 

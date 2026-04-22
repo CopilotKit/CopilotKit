@@ -69,6 +69,20 @@ export interface ProbeContext {
    * injection point.
    */
   fetchImpl?: typeof fetch;
+  /**
+   * Optional cancellation signal, aborted by the invoker when a driver
+   * exceeds its `timeout_ms`. Drivers that run long-lived work —
+   * subprocesses, Playwright browsers, open sockets — SHOULD observe
+   * this signal and abort in-flight work promptly; otherwise the
+   * invoker still returns a synthetic timeout ProbeResult as soon as
+   * the AbortController fires, but the driver's underlying work keeps
+   * running until it completes naturally (resource leak). Drivers
+   * that don't plumb this signal are unchanged behaviour-wise — the
+   * invoker-level timeout still races them. Kept optional so existing
+   * driver tests that construct a plain `{ now, logger, env }` ctx
+   * continue to compile; drivers opt in over time.
+   */
+  abortSignal?: AbortSignal;
 }
 
 /**
