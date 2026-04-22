@@ -1,8 +1,0 @@
-{
-  "title": "AWS AgentCore",
-  "root": true,
-  "pages": [
-    "index",
-    "quickstart"
-  ]
-}
