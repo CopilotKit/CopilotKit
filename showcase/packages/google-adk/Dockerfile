@@ -34,28 +34,43 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Create unprivileged runtime user BEFORE any COPY so --chown resolves
+# by name and so recursive chown over /app is never needed (fast builds).
+# Mirrors the starter Dockerfile pattern for parity — Railway / any
+# platform that enforces non-root by policy needs this from the package
+# image too, not just the generated starter.
+RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
+ && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
+ && mkdir -p /home/app && chown app:app /home/app
+
 # Python venv (prebuilt in agent-builder stage — no pip in the runner).
-COPY --from=agent-builder /opt/venv /opt/venv
+COPY --chown=app:app --from=agent-builder /opt/venv /opt/venv
 ENV PATH=/opt/venv/bin:$PATH
 
 # Next.js build artifacts
-COPY --from=frontend /app/.next ./.next
-COPY --from=frontend /app/node_modules ./node_modules
-COPY --from=frontend /app/package.json ./
-COPY --from=frontend /app/public ./public
+COPY --chown=app:app --from=frontend /app/.next ./.next
+COPY --chown=app:app --from=frontend /app/node_modules ./node_modules
+COPY --chown=app:app --from=frontend /app/package.json ./
+COPY --chown=app:app --from=frontend /app/public ./public
 
 # Agent code
-COPY src/agent_server.py ./
-COPY src/agents/ ./agents/
+COPY --chown=app:app src/agent_server.py ./
+COPY --chown=app:app src/agents/ ./agents/
 
 # Shared Python tools (copied into build context by CI)
-COPY shared_python/ /app/shared/python/
+COPY --chown=app:app shared_python/ /app/shared/python/
 ENV PYTHONPATH=/app/shared/python
 
 # Entrypoint
-COPY entrypoint.sh ./
+COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
+USER app
+
 EXPOSE 10000
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# NODE_ENV=production at the image level would leak into every child process
+# (Python agent, shell scripts, healthchecks) — most of which don't use it
+# the way Next.js does. entrypoint.sh scopes NODE_ENV=production to the
+# Next.js invocation only so non-Next children see the host's environment.
 CMD ["./entrypoint.sh"]
