@@ -6,6 +6,8 @@ hideTOC: true
 ---
 
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
+import CopilotCloudConfigureCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import {
   WrenchIcon,
   PlugIcon,
@@ -33,6 +35,10 @@ Before you begin, you'll need the following:
 - Your favorite package manager
 
 ## Getting started
+
+<Callout type="info" title="Prefer a hosted backend?">
+  Skip the self-hosting steps below — <LinkToCopilotCloud asButton={false}>sign up for Copilot Cloud for free</LinkToCopilotCloud> and use a `publicApiKey` instead of `runtimeUrl`. See the [Copilot Cloud setup snippet](#copilot-cloud-alternative) at the bottom of this page.
+</Callout>
 
 <Steps>
     <Step>
@@ -194,6 +200,12 @@ Before you begin, you'll need the following:
 
     </Step>
 </Steps>
+
+## Copilot Cloud alternative
+
+Instead of self-hosting the runtime, you can use Copilot Cloud. Replace the runtime setup and provider steps above with:
+
+<CopilotCloudConfigureCopilotKitProvider components={props.components} />
 
 ## What's next?
 

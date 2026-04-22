@@ -17,6 +17,7 @@ import CopilotCloudConfigureRemoteEndpointLangGraph from "@/snippets/copilot-clo
 import CopilotKitCloudCopilotKitProvider from "@/snippets/copilot-cloud-configure-copilotkit-provider.mdx";
 import LangGraphPlatformDeploymentTabs from "@/snippets/langgraph-platform-deployment-tabs.mdx";
 import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import { LinkToCopilotCloud } from "@/components/react/link-to-copilot-cloud";
 import FindYourCopilotRuntime from "@/snippets/find-your-copilot-runtime.mdx";
 import ConnectCopilotUI from "@/snippets/copilot-ui.mdx";
 import CloudCopilotKitProvider from "@/snippets/coagents/cloud-configure-copilotkit-provider.mdx";
@@ -57,6 +58,10 @@ Before you begin, you'll need the following:
 - (Optional) A LangSmith API key - only required if using an existing LangChain agent
 
 ## Getting started
+
+<Callout type="info" title="Prefer a hosted backend?">
+  Skip the self-hosting steps below — <LinkToCopilotCloud asButton={false}>sign up for Copilot Cloud for free</LinkToCopilotCloud> and use a `publicApiKey` instead of `runtimeUrl`. See the [Copilot Cloud setup snippet](#copilot-cloud-alternative) at the bottom of this page.
+</Callout>
 
 <Steps>
     <TailoredContent
@@ -539,6 +544,12 @@ Before you begin, you'll need the following:
 
     </Step>
 </Steps>
+
+## Copilot Cloud alternative
+
+Instead of self-hosting the runtime, you can use Copilot Cloud. Replace the runtime setup and provider steps above with:
+
+<CopilotKitCloudCopilotKitProvider components={props.components} />
 
 ## What's next?
 
