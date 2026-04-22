@@ -2,8 +2,8 @@
  * Tests for showcase/scripts/lib/manifest.ts.
  *
  * parseManifest is the single source of truth for reading and shape-validating
- * manifest.yaml. Tests pin the tagged-union return shape that the three
- * validators (audit.ts / validate-parity.ts / validate-pins.ts) rely on.
+ * manifest.yaml. Tests pin the tagged-union return shape that the consumers
+ * (audit.ts / validate-parity.ts / capture-previews.ts) rely on.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
@@ -125,7 +125,7 @@ describe("parseManifest", () => {
 
   it("returns {kind:'malformed', subkind:'shape'} when slug is missing", () => {
     // slug is required — every consumer (audit.ts / validate-parity.ts /
-    // validate-pins.ts) relies on it. Missing slug = unconditional bug.
+    // capture-previews.ts) relies on it. Missing slug = unconditional bug.
     const f = path.join(root, "manifest.yaml");
     write(f, "name: My Pkg\n");
     const r = parseManifest(f);
@@ -472,6 +472,24 @@ describe("parseManifest", () => {
     if (r.kind === "malformed") {
       expect(r.subkind).toBe("shape");
       expect(r.error).toMatch(/\/demos\//);
+    }
+  });
+
+  it("returns {kind:'malformed', subkind:'shape'} when demos[i].route is exactly '/demos/'", () => {
+    // The `/demos/` prefix guard accepts any string that starts with the
+    // prefix, including the bare prefix with an empty tail. Downstream
+    // consumers (routeToDirName, bundle-demo-content) strip the prefix and
+    // expect a non-empty segment to follow; an empty tail would silently
+    // point at the parent demos/ directory rather than a specific demo.
+    // Reject at the parser boundary so validate-parity / bundle-demo-content
+    // can treat a successful parse as a non-empty-segment invariant.
+    const f = path.join(root, "manifest.yaml");
+    write(f, "slug: x\ndemos:\n  - id: foo\n    route: /demos/\n");
+    const r = parseManifest(f);
+    expect(r.kind).toBe("malformed");
+    if (r.kind === "malformed") {
+      expect(r.subkind).toBe("shape");
+      expect(r.error).toMatch(/non-empty segment/i);
     }
   });
 
