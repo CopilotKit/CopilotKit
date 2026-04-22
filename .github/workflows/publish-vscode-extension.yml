@@ -20,6 +20,11 @@ on:
       - "packages/vscode-extension/**"
       - ".github/workflows/publish-vscode-extension.yml"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Validate auth only (no publish)"
+        type: boolean
+        default: true
 
 concurrency:
   group: publish-vscode-extension-${{ github.ref }}
@@ -136,12 +141,40 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Verify Marketplace credential
-        if: steps.check.outputs.published == 'false'
+        if: steps.check.outputs.published == 'false' || inputs.dry_run == true
         working-directory: packages/vscode-extension
         run: npx --yes @vscode/vsce@^3 verify-pat --azure-credential copilotkit
 
+      - name: Verify Open VSX credential
+        if: steps.check.outputs.published == 'false' || inputs.dry_run == true
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OVSX_PAT:-}" ]; then
+            echo "::error::OVSX_PAT secret is not configured in the 'production' environment"
+            exit 1
+          fi
+          echo "::group::Open VSX token introspection"
+          response=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $OVSX_PAT" https://open-vsx.org/api/user 2>&1)
+          body=$(echo "$response" | sed '$d')
+          code=$(echo "$response" | tail -n 1)
+          echo "HTTP $code"
+          echo "$body" | jq '.' 2>/dev/null || echo "$body"
+          echo "::endgroup::"
+          if [ "$code" != "200" ]; then
+            echo "::error::Open VSX token invalid (HTTP $code)"
+            exit 1
+          fi
+          login=$(echo "$body" | jq -r '.loginName // .userName // empty')
+          if [ -z "$login" ]; then
+            echo "::error::Open VSX token has no associated user"
+            exit 1
+          fi
+          echo "Open VSX authenticated as: $login"
+
       - name: Publish to VS Code Marketplace
-        if: steps.check.outputs.published == 'false'
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false'
         id: publish_vsce
         continue-on-error: true
         working-directory: packages/vscode-extension
@@ -197,7 +230,7 @@ jobs:
             --azure-credential
 
       - name: Publish to Open VSX
-        if: steps.check.outputs.published == 'false'
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false'
         id: publish_ovsx
         continue-on-error: true
         working-directory: packages/vscode-extension
@@ -257,7 +290,7 @@ jobs:
           retry_publish npx --yes ovsx publish extension.vsix -p "$OVSX_PAT"
 
       - name: Report publish results
-        if: steps.check.outputs.published == 'false'
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false'
         id: report
         run: |
           VSCE_STATUS="${{ steps.publish_vsce.outcome }}"
@@ -275,7 +308,7 @@ jobs:
           fi
 
       - name: Create git tag
-        if: steps.check.outputs.published == 'false'
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false'
         run: |
           TAG="vscode-extension-v${{ steps.pkg.outputs.version }}"
           if ! git rev-parse "${TAG}" >/dev/null 2>&1; then
@@ -286,7 +319,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        if: steps.check.outputs.published == 'false'
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -319,7 +352,7 @@ jobs:
           fi
 
       - name: Notify Slack (published)
-        if: steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
+        if: inputs.dry_run != true && steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
         env:
           SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
         uses: slackapi/slack-github-action@v2.1.0
@@ -331,8 +364,17 @@ jobs:
               "text": ":package: *copilotkit-vscode-extension v${{ steps.pkg.outputs.version }} published*\nMarketplace: https://marketplace.visualstudio.com/items?itemName=${{ steps.pkg.outputs.ext_id }}\nOpen VSX: https://open-vsx.org/extension/${{ steps.pkg.outputs.publisher }}/${{ steps.pkg.outputs.name }}\nRelease: https://github.com/${{ github.repository }}/releases/tag/vscode-extension-v${{ steps.pkg.outputs.version }}"
             }
 
+      - name: Dry-run summary
+        if: inputs.dry_run == true
+        run: |
+          echo "Dry run complete. Auth chains validated:"
+          echo "   - Marketplace: OIDC -> Entra SP -> vsce verify-pat --azure-credential"
+          echo "   - Open VSX: bearer token -> /api/user"
+          echo ""
+          echo "No publish occurred. To cut a real release, bump the version via scripts/release/vscode-extension-release.sh and merge to main."
+
       - name: Notify Slack (publish failure)
-        if: failure() && steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
+        if: failure() && inputs.dry_run != true && steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
         env:
           SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
         uses: slackapi/slack-github-action@v2.1.0
