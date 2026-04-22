@@ -1,4 +1,4 @@
-name: test / doc-examples
+name: test / integration / docs
 on:
   pull_request:
     branches: [main]

@@ -1,4 +1,4 @@
-name: Starter Deployed Smoke Tests
+name: test / smoke / starter-deployed
 
 on:
   schedule:
@@ -198,7 +198,7 @@ jobs:
       - name: Log (no Slack — webhook unset)
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run') && env.SLACK_WEBHOOK == ''
         run: |
-          echo "::warning::starter_deployed_smoke failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
+          echo "::warning::test_smoke-starter-deployed failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
 
       # Compute outcome + state transition for the next run. Runs on
       # success and failure alike (but not when the job is cancelled —
