@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -102,24 +102,30 @@ describe("pinDriftDriver", () => {
     // surface this as a keyed error, never silently fall through.
     const root = makeRepoRoot(null);
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(mockRunner({}));
+    const driver = createPinDriftDriver({ runner: mockRunner({}) });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
     );
     expect(r.state).toBe("error");
     expect(r.key).toBe("pin_drift:overall");
+    expect((r.signal as { errorDesc: string }).errorDesc).toMatch(
+      /failed to read fail-baseline\.json/,
+    );
   });
 
   it("state:'error' when baseline JSON is malformed", async () => {
     const root = makeRepoRoot("{not json");
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(mockRunner({}));
+    const driver = createPinDriftDriver({ runner: mockRunner({}) });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
     );
     expect(r.state).toBe("error");
+    expect((r.signal as { errorDesc: string }).errorDesc).toMatch(
+      /JSON syntax error/,
+    );
   });
 
   it("state:'green' stable when FAIL set matches baseline", async () => {
@@ -131,9 +137,9 @@ describe("pinDriftDriver", () => {
       }),
     );
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: failed.join("\n"), exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: failed.join("\n"), exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -154,9 +160,9 @@ describe("pinDriftDriver", () => {
       }),
     );
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -176,9 +182,9 @@ describe("pinDriftDriver", () => {
       }),
     );
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -191,9 +197,9 @@ describe("pinDriftDriver", () => {
   it("state:'green' no_baseline on empty baseline", async () => {
     const root = makeRepoRoot("");
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: "[FAIL] a\n", exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: "[FAIL] a\n", exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -216,9 +222,9 @@ describe("pinDriftDriver", () => {
       }),
     );
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: now.join("\n"), exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -235,7 +241,7 @@ describe("pinDriftDriver", () => {
     expect(sig.delta).toBe(0);
   });
 
-  it("state:'error' when runner throws", async () => {
+  it("state:'error' when injected runner throws", async () => {
     const root = makeRepoRoot(
       JSON.stringify({
         validatePinsFailCount: 0,
@@ -243,14 +249,42 @@ describe("pinDriftDriver", () => {
       }),
     );
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ throwErr: new Error("spawn EACCES") }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ throwErr: new Error("spawn EACCES") }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
     );
     expect(r.state).toBe("error");
+    expect((r.signal as { errorDesc: string }).errorDesc).toMatch(
+      /runner-error: spawn EACCES/,
+    );
+  });
+
+  it("state:'error' with runner-error errorDesc when no runner injected (default)", async () => {
+    // Default runner is not wired — every tick must surface as a keyed
+    // error carrying the injection-required message. This is the
+    // pragmatic replacement for the previous subprocess-spawning default,
+    // which couldn't run in the ops container anyway.
+    const root = makeRepoRoot(
+      JSON.stringify({
+        validatePinsFailCount: 0,
+        validatePinsFailHash: "0".repeat(64),
+      }),
+    );
+    tmpRoots.push(root);
+    const driver = createPinDriftDriver(); // no deps → defaultRunner throws
+    const r = await driver.run(
+      { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
+      { key: "pin_drift:overall" },
+    );
+    expect(r.state).toBe("error");
+    expect(r.key).toBe("pin_drift:overall");
+    const desc = (r.signal as { errorDesc: string }).errorDesc;
+    expect(desc).toMatch(/runner-error:/);
+    expect(desc).toMatch(/pin-drift probe runner is not wired/);
+    expect(desc).toMatch(/inject a runner via PinDriftDriverDeps\.runner/);
   });
 
   it("state:'error' when validator exits with unexpected code", async () => {
@@ -262,34 +296,28 @@ describe("pinDriftDriver", () => {
     );
     tmpRoots.push(root);
     // Exit 2 = EXIT_INTERNAL per validate-pins.ts taxonomy.
-    const driver = createPinDriftDriver(mockRunner({ exitCode: 2 }));
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ exitCode: 2 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
     );
     expect(r.state).toBe("error");
+    expect((r.signal as { errorDesc: string }).errorDesc).toMatch(
+      /validate-pins exited 2/,
+    );
   });
 
   it("exit code 0 (clean) treated as legitimate drift signal", async () => {
     const root = makeRepoRoot(
       JSON.stringify({
         validatePinsFailCount: 0,
-        validatePinsFailHash: "",
-      }),
-    );
-    tmpRoots.push(root);
-    // Hash field type check: core requires 64-hex. Empty baseline → use
-    // a valid hash field but count 0; with empty hash set, driver still
-    // produces stable because both sides are empty. Use a valid hash
-    // format to match the schema.
-    fs.writeFileSync(
-      path.join(root, "showcase", "scripts", "fail-baseline.json"),
-      JSON.stringify({
-        validatePinsFailCount: 0,
         validatePinsFailHash: "a".repeat(64),
       }),
     );
-    const driver = createPinDriftDriver(mockRunner({ exitCode: 0 }));
+    tmpRoots.push(root);
+    const driver = createPinDriftDriver({ runner: mockRunner({ exitCode: 0 }) });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -311,9 +339,9 @@ describe("pinDriftDriver", () => {
     const stderrText = fs.readFileSync(stderrPath, "utf8");
     const root = makeRepoRoot(baselineText);
     tmpRoots.push(root);
-    const driver = createPinDriftDriver(
-      mockRunner({ stderr: stderrText, exitCode: 1 }),
-    );
+    const driver = createPinDriftDriver({
+      runner: mockRunner({ stderr: stderrText, exitCode: 1 }),
+    });
     const r = await driver.run(
       { ...BASE_CTX, env: { PIN_DRIFT_REPO_ROOT: root } },
       { key: "pin_drift:overall" },
@@ -342,9 +370,11 @@ describe("pinDriftDriver", () => {
     tmpRoots.push(root);
     let capturedRoot = "";
     const driver = createPinDriftDriver({
-      async run(repoRoot) {
-        capturedRoot = repoRoot;
-        return { stdout: "", stderr: "", exitCode: 0 };
+      runner: {
+        async run(repoRoot) {
+          capturedRoot = repoRoot;
+          return { stdout: "", stderr: "", exitCode: 0 };
+        },
       },
     });
     await driver.run(
@@ -356,10 +386,6 @@ describe("pinDriftDriver", () => {
 });
 
 describe("pinDriftDriver default instance", () => {
-  beforeEach(() => {
-    // no-op; test confirms default export is wired up.
-  });
-
   it("default export is a ProbeDriver with correct kind", () => {
     expect(pinDriftDriver.kind).toBe("pin_drift");
     expect(typeof pinDriftDriver.run).toBe("function");
@@ -372,8 +398,10 @@ describe("pinDriftDriver default instance", () => {
     // but we don't want to actually run validate-pins (134 subprocesses),
     // so inject a no-op runner that returns a stable empty-stderr run.
     const driver = createPinDriftDriver({
-      async run() {
-        return { stdout: "", stderr: "", exitCode: 0 };
+      runner: {
+        async run() {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        },
       },
     });
     const r = await driver.run(
@@ -388,8 +416,10 @@ describe("pinDriftDriver default instance", () => {
 
   it("falls back when env var is whitespace-only", async () => {
     const driver = createPinDriftDriver({
-      async run() {
-        return { stdout: "", stderr: "", exitCode: 0 };
+      runner: {
+        async run() {
+          return { stdout: "", stderr: "", exitCode: 0 };
+        },
       },
     });
     const r = await driver.run(

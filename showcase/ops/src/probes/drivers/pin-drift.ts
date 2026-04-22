@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { spawn } from "child_process";
 import fs from "fs";
 import path from "path";
 import {
@@ -19,21 +18,25 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  *   1. Reads the committed `showcase/scripts/fail-baseline.json` so the
  *      comparison ratchet is sourced from the same file CI uses — no
  *      divergent in-memory config.
- *   2. Runs `validate-pins.ts` as a child process to collect the current
- *      `[FAIL] ...` stderr lines, then calls `computePinDrift` (the
- *      extracted core module in `scripts/validate-pins-core.ts`) to
- *      derive count + hash + status. The shell ratchet in
- *      `.github/workflows/showcase_validate.yml` does the same
- *      comparison — core is the single source of truth for both paths.
+ *   2. Delegates the actual validate-pins run to an injected runner.
+ *      There is no viable in-container default: running validate-pins
+ *      requires the full monorepo tree (examples/, showcase/, scripts/)
+ *      which isn't shipped into the ops runtime container, and `tsx` is
+ *      a devDependency stripped by `pnpm deploy --prod`. The default
+ *      runner therefore throws with an injection-required message; the
+ *      driver's run() converts that into a keyed `state:"error"`
+ *      ProbeResult with `errorDesc: "runner-error: ..."` — same shape
+ *      as the e2e-smoke driver's runner-missing path.
  *   3. Maps the `PinDriftResult` into a `ProbeResult` whose signal shape
  *      is a superset of the legacy probe's signal (adds `hash`, `delta`,
  *      `failed[]`) so existing rules keyed on `setStatus` keep matching
  *      while new rules can ratchet on hash drift.
  *
- * The driver only emits a `state:"error"` ProbeResult when the baseline
- * file itself is unreadable / malformed OR the validator process crashes
- * unexpectedly. A validator that exits 0 or 1 (OK / drift) is NOT an
- * error — that's a legitimate signal and the comparison proceeds.
+ * The driver emits `state:"error"` when the baseline file is unreadable
+ * / malformed, when no runner is wired, when the runner throws, or when
+ * the validator exits with an unexpected code. A validator that exits
+ * 0 or 1 (OK / drift) is NOT an error — that's a legitimate signal and
+ * the comparison proceeds.
  */
 
 const pinDriftInputSchema = z
@@ -44,18 +47,27 @@ const pinDriftInputSchema = z
 
 type PinDriftDriverInput = z.infer<typeof pinDriftInputSchema>;
 
-/** Superset signal: legacy fields + drift-set metadata from core. */
-export interface PinDriftDriverSignal extends PinDriftSignal {
-  hash: string;
-  delta: number;
-  failed: string[];
-}
+/**
+ * Superset signal: legacy fields + drift-set metadata from core, plus an
+ * optional `errorDesc` used only on `state:"error"` results. The whole
+ * drift-set is optional so error results don't have to fabricate values
+ * for `hash`, `delta`, `failed[]` etc. — templates keyed on those fields
+ * check `setStatus` first.
+ */
+export type PinDriftDriverSignal =
+  | (PinDriftSignal & {
+      hash: string;
+      delta: number;
+      failed: string[];
+      errorDesc?: undefined;
+    })
+  | { errorDesc: string };
 
 /**
- * Runner abstraction for tests. Production default spawns
- * `npx tsx showcase/scripts/validate-pins.ts` and collects stderr; tests
- * inject a synthetic runner so the driver suite doesn't fan out 134
- * subprocesses per test file.
+ * Runner abstraction for tests and operators. There is no subprocess
+ * default — see module docblock for why. Tests inject `mockRunner`;
+ * operators wire a runner (external CI webhook, sidecar, etc.) at
+ * driver-creation time via `PinDriftDriverDeps.runner`.
  */
 export interface ValidatePinsRunner {
   run(repoRoot: string): Promise<{
@@ -65,33 +77,32 @@ export interface ValidatePinsRunner {
   }>;
 }
 
-/* c8 ignore start -- production spawning adapter; exercised via integration
-   tests that actually invoke the validate-pins.ts CLI (too heavy for unit:
-   spawns 134 subprocesses per run). Unit tests inject `mockRunner`. */
+export interface PinDriftDriverDeps {
+  /**
+   * Injected validate-pins runner. Required in production — the default
+   * throws loudly rather than silently stubbing to green. Tests pass a
+   * fake that returns synthesised stdout/stderr/exitCode so the driver
+   * suite doesn't fan out 134 subprocesses per test file.
+   */
+  runner?: ValidatePinsRunner;
+}
+
+/**
+ * Default runner: throws. Running validate-pins.ts requires the full
+ * monorepo tree plus `tsx` (a devDependency) — neither is available in
+ * the ops runtime container. Operators wire a real runner via
+ * `PinDriftDriverDeps.runner`; until then, the driver fails loud on
+ * every tick rather than pretending the comparison ran.
+ */
 const defaultRunner: ValidatePinsRunner = {
-  async run(repoRoot) {
-    const scriptPath = path.resolve(
-      repoRoot,
-      "showcase",
-      "scripts",
-      "validate-pins.ts",
+  async run() {
+    throw new Error(
+      "pin-drift probe runner is not wired: inject a runner via " +
+        "PinDriftDriverDeps.runner. Running validate-pins in-container " +
+        "requires the full monorepo tree which isn't available in ops.",
     );
-    return new Promise((resolve, reject) => {
-      const child = spawn("npx", ["tsx", scriptPath], {
-        cwd: repoRoot,
-        env: { ...process.env, VALIDATE_PINS_REPO_ROOT: repoRoot },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      let stdout = "";
-      let stderr = "";
-      child.stdout.on("data", (c: Buffer) => (stdout += c.toString("utf8")));
-      child.stderr.on("data", (c: Buffer) => (stderr += c.toString("utf8")));
-      child.on("error", reject);
-      child.on("close", (code) => resolve({ stdout, stderr, exitCode: code }));
-    });
   },
 };
-/* c8 ignore stop */
 
 /**
  * Resolve the repo root containing `showcase/scripts/fail-baseline.json`.
@@ -117,8 +128,9 @@ function resolveRepoRoot(ctx: ProbeContext): string {
 }
 
 export function createPinDriftDriver(
-  runner: ValidatePinsRunner = defaultRunner,
+  deps: PinDriftDriverDeps = {},
 ): ProbeDriver<PinDriftDriverInput, PinDriftDriverSignal> {
+  const runner = deps.runner ?? defaultRunner;
   return {
     kind: pinDriftProbe.dimension,
     inputSchema: pinDriftInputSchema,
@@ -151,14 +163,15 @@ export function createPinDriftDriver(
           state: "error",
           signal: {
             errorDesc: `failed to read fail-baseline.json at ${baselinePath}: ${msg}`,
-          } as unknown as PinDriftDriverSignal,
+          },
           observedAt: ctx.now().toISOString(),
         };
       }
 
       // Run the validator. Exit codes 0 (no drift) and 1 (drift) are both
       // legitimate; anything else (2 internal crash, 3 unreadable input,
-      // null/unknown) is a driver-level error.
+      // null/unknown) is a driver-level error. A thrown runner — including
+      // the default "not wired" throw — also becomes a keyed error.
       let runResult: Awaited<ReturnType<ValidatePinsRunner["run"]>>;
       try {
         runResult = await runner.run(repoRoot);
@@ -169,8 +182,8 @@ export function createPinDriftDriver(
           key: input.key,
           state: "error",
           signal: {
-            errorDesc: `validate-pins runner crashed: ${msg}`,
-          } as unknown as PinDriftDriverSignal,
+            errorDesc: `runner-error: ${msg}`,
+          },
           observedAt: ctx.now().toISOString(),
         };
       }
@@ -184,7 +197,7 @@ export function createPinDriftDriver(
           state: "error",
           signal: {
             errorDesc: `validate-pins exited ${runResult.exitCode} (expected 0 or 1)`,
-          } as unknown as PinDriftDriverSignal,
+          },
           observedAt: ctx.now().toISOString(),
         };
       }
@@ -210,7 +223,7 @@ export function createPinDriftDriver(
             state: "error",
             signal: {
               errorDesc: e.message,
-            } as unknown as PinDriftDriverSignal,
+            },
             observedAt: ctx.now().toISOString(),
           };
         }
@@ -266,5 +279,12 @@ export function createPinDriftDriver(
   };
 }
 
-/** Default driver instance — uses the production spawning runner. */
+/**
+ * Default driver instance — uses the no-op `defaultRunner` which throws
+ * on every tick. Operators MUST construct a configured instance via
+ * `createPinDriftDriver({ runner })` for production use. The unconfigured
+ * default exists so orchestrator boot doesn't crash when the YAML
+ * references `pin_drift` but no runner has been wired yet — instead,
+ * each tick surfaces a keyed `state:"error"` the operator can spot.
+ */
 export const pinDriftDriver = createPinDriftDriver();
