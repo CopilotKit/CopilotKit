@@ -19,25 +19,26 @@ export interface RuleLoadErrorEmitter {
 import { DefaultsSchema, RuleSchema, type RuleDoc } from "./schema.js";
 // Import from the DSL leaf module rather than alert-engine to avoid the
 // type↔value cycle (alert-engine imports `CompiledRule` from this file).
-import { evalSuppress } from "../alerts/dsl.js";
+import { evalSuppress, parseDuration } from "../alerts/dsl.js";
 // HF13-D1: reuse the renderer's FILTER_RE so load-time validation and
 // render-time substitution can't drift. A prior local copy here lacked
 // the negative look-arounds that exclude triple-brace spans.
 import { FILTER_RE } from "../render/filter-regex.js";
+import { FILTER_NAMES } from "../render/filters.js";
 
 /**
- * Known filter names surfaced by the renderer pipeline. Kept in sync with
- * `FilterName` in `src/render/filters.ts` — adding a new filter requires
- * updating BOTH places so rule-load validation accepts the new name. A
+ * Known filter names surfaced by the renderer pipeline. Derived from
+ * `FILTER_NAMES` in `src/render/filters.ts` so this set and the
+ * `FilterName` union can never drift — adding a new filter name there
+ * auto-updates this validation set with no further coordination. A
  * template referencing an unknown filter silently skips the filter at
  * render time; catching it at load time surfaces the typo before deploy.
+ *
+ * Typed as `ReadonlySet<string>` at the call site (not `ReadonlySet<FilterName>`)
+ * so `.has(rawName)` can take the arbitrary string pulled from a template —
+ * the whole point of this set is to detect strings that are NOT `FilterName`.
  */
-const KNOWN_FILTERS = new Set<string>([
-  "stripAnsi",
-  "truncateUtf8",
-  "truncateCsv",
-  "slackEscape",
-]);
+const KNOWN_FILTERS: ReadonlySet<string> = new Set<string>(FILTER_NAMES);
 
 /**
  * Walk every `{{ path | filter ... }}` expression in a rendered template
@@ -410,6 +411,26 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       throw new Error(
         `rule ${rule.id}: rate_limit.perKey must not contain filter pipeline tokens ('|') — perKey is rendered via Mustache only. Got: '${perKey}'`,
       );
+    }
+
+    // Fail rule-load on a malformed `rate_limit.window` so bad units
+    // (e.g. `"15"` missing suffix, `"1 hour"` with internal space) surface
+    // at boot rather than at first matching probe tick — where
+    // `parseDuration` throws inside `shouldSuppress`, the per-rule
+    // try/catch in `handleStatusChanged` logs `alert-engine.rule-handler-failed`
+    // and swallows the error, and every subsequent tick repeats the same
+    // throw. The rule NEVER fires: no Slack, no alert_state write. Rejecting
+    // at load mirrors the suppress-expression check below.
+    const rlWindow = rule.conditions?.rate_limit?.window;
+    if (rlWindow != null) {
+      try {
+        parseDuration(rlWindow);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(
+          `rule-loader: ${rule.id}: invalid rate_limit.window "${rlWindow}": must be e.g. "15m", "1h", "3d" (${msg})`,
+        );
+      }
     }
 
     // Fail rule-load on a malformed suppress expression so bad syntax surfaces

@@ -28,7 +28,7 @@ export interface AlertStateStore {
 // guard is the interim contract so today's build stays safe.
 const SAFE_DEDUPE_KEY_RE = /^[\P{C}]+$/u;
 
-function assertSafeKey(field: string, value: string): void {
+export function assertSafeKey(field: string, value: string): void {
   if (!SAFE_DEDUPE_KEY_RE.test(value)) {
     throw new Error(
       `alert-state-store: ${field} must be printable Unicode (no control chars) (got ${JSON.stringify(value.slice(0, 40))})`,

@@ -101,6 +101,16 @@ export interface BusEvents {
    */
   "internal.backup.failed": { err: string };
   /**
+   * Emitted when S3 backup INITIALIZATION fails at boot — e.g.
+   * `createDefaultS3Uploader` throws because `@aws-sdk/client-s3` is not
+   * installed, a bad AWS_REGION is set, or the credential provider chain
+   * throws. Pre-fix, this path only logged at error level and the service
+   * booted green while backups silently never ran. The bus emit gives
+   * operators a first-class observable surface (alert rule or dashboard
+   * subscription) alongside the existing error log.
+   */
+  "internal.backup.init-failed": { err: string; bucket: string };
+  /**
    * Emitted by the alert engine when a rule's `suppress.when` expression
    * throws at evaluation time (R24 bucket-a#7). Fail-closed semantics:
    * the triggering alert is suppressed on eval error to avoid spamming

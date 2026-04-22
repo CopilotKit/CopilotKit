@@ -1618,6 +1618,230 @@ describe("rule-loader: validateTripleBrace covers on_error.template.text (R21 bu
   });
 });
 
+describe("rule-loader: rate_limit.window load-time validation (R28 bucket-a)", () => {
+  // R27 slot 1 A1 regression: a rule with `conditions.rate_limit.window: "15"`
+  // (missing unit) or `"1 hour"` (internal space) used to load cleanly. At
+  // the first matching probe tick, `parseDuration` threw inside
+  // `shouldSuppress`; the per-rule try/catch in `handleStatusChanged`
+  // logged `alert-engine.rule-handler-failed` and swallowed the error, and
+  // every subsequent tick repeated the same throw. The rule NEVER fired —
+  // no Slack, no alert_state write. Load-time validation surfaces the bad
+  // unit at boot with a clear "must be e.g. 15m/1h/3d" message.
+  it("rejects a rule whose rate_limit.window is missing a unit suffix ('15')", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-rlw-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "bad-rlwindow.yml"),
+      [
+        "id: bad-rlwindow",
+        'name: "bad rate_limit.window"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit:",
+        '    window: "15"', // missing unit
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("bad-rlwindow.yml");
+    expect(errors[0]!.error).toMatch(/rule-loader:/);
+    expect(errors[0]!.error).toMatch(/rate_limit\.window/);
+    expect(errors[0]!.error).toMatch(/15m|1h|3d/);
+  });
+
+  it("rejects a rule whose rate_limit.window contains an internal space ('1 hour')", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-rlw2-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "bad-rlwindow-human.yml"),
+      [
+        "id: bad-rlwindow-human",
+        'name: "bad rate_limit.window human"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit:",
+        '    window: "1 hour"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error).toMatch(/rate_limit\.window/);
+  });
+
+  it("accepts a well-formed rate_limit.window ('15m')", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-rlw-ok-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "good-rlwindow.yml"),
+      [
+        "id: good-rlwindow",
+        'name: "good rate_limit.window"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit:",
+        '    window: "15m"',
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.conditions.rate_limit?.window).toBe("15m");
+  });
+
+  it("accepts rate_limit: null (explicitly disabled — parseDuration is NOT called)", async () => {
+    // Regression guard: null was already handled by loader but this pins
+    // the contract — rate_limit:null must NOT reach parseDuration.
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-rlw-null-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "null-rlwindow.yml"),
+      [
+        "id: null-rlwindow",
+        'name: "null rate_limit"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "conditions:",
+        "  rate_limit: null",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+  });
+});
+
+describe("rule-loader: signal.filter.dimension load-time validation (R28 bucket-a)", () => {
+  // R27 slot 5 B6 regression: R26 narrowed `SignalSchema.dimension` to the
+  // closed DimensionEnum but missed the `filter.dimension` sub-field. A
+  // filter clause with `dimension: "smokee"` passed validation and silently
+  // never matched any probe key — same class of bug as R26 A1. Post-fix,
+  // `FilterSchema.dimension` is also `DimensionEnum.optional()`.
+  it("rejects a rule whose signal.filter.dimension is typoed ('smokee')", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-fdim-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "bad-filter-dim.yml"),
+      [
+        "id: bad-filter-dim",
+        'name: "bad filter.dimension"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "  filter:",
+        "    dimension: smokee", // typo — should be "smoke"
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("bad-filter-dim.yml");
+    expect(errors[0]!.error).toMatch(/rule-loader:/);
+    expect(errors[0]!.error).toMatch(/smokee|dimension|enum/i);
+  });
+
+  it("accepts a well-formed signal.filter.dimension ('smoke')", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-fdim-ok-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "good-filter-dim.yml"),
+      [
+        "id: good-filter-dim",
+        'name: "good filter.dimension"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "  filter:",
+        "    dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(errors).toEqual([]);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.signal.filter?.dimension).toBe("smoke");
+  });
+});
+
 async function makeSingleFixtureDir(file: string): Promise<string> {
   const os = await import("node:os");
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rule-"));

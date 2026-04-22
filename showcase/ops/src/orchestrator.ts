@@ -3,7 +3,10 @@ import url from "node:url";
 import { serve } from "@hono/node-server";
 import { buildServer } from "./http/server.js";
 import { createPbClient } from "./storage/pb-client.js";
-import { createAlertStateStore } from "./storage/alert-state-store.js";
+import {
+  createAlertStateStore,
+  assertSafeKey,
+} from "./storage/alert-state-store.js";
 import { createEventBus } from "./events/event-bus.js";
 import { createRuleLoader, type CompiledRule } from "./rules/rule-loader.js";
 import { createRenderer } from "./render/renderer.js";
@@ -130,15 +133,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // the engine's own catch logs a warn and falls back to `previousState:
   // null`. Keep the implementation inline (rather than another module) so
   // the dependency surface stays trivially auditable.
-  const statusReader = {
-    async getStateByKey(key: string): Promise<State | null> {
-      const row = await pb.getFirst<StatusRecord>(
-        "status",
-        `key = ${JSON.stringify(key)}`,
-      );
-      return row?.state ?? null;
-    },
-  };
+  const statusReader = createStatusReader(pb);
 
   const engine = createAlertEngine({
     bus,
@@ -326,7 +321,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
         awsRegion,
       });
     } catch (err) {
+      // Log at error level AND emit on the bus so operators have a
+      // first-class observable surface. Pre-fix, an init throw (missing
+      // `@aws-sdk/client-s3`, bad region, credential provider throws)
+      // only logged — the service booted green while backups silently
+      // never ran. Alert rules can now subscribe to
+      // `internal.backup.init-failed` to surface the degraded state.
       logger.error("orchestrator.s3-backup-init-failed", { err: String(err) });
+      bus.emit("internal.backup.init-failed", {
+        err: String(err),
+        bucket: s3Bucket,
+      });
     }
   }
 
@@ -398,12 +403,47 @@ export async function boot(opts: BootOptions = {}): Promise<{
 }
 
 /**
+ * Thin reader over the `status` collection that the alert engine uses
+ * when synthesizing a cron outcome's previousState. Defense-in-depth:
+ * runs `assertSafeKey` on the incoming key so a control-char key never
+ * reaches PB's filter parser (where the parse error would get swallowed
+ * by dispatchCronAlert's wrapper and silently fail the rule).
+ *
+ * Exported for tests so the key-safety invariant can be asserted
+ * without spinning up the full boot path.
+ */
+export function createStatusReader(pb: {
+  getFirst<T>(collection: string, filter: string): Promise<T | null>;
+}): {
+  getStateByKey(key: string): Promise<State | null>;
+} {
+  return {
+    async getStateByKey(key: string): Promise<State | null> {
+      // Mirror alert-state-store's defense-in-depth: reject keys with
+      // C0/C1 control chars BEFORE they reach PB's filter parser.
+      // Today's probes only emit printable-ASCII keys, but a future
+      // probe emitting a control char would throw at PB filter parse
+      // time — the throw gets swallowed by dispatchCronAlert's wrapper
+      // and the rule silently fails. `assertSafeKey` throws with a
+      // clear message; callers see a specific failure rather than an
+      // opaque PB DSL error.
+      assertSafeKey("key", key);
+      const row = await pb.getFirst<StatusRecord>(
+        "status",
+        `key = ${JSON.stringify(key)}`,
+      );
+      return row?.state ?? null;
+    },
+  };
+}
+
+/**
  * Resolver that returns an async probe invoker for a given rule
  * dimension, or null if no in-process probe is available (cron tick
  * should emit `rule.scheduled` without a result and defer to external
  * triggers / the alert engine's synthesized outcome path).
  */
-type CronProbeResolver = (
+export type CronProbeResolver = (
   dimension: string,
 ) => (() => Promise<import("./types/index.js").ProbeResult<unknown>>) | null;
 
@@ -514,11 +554,13 @@ export function diffCronSchedules(
  * signal (e.g. pin-drift expecting `{{signal.actualCount}}`), a CI webhook
  * POST is the expected source of that signal.
  */
-function buildCronProbeResolver(): CronProbeResolver {
-  const railwayToken = process.env.RAILWAY_TOKEN;
-  const railwayProjectId = process.env.RAILWAY_PROJECT_ID;
-  const railwayEnvironmentId = process.env.RAILWAY_ENVIRONMENT_ID;
-  const aimockUrl = process.env.AIMOCK_URL;
+export function buildCronProbeResolver(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): CronProbeResolver {
+  const railwayToken = env.RAILWAY_TOKEN;
+  const railwayProjectId = env.RAILWAY_PROJECT_ID;
+  const railwayEnvironmentId = env.RAILWAY_ENVIRONMENT_ID;
+  const aimockUrl = env.AIMOCK_URL;
 
   // Construct once at boot; each cron tick reuses these closures. Env
   // reads at boot only — rotating RAILWAY_TOKEN requires a restart, same

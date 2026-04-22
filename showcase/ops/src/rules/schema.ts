@@ -62,7 +62,14 @@ export const FilterSchema = z
     kind: z.string().optional(),
     slug: z.string().optional(),
     key: z.string().optional(),
-    dimension: z.string().optional(),
+    // R27 slot 5 B6: narrow `filter.dimension` to the closed DimensionEnum
+    // to mirror `SignalSchema.dimension`. Pre-fix this was
+    // `z.string().optional()`, so a typoed filter clause like
+    // `dimension: "smokee"` passed validation and silently never matched any
+    // probe key — the same silent-drop class of bug R26 closed for
+    // `signal.dimension`. Rule side is closed; probe-key side stays open
+    // (probe-key parsers fall back to `"unknown"`).
+    dimension: DimensionEnum.optional(),
   })
   .strict();
 

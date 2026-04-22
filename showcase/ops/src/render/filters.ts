@@ -61,11 +61,24 @@ export function truncateCsv(input: unknown, budget: number): string {
   return joined.slice(0, Math.max(0, clamped - suffix.length)) + suffix;
 }
 
-export type FilterName =
-  | "stripAnsi"
-  | "truncateUtf8"
-  | "truncateCsv"
-  | "slackEscape";
+/**
+ * Single source of truth for filter names surfaced by the renderer pipeline.
+ * `FilterName` is derived from this tuple, and `rule-loader.ts` imports
+ * FILTER_NAMES to build its `KNOWN_FILTERS` validation set. Adding a new
+ * filter requires appending to this tuple AND adding a `case` in
+ * `applyPipeline` below — the type system enforces the latter (a missing
+ * case fails the FilterName switch exhaustiveness) so drift between
+ * declared-names and handled-names is compile-time caught, and drift
+ * between renderer-known and loader-validated names is structurally
+ * impossible.
+ */
+export const FILTER_NAMES = [
+  "stripAnsi",
+  "truncateUtf8",
+  "truncateCsv",
+  "slackEscape",
+] as const;
+export type FilterName = (typeof FILTER_NAMES)[number];
 
 /**
  * Basic Slack-safe escaping. Slack's reserved characters in mrkdwn text are

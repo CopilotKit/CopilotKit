@@ -3,7 +3,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import net from "node:net";
-import { boot, diffCronSchedules } from "./orchestrator.js";
+import {
+  boot,
+  buildCronProbeResolver,
+  createStatusReader,
+  diffCronSchedules,
+} from "./orchestrator.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
@@ -416,4 +421,377 @@ describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () 
     // ruleB did NOT register (the throw prevented the Set add).
     expect(registeredIds.has("ruleB:cron:0")).toBe(false);
   });
+
+  /**
+   * R28 slot #1: when a rule id is in `currentIds` but NOT in `desired`,
+   * diffCronSchedules must call `scheduler.unregister(id)` exactly once
+   * for that id and leave the other ids alone. R26 covered the
+   * register-throws-in-the-middle case; this locks the stale-unregister
+   * path so a refactor that drops the unregister loop can't silently
+   * regress into "dead cron entries keep firing after their rule is
+   * removed".
+   */
+  it("unregisters stale cron entries and leaves active ones alone", () => {
+    // Track what's currently registered; stub scheduler.list() to return
+    // entries built from it. unregister() removes from the set and is
+    // spied so we can assert on the call sequence.
+    const registered = new Map<string, { id: string; cron: string }>();
+
+    const stubScheduler = {
+      register: vi.fn((entry: { id: string; cron: string }) => {
+        registered.set(entry.id, entry);
+      }),
+      unregister: vi.fn(async (id: string) => {
+        return registered.delete(id);
+      }),
+      hasEntry: (id: string) => registered.has(id),
+      list: vi.fn(() =>
+        Array.from(registered.values()).map((e) => ({
+          id: e.id,
+          cron: e.cron,
+          handler: async () => undefined,
+        })),
+      ),
+      start: vi.fn(),
+      stop: vi.fn(async () => undefined),
+      isStarted: () => false,
+      isStopped: () => false,
+      getJobCount: () => registered.size,
+    } as unknown as ReturnType<typeof createScheduler>;
+
+    const bus = createEventBus();
+    const resolver: Parameters<typeof diffCronSchedules>[3] = () => null;
+
+    // First pass: register three rules.
+    const firstPass: CompiledRule[] = [
+      makeCronRule("ruleA", "0 9 * * 1"),
+      makeCronRule("ruleB", "0 10 * * 2"),
+      makeCronRule("ruleC", "0 11 * * 3"),
+    ];
+    diffCronSchedules(stubScheduler, firstPass, bus, resolver);
+    expect(registered.size).toBe(3);
+    expect(registered.has("ruleA:cron:0")).toBe(true);
+    expect(registered.has("ruleB:cron:0")).toBe(true);
+    expect(registered.has("ruleC:cron:0")).toBe(true);
+
+    // Clear spies for the second-pass assertions.
+    (stubScheduler.unregister as ReturnType<typeof vi.fn>).mockClear();
+    (stubScheduler.register as ReturnType<typeof vi.fn>).mockClear();
+
+    // Second pass: drop ruleB. diffCronSchedules must call
+    // scheduler.unregister("ruleB:cron:0") exactly once and NOT touch
+    // ruleA or ruleC.
+    const secondPass: CompiledRule[] = [
+      makeCronRule("ruleA", "0 9 * * 1"),
+      makeCronRule("ruleC", "0 11 * * 3"),
+    ];
+    diffCronSchedules(stubScheduler, secondPass, bus, resolver);
+
+    const unregisterCalls = (
+      stubScheduler.unregister as ReturnType<typeof vi.fn>
+    ).mock.calls.map((args) => args[0]);
+    expect(unregisterCalls).toEqual(["ruleB:cron:0"]);
+    // ruleA and ruleC must NOT have been unregistered.
+    expect(unregisterCalls).not.toContain("ruleA:cron:0");
+    expect(unregisterCalls).not.toContain("ruleC:cron:0");
+    // And nothing spurious beyond the single drop.
+    expect(stubScheduler.unregister).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * R28 slot #2: when a cron handler's invoker throws, the handler MUST
+   * still emit `rule.scheduled` on the bus (with `result: undefined`) so
+   * downstream alert-engine logic can synthesize a sentinel outcome.
+   * Pre-fix a probe-failure swallowed the tick entirely — the rule
+   * would silently stop firing. The try/catch in diffCronSchedules'
+   * inner handler keeps the emit on the happy path.
+   */
+  it("cron handler emits rule.scheduled with result=undefined when invoker throws", async () => {
+    let handlerRef:
+      | ((...args: unknown[]) => Promise<void> | void)
+      | undefined;
+    const stubScheduler = {
+      register: vi.fn(
+        (entry: {
+          id: string;
+          cron: string;
+          handler: (...args: unknown[]) => Promise<void> | void;
+        }) => {
+          handlerRef = entry.handler;
+        },
+      ),
+      unregister: vi.fn(async () => true),
+      hasEntry: () => false,
+      list: vi.fn(() => []),
+      start: vi.fn(),
+      stop: vi.fn(async () => undefined),
+      isStarted: () => false,
+      isStopped: () => false,
+      getJobCount: () => 0,
+    } as unknown as ReturnType<typeof createScheduler>;
+
+    const bus = createEventBus();
+    const emissions: Array<{
+      ruleId: string;
+      scheduledAt: string;
+      result: unknown;
+    }> = [];
+    bus.on("rule.scheduled", (p) =>
+      emissions.push({
+        ruleId: p.ruleId,
+        scheduledAt: p.scheduledAt,
+        result: p.result,
+      }),
+    );
+
+    // Resolver returns an invoker that throws — simulates a probe bug.
+    const resolver: Parameters<typeof diffCronSchedules>[3] = () => async () => {
+      throw new Error("probe boom");
+    };
+
+    diffCronSchedules(
+      stubScheduler,
+      [makeCronRule("probe-fail", "0 9 * * 1")],
+      bus,
+      resolver,
+    );
+
+    // The register call captured the handler; invoke it directly to
+    // simulate a cron tick.
+    expect(handlerRef).toBeDefined();
+    await handlerRef!();
+
+    // Exactly one rule.scheduled emission with result: undefined.
+    expect(emissions).toHaveLength(1);
+    expect(emissions[0]!.ruleId).toBe("probe-fail");
+    expect(emissions[0]!.result).toBeUndefined();
+    // scheduledAt is a stringified ISO date — just assert non-empty.
+    expect(emissions[0]!.scheduledAt.length).toBeGreaterThan(0);
+  });
 });
+
+/**
+ * R28 slot #3: buildCronProbeResolver must return null for
+ * `aimock_wiring` unless ALL FOUR of RAILWAY_TOKEN, RAILWAY_PROJECT_ID,
+ * RAILWAY_ENVIRONMENT_ID, AIMOCK_URL are set. Table-driven so each
+ * partial-configuration branch has explicit coverage.
+ */
+describe("orchestrator.buildCronProbeResolver env-branch predicate (R28-slot3-#3)", () => {
+  const allVars = {
+    RAILWAY_TOKEN: "tok",
+    RAILWAY_PROJECT_ID: "proj",
+    RAILWAY_ENVIRONMENT_ID: "env",
+    AIMOCK_URL: "https://aimock.test",
+  } as const;
+
+  it("returns null for aimock_wiring when ALL four vars are missing", () => {
+    const resolver = buildCronProbeResolver({});
+    expect(resolver("aimock_wiring")).toBeNull();
+  });
+
+  it.each(
+    (Object.keys(allVars) as Array<keyof typeof allVars>).map((missing) => [
+      missing,
+    ]),
+  )(
+    "returns null for aimock_wiring when %s is missing (3 of 4 doesn't enable)",
+    (missing) => {
+      const partial: Record<string, string | undefined> = { ...allVars };
+      delete partial[missing];
+      const resolver = buildCronProbeResolver(partial);
+      expect(resolver("aimock_wiring")).toBeNull();
+    },
+  );
+
+  it("returns a non-null invoker for aimock_wiring when ALL four vars are present", () => {
+    const resolver = buildCronProbeResolver(allVars);
+    const invoker = resolver("aimock_wiring");
+    expect(invoker).not.toBeNull();
+    expect(typeof invoker).toBe("function");
+  });
+
+  it("returns null for any non-aimock_wiring dimension (e.g. pin_drift) regardless of env", () => {
+    const resolver = buildCronProbeResolver(allVars);
+    expect(resolver("pin_drift")).toBeNull();
+    expect(resolver("version_drift")).toBeNull();
+    expect(resolver("redirect_decommission")).toBeNull();
+  });
+});
+
+/**
+ * R28 slot #4: createStatusReader must reject keys containing control
+ * characters (\n, \t, C0/C1) BEFORE reaching PB's filter parser. Pre-fix,
+ * today's probes only emitted printable-ASCII keys — but a future probe
+ * with a control-char in `result.key` would throw at PB's filter-parse
+ * time, get swallowed by dispatchCronAlert's wrapper, and silently kill
+ * the rule. assertSafeKey fails loud with an explicit "unsafe key"
+ * message before any PB call.
+ */
+describe("orchestrator.createStatusReader key safety (R28-slot1-A10)", () => {
+  it("throws on a key containing a newline before reaching PB", async () => {
+    const getFirst = vi.fn(
+      async (_collection: string, _filter: string) => null,
+    );
+    const reader = createStatusReader({
+      getFirst: getFirst as unknown as <T>(
+        collection: string,
+        filter: string,
+      ) => Promise<T | null>,
+    });
+    await expect(
+      reader.getStateByKey("smoke:langchain\nattacker=1"),
+    ).rejects.toThrow(/printable Unicode|no control chars|key/i);
+    // PB layer must NOT have been reached — the assertion is pre-filter.
+    expect(getFirst).not.toHaveBeenCalled();
+  });
+
+  it("throws on a key containing a C0 control char before reaching PB", async () => {
+    const getFirst = vi.fn(
+      async (_collection: string, _filter: string) => null,
+    );
+    const reader = createStatusReader({
+      getFirst: getFirst as unknown as <T>(
+        collection: string,
+        filter: string,
+      ) => Promise<T | null>,
+    });
+    //  (BEL) is a C0 control char — printable-Unicode regex rejects.
+    await expect(reader.getStateByKey("smoke:belevil")).rejects.toThrow(
+      /printable Unicode|no control chars|key/i,
+    );
+    expect(getFirst).not.toHaveBeenCalled();
+  });
+
+  it("accepts a normal printable-ASCII key and passes through to PB", async () => {
+    const getFirst = vi.fn(
+      async (_collection: string, _filter: string) => null,
+    );
+    const reader = createStatusReader({
+      getFirst: getFirst as unknown as <T>(
+        collection: string,
+        filter: string,
+      ) => Promise<T | null>,
+    });
+    await reader.getStateByKey("smoke:langchain");
+    expect(getFirst).toHaveBeenCalledTimes(1);
+    expect(getFirst.mock.calls[0]![0]).toBe("status");
+    // Filter string quotes the key via JSON.stringify.
+    expect(getFirst.mock.calls[0]![1]).toBe(`key = "smoke:langchain"`);
+  });
+});
+
+/**
+ * R28 slot #5: when `S3_BACKUP_BUCKET` is set but the S3 uploader
+ * factory throws at boot (missing @aws-sdk/client-s3, bad region,
+ * credential provider throws), the orchestrator must log at error
+ * level AND emit `internal.backup.init-failed` on the bus. Pre-fix
+ * the failure only logged; the service booted green and backups
+ * silently never ran. This test pins the bus-emit contract so a
+ * refactor that drops the emit can't regress the observable surface.
+ */
+describe("orchestrator S3 backup init failure (R28-slot2-A1)", () => {
+  let tempDir: string;
+  let port = 0;
+  let stopFn: (() => Promise<void>) | null = null;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-s3-"));
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+    vi.resetModules();
+    delete process.env.S3_BACKUP_BUCKET;
+  });
+
+  it("emits internal.backup.init-failed synchronously during boot (observed via pre-hooked bus)", async () => {
+    // This test uses a module-mock hook to intercept the bus BEFORE
+    // boot emits the init-failed event.
+    vi.resetModules();
+
+    const emissions: Array<{
+      event: string;
+      payload: { err?: string; bucket?: string };
+    }> = [];
+
+    vi.doMock("./storage/s3-backup.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./storage/s3-backup.js")
+      >("./storage/s3-backup.js");
+      return {
+        ...actual,
+        createDefaultS3Uploader: vi.fn(async () => {
+          throw new Error("simulated: @aws-sdk/client-s3 missing");
+        }),
+      };
+    });
+
+    // Wrap createEventBus so every emit is captured. The orchestrator
+    // imports createEventBus from ./events/event-bus.js — we intercept
+    // there.
+    vi.doMock("./events/event-bus.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./events/event-bus.js")
+      >("./events/event-bus.js");
+      return {
+        ...actual,
+        createEventBus: () => {
+          const real = actual.createEventBus();
+          return {
+            ...real,
+            emit: (event: string, payload: unknown) => {
+              emissions.push({
+                event,
+                payload: payload as { err?: string; bucket?: string },
+              });
+              (real.emit as (e: string, p: unknown) => void)(event, payload);
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+    process.env.S3_BACKUP_BUCKET = "test-bucket-init-fail";
+
+    const booted = await orchMod.boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+
+    // Exactly one internal.backup.init-failed emission with bucket + err.
+    const initFailed = emissions.filter(
+      (e) => e.event === "internal.backup.init-failed",
+    );
+    expect(initFailed).toHaveLength(1);
+    expect(initFailed[0]!.payload.bucket).toBe("test-bucket-init-fail");
+    expect(initFailed[0]!.payload.err).toMatch(
+      /@aws-sdk\/client-s3 missing|simulated/i,
+    );
+  });
+});
+
+// Shared helper used by both the R25 and R28 describe blocks.
+function makeCronRule(id: string, cron: string): CompiledRule {
+  return {
+    id,
+    name: id,
+    owner: "@test",
+    severity: "warn",
+    signal: { dimension: "aimock_wiring" },
+    stringTriggers: [],
+    cronTriggers: [{ schedule: cron }],
+    conditions: { guards: [], escalations: [] },
+    targets: [{ kind: "slack_webhook", webhook: "oss_alerts" }],
+    template: { text: "x" },
+    actions: [],
+  };
+}
