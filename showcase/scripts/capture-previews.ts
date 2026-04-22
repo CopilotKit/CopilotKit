@@ -245,6 +245,16 @@ function buildTargets(
       if (filterDemo && demo.id !== filterDemo) {
         continue;
       }
+      // Skip demos without a route — these are non-navigable entries
+      // (e.g., CLI command copy-paste cards like langgraph-python/cli-start)
+      // that live in the manifest but do not have a browser-navigable URL.
+      // Without this guard the script builds `${backendUrl}undefined` and
+      // wastes ~30s per entry on a DNS timeout before the 45s response
+      // timeout kicks in.
+      if (!demo.route) {
+        console.log(`  [SKIP] ${m.slug}/${demo.id} — no route (not navigable)`);
+        continue;
+      }
       targets.push({
         integrationSlug: m.slug,
         integrationName: m.name,
