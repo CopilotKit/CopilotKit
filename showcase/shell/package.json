@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "tsx ../scripts/generate-registry.ts",
     "dev": "npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev\"",
     "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/bundle-starter-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start",

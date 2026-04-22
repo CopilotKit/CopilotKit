@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3003",
+    "predev": "tsx ../scripts/generate-registry.ts",
+    "dev": "npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev --port 3003\"",
     "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && tsx ../scripts/generate-search-index.ts && next build",
     "start": "next start -p 3003",
     "lint": "next lint"

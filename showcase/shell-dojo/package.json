@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "generate": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts",
-    "dev": "next dev --turbopack --port 3001",
-    "build": "next build",
+    "predev": "tsx ../scripts/generate-registry.ts",
+    "dev": "npx -y concurrently -k -n bundle,next \"tsx ../scripts/bundle-demo-content.ts --watch\" \"next dev --turbopack --port 3001\"",
+    "build": "tsx ../scripts/generate-registry.ts && tsx ../scripts/bundle-demo-content.ts && next build",
     "start": "next start"
   },
   "dependencies": {

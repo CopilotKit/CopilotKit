@@ -39,6 +39,16 @@ docs/next-env.d.ts
 showcase/packages/*/shared_python/
 showcase/packages/*/shared_typescript/
 
+# Showcase: generated data bundles (written by generate-registry + bundle-demo-content).
+# Regenerated on every dev/build via each shell's predev + bundler watcher / build step.
+showcase/shell/src/data/registry.json
+showcase/shell/src/data/constraints.json
+showcase/shell/src/data/demo-content.json
+showcase/shell-docs/src/data/registry.json
+showcase/shell-docs/src/data/demo-content.json
+showcase/shell-dojo/src/data/registry.json
+showcase/shell-dojo/src/data/demo-content.json
+
 # External repos (cloned for development)
 ext-apps/
 dist
