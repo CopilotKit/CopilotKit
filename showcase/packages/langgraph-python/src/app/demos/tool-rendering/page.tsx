@@ -1,199 +1,163 @@
 "use client";
 
+// Tool Rendering — PRIMARY (per-tool + catch-all) variant.
+//
+// The most sophisticated point in the three-way progression: the same
+// backend tools as the `tool-rendering-default-catchall` and
+// `tool-rendering-custom-catchall` cells are now surfaced via
+// dedicated, branded UI for the two "interesting" tools, with a
+// catch-all covering everything else:
+//
+//   get_weather     → <WeatherCard />       (per-tool renderer)
+//   search_flights  → <FlightListCard />    (per-tool renderer)
+//   *               → <CustomCatchallRenderer /> (wildcard fallback)
+
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotChat,
   useRenderTool,
+  useDefaultRenderTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import { WeatherCard } from "./weather-card";
+import { FlightListCard, type Flight } from "./flight-list-card";
+import {
+  CustomCatchallRenderer,
+  type CatchallToolStatus,
+} from "./custom-catchall-renderer";
+
+interface WeatherResult {
+  city?: string;
+  temperature?: number;
+  humidity?: number;
+  wind_speed?: number;
+  conditions?: string;
+}
+
+interface FlightSearchResult {
+  origin?: string;
+  destination?: string;
+  flights?: Flight[];
+}
+
+function parseJsonResult<T>(result: unknown): T {
+  if (!result) return {} as T;
+  try {
+    return (typeof result === "string" ? JSON.parse(result) : result) as T;
+  } catch {
+    return {} as T;
+  }
+}
 
 export default function ToolRenderingDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="tool-rendering">
-      <Chat />
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
+      </div>
     </CopilotKit>
   );
 }
 
 function Chat() {
-  useRenderTool({
-    name: "get_weather",
-    parameters: z.object({
-      location: z.string(),
-    }),
-    render: ({ args, result, status }: any) => {
-      if (status !== "complete") {
+  // @region[render-weather-tool]
+  // Per-tool renderer #1: get_weather → branded WeatherCard.
+  useRenderTool(
+    {
+      name: "get_weather",
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: ({ parameters, result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<WeatherResult>(result);
         return (
-          <div
-            className="flex items-center gap-3 px-5 py-4 rounded-2xl max-w-sm"
-            style={{
-              background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            }}
-          >
-            <div className="animate-pulse text-2xl">🌤️</div>
-            <div>
-              <p className="text-white font-medium text-sm">
-                Checking weather...
-              </p>
-              <p className="text-white/60 text-xs">{args.location}</p>
-            </div>
-          </div>
+          <WeatherCard
+            loading={loading}
+            location={parameters?.location ?? parsed.city ?? ""}
+            temperature={parsed.temperature}
+            humidity={parsed.humidity}
+            windSpeed={parsed.wind_speed}
+            conditions={parsed.conditions}
+          />
         );
-      }
-
-      return (
-        <WeatherCard
-          location={args.location}
-          temperature={result?.temperature ?? 22}
-          conditions={result?.conditions || "Clear skies"}
-          humidity={result?.humidity ?? 55}
-          windSpeed={result?.wind_speed ?? 12}
-          feelsLike={result?.feels_like ?? result?.temperature ?? 22}
-        />
-      );
+      },
     },
-  });
+    [],
+  );
+  // @endregion[render-weather-tool]
+
+  // @region[render-flight-tool]
+  // Per-tool renderer #2: search_flights → branded FlightListCard.
+  useRenderTool(
+    {
+      name: "search_flights",
+      parameters: z.object({
+        origin: z.string(),
+        destination: z.string(),
+      }),
+      render: ({ parameters, result, status }) => {
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<FlightSearchResult>(result);
+        return (
+          <FlightListCard
+            loading={loading}
+            origin={parameters?.origin ?? parsed.origin ?? ""}
+            destination={parameters?.destination ?? parsed.destination ?? ""}
+            flights={parsed.flights ?? []}
+          />
+        );
+      },
+    },
+    [],
+  );
+  // @endregion[render-flight-tool]
+
+  // @region[catchall-renderer]
+  // Wildcard catch-all for every remaining tool (get_stock_price,
+  // roll_dice, anything the agent might add later).
+  useDefaultRenderTool(
+    {
+      render: ({ name, parameters, status, result }) => (
+        <CustomCatchallRenderer
+          name={name}
+          parameters={parameters}
+          status={status as CatchallToolStatus}
+          result={result}
+        />
+      ),
+    },
+    [],
+  );
+  // @endregion[catchall-renderer]
 
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco?",
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
       },
       {
-        title: "Weather in New York",
-        message: "Tell me about the weather in New York.",
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
       },
       {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
+        title: "Stock price",
+        message: "What's the current price of AAPL?",
+      },
+      {
+        title: "Roll a d20",
+        message: "Roll a 20-sided die.",
       },
     ],
     available: "always",
   });
 
   return (
-    <div className="flex justify-center items-center h-full w-full">
-      <div className="h-full w-full md:w-4/5 md:h-4/5 rounded-lg px-6">
-        <CopilotChat className="h-full rounded-2xl max-w-6xl mx-auto" />
-      </div>
-    </div>
-  );
-}
-
-function getGradient(conditions: string): string {
-  const c = conditions.toLowerCase();
-  if (c.includes("clear") || c.includes("sunny"))
-    return "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-  if (c.includes("rain") || c.includes("storm"))
-    return "linear-gradient(135deg, #4A5568 0%, #2D3748 100%)";
-  if (c.includes("cloud") || c.includes("overcast"))
-    return "linear-gradient(135deg, #718096 0%, #4A5568 100%)";
-  if (c.includes("snow"))
-    return "linear-gradient(135deg, #63B3ED 0%, #4299E1 100%)";
-  return "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
-}
-
-function getIcon(conditions: string): string {
-  const c = conditions.toLowerCase();
-  if (c.includes("clear") || c.includes("sunny")) return "☀️";
-  if (c.includes("rain") || c.includes("drizzle")) return "🌧️";
-  if (c.includes("snow")) return "❄️";
-  if (c.includes("thunderstorm")) return "⛈️";
-  if (c.includes("cloud") || c.includes("overcast")) return "☁️";
-  if (c.includes("fog")) return "🌫️";
-  return "🌤️";
-}
-
-function WeatherCard({
-  location,
-  temperature,
-  conditions,
-  humidity,
-  windSpeed,
-  feelsLike,
-}: {
-  location: string;
-  temperature: number;
-  conditions: string;
-  humidity: number;
-  windSpeed: number;
-  feelsLike: number;
-}) {
-  const gradient = getGradient(conditions);
-  const icon = getIcon(conditions);
-  const tempF = ((temperature * 9) / 5 + 32).toFixed(0);
-
-  return (
-    <div
-      data-testid="weather-card"
-      className="rounded-2xl overflow-hidden shadow-xl my-4"
-      style={{ background: gradient, width: "340px" }}
-    >
-      {/* Header */}
-      <div className="px-6 pt-5 pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3
-              data-testid="weather-city"
-              className="text-lg font-bold text-white capitalize tracking-tight"
-            >
-              {location}
-            </h3>
-            <p className="text-white/60 text-xs font-medium uppercase tracking-wider mt-0.5">
-              Current Weather
-            </p>
-          </div>
-          <span className="text-5xl leading-none mt-[-4px]">{icon}</span>
-        </div>
-
-        {/* Temperature */}
-        <div className="mt-5 flex items-baseline gap-2">
-          <span className="text-5xl font-extralight text-white tracking-tighter">
-            {temperature}°
-          </span>
-          <div className="flex flex-col text-white/50 text-xs leading-tight">
-            <span>C</span>
-            <span className="mt-0.5">{tempF}°F</span>
-          </div>
-        </div>
-
-        {/* Conditions */}
-        <p className="text-white/80 text-sm font-medium capitalize mt-1">
-          {conditions}
-        </p>
-      </div>
-
-      {/* Stats bar */}
-      <div
-        className="grid grid-cols-3 text-center py-3 px-6"
-        style={{ background: "rgba(0,0,0,0.15)" }}
-      >
-        <div data-testid="weather-humidity">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Humidity
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">{humidity}%</p>
-        </div>
-        <div data-testid="weather-wind" className="border-x border-white/10">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Wind
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">
-            {windSpeed} mph
-          </p>
-        </div>
-        <div data-testid="weather-feels-like">
-          <p className="text-white/50 text-[10px] font-medium uppercase tracking-wider">
-            Feels Like
-          </p>
-          <p className="text-white text-sm font-semibold mt-0.5">
-            {feelsLike}°
-          </p>
-        </div>
-      </div>
-    </div>
+    <CopilotChat agentId="tool-rendering" className="h-full rounded-2xl" />
   );
 }

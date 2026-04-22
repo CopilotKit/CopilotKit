@@ -11,24 +11,32 @@ import {
 } from "@ag-ui/client";
 import { randomUUID } from "@copilotkit/shared";
 
+type ContentPartSource =
+  | { type: "data"; value: string; mimeType: string }
+  | { type: "url"; value: string; mimeType?: string };
+
 /**
  * A TanStack AI content part (text, image, audio, video, or document).
  */
 export type TanStackContentPart =
   | { type: "text"; content: string }
-  | {
-      type: "image" | "audio" | "video" | "document";
-      source:
-        | { type: "data"; value: string; mimeType: string }
-        | { type: "url"; value: string; mimeType?: string };
-    };
+  | { type: "image"; source: ContentPartSource }
+  | { type: "audio"; source: ContentPartSource }
+  | { type: "video"; source: ContentPartSource }
+  | { type: "document"; source: ContentPartSource };
 
 /**
  * Message format expected by TanStack AI's `chat()`.
+ *
+ * Content is typed as `any[]` for the multimodal case so messages are directly
+ * passable to any adapter without casts — different adapters constrain which
+ * modalities they accept (e.g. OpenAI only allows text + image).
+ * Use `TanStackContentPart` to inspect individual parts if needed.
  */
 export interface TanStackChatMessage {
   role: "user" | "assistant" | "tool";
-  content: string | null | TanStackContentPart[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  content: string | null | any[];
   name?: string;
   toolCalls?: Array<{
     id: string;

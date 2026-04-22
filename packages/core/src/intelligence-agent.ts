@@ -101,7 +101,7 @@ export class IntelligenceAgent extends AbstractAgent {
   private config: IntelligenceAgentConfig;
   private socket: Socket | null = null;
   private activeChannel: Channel | null = null;
-  private runId: string | null = null;
+  private canonicalRunId: string | null = null;
   private sharedState: IntelligenceAgentSharedState;
 
   constructor(
@@ -157,7 +157,14 @@ export class IntelligenceAgent extends AbstractAgent {
       this.isRunning = true;
       this.agentId = this.agentId ?? randomUUID();
 
-      const input = this.prepareRunAgentInput(parameters);
+      const effectiveParameters =
+        parameters?.runId || !this.canonicalRunId
+          ? parameters
+          : {
+              ...parameters,
+              runId: this.canonicalRunId,
+            };
+      const input = this.prepareRunAgentInput(effectiveParameters);
       let result: RunAgentResult["result"];
       const previousMessageIds = new Set(this.messages.map((m) => m.id));
       const subscribers: AgentSubscriber[] = [
@@ -216,7 +223,7 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   abortRun(): void {
-    if (this.activeChannel && this.runId) {
+    if (this.activeChannel && this.canonicalRunId) {
       // Defer cleanup until the push is acknowledged so socket.disconnect()
       // doesn't clear the push buffer before the stop signal is sent.
       // The 5-second fallback handles the case where the socket is down and
@@ -232,7 +239,7 @@ export class IntelligenceAgent extends AbstractAgent {
       };
 
       this.activeChannel
-        .push(STOP_RUN_EVENT, { run_id: this.runId })
+        .push(STOP_RUN_EVENT, { run_id: this.canonicalRunId })
         .receive("ok", clear)
         .receive("error", clear)
         .receive("timeout", clear);
@@ -248,7 +255,7 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   run(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
-    this.runId = input.runId;
+    this.canonicalRunId = input.runId;
 
     return defer(() => this.requestJoinCredentials$("run", input)).pipe(
       switchMap((credentials) =>
@@ -266,7 +273,7 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
-    this.runId = input.runId;
+    this.canonicalRunId = input.runId;
 
     return defer(() => this.requestConnectPlan$(input)).pipe(
       switchMap((plan) => {
@@ -276,21 +283,10 @@ export class IntelligenceAgent extends AbstractAgent {
 
         if (plan.mode === "bootstrap") {
           this.setLastSeenEventId(input.threadId, plan.latestEventId);
-          // Capture run_id from replay events so abortRun sends the
-          // correct ID to the backend (the client-generated runId from
-          // prepareRunAgentInput won't match the actual backend run).
-          for (const event of plan.events) {
-            this.updateRunIdFromEvent(event);
-          }
           return from(plan.events);
         }
 
         this.setLastSeenEventId(input.threadId, plan.joinFromEventId);
-
-        // Capture run_id from replay events (same rationale as bootstrap).
-        for (const event of plan.events) {
-          this.updateRunIdFromEvent(event);
-        }
 
         return concat(
           from(plan.events),
@@ -332,7 +328,7 @@ export class IntelligenceAgent extends AbstractAgent {
     if (this.threadId) {
       this.sharedState.lastSeenEventIds.delete(this.threadId);
     }
-    this.runId = null;
+    this.canonicalRunId = null;
   }
 
   private cleanup(): void {
@@ -583,7 +579,6 @@ export class IntelligenceAgent extends AbstractAgent {
       ),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
-        this.updateRunIdFromEvent(payload);
       }),
       mergeMap((payload) =>
         from(
@@ -688,29 +683,6 @@ export class IntelligenceAgent extends AbstractAgent {
     }
 
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
-  }
-
-  /**
-   * Keep `this.runId` in sync with the backend's actual run ID.
-   *
-   * During a `connect` (resume) flow the client generates a fresh `runId`
-   * via `prepareRunAgentInput`, but the backend is running under its own
-   * run ID.  If the client later sends `STOP_RUN_EVENT` with the wrong
-   * `runId`, the gateway's runner channel will not match it and the agent
-   * keeps running.  Extracting the run ID from live events fixes this.
-   *
-   * The runner normalises events to `run_id` (snake_case) before pushing
-   * to the gateway, so we check both `runId` and `run_id`.
-   */
-  private updateRunIdFromEvent(payload: BaseEvent): void {
-    const record = payload as BaseEvent & {
-      runId?: string;
-      run_id?: string;
-    };
-    const eventRunId = record.runId ?? record.run_id;
-    if (typeof eventRunId === "string" && eventRunId.length > 0) {
-      this.runId = eventRunId;
-    }
   }
 
   private readEventId(payload: BaseEvent): string | null {

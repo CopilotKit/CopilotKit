@@ -1,0 +1,145 @@
+---
+title: "CSS Customization"
+icon: "lucide/Palette"
+description: "Theme CopilotKit components via CSS variables and class overrides — the quickest path to a custom look."
+hideTOC: true
+---
+
+## What is this?
+
+CopilotKit's chat UI components can be re-skinned purely via CSS — no component overrides, no headless rewrites. This is the **fastest** rung on the customization ladder: keep every built-in feature, change every color.
+
+You can:
+
+- Override CopilotKit CSS variables (`--copilot-kit-primary-color`, etc.) to re-tint the whole UI
+- Target the built-in `.copilotKit...` class names for structural tweaks
+- Swap fonts per surface (messages, input, bubbles)
+- Replace icons and labels via component props
+
+If you need to change **behavior** — not just look — see
+[slots](/custom-look-and-feel/slots) or
+[fully headless UI](/custom-look-and-feel/headless-ui).
+
+## CSS variables (easiest)
+
+The easiest way to change the colors used in the Copilot UI components is to
+override CopilotKit CSS variables on a wrapper element around your chat:
+
+```tsx title="page.tsx"
+import { CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
+
+<div
+  style={
+    {
+      "--copilot-kit-primary-color": "#222222",
+    } as CopilotKitCSSProperties
+  }
+>
+  <CopilotSidebar />
+</div>
+```
+
+Or apply them from a scoped stylesheet:
+
+```css title="theme.css"
+.chat-css-demo-scope {
+  --copilot-kit-primary-color: #ff006e;
+  --copilot-kit-contrast-color: #ffffff;
+  --copilot-kit-background-color: #fff5f9;
+}
+```
+
+### Reference
+
+| CSS Variable | Description |
+|-------------|-------------|
+| `--copilot-kit-primary-color` | Main brand/action color — used for buttons, interactive elements |
+| `--copilot-kit-contrast-color` | Color that contrasts with primary — used for text on primary elements |
+| `--copilot-kit-background-color` | Main page/container background color |
+| `--copilot-kit-secondary-color` | Secondary background — used for cards, panels, elevated surfaces |
+| `--copilot-kit-secondary-contrast-color` | Primary text color for main content |
+| `--copilot-kit-separator-color` | Border color for dividers and containers |
+| `--copilot-kit-muted-color` | Muted color for disabled/inactive states |
+
+## Custom CSS
+
+In addition to customizing the colors, the CopilotKit CSS is structured to
+allow customization via CSS classes. Target specific pieces of the UI from
+your own stylesheet:
+
+```css title="globals.css"
+.copilotKitButton {
+  border-radius: 0;
+}
+
+.copilotKitMessages {
+  padding: 2rem;
+}
+
+.copilotKitUserMessage {
+  background: #007AFF;
+}
+```
+
+### Reference
+
+| CSS Class | Description |
+|-----------|-------------|
+| `.copilotKitMessages` | Main container for all chat messages |
+| `.copilotKitInput` | Text input container with typing area and send button |
+| `.copilotKitUserMessage` | Styling for user messages |
+| `.copilotKitAssistantMessage` | Styling for AI responses |
+| `.copilotKitHeader` | Top bar of chat window containing title and controls |
+| `.copilotKitButton` | Primary chat toggle button |
+| `.copilotKitWindow` | Root container defining overall chat window dimensions |
+| `.copilotKitMarkdown` | Styles for rendered markdown content |
+| `.copilotKitCodeBlock` | Code snippet container with syntax highlighting |
+| `.copilotKitSidebar` | Styles for sidebar chat mode |
+| `.copilotKitPopup` | Styles for popup chat mode |
+
+## Custom fonts
+
+Customize the fonts by updating the `fontFamily` property on the
+relevant CopilotKit classes:
+
+```css title="globals.css"
+.copilotKitMessages {
+  font-family: "Arial, sans-serif";
+}
+
+.copilotKitInput {
+  font-family: "Arial, sans-serif";
+}
+```
+
+## Custom icons
+
+Customize icons by passing the `icons` prop to `CopilotSidebar`, `CopilotPopup`,
+or `CopilotChat`:
+
+```tsx
+<CopilotChat
+  icons={{
+    openIcon: <YourOpenIconComponent />,
+    closeIcon: <YourCloseIconComponent />,
+  }}
+/>
+```
+
+## Custom labels
+
+Customize all user-facing copy via the `labels` prop:
+
+```tsx
+<CopilotChat
+  labels={{
+    welcomeMessageText: "Hello! How can I help you today?",
+    modalHeaderTitle: "My Copilot",
+    chatInputPlaceholder: "Ask me anything!",
+  }}
+/>
+```
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="custom-look-and-feel/css" />
