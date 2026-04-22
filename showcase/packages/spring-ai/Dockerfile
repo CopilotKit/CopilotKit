@@ -74,10 +74,9 @@ RUN chown app:app /app
 USER app
 
 EXPOSE 10000
-# spring-ai's entrypoint.sh doesn't scope NODE_ENV, so we set it at the
-# image level (matches prior behavior). The Java agent doesn't interpret
-# NODE_ENV so leakage is harmless here; if that changes, scope it inside
-# entrypoint.sh per the pattern used by ms-agent-dotnet / claude-sdk-ts.
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# NODE_ENV=production at the image level would leak into the Java agent and
+# any shell subprocesses. entrypoint.sh scopes NODE_ENV=production to the
+# Next.js invocation only (see `env NODE_ENV=production npx next start`).
 ENV PORT=10000
 CMD ["./entrypoint.sh"]

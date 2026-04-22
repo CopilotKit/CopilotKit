@@ -46,11 +46,11 @@ RUN chown app:app /app
 USER app
 
 EXPOSE 10000
-# mastra's entrypoint is a single-process `exec npx next start`, so setting
-# NODE_ENV=production at the image level is safe — no dev-mode agent
-# subprocess to shadow. Other packages with multi-process entrypoints scope
-# NODE_ENV inside entrypoint.sh instead.
-ENV NODE_ENV=production
+# Intentionally NOT setting `ENV NODE_ENV=production` at the image level.
+# Even though mastra's entrypoint is currently single-process, image-scope
+# NODE_ENV would leak into any future child process (healthchecks, agent
+# subprocesses) and mask dev/prod mismatches. entrypoint.sh scopes
+# NODE_ENV=production to the Next.js invocation only.
 ENV PORT=10000
 ENV HOSTNAME=0.0.0.0
 CMD ["./entrypoint.sh"]

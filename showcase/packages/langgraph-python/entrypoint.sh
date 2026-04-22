@@ -83,7 +83,11 @@ echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into the Python langgraph process and any shell subprocesses; scope
+# it here so non-Next children see the host's environment.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
