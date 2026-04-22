@@ -27,6 +27,19 @@ export default defineConfig({
         branches: 85,
         functions: 85,
         statements: 85,
+        // Per-glob floors for the probe-driver + discovery-source registries.
+        // These modules are closed-enum registry tables — every registered
+        // driver/source is an operator-visible contract, and a regression
+        // in the registry itself silently corrupts every probe tick. Hold
+        // them at 95% line coverage so a new driver/source entering the
+        // codebase without a paired unit test fails CI at the coverage
+        // gate rather than shipping a probe path with no confidence.
+        "src/probes/drivers/**": {
+          lines: 95,
+        },
+        "src/probes/discovery/**": {
+          lines: 95,
+        },
       },
     },
   },
