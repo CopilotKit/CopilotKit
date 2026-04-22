@@ -47,10 +47,7 @@ export function usePinToSend({
     const userMessageHeight = targetEl.getBoundingClientRect().height;
     const paddingTop = parseFloat(getComputedStyle(targetEl).paddingTop) || 0;
     const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
-    const spacerHeight = Math.max(
-      0,
-      viewportHeight - bubbleHeight - topOffset,
-    );
+    const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
 
     spacerEl.style.height = `${spacerHeight}px`;
     currentSpacerHeightRef.current = spacerHeight;
