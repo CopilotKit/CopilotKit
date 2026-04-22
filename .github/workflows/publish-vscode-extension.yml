@@ -1,0 +1,104 @@
+name: release / publish vscode-extension
+
+on:
+  push:
+    tags:
+      - "vscode-extension-v*"
+
+concurrency:
+  group: publish-vscode-extension-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    defaults:
+      run:
+        working-directory: packages/vscode-extension
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: pnpm
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#vscode-extension-v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "tag=$TAG_VERSION pkg=$PKG_VERSION"
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}
+        run: pnpm install --frozen-lockfile --filter copilotkit-vscode-extension...
+
+      - name: Build
+        working-directory: ${{ github.workspace }}
+        run: pnpm --filter copilotkit-vscode-extension build
+
+      - name: Package VSIX
+        run: npx --yes @vscode/vsce@^3 package --no-dependencies --out extension.vsix
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension-${{ github.ref_name }}
+          path: packages/vscode-extension/extension.vsix
+          if-no-files-found: error
+
+      - name: Publish to VS Code Marketplace
+        id: publish_vsce
+        continue-on-error: true
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "::error::VSCE_PAT secret is not configured in the 'production' environment"
+            exit 1
+          fi
+          npx --yes @vscode/vsce@^3 publish \
+            --no-dependencies \
+            --packagePath extension.vsix \
+            --pat "$VSCE_PAT"
+
+      - name: Publish to Open VSX
+        id: publish_ovsx
+        continue-on-error: true
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          if [ -z "$OVSX_PAT" ]; then
+            echo "::error::OVSX_PAT secret is not configured in the 'production' environment"
+            exit 1
+          fi
+          npx --yes ovsx publish extension.vsix -p "$OVSX_PAT"
+
+      - name: Report publish results
+        run: |
+          VSCE_STATUS="${{ steps.publish_vsce.outcome }}"
+          OVSX_STATUS="${{ steps.publish_ovsx.outcome }}"
+          echo "VS Code Marketplace: $VSCE_STATUS"
+          echo "Open VSX:            $OVSX_STATUS"
+          if [ "$VSCE_STATUS" != "success" ] || [ "$OVSX_STATUS" != "success" ]; then
+            echo "::error::One or more registry publishes failed (vsce=$VSCE_STATUS ovsx=$OVSX_STATUS). Check the individual step logs above."
+            exit 1
+          fi
