@@ -23,6 +23,7 @@ import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
   buildNavTree,
+  findFrameworksWithCell,
   loadDoc,
   type NavNode,
 } from "@/lib/docs-render";
@@ -111,7 +112,11 @@ export default async function FrameworkScopedDocsPage({
   const missingCell =
     doc.fm.defaultCell && !frameworkHasCellFor(framework, doc.fm.defaultCell);
   const alternativeFrameworks = doc.fm.defaultCell
-    ? findFrameworksWithCell(doc.fm.defaultCell)
+    ? findFrameworksWithCell(
+        doc.fm.defaultCell,
+        getIntegrations().map((i) => i.slug),
+        demos,
+      )
     : [];
 
   const banner = missingCell ? (
@@ -168,14 +173,6 @@ export default async function FrameworkScopedDocsPage({
       bannerSlot={banner}
     />
   );
-}
-
-function findFrameworksWithCell(cell: string): string[] {
-  const matches: string[] = [];
-  for (const integration of getIntegrations()) {
-    if (demos[`${integration.slug}::${cell}`]) matches.push(integration.slug);
-  }
-  return matches;
 }
 
 // ---------------------------------------------------------------------------

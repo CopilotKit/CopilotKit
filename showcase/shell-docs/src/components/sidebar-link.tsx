@@ -23,9 +23,10 @@ export interface SidebarLinkProps {
   active?: boolean;
   /**
    * The render context. `"docs"` = we're on `/docs/*`; `"framework"`
-   * = we're on `/<framework>/*`. Affects which prefix we prefer.
+   * = we're on `/<framework>/*`. Currently unused by the resolver (see
+   * note below) — kept optional on the interface for call-site clarity.
    */
-  scope: "docs" | "framework";
+  scope?: "docs" | "framework";
   /**
    * Deprecated. Previously held a server-rendered best-guess href used
    * before hydration; the component now resolves the href identically
