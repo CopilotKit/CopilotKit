@@ -3,7 +3,6 @@ title: Reasoning
 icon: "lucide/Brain"
 description: Surface the agent's thinking chain in the chat — default or fully custom.
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: agentic-chat-reasoning
 ---
 
@@ -20,7 +19,7 @@ Reasoning isn't a custom-renderer plumb-in — it's a dedicated message type
 on the chat view. You can either accept the built-in rendering or override
 the `reasoningMessage` slot with your own component.
 
-<InlineDemo integration="langgraph-python" demo="agentic-chat-reasoning" />
+<InlineDemo demo="agentic-chat-reasoning" />
 
 ## When should I use this?
 
@@ -51,7 +50,7 @@ appears automatically:
   title="frontend/src/app/page.tsx — default reasoning"
 />
 
-<InlineDemo integration="langgraph-python" demo="reasoning-default-render" />
+<InlineDemo demo="reasoning-default-render" />
 
 ## Custom reasoning rendering
 
