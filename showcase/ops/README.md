@@ -30,36 +30,36 @@ All read at boot unless marked otherwise. See `showcase/ops/src/orchestrator.ts`
 
 **Required in production:**
 
-| Var                           | Meaning |
-| ----------------------------- | ------- |
-| `POCKETBASE_URL`              | Internal PB endpoint (`http://showcase-pocketbase.railway.internal:8090`). Boot refuses to start if unset when `NODE_ENV=production`. |
-| `POCKETBASE_SUPERUSER_EMAIL`  | Admin auth for ops to write status rows. |
-| `POCKETBASE_SUPERUSER_PASSWORD` | Paired. |
-| `SHARED_SECRET`               | Current HMAC secret for `/webhooks/deploy`. 64-hex recommended. Signer side lives in repo secret `SHOWCASE_OPS_SHARED_SECRET`. |
+| Var                             | Meaning                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `POCKETBASE_URL`                | Internal PB endpoint (`http://showcase-pocketbase.railway.internal:8090`). Boot refuses to start if unset when `NODE_ENV=production`. |
+| `POCKETBASE_SUPERUSER_EMAIL`    | Admin auth for ops to write status rows.                                                                                              |
+| `POCKETBASE_SUPERUSER_PASSWORD` | Paired.                                                                                                                               |
+| `SHARED_SECRET`                 | Current HMAC secret for `/webhooks/deploy`. 64-hex recommended. Signer side lives in repo secret `SHOWCASE_OPS_SHARED_SECRET`.        |
 
 **Optional:**
 
-| Var                      | Meaning / default |
-| ------------------------ | ----------------- |
-| `SHARED_SECRET_PREV`     | Accepted during rotation. See `docs/rotation-drill.md`. |
-| `AIMOCK_URL`             | Public aimock URL for the aimock-wiring probe to compare against. Probe disables itself if unset. |
-| `RAILWAY_TOKEN`          | Service token with read scope on the `showcase` project. Required by aimock-wiring probe to query service env vars. |
-| `RAILWAY_PROJECT_ID`     | Paired with token. |
-| `RAILWAY_ENVIRONMENT_ID` | Paired with token. |
-| `DASHBOARD_URL`          | Rendered as `{{env.dashboardUrl}}` in Slack link markup. Default `https://dashboard.showcase.copilotkit.ai`. |
-| `REPO`                   | Rendered as `{{env.repo}}`. Default `CopilotKit/CopilotKit`. |
+| Var                      | Meaning / default                                                                                                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SHARED_SECRET_PREV`     | Accepted during rotation. See `docs/rotation-drill.md`.                                                                                                                            |
+| `AIMOCK_URL`             | Public aimock URL for the aimock-wiring probe to compare against. Probe disables itself if unset.                                                                                  |
+| `RAILWAY_TOKEN`          | Service token with read scope on the `showcase` project. Required by aimock-wiring probe to query service env vars.                                                                |
+| `RAILWAY_PROJECT_ID`     | Paired with token.                                                                                                                                                                 |
+| `RAILWAY_ENVIRONMENT_ID` | Paired with token.                                                                                                                                                                 |
+| `DASHBOARD_URL`          | Rendered as `{{env.dashboardUrl}}` in Slack link markup. Default `https://dashboard.showcase.copilotkit.ai`.                                                                       |
+| `REPO`                   | Rendered as `{{env.repo}}`. Default `CopilotKit/CopilotKit`.                                                                                                                       |
 | `S3_BACKUP_BUCKET`       | Enables the nightly PB-backup cron. Bucket must be writable via default AWS credential chain. Init failure emits `internal.backup.init-failed` on the bus but does not block boot. |
-| `AWS_REGION`             | Default `us-east-1`. |
-| `LOG_LEVEL`              | `debug` / `info` / `warn` / `error`. Default `info`. Mutable at runtime via SIGHUP after editing `LOG_LEVEL` env. |
-| `PORT`                   | HTTP listen port. Default `8080`. |
-| `SLACK_WEBHOOK_<ALIAS>`  | One env var per webhook alias referenced by any rule (`SLACK_WEBHOOK_OSS_ALERTS`, etc.). See §1.4. |
+| `AWS_REGION`             | Default `us-east-1`.                                                                                                                                                               |
+| `LOG_LEVEL`              | `debug` / `info` / `warn` / `error`. Default `info`. Mutable at runtime via SIGHUP after editing `LOG_LEVEL` env.                                                                  |
+| `PORT`                   | HTTP listen port. Default `8080`.                                                                                                                                                  |
+| `SLACK_WEBHOOK_<ALIAS>`  | One env var per webhook alias referenced by any rule (`SLACK_WEBHOOK_OSS_ALERTS`, etc.). See §1.4.                                                                                 |
 
 **Caller-side (GitHub Actions repo secrets, not this service):**
 
-| Secret                         | Used by |
-| ------------------------------ | ------- |
-| `SHOWCASE_OPS_URL`             | `notify-ops` step in `showcase_deploy.yml`. |
-| `SHOWCASE_OPS_SHARED_SECRET`   | Same — paired with the service's `SHARED_SECRET`. |
+| Secret                       | Used by                                           |
+| ---------------------------- | ------------------------------------------------- |
+| `SHOWCASE_OPS_URL`           | `notify-ops` step in `showcase_deploy.yml`.       |
+| `SHOWCASE_OPS_SHARED_SECRET` | Same — paired with the service's `SHARED_SECRET`. |
 
 ## 1.3 Alert rule YAMLs
 
@@ -86,46 +86,46 @@ config/alerts/
 id: aimock-wiring-drift
 name: "aimock-universal invariant drift"
 owner: "@oss"
-severity: error             # info | warn | error | critical  (default warn)
+severity: error # info | warn | error | critical  (default warn)
 
 signal:
-  dimension: aimock_wiring  # closed enum — see types/index.ts DIMENSIONS
-  filter:                   # optional
-    key: "smoke:mastra"     # or glob: "smoke:*"
-    dimension: smoke        # optional narrowing, must be DIMENSIONS member
-    slug: "mastra"          # optional substring/glob on the key's slug part
+  dimension: aimock_wiring # closed enum — see types/index.ts DIMENSIONS
+  filter: # optional
+    key: "smoke:mastra" # or glob: "smoke:*"
+    dimension: smoke # optional narrowing, must be DIMENSIONS member
+    slug: "mastra" # optional substring/glob on the key's slug part
 
-triggers:                   # fires iff any listed trigger resolves true
-  - set_drifted             # signal-derived (see deriveSignalFlags)
-  - red_to_green            # state-transition
-  - cron_only:              # cron expression co-evaluated by the scheduler
+triggers: # fires iff any listed trigger resolves true
+  - set_drifted # signal-derived (see deriveSignalFlags)
+  - red_to_green # state-transition
+  - cron_only: # cron expression co-evaluated by the scheduler
       schedule: "0 8 * * 1"
 
 targets:
   - kind: slack_webhook
-    webhook: oss_alerts     # resolves to env var SLACK_WEBHOOK_OSS_ALERTS
+    webhook: oss_alerts # resolves to env var SLACK_WEBHOOK_OSS_ALERTS
 
 conditions:
-  guards: []                # optional: rule only fires when signal matches a guard
+  guards: [] # optional: rule only fires when signal matches a guard
   rate_limit:
-    window: 15m             # parseDuration: Ns/Nm/Nh/Nd. `null` = off.
-    perKey: "ruleId:slug"   # optional, limits per-dimension-slug
-  suppress:                 # optional DSL, fail-closed on eval error
+    window: 15m # parseDuration: Ns/Nm/Nh/Nd. `null` = off.
+    perKey: "ruleId:slug" # optional, limits per-dimension-slug
+  suppress: # optional DSL, fail-closed on eval error
     when: "signal.unwiredCount < 2 && trigger.set_drifted"
-  escalations: []           # optional mention ladder — see _defaults.yml
+  escalations: [] # optional mention ladder — see _defaults.yml
 
-template:                   # mustache
+template: # mustache
   text: |
     :warning: *drift — {{signal.unwiredCount}} bypassing aimock:*
     {{#signal.unwired}}• `{{.}}`
     {{/signal.unwired}}
     <{{{env.dashboardUrl}}}|Dashboard>
 
-on_error:                   # optional separate template for probeErrored=true ticks
+on_error: # optional separate template for probeErrored=true ticks
   template:
     text: ":rotating_light: probe errored: `{{signal.probeErrorDesc}}`"
 
-actions: []                 # reserved; no-op for now
+actions: [] # reserved; no-op for now
 ```
 
 ### Triggers (`src/rules/schema.ts`)
@@ -155,12 +155,12 @@ Convention for Slack link markup: `<{{{url}}}|label>` — triple-brace the URL b
 
 Available filters (`src/render/filters.ts`):
 
-| Filter          | Purpose |
-| --------------- | ------- |
-| `stripAnsi`     | Remove ANSI colour escapes. |
-| `truncateUtf8`  | Byte-bounded truncation (codepoint-aware). `truncateUtf8 2000` caps at 2000 bytes. |
-| `truncateCsv`   | Comma-separated truncation, drops whole entries. `truncateCsv 500` caps at 500 chars. |
-| `slackEscape`   | Escape `&`, `<`, `>` for Slack mrkdwn label context. Does not escape `|` — use triple-brace for URLs. |
+| Filter         | Purpose                                                                               |
+| -------------- | ------------------------------------------------------------------------------------- | ------------------------------ |
+| `stripAnsi`    | Remove ANSI colour escapes.                                                           |
+| `truncateUtf8` | Byte-bounded truncation (codepoint-aware). `truncateUtf8 2000` caps at 2000 bytes.    |
+| `truncateCsv`  | Comma-separated truncation, drops whole entries. `truncateCsv 500` caps at 500 chars. |
+| `slackEscape`  | Escape `&`, `<`, `>` for Slack mrkdwn label context. Does not escape `                | ` — use triple-brace for URLs. |
 
 Unknown filters are rejected at rule-load. Output of a filter can never be re-parsed by Mustache (sentinel-fenced).
 

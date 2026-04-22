@@ -260,7 +260,8 @@ export function registerDeployWebhook(
     // here so downstream probe + template code only has to guard
     // `gateReason !== undefined`, not `gateReason && gateReason !== ""`.
     const gateReason =
-      typeof result.data.gateReason === "string" && result.data.gateReason.length > 0
+      typeof result.data.gateReason === "string" &&
+      result.data.gateReason.length > 0
         ? result.data.gateReason
         : undefined;
     const event: DeployResultEvent = {
