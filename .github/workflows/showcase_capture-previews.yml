@@ -43,12 +43,25 @@ jobs:
        !startsWith(github.event.head_commit.message, 'Update preview URLs in registry'))
     timeout-minutes: 30
     steps:
+      - name: Mint devops-bot token
+        # PROTECT_OUR_MAIN requires a PR for pushes to main; the default
+        # GITHUB_TOKEN fails with GH013 on the `Commit registry updates`
+        # step below. devops-bot (app-id 1108748) is a configured bypass
+        # actor on that ruleset — mint its installation token here and use
+        # it for checkout + push. Mirrors the pattern in
+        # CopilotKit/internal-skills's sync-versions.yml.
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: '1108748'
+          private-key: ${{ secrets.DEVOPS_BOT_PRIVATE_KEY }}
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
           lfs: true
           ref: ${{ github.event.workflow_run.head_branch || github.ref }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Ensure preview release exists
         env:
@@ -111,8 +124,12 @@ jobs:
 
       - name: Commit registry updates
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Commit as the devops-bot installation. The `<app-id>+<slug>[bot]`
+          # email is the conventional GitHub App noreply form; paired with
+          # the app-token used for checkout, the push lands on protected
+          # main via the bot's PROTECT_OUR_MAIN bypass.
+          git config user.name "devops-bot[bot]"
+          git config user.email "1108748+devops-bot[bot]@users.noreply.github.com"
           cd showcase/shell/src/data
           if git diff --quiet registry.json; then
             echo "No registry changes"
