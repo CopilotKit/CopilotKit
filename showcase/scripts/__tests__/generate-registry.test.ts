@@ -111,5 +111,4 @@ describe("Registry Generator", () => {
       expect(validIds.has(demo.id)).toBe(true);
     }
   });
-
 });

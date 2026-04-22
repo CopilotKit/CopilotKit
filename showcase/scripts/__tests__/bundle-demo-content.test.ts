@@ -118,5 +118,4 @@ describe("Content Bundler", () => {
       expect(content.demos[key].files.length).toBeGreaterThan(0);
     }
   });
-
 });
