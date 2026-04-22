@@ -24,6 +24,14 @@ import {
   getCategoryLabel,
   type Integration,
 } from "@/lib/registry";
+import demoContent from "@/data/demo-content.json";
+
+interface DemoRecord {
+  regions?: Record<string, unknown>;
+}
+const demos: Record<string, DemoRecord> = (
+  demoContent as { demos: Record<string, DemoRecord> }
+).demos;
 
 function findFrameworksWithCell(cell: string): string[] {
   const matches: string[] = [];
