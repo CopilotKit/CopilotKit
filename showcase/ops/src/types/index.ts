@@ -22,6 +22,14 @@ export const DIMENSIONS = [
   "redirect_decommission",
   "deploy",
   "aimock_wiring",
+  // L1-L4 buildout: per-starter depth signals side-emitted by the smoke
+  // and e2e-smoke drivers. `agent` covers L2 (agent reachability from the
+  // runtime), `chat` covers L3 (chat turn round-trip), `tools` covers L4
+  // (tool invocation within a chat turn). Each emits as `<dim>:<slug>` so
+  // deriveDimension() routes them to their dedicated rule YAMLs.
+  "agent",
+  "chat",
+  "tools",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
