@@ -33,6 +33,9 @@ import {
   CopilotChatDefaultLabels,
 } from "../../providers/CopilotChatConfigurationProvider";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
+import { normalizeAutoScroll } from "./normalize-auto-scroll";
+import type { AutoScrollMode } from "./normalize-auto-scroll";
+import { usePinToSend } from "../../hooks/use-pin-to-send";
 
 // Height of the feather gradient overlay (h-24 = 6rem = 96px)
 const FEATHER_HEIGHT = 96;
@@ -57,7 +60,7 @@ export type CopilotChatViewProps = WithSlots<
   },
   {
     messages?: Message[];
-    autoScroll?: boolean;
+    autoScroll?: AutoScrollMode | boolean;
     isRunning?: boolean;
     suggestions?: Suggestion[];
     suggestionLoadingIndexes?: ReadonlyArray<number>;
@@ -442,9 +445,98 @@ export namespace CopilotChatView {
     );
   };
 
+  // Internal component for pin-to-send scroll behavior — not exported on CopilotChatView.
+  const PinToSendScrollContainer: React.FC<
+    React.HTMLAttributes<HTMLDivElement> & {
+      scrollRef: React.MutableRefObject<HTMLElement | null>;
+      contentRef: React.MutableRefObject<HTMLElement | null>;
+      scrollToBottom: () => void;
+      scrollToBottomButton?: SlotValue<
+        React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
+      >;
+      feather?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
+      inputContainerHeight: number;
+      isResizing: boolean;
+      nonAutoScrollEl: HTMLElement | null;
+      nonAutoScrollRefCallback: (el: HTMLElement | null) => void;
+      showScrollButton: boolean;
+    }
+  > = ({
+    children,
+    scrollRef,
+    contentRef,
+    scrollToBottom,
+    scrollToBottomButton,
+    feather,
+    inputContainerHeight,
+    isResizing,
+    nonAutoScrollEl,
+    nonAutoScrollRefCallback,
+    showScrollButton,
+    className,
+    ...props
+  }) => {
+    const spacerRef = useRef<HTMLDivElement>(null);
+    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
+
+    usePinToSend({
+      scrollRef,
+      contentRef,
+      spacerRef,
+      topOffset: 16,
+      inputContainerHeight,
+      featherHeight: FEATHER_HEIGHT,
+    });
+
+    return (
+      <ScrollElementContext.Provider value={nonAutoScrollEl}>
+        <div
+          ref={nonAutoScrollRefCallback}
+          className={cn(
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
+            className,
+          )}
+          {...props}
+        >
+          <div
+            ref={contentRef}
+            className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+          >
+            {children}
+          </div>
+          <div
+            ref={spacerRef}
+            data-pin-to-send-spacer
+            aria-hidden="true"
+            style={{ height: 0, flex: "0 0 auto" }}
+          />
+          {/* Feather gradient overlay */}
+          {BoundFeather}
+          {/* Scroll to bottom button */}
+          {showScrollButton && !isResizing && (
+            <div
+              className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
+              style={{
+                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+              }}
+            >
+              {renderSlot(
+                scrollToBottomButton,
+                CopilotChatView.ScrollToBottomButton,
+                {
+                  onClick: () => scrollToBottom(),
+                },
+              )}
+            </div>
+          )}
+        </div>
+      </ScrollElementContext.Provider>
+    );
+  };
+
   export const ScrollView: React.FC<
     React.HTMLAttributes<HTMLDivElement> & {
-      autoScroll?: boolean;
+      autoScroll?: AutoScrollMode | boolean;
       scrollToBottomButton?: SlotValue<
         React.FC<React.ButtonHTMLAttributes<HTMLButtonElement>>
       >;
@@ -454,7 +546,7 @@ export namespace CopilotChatView {
     }
   > = ({
     children,
-    autoScroll = true,
+    autoScroll = "pin-to-bottom",
     scrollToBottomButton,
     feather,
     inputContainerHeight = 0,
@@ -462,6 +554,7 @@ export namespace CopilotChatView {
     className,
     ...props
   }) => {
+    const mode = normalizeAutoScroll(autoScroll);
     const [hasMounted, setHasMounted] = useState(false);
     const { scrollRef, contentRef, scrollToBottom } = useStickToBottom();
     const [showScrollButton, setShowScrollButton] = useState(false);
@@ -489,7 +582,7 @@ export namespace CopilotChatView {
 
     // Monitor scroll position for non-autoscroll mode
     useEffect(() => {
-      if (autoScroll) return; // Skip for autoscroll mode
+      if (mode === "pin-to-bottom") return; // Skip for autoscroll mode
 
       const scrollElement = scrollRef.current;
       if (!scrollElement) return;
@@ -514,7 +607,7 @@ export namespace CopilotChatView {
         scrollElement.removeEventListener("scroll", checkScroll);
         resizeObserver.disconnect();
       };
-    }, [scrollRef, autoScroll]);
+    }, [scrollRef, mode]);
 
     if (!hasMounted) {
       return (
@@ -526,8 +619,7 @@ export namespace CopilotChatView {
       );
     }
 
-    // When autoScroll is false, we don't use StickToBottom
-    if (!autoScroll) {
+    if (mode === "none") {
       const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
       return (
@@ -574,6 +666,28 @@ export namespace CopilotChatView {
       );
     }
 
+    if (mode === "pin-to-send") {
+      return (
+        <PinToSendScrollContainer
+          scrollRef={scrollRef}
+          contentRef={contentRef}
+          scrollToBottom={scrollToBottom}
+          scrollToBottomButton={scrollToBottomButton}
+          feather={feather}
+          inputContainerHeight={inputContainerHeight}
+          isResizing={isResizing}
+          nonAutoScrollEl={nonAutoScrollEl}
+          nonAutoScrollRefCallback={nonAutoScrollRefCallback}
+          showScrollButton={showScrollButton}
+          className={className}
+          {...props}
+        >
+          {children}
+        </PinToSendScrollContainer>
+      );
+    }
+
+    // mode === "pin-to-bottom" (default)
     return (
       <StickToBottom
         className={cn(

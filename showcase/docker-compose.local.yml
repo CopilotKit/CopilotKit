@@ -1,0 +1,169 @@
+# Run the Railway-equivalent Docker image for every showcase package locally.
+# Prereq: run scripts/dev-local.sh which stages shared_python/ shared_typescript/ into each package build context first.
+# Ports come from shared/local-ports.json; internal port is always 10000 (Railway convention).
+
+services:
+  aimock:
+    # Local aimock so the 17 integration containers can hit a stable LLM mock
+    # on the compose network at http://aimock:4010 instead of the prod Railway
+    # aimock (which can OOM) or direct-to-OpenAI (which costs).
+    build: ./aimock
+    image: showcase-aimock:local
+    container_name: showcase-aimock
+    env_file: .env
+    ports:
+      - "4010:4010"
+    restart: unless-stopped
+
+  langgraph-python:
+    build: ./packages/langgraph-python
+    image: showcase-langgraph-python:local
+    container_name: showcase-langgraph-python
+    env_file: .env
+    ports:
+      - "3100:10000"
+    restart: unless-stopped
+
+  langgraph-typescript:
+    build: ./packages/langgraph-typescript
+    image: showcase-langgraph-typescript:local
+    container_name: showcase-langgraph-typescript
+    env_file: .env
+    ports:
+      - "3101:10000"
+    restart: unless-stopped
+
+  langgraph-fastapi:
+    build: ./packages/langgraph-fastapi
+    image: showcase-langgraph-fastapi:local
+    container_name: showcase-langgraph-fastapi
+    env_file: .env
+    ports:
+      - "3102:10000"
+    restart: unless-stopped
+
+  google-adk:
+    build: ./packages/google-adk
+    image: showcase-google-adk:local
+    container_name: showcase-google-adk
+    env_file: .env
+    ports:
+      - "3103:10000"
+    restart: unless-stopped
+
+  mastra:
+    build: ./packages/mastra
+    image: showcase-mastra:local
+    container_name: showcase-mastra
+    env_file: .env
+    ports:
+      - "3104:10000"
+    restart: unless-stopped
+
+  crewai-crews:
+    build: ./packages/crewai-crews
+    image: showcase-crewai-crews:local
+    container_name: showcase-crewai-crews
+    env_file: .env
+    ports:
+      - "3105:10000"
+    restart: unless-stopped
+
+  pydantic-ai:
+    build: ./packages/pydantic-ai
+    image: showcase-pydantic-ai:local
+    container_name: showcase-pydantic-ai
+    env_file: .env
+    ports:
+      - "3106:10000"
+    restart: unless-stopped
+
+  claude-sdk-python:
+    build: ./packages/claude-sdk-python
+    image: showcase-claude-sdk-python:local
+    container_name: showcase-claude-sdk-python
+    env_file: .env
+    ports:
+      - "3107:10000"
+    restart: unless-stopped
+
+  claude-sdk-typescript:
+    build: ./packages/claude-sdk-typescript
+    image: showcase-claude-sdk-typescript:local
+    container_name: showcase-claude-sdk-typescript
+    env_file: .env
+    ports:
+      - "3108:10000"
+    restart: unless-stopped
+
+  agno:
+    build: ./packages/agno
+    image: showcase-agno:local
+    container_name: showcase-agno
+    env_file: .env
+    ports:
+      - "3109:10000"
+    restart: unless-stopped
+
+  ag2:
+    build: ./packages/ag2
+    image: showcase-ag2:local
+    container_name: showcase-ag2
+    env_file: .env
+    ports:
+      - "3110:10000"
+    restart: unless-stopped
+
+  llamaindex:
+    build: ./packages/llamaindex
+    image: showcase-llamaindex:local
+    container_name: showcase-llamaindex
+    env_file: .env
+    ports:
+      - "3111:10000"
+    restart: unless-stopped
+
+  strands:
+    build: ./packages/strands
+    image: showcase-strands:local
+    container_name: showcase-strands
+    env_file: .env
+    ports:
+      - "3112:10000"
+    restart: unless-stopped
+
+  langroid:
+    build: ./packages/langroid
+    image: showcase-langroid:local
+    container_name: showcase-langroid
+    env_file: .env
+    ports:
+      - "3113:10000"
+    restart: unless-stopped
+
+  ms-agent-python:
+    build: ./packages/ms-agent-python
+    image: showcase-ms-agent-python:local
+    container_name: showcase-ms-agent-python
+    env_file: .env
+    ports:
+      - "3114:10000"
+    restart: unless-stopped
+
+  ms-agent-dotnet:
+    build: ./packages/ms-agent-dotnet
+    image: showcase-ms-agent-dotnet:local
+    container_name: showcase-ms-agent-dotnet
+    env_file: .env
+    ports:
+      - "3115:10000"
+    restart: unless-stopped
+
+  spring-ai:
+    build: ./packages/spring-ai
+    image: showcase-spring-ai:local
+    container_name: showcase-spring-ai
+    env_file: .env
+    ports:
+      - "3116:10000"
+    restart: unless-stopped

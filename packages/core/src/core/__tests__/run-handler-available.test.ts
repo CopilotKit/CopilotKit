@@ -87,3 +87,29 @@ describe("RunHandler tool available filtering", () => {
     expect(tools).toHaveLength(1);
   });
 });
+
+describe("RunHandler tool available:'disabled' filtering", () => {
+  it("excludes tools with available: 'disabled' (string) from buildFrontendTools", () => {
+    const runHandler = createRunHandler();
+    runHandler.initialize([
+      {
+        name: "enabledTool",
+        description: "An enabled tool",
+        parameters: z.object({ x: z.string() }),
+      },
+      {
+        name: "disabledStringTool",
+        description: "A disabled tool via string",
+        available: "disabled" as any,
+        parameters: z.object({ y: z.string() }),
+      },
+    ]);
+
+    const tools = runHandler.buildFrontendTools();
+    const toolNames = tools.map((t) => t.name);
+
+    expect(toolNames).toContain("enabledTool");
+    expect(toolNames).not.toContain("disabledStringTool");
+    expect(tools).toHaveLength(1);
+  });
+});

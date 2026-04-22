@@ -1,4 +1,4 @@
-node_modules/
+**/node_modules
 .next/
 .env.local
 .env
@@ -15,3 +15,9 @@ qa/
 README.md
 render.yaml
 playwright.config.ts
+**/vitest.config.ts
+**/test-setup.ts
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx

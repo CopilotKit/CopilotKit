@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotChat } from "../CopilotChat";
 import { useAgent } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/CopilotKitProvider";
-import { useCopilotChatConfiguration } from "../../../providers/CopilotChatConfigurationProvider";
 import { MockStepwiseAgent } from "../../../__tests__/utils/test-helpers";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 

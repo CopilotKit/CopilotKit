@@ -1,3 +1,4 @@
+import type OpenAI from "openai";
 import { Message } from "../../graphql/types/converted";
 import { ActionInput } from "../../graphql/inputs/action.input";
 import {
@@ -9,6 +10,105 @@ import {
   ChatCompletionDeveloperMessageParam,
 } from "openai/resources/chat";
 import { parseJson } from "@copilotkit/shared";
+
+/**
+ * OpenAI v4 exposes streaming completions under `beta.chat.completions`.
+ * v5 removed `beta.chat` and promoted streaming to `chat.completions`.
+ * These interfaces model the v4-specific shape so we can detect and access
+ * the beta namespace safely without `as any`.
+ */
+interface OpenAIV4BetaChat {
+  chat: {
+    completions: OpenAI["chat"]["completions"];
+  };
+}
+
+interface OpenAIV4Beta extends OpenAI.Beta {
+  chat: OpenAIV4BetaChat["chat"];
+}
+
+/**
+ * Type guard: checks whether the OpenAI client has the v4-era `beta.chat`
+ * namespace. Returns `false` for v5+ clients where `beta.chat` was removed.
+ */
+function hasV4BetaChat(beta: OpenAI["beta"] | undefined): beta is OpenAIV4Beta {
+  return beta != null && "chat" in beta && (beta as OpenAIV4Beta).chat != null;
+}
+
+/**
+ * Detects whether the provided OpenAI client is v5+ by checking for the
+ * removal of the `beta.chat` namespace (which was promoted to `chat` in v5).
+ */
+export function isOpenAIV5(openai: OpenAI): boolean {
+  return !hasV4BetaChat(openai.beta);
+}
+
+/**
+ * Returns the chat completions object that supports `.stream()`.
+ * In v4 this lives under `openai.beta.chat.completions`;
+ * in v5 it was promoted to `openai.chat.completions`.
+ */
+export function getChatCompletionsForStreaming(
+  openai: OpenAI,
+): OpenAI["chat"]["completions"] {
+  if (hasV4BetaChat(openai.beta)) {
+    return openai.beta.chat.completions;
+  }
+  return openai.chat.completions;
+}
+
+/**
+ * Retrieves a thread run, handling the v4→v5 API signature change.
+ * v4: retrieve(threadId, runId)
+ * v5: retrieve(runId, { thread_id: threadId })
+ */
+export async function retrieveThreadRun(
+  openai: OpenAI,
+  threadId: string,
+  runId: string,
+): Promise<OpenAI.Beta.Threads.Runs.Run> {
+  if (isOpenAIV5(openai)) {
+    // v5 switched to named path params. The type definitions from whichever
+    // SDK version is installed won't match both signatures, so we call through
+    // a generic function reference. This is the one unavoidable boundary
+    // between two incompatible SDK type surfaces.
+    const retrieve = openai.beta.threads.runs.retrieve as {
+      (...args: unknown[]): Promise<OpenAI.Beta.Threads.Runs.Run>;
+    };
+    return retrieve(runId, { thread_id: threadId });
+  }
+  return openai.beta.threads.runs.retrieve(threadId, runId);
+}
+
+/**
+ * Submits tool outputs as a stream, handling the v4→v5 API signature change.
+ * v4: submitToolOutputsStream(threadId, runId, body)
+ * v5: submitToolOutputsStream(runId, { thread_id, ...body })
+ */
+export function submitToolOutputsStream(
+  openai: OpenAI,
+  threadId: string,
+  runId: string,
+  body: {
+    tool_outputs: Array<{ tool_call_id: string; output: string }>;
+    parallel_tool_calls?: false;
+  },
+) {
+  if (isOpenAIV5(openai)) {
+    // Same boundary as retrieveThreadRun — v5 uses named path params.
+    const submit = openai.beta.threads.runs.submitToolOutputsStream as {
+      (
+        ...args: unknown[]
+      ): ReturnType<typeof openai.beta.threads.runs.submitToolOutputsStream>;
+    };
+    return submit(runId, { thread_id: threadId, ...body });
+  }
+  return openai.beta.threads.runs.submitToolOutputsStream(
+    threadId,
+    runId,
+    body,
+  );
+}
 
 export function limitMessagesToTokenCount(
   messages: any[],

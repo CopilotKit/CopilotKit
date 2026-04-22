@@ -1,4 +1,5 @@
 import type { CopilotRuntimeLike } from "../core/runtime";
+import { resolveAgents } from "../core/runtime";
 import { EventType } from "@ag-ui/client";
 
 interface StopAgentParameters {
@@ -15,7 +16,7 @@ export async function handleStopAgent({
   threadId,
 }: StopAgentParameters) {
   try {
-    const agents = await runtime.agents;
+    const agents = await resolveAgents(runtime.agents, request);
 
     if (!agents[agentId]) {
       return new Response(

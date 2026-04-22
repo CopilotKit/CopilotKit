@@ -1,42 +1,28 @@
-# Agentic Chat with Frontend Tools
+# Agentic Chat
 
 ## What This Demo Shows
 
-CopilotKit's agentic chat capabilities with frontend tool integration:
+The simplest CopilotKit surface: a plain agentic chat backed by a LangGraph (Python) agent.
 
 - **Natural Conversation**: Chat with your Copilot in a familiar chat interface
-- **Frontend Tool Execution**: The Copilot can directly interact with your UI by calling frontend functions
-- **Backend Tool Rendering**: Backend tools (like weather) are rendered as rich UI components
-- **Agent Context**: The agent receives context about the current user
+- **Streaming Responses**: Assistant messages stream in token-by-token via AG-UI
+- **Suggestion Chips**: A starter suggestion is rendered as a quick-action chip
 
 ## How to Interact
 
-Try asking your Copilot to:
+Click the suggestion chip, or type your own prompt. For example:
 
-- "Can you change the background color to something more vibrant?"
-- "Make the background a blue to purple gradient"
-- "What's the weather like in San Francisco?"
-- "Set the background to a sunset-themed gradient"
-
-You can also chat about other topics — the agent will respond conversationally while having the ability to use your UI tools when appropriate.
+- "Write a short sonnet about AI"
+- "Explain the difference between an LLM and an agent"
+- "Give me three ideas for a weekend project"
 
 ## Technical Details
 
-**Frontend tools** are registered using `useFrontendTool`:
+**Provider** — `CopilotKit` wires the page to the runtime:
 
-- `change_background` — accepts a CSS background value and applies it to the chat container
-- CopilotKit automatically exposes this function to the agent
-- The agent determines when to call the tool based on the user's request
+- `runtimeUrl="/api/copilotkit"` points at the Next.js route that proxies to the agent
+- `agent="agentic_chat"` selects the LangGraph agent defined in `langgraph.json`
 
-**Backend tool rendering** uses `useRenderTool`:
+**Chat surface** — `CopilotChat` renders the full chat UI with input, message list, and streaming.
 
-- `get_weather` — a backend tool that the agent calls; the frontend renders the result as a weather card
-- The render function receives `args`, `result`, and `status` for loading/complete states
-
-**Agent context** is provided via `useAgentContext`:
-
-- Sends the user's name to the agent so it can personalize responses
-
-**Suggestions** are configured with `useConfigureSuggestions`:
-
-- Static suggestions shown as quick-action buttons below the chat
+**Suggestions** — `useConfigureSuggestions` registers a static suggestion that appears as a clickable chip below the chat input.

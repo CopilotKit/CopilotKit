@@ -164,7 +164,7 @@ Before you begin, you'll need the following:
               Add LangGraph and the required AG-UI packages to your project:
 
               ```bash
-              uv add langgraph copilotkit langchain-openai langchain-core
+              uv add langgraph copilotkit langchain-openai langchain-core dotenv
               ```
           </Step>
           <Step>
@@ -177,9 +177,11 @@ Before you begin, you'll need the following:
                   First, we'll create a simple LangChain agent:
 
                   ```python title="main.py"
+                  from dotenv import load_dotenv
                   from langchain_core.messages import SystemMessage
                   from langchain_openai import ChatOpenAI
                   from langgraph.graph import END, START, MessagesState, StateGraph
+                  load_dotenv()
 
                   async def mock_llm(state: MessagesState):
                     model = ChatOpenAI(model="gpt-4.1-mini")
@@ -231,6 +233,7 @@ Before you begin, you'll need the following:
                   import os
 
                   # [!code highlight:2]
+                  from dotenv import load_dotenv
                   from ag_ui_langgraph import add_langgraph_fastapi_endpoint
                   from copilotkit import LangGraphAGUIAgent
                   from fastapi import FastAPI
@@ -239,6 +242,7 @@ Before you begin, you'll need the following:
                   from langchain_openai import ChatOpenAI
                   from langgraph.checkpoint.memory import MemorySaver
                   import uvicorn
+                  load_dotenv()
 
                   async def mock_llm(state: MessagesState):
                     model = ChatOpenAI(model="gpt-4.1-mini")
