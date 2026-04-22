@@ -65,6 +65,15 @@ ENV PYTHONPATH=/app/shared/python
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh
 
+# Pre-create .langgraph_api (CWD-relative state dir) with app ownership.
+# langgraph_runtime_inmem/store.py calls `os.makedirs(".langgraph_api",
+# exist_ok=True)` at import time, which resolves against CWD (/app). WORKDIR
+# creates /app as root; USER app then can't write there. A fresh container
+# imports the module, hits PermissionError [Errno 13], crashes the agent
+# subprocess, and the watchdog/Railway restart loops forever.
+# Creating the dir up-front with the right owner sidesteps the write.
+RUN mkdir -p /app/.langgraph_api && chown app:app /app /app/.langgraph_api
+
 USER app
 
 EXPOSE 10000
