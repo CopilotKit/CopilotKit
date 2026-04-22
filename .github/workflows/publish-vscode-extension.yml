@@ -1,25 +1,38 @@
 name: release / publish vscode-extension
 
+# Mirrors the CopilotKit/aimock release pattern:
+#   - Contributor bumps packages/vscode-extension/package.json + prepends
+#     packages/vscode-extension/CHANGELOG.md, commits as
+#     "chore(vscode-extension): release vX.Y.Z", and merges to main.
+#   - On push to main this workflow self-gates by checking the VS Code
+#     Marketplace for the current package.json version; if already published,
+#     it's a no-op. Otherwise it builds, packages, dual-publishes (Marketplace
+#     + Open VSX with retry wrappers), tags vscode-extension-vX.Y.Z, and
+#     cuts a GitHub Release.
+#
+# No hand-cut tags. No tag-driven triggers. Pushes merged to main drive
+# everything, exactly like aimock.
+
 on:
   push:
-    tags:
-      - "vscode-extension-v*"
+    branches: [main]
+    paths:
+      - "packages/vscode-extension/**"
+      - ".github/workflows/publish-vscode-extension.yml"
+  workflow_dispatch:
 
 concurrency:
   group: publish-vscode-extension-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    defaults:
-      run:
-        working-directory: packages/vscode-extension
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,37 +50,89 @@ jobs:
           node-version: 20.x
           cache: pnpm
 
-      - name: Verify tag matches package.json version
+      - name: Read package.json version
+        id: pkg
+        working-directory: packages/vscode-extension
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#vscode-extension-v}"
           PKG_VERSION=$(node -p "require('./package.json').version")
-          echo "tag=$TAG_VERSION pkg=$PKG_VERSION"
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)"
-            exit 1
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PUBLISHER=$(node -p "require('./package.json').publisher || 'copilotkit'")
+          EXT_ID="${PUBLISHER}.${PKG_NAME}"
+          echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "name=${PKG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "ext_id=${EXT_ID}" >> "$GITHUB_OUTPUT"
+          echo "Resolved ${EXT_ID}@${PKG_VERSION}"
+
+      - name: Check if version already published to Marketplace
+        id: check
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          # Use `vsce show` to read Marketplace metadata. Unlike `npm view`
+          # there's no fast per-version endpoint, so we parse the full version
+          # list and look for an exact match. `vsce show` does not require
+          # auth for public extensions but we pass the PAT if available to
+          # avoid anonymous rate limits.
+          EXT_ID="${{ steps.pkg.outputs.ext_id }}"
+          WANT="${{ steps.pkg.outputs.version }}"
+
+          # `vsce show` exits non-zero the very first time the extension is
+          # published (extension does not yet exist). Treat that as
+          # "not published".
+          set +e
+          OUT=$(npx --yes @vscode/vsce@^3 show "$EXT_ID" --json 2>/dev/null)
+          RC=$?
+          set -e
+
+          if [ $RC -ne 0 ] || [ -z "$OUT" ]; then
+            echo "vsce show returned empty or failed — treating as first-ever publish."
+            echo "published=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if echo "$OUT" | node -e "
+            let s=''; process.stdin.on('data',d=>s+=d).on('end',()=>{
+              try {
+                const j = JSON.parse(s);
+                const versions = (j.versions || []).map(v => v.version);
+                const found = versions.includes(process.argv[1]);
+                process.exit(found ? 0 : 1);
+              } catch (_) { process.exit(1); }
+            });
+          " "$WANT"; then
+            echo "Version $WANT already on Marketplace — nothing to do."
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version $WANT not yet on Marketplace — will publish."
+            echo "published=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Install dependencies
-        working-directory: ${{ github.workspace }}
+        if: steps.check.outputs.published == 'false'
         run: pnpm install --frozen-lockfile --filter copilotkit-vscode-extension...
 
       - name: Build
-        working-directory: ${{ github.workspace }}
+        if: steps.check.outputs.published == 'false'
         run: pnpm --filter copilotkit-vscode-extension build
 
       - name: Package VSIX
+        if: steps.check.outputs.published == 'false'
+        working-directory: packages/vscode-extension
         run: npx --yes @vscode/vsce@^3 package --no-dependencies --out extension.vsix
 
       - name: Upload VSIX artifact
+        if: steps.check.outputs.published == 'false'
         uses: actions/upload-artifact@v4
         with:
-          name: vscode-extension-${{ github.ref_name }}
+          name: vscode-extension-v${{ steps.pkg.outputs.version }}
           path: packages/vscode-extension/extension.vsix
           if-no-files-found: error
 
       - name: Publish to VS Code Marketplace
+        if: steps.check.outputs.published == 'false'
         id: publish_vsce
         continue-on-error: true
+        working-directory: packages/vscode-extension
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
@@ -126,8 +191,10 @@ jobs:
             --pat "$VSCE_PAT"
 
       - name: Publish to Open VSX
+        if: steps.check.outputs.published == 'false'
         id: publish_ovsx
         continue-on-error: true
+        working-directory: packages/vscode-extension
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
@@ -184,6 +251,8 @@ jobs:
           retry_publish npx --yes ovsx publish extension.vsix -p "$OVSX_PAT"
 
       - name: Report publish results
+        if: steps.check.outputs.published == 'false'
+        id: report
         run: |
           VSCE_STATUS="${{ steps.publish_vsce.outcome }}"
           OVSX_STATUS="${{ steps.publish_ovsx.outcome }}"
@@ -198,3 +267,66 @@ jobs:
             echo "::error::One or more registry publishes failed after retries (vsce=$VSCE_STATUS ovsx=$OVSX_STATUS). Check the per-attempt logs above. Rerun the job from the Actions UI to retry — do NOT bump the version; registries treat 'already exists' as idempotent."
             exit 1
           fi
+
+      - name: Create git tag
+        if: steps.check.outputs.published == 'false'
+        run: |
+          TAG="vscode-extension-v${{ steps.pkg.outputs.version }}"
+          if ! git rev-parse "${TAG}" >/dev/null 2>&1; then
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          else
+            echo "Tag ${TAG} already exists — skipping."
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.published == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="vscode-extension-v${{ steps.pkg.outputs.version }}"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists — skipping."
+            exit 0
+          fi
+          # Prefer the CHANGELOG section for this version if present; otherwise
+          # let GitHub auto-generate notes from commits.
+          CHANGELOG="packages/vscode-extension/CHANGELOG.md"
+          NOTES_FILE=""
+          if [ -f "$CHANGELOG" ]; then
+            VERSION="${{ steps.pkg.outputs.version }}"
+            # Extract the section between "## <version>" and the next "## " heading.
+            NOTES_FILE=$(mktemp)
+            awk -v ver="$VERSION" '
+              $0 ~ "^## " ver "( |$)" { capture = 1; next }
+              capture && /^## / { exit }
+              capture { print }
+            ' "$CHANGELOG" > "$NOTES_FILE"
+            if [ ! -s "$NOTES_FILE" ]; then
+              NOTES_FILE=""
+            fi
+          fi
+          if [ -n "$NOTES_FILE" ]; then
+            gh release create "${TAG}" --title "${TAG}" --verify-tag --latest --notes-file "$NOTES_FILE"
+          else
+            gh release create "${TAG}" --title "${TAG}" --verify-tag --latest --generate-notes
+          fi
+
+      - name: Notify Slack
+        if: steps.check.outputs.published == 'false'
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          # Silently skip if the webhook secret isn't configured — Slack alerts
+          # are a nice-to-have, not a release blocker.
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "SLACK_WEBHOOK not configured — skipping Slack notify."
+            exit 0
+          fi
+          VERSION="${{ steps.pkg.outputs.version }}"
+          TAG="vscode-extension-v${VERSION}"
+          EXT_ID="${{ steps.pkg.outputs.ext_id }}"
+          OVSX_PATH="$(echo "$EXT_ID" | tr '.' '/')"
+          curl -s -X POST "$SLACK_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"text\":\"*copilotkit-vscode-extension v${VERSION} published*\nMarketplace: https://marketplace.visualstudio.com/items?itemName=${EXT_ID}\nOpen VSX: https://open-vsx.org/extension/${OVSX_PATH}\nRelease: https://github.com/${{ github.repository }}/releases/tag/${TAG}\"}" || true
