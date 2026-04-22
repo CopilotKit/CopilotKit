@@ -437,7 +437,7 @@ describe("status-writer", () => {
       async create<T>(_c: string, r: unknown): Promise<T> {
         return r as T;
       },
-      async update<T>() {
+      async update() {
         throw new Error("pb update boom");
       },
       async upsertByField(): Promise<never> {
