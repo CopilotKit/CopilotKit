@@ -36,9 +36,7 @@ class TrackingAgent extends MockStepwiseAgent {
 
 function renderWithKit(ui: React.ReactNode, agent: TrackingAgent) {
   return render(
-    <CopilotKitProvider
-      agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}
-    >
+    <CopilotKitProvider agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}>
       <div style={{ height: 400 }}>{ui}</div>
     </CopilotKitProvider>,
   );

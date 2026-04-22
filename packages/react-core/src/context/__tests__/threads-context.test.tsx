@@ -63,7 +63,9 @@ describe("ThreadsProvider", () => {
         </ThreadsProvider>,
       );
 
-      expect(screen.getByTestId("threadId").textContent).toBe("customer-thread");
+      expect(screen.getByTestId("threadId").textContent).toBe(
+        "customer-thread",
+      );
       expect(screen.getByTestId("isExplicit").textContent).toBe("true");
     });
 
