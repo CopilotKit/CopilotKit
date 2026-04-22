@@ -371,7 +371,7 @@ jobs:
           echo "   - Marketplace: OIDC -> Entra SP -> vsce verify-pat --azure-credential"
           echo "   - Open VSX: bearer token -> /api/user"
           echo ""
-          echo "No publish occurred. To cut a real release, bump the version via scripts/release/vscode-extension-release.sh and merge to main."
+          echo "No publish occurred. To cut a real release, add a new entry to packages/vscode-extension/CHANGELOG.md and open a PR."
 
       - name: Notify Slack (publish failure)
         if: failure() && inputs.dry_run != true && steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
