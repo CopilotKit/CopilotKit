@@ -44,18 +44,23 @@ Once the namespace is claimed, subsequent CI publishes run unattended.
 Cutting a release is one file edit, one commit, one PR.
 
 1. Prepend an entry to `packages/vscode-extension/CHANGELOG.md`:
+
    ```md
    ## 0.1.1 — 2026-04-22
 
    ### Fixed
+
    - Hook Explorer crash on empty workspaces
 
    ### Added
+
    - New "Copy AG-UI run URL" command
    ```
+
    Use Keep-a-Changelog subsections: `Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`. The date is whatever date you commit.
 
    If you also want to change how the extension is described on the Marketplace / Open VSX listing page, edit the first paragraph under the `# CopilotKit for VS Code` title in `packages/vscode-extension/README.md` in the same PR. The metadata-sync workflow extracts that paragraph, strips inline markdown, and writes it to `package.json.description` (the field both registries render as the one-liner). First paragraph must stay ≤200 chars — the workflow fails fast otherwise so you don't silently ship a truncated listing.
+
 2. Commit with any message (e.g. `docs: changelog for 0.1.1`) and push.
 3. Open a PR.
 4. **Automation**: the **VS Code Extension — Metadata Sync** workflow runs on your PR, reads the top version from CHANGELOG and the first paragraph of README.md, and bumps `packages/vscode-extension/package.json` (`.version` and/or `.description`) to match. If a version bump is needed it commits `chore: release vX.Y.Z`; otherwise, if only the description drifted it commits `chore(vscode-extension): sync description from README`. No action needed from you — just pull the updated branch if you keep working locally.

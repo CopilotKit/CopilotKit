@@ -133,7 +133,7 @@ jobs:
           if-no-files-found: error
 
       - name: Login to Azure (OIDC → Entra SP)
-        if: steps.check.outputs.published == 'false'
+        if: steps.check.outputs.published == 'false' || inputs.dry_run == true
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
