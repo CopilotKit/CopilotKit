@@ -58,6 +58,7 @@ import {
 } from "../types/converted";
 import telemetry from "../../lib/telemetry-client";
 import { randomId } from "@copilotkit/shared";
+import { resolveMessageId } from "./resolve-message-id";
 import { AgentsResponse } from "../types/agents-response.type";
 import { LangGraphEventTypes } from "../../agents/langgraph/events";
 import {
@@ -488,7 +489,7 @@ export class CopilotResolver {
                   typeof MessageStatusUnion
                 >();
 
-                const messageId = event.messageId || randomId();
+                const messageId = resolveMessageId(event.messageId);
                 // push the new message
                 pushMessage({
                   id: messageId,
