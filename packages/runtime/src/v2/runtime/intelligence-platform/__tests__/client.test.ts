@@ -35,7 +35,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "test-key",
-      organizationId: "org-1",
     });
   });
 
@@ -44,7 +43,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com/",
       wsUrl: "wss://ws.example.com/socket",
       apiKey: "k",
-      organizationId: "org-1",
     });
     fetchMock.mockReturnValue(jsonResponse({ threads: [], joinCode: "" }));
     await c.listThreads({ userId: "u", agentId: "a" });
@@ -58,7 +56,6 @@ describe("CopilotKitIntelligence", () => {
       apiUrl: "https://api.example.com",
       wsUrl: "wss://ws.example.com",
       apiKey: "k",
-      organizationId: "org-1",
     });
 
     expect(c.ɵgetRunnerWsUrl()).toBe("wss://ws.example.com/runner");
@@ -71,7 +68,6 @@ describe("CopilotKitIntelligence", () => {
     const headers = fetchMock.mock.calls[0][1].headers;
     expect(headers.Authorization).toBe("Bearer test-key");
     expect(headers["Content-Type"]).toBe("application/json");
-    expect(headers["X-Organization-Id"]).toBe("org-1");
   });
 
   it("throws on non-ok response", async () => {
@@ -175,7 +171,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated,
       });
       const thread = { id: "t-1", name: "Renamed" };
@@ -225,7 +220,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadCreated,
       });
       const thread = { id: "t-1", name: null };
@@ -312,7 +306,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated,
       });
       const thread = { id: "t-1", name: "Archived", archived: true };
@@ -353,7 +346,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadDeleted,
       });
       fetchMock.mockReturnValue(jsonResponse(undefined));
@@ -376,7 +368,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadDeleted: () => {
           throw new Error("callback exploded");
         },
@@ -503,7 +494,6 @@ describe("CopilotKitIntelligence", () => {
         apiUrl: "https://api.example.com",
         wsUrl: "wss://ws.example.com/socket",
         apiKey: "test-key",
-        organizationId: "org-1",
         onThreadUpdated: configCb,
       });
       client.onThreadUpdated(runtimeCb);
