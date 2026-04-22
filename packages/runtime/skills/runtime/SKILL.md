@@ -43,13 +43,14 @@ your task — do not try to absorb the whole package from this file.
 
 ```ts
 new CopilotRuntime({
-  agents,       // Record<string, AbstractAgent>     — see wiring-external-agents or built-in-agent
-  runner,       // AgentRunner (optional)            — see agent-runners
+  agents, // Record<string, AbstractAgent>     — see wiring-external-agents or built-in-agent
+  runner, // AgentRunner (optional)            — see agent-runners
   intelligence, // CopilotKitIntelligence (optional) — see intelligence-mode (auto-wires runner)
-  mcpApps,      // McpAppsConfig (optional)          — see wiring-mcp-apps-middleware
-  a2ui,         // A2UIConfig (optional)             — see packages/a2ui-renderer skill
-  hooks,        // { onRequest, onBeforeHandler }    — see middleware
-  beforeRequestMiddleware, afterRequestMiddleware,   // legacy — see middleware
+  mcpApps, // McpAppsConfig (optional)          — see wiring-mcp-apps-middleware
+  a2ui, // A2UIConfig (optional)             — see packages/a2ui-renderer skill
+  hooks, // { onRequest, onBeforeHandler }    — see middleware
+  beforeRequestMiddleware,
+  afterRequestMiddleware, // legacy — see middleware
   transcription, // TranscriptionService (optional)  — see transcription
 });
 ```
@@ -58,23 +59,26 @@ You then mount it:
 
 ```ts
 import { createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
-const handler = createCopilotRuntimeHandler({ runtime, basePath: "/api/copilotkit" });
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
 export default { fetch: handler };
 ```
 
 ## When to load which reference
 
-| Task | Reference |
-| ---- | --------- |
-| Mounting on any fetch-native server (Cloudflare Workers, Bun, Deno, Vercel Edge, Next.js App Router, React Router v7, TanStack Start) or delegating from Express/Node | `references/setup-endpoint.md` |
-| Auth / logging / rate-limit / request-scoped guards via `hooks.onRequest` / `hooks.onBeforeHandler` (preferred) or legacy `beforeRequestMiddleware` / `afterRequestMiddleware` | `references/middleware.md` |
-| Choosing between `InMemoryAgentRunner`, `SqliteAgentRunner`, or a custom subclass — including thread-locking semantics and the runner/Intelligence mutual exclusion | `references/agent-runners.md` (+ `-in-memory.md`, `-sqlite.md`, `-custom.md` for backend-specific detail) |
-| Enabling durable threads + realtime websocket via CopilotKit Cloud (Intelligence is **Cloud-only**, not self-hostable) | `references/intelligence-mode.md` |
-| Voice transcription — implementing a `TranscriptionService` subclass for the `/transcribe` endpoint | `references/transcription.md` |
-| Instantiating `BuiltInAgent` — Simple Mode (classic) or Factory Mode with TanStack AI (preferred AG-UI-compliant default), AI SDK, or custom factory | `references/built-in-agent.md` (+ `-factory-modes.md`, `-helper-utilities.md`, `-model-identifiers.md`) |
-| Defining server-side tools via `defineTool` for `BuiltInAgent.config.tools` (Simple Mode only) | `references/server-side-tools.md` |
-| Wiring an external agent framework into `CopilotRuntime({ agents })` | `references/wiring-external-agents.md` (index) + per-framework refs (`wiring-mastra.md`, `wiring-langgraph.md`, `wiring-crewai-crews.md`, `wiring-crewai-flows.md`, `wiring-pydantic-ai.md`, `wiring-adk.md`, `wiring-llamaindex.md`, `wiring-agno.md`, `wiring-aws-strands.md`, `wiring-ms-agent-framework.md`, `wiring-ag2.md`, `wiring-a2a.md`) |
-| Wiring MCP Apps (runtime-level middleware, not an agent) | `references/wiring-mcp-apps-middleware.md` |
+| Task                                                                                                                                                                           | Reference                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mounting on any fetch-native server (Cloudflare Workers, Bun, Deno, Vercel Edge, Next.js App Router, React Router v7, TanStack Start) or delegating from Express/Node          | `references/setup-endpoint.md`                                                                                                                                                                                                                                                                                                                     |
+| Auth / logging / rate-limit / request-scoped guards via `hooks.onRequest` / `hooks.onBeforeHandler` (preferred) or legacy `beforeRequestMiddleware` / `afterRequestMiddleware` | `references/middleware.md`                                                                                                                                                                                                                                                                                                                         |
+| Choosing between `InMemoryAgentRunner`, `SqliteAgentRunner`, or a custom subclass — including thread-locking semantics and the runner/Intelligence mutual exclusion            | `references/agent-runners.md` (+ `-in-memory.md`, `-sqlite.md`, `-custom.md` for backend-specific detail)                                                                                                                                                                                                                                          |
+| Enabling durable threads + realtime websocket via CopilotKit Cloud (Intelligence is **Cloud-only**, not self-hostable)                                                         | `references/intelligence-mode.md`                                                                                                                                                                                                                                                                                                                  |
+| Voice transcription — implementing a `TranscriptionService` subclass for the `/transcribe` endpoint                                                                            | `references/transcription.md`                                                                                                                                                                                                                                                                                                                      |
+| Instantiating `BuiltInAgent` — Simple Mode (classic) or Factory Mode with TanStack AI (preferred AG-UI-compliant default), AI SDK, or custom factory                           | `references/built-in-agent.md` (+ `-factory-modes.md`, `-helper-utilities.md`, `-model-identifiers.md`)                                                                                                                                                                                                                                            |
+| Defining server-side tools via `defineTool` for `BuiltInAgent.config.tools` (Simple Mode only)                                                                                 | `references/server-side-tools.md`                                                                                                                                                                                                                                                                                                                  |
+| Wiring an external agent framework into `CopilotRuntime({ agents })`                                                                                                           | `references/wiring-external-agents.md` (index) + per-framework refs (`wiring-mastra.md`, `wiring-langgraph.md`, `wiring-crewai-crews.md`, `wiring-crewai-flows.md`, `wiring-pydantic-ai.md`, `wiring-adk.md`, `wiring-llamaindex.md`, `wiring-agno.md`, `wiring-aws-strands.md`, `wiring-ms-agent-framework.md`, `wiring-ag2.md`, `wiring-a2a.md`) |
+| Wiring MCP Apps (runtime-level middleware, not an agent)                                                                                                                       | `references/wiring-mcp-apps-middleware.md`                                                                                                                                                                                                                                                                                                         |
 
 ## Invariants and gotchas (load-once, before any reference)
 

@@ -69,22 +69,22 @@ your task — do not try to absorb the whole package from this file.
 
 ## When to load which reference
 
-| Task | Reference |
-| ---- | --------- |
-| Mount `CopilotKitProvider`, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules | `references/provider-setup.md` |
-| Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md` |
-| File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload | `references/attachments.md` |
-| Client-side debug tooling — `showDevConsole`, `debug` prop, lazy-loaded web inspector | `references/debug-mode.md` |
-| Read / subscribe to an agent (`useAgent`) and push global context (`useAgentContext`) | `references/agent-access.md` |
-| Feature-gate UI on declared agent capabilities (`useCapabilities`) | `references/capabilities.md` |
-| Build a multi-agent UI (per-panel `useAgent`, agent-scoped tools, key-remount pattern) | `references/switching-agents.md` (+ `switching-agents-recipes.md` for concrete layouts) |
-| List / rename / archive / delete durable Intelligence threads (`useThreads`) | `references/threads.md` (**requires runtime Intelligence mode**) |
-| Register browser-side tools (`useFrontendTool`) | `references/client-side-tools.md` |
-| Render per-tool UI (`useRenderTool`, `useComponent`, `useDefaultRenderTool`, `useRenderToolCall`) | `references/rendering-tool-calls.md` |
-| Gate tool execution behind user approval (`useHumanInTheLoop`) | `references/human-in-the-loop.md` |
-| Configure dynamic or static suggestion pills (`useConfigureSuggestions`, `useSuggestions`) | `references/suggestions.md` |
-| Render non-chat activity messages (`useRenderActivityMessage`) | `references/rendering-activity-messages.md` |
-| Inject custom UI before/after specific messages (`useRenderCustomMessages`) | `references/custom-message-renderers.md` |
+| Task                                                                                                      | Reference                                                                               |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Mount `CopilotKitProvider`, pick `runtimeUrl` vs `publicLicenseKey`, RSC boundary rules                   | `references/provider-setup.md`                                                          |
+| Drop in `CopilotChat` / `CopilotPopup` / `CopilotSidebar`, compose `CopilotChatView` with slot primitives | `references/chat-components.md`                                                         |
+| File / image attachments via `useAttachments` — drag-drop, click, paste, custom upload                    | `references/attachments.md`                                                             |
+| Client-side debug tooling — `showDevConsole`, `debug` prop, lazy-loaded web inspector                     | `references/debug-mode.md`                                                              |
+| Read / subscribe to an agent (`useAgent`) and push global context (`useAgentContext`)                     | `references/agent-access.md`                                                            |
+| Feature-gate UI on declared agent capabilities (`useCapabilities`)                                        | `references/capabilities.md`                                                            |
+| Build a multi-agent UI (per-panel `useAgent`, agent-scoped tools, key-remount pattern)                    | `references/switching-agents.md` (+ `switching-agents-recipes.md` for concrete layouts) |
+| List / rename / archive / delete durable Intelligence threads (`useThreads`)                              | `references/threads.md` (**requires runtime Intelligence mode**)                        |
+| Register browser-side tools (`useFrontendTool`)                                                           | `references/client-side-tools.md`                                                       |
+| Render per-tool UI (`useRenderTool`, `useComponent`, `useDefaultRenderTool`, `useRenderToolCall`)         | `references/rendering-tool-calls.md`                                                    |
+| Gate tool execution behind user approval (`useHumanInTheLoop`)                                            | `references/human-in-the-loop.md`                                                       |
+| Configure dynamic or static suggestion pills (`useConfigureSuggestions`, `useSuggestions`)                | `references/suggestions.md`                                                             |
+| Render non-chat activity messages (`useRenderActivityMessage`)                                            | `references/rendering-activity-messages.md`                                             |
+| Inject custom UI before/after specific messages (`useRenderCustomMessages`)                               | `references/custom-message-renderers.md`                                                |
 
 ## Invariants and gotchas (load-once, before any reference)
 
