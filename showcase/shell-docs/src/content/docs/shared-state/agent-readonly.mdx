@@ -3,7 +3,6 @@ title: Agent Read-Only Context
 description: Publish UI values to the agent as a one-way read-only channel via useAgentContext.
 icon: "lucide/ArrowRight"
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: readonly-state-agent-context
 ---
 
@@ -20,7 +19,7 @@ the state back to the UI), `useAgentContext` values are pure inputs.
 The agent sees them on every turn via the runtime's context injection,
 but it has no setter and no tool to write them back.
 
-<InlineDemo integration="langgraph-python" demo="readonly-state-agent-context" />
+<InlineDemo demo="readonly-state-agent-context" />
 
 ## When should I use this?
 
