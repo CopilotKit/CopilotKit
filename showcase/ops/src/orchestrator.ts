@@ -29,8 +29,13 @@ import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
-import { e2eSmokeDriver } from "./probes/drivers/e2e-smoke.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
+import { smokeDriver } from "./probes/drivers/smoke.js";
+import { imageDriftDriver } from "./probes/drivers/image-drift.js";
+import { versionDriftDriver } from "./probes/drivers/version-drift.js";
+import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
+import { railwayServicesSource } from "./probes/discovery/railway-services.js";
+import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
@@ -213,8 +218,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
   probeRegistry.register(aimockWiringDriver);
-  probeRegistry.register(e2eSmokeDriver);
   probeRegistry.register(pinDriftDriver);
+  probeRegistry.register(smokeDriver);
+  probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(versionDriftDriver);
+  probeRegistry.register(redirectDecommissionDriver);
+  // e2eSmokeDriver deliberately NOT registered yet: its default runner
+  // throws (Playwright harness isn't wired end-to-end), so live rules would
+  // go red every tick. Corresponding e2e-smoke YAMLs are being removed
+  // alongside this change; re-register when the runner is production-ready.
+  discoveryRegistry.register(railwayServicesSource);
+  discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
     opts.configDir !== undefined
       ? path.resolve(opts.configDir, "../probes")
