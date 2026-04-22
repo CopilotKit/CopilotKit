@@ -96,7 +96,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "name", "description", "tags", "route"],
+        "required": ["id", "name", "description", "tags"],
         "properties": {
           "id": {
             "type": "string",
@@ -120,11 +120,25 @@
           "route": {
             "type": "string",
             "pattern": "^/",
-            "description": "Route within the package (e.g. /demos/agentic-chat)"
+            "description": "Route within the package (e.g. /demos/agentic-chat). Omit for informational demos that expose `command` instead."
+          },
+          "command": {
+            "type": "string",
+            "description": "Copy-pasteable shell command (e.g. npx degit ...). When present and `route` is omitted, the shell renders an informational cell with a copy button instead of Demo/Code links."
           },
           "animated_preview_url": {
             "type": ["string", "null"],
             "description": "URL to animated preview for this specific demo"
+          },
+          "backend_files": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "DEPRECATED. Use `highlight` to pin core files (and drive backend scoping). Will be removed."
+          },
+          "highlight": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Core files to visually highlight in /code. Paths are relative to the package root (e.g. 'src/app/demos/agentic-chat/page.tsx', 'src/agents/sample_agent.py'). Files outside the demo folder (typically backend agent files) are included in the bundle for this demo when listed here."
           }
         },
         "additionalProperties": false

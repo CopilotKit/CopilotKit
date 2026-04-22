@@ -8,7 +8,7 @@ This project is a monorepo with three services:
 
 | Service                   | Port | Description                                |
 | ------------------------- | ---- | ------------------------------------------ |
-| **Frontend** (`apps/app`) | 3000 | Next.js app with CopilotKit chat UI        |
+| **Frontend** (`apps/app`) | 3000 | Vite + React app with CopilotKit chat UI   |
 | **BFF** (`apps/bff`)      | 4000 | Hono server running the CopilotKit runtime |
 | **Agent** (`apps/agent`)  | 8123 | Python LangGraph agent                     |
 
@@ -25,7 +25,7 @@ When threads are enabled, additional infrastructure runs via Docker Compose:
 
 - Node.js 18+
 - Python 3.8+
-- [pnpm](https://pnpm.io/installation)
+- npm 10+
 - OpenAI API Key
 - Docker (for threads/intelligence support)
 
@@ -34,7 +34,7 @@ When threads are enabled, additional infrastructure runs via Docker Compose:
 1. Install dependencies:
 
 ```bash
-pnpm install
+npm install
 ```
 
 2. Set up environment variables:
@@ -53,28 +53,29 @@ copilotkit license -n my-project
 
 This authenticates you and issues a `COPILOTKIT_LICENSE_TOKEN`. Add it to your `.env`.
 
-5. **Start intelligence infrastructure** (for threads):
-
-First, build the local Docker images from the intelligence repo:
-
-```bash
-# From the intelligence repo root
-./scripts/build-local-images.sh
-```
-
-Then start the infrastructure:
+4. **Start intelligence infrastructure** (for threads):
 
 ```bash
 docker compose up -d --wait
 ```
 
-6. Start all services:
+This pulls the GHCR images pinned to `0.1.0-rc.7`.
+
+5. Start all services:
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 This starts the frontend, BFF, and agent concurrently.
+
+You can also run each piece directly:
+
+```bash
+npm run dev:app
+npm run dev:bff
+npm run dev:agent
+```
 
 ## Removing Threads
 
@@ -83,17 +84,16 @@ To strip out threads/intelligence and use this as a plain CopilotKit + LangGraph
 ### Frontend
 
 - **Delete** `apps/app/src/components/threads-drawer/` (the entire directory)
-- **Revert `apps/app/src/app/page.tsx`** to remove the `useThreads` hook, `ThreadsDrawer` component, and the layout wrapper. The page should go back to:
+- **Revert `apps/app/src/App.tsx`** to remove the `ThreadsDrawer` component and the thread-aware layout wrapper. The app should go back to:
 
 ```tsx
-"use client";
-
+import { CopilotChat, CopilotKitProvider } from "@copilotkit/react-core/v2";
 import { ExampleLayout } from "@/components/example-layout";
 import { ExampleCanvas } from "@/components/example-canvas";
 import { useGenerativeUIExamples, useExampleSuggestions } from "@/hooks";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import { ThemeProvider } from "@/hooks/use-theme";
 
-export default function HomePage() {
+function HomePage() {
   useGenerativeUIExamples();
   useExampleSuggestions();
 
@@ -104,6 +104,16 @@ export default function HomePage() {
       }
       appContent={<ExampleCanvas />}
     />
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <CopilotKitProvider runtimeUrl="/api/copilotkit">
+        <HomePage />
+      </CopilotKitProvider>
+    </ThemeProvider>
   );
 }
 ```
@@ -119,14 +129,14 @@ export default function HomePage() {
 ### Infrastructure
 
 - **Delete** `docker-compose.yml` and `docker/init-db/`
-- **Remove** the `INTELLIGENCE_*` variables from `.env` / `.env.example`
+- **Remove** the `INTELLIGENCE_*` variables from `.env` / `.env.example` if you are no longer using CopilotKit Intelligence
 
 ### Summary of files to touch
 
 | Action | Path                                      |
 | ------ | ----------------------------------------- |
 | Delete | `apps/app/src/components/threads-drawer/` |
-| Edit   | `apps/app/src/app/page.tsx`               |
+| Edit   | `apps/app/src/App.tsx`                    |
 | Edit   | `apps/bff/src/server.ts`                  |
 | Delete | `docker-compose.yml`                      |
 | Delete | `docker/init-db/`                         |

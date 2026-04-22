@@ -26,7 +26,7 @@ import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 function TaskBoard() {
   // [!code highlight:3]
   const { agent } = useAgent({
-    agentId: "assistant",
+    agentId: "default",
   });
 
   // Read state set by the agent // [!code highlight]
@@ -60,7 +60,7 @@ import { useAgent } from "@copilotkit/react-core/v2";
 
 function SettingsPanel() {
   const { agent } = useAgent({
-    agentId: "assistant",
+    agentId: "default",
   });
 
   const handleThemeChange = (theme: string) => {
@@ -99,7 +99,7 @@ import { useAgent } from "@copilotkit/react-core/v2";
 
 function TodoApp() {
   const { agent } = useAgent({
-    agentId: "assistant",
+    agentId: "default",
   });
 
   const todos = (agent.state.todos as any[]) ?? [];

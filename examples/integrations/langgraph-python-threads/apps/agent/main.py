@@ -7,12 +7,10 @@ from copilotkit import CopilotKitMiddleware
 from langchain.agents import create_agent
 
 # Data & state tools
-from src.query import query_data
-from src.todos import AgentState, todo_tools
-
-# A2UI tools
 from src.a2ui_dynamic_schema import generate_a2ui
 from src.a2ui_fixed_schema import search_flights
+from src.query import query_data
+from src.todos import AgentState, todo_tools
 
 agent = create_agent(
     model="openai:gpt-4.1",

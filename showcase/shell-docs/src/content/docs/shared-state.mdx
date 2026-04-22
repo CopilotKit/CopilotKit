@@ -1,0 +1,93 @@
+---
+title: Shared State
+description: Create a two-way connection between your UI and agent state.
+icon: "lucide/Repeat"
+hideTOC: true
+snippet_cell: shared-state-read-write
+---
+
+## What is shared state?
+
+Agentic Copilots maintain a shared state that seamlessly connects your UI with the agent's execution. This shared state system allows you to:
+
+- Display the agent's current progress and intermediate results
+- Update the agent's state through UI interactions
+- React to state changes in real-time across your application
+
+<ImageZoom
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/SharedStateCoAgents.gif"
+  alt="Shared State Demo"
+  width={1000}
+  height={1000}
+  className="rounded-lg shadow-lg border mt-0"
+/>
+
+<InlineDemo demo="shared-state-read-write" />
+
+## When should I use this?
+
+Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways — the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
+
+## The two directions
+
+Shared state is a single object that both the UI and the agent can read
+and write. In practice, most apps split it into at least two conceptual
+slices:
+
+- A **UI-written** slice (e.g. user profile, form inputs) that the agent
+  reads on every turn and uses to tailor its behaviour.
+- An **agent-written** slice (e.g. notes, a document, a plan) that the
+  UI renders in real time as the agent produces it.
+
+The `shared-state-read-write` showcase cell wires both sides against a
+single `AgentState` schema with `preferences` (UI-written) and `notes`
+(agent-written).
+
+## Reading agent state
+
+The `useAgent` hook subscribes your component to state changes. Pass
+`UseAgentUpdate.OnStateChanged` and every mutation the agent makes to
+its state triggers a re-render — your UI is a reactive window into the
+agent's world.
+
+<Snippet region="use-agent-read" title="frontend/src/app/page.tsx — useAgent subscription" />
+
+Once subscribed, the agent-authored slice of state is just data you
+render. The `NotesCard` below is a plain presentational component — it
+doesn't know about CopilotKit at all; it just receives `notes` as a
+prop from the parent page.
+
+<Snippet region="notes-card-render" title="frontend/src/app/notes-card.tsx — render agent-authored notes" />
+
+## Writing to agent state
+
+Writes flow the other direction via `agent.setState`. Every call
+replaces the named fields; on the agent's next turn, the new values are
+visible to the backend (via middleware, prompt injection, or direct
+reads from `state`) and influence the reply.
+
+<Snippet region="use-agent-write" title="frontend/src/app/page.tsx — write to agent state" />
+
+The form that generates those writes is, again, a plain controlled
+component. Every onChange bubbles up to the parent, which calls
+`agent.setState` — keeping the UI and the agent in lockstep.
+
+<Snippet region="preferences-card-render" title="frontend/src/app/preferences-card.tsx — preferences form" />
+
+## Going further
+
+Two common extensions of the basic pattern:
+
+- **[State streaming](/shared-state/streaming)** — stream partial
+  state updates to the UI *while* a tool call is still running, so
+  long-running outputs (documents, plans) appear token-by-token.
+- **[Agent read-only context](/shared-state/agent-readonly)** —
+  when you only need a one-way UI → agent channel, `useAgentContext`
+  publishes read-only values to the agent without opening up write
+  access.
+
+<FeatureIntegrations feature="shared-state-read-write" />
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="shared-state" exclude={["agno", "agent-spec"]} />

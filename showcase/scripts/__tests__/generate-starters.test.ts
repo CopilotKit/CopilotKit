@@ -12,6 +12,9 @@ import {
   forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
+  getAgentBuildSteps,
+  getAgentBuildCopy,
+  generateStarterToDir,
   FRAMEWORKS,
   PIN_OVERRIDES,
 } from "../generate-starters";
@@ -183,19 +186,17 @@ describe("generate-starters", () => {
           }
         });
 
-        it("uses local imports for tools (relative or absolute)", () => {
+        it("tool imports are local (relative or absolute) when used", () => {
           const pyFiles = findFiles(agentDir, [".py"]);
-          const filesWithToolImport = pyFiles.filter((f) => {
+          const externalToolImport =
+            /from\s+@copilotkit[/\\]showcase-shared-tools/;
+          for (const f of pyFiles) {
             const content = fs.readFileSync(f, "utf-8");
-            return (
-              content.includes("from .tools import") ||
-              content.includes("from .tools.") ||
-              content.includes("from .tool_wrappers import") ||
-              content.includes(".tools import") // absolute like src.agents.tools
-            );
-          });
-          // At least one file should have tool imports
-          expect(filesWithToolImport.length).toBeGreaterThan(0);
+            // Only enforce that no external shared-tools import sneaks in.
+            // Packages may legitimately have no tools at all (e.g. controlled
+            // generative UI demos rely purely on frontend tools).
+            expect(content).not.toMatch(externalToolImport);
+          }
         });
 
         it("has self-contained tools/ directory", () => {
@@ -614,16 +615,27 @@ describe("generate-starters", () => {
       expect(block).toContain("@langchain/langgraph-cli dev");
     });
 
-    it("TypeScript mastra: returns mastra dev", () => {
+    it("TypeScript mastra: returns prod-mode node + .mastra/output/index.mjs", () => {
+      // Prod-mode (#4133): mastra starters run a precompiled bundle via
+      // `node` rather than `npx mastra dev` at container boot. The
+      // tsx-based build has been pushed to image build time via
+      // getAgentBuildSteps() so cold start is a straight `node` call —
+      // mirrors PR #4132's fix for langgraph-typescript.
       const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("mastra dev");
+      expect(block).toContain("node /app/.mastra/output/index.mjs");
+      expect(block).not.toContain("npx mastra dev");
     });
 
-    it("TypeScript generic: returns npx tsx", () => {
+    it("TypeScript claude-sdk: returns prod-mode node + /app/dist/agent/index.js", () => {
+      // Prod-mode (#4133): claude-sdk-typescript starter runs the
+      // precompiled JS via `node` rather than `npx tsx agent/index.ts`.
+      // The tsc compile is pushed to image build time via
+      // getAgentBuildSteps() — mirrors PR #4132's langgraph-typescript fix.
       const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("npx tsx agent/index.ts");
+      expect(block).toContain("node /app/dist/agent/index.js");
+      expect(block).not.toContain("npx tsx");
     });
 
     it("Java: returns java -jar", () => {
@@ -636,6 +648,162 @@ describe("generate-starters", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "ms-agent-dotnet")!;
       const block = getEntrypointBlock(fw);
       expect(block).toContain("dotnet ProverbsAgent.dll");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Prod-mode Dockerfile build-step emitters (getAgentBuildSteps /
+  // getAgentBuildCopy).
+  //
+  // Rationale: PR #4133 pushed TS compiles off the cold-start hot path by
+  // running them in the Dockerfile frontend (builder) stage and COPYing
+  // the compiled artifacts into the runner. The per-slug opt-in is keyed
+  // by fw.slug so that only the slots we've verified (claude-sdk-typescript
+  // via tsc, mastra via `mastra build`) receive the build step — other
+  // starters emit "" and their Dockerfile stays unchanged. Guard both the
+  // slot content AND the "" fallthrough so a future refactor can't
+  // silently re-enable tsx/mastra-dev at runtime.
+  // ---------------------------------------------------------------------
+  describe("getAgentBuildSteps() / getAgentBuildCopy(): prod-mode emitters", () => {
+    it("claude-sdk-typescript: builder stage emits tsc compile", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("tsc");
+      expect(steps).toContain("/app/dist");
+      expect(steps).toContain("agent/index.ts");
+    });
+
+    it("claude-sdk-typescript: runner stage COPYs /app/dist from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain("COPY --chown=app:app --from=frontend /app/dist");
+    });
+
+    it("mastra: builder stage emits `mastra build`", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("mastra build");
+      expect(steps).toContain("src/mastra");
+    });
+
+    it("mastra: runner stage COPYs /app/.mastra from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain(
+        "COPY --chown=app:app --from=frontend /app/.mastra",
+      );
+    });
+
+    it("langgraph-typescript: emits empty build step (uses runtime server.mjs)", () => {
+      // langgraph-typescript was migrated separately in PR #4132 via a
+      // server.mjs entrypoint — the generator does not add a Dockerfile
+      // build step for it here. Guard the "" fallthrough so we catch any
+      // accidental opt-in that would fork the runtime shape.
+      const fw = FRAMEWORKS.find((f) => f.slug === "langgraph-typescript")!;
+      expect(getAgentBuildSteps(fw)).toBe("");
+      expect(getAgentBuildCopy(fw)).toBe("");
+    });
+
+    it("python starters: emit empty strings (Python prod-mode happens in agent-builder stage, not per-slug)", () => {
+      // Python prod-mode is encoded in the shared Dockerfile.python
+      // template (pip venv in agent-builder stage) — per-slug emitters
+      // stay silent so Python slugs keep their shared runtime shape.
+      for (const fw of FRAMEWORKS.filter((f) => f.language === "python")) {
+        expect(getAgentBuildSteps(fw)).toBe("");
+        expect(getAgentBuildCopy(fw)).toBe("");
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // entrypointOverride regression guard.
+  //
+  // Rationale: ``generateStarterImpl`` has an ``entrypointOverride`` branch
+  // that preserves the committed starter ``entrypoint.sh`` across regen
+  // (vs. the shared OpenAI-hardcoded template). langroid uses this — a
+  // future refactor that silently removes or short-circuits that branch
+  // would quietly revert the provider-agnostic entrypoint on the next
+  // regen and all existing tests would still pass (the template picks up
+  // the default ``entrypoint.sh`` for non-override slugs).
+  //
+  // Import ``generateStarterToDir`` at the suite level so the test fixture
+  // can regenerate a single starter into a tmp directory and byte-diff
+  // against the committed canonical file.
+  // ---------------------------------------------------------------------
+  describe("entrypointOverride: committed entrypoint.sh is preserved verbatim", () => {
+    it("langroid: generator-emitted entrypoint.sh equals the committed canonical file", async () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "langroid");
+      expect(fw, "langroid framework must exist in FRAMEWORKS").toBeDefined();
+      expect(fw!.entrypointOverride).toBe(true);
+
+      const canonical = fs.readFileSync(
+        path.join(STARTERS_DIR, "langroid", "entrypoint.sh"),
+        "utf-8",
+      );
+
+      const tmp = fs.mkdtempSync(
+        path.join(os.tmpdir(), "gen-starters-override-"),
+      );
+      try {
+        generateStarterToDir(fw!, tmp);
+        const generated = fs.readFileSync(
+          path.join(tmp, "langroid", "entrypoint.sh"),
+          "utf-8",
+        );
+        expect(generated).toBe(canonical);
+        // Also assert the file is executable — the override branch
+        // force-writes 0o755. Windows checkouts or archive round-trips
+        // strip +x, so pin it explicitly.
+        const stat = fs.statSync(path.join(tmp, "langroid", "entrypoint.sh"));
+        // Check the user-execute bit — platform-agnostic (works on both
+        // POSIX and Windows-simulated checkouts).
+        expect((stat.mode & 0o100) !== 0).toBe(true);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("non-override slug: generator-emitted entrypoint.sh differs from langroid's canonical (uses template)", async () => {
+      // Pick a non-override Python slug so we actually hit the shared
+      // template codepath (not the override branch). google-adk is python
+      // and does NOT set entrypointOverride — it will regenerate from the
+      // template on every call.
+      const nonOverrideFw = FRAMEWORKS.find(
+        (f) => f.slug === "google-adk" && !f.entrypointOverride,
+      );
+      expect(
+        nonOverrideFw,
+        "expected a non-override python slug (google-adk) in FRAMEWORKS",
+      ).toBeDefined();
+
+      const langroidCanonical = fs.readFileSync(
+        path.join(STARTERS_DIR, "langroid", "entrypoint.sh"),
+        "utf-8",
+      );
+
+      const tmp = fs.mkdtempSync(
+        path.join(os.tmpdir(), "gen-starters-template-"),
+      );
+      try {
+        generateStarterToDir(nonOverrideFw!, tmp);
+        const generated = fs.readFileSync(
+          path.join(tmp, nonOverrideFw!.slug, "entrypoint.sh"),
+          "utf-8",
+        );
+        // Distinct content: the non-override slug uses the shared template
+        // which does NOT contain the provider-agnostic
+        // ``_expected_key_for_model`` function that the langroid override
+        // carries. If this assertion starts passing by equality, something
+        // has gone wrong in the generator wiring (e.g. template got the
+        // override block pasted in, or langroid's override leaked cross-
+        // slug).
+        expect(generated).not.toBe(langroidCanonical);
+        // Stronger signal: the langroid-only override guard function
+        // must NOT appear in the template-generated entrypoint.
+        expect(generated).not.toContain("_expected_key_for_model");
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
     });
   });
 });

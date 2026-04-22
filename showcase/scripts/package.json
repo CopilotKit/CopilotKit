@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "generate-registry": "tsx generate-registry.ts",
+    "probe-docs": "tsx probe-docs.ts",
     "validate-manifests": "tsx generate-registry.ts --validate-only",
+    "showcase:audit": "tsx audit.ts",
     "create-integration": "tsx create-integration/index.ts",
     "sync-qa": "tsx sync-qa-to-notion.ts",
     "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
@@ -28,6 +30,6 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@types/prompts": "^2.4.9",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.3"
   }
 }

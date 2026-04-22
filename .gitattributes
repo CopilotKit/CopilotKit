@@ -6,6 +6,12 @@
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.webm filter=lfs diff=lfs merge=lfs -text
 
+# Shell scripts must retain LF line endings. Windows contributors regenerating
+# showcase starters on a Windows checkout (or with autocrlf=true) would
+# otherwise silently ship CRLF ``entrypoint.sh`` files that bash in the
+# Docker runtime rejects (``bad interpreter: No such file or directory``).
+*.sh text eol=lf
+
 # Generated showcase starters — do not edit manually
 # Regenerate with: cd showcase/scripts && npx tsx generate-starters.ts
 showcase/starters/ag2/** linguist-generated=true
