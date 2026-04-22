@@ -121,7 +121,7 @@ class TestRunFiltersNone:
             "run",
             new=mock_super_run,
         ):
-            results = asyncio.get_event_loop().run_until_complete(
+            results = asyncio.run(
                 _collect_async_gen(agent.run(MagicMock()))
             )
 
