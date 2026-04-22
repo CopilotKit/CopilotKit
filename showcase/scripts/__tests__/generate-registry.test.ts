@@ -1,24 +1,14 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import {
-  FileSnapshotRestorer,
-  execOptsFor,
-  restoreFromGitHead,
-} from "./test-cleanup";
-import { SCRIPTS_DIR, REPO_ROOT, SHELL_DATA_DIR } from "./paths";
+import { execOptsFor } from "./test-cleanup";
+import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
-// `generate-registry.ts` writes to showcase/shell/src/data/registry.json AND
-// showcase/shell/src/data/constraints.json. Without this, every test run
-// leaks regenerated JSON into the working tree. Snapshot in beforeAll;
-// restore after each test and at the end of the suite. Assumes vitest's
-// `fileParallelism: false` config.
-const DATA_FILES = [
-  path.join(SHELL_DATA_DIR, "registry.json"),
-  path.join(SHELL_DATA_DIR, "constraints.json"),
-];
-const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
+// `generate-registry.ts` writes to showcase/shell/src/data/registry.json and
+// constraints.json. Both are gitignored, so leaked writes don't dirty the
+// working tree; we no longer snapshot/restore them. Each test invokes the
+// generator itself and reads the fresh output.
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
@@ -30,22 +20,6 @@ function runGenerator(): string {
   const out = execFileSync("npx", ["tsx", "generate-registry.ts"], EXEC_OPTS);
   return out.toString();
 }
-
-beforeAll(() => {
-  // Heal a working tree left dirty by a previously crashed run so our
-  // baseline snapshot matches git HEAD, not the leaked state.
-  restoreFromGitHead(REPO_ROOT, DATA_FILES);
-  dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `generate-registry.test.ts: data snapshot is empty. Expected to find` +
-        ` tracked files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
-    );
-  }
-});
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
 
 // The generator uses __dirname-relative paths, so we test it via the actual
 // script against the real showcase directory, using the existing
@@ -138,75 +112,4 @@ describe("Registry Generator", () => {
     }
   });
 
-  // Regression guard — ensures the snapshot/restore hooks defined at the top
-  // of this file actually heal drift that `generate-registry.ts` produces in
-  // shell/src/data/. If these hooks regress we'll see data-file drift leak
-  // into the working tree (same failure mode as the workflow YAML leak
-  // fixed in create-integration.test.ts).
-  //
-  // The sentinel append below creates transient tracking drift on
-  // shell/src/data/*.json for the duration of the test; a developer with a
-  // git GUI / file watcher will see flicker while it runs. Restore heals it
-  // before the test returns.
-  it("restores shell/src/data JSONs after the generator mutates them", () => {
-    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
-
-    // Run the generator explicitly via the argv-safe helper.
-    runGenerator();
-
-    // Capture pre-sentinel content so we can prove the append landed on
-    // disk via a content check (stronger than byte-length comparison:
-    // resistant to a hypothetical fs shim that updates stat but not bytes).
-    const preAppendContent = new Map<string, Buffer>();
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      preAppendContent.set(p, fs.readFileSync(p));
-    }
-
-    // Force each snapshotted file to differ from its snapshot — appending a
-    // byte the generator would never write. This makes the test independent
-    // of whether the generator's output was byte-identical to the snapshot.
-    const SENTINEL = "\n/* regression-guard-sentinel */\n";
-    const sentinelBuf = Buffer.from(SENTINEL, "utf-8");
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      fs.appendFileSync(p, SENTINEL);
-    }
-
-    // Verify the sentinel actually landed — the file's bytes must now equal
-    // its pre-append content followed by the sentinel bytes, exactly.
-    // Fails red under a readonly-fs mock or a buggy appendFileSync shim.
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      const before = preAppendContent.get(p)!;
-      const expected = Buffer.concat([before, sentinelBuf]);
-      const actual = fs.readFileSync(p);
-      expect(
-        actual.equals(expected),
-        `sentinel append did not land on ${p}`,
-      ).toBe(true);
-    }
-
-    // Restore and assert bit-for-bit against the in-memory snapshot (NOT
-    // against a re-read of disk, which would silently agree with a buggy
-    // restore()).
-    dataRestorer.restore();
-
-    for (const [p, baseline] of dataRestorer.snapshotMap) {
-      const current = fs.readFileSync(p);
-      expect(current.equals(baseline), `data drift not restored: ${p}`).toBe(
-        true,
-      );
-    }
-  });
-
-  // Safety net: every snapshotted data file must match its captured baseline
-  // bit-for-bit at the end of the suite. Mirrors the equivalent check in
-  // create-integration.test.ts.
-  it("leaves every snapshotted data file byte-identical to its baseline", () => {
-    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
-    for (const [p, baseline] of dataRestorer.snapshotMap) {
-      const current = fs.readFileSync(p);
-      expect(current.equals(baseline), `data drift after suite: ${p}`).toBe(
-        true,
-      );
-    }
-  });
 });

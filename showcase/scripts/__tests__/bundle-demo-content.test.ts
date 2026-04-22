@@ -1,20 +1,15 @@
-import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
+import { describe, it, expect } from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import {
-  FileSnapshotRestorer,
-  execOptsFor,
-  restoreFromGitHead,
-} from "./test-cleanup";
-import { SCRIPTS_DIR, REPO_ROOT, SHELL_DATA_DIR } from "./paths";
+import { execOptsFor } from "./test-cleanup";
+import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
-// `bundle-demo-content.ts` rewrites showcase/shell/src/data/demo-content.json
-// on every run, leaking changes into the working tree. Snapshot in beforeAll
-// and restore after each test. Assumes vitest's `fileParallelism: false`.
+// `bundle-demo-content.ts` writes to showcase/shell/src/data/demo-content.json.
+// The output is gitignored, so leaked writes do not dirty the working tree;
+// we no longer snapshot/restore it. Each test invokes the bundler itself and
+// reads the fresh output.
 const CONTENT_PATH = path.join(SHELL_DATA_DIR, "demo-content.json");
-const DATA_FILES = [CONTENT_PATH];
-const dataRestorer = new FileSnapshotRestorer(DATA_FILES);
 
 const EXEC_OPTS = execOptsFor(SCRIPTS_DIR);
 
@@ -26,28 +21,7 @@ function runBundler(): string {
   return out.toString();
 }
 
-beforeAll(() => {
-  restoreFromGitHead(REPO_ROOT, DATA_FILES);
-  dataRestorer.snapshot();
-  if (dataRestorer.snapshotMap.size === 0) {
-    throw new Error(
-      `bundle-demo-content.test.ts: data snapshot is empty. Expected to find` +
-        ` tracked files at:\n` +
-        DATA_FILES.map((p) => `  ${p}`).join("\n"),
-    );
-  }
-  // NOTE: we intentionally do NOT pre-run the bundler here. Test 1 below
-  // exercises the bundler AND asserts on stdout, so a pre-run in beforeAll
-  // was redundant. Tests 2-5 call `runBundlerAndRead()` which
-  // runs the bundler themselves — afterEach restores to HEAD between tests
-  // so they must re-invoke rather than read stale committed content.
-});
-afterEach(() => dataRestorer.restore());
-afterAll(() => dataRestorer.restore());
-
-/** Run the bundler and return the parsed demo-content.json. Tests 3-5 each
- *  call this so they observe live bundler output (afterEach restores to HEAD
- *  between tests, so without this step they'd read stale committed content). */
+/** Run the bundler and return the parsed demo-content.json. */
 function runBundlerAndRead(): any {
   runBundler();
   return JSON.parse(fs.readFileSync(CONTENT_PATH, "utf-8"));
@@ -145,70 +119,4 @@ describe("Content Bundler", () => {
     }
   });
 
-  // Regression guard — verifies the snapshot/restore hooks defined at the
-  // top of this file actually heal drift that `bundle-demo-content.ts`
-  // produces in shell/src/data/demo-content.json.
-  //
-  // The sentinel append creates transient tracking drift on demo-content.json
-  // for the duration of the test; a developer with a git GUI / file watcher
-  // will see flicker while it runs. Restore heals it before the test returns.
-  it("restores shell/src/data/demo-content.json after the bundler mutates it", () => {
-    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
-
-    // Run the bundler (side-effect: overwrites demo-content.json).
-    runBundler();
-
-    // Capture pre-sentinel content so we can prove the append landed via a
-    // content check (stronger than byte-length: resistant to a hypothetical
-    // fs shim that updates stat but not bytes).
-    const preAppendContent = new Map<string, Buffer>();
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      preAppendContent.set(p, fs.readFileSync(p));
-    }
-
-    // Force the file to differ from the snapshot regardless of generator
-    // output. Safe because we restore immediately below.
-    const SENTINEL = "\n/* regression-guard-sentinel */\n";
-    const sentinelBuf = Buffer.from(SENTINEL, "utf-8");
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      fs.appendFileSync(p, SENTINEL);
-    }
-
-    // Verify the sentinel actually landed on disk — the file must be
-    // pre-append content followed by sentinel bytes, exactly.
-    for (const p of dataRestorer.snapshotMap.keys()) {
-      const before = preAppendContent.get(p)!;
-      const expected = Buffer.concat([before, sentinelBuf]);
-      const actual = fs.readFileSync(p);
-      expect(
-        actual.equals(expected),
-        `sentinel append did not land on ${p}`,
-      ).toBe(true);
-    }
-
-    // Restore and assert bit-for-bit against the in-memory snapshot (NOT
-    // against a re-read of disk, which would silently agree with a buggy
-    // restore()).
-    dataRestorer.restore();
-
-    for (const [p, baseline] of dataRestorer.snapshotMap) {
-      const current = fs.readFileSync(p);
-      expect(current.equals(baseline), `data drift not restored: ${p}`).toBe(
-        true,
-      );
-    }
-  });
-
-  // Safety net: every snapshotted data file must match its captured baseline
-  // bit-for-bit at the end of the suite. Mirrors the equivalent check in
-  // create-integration.test.ts and generate-registry.test.ts.
-  it("leaves every snapshotted data file byte-identical to its baseline", () => {
-    expect(dataRestorer.snapshotMap.size).toBeGreaterThan(0);
-    for (const [p, baseline] of dataRestorer.snapshotMap) {
-      const current = fs.readFileSync(p);
-      expect(current.equals(baseline), `data drift after suite: ${p}`).toBe(
-        true,
-      );
-    }
-  });
 });
