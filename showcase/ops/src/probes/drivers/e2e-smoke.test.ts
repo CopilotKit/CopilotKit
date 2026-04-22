@@ -1,287 +1,430 @@
 import { describe, it, expect } from "vitest";
-import { promises as fs } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import {
   e2eSmokeDriver,
   createE2eSmokeDriver,
-  type PlaywrightRunner,
+  type E2eBrowser,
+  type E2eBrowserContext,
+  type E2ePage,
+  type E2eSmokeLevelSignal,
+  type E2eSmokeSignal,
 } from "./e2e-smoke.js";
 import { logger } from "../../logger.js";
+import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
-// Driver-level tests for the e2e-smoke Playwright driver. Deep behavioural
-// coverage for log truncation lives in `../e2e-smoke.test.ts` (byte-budget
-// matrix); this file verifies the driver adapter layer — schema shape,
-// reporter-JSON parsing, the driver-level timeout kill-switch, and the
-// malformed-reporter error branch — without double-counting tests.
+// Driver-level tests for the Playwright-in-process e2e-smoke driver. The
+// real chromium launch path is never exercised here — tests inject a
+// `FakeBrowser` through the `launcher` dep so every code path is
+// reproducible without a running browser. Integration against a live
+// Railway service is covered by showcase/tests/e2e/integration-smoke.spec.ts.
 
-const FIXTURES = path.resolve(__dirname, "../../../test/fixtures/e2e-smoke");
+// --- Fakes ---------------------------------------------------------------
 
-function baseCtx() {
+/**
+ * Scripted fake page: each selector-keyed method pulls from an optional
+ * `scripts` map so individual tests can force a specific L3/L4 outcome
+ * (empty response, weather hit, weather miss, navigation throw, etc.).
+ */
+interface PageScript {
+  bodyText?: string;
+  assistantText?: string;
+  throwOnGoto?: Error;
+  throwOnType?: Error;
+  throwOnWaitForSelector?: Error;
+  throwOnAssistantSelector?: Error;
+  typedMessage?: { value: string };
+}
+
+function makePage(script: PageScript = {}): E2ePage {
+  return {
+    async goto() {
+      if (script.throwOnGoto) throw script.throwOnGoto;
+    },
+    async type(_sel, text) {
+      if (script.throwOnType) throw script.throwOnType;
+      if (script.typedMessage) script.typedMessage.value = text;
+    },
+    async press() {
+      // No-op — the fake assertions don't need to model a real keypress.
+    },
+    async waitForSelector(sel) {
+      if (sel === "textarea") {
+        if (script.throwOnWaitForSelector) throw script.throwOnWaitForSelector;
+        return;
+      }
+      if (sel === '[data-testid="copilot-assistant-message"]') {
+        if (script.throwOnAssistantSelector)
+          throw script.throwOnAssistantSelector;
+        return;
+      }
+    },
+    async textContent(sel) {
+      if (sel === '[data-testid="copilot-assistant-message"]:last-of-type') {
+        return script.assistantText ?? "";
+      }
+      if (sel === "body") {
+        return script.bodyText ?? "";
+      }
+      return "";
+    },
+    async close() {
+      /* no-op */
+    },
+  };
+}
+
+interface FakeBrowserState {
+  closed: boolean;
+  contextsOpened: number;
+  contextsClosed: number;
+}
+
+function makeBrowser(
+  pageScripts: PageScript[],
+  state: FakeBrowserState = {
+    closed: false,
+    contextsOpened: 0,
+    contextsClosed: 0,
+  },
+): { browser: E2eBrowser; state: FakeBrowserState } {
+  let pageIdx = 0;
+  const browser: E2eBrowser = {
+    async newContext(): Promise<E2eBrowserContext> {
+      state.contextsOpened++;
+      return {
+        async newPage(): Promise<E2ePage> {
+          return makePage(pageScripts[pageIdx++] ?? {});
+        },
+        async close() {
+          state.contextsClosed++;
+        },
+      };
+    },
+    async close() {
+      state.closed = true;
+    },
+  };
+  return { browser, state };
+}
+
+function baseCtx(extra: Partial<ProbeContext> = {}): ProbeContext {
   return {
     now: () => new Date("2026-04-21T00:00:00Z"),
     logger,
     env: {},
+    ...extra,
   };
 }
 
-describe("e2eSmokeDriver", () => {
-  it("exposes kind === 'e2e_smoke'", () => {
-    expect(e2eSmokeDriver.kind).toBe("e2e_smoke");
-  });
+class CapturingWriter {
+  results: ProbeResult<unknown>[] = [];
+  async write(r: ProbeResult<unknown>): Promise<unknown> {
+    this.results.push(r);
+    return { previousState: null, newState: r.state, transition: "first" };
+  }
+}
 
-  it("inputSchema accepts { key } alone", () => {
+// --- Schema --------------------------------------------------------------
+
+describe("e2eSmokeDriver.inputSchema", () => {
+  it("accepts { key, backendUrl, demos }", () => {
     const parsed = e2eSmokeDriver.inputSchema.safeParse({
-      key: "e2e_smoke:l1-3",
+      key: "e2e-smoke:foo",
+      backendUrl: "https://example.com",
+      demos: ["agentic-chat", "tool-rendering"],
     });
     expect(parsed.success).toBe(true);
   });
 
-  it("inputSchema accepts { key, suite: 'l1-3' }", () => {
+  it("accepts omitted demos (no L4)", () => {
     const parsed = e2eSmokeDriver.inputSchema.safeParse({
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
+      key: "e2e-smoke:foo",
+      backendUrl: "https://example.com",
     });
     expect(parsed.success).toBe(true);
   });
 
-  it("inputSchema accepts { key, suite: 'l4' }", () => {
+  it("rejects empty key", () => {
     const parsed = e2eSmokeDriver.inputSchema.safeParse({
-      key: "e2e_smoke:l4",
-      suite: "l4",
-    });
-    expect(parsed.success).toBe(true);
-  });
-
-  it("inputSchema rejects unknown suite value", () => {
-    const parsed = e2eSmokeDriver.inputSchema.safeParse({
-      key: "e2e_smoke:l1-3",
-      suite: "l99",
+      key: "",
+      backendUrl: "https://example.com",
     });
     expect(parsed.success).toBe(false);
   });
 
-  it("inputSchema rejects empty key", () => {
-    const parsed = e2eSmokeDriver.inputSchema.safeParse({ key: "" });
+  it("rejects non-URL backendUrl", () => {
+    const parsed = e2eSmokeDriver.inputSchema.safeParse({
+      key: "e2e-smoke:foo",
+      backendUrl: "not-a-url",
+    });
     expect(parsed.success).toBe(false);
   });
+});
 
-  it("reports green when reporter JSON says all pass (happy path)", async () => {
-    const passFixture = path.join(FIXTURES, "playwright-pass.json");
-    const runner: PlaywrightRunner = async () => ({
-      reporterJsonPath: passFixture,
+// --- L3 behaviour --------------------------------------------------------
+
+describe("e2eSmokeDriver L3 (chat)", () => {
+  it("green when chat returns any non-empty response", async () => {
+    const { browser, state } = makeBrowser([{ assistantText: "Hi there!" }]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const ctx = baseCtx({ writer });
+
+    const result = await driver.run(ctx, {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://showcase-foo.example.com",
     });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("green");
-    expect(r.key).toBe("e2e_smoke:l1-3");
-    const signal = r.signal as { suite: string; failureSummary: string };
-    expect(signal.suite).toBe("l1-3");
-    expect(signal.failureSummary).toBe("");
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
+    expect(sig.l4).toBe("skipped");
+    expect(sig.failureSummary).toBe("");
+    // Side-emit: chat:<slug> should have been written.
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("green");
+    // Browser must always be torn down.
+    expect(state.closed).toBe(true);
   });
 
-  it("reports red with failureSummary when reporter JSON says fail", async () => {
-    const failFixture = path.join(FIXTURES, "playwright-fail.json");
-    const runner: PlaywrightRunner = async () => ({
-      reporterJsonPath: failFixture,
+  it("red when chat yields an empty assistant response", async () => {
+    const { browser } = makeBrowser([{ assistantText: "" }]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
     });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { suite: string; failureSummary: string };
-    expect(signal.failureSummary.length).toBeGreaterThan(0);
-    // Must include the failing test's error message, not just the title.
-    expect(signal.failureSummary).toMatch(
-      /expected.*received|assertion|Error/i,
-    );
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("red");
+    expect(sig.failureSummary).toMatch(/L3:/);
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("red");
   });
 
-  it("enforces driver-level timeout: Playwright hangs → red with 'timeout' errorDesc", async () => {
-    let cleaned = false;
-    const runner: PlaywrightRunner = (_opts, signal) =>
-      new Promise((_resolve, reject) => {
-        signal.addEventListener("abort", () => {
-          cleaned = true;
-          reject(new Error("aborted"));
-        });
-        // Never resolve on its own — driver must kill via AbortSignal.
+  it("falls back to body scraping when the assistant selector never resolves", async () => {
+    // Reference helper's fallback path: slice <body> after the sent
+    // message, strip UI chrome, keep substantive text.
+    const { browser } = makeBrowser([
+      {
+        throwOnAssistantSelector: new Error("selector timeout"),
+        bodyText:
+          "Hello, please respond with a brief greeting.\nAlright, here is a warm greeting for you from the assistant response.",
+      },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+    expect(result.state).toBe("green");
+  });
+});
+
+// --- L4 behaviour --------------------------------------------------------
+
+describe("e2eSmokeDriver L4 (tools)", () => {
+  it("skipped when demos does not include 'tool-rendering'", async () => {
+    const { browser, state } = makeBrowser([
+      { assistantText: "Hi" },
+      // No second page — L4 should not open one.
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l4).toBe("skipped");
+    // Exactly one context was opened (L3 only).
+    expect(state.contextsOpened).toBe(1);
+    // No tools:<slug> side-emit when skipped.
+    expect(writer.results.find((r) => r.key === "tools:foo")).toBeUndefined();
+  });
+
+  it("green when L4 response contains weather vocabulary", async () => {
+    const { browser, state } = makeBrowser([
+      { assistantText: "Hello" },
+      { assistantText: "The weather in San Francisco is sunny, 68 degrees." },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["agentic-chat", "tool-rendering"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
+    expect(sig.l4).toBe("green");
+    expect(result.state).toBe("green");
+    expect(state.contextsOpened).toBe(2);
+    expect(state.contextsClosed).toBe(2);
+    const tools = writer.results.find((r) => r.key === "tools:foo");
+    expect(tools?.state).toBe("green");
+    const toolsSig = tools?.signal as E2eSmokeLevelSignal;
+    expect(toolsSig.level).toBe("tools");
+    expect(toolsSig.responseText).toMatch(/San Francisco/);
+  });
+
+  it("red when L4 response lacks weather vocabulary", async () => {
+    const { browser } = makeBrowser([
+      { assistantText: "Hi" },
+      {
+        assistantText:
+          "I'm sorry, I cannot help with that request at this time.",
+      },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["tool-rendering"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l4).toBe("red");
+    expect(sig.failureSummary).toMatch(/weather vocabulary/);
+    expect(result.state).toBe("red");
+    const tools = writer.results.find((r) => r.key === "tools:foo");
+    expect(tools?.state).toBe("red");
+  });
+
+  it("red aggregate when L3 passes but L4 fails (both levels surfaced)", async () => {
+    const { browser } = makeBrowser([
+      { assistantText: "Hi" },
+      { assistantText: "unrelated content with no matching vocabulary" },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["tool-rendering"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("green");
+    expect(sig.l4).toBe("red");
+    expect(result.state).toBe("red");
+    expect(sig.failureSummary).toMatch(/L4:/);
+  });
+});
+
+// --- Launcher / error paths ---------------------------------------------
+
+describe("e2eSmokeDriver error paths", () => {
+  it("red with launcher-error when chromium launch throws", async () => {
+    const driver = createE2eSmokeDriver({
+      launcher: async () => {
+        throw new Error("cannot find chromium-headless-shell");
+      },
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["tool-rendering"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(result.state).toBe("red");
+    expect(sig.errorDesc).toBe("launcher-error");
+    expect(sig.l3).toBe("red");
+    expect(sig.l4).toBe("red");
+    expect(sig.failureSummary).toMatch(/chromium-headless-shell/);
+  });
+
+  it("red with per-level error when page.goto throws", async () => {
+    const { browser } = makeBrowser([
+      { throwOnGoto: new Error("net::ERR_CONNECTION_REFUSED") },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.failureSummary).toMatch(/ERR_CONNECTION_REFUSED/);
+  });
+
+  it("red with timeout errorDesc when driver hard-timeout fires during launch", async () => {
+    // Hanging launcher: resolves only when its AbortSignal fires (which
+    // it will, from the driver's hard-timeout). Ensures the driver maps
+    // the abort into `errorDesc: "timeout"` rather than masquerading as
+    // `launcher-error`. Tests the Procedure 0 fail-loud distinction
+    // between "chromium missing" and "remote stack slow".
+    let rejectLauncher: ((err: Error) => void) | undefined;
+    const launcher = async (): Promise<E2eBrowser> =>
+      await new Promise<E2eBrowser>((_res, rej) => {
+        rejectLauncher = rej;
       });
-    const driver = createE2eSmokeDriver({ runner, timeoutMs: 25 });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { failureSummary: string; errorDesc?: string };
-    const combined =
-      (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
-    expect(combined.toLowerCase()).toMatch(/timeout/);
-    expect(cleaned).toBe(true);
-  });
 
-  it("reports red with parse errorDesc when reporter JSON is malformed", async () => {
-    const tmp = await fs.mkdtemp(
-      path.join(os.tmpdir(), "e2e-smoke-malformed-"),
-    );
-    const malformed = path.join(tmp, "reporter.json");
-    await fs.writeFile(malformed, "{not valid json", "utf-8");
-    const runner: PlaywrightRunner = async () => ({
-      reporterJsonPath: malformed,
+    const driver = createE2eSmokeDriver({
+      launcher,
+      timeoutMs: 25,
     });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
+    const p = driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
     });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { failureSummary: string; errorDesc?: string };
-    const combined =
-      (signal.errorDesc ?? "") + " " + (signal.failureSummary ?? "");
-    expect(combined.toLowerCase()).toMatch(/parse|invalid|json|malformed/);
-    await fs.rm(tmp, { recursive: true, force: true });
+    // After driver timer fires at 25ms, reject the launcher so its await
+    // unblocks. Delay slightly past the timer to guarantee ordering.
+    setTimeout(() => rejectLauncher?.(new Error("launcher aborted")), 60);
+    const result = await p;
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.errorDesc).toBe("timeout");
+    expect(sig.failureSummary).toMatch(/timeout after/);
   });
+});
 
-  it("reports red when reporter JSON file is missing", async () => {
-    const runner: PlaywrightRunner = async () => ({
-      reporterJsonPath: "/nonexistent/path/reporter.json",
-    });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-  });
+// --- Side-emit / writer plumbing ----------------------------------------
 
-  it("reports red when the runner throws (Playwright crash)", async () => {
-    const runner: PlaywrightRunner = async () => {
-      throw new Error("chromium-missing-headless-shell");
+describe("e2eSmokeDriver side-emits", () => {
+  it("survives writer failure on chat side-emit without swallowing L3 result", async () => {
+    const { browser } = makeBrowser([
+      { assistantText: "Hi" },
+      { assistantText: "San Francisco is cloudy today." },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = {
+      writes: 0,
+      async write(r: ProbeResult<unknown>) {
+        this.writes++;
+        if (r.key === "chat:foo") throw new Error("pb down");
+        return {};
+      },
     };
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["tool-rendering"],
     });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { errorDesc?: string; failureSummary: string };
-    const combined = (signal.errorDesc ?? "") + " " + signal.failureSummary;
-    expect(combined).toContain("chromium-missing-headless-shell");
+    // Even though chat side-emit write failed, the primary aggregate
+    // ProbeResult still comes back normally.
+    expect(result.state).toBe("green");
+    expect(writer.writes).toBe(2); // chat (failed) + tools (ok)
   });
 
-  it("defaults suite to 'l1-3' when input omits suite", async () => {
-    const passFixture = path.join(FIXTURES, "playwright-pass.json");
-    const runner: PlaywrightRunner = async () => ({
-      reporterJsonPath: passFixture,
+  it("emits no side-writes when ctx.writer is undefined", async () => {
+    const { browser } = makeBrowser([
+      { assistantText: "Hi" },
+      { assistantText: "It's raining in San Francisco." },
+    ]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    // No writer; just verify run() completes cleanly.
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+      demos: ["tool-rendering"],
     });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), { key: "e2e_smoke:l1-3" });
-    expect(r.state).toBe("green");
-    const signal = r.signal as { suite: string };
-    expect(signal.suite).toBe("l1-3");
+    expect(result.state).toBe("green");
   });
+});
 
-  it("module-level e2eSmokeDriver is a configured driver (kind + inputSchema present)", () => {
-    expect(typeof e2eSmokeDriver.run).toBe("function");
+describe("e2eSmokeDriver module export", () => {
+  it("module-level e2eSmokeDriver has kind === 'e2e_smoke'", () => {
     expect(e2eSmokeDriver.kind).toBe("e2e_smoke");
-  });
-
-  it("default driver returns runner-error when invoked without a custom runner", async () => {
-    // Exercises the `defaultPlaywrightRunner` stub path: until Phase 4.1
-    // wires the real chromium harness, the default throws — which the
-    // driver catches and surfaces as red + runner-error. Confirms the
-    // module-level default-export is runnable (doesn't throw out of
-    // the driver's own try/catch).
-    const r = await e2eSmokeDriver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { errorDesc?: string; failureSummary: string };
-    expect(signal.errorDesc).toBe("runner-error");
-    expect(signal.failureSummary).toMatch(/playwright runner not yet wired/);
-  });
-
-  it("reports red with generic fallback when unexpected > 0 but no per-spec error present", async () => {
-    // Hand-crafted reporter where stats.unexpected is set but no spec
-    // carries an `error` field — exercises the "no error detail" fallback
-    // summary so a malformed-but-parseable reporter still alerts.
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "e2e-smoke-nodetail-"));
-    const p = path.join(tmp, "reporter.json");
-    await fs.writeFile(
-      p,
-      JSON.stringify({
-        stats: { unexpected: 2, expected: 3 },
-        suites: [{ title: "root", specs: [] }],
-      }),
-      "utf-8",
-    );
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: p });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { failureSummary: string };
-    expect(signal.failureSummary).toContain("2 test(s) failed");
-    await fs.rm(tmp, { recursive: true, force: true });
-  });
-
-  it("walks nested suite trees to find a failure (exercises suites.suites recursion)", async () => {
-    // Playwright reporters can nest `suites` under `suites` for
-    // describe-block grouping; the collector must recurse to find a
-    // failing spec buried beneath an empty top-level suite.
-    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "e2e-smoke-nested-"));
-    const p = path.join(tmp, "reporter.json");
-    await fs.writeFile(
-      p,
-      JSON.stringify({
-        stats: { unexpected: 1, expected: 1 },
-        suites: [
-          {
-            title: "outer",
-            specs: [],
-            suites: [
-              {
-                title: "inner",
-                specs: [
-                  {
-                    title: "deep failure",
-                    ok: false,
-                    tests: [
-                      {
-                        results: [
-                          {
-                            status: "failed",
-                            error: { message: "NESTED_FAILURE_MARKER" },
-                          },
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      }),
-      "utf-8",
-    );
-    const runner: PlaywrightRunner = async () => ({ reporterJsonPath: p });
-    const driver = createE2eSmokeDriver({ runner });
-    const r = await driver.run(baseCtx(), {
-      key: "e2e_smoke:l1-3",
-      suite: "l1-3",
-    });
-    expect(r.state).toBe("red");
-    const signal = r.signal as { failureSummary: string };
-    expect(signal.failureSummary).toContain("NESTED_FAILURE_MARKER");
-    await fs.rm(tmp, { recursive: true, force: true });
+    expect(typeof e2eSmokeDriver.run).toBe("function");
   });
 });

@@ -191,6 +191,43 @@ describe("railwayServicesSource", () => {
     expect(calls).toHaveLength(2);
   });
 
+  it("filters by nameExcludes, dropping excluded services after namePrefix", async () => {
+    // Applied AFTER namePrefix so the exclude list can target infra
+    // services (showcase-aimock, showcase-ops, ...) without having to
+    // maintain a parallel include-list — the e2e-smoke probe uses this
+    // to skip services that don't run user-facing demos.
+    const { fetchImpl, calls } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-aimock",
+            image: "ghcr.io/copilotkit/showcase-aimock:latest",
+            domain: "showcase-aimock.up.railway.app",
+          },
+        ]),
+      },
+      // Only one variables call — the excluded service should not fetch vars.
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
+      filter: {
+        namePrefix: "showcase-",
+        nameExcludes: ["showcase-aimock"],
+      },
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe("showcase-langgraph-python");
+    expect(calls).toHaveLength(2);
+  });
+
   it("returns [] when namePrefix matches nothing (no variables calls)", async () => {
     const { fetchImpl, calls } = makeFetch([
       {

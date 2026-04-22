@@ -50,6 +50,16 @@ const FilterSchema = z
   .object({
     labels: z.record(z.string()).optional(),
     namePrefix: z.string().optional(),
+    /**
+     * Exact-match name exclusion list. Applied AFTER `namePrefix` so
+     * operators can say "all `showcase-*` services EXCEPT infra/shell
+     * services" in one filter block rather than having to post-filter
+     * inside every driver. Empty/undefined ⇒ no exclusions. Matches
+     * are exact-string (not prefix or regex) to keep the YAML shape
+     * auditable — `["showcase-ops","showcase-aimock"]` means exactly
+     * those two names and nothing else.
+     */
+    nameExcludes: z.array(z.string().min(1)).optional(),
   })
   .optional();
 
@@ -172,10 +182,19 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // schema for forward compatibility with a future Railway labels API
     // but isn't enforced yet — Railway doesn't expose service labels
     // today. `namePrefix` is the live filter.
+    const excludeSet = new Set(filter.nameExcludes ?? []);
     const services = parsedProject.data.project.services.edges
       .map((e) => e.node)
       .filter((svc) => {
         if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) {
+          return false;
+        }
+        // Exact-name exclusion — applied AFTER the prefix check so the
+        // exclusion list only has to enumerate names the prefix already
+        // matched. Returning false here skips the per-service env fetch
+        // entirely (same path as the prefix miss above) so excluded
+        // services cost nothing beyond the project-level round-trip.
+        if (excludeSet.has(svc.name)) {
           return false;
         }
         return true;

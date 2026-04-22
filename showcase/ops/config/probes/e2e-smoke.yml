@@ -1,0 +1,56 @@
+# Probe: e2e-smoke
+#
+# Playwright-in-process L3 (chat round-trip) + L4 (tool rendering) coverage
+# across every showcase service on Railway. Discovery source
+# `railway-services` enumerates services by `namePrefix: "showcase-"`,
+# excluding the infra services that don't run user-facing demos.
+#
+# Each invocation:
+#   - Launches a single headless chromium instance via `playwright`.
+#   - Runs L3 against /demos/agentic-chat (asserts: any non-empty response).
+#   - For services whose registry `demos` array includes `tool-rendering`,
+#     runs L4 against /demos/tool-rendering (asserts: response contains
+#     weather vocabulary from the reference list in e2e-smoke.ts).
+#   - Returns an aggregate `e2e-smoke:<slug>` ProbeResult and side-emits
+#     `chat:<slug>` + (when applicable) `tools:<slug>` via ctx.writer.
+#
+# Schedule: every 30 minutes. Compared to the 15-minute `smoke`
+# cadence this is deliberately slower — each L3+L4 tick pulls a real
+# chromium page, so 30m keeps memory footprint and bandwidth in check
+# while still catching regressions within a deploy window.
+#
+# timeout_ms (180s = 3 minutes) bounds the WHOLE driver invocation. The
+# driver subdivides internally: 60s page-timeout per level, 2 levels =
+# 120s worst case, plus chromium launch overhead. 3-minute outer cap
+# catches pathological stalls without starving siblings.
+#
+# max_concurrency (2) caps simultaneous chromium instances per tick. Each
+# chromium ~= 300MB resident; 2 parallel puts us at ~600MB peak which
+# fits the orchestrator's Railway footprint. Higher concurrency trades
+# faster tick completion for OOM risk — keep at 2 unless the container's
+# memory budget is raised.
+#
+# nameExcludes drops infra services that don't expose user demos:
+#   - showcase-aimock        (LLM mock upstream)
+#   - showcase-ops           (this orchestrator itself)
+#   - showcase-pocketbase    (state store)
+#   - showcase-shell         (landing / router service)
+#   - showcase-shell-dashboard / -docs / -dojo (auxiliary UI services)
+kind: e2e_smoke
+id: e2e-smoke
+schedule: "*/30 * * * *"
+timeout_ms: 180000
+max_concurrency: 2
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+    nameExcludes:
+      - showcase-aimock
+      - showcase-ops
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+  key_template: "e2e-smoke:${name}"
