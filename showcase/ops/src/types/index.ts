@@ -46,6 +46,30 @@ export interface ProbeContext {
   now: () => Date;
   logger: Logger;
   env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Optional side-emission writer. A driver that derives MORE THAN ONE
+   * ProbeResult per invocation (e.g. smoke emits a paired `smoke:<slug>` +
+   * `health:<slug>` tick off the same HTTP round-trip) pushes the auxiliary
+   * results here; the invoker's `writer.write(driver.run(...))` call handles
+   * the driver's PRIMARY return value as usual. Kept optional so single-
+   * result drivers and legacy Probe call sites (which never see the
+   * invoker-level StatusWriter) continue to construct ProbeContext without
+   * plumbing a writer they don't need.
+   */
+  writer?: ProbeResultWriter;
+}
+
+/**
+ * Minimal writer surface the invoker injects into ProbeContext.writer. A
+ * structural subset of StatusWriter (see `src/writers/status-writer.ts`) —
+ * kept local to `types/` so `probes/` doesn't depend on `writers/` just to
+ * declare this slot on the context. The invoker passes its real
+ * `StatusWriter` into this slot at run time; the writer's return value
+ * (WriteOutcome) is intentionally ignored by drivers — side-emitted
+ * results flow through the same alert-engine pipeline as primary ticks.
+ */
+export interface ProbeResultWriter {
+  write(result: ProbeResult<unknown>): Promise<unknown>;
 }
 
 export interface Probe<Input = void, Signal = unknown> {
