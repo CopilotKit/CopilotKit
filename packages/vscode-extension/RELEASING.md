@@ -41,10 +41,9 @@ Once the namespace is claimed, subsequent CI publishes run unattended.
 
 ## Cutting a release
 
-Cutting a release is two file edits, one commit, one PR.
+Cutting a release is one file edit, one commit, one PR.
 
-1. Bump `packages/vscode-extension/package.json` — increment the `version` field (e.g. `0.1.0` → `0.1.1` for a patch, `0.2.0` for a minor, `1.0.0` for a major).
-2. Prepend an entry to `packages/vscode-extension/CHANGELOG.md`:
+1. Prepend an entry to `packages/vscode-extension/CHANGELOG.md`:
    ```md
    ## 0.1.1 — 2026-04-22
 
@@ -54,11 +53,17 @@ Cutting a release is two file edits, one commit, one PR.
    ### Added
    - New "Copy AG-UI run URL" command
    ```
-   Use Keep-a-Changelog subsections: `Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`.
-3. Commit both files with subject **`chore: release vX.Y.Z`** (conventional prefix required by commitlint).
-4. Push, open a PR, get review, merge with a merge commit (NOT squash — the `chore: release` commit must land on `main` as-is so the publish workflow's self-gate can find it).
+   Use Keep-a-Changelog subsections: `Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`. The date is whatever date you commit.
+2. Commit with any message (e.g. `docs: changelog for 0.1.1`) and push.
+3. Open a PR.
+4. **Automation**: the **VS Code Extension — Changelog Sync** workflow runs on your PR, reads the top version from CHANGELOG, bumps `packages/vscode-extension/package.json` to match, and commits `chore: release vX.Y.Z` on your PR branch. No action needed from you — just pull the updated branch if you keep working locally.
+5. Review, merge with a merge commit (NOT squash — the `chore: release` commit needs to land on `main` so the publish workflow's path filter fires).
 
 On merge, CI auto-publishes to the VS Code Marketplace and Open VSX, tags `vscode-extension-vX.Y.Z`, cuts a GitHub Release, and posts to `#oss-alerts`.
+
+### Manual escape hatch
+
+If the sync workflow is down or you can't wait, bump `package.json` yourself in the same PR and use `chore: release vX.Y.Z` as your own commit subject. Everything downstream works the same.
 
 ## CI publish flow
 
