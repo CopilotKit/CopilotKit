@@ -1,0 +1,97 @@
+---
+title: Tool Rendering
+icon: "lucide/Server"
+description: Render your agent's tool calls with custom UI components.
+hideTOC: true
+snippet_cell: tool-rendering
+---
+
+<IframeSwitcher
+  id="backend-tools-example"
+  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?sidebar=false&chatDefaultOpen=false"
+  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/backend_tool_rendering?view=code&sidebar=false&codeLayout=tabs"
+  exampleLabel="Demo"
+  codeLabel="Code"
+  height="700px"
+/>
+
+<Callout>
+  This example demonstrates the [implementation](#implementation) section
+  applied in the{" "}
+  <a
+    href="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
+    target="_blank"
+  >
+    CopilotKit feature viewer
+  </a>
+  .
+</Callout>
+
+## What is this?
+
+Tools are a way for the LLM to call predefined, typically, deterministic functions. CopilotKit allows you to render these tools in the UI
+as a custom component, which we call **Generative UI**.
+
+## When should I use this?
+
+Rendering tools in the UI is useful when you want to provide the user with feedback about what your agent is doing, specifically
+when your agent is calling tools. CopilotKit allows you to fully customize how these tools are rendered in the chat.
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Run and connect your agent
+    <RunAndConnect />
+  </Step>
+<Step>
+### Give your agent a tool to call
+
+The agent in the live showcase exposes a mock `get_weather` tool. This is the
+definition straight from the `tool-rendering` cell's Python backend:
+
+<Snippet region="weather-tool-backend" />
+
+</Step>
+<Step>
+### Render the tool call in your frontend
+
+At this point, your agent will be able to call the `get_weather` tool. Now
+we just need to add a `useRenderTool` hook to render the tool call in
+the UI.
+
+<Callout type="info" title="Important">
+  In order to render a tool call in the UI, the name must match the name of the
+  tool.
+</Callout>
+
+The showcase's `tool-rendering` cell uses a branded `<WeatherCard />`
+component to render the call — same pattern as the minimal example above,
+just wired to a richer UI:
+
+<Snippet region="render-weather-tool" />
+
+</Step>
+<Step>
+### Add a catch-all renderer (optional)
+
+For every other tool the agent calls, a single `useDefaultRenderTool`
+hook can provide a uniform fallback UI — this is exactly how the showcase
+handles `get_stock_price`, `roll_dice`, and any tool the agent might add
+later without a dedicated renderer:
+
+<Snippet region="catchall-renderer" />
+
+</Step>
+<Step>
+### Give it a try!
+
+Try asking the agent to get the weather for a location. You should see the custom UI component that we added
+render the tool call and display the arguments that were passed to the tool.
+
+</Step>
+</Steps>
+
+## Default Tool Rendering
+
+<DefaultToolRendering />

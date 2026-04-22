@@ -40,52 +40,79 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run L1-L3 tests
+        id: l1_l3
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@health|@agent|@chat" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@health|@agent|@chat" --reporter=github 2>&1 | tee /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
 
       - name: Run L4 tests (daily only)
+        id: l4
         if: github.event.schedule == '0 0 * * *' || github.event_name == 'workflow_dispatch'
         working-directory: showcase/tests
         env:
           CI: true
-        run: npx playwright test --grep "@tools" --reporter=github
+        run: |
+          npx playwright test integration-smoke --grep "@tools" --reporter=github 2>&1 | tee -a /tmp/e2e-output.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Extract failure summary
+        id: failures
+        if: failure()
+        run: |
+          # Extract failed test names and error messages from playwright output
+          DETAILS=$(grep -E "^\s+\d+\)|Error:" /tmp/e2e-output.log 2>/dev/null | head -15 | sed 's/"/\\"/g' || echo "See CI logs for details")
+          DETAILS="${DETAILS:0:1200}"
+
+          {
+            echo "details<<EOFEOF"
+            echo "$DETAILS"
+            echo "EOFEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build Slack payload
+        if: failure()
+        id: slack-payload
+        env:
+          DETAILS_RAW: ${{ steps.failures.outputs.details }}
+        run: |
+          # Strip ANSI sequences (SGR, OSC, and G0/G1 charset designators), then truncate
+          # to 200 bytes and drop any trailing partial UTF-8 bytes so we don't emit mojibake.
+          SUMMARY=$(printf '%s' "$DETAILS_RAW" | head -3 \
+            | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\][^\x07]*\x07//g; s/\x1b[()][A-Za-z0-9]//g' \
+            | head -c 200 | iconv -f UTF-8 -t UTF-8//IGNORE)
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="(no failure detail captured — see job log)"
+          fi
+          URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          JOB_URL="${URL}/job/${{ github.job }}"
+
+          SLACK_MSG=$(mktemp)
+          SLACK_PAYLOAD=$(mktemp)
+
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            printf ':x: *Showcase E2E suite failed*\n'
+            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
+            printf '```\n%s\n```\n' "$SUMMARY"
+          } > "$SLACK_MSG"
+          jq -n --rawfile text "$SLACK_MSG" '{text: $text}' > "$SLACK_PAYLOAD"
+          rm -f "$SLACK_MSG"
+          echo "payload_path=${SLACK_PAYLOAD}" >> "$GITHUB_OUTPUT"
 
       - name: Post failure to Slack
-        if: failure() && github.event_name == 'schedule'
+        if: failure()
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            { "text": ":x: *Showcase E2E suite failed*\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
+          payload-file-path: ${{ steps.slack-payload.outputs.payload_path }}
 
-      - name: Create issue on failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = '[Drift] Showcase E2E suite failing';
-            const body = `## E2E Drift Detection Alert\n\n**Run**: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n**Schedule**: ${context.payload.schedule || 'manual'}\n\nThe centralized E2E smoke suite is failing. Please investigate.`;
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'showcase-drift',
-              state: 'open',
-            });
-
-            const existing = issues.find(i => i.title === title);
-            if (!existing) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['showcase-drift'],
-              });
-            }
+      - name: Clean up Slack payload tmpfile
+        if: always() && steps.slack-payload.outputs.payload_path
+        run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"
 
   version-drift:
     name: Version Drift Report
@@ -168,50 +195,20 @@ jobs:
           echo -e "$report" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Create drift report issue
+      - name: Notify Slack (version drift)
         if: steps.python_drift.outputs.report != '' || steps.npm_drift.outputs.report != ''
-        uses: actions/github-script@v7
+        uses: slackapi/slack-github-action@v2.1.0
         with:
-          script: |
-            const pythonDrift = `${{ steps.python_drift.outputs.report }}`.trim();
-            const npmDrift = `${{ steps.npm_drift.outputs.report }}`.trim();
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":warning: *Version drift*: dependency updates available | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
-            if (!pythonDrift && !npmDrift) return;
-
-            const title = `[Drift] Showcase packages have outdated pinned versions`;
-            const body = `## Weekly Version Drift Report
-
-            Showcase packages have pinned versions that differ from the latest releases.
-            Review each and update if the new version is compatible.
-
-            ${pythonDrift ? `### Python Packages\n| Package | Dep | Pinned | Latest |\n|---------|-----|--------|--------|\n${pythonDrift}` : ''}
-
-            ${npmDrift ? `### npm Packages\n| Package | Dep | Pinned | Latest |\n|---------|-----|--------|--------|\n${npmDrift}` : ''}
-
-            **Action**: For each outdated dep, check the Dojo example for the correct version.
-            Update \`requirements.txt\` / \`package.json\`, rebuild, and verify demos still work.
-            `;
-
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'showcase-drift,version-drift',
-              state: 'open',
-            });
-
-            if (issues.length === 0) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                body,
-                labels: ['showcase-drift', 'version-drift'],
-              });
-            } else {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issues[0].number,
-                body,
-              });
-            }
+      - name: Notify Slack (version drift failure)
+        if: failure()
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Version drift check*: failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }

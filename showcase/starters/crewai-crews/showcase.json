@@ -1,0 +1,8 @@
+{
+  "slug": "crewai-crews",
+  "name": "CrewAI Crews",
+  "language": "python",
+  "agentDir": "agent",
+  "agentPort": 8123,
+  "generated": true
+}

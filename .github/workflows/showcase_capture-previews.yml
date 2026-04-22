@@ -32,7 +32,15 @@ jobs:
   capture:
     name: Capture Preview MP4s
     runs-on: ubuntu-latest
-    # Captures demo previews as MP4 and uploads to GitHub release
+    # Captures demo previews as MP4 and uploads them to a GitHub release.
+    # Loop prevention: capture commits registry.json with the message below,
+    # which could re-trigger via push or the completed-deploy workflow_run.
+    # Skip when the triggering commit came from this workflow itself.
+    if: >-
+      (github.event_name != 'workflow_run' ||
+       !startsWith(github.event.workflow_run.head_commit.message, 'Update preview URLs in registry')) &&
+      (github.event_name != 'push' ||
+       !startsWith(github.event.head_commit.message, 'Update preview URLs in registry'))
     timeout-minutes: 30
     steps:
       - name: Checkout

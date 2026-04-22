@@ -65,6 +65,7 @@ state updates, you can reflect these updates natively in your application.
             "Always respond in the current language."
         ),
         llm_config=LLMConfig({"model": "gpt-5.4-mini"}),
+        human_input_mode="NEVER",
     )
 
     @agent.register_for_llm(description="Update the language in shared state.")

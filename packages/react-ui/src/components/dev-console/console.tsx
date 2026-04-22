@@ -20,7 +20,7 @@ import {
   ExclamationMarkTriangleIcon,
 } from "./icons";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
-import { COPILOTKIT_VERSION } from "@copilotkit/shared";
+import { COPILOTKIT_VERSION, copyToClipboard } from "@copilotkit/shared";
 import { SmallSpinnerIcon } from "../chat/Icons";
 import { CopilotKitHelpModal } from "../help-modal";
 
@@ -84,13 +84,16 @@ export function CopilotDevConsole() {
   };
 
   useEffect(() => {
+    if (!showDevConsole) {
+      return;
+    }
     if (dontRunTwiceInDevMode.current === true) {
       return;
     }
     dontRunTwiceInDevMode.current = true;
 
     checkForUpdates();
-  }, []);
+  }, [showDevConsole]);
 
   if (!showDevConsole) {
     return null;
@@ -170,11 +173,12 @@ function VersionInfo({
     `&& npm install @copilotkit/runtime@${latestVersion}`,
   ].join(" ");
 
-  const handleCopyClick = () => {
-    navigator.clipboard.writeText(installCommand.trim()).then(() => {
+  const handleCopyClick = async () => {
+    const success = await copyToClipboard(installCommand.trim());
+    if (success) {
       setCopyStatus("Command copied to clipboard!");
       setTimeout(() => setCopyStatus(""), 1000);
-    });
+    }
   };
 
   if (versionStatus === "update-available" || versionStatus === "outdated") {

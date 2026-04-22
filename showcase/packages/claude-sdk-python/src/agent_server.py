@@ -16,11 +16,6 @@ load_dotenv()
 app = create_app()
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-
-
 def main() -> None:
     """Run the uvicorn server."""
     port = int(os.getenv("AGENT_PORT", "8000"))

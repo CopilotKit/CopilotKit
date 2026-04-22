@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime",
-  "version": "1.55.2-next.1",
+  "version": "1.56.2",
   "private": false,
   "keywords": [
     "ai",
@@ -88,11 +88,11 @@
     "attw": "attw --pack . --profile node16"
   },
   "dependencies": {
-    "@ag-ui/a2ui-middleware": "0.0.4",
+    "@ag-ui/a2ui-middleware": "0.0.5",
     "@ag-ui/client": "0.0.52",
     "@ag-ui/core": "0.0.52",
     "@ag-ui/encoder": "0.0.52",
-    "@ag-ui/langgraph": "0.0.27",
+    "@ag-ui/langgraph": "0.0.29",
     "@ag-ui/mcp-apps-middleware": "0.0.3",
     "@ai-sdk/anthropic": "^3.0.49",
     "@ai-sdk/google": "^3.0.33",
@@ -117,7 +117,7 @@
     "graphql-scalars": "^1.23.0",
     "graphql-yoga": "^5.3.1",
     "hono": "^4.11.4",
-    "openai": "^4.85.1",
+    "openai": "^4.85.1 || >=5.0.0",
     "partial-json": "^0.1.7",
     "phoenix": "^1.8.4",
     "pino": "^9.2.0",
@@ -160,7 +160,8 @@
     "@langchain/langgraph-sdk": ">=0.1.2",
     "@langchain/openai": ">=0.4.2",
     "groq-sdk": ">=0.3.0 <1.0.0",
-    "langchain": ">=0.3.3"
+    "langchain": ">=0.3.3",
+    "openai": "^4.85.1 || >=5.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

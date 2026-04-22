@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/runtime-client-gql",
-  "version": "1.55.2-next.1",
+  "version": "1.56.2",
   "private": false,
   "keywords": [
     "ai",

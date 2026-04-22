@@ -7,18 +7,12 @@ on:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".github/workflows/demos_preview.yml"
-      - ".github/workflows/release.yml"
-      - "packages/**/package.json"
-      - "packages/**/CHANGELOG.md"
-      - ".changeset/**"
   pull_request:
     branches: [main]
     paths-ignore:
       - "docs/**"
       - "README.md"
       - "examples/**"
-      - ".changeset/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

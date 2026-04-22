@@ -5,7 +5,7 @@ import {
 } from "@ag-ui/client";
 import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
 import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
-import { CopilotRuntimeLike } from "../../core/runtime";
+import { CopilotRuntimeLike, resolveAgents } from "../../core/runtime";
 import { OpenGenerativeUIMiddleware } from "../../open-generative-ui-middleware";
 import { extractForwardableHeaders } from "../header-utils";
 import { logger } from "@copilotkit/shared";
@@ -28,8 +28,9 @@ export interface ConnectRequestBody extends RunAgentInput {
 export async function cloneAgentForRequest(
   runtime: CopilotRuntimeLike,
   agentId: string,
+  request?: Request,
 ): Promise<AbstractAgent | Response> {
-  const agents = await runtime.agents;
+  const agents = await resolveAgents(runtime.agents, request);
 
   if (!agents[agentId]) {
     return new Response(
