@@ -69,6 +69,27 @@ On tag push matching `vscode-extension-v*`:
 
 Both publishes use `continue-on-error` so a partial failure is visible. We then reconcile in a final step — you never land in the state "Marketplace succeeded, Open VSX silently skipped."
 
+## Transient registry failures
+
+Both registries occasionally return transient `5xx` errors during publish. In particular, **Open VSX's `/publish` endpoint returns intermittent `502 Bad Gateway` errors** — a known Eclipse Foundation infra issue. VS Code Marketplace is more reliable but can also flake on `502`/`503`/`504`.
+
+The CI workflow handles this automatically:
+
+- Each publish step retries up to **5 times** with backoff (10s, 20s, 40s, 60s, 90s).
+- Only transient conditions are retried: `5xx`, timeouts, connection resets, DNS (`EAI_AGAIN`). Auth (`401`/`403`, `TF400813`, "Invalid access token") and validation (`400`/`422`, manifest errors) fail fast with no retry.
+- A `"version already exists"` response is treated as **idempotent success** — this handles the case where attempt N-1 actually landed on the registry but its response never reached us (e.g. `502` after commit), and attempt N sees the version already there.
+- Each attempt is wrapped in `::group::` / `::endgroup::` so the per-attempt logs are collapsible in the GH Actions UI.
+
+**If the workflow fails after all retries:**
+
+1. Rerun the job from the GH Actions UI (Actions → failed run → *Re-run failed jobs*).
+2. **Do NOT bump the version.** The same tag + version is safe to re-publish because both registries treat "version already exists" as idempotent in our retry logic — whichever one previously succeeded will short-circuit, and the one that failed will get a fresh attempt.
+
+**For manual publishes** (emergencies only — prefer CI):
+
+- If `npx ovsx publish ...` fails with a `502`, just retry the same command 2–3 times.
+- If `vsce publish` fails with a `5xx`, same — retry. Auth errors (`TF400813`) mean the PAT is bad; don't retry, fix the token.
+
 ## Verifying
 
 After CI goes green:

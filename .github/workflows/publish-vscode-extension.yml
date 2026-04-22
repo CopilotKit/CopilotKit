@@ -71,11 +71,56 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          if [ -z "$VSCE_PAT" ]; then
+          set -u
+          if [ -z "${VSCE_PAT:-}" ]; then
             echo "::error::VSCE_PAT secret is not configured in the 'production' environment"
             exit 1
           fi
-          npx --yes @vscode/vsce@^3 publish \
+
+          # Retry wrapper for transient registry failures (502/503/504, timeouts, DNS).
+          # Treats "version already exists" as idempotent success — covers the case
+          # where a prior attempt published but its response never reached us.
+          retry_publish() {
+            local attempts=5
+            local backoff=(10 20 40 60 90)
+            local i output rc wait
+            for (( i=1; i<=attempts; i++ )); do
+              echo "::group::vsce publish attempt $i/$attempts"
+              output=$("$@" 2>&1)
+              rc=$?
+              echo "$output"
+              echo "::endgroup::"
+
+              if [ $rc -eq 0 ]; then
+                echo "Published successfully on attempt $i"
+                return 0
+              fi
+
+              # Idempotent success: version already published (likely by a prior attempt).
+              if echo "$output" | grep -qiE 'already exists|already published|version.*(is )?already|extension.*version.*exists'; then
+                echo "Version already exists — treating as idempotent success (likely landed on a prior attempt)"
+                return 0
+              fi
+
+              # Non-retryable: auth, validation, manifest errors. Fail fast.
+              if echo "$output" | grep -qiE 'invalid.*token|invalid.*access.*token|unauthorized|forbidden|401\b|403\b|TF400813|is not authorized|bad request|422\b|validation (failed|error)|manifest'; then
+                echo "::error::Non-retryable error detected (auth/validation) — failing fast"
+                return $rc
+              fi
+
+              # Retryable (5xx, timeout, DNS, connection reset, generic network).
+              if [ $i -lt $attempts ]; then
+                wait=${backoff[$((i-1))]}
+                echo "Retryable error (rc=$rc). Sleeping ${wait}s before attempt $((i+1))/$attempts..."
+                sleep "$wait"
+              else
+                echo "::error::All $attempts vsce publish attempts exhausted"
+                return $rc
+              fi
+            done
+          }
+
+          retry_publish npx --yes @vscode/vsce@^3 publish \
             --no-dependencies \
             --packagePath extension.vsix \
             --pat "$VSCE_PAT"
@@ -86,11 +131,57 @@ jobs:
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          if [ -z "$OVSX_PAT" ]; then
+          set -u
+          if [ -z "${OVSX_PAT:-}" ]; then
             echo "::error::OVSX_PAT secret is not configured in the 'production' environment"
             exit 1
           fi
-          npx --yes ovsx publish extension.vsix -p "$OVSX_PAT"
+
+          # Retry wrapper for transient registry failures. Open VSX's /publish
+          # endpoint is known to return intermittent 502s from Eclipse Foundation
+          # infra; this absorbs that class of failure without bumping the version.
+          retry_publish() {
+            local attempts=5
+            local backoff=(10 20 40 60 90)
+            local i output rc wait
+            for (( i=1; i<=attempts; i++ )); do
+              echo "::group::ovsx publish attempt $i/$attempts"
+              output=$("$@" 2>&1)
+              rc=$?
+              echo "$output"
+              echo "::endgroup::"
+
+              if [ $rc -eq 0 ]; then
+                echo "Published successfully on attempt $i"
+                return 0
+              fi
+
+              # Idempotent success: version already published (likely by a prior attempt).
+              if echo "$output" | grep -qiE 'already exists|already published|version.*(is )?already|extension.*version.*exists'; then
+                echo "Version already exists — treating as idempotent success (likely landed on a prior attempt)"
+                return 0
+              fi
+
+              # Non-retryable: auth, validation. Fail fast.
+              # NOTE: ovsx emits "Invalid access token." for bad PATs — match that phrasing.
+              if echo "$output" | grep -qiE 'invalid.*token|invalid.*access.*token|unauthorized|forbidden|401\b|403\b|is not authorized|bad request|422\b|validation (failed|error)|namespace.*not.*found|must be verified'; then
+                echo "::error::Non-retryable error detected (auth/validation) — failing fast"
+                return $rc
+              fi
+
+              # Retryable (5xx, timeout, DNS, connection reset, generic network).
+              if [ $i -lt $attempts ]; then
+                wait=${backoff[$((i-1))]}
+                echo "Retryable error (rc=$rc). Sleeping ${wait}s before attempt $((i+1))/$attempts..."
+                sleep "$wait"
+              else
+                echo "::error::All $attempts ovsx publish attempts exhausted"
+                return $rc
+              fi
+            done
+          }
+
+          retry_publish npx --yes ovsx publish extension.vsix -p "$OVSX_PAT"
 
       - name: Report publish results
         run: |
@@ -98,7 +189,12 @@ jobs:
           OVSX_STATUS="${{ steps.publish_ovsx.outcome }}"
           echo "VS Code Marketplace: $VSCE_STATUS"
           echo "Open VSX:            $OVSX_STATUS"
+          # Each publish step retries transient 5xx/timeouts up to 5x with backoff
+          # and treats "version already exists" as idempotent success. A step
+          # outcome of "failure" here means the final attempt failed for a
+          # non-retryable reason (auth, validation) or exhausted retries on a
+          # persistent 5xx — either way, fail the job.
           if [ "$VSCE_STATUS" != "success" ] || [ "$OVSX_STATUS" != "success" ]; then
-            echo "::error::One or more registry publishes failed (vsce=$VSCE_STATUS ovsx=$OVSX_STATUS). Check the individual step logs above."
+            echo "::error::One or more registry publishes failed after retries (vsce=$VSCE_STATUS ovsx=$OVSX_STATUS). Check the per-attempt logs above. Rerun the job from the Actions UI to retry — do NOT bump the version; registries treat 'already exists' as idempotent."
             exit 1
           fi
