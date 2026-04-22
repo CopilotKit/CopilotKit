@@ -154,6 +154,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     },
     bootstrapWindowMs: opts.bootstrapWindowMs,
     statusReader,
+    metrics,
   });
   engine.start();
 

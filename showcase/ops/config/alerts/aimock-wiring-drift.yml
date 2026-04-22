@@ -32,11 +32,11 @@ template:
     {{#signal.unwired}}• `{{.}}`
     {{/signal.unwired}}
     Fix: set `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL` for claude-sdk) on each service to the aimock production URL.
-    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{.}}|Run>{{/event.runUrl}}{{/trigger.set_drifted}}
+    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.set_drifted}}
     {{#trigger.set_errored}}:rotating_light: *aimock wiring probe errored — {{signal.erroredCount}} service(s) unreadable:*
     {{#signal.erroredPreview}}• `{{.}}`
     {{/signal.erroredPreview}}
     {{#signal.probeErrorDesc}}Probe error: `{{.}}`
     {{/signal.probeErrorDesc}}Investigate aimock probe config / network before trusting drift state.
-    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{.}}|Run>{{/event.runUrl}}{{/trigger.set_errored}}
-    {{#trigger.red_to_green}}:white_check_mark: *aimock wiring recovered* — all services route through showcase-aimock again. <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{.}}|Run>{{/event.runUrl}}{{/trigger.red_to_green}}
+    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.set_errored}}
+    {{#trigger.red_to_green}}:white_check_mark: *aimock wiring recovered* — all services route through showcase-aimock again. <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.red_to_green}}

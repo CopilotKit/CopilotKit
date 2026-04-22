@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { ulid } from "ulid";
 import Mustache from "mustache";
 import type { TypedEventBus } from "../events/event-bus.js";
+import type { MetricsRegistry } from "../http/metrics.js";
 import type { Renderer } from "../render/renderer.js";
 import type { CompiledRule } from "../rules/rule-loader.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
@@ -50,6 +51,16 @@ export interface AlertEngineDeps {
   bootstrapWindowMs?: number;
   /** HF-A1 — optional; see StatusReader JSDoc. */
   statusReader?: StatusReader;
+  /**
+   * Optional Prometheus registry. When supplied the engine increments:
+   *  - `alert_matches{rule}` once per rule whose filter matched an event
+   *    (after filterMatchesKey, before dedupe/guard/suppress). Operators
+   *    read this to see which rules are active regardless of dispatch.
+   *  - `alert_sends{target}` per successfully-delivered target in
+   *    sendToTargets. Targets that throw do NOT increment.
+   * Tests typically omit this; orchestrator.ts always wires it.
+   */
+  metrics?: MetricsRegistry;
 }
 
 export interface AlertEngine {
@@ -59,8 +70,17 @@ export interface AlertEngine {
 }
 
 export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
-  const { bus, renderer, stateStore, targets, logger, now, env, statusReader } =
-    deps;
+  const {
+    bus,
+    renderer,
+    stateStore,
+    targets,
+    logger,
+    now,
+    env,
+    statusReader,
+    metrics,
+  } = deps;
   const bootstrapWindowMs = deps.bootstrapWindowMs ?? 15 * 60_000;
   const bootTime = now().getTime();
   let rules: CompiledRule[] = [];
@@ -90,6 +110,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       try {
         if (rule.signal.dimension !== deriveDimension(evt.result.key)) continue;
         if (!filterMatchesKey(rule, evt.result.key)) continue;
+        // alert_matches: filter passed — this rule evaluated against this
+        // event. Incremented BEFORE dedupe/guard/suppress/bootstrap so the
+        // counter reflects rule activity, not delivery. Delivery counted via
+        // alert_sends inside sendToTargets.
+        metrics?.inc("alert_matches", { rule: rule.id });
 
         if (evt.outcome.transition === "error") {
           // Apply the same guard-set to onError paths so minDeployAgeMin (and
@@ -156,6 +181,11 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
   }): Promise<void> {
     const rule = rules.find((r) => r.id === evt.ruleId);
     if (!rule) return;
+    // alert_matches: cron rule dispatched to this engine — counted as a
+    // "match" on the rule.scheduled path (no filter layer; the scheduler
+    // already resolved the rule). Keeps the counter symmetric with the
+    // status.changed path.
+    metrics?.inc("alert_matches", { rule: rule.id });
     // For cron-driven rules we forward to dispatchCronAlert, which inspects
     // the probe's result (if any) to derive both the transition AND any
     // signal-derived trigger flags (set_drifted, cancelled_*, etc.). A rule
@@ -282,8 +312,12 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     //
     // Parse-time validation happens at rule-load; a throw here means a
     // runtime-unknown identifier or a var shape the rule didn't anticipate.
-    // Fail OPEN on eval error — a broken suppress clause must not silently
-    // suppress every matching alert. Log at error level so operators notice.
+    // R24 bucket-a#7: fail-CLOSED on eval error. Spamming Slack during a
+    // DSL-eval regression is worse than silently missing an alert window —
+    // a silently-dropped alert is diagnosable via the bus event below; a
+    // Slack-spam regression pages a human. Also emit `suppress.eval-failed`
+    // on the bus so operators see the failure on a dedicated channel (log
+    // lines get lost).
     if (rule.conditions.suppress) {
       // Null-prototype bag: evalSuppress uses Object.hasOwn for lookups
       // (defence against `toString`/`constructor` typos in rule YAML).
@@ -322,12 +356,25 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
           return true;
         }
       } catch (err) {
+        const errStr = String(err);
         logger.error("alert-engine.suppress-eval-failed", {
           rule: rule.id,
           when: rule.conditions.suppress.when,
-          err: String(err),
+          err: errStr,
         });
-        // Fall through — alert is allowed to fire.
+        // R24 bucket-a#7: emit structured bus event so operators can route
+        // suppress eval regressions to a dedicated channel (log lines alone
+        // are easy to miss).
+        bus.emit("suppress.eval-failed", {
+          ruleId: rule.id,
+          expression: rule.conditions.suppress.when,
+          error: errStr,
+        });
+        // Fail-CLOSED: treat an eval error as "suppressed" to avoid a spam
+        // regression during DSL-eval bugs. Load-time validation catches the
+        // common cases (see rule-loader.ts), so a runtime throw should be
+        // rare and is actionable via the bus event above.
+        return true;
       }
     }
 
@@ -356,11 +403,25 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     const ctx = buildContext(rule, evt, triggered, lastAlertAgeMin);
     if (!rule.template) return;
     const rendered = renderer.render(rule.template, ctx);
-    const sent = await sendToTargets(rule, rendered);
-    if (!sent) {
+    const { results, allSucceeded } = await sendToTargets(rule, rendered);
+    const anySucceeded = results.some((r) => r.ok);
+    if (!anySucceeded) {
       logger.warn("alert-engine.record-skipped", {
         rule: rule.id,
         reason: "all-targets-failed",
+      });
+      return;
+    }
+    if (!allSucceeded) {
+      // R24 bucket-a#6: any target failed — do NOT advance dedupe at the
+      // rule level. Tolerates a duplicate delivery to healthy targets on
+      // the next tick in exchange for guaranteed retry to failed targets.
+      // Per-target dedupe would be the precise fix but requires extending
+      // alert_state's composite key (rule_id, dedupe_key) with target;
+      // tracked for follow-up. Minimal diff today: rule-level retry.
+      logger.warn("alert-engine.dedupe-held-partial", {
+        rule: rule.id,
+        failed: results.filter((r) => !r.ok).map((r) => r.kind),
       });
       return;
     }
@@ -394,12 +455,21 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     const lastAlertAgeMin = await fetchLastAlertAgeMin(rule, evt, triggered);
     const ctx = buildContext(rule, evt, triggered, lastAlertAgeMin);
     const rendered = renderer.render(rule.onError.template, ctx);
-    const sent = await sendToTargets(rule, rendered);
-    if (!sent) {
+    const { results, allSucceeded } = await sendToTargets(rule, rendered);
+    const anySucceeded = results.some((r) => r.ok);
+    if (!anySucceeded) {
       logger.warn("alert-engine.record-skipped", {
         rule: rule.id,
         reason: "all-targets-failed",
         path: "onError",
+      });
+      return;
+    }
+    if (!allSucceeded) {
+      logger.warn("alert-engine.dedupe-held-partial", {
+        rule: rule.id,
+        path: "onError",
+        failed: results.filter((r) => !r.ok).map((r) => r.kind),
       });
       return;
     }
@@ -545,15 +615,21 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
       });
       return;
     }
-    // Apply same dedupe + rate-limit gating as status.changed alerts. Bootstrap
-    // suppression kicks in for any fresh non-green observation: a cron-driven
-    // rule observing `red` OR `degraded` for the first time (transition
-    // "first") is indistinguishable from bootstrap noise and must be
-    // suppressed. Pre-fix only `resolvedState === "red"` was gated — degraded
-    // first-seen state silently fired through the window.
-    const isFreshRed =
-      resolvedState === "red" || resolvedState === "degraded";
-    if (isFreshRed && bootstrapActive()) {
+    // Apply same dedupe + rate-limit gating as status.changed alerts.
+    // R24 bucket-a#5: bootstrap gate must mirror handleStatusChanged so
+    // signal-derived triggers (set_drifted, set_errored, cancelled_*,
+    // set_changed, gate_skipped) are NOT swallowed during the bootstrap
+    // window. Those flags represent legitimate invariant-probe reds —
+    // bootstrap was only meant to suppress the spurious "first"/no-history
+    // cold-start burst, not real drift signals. Suppress only when the
+    // triggered list is a bare "first" (no signal-derived companion flags)
+    // AND state is red/degraded. Any other trigger path proceeds.
+    const isBareFirstRed =
+      resolvedState !== "green" &&
+      (resolvedState === "red" || resolvedState === "degraded") &&
+      triggered.length === 1 &&
+      triggered[0] === "first";
+    if (isBareFirstRed && bootstrapActive()) {
       logger.info("alert-engine.bootstrap-suppress", {
         ruleId: rule.id,
         key: fakeResult.key,
@@ -580,12 +656,21 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     // The error branch above returns early via dispatchOnError.
     if (!rule.template) return;
     const rendered = renderer.render(rule.template, ctx);
-    const sent = await sendToTargets(rule, rendered);
-    if (!sent) {
+    const { results, allSucceeded } = await sendToTargets(rule, rendered);
+    const anySucceeded = results.some((r) => r.ok);
+    if (!anySucceeded) {
       logger.warn("alert-engine.record-skipped", {
         rule: rule.id,
         reason: "all-targets-failed",
         path: "cron",
+      });
+      return;
+    }
+    if (!allSucceeded) {
+      logger.warn("alert-engine.dedupe-held-partial", {
+        rule: rule.id,
+        path: "cron",
+        failed: results.filter((r) => !r.ok).map((r) => r.kind),
       });
       return;
     }
@@ -603,38 +688,80 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     });
   }
 
+  /**
+   * Per-target delivery result.
+   *
+   * R24 bucket-a#6: pre-fix `sendToTargets` returned a single boolean
+   * `anySucceeded` which caused rule-level dedupe to advance as soon as
+   * any target succeeded — a rotated/broken webhook would silently stop
+   * receiving alerts because its target failed but dedupe said "delivered".
+   * This structure lets callers inspect per-target outcomes and withhold
+   * dedupe advancement whenever any target failed.
+   */
+  interface TargetSendResult {
+    kind: string;
+    ok: boolean;
+    skipped?: boolean;
+    error?: string;
+  }
   async function sendToTargets(
     rule: CompiledRule,
     rendered: {
       payload: Record<string, unknown>;
       contentType: "application/json";
     },
-  ): Promise<boolean> {
-    // Returns true iff at least one target successfully received the payload.
-    // Callers use this to decide whether to record dedupe state — recording
-    // on an all-failed send would silently swallow the outage on retry.
-    let anySucceeded = false;
+  ): Promise<{ results: TargetSendResult[]; allSucceeded: boolean }> {
+    const results: TargetSendResult[] = [];
     for (const t of rule.targets) {
       const adapter = targets.get(t.kind);
       if (!adapter) {
+        // Missing adapter is a configuration issue, not a delivery failure
+        // in the transient sense — but from the dedupe-advancement
+        // perspective it is a not-delivered target. Treat as a failure for
+        // dedupe purposes so the rule remains eligible to retry once the
+        // adapter is wired, mirroring the failed-delivery path.
         logger.warn("alert-engine.no-target-adapter", {
           rule: rule.id,
           kind: t.kind,
+        });
+        results.push({
+          kind: t.kind,
+          ok: false,
+          skipped: true,
+          error: "no-adapter",
         });
         continue;
       }
       try {
         await adapter.send(rendered, t);
-        anySucceeded = true;
+        results.push({ kind: t.kind, ok: true });
+        // alert_sends: one increment per successfully-delivered target.
+        // Failures intentionally skipped (they are visible via
+        // alert-engine.target-failed logs and the delivery-failure counter
+        // is distinct from send-success semantics).
+        metrics?.inc("alert_sends", { target: t.kind });
       } catch (err) {
-        logger.error("alert-engine.target-failed", {
+        // Log per-target failure at warn level with target identifier so
+        // operators see WHICH target failed — not the rule-level aggregate.
+        // Previously logged at error; warn is appropriate because the
+        // caller decides whether to escalate based on per-target outcome.
+        logger.warn("alert-engine.target-failed", {
           rule: rule.id,
           kind: t.kind,
           err: String(err),
         });
+        results.push({ kind: t.kind, ok: false, error: String(err) });
       }
     }
-    return anySucceeded;
+    const anySucceeded = results.some((r) => r.ok);
+    const anyFailed = results.some((r) => !r.ok);
+    // `allSucceeded` is the dedupe-advance gate. A rule with zero targets
+    // is considered "nothing to fail" — but alerts with no targets are a
+    // load-time misconfig we don't defend here (rule-loader schema keeps
+    // `targets` non-empty). We require anySucceeded so an all-failed
+    // delivery does NOT advance dedupe either — matching the pre-fix
+    // "record-skipped" branch semantics.
+    return { results, allSucceeded: anySucceeded && !anyFailed };
   }
 
   function buildContext(

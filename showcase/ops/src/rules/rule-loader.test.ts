@@ -1004,6 +1004,76 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       expect(text).toContain("aimock wiring recovered");
       expect(text).toContain("Dashboard");
     });
+
+    // R24 bucket-(a) item 1: Run link URL must pass through unescaped.
+    // Pre-fix: `<{{.}}|Run>` double-brace inside `{{#event.runUrl}}`
+    // HTML-escapes `&` in GitHub Actions run URL query strings
+    // (`?check_suite_focus=true&foo=bar` → `&amp;`), breaking the Slack
+    // link parser. Same bug class as R20.5 smoke-red-tick fix
+    // (commit 273a7ae25) — signal.links.* double-brace scrambled `/` to
+    // `&#x2F;`. Fix uses triple-brace on known-safe `event.runUrl`.
+    it("set_drifted branch: Run link preserves raw URL query string (no &amp;)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
+      const runUrl =
+        "https://github.com/foo/bar/actions/runs/123?check_suite_focus=true&foo=baz";
+      const ctx = makeCtx(
+        rule,
+        {
+          unwired: ["svc-a"],
+          unwiredCount: 1,
+          unwiredNoun: "service",
+          erroredPreview: [],
+          probeErrorDesc: "",
+        },
+        { trigger: { set_drifted: true }, event: { runUrl } },
+      );
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      // Raw URL (including literal `&`) must survive to Slack. Pre-fix the
+      // `&` was HTML-escaped to `&amp;` by default double-brace, breaking
+      // the link parser.
+      expect(text).toContain(runUrl);
+      expect(text).not.toContain("&amp;");
+    });
+
+    it("set_errored branch: Run link preserves raw URL query string (no &amp;)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
+      const runUrl =
+        "https://github.com/foo/bar/actions/runs/456?check_suite_focus=true&foo=baz";
+      const ctx = makeCtx(
+        rule,
+        {
+          unwired: [],
+          unwiredCount: 0,
+          unwiredNoun: "services",
+          erroredCount: 1,
+          erroredPreview: ["svc-1: timeout"],
+          probeErrorDesc: "Railway API 502",
+        },
+        { trigger: { set_errored: true }, event: { runUrl } },
+      );
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain(runUrl);
+      expect(text).not.toContain("&amp;");
+    });
+
+    it("red_to_green branch: Run link preserves raw URL query string (no &amp;)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
+      const runUrl =
+        "https://github.com/foo/bar/actions/runs/789?check_suite_focus=true&foo=baz";
+      const ctx = makeCtx(rule, {}, {
+        trigger: { red_to_green: true },
+        event: { runUrl },
+      });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain(runUrl);
+      expect(text).not.toContain("&amp;");
+    });
   });
 
   // ---- e2e-smoke-failure.yml ----------------------------------------
@@ -1347,6 +1417,117 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       expect(text).toContain("cancelled mid-matrix");
       expect(text).toContain("newer run");
     });
+
+    // R24 bucket-(a) item 3: gate_skipped branch must gate on the derived
+    // trigger flag, not on `signal.gateSkipped`. Pre-fix the template used
+    // `{{#signal.gateSkipped}}`, which (a) is asymmetric with every other
+    // branch in this file (which keys off `trigger.*`), and (b) if a
+    // `signal.gateSkipped:true` payload ever co-occurs with a
+    // `green_to_red` state-machine transition, BOTH branches render
+    // producing a double message. deriveSignalFlags already lifts
+    // `signal.gateSkipped === true` into `trigger.gate_skipped`; the
+    // template should key off that.
+    it("gate_skipped branch renders when trigger.gate_skipped=true and signal.gateSkipped is absent", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      // Simulate alert-engine having set the derived trigger flag without
+      // propagating a signal echo. Pre-fix this branch would NOT render.
+      const ctx = makeCtx(rule, {}, { trigger: { gate_skipped: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("build matrix gated off");
+    });
+
+    it("gate_skipped branch does NOT render when only signal.gateSkipped=true (no trigger flag)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      // Inverse case: raw signal field set but the derived trigger flag
+      // wasn't. Post-fix, the gate-skipped branch must NOT render since we
+      // gate on `trigger.gate_skipped`, not `signal.gateSkipped`.
+      const ctx = makeCtx(rule, { gateSkipped: true }, { trigger: {} });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).not.toContain("build matrix gated off");
+    });
+  });
+});
+
+describe("rule-loader: initial load emits rules.reload.failed on errors (R24 bucket-a)", () => {
+  // R24 bucket-(a) item 4: watch() emits `rules.reload.failed` on per-file
+  // errors so operators see a broken YAML pushed via SIGHUP-reload path.
+  // The initial-load path (createRuleLoader(...).load()/loadWithErrors())
+  // did NOT. Result: a service boots with a broken rule → the rule is
+  // silently dropped from the active set. Operators only discover when an
+  // incident fails to alert. Pull initial-load into symmetry with watch.
+  it("emits rules.reload.failed on the bus when loadWithErrors() surfaces per-file errors", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-initial-emit-"),
+    );
+    // One good rule.
+    await fs.copyFile(
+      path.join(FIXTURES, "valid", "_defaults.yml"),
+      path.join(tmp, "_defaults.yml"),
+    );
+    await fs.copyFile(
+      path.join(FIXTURES, "valid", "smoke-red-tick.yml"),
+      path.join(tmp, "smoke-red-tick.yml"),
+    );
+    // One malformed rule (missing id, fails schema).
+    await fs.copyFile(
+      path.join(FIXTURES, "invalid", "missing-id.yml"),
+      path.join(tmp, "missing-id.yml"),
+    );
+
+    const events: Array<{
+      event: string;
+      payload: { errors: { file: string; error: string }[] };
+    }> = [];
+    const bus = {
+      emit(
+        event: "rules.reload.failed",
+        payload: { errors: { file: string; error: string }[] },
+      ): void {
+        events.push({ event, payload });
+      },
+    };
+
+    const loader = createRuleLoader({ dir: tmp, logger, bus });
+    const { rules, errors } = await loader.loadWithErrors();
+
+    // Good rule still loads.
+    expect(rules).toHaveLength(1);
+    expect(rules[0]!.id).toBe("smoke-red-tick");
+    // Bad rule surfaces via errors.
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("missing-id.yml");
+    // Bus receives exactly one rules.reload.failed event with the malformed file.
+    expect(events).toHaveLength(1);
+    expect(events[0]!.event).toBe("rules.reload.failed");
+    expect(events[0]!.payload.errors).toHaveLength(1);
+    expect(events[0]!.payload.errors[0]!.file).toBe("missing-id.yml");
+  });
+
+  it("does NOT emit rules.reload.failed when initial load succeeds with zero errors", async () => {
+    const events: Array<unknown> = [];
+    const bus = {
+      emit(
+        _event: "rules.reload.failed",
+        payload: { errors: { file: string; error: string }[] },
+      ): void {
+        events.push(payload);
+      },
+    };
+    const loader = createRuleLoader({
+      dir: path.join(FIXTURES, "valid"),
+      logger,
+      bus,
+    });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(1);
+    expect(errors).toEqual([]);
+    // Clean load → no bus emit.
+    expect(events).toEqual([]);
   });
 });
 

@@ -5,6 +5,7 @@ import {
   evalSuppress,
 } from "./alert-engine.js";
 import { createEventBus } from "../events/event-bus.js";
+import { createMetricsRegistry } from "../http/metrics.js";
 import { createRenderer } from "../render/renderer.js";
 import { logger } from "../logger.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
@@ -2643,6 +2644,458 @@ describe("alert-engine dispatchCronAlert onError-only rule", () => {
     expect(sent).toHaveLength(1);
     const text = (sent[0] as { payload: { text: string } }).payload.text;
     expect(text).toBe("errored! GHCR 500");
+    e.stop();
+  });
+});
+
+// R24 bucket-a: wire alert_matches + alert_sends into the engine. Before
+// this round both counters were declared in metrics.ts but only touched
+// from metrics tests — production dashboards read zero forever.
+describe("alert-engine R24: metrics wiring (alert_matches + alert_sends)", () => {
+  function counterValue(
+    reg: ReturnType<typeof createMetricsRegistry>,
+    name:
+      | "alert_matches"
+      | "alert_sends"
+      | "probe_runs"
+      | "rule_reloads"
+      | "webhook_rejections"
+      | "hmac_failures"
+      | "internal_backup_failures_total",
+    labelKey: string,
+  ): number {
+    const bucket = reg._counters().get(name);
+    if (!bucket) return 0;
+    let total = 0;
+    for (const series of bucket.values()) {
+      const k = Object.keys(series.labels ?? {})
+        .sort()
+        .map((k2) => `${k2}=${(series.labels as Record<string, string>)[k2]}`)
+        .join(",");
+      if (k === labelKey) total += series.value;
+    }
+    return total;
+  }
+
+  it("increments alert_matches{rule} when filter passes (status.changed)", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const metrics = createMetricsRegistry();
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+      metrics,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "r24-metrics-match",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["green_to_red"],
+        cronTriggers: [],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "hit" },
+        actions: [],
+      },
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "red",
+        signal: {},
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(
+      counterValue(metrics, "alert_matches", "rule=r24-metrics-match"),
+    ).toBe(1);
+    expect(
+      counterValue(metrics, "alert_sends", "target=slack_webhook"),
+    ).toBe(1);
+    e.stop();
+  });
+
+  it("increments alert_matches{rule} for cron (rule.scheduled) path", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const target: Target = {
+      kind: "slack_webhook",
+      async send() {},
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const metrics = createMetricsRegistry();
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+      metrics,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "r24-cron-match",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: [],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "RAN" },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "r24-cron-match",
+      scheduledAt: "2026-04-20T10:00:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "green",
+        signal: {},
+        observedAt: "2026-04-20T10:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(counterValue(metrics, "alert_matches", "rule=r24-cron-match")).toBe(
+      1,
+    );
+    e.stop();
+  });
+});
+
+// R24 bucket-a item 5: dispatchCronAlert bootstrap gate must not suppress
+// signal-derived triggers (set_drifted, set_errored, …). Pre-fix gate was
+// `red || degraded` which swallowed legitimate invariant-probe reds inside
+// the bootstrap window. Mirror the status.changed gate: suppress only bare
+// "first" with red/degraded, never when a signal-derived flag also fires.
+describe("alert-engine R24: dispatchCronAlert bootstrap gate asymmetry", () => {
+  it("cron `set_drifted` inside bootstrap window DOES fire (bucket-a#5)", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      // 1 minute post-boot — firmly inside the default 15m window.
+      now: () => new Date("2026-04-20T00:01:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 15 * 60_000,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "aimock-wiring-drift",
+        name: "aimock-wiring",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "aimock_wiring" },
+        stringTriggers: ["set_drifted"],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: {
+          text: "{{#trigger.set_drifted}}drifted {{signal.unwiredCount}}{{/trigger.set_drifted}}",
+        },
+        actions: [],
+      },
+    ]);
+    // set_drifted requires a non-empty `unwired` array on the probe signal
+    // (deriveSignalFlags). Red state inside bootstrap window must not
+    // suppress because the trigger is signal-derived, not a bare "first".
+    bus.emit("rule.scheduled", {
+      ruleId: "aimock-wiring-drift",
+      scheduledAt: "2026-04-20T00:01:00Z",
+      result: {
+        key: "aimock_wiring:global",
+        state: "red",
+        signal: { unwired: ["svc-a"], unwiredCount: 1 },
+        observedAt: "2026-04-20T00:01:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(1);
+    const text = (sent[0] as { payload: { text: string } }).payload.text;
+    expect(text).toBe("drifted 1");
+    e.stop();
+  });
+
+  it("cron bare `first` red inside bootstrap window STILL suppresses", async () => {
+    // Regression guard for the intended bootstrap suppression semantics.
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T00:01:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 15 * 60_000,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "cron-first-red",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "pin_drift" },
+        stringTriggers: ["first"],
+        cronTriggers: [{ schedule: "0 10 * * 1" }],
+        conditions: { guards: [], escalations: [] },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "RAN" },
+        actions: [],
+      },
+    ]);
+    bus.emit("rule.scheduled", {
+      ruleId: "cron-first-red",
+      scheduledAt: "2026-04-20T00:01:00Z",
+      result: {
+        key: "pin_drift:weekly",
+        state: "red",
+        signal: {},
+        observedAt: "2026-04-20T00:01:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    expect(sent).toHaveLength(0);
+    e.stop();
+  });
+});
+
+// R24 bucket-a item 6: sendToTargets partial-failure must not advance
+// dedupe for failed targets. Pre-fix: any success advanced dedupe for
+// the whole rule, so a rotated/broken webhook silently stopped receiving
+// alerts. Post-fix: dedupe advances only when ALL targets succeed — any
+// failed target keeps the rule eligible for retry next tick.
+describe("alert-engine R24: partial-failure dedupe (bucket-a#6)", () => {
+  it("does NOT advance dedupe when one of two targets fails", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sentA: unknown[] = [];
+    const sentB: unknown[] = [];
+    let bFailures = 0;
+    const targetA: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sentA.push(r);
+      },
+    };
+    const targetB: Target = {
+      kind: "discord_webhook",
+      async send(r) {
+        // Fail on the first tick; succeed on the second so we can observe
+        // the retry path.
+        bFailures += 1;
+        if (bFailures === 1) throw new Error("webhook 500");
+        sentB.push(r);
+      },
+    };
+    const tMap = new Map([
+      ["slack_webhook", targetA],
+      ["discord_webhook", targetB],
+    ]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    e.reload([
+      {
+        id: "r24-partial",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        cronTriggers: [],
+        conditions: {
+          guards: [],
+          escalations: [],
+          rate_limit: { window: "1h" },
+        },
+        targets: [
+          { kind: "slack_webhook", webhook: "w1" },
+          { kind: "discord_webhook", webhook: "w2" },
+        ],
+        template: { text: "red" },
+        actions: [],
+      },
+    ]);
+    const outcome = {
+      previousState: "red" as const,
+      newState: "red" as const,
+      transition: "sustained_red" as const,
+      failCount: 2,
+      firstFailureAt: "x",
+    };
+    const probe: ProbeResult<unknown> = {
+      key: "smoke:mastra",
+      state: "red",
+      signal: { slug: "mastra" },
+      observedAt: "2026-04-20T00:00:00Z",
+    };
+    // Tick 1: slack succeeds, discord throws.
+    bus.emit("status.changed", { outcome, result: probe });
+    await new Promise((r) => setImmediate(r));
+    expect(sentA).toHaveLength(1);
+    expect(sentB).toHaveLength(0);
+    // Tick 2: rate-limit would normally suppress, but partial-failure means
+    // dedupe was NOT advanced, so this tick MUST re-attempt both targets.
+    bus.emit("status.changed", { outcome, result: probe });
+    await new Promise((r) => setImmediate(r));
+    // slack re-receives because dedupe didn't advance (minimal-diff choice:
+    // rule-level dedupe guards the whole rule; tolerating a duplicate
+    // slack message is the lesser evil vs. silently losing discord).
+    expect(sentA.length).toBeGreaterThanOrEqual(1);
+    // discord now succeeds on retry.
+    expect(sentB).toHaveLength(1);
+    e.stop();
+  });
+});
+
+// R24 bucket-a item 7: shouldSuppress fail-CLOSED on eval error + emit a
+// `suppress.eval-failed` bus event. Pre-fix: eval throw -> suppress returns
+// false silently -> spam alert. Post-fix: eval throw -> suppressed + bus
+// event + error log.
+describe("alert-engine R24: shouldSuppress fail-closed (bucket-a#7)", () => {
+  it("eval error suppresses alert and emits bus event", async () => {
+    const bus = createEventBus();
+    const renderer = createRenderer();
+    const store = memStore();
+    const sent: unknown[] = [];
+    const target: Target = {
+      kind: "slack_webhook",
+      async send(r) {
+        sent.push(r);
+      },
+    };
+    const tMap = new Map([["slack_webhook", target]]);
+    const e = createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+    });
+    e.start();
+    const busEvents: { ruleId: string; expression: string; error: string }[] =
+      [];
+    bus.on("suppress.eval-failed", (p) => busEvents.push(p));
+    // Suppress expression referencing an unknown identifier. evalSuppress
+    // throws at runtime (load-time validation bag lists a fixed set so the
+    // rule-loader accepts this if the bag is ever widened; in this direct
+    // createAlertEngine path we bypass rule-loader).
+    e.reload([
+      {
+        id: "r24-suppress-fail",
+        name: "x",
+        owner: "@oss",
+        severity: "warn",
+        signal: { dimension: "smoke" },
+        stringTriggers: ["sustained_red"],
+        cronTriggers: [],
+        conditions: {
+          guards: [],
+          escalations: [],
+          suppress: { when: "nonexistentVar == true" },
+        },
+        targets: [{ kind: "slack_webhook", webhook: "w" }],
+        template: { text: "red" },
+        actions: [],
+      },
+    ]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "red",
+        transition: "sustained_red",
+        failCount: 2,
+        firstFailureAt: "x",
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "red",
+        signal: { slug: "mastra" },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    // Post-fix: alert is suppressed (fail-closed) — safer than spamming.
+    expect(sent).toHaveLength(0);
+    // Bus event emitted so operators see the eval failure (logs alone are
+    // insufficient — many deployments route suppress failures to a
+    // dedicated channel).
+    expect(busEvents).toHaveLength(1);
+    expect(busEvents[0]?.ruleId).toBe("r24-suppress-fail");
+    expect(busEvents[0]?.expression).toBe("nonexistentVar == true");
+    expect(busEvents[0]?.error).toMatch(/nonexistentVar|unknown/i);
     e.stop();
   });
 });

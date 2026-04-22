@@ -100,6 +100,19 @@ export interface BusEvents {
    * failures are first-class signals rather than silent log entries.
    */
   "internal.backup.failed": { err: string };
+  /**
+   * Emitted by the alert engine when a rule's `suppress.when` expression
+   * throws at evaluation time (R24 bucket-a#7). Fail-closed semantics:
+   * the triggering alert is suppressed on eval error to avoid spamming
+   * during a DSL-eval regression. Operators subscribe to surface the
+   * failure on a dedicated channel — the error log line alone is easy
+   * to miss. `expression` is the raw DSL text from the rule for triage.
+   */
+  "suppress.eval-failed": {
+    ruleId: string;
+    expression: string;
+    error: string;
+  };
 }
 
 export interface TypedEventBus {

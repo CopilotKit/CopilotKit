@@ -150,7 +150,14 @@ export interface RuleLoader {
 export interface RuleLoaderOptions {
   dir: string;
   logger: Logger;
-  /** Optional bus — if supplied, `rules.reload.failed` is emitted on watch-time reload errors. */
+  /**
+   * Optional bus — if supplied, `rules.reload.failed` is emitted whenever
+   * loadWithErrors() returns a non-empty errors list. That includes BOTH
+   * the initial load path (service boot) AND watch-time reloads. Pre-R24
+   * only the watch path emitted, so a service booting with a broken YAML
+   * silently dropped the rule and operators only discovered it when an
+   * incident failed to alert. Initial-load emit pulls boot into symmetry.
+   */
   bus?: RuleLoadErrorEmitter;
   /** Map of dimension -> set of dotted paths under `signal` that are slackSafe. */
   slackSafeFields?: Record<string, Set<string>>;
@@ -475,6 +482,15 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       count: out.length,
       errors: errors.length,
     });
+    // Symmetry with the watch() reload path (see lines ~542-544 below): any
+    // non-empty errors list must be surfaced on the bus so operators hear
+    // about broken YAML at boot, not only when a rule pushed via SIGHUP
+    // fails to parse. Without this, a service boots with a broken rule →
+    // rule silently dropped → operators only find out when an incident
+    // fails to alert.
+    if (errors.length > 0 && bus) {
+      bus.emit("rules.reload.failed", { errors });
+    }
     return { rules: out, errors };
   }
 
@@ -530,7 +546,7 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
         if (!alive) return;
         const mySeq = ++loadSeq;
         loadWithErrors()
-          .then(({ rules, errors }) => {
+          .then(({ rules }) => {
             if (!alive) return;
             if (mySeq !== loadSeq) {
               logger.debug("rule-loader.stale-reload-dropped", {
@@ -539,9 +555,8 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
               });
               return;
             }
-            if (errors.length > 0 && bus) {
-              bus.emit("rules.reload.failed", { errors });
-            }
+            // errors already surfaced on the bus inside loadWithErrors();
+            // no duplicate emit here.
             cb(rules);
           })
           .catch((err) => {

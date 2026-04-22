@@ -31,5 +31,5 @@ template:
     {{#trigger.red_to_green}}:white_check_mark: *Showcase deploy*: recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
     {{#trigger.cancelled_midmatrix}}:information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist{{/trigger.cancelled_midmatrix}}
     {{#trigger.cancelled_prebuild}}:information_source: *Showcase deploy*: cancelled before any build started — likely a concurrent run superseded or manually aborted{{/trigger.cancelled_prebuild}}
-    {{#signal.gateSkipped}}:no_entry: *Showcase deploy*: build matrix gated off — no services deployed (see run for gate reason){{/signal.gateSkipped}}
+    {{#trigger.gate_skipped}}:no_entry: *Showcase deploy*: build matrix gated off — no services deployed (see run for gate reason){{/trigger.gate_skipped}}
     | <{{{event.runUrl}}}|View run>
