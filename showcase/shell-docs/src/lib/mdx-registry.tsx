@@ -301,8 +301,8 @@ export const docsComponents = {
   ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
     <>
       <Callout type="info">
-        <strong>Early access:</strong> Threads and the Intelligence Platform
-        are in early access. APIs may change before general availability.
+        <strong>Early access:</strong> Threads and the Intelligence Platform are
+        in early access. APIs may change before general availability.
       </Callout>
       {children}
     </>
