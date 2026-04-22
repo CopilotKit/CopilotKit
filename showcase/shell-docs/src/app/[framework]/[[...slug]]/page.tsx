@@ -10,10 +10,9 @@
 //                                             to the `mastra` cells
 //
 // The first URL segment is validated against the registry's list of
-// integration slugs. When it doesn't match, we return 404 — the only
-// top-level routes that shadow this catch-all are the existing ones
-// (`/docs`, `/integrations`, `/ag-ui`, `/reference`, `/api`, `/matrix`),
-// none of which are framework slugs, so there are no collisions.
+// integration slugs. When it doesn't match, we fall through to
+// UnscopedDocsPage so unscoped doc slugs (e.g. /quickstart) are served
+// correctly even though Next.js routes them here before [[...slug]].
 
 import React from "react";
 import { notFound, redirect } from "next/navigation";
