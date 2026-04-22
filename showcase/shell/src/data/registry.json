@@ -1,339 +1,349 @@
 {
-  "generated_at": "2026-04-09T04:13:36.116Z",
+  "generated_at": "2026-04-22T11:13:48.868Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
       {
+        "id": "dev-ex",
+        "name": "Dev Ex"
+      },
+      {
         "id": "chat-ui",
         "name": "Chat & UI"
-      },
-      {
-        "id": "generative-ui",
-        "name": "Generative UI"
-      },
-      {
-        "id": "agent-capabilities",
-        "name": "Agent Capabilities"
-      },
-      {
-        "id": "agent-state",
-        "name": "Agent State"
-      },
-      {
-        "id": "interactivity",
-        "name": "Interactivity"
-      },
-      {
-        "id": "multi-agent",
-        "name": "Multi-Agent"
       },
       {
         "id": "platform",
         "name": "Platform"
       },
       {
-        "id": "a2ui",
-        "name": "A2UI"
+        "id": "controlled-generative-ui",
+        "name": "Controlled Generative UI"
       },
       {
-        "id": "mobile",
-        "name": "Mobile"
+        "id": "declarative-generative-ui",
+        "name": "Declarative Generative UI"
       },
       {
-        "id": "web-frameworks",
-        "name": "Web Frameworks"
+        "id": "open-generative-ui",
+        "name": "Open-Ended Generative UI"
+      },
+      {
+        "id": "operational-generative-ui",
+        "name": "Operational Generative UI"
+      },
+      {
+        "id": "interactivity",
+        "name": "Interactivity"
+      },
+      {
+        "id": "agent-state",
+        "name": "Agent State"
+      },
+      {
+        "id": "multi-agent",
+        "name": "Multi-Agent"
       },
       {
         "id": "byoc",
         "name": "BYOC (Bring Your Own Components)"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents"
       }
     ],
     "features": [
       {
-        "id": "agentic-chat",
-        "name": "Agentic Chat",
-        "category": "chat-ui",
-        "description": "Natural conversation with frontend tool execution"
+        "id": "beautiful-chat",
+        "name": "Beautiful Chat",
+        "category": "dev-ex",
+        "description": "Canonical polished starter chat (same as /examples/integrations/langgraph-python)",
+        "kind": "primary"
       },
       {
-        "id": "chat-prebuilt",
-        "name": "Pre-built Chat Components",
+        "id": "cli-start",
+        "name": "CLI Start Command",
+        "category": "dev-ex",
+        "description": "One-liner to scaffold a new CopilotKit app via the official CLI",
+        "kind": "primary"
+      },
+      {
+        "id": "agentic-chat",
+        "name": "Pre-Built CopilotChat",
         "category": "chat-ui",
-        "description": "Using CopilotKit's pre-built chat components"
+        "description": "Pre-built <CopilotChat /> component for full-screen/embedded chat",
+        "kind": "primary",
+        "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat",
+        "shell_docs_url": "/docs/features/agentic-chat"
+      },
+      {
+        "id": "prebuilt-sidebar",
+        "name": "Pre-Built: Sidebar",
+        "category": "chat-ui",
+        "description": "Docked sidebar chat via <CopilotSidebar />",
+        "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-sidebar",
+        "shell_docs_url": "/docs/features/prebuilt-sidebar"
+      },
+      {
+        "id": "prebuilt-popup",
+        "name": "Pre-Built: Popup",
+        "category": "chat-ui",
+        "description": "Floating popup chat via <CopilotPopup />",
+        "og_docs_url": "https://docs.copilotkit.ai/features/prebuilt-popup",
+        "shell_docs_url": "/docs/features/prebuilt-popup"
       },
       {
         "id": "chat-slots",
         "name": "Chat Customization (Slots)",
         "category": "chat-ui",
-        "description": "Customizing chat components via the slot system"
+        "description": "Customizing chat components via the slot system",
+        "og_docs_url": "https://docs.copilotkit.ai/features/chat-slots",
+        "shell_docs_url": "/docs/features/chat-slots"
+      },
+      {
+        "id": "chat-customization-css",
+        "name": "Chat Customization (CSS)",
+        "category": "chat-ui",
+        "description": "Customizing chat components via CSS",
+        "og_docs_url": "https://docs.copilotkit.ai/features/chat-customization-css",
+        "shell_docs_url": "/docs/features/chat-customization-css"
       },
       {
         "id": "headless-simple",
         "name": "Headless Chat (Simple)",
         "category": "chat-ui",
-        "description": "Simple headless UI getting started"
+        "description": "Simple headless UI getting started",
+        "og_docs_url": "https://docs.copilotkit.ai/features/headless-simple",
+        "shell_docs_url": "/docs/features/headless-simple"
       },
       {
         "id": "headless-complete",
         "name": "Headless Chat (Complete)",
         "category": "chat-ui",
-        "description": "Full headless UI with messages, tools, gen UI"
-      },
-      {
-        "id": "gen-ui-display",
-        "name": "Controlled Gen-UI (Display)",
-        "category": "generative-ui",
-        "description": "Displaying components from the agent"
-      },
-      {
-        "id": "gen-ui-interactive",
-        "name": "Controlled Gen-UI (Interactive)",
-        "category": "generative-ui",
-        "description": "Interactive components from the agent"
-      },
-      {
-        "id": "gen-ui-interrupt",
-        "name": "Controlled Gen-UI (Interrupt)",
-        "category": "generative-ui",
-        "description": "Interrupt-based component rendering"
+        "description": "Full headless UI with messages, tools, gen UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/headless-complete",
+        "shell_docs_url": "/docs/features/headless-complete"
       },
       {
         "id": "gen-ui-tool-based",
-        "name": "Tool-Based Generative UI",
-        "category": "generative-ui",
-        "description": "Agent uses tools to trigger UI generation"
+        "name": "Controlled Gen-UI (Display)",
+        "category": "controlled-generative-ui",
+        "description": "Agent renders typed React components via the useComponent hook",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-tool-based",
+        "shell_docs_url": "/docs/features/gen-ui-tool-based"
       },
       {
-        "id": "gen-ui-agent",
-        "name": "Agentic Generative UI",
-        "category": "generative-ui",
-        "description": "Long-running agent tasks with generated UI"
+        "id": "hitl-in-chat",
+        "name": "In-Chat HITL (useHumanInTheLoop — ergonomic API)",
+        "category": "controlled-generative-ui",
+        "description": "Interactive approval/decision surface rendered inline in the chat. Uses the high-level `useHumanInTheLoop` hook — handles the interrupt lifecycle for you.",
+        "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-chat",
+        "shell_docs_url": "/docs/features/hitl-in-chat"
+      },
+      {
+        "id": "gen-ui-interrupt",
+        "name": "In-Chat HITL (useInterrupt — low-level primitive)",
+        "category": "controlled-generative-ui",
+        "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle.",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-interrupt",
+        "shell_docs_url": "/docs/features/gen-ui-interrupt"
+      },
+      {
+        "id": "interrupt-headless",
+        "name": "Headless Interrupt",
+        "category": "controlled-generative-ui",
+        "description": "Resolve langgraph interrupts headlessly via agent.subscribe + copilotkit.runAgent — no chat, no useInterrupt render prop",
+        "kind": "testing"
+      },
+      {
+        "id": "declarative-gen-ui",
+        "name": "Declarative Generative UI (A2UI — Dynamic Schema)",
+        "category": "declarative-generative-ui",
+        "description": "Canonical A2UI BYOC — custom catalog wired via a2ui.catalog; runtime injects render_a2ui automatically",
+        "og_docs_url": "https://docs.copilotkit.ai/features/declarative-gen-ui",
+        "shell_docs_url": "/docs/features/declarative-gen-ui"
+      },
+      {
+        "id": "a2ui-fixed-schema",
+        "name": "Declarative Generative UI (A2UI — Fixed Schema)",
+        "category": "declarative-generative-ui",
+        "description": "A2UI rendering against a known, fixed client-side schema",
+        "og_docs_url": "https://docs.copilotkit.ai/features/a2ui-fixed-schema",
+        "shell_docs_url": "/docs/features/a2ui-fixed-schema"
+      },
+      {
+        "id": "mcp-apps",
+        "name": "MCP Apps",
+        "category": "open-generative-ui",
+        "description": "MCP server integration with UI display",
+        "og_docs_url": "https://docs.copilotkit.ai/features/mcp-apps",
+        "shell_docs_url": "/docs/features/mcp-apps"
       },
       {
         "id": "open-gen-ui",
-        "name": "Open Generative UI",
-        "category": "generative-ui",
-        "description": "Fully agent-generated HTML/component rendering"
+        "name": "Fully Open-Ended Generative UI",
+        "category": "open-generative-ui",
+        "description": "Agent-generated UI from arbitrary component libraries",
+        "og_docs_url": "https://docs.copilotkit.ai/features/open-gen-ui",
+        "shell_docs_url": "/docs/features/open-gen-ui"
+      },
+      {
+        "id": "open-gen-ui-advanced",
+        "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
+        "category": "open-generative-ui",
+        "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe"
+      },
+      {
+        "id": "tool-rendering-default-catchall",
+        "name": "Tool Rendering (Default Catch-all)",
+        "category": "operational-generative-ui",
+        "description": "Out-of-the-box rendering: backend tools surfaced via CopilotKit's built-in default catch-all renderer; no frontend customization",
+        "kind": "primary",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
+      },
+      {
+        "id": "tool-rendering-custom-catchall",
+        "name": "Tool Rendering (Custom Catch-all)",
+        "category": "operational-generative-ui",
+        "description": "Single branded wildcard renderer that paints every tool call — one card handles them all",
+        "kind": "primary",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
         "id": "tool-rendering",
         "name": "Tool Rendering",
-        "category": "agent-capabilities",
-        "description": "Backend agent tools rendered as UI components"
+        "category": "operational-generative-ui",
+        "description": "Custom per-tool renderers for the tools you care about, plus a wildcard catch-all for the rest",
+        "og_docs_url": "https://docs.copilotkit.ai/features/tool-rendering",
+        "shell_docs_url": "/docs/features/tool-rendering"
       },
       {
-        "id": "state-rendering",
-        "name": "State Rendering",
-        "category": "agent-state",
-        "description": "Rendering agent execution state"
+        "id": "tool-rendering-reasoning-chain",
+        "name": "Tool Rendering + Reasoning Chain",
+        "category": "operational-generative-ui",
+        "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
+        "kind": "testing"
       },
       {
-        "id": "shared-state-read",
-        "name": "Shared State (Reading)",
-        "category": "agent-state",
-        "description": "Reading agent state from UI"
+        "id": "agentic-chat-reasoning",
+        "name": "Reasoning",
+        "category": "operational-generative-ui",
+        "description": "Visible reasoning/thinking chain alongside the final answer",
+        "og_docs_url": "https://docs.copilotkit.ai/features/agentic-chat-reasoning",
+        "shell_docs_url": "/docs/features/agentic-chat-reasoning"
       },
       {
-        "id": "shared-state-write",
-        "name": "Shared State (Writing)",
-        "category": "agent-state",
-        "description": "Writing to agent state from UI"
+        "id": "reasoning-default-render",
+        "name": "Reasoning (Default Render)",
+        "category": "operational-generative-ui",
+        "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
+        "kind": "testing"
       },
       {
-        "id": "shared-state-streaming",
-        "name": "State Streaming",
-        "category": "agent-state",
-        "description": "Per-token state delta streaming from agent to UI"
+        "id": "gen-ui-agent",
+        "name": "Agentic Generative UI (In-Chat State Rendering)",
+        "category": "operational-generative-ui",
+        "description": "Agent-state-driven inline UI: the agent emits a live `steps` plan via copilotkit_emit_state and the frontend renders it with useCoAgentStateRender (v1 hook)",
+        "og_docs_url": "https://docs.copilotkit.ai/features/gen-ui-agent",
+        "shell_docs_url": "/docs/features/gen-ui-agent"
       },
       {
-        "id": "shared-state-io",
-        "name": "Shared State (I/O Schemas)",
-        "category": "agent-state",
-        "description": "Structured output schemas"
-      },
-      {
-        "id": "readables",
-        "name": "Readables (Client Context)",
-        "category": "agent-state",
-        "description": "Passing client-side context to agent"
-      },
-      {
-        "id": "hitl",
-        "name": "Human in the Loop",
+        "id": "frontend-tools",
+        "name": "Frontend Tools (In-app actions)",
         "category": "interactivity",
-        "description": "User approves agent actions before execution"
-      },
-      {
-        "id": "frontend-tools-sync",
-        "name": "Frontend Tools (Sync)",
-        "category": "interactivity",
-        "description": "Synchronous frontend tool execution"
+        "description": "Frontend tool execution triggered by the agent",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+        "shell_docs_url": "/docs/features/frontend-tools"
       },
       {
         "id": "frontend-tools-async",
         "name": "Frontend Tools (Async)",
         "category": "interactivity",
-        "description": "Asynchronous frontend tool execution"
+        "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (e.g. DB query) and uses the returned result",
+        "og_docs_url": "https://docs.copilotkit.ai/features/frontend-tools",
+        "shell_docs_url": "/docs/features/frontend-tools"
+      },
+      {
+        "id": "hitl-in-app",
+        "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
+        "category": "interactivity",
+        "description": "Agent calls useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
+        "og_docs_url": "https://docs.copilotkit.ai/features/hitl-in-app",
+        "shell_docs_url": "/docs/features/hitl-in-app"
+      },
+      {
+        "id": "shared-state-read-write",
+        "name": "Shared State (Read + Write)",
+        "category": "agent-state",
+        "description": "Bidirectional agent state — UI writes preferences, agent writes notes back"
+      },
+      {
+        "id": "shared-state-streaming",
+        "name": "State Streaming",
+        "category": "agent-state",
+        "description": "Per-token state delta streaming from agent to UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/shared-state-streaming",
+        "shell_docs_url": "/docs/features/shared-state-streaming"
+      },
+      {
+        "id": "readonly-state-agent-context",
+        "name": "Readonly State (Agent Context)",
+        "category": "agent-state",
+        "description": "Frontend provides read-only context to the agent via useAgentContext"
       },
       {
         "id": "subagents",
         "name": "Sub-Agents",
         "category": "multi-agent",
-        "description": "Multiple agents with visible task delegation"
-      },
-      {
-        "id": "mcp-apps",
-        "name": "MCP Apps",
-        "category": "platform",
-        "description": "MCP server integration with UI display"
+        "description": "Multiple agents with visible task delegation",
+        "og_docs_url": "https://docs.copilotkit.ai/features/subagents",
+        "shell_docs_url": "/docs/features/subagents"
       },
       {
         "id": "auth",
         "name": "Authentication",
         "category": "platform",
-        "description": "Framework-native authentication"
+        "description": "Framework-native authentication",
+        "og_docs_url": "https://docs.copilotkit.ai/features/auth",
+        "shell_docs_url": "/docs/features/auth"
       },
       {
         "id": "agent-config",
         "name": "Agent Config Object",
         "category": "platform",
-        "description": "Forwarded props / config objects"
+        "description": "Forwarded props / config objects",
+        "og_docs_url": "https://docs.copilotkit.ai/features/agent-config",
+        "shell_docs_url": "/docs/features/agent-config"
       },
       {
         "id": "voice",
         "name": "Voice",
         "category": "platform",
-        "description": "Real-time voice interaction"
+        "description": "Real-time voice interaction",
+        "og_docs_url": "https://docs.copilotkit.ai/features/voice",
+        "shell_docs_url": "/docs/features/voice"
       },
       {
         "id": "multimodal",
         "name": "Multi-modal / File Uploads",
         "category": "platform",
-        "description": "File upload and agent processing"
-      },
-      {
-        "id": "a2ui-fixed",
-        "name": "A2UI (Fixed Schema)",
-        "category": "a2ui",
-        "description": "Static A2UI schema rendering"
-      },
-      {
-        "id": "a2ui-fixed-streaming",
-        "name": "A2UI (Fixed Schema Streaming)",
-        "category": "a2ui",
-        "description": "Streaming static A2UI"
-      },
-      {
-        "id": "a2ui-dynamic",
-        "name": "A2UI (Dynamic Schema)",
-        "category": "a2ui",
-        "description": "Agent-generated A2UI schemas"
-      },
-      {
-        "id": "mobile-react-native",
-        "name": "Mobile (React Native)",
-        "category": "mobile",
-        "description": "React Native support"
-      },
-      {
-        "id": "mobile-swiftui",
-        "name": "Mobile (SwiftUI)",
-        "category": "mobile",
-        "description": "SwiftUI support"
-      },
-      {
-        "id": "mobile-android",
-        "name": "Mobile (Android)",
-        "category": "mobile",
-        "description": "Android support"
-      },
-      {
-        "id": "web-angular",
-        "name": "Web (Angular)",
-        "category": "web-frameworks",
-        "description": "Angular support"
-      },
-      {
-        "id": "web-svelte",
-        "name": "Web (Svelte)",
-        "category": "web-frameworks",
-        "description": "Svelte support"
-      },
-      {
-        "id": "web-vue",
-        "name": "Web (Vue)",
-        "category": "web-frameworks",
-        "description": "Vue support"
-      },
-      {
-        "id": "web-tanstack",
-        "name": "Web (TanStack)",
-        "category": "web-frameworks",
-        "description": "TanStack Start support"
+        "description": "File upload and agent processing",
+        "og_docs_url": "https://docs.copilotkit.ai/features/multimodal",
+        "shell_docs_url": "/docs/features/multimodal"
       },
       {
         "id": "byoc-hashbrown",
         "name": "BYOC Hashbrown",
         "category": "byoc",
-        "description": "Hashbrown-style generative UI"
-      },
-      {
-        "id": "byoc-a2ui",
-        "name": "BYOC A2UI v0.9",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI on top of A2UI 0.9"
+        "description": "Hashbrown-style generative UI",
+        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-hashbrown",
+        "shell_docs_url": "/docs/features/byoc-hashbrown"
       },
       {
         "id": "byoc-json-render",
         "name": "BYOC json-render",
         "category": "byoc",
-        "description": "Hashbrown-style generative UI built on json-render"
-      },
-      {
-        "id": "byoc-opengenui",
-        "name": "BYOC OpenGenUI",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI built on Open GenUI framework"
-      },
-      {
-        "id": "byoc-tambo",
-        "name": "BYOC Tambo",
-        "category": "byoc",
-        "description": "Hashbrown-style generative UI built on Tambo"
-      },
-      {
-        "id": "deep-agents",
-        "name": "Deep Agents",
-        "category": "deep-agents",
-        "description": "Deep agent architecture with nested agent orchestration"
-      },
-      {
-        "id": "agentic-chat-reasoning",
-        "name": "Agentic Chat (Reasoning)",
-        "category": "chat-ui",
-        "description": "Chat with visible reasoning/thinking chain display"
-      },
-      {
-        "id": "a2a-chat",
-        "name": "A2A Chat",
-        "category": "multi-agent",
-        "description": "Agent-to-Agent protocol chat with multi-tab agent communication"
-      },
-      {
-        "id": "a2ui-chat",
-        "name": "A2UI Chat",
-        "category": "a2ui",
-        "description": "Chat with rich A2UI surface rendering using A2UI message renderer"
-      },
-      {
-        "id": "vnext-chat",
-        "name": "vNext Chat",
-        "category": "platform",
-        "description": "Experimental next-generation chat using CopilotKit vNext runtime"
+        "description": "Hashbrown-style generative UI built on json-render",
+        "og_docs_url": "https://docs.copilotkit.ai/features/byoc-json-render",
+        "shell_docs_url": "/docs/features/byoc-json-render"
       }
     ]
   },
@@ -351,54 +361,187 @@
       "backend_url": "https://showcase-langgraph-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 10,
-      "generative_ui": ["constrained-explicit"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
       "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
       },
       "starter": {
-        "path": "examples/integrations/langgraph-python",
-        "name": "Collaborative Todo App",
-        "description": "Full-featured todo app with agent-driven state management, generative UI, and MCP integration",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-python",
-        "demo_url": "https://showcase-starter-langgraph-python-production.up.railway.app"
+        "path": "showcase/starters/langgraph-python",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python",
+        "demo_url": "https://showcase-starter-langgraph-python-production-3f57.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app"
       },
       "features": [
+        "beautiful-chat",
+        "cli-start",
         "agentic-chat",
-        "hitl",
-        "tool-rendering",
+        "prebuilt-sidebar",
+        "prebuilt-popup",
+        "chat-slots",
+        "chat-customization-css",
+        "headless-simple",
+        "headless-complete",
+        "agentic-chat-reasoning",
+        "reasoning-default-render",
+        "frontend-tools",
+        "frontend-tools-async",
         "gen-ui-tool-based",
+        "hitl-in-chat",
+        "hitl-in-app",
+        "gen-ui-interrupt",
+        "interrupt-headless",
+        "declarative-gen-ui",
+        "a2ui-fixed-schema",
+        "mcp-apps",
         "gen-ui-agent",
-        "shared-state-read",
-        "shared-state-write",
+        "tool-rendering-default-catchall",
+        "tool-rendering-custom-catchall",
+        "tool-rendering",
+        "tool-rendering-reasoning-chain",
+        "shared-state-read-write",
         "shared-state-streaming",
+        "readonly-state-agent-context",
         "subagents"
       ],
       "demos": [
+        {
+          "id": "cli-start",
+          "name": "CLI Start Command",
+          "description": "Copy-paste command to clone the canonical starter",
+          "tags": ["chat-ui"],
+          "command": "npx copilotkit@latest init --framework langgraph-python"
+        },
         {
           "id": "agentic-chat",
           "name": "Agentic Chat",
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_agentic-chat.mp4",
+          "highlight": [
+            "src/agents/agentic_chat.py",
+            "src/app/demos/agentic-chat/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
+          "id": "chat-customization-css",
+          "name": "Chat Customization (CSS)",
+          "description": "Default CopilotChat re-themed via CopilotKitCSSProperties",
+          "tags": ["chat-ui"],
+          "route": "/demos/chat-customization-css",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_chat-customization-css.mp4",
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/chat-customization-css/page.tsx",
+            "src/app/demos/chat-customization-css/theme.css",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "tool-rendering-default-catchall",
+          "name": "Tool Rendering (Default Catch-all)",
+          "description": "Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/tool-rendering-default-catchall",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-default-catchall.mp4",
+          "highlight": [
+            "src/app/demos/tool-rendering-default-catchall/page.tsx",
+            "src/agents/tool_rendering_agent.py",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "tool-rendering-custom-catchall",
+          "name": "Tool Rendering (Custom Catch-all)",
+          "description": "Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call",
+          "tags": ["generative-ui"],
+          "route": "/demos/tool-rendering-custom-catchall",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-custom-catchall.mp4",
+          "highlight": [
+            "src/app/demos/tool-rendering-custom-catchall/page.tsx",
+            "src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx",
+            "src/agents/tool_rendering_agent.py",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "frontend-tools",
+          "name": "Frontend Tools (In-App Actions)",
+          "description": "Agent invokes client-side handlers registered with useFrontendTool",
           "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "route": "/demos/frontend-tools",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_frontend-tools.mp4",
+          "highlight": [
+            "src/agents/frontend_tools.py",
+            "src/app/demos/frontend-tools/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "frontend-tools-async",
+          "name": "Frontend Tools (Async)",
+          "description": "useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result",
+          "tags": ["interactivity"],
+          "route": "/demos/frontend-tools-async",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_frontend-tools-async.mp4",
+          "highlight": [
+            "src/agents/frontend_tools_async.py",
+            "src/app/demos/frontend-tools-async/page.tsx",
+            "src/app/demos/frontend-tools-async/notes-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat HITL (useHumanInTheLoop — ergonomic API)",
+          "description": "Interactive approval/decision surface rendered inline in the chat via the high-level `useHumanInTheLoop` hook",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl-in-chat",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_hitl-in-chat.mp4",
+          "highlight": [
+            "src/agents/hitl_in_chat_agent.py",
+            "src/app/demos/hitl-in-chat/page.tsx",
+            "src/app/demos/hitl-in-chat/time-picker-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "hitl-in-app",
+          "name": "In-App Human in the Loop (Frontend Tools + async HITL)",
+          "description": "Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl-in-app",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_hitl-in-app.mp4",
+          "highlight": [
+            "src/agents/hitl_in_app.py",
+            "src/app/demos/hitl-in-app/page.tsx",
+            "src/app/demos/hitl-in-app/approval-dialog.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "tool-rendering",
           "name": "Tool Rendering",
-          "description": "Backend agent tools rendered as UI components",
+          "description": "Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering.mp4",
+          "highlight": [
+            "src/agents/tool_rendering_agent.py",
+            "src/app/demos/tool-rendering/page.tsx",
+            "src/app/demos/tool-rendering/weather-card.tsx",
+            "src/app/demos/tool-rendering/flight-list-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "gen-ui-tool-based",
@@ -406,31 +549,42 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-tool-based.mp4",
+          "highlight": [
+            "src/agents/gen_ui_tool_based.py",
+            "src/app/demos/gen-ui-tool-based/page.tsx",
+            "src/app/demos/gen-ui-tool-based/bar-chart.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "gen-ui-agent",
           "name": "Agentic Generative UI",
-          "description": "Long-running agent tasks with generated UI",
+          "description": "Canonical agent-state-driven Gen UI — the agent plans a live step list and emits it via copilotkit_emit_state; the frontend renders it with the v1 useCoAgentStateRender hook",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-agent.mp4",
+          "highlight": [
+            "src/agents/gen_ui_agent.py",
+            "src/app/demos/gen-ui-agent/page.tsx",
+            "src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
-          "id": "shared-state-read",
-          "name": "Shared State (Reading)",
-          "description": "Reading agent state from UI",
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
           "tags": ["agent-state"],
-          "route": "/demos/shared-state-read",
-          "animated_preview_url": null
-        },
-        {
-          "id": "shared-state-write",
-          "name": "Shared State (Writing)",
-          "description": "Writing to agent state from UI",
-          "tags": ["agent-state"],
-          "route": "/demos/shared-state-write",
-          "animated_preview_url": null
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_shared-state-read-write.mp4",
+          "highlight": [
+            "src/agents/shared_state_read_write.py",
+            "src/app/demos/shared-state-read-write/page.tsx",
+            "src/app/demos/shared-state-read-write/preferences-card.tsx",
+            "src/app/demos/shared-state-read-write/notes-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "shared-state-streaming",
@@ -438,7 +592,13 @@
           "description": "Per-token state delta streaming from agent to UI",
           "tags": ["agent-state"],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_shared-state-streaming.mp4",
+          "highlight": [
+            "src/agents/shared_state_streaming.py",
+            "src/app/demos/shared-state-streaming/page.tsx",
+            "src/app/demos/shared-state-streaming/document-view.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
         },
         {
           "id": "subagents",
@@ -446,9 +606,359 @@
           "description": "Multiple agents with visible task delegation",
           "tags": ["multi-agent"],
           "route": "/demos/subagents",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_subagents.mp4",
+          "highlight": [
+            "src/agents/subagents.py",
+            "src/app/demos/subagents/page.tsx",
+            "src/app/demos/subagents/delegation-log.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "prebuilt-sidebar",
+          "name": "Pre-Built: Sidebar",
+          "description": "Docked sidebar chat via <CopilotSidebar />",
+          "tags": ["chat-ui"],
+          "route": "/demos/prebuilt-sidebar",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_prebuilt-sidebar.mp4",
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/prebuilt-sidebar/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "prebuilt-popup",
+          "name": "Pre-Built: Popup",
+          "description": "Floating popup chat via <CopilotPopup />",
+          "tags": ["chat-ui"],
+          "route": "/demos/prebuilt-popup",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_prebuilt-popup.mp4",
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/prebuilt-popup/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "chat-slots",
+          "name": "Chat Customization (Slots)",
+          "description": "Customize CopilotChat via its slot system",
+          "tags": ["chat-ui"],
+          "route": "/demos/chat-slots",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_chat-slots.mp4",
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/chat-slots/page.tsx",
+            "src/app/demos/chat-slots/custom-welcome-screen.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "headless-simple",
+          "name": "Headless Chat (Simple)",
+          "description": "Minimal custom chat surface built on useAgent",
+          "tags": ["chat-ui"],
+          "route": "/demos/headless-simple",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_headless-simple.mp4",
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/headless-simple/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "headless-complete",
+          "name": "Headless Chat (Complete)",
+          "description": "Full chat implementation built from scratch on useAgent",
+          "tags": ["chat-ui"],
+          "route": "/demos/headless-complete",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_headless-complete.mp4",
+          "highlight": [
+            "src/agents/headless_complete.py",
+            "src/app/demos/headless-complete/page.tsx",
+            "src/app/demos/headless-complete/message-list.tsx",
+            "src/app/demos/headless-complete/use-rendered-messages.tsx",
+            "src/app/api/copilotkit-mcp-apps/route.ts"
+          ]
+        },
+        {
+          "id": "agentic-chat-reasoning",
+          "name": "Reasoning",
+          "description": "Visible reasoning/thinking chain alongside the final answer",
+          "tags": ["generative-ui"],
+          "route": "/demos/agentic-chat-reasoning",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_agentic-chat-reasoning.mp4",
+          "highlight": [
+            "src/app/demos/agentic-chat-reasoning/page.tsx",
+            "src/app/demos/agentic-chat-reasoning/reasoning-block.tsx",
+            "src/agents/reasoning_agent.py",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "gen-ui-interrupt",
+          "name": "In-Chat HITL (useInterrupt — low-level primitive)",
+          "description": "Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-interrupt",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-interrupt.mp4",
+          "highlight": [
+            "src/agents/interrupt_agent.py",
+            "src/app/demos/gen-ui-interrupt/page.tsx",
+            "src/app/demos/gen-ui-interrupt/time-picker-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "declarative-gen-ui",
+          "name": "Declarative Generative UI (A2UI)",
+          "description": "Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; runtime injects the render_a2ui tool automatically",
+          "tags": ["generative-ui"],
+          "route": "/demos/declarative-gen-ui",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_declarative-gen-ui.mp4",
+          "highlight": [
+            "src/agents/a2ui_dynamic.py",
+            "src/app/demos/declarative-gen-ui/page.tsx",
+            "src/app/demos/declarative-gen-ui/a2ui/catalog.ts",
+            "src/app/demos/declarative-gen-ui/a2ui/definitions.ts",
+            "src/app/demos/declarative-gen-ui/a2ui/renderers.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "a2ui-fixed-schema",
+          "name": "Declarative Generative UI (A2UI — Fixed Schema)",
+          "description": "A2UI rendering against a known client-side schema",
+          "tags": ["generative-ui"],
+          "route": "/demos/a2ui-fixed-schema",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_a2ui-fixed-schema.mp4",
+          "highlight": [
+            "src/agents/a2ui_fixed.py",
+            "src/agents/a2ui_schemas/flight_schema.json",
+            "src/agents/a2ui_schemas/booked_schema.json",
+            "src/app/demos/a2ui-fixed-schema/page.tsx",
+            "src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts",
+            "src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts",
+            "src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "mcp-apps",
+          "name": "MCP Apps",
+          "description": "MCP server-driven UI via activity renderers",
+          "tags": ["generative-ui"],
+          "route": "/demos/mcp-apps",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_mcp-apps.mp4",
+          "highlight": [
+            "src/agents/mcp_apps_agent.py",
+            "src/app/demos/mcp-apps/page.tsx",
+            "src/app/api/copilotkit-mcp-apps/route.ts"
+          ]
+        },
+        {
+          "id": "interrupt-headless",
+          "name": "Headless Interrupt (testing)",
+          "description": "Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop",
+          "tags": ["interactivity"],
+          "route": "/demos/interrupt-headless",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_interrupt-headless.mp4",
+          "highlight": [
+            "src/agents/interrupt_agent.py",
+            "src/app/demos/interrupt-headless/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "readonly-state-agent-context",
+          "name": "Readonly State (Agent Context)",
+          "description": "Frontend provides read-only context to the agent via useAgentContext",
+          "tags": ["agent-state"],
+          "route": "/demos/readonly-state-agent-context",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_readonly-state-agent-context.mp4",
+          "highlight": [
+            "src/agents/readonly_state_agent_context.py",
+            "src/app/demos/readonly-state-agent-context/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "reasoning-default-render",
+          "name": "Reasoning (Default Render)",
+          "description": "Built-in CopilotChatReasoningMessage renders without a custom slot",
+          "tags": ["generative-ui"],
+          "route": "/demos/reasoning-default-render",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_reasoning-default-render.mp4",
+          "highlight": [
+            "src/agents/reasoning_agent.py",
+            "src/app/demos/reasoning-default-render/page.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "tool-rendering-reasoning-chain",
+          "name": "Tool Rendering + Reasoning Chain (testing)",
+          "description": "Sequential tool calls with reasoning tokens rendered side-by-side",
+          "tags": ["generative-ui"],
+          "route": "/demos/tool-rendering-reasoning-chain",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-reasoning-chain.mp4",
+          "highlight": [
+            "src/agents/tool_rendering_reasoning_chain_agent.py",
+            "src/app/demos/tool-rendering-reasoning-chain/page.tsx",
+            "src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx",
+            "src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx",
+            "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "beautiful-chat",
+          "name": "Beautiful Chat",
+          "description": "Canonical polished starter chat — brand fonts, theme tokens, suggestion pills",
+          "tags": ["chat-ui"],
+          "route": "/demos/beautiful-chat",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_beautiful-chat.mp4",
+          "highlight": [
+            "src/agents/beautiful_chat.py",
+            "src/app/demos/beautiful-chat/page.tsx",
+            "src/app/demos/beautiful-chat/components/example-layout/index.tsx",
+            "src/app/demos/beautiful-chat/components/example-canvas/index.tsx",
+            "src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx",
+            "src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx",
+            "src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx",
+            "src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx",
+            "src/app/api/copilotkit-beautiful-chat/route.ts"
+          ]
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "beautiful-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "cli-start": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/quickstart",
+            "shell_docs_path": "/quickstart"
+          },
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "prebuilt-sidebar": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "prebuilt-popup": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "chat-slots": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/slots",
+            "shell_docs_path": "/custom-look-and-feel/slots"
+          },
+          "chat-customization-css": {
+            "og_docs_url": null,
+            "shell_docs_path": "/custom-look-and-feel/css"
+          },
+          "headless-simple": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/headless-ui",
+            "shell_docs_path": "/custom-look-and-feel/headless-ui"
+          },
+          "headless-complete": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/custom-look-and-feel/headless-ui",
+            "shell_docs_path": "/custom-look-and-feel/headless-ui"
+          },
+          "agentic-chat-reasoning": {
+            "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+            "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+          },
+          "reasoning-default-render": {
+            "og_docs_url": "https://docs.copilotkit.ai/custom-look-and-feel/reasoning-messages",
+            "shell_docs_path": "/custom-look-and-feel/reasoning-messages"
+          },
+          "frontend-tools": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
+          "frontend-tools-async": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interactive",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "gen-ui-interrupt": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
+            "shell_docs_path": null
+          },
+          "interrupt-headless": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
+            "shell_docs_path": "/human-in-the-loop/headless"
+          },
+          "declarative-gen-ui": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/dynamic-schema",
+            "shell_docs_path": "/generative-ui/a2ui/dynamic-schema"
+          },
+          "a2ui-fixed-schema": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/a2ui/fixed-schema",
+            "shell_docs_path": "/generative-ui/a2ui/fixed-schema"
+          },
+          "mcp-apps": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/mcp-apps",
+            "shell_docs_path": "/generative-ui/mcp-apps"
+          },
+          "open-gen-ui": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+            "shell_docs_path": "/generative-ui/open-generative-ui"
+          },
+          "open-gen-ui-advanced": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/open-generative-ui",
+            "shell_docs_path": "/generative-ui/open-generative-ui"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/state-rendering",
+            "shell_docs_path": "/generative-ui/state-rendering"
+          },
+          "tool-rendering-default-catchall": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "tool-rendering-custom-catchall": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "tool-rendering-reasoning-chain": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state"
+          },
+          "readonly-state-agent-context": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/agent-app-context",
+            "shell_docs_path": null
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
+            "shell_docs_path": "/multi-agent/subagents"
+          }
+        }
+      }
     },
     {
       "name": "LangGraph (TypeScript)",
@@ -463,24 +973,33 @@
       "backend_url": "https://showcase-langgraph-typescript-production.up.railway.app",
       "deployed": true,
       "sort_order": 11,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
       },
       "starter": {
-        "path": "examples/integrations/langgraph-js",
-        "name": "Investment Analyst",
-        "description": "Investment analysis agent with real-time market data and portfolio recommendations",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-js",
-        "demo_url": "https://showcase-starter-langgraph-typescript-production.up.railway.app"
+        "path": "showcase/starters/langgraph-typescript",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-typescript",
+        "demo_url": "https://showcase-starter-langgraph-typescript-production-25ca.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -489,7 +1008,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -497,15 +1024,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -513,9 +1032,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/prebuilt-components",
+            "shell_docs_path": "/agentic-chat-ui"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interactive",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/state-rendering",
+            "shell_docs_path": "/generative-ui/state-rendering"
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state/streaming"
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
+            "shell_docs_path": "/multi-agent/subagents"
+          }
+        }
+      }
     },
     {
       "name": "LangGraph (FastAPI)",
@@ -530,24 +1117,33 @@
       "backend_url": "https://showcase-langgraph-fastapi-production.up.railway.app",
       "deployed": true,
       "sort_order": 12,
-      "generative_ui": ["constrained-explicit"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
       "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "LangGraph Platform",
         "url": "https://langsmith.com"
       },
       "starter": {
-        "path": "examples/integrations/langgraph-fastapi",
-        "name": "Investment Analyst (FastAPI)",
-        "description": "Investment analysis agent using LangGraph with a FastAPI backend",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/langgraph-fastapi",
-        "demo_url": "https://showcase-starter-langgraph-fastapi-production.up.railway.app"
+        "path": "showcase/starters/langgraph-fastapi",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi",
+        "demo_url": "https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "hitl-in-chat",
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -556,7 +1152,7 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_agentic-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -564,15 +1160,15 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_tool-rendering.mp4"
         },
         {
-          "id": "hitl",
-          "name": "Human in the Loop",
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
           "tags": ["interactivity"],
           "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_hitl-in-chat.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -580,9 +1176,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/prebuilt-components",
+            "shell_docs_path": "/integrations/langgraph/prebuilt-components"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/tool-rendering",
+            "shell_docs_path": "/integrations/langgraph/generative-ui/tool-rendering"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/your-components/interactive",
+            "shell_docs_path": "/integrations/langgraph/generative-ui/your-components/interactive"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/your-components/display-only",
+            "shell_docs_path": "/integrations/langgraph/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/generative-ui/state-rendering",
+            "shell_docs_path": "/integrations/langgraph/generative-ui/state-rendering"
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/shared-state/in-app-agent-write",
+            "shell_docs_path": "/integrations/langgraph/shared-state/in-app-agent-write"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/shared-state/predictive-state-updates",
+            "shell_docs_path": "/integrations/langgraph/shared-state/predictive-state-updates"
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/integrations/langgraph/multi-agent-flows",
+            "shell_docs_path": "/integrations/langgraph/multi-agent-flows"
+          }
+        }
+      }
     },
     {
       "name": "Google ADK",
@@ -597,20 +1261,29 @@
       "backend_url": "https://showcase-google-adk-production.up.railway.app",
       "deployed": true,
       "sort_order": 15,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/adk",
-        "name": "Investment Analyst (ADK)",
-        "description": "Investment analysis agent built with Google Agent Development Kit",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/adk",
-        "demo_url": "https://showcase-starter-google-adk-production.up.railway.app"
+        "path": "showcase/starters/google-adk",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/google-adk",
+        "demo_url": "https://showcase-starter-google-adk-production-a56a.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/google-adk my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -619,7 +1292,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -627,15 +1308,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -643,9 +1316,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk",
+            "shell_docs_path": null
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/human-in-the-loop",
+            "shell_docs_path": null
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/tool-rendering",
+            "shell_docs_path": null
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/your-components/display-only",
+            "shell_docs_path": null
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/in-app-agent-write",
+            "shell_docs_path": null
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/adk/shared-state/predictive-state-updates",
+            "shell_docs_path": null
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Mastra",
@@ -660,24 +1401,33 @@
       "backend_url": "https://showcase-mastra-production.up.railway.app",
       "deployed": true,
       "sort_order": 20,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["sidebar", "chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "managed_platform": {
         "name": "Mastra Cloud",
         "url": "https://mastra.ai/cloud"
       },
       "starter": {
-        "path": "examples/integrations/mastra",
-        "name": "Fullstack TypeScript Agent",
-        "description": "End-to-end TypeScript agent with tool management and workflow orchestration",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/mastra",
-        "demo_url": "https://showcase-starter-mastra-production.up.railway.app"
+        "path": "showcase/starters/mastra",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/mastra",
+        "demo_url": "https://showcase-starter-mastra-production-3a00.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
-        "hitl",
+        "hitl-in-chat",
         "tool-rendering",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -686,15 +1436,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_agentic-chat.mp4"
         },
         {
-          "id": "hitl",
-          "name": "Human in the Loop",
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
           "description": "User approves agent actions before execution",
           "tags": ["interactivity"],
           "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -702,7 +1452,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -710,9 +1460,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra",
+            "shell_docs_path": null
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/human-in-the-loop/tool-based",
+            "shell_docs_path": null
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/mastra",
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "CrewAI (Crews)",
@@ -727,20 +1545,33 @@
       "backend_url": "https://showcase-crewai-crews-production.up.railway.app",
       "deployed": true,
       "sort_order": 40,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
+      "managed_platform": {
+        "name": "CrewAI Enterprise",
+        "url": "https://crewai.com/amp"
+      },
       "starter": {
-        "path": "examples/integrations/crewai-crews",
-        "name": "Multi-Agent Crew",
-        "description": "Multi-agent crew with collaborative task execution and role-based agents",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/crewai-crews",
-        "demo_url": "https://showcase-starter-crewai-crews-production.up.railway.app"
+        "path": "showcase/starters/crewai-crews",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/crewai-crews",
+        "demo_url": "https://showcase-starter-crewai-crews-production-ad85.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/crewai-crews my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -749,7 +1580,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -757,15 +1596,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -773,12 +1604,76 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_subagents.mp4"
         }
       ],
-      "managed_platform": {
-        "name": "CrewAI Enterprise",
-        "url": "https://crewai.com/amp"
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/generative-ui/state-rendering",
+            "shell_docs_path": "/generative-ui/state-rendering"
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/crewai-crews/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
       }
     },
     {
@@ -794,20 +1689,29 @@
       "backend_url": "https://showcase-pydantic-ai-production.up.railway.app",
       "deployed": true,
       "sort_order": 50,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/pydantic-ai",
-        "name": "Investment Analyst (PydanticAI)",
-        "description": "Investment analysis agent with type-safe tool definitions via PydanticAI",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/pydantic-ai",
-        "demo_url": "https://showcase-starter-pydantic-ai-production.up.railway.app"
+        "path": "showcase/starters/pydantic-ai",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/pydantic-ai",
+        "demo_url": "https://showcase-starter-pydantic-ai-production-cf5b.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/pydantic-ai my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -816,7 +1720,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -824,15 +1736,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -840,9 +1744,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/interactive",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/pydantic-ai/multi-agent-flows",
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Claude Agent SDK (Python)",
@@ -850,20 +1822,28 @@
       "category": "agent-framework",
       "language": "python",
       "logo": "/logos/claude-sdk-python.svg",
-      "description": "CopilotKit integration with Claude Agent SDK (Python)",
+      "description": "CopilotKit integration with Claude Agent SDK (Python). Supports the full range of CopilotKit features including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.",
       "partner_docs": null,
       "repo": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/claude-sdk-python",
       "copilotkit_version": "2.0.0",
       "backend_url": "https://showcase-claude-sdk-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 70,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -872,7 +1852,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -880,15 +1868,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -896,9 +1876,85 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_subagents.mp4"
         }
-      ]
+      ],
+      "starter": {
+        "path": "showcase/starters/claude-sdk-python",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-python",
+        "demo_url": "https://showcase-starter-claude-sdk-python-production.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-python my-copilotkit-app"
+      },
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Claude Agent SDK (TypeScript)",
@@ -913,13 +1969,21 @@
       "backend_url": "https://showcase-claude-sdk-typescript-production.up.railway.app",
       "deployed": true,
       "sort_order": 80,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -928,7 +1992,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -936,15 +2008,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -952,9 +2016,85 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_subagents.mp4"
         }
-      ]
+      ],
+      "starter": {
+        "path": "showcase/starters/claude-sdk-typescript",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-typescript",
+        "demo_url": "https://showcase-starter-claude-sdk-typescript-production.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-typescript my-copilotkit-app"
+      },
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Agno",
@@ -962,27 +2102,36 @@
       "category": "emerging",
       "language": "python",
       "logo": "/logos/agno.svg",
-      "description": "CopilotKit integration with Agno",
+      "description": "CopilotKit integration with Agno. Supports the full range of CopilotKit features including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.",
       "partner_docs": null,
       "repo": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/agno",
       "copilotkit_version": "2.0.0",
       "backend_url": "https://showcase-agno-production.up.railway.app",
       "deployed": true,
       "sort_order": 90,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/agno",
-        "name": "Investment Analyst (Agno)",
-        "description": "Investment analysis agent built with the Agno framework",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agno",
-        "demo_url": "https://showcase-starter-agno-production.up.railway.app"
+        "path": "showcase/starters/agno",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/agno",
+        "demo_url": "https://showcase-starter-agno-production-359f.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/agno my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -991,7 +2140,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -999,15 +2156,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1015,12 +2164,80 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_subagents.mp4"
         }
       ],
       "managed_platform": {
         "name": "Agent OS",
         "url": "https://os.agno.com"
+      },
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/agno/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/agno/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/agno/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
       }
     },
     {
@@ -1029,20 +2246,28 @@
       "category": "emerging",
       "language": "python",
       "logo": "/logos/ag2.svg",
-      "description": "CopilotKit integration with AG2",
+      "description": "CopilotKit integration with AG2. Supports the full range of CopilotKit features including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.",
       "partner_docs": null,
       "repo": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ag2",
       "copilotkit_version": "2.0.0",
       "backend_url": "https://showcase-ag2-production.up.railway.app",
       "deployed": true,
       "sort_order": 100,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1051,7 +2276,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1059,15 +2292,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1075,12 +2300,88 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_subagents.mp4"
         }
       ],
+      "starter": {
+        "path": "showcase/starters/ag2",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ag2",
+        "demo_url": "https://showcase-starter-ag2-production.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ag2 my-copilotkit-app"
+      },
       "managed_platform": {
         "name": "Agent OS",
         "url": "https://ag2.ai/product"
+      },
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state/write",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
       }
     },
     {
@@ -1096,20 +2397,29 @@
       "backend_url": "https://showcase-llamaindex-production.up.railway.app",
       "deployed": true,
       "sort_order": 110,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/llamaindex",
-        "name": "Investment Analyst (LlamaIndex)",
-        "description": "Investment analysis agent using LlamaIndex for data retrieval and analysis",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/llamaindex",
-        "demo_url": "https://showcase-starter-llamaindex-production.up.railway.app"
+        "path": "showcase/starters/llamaindex",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/llamaindex",
+        "demo_url": "https://showcase-starter-llamaindex-production-78fe.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1118,7 +2428,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1126,15 +2444,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1142,9 +2452,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/human-in-the-loop",
+            "shell_docs_path": "/human-in-the-loop"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/generative-ui/state-rendering",
+            "shell_docs_path": "/generative-ui/state-rendering"
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/llamaindex/shared-state/predictive-state-updates",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": "/multi-agent/subagents"
+          }
+        }
+      }
     },
     {
       "name": "AWS Strands",
@@ -1163,20 +2541,29 @@
       "backend_url": "https://showcase-strands-production.up.railway.app",
       "deployed": true,
       "sort_order": 130,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/strands-python",
-        "name": "Investment Analyst (Strands)",
-        "description": "Investment analysis agent built with AWS Strands framework",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/strands-python",
-        "demo_url": "https://showcase-starter-strands-production.up.railway.app"
+        "path": "showcase/starters/strands",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/strands",
+        "demo_url": "https://showcase-starter-strands-production-1114.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/strands my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1185,7 +2572,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1193,15 +2588,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1209,9 +2596,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/prebuilt-components",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+            "shell_docs_path": null
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/aws-strands/shared-state/in-app-agent-write",
+            "shell_docs_path": null
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Langroid",
@@ -1226,13 +2681,21 @@
       "backend_url": "https://showcase-langroid-production.up.railway.app",
       "deployed": true,
       "sort_order": 140,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1241,7 +2704,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1249,15 +2720,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1265,9 +2728,52 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_subagents.mp4"
         }
-      ]
+      ],
+      "starter": {
+        "path": "showcase/starters/langroid",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langroid",
+        "demo_url": "https://showcase-starter-langroid-production.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langroid my-copilotkit-app"
+      },
+      "docs_links": {
+        "features": {}
+      }
     },
     {
       "name": "MS Agent Framework (Python)",
@@ -1282,20 +2788,29 @@
       "backend_url": "https://showcase-ms-agent-python-production.up.railway.app",
       "deployed": true,
       "sort_order": 150,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/ms-agent-framework-python",
-        "name": "Proverbs Manager",
-        "description": "Proverb management agent using Microsoft Agent Framework for Python",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-python",
-        "demo_url": "https://showcase-starter-ms-agent-python-production.up.railway.app"
+        "path": "showcase/starters/ms-agent-python",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-python",
+        "demo_url": "https://showcase-starter-ms-agent-python-production-d140.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-python my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1304,7 +2819,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1312,15 +2835,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1328,9 +2843,77 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/quickstart",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
+            "shell_docs_path": "/generative-ui/your-components/interactive"
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/predictive-state-updates",
+            "shell_docs_path": null
+          },
+          "subagents": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework",
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "MS Agent Framework (.NET)",
@@ -1338,27 +2921,36 @@
       "category": "enterprise-platform",
       "language": "dotnet",
       "logo": "/logos/ms-agent-dotnet.svg",
-      "description": "CopilotKit integration with Microsoft Agent Framework for .NET via AG-UI protocol",
+      "description": "CopilotKit integration with Microsoft Agent Framework for .NET via AG-UI protocol. Full feature parity including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.",
       "partner_docs": "https://docs.copilotkit.ai/microsoft-agent-framework",
       "repo": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ms-agent-dotnet",
       "copilotkit_version": "2.0.0",
       "backend_url": "https://showcase-ms-agent-dotnet-production.up.railway.app",
       "deployed": true,
       "sort_order": 160,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "starter": {
-        "path": "examples/integrations/ms-agent-framework-dotnet",
-        "name": "Proverbs Manager (.NET)",
-        "description": "Proverb management agent using Microsoft Agent Framework for .NET",
-        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/ms-agent-framework-dotnet",
-        "demo_url": "https://showcase-starter-ms-agent-dotnet-production.up.railway.app"
+        "path": "showcase/starters/ms-agent-dotnet",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-dotnet",
+        "demo_url": "https://showcase-starter-ms-agent-dotnet-production-b8cf.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet my-copilotkit-app"
       },
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1367,7 +2959,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1375,15 +2975,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1391,30 +2983,106 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_subagents.mp4"
         }
-      ]
+      ],
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/quickstart",
+            "shell_docs_path": "/quickstart"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop",
+            "shell_docs_path": null
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/in-app-agent-write",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/microsoft-agent-framework/shared-state/predictive-state-updates",
+            "shell_docs_path": null
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     },
     {
       "name": "Spring AI",
       "slug": "spring-ai",
       "category": "enterprise-platform",
-      "language": "typescript",
+      "language": "java",
       "logo": "/logos/spring-ai.svg",
-      "description": "CopilotKit integration with Spring AI",
+      "description": "CopilotKit integration with Spring AI. Java-based agent backend with full feature parity including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.",
       "partner_docs": null,
       "repo": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/spring-ai",
       "copilotkit_version": "2.0.0",
       "backend_url": "https://showcase-spring-ai-production.up.railway.app",
       "deployed": true,
       "sort_order": 170,
-      "generative_ui": ["constrained-explicit"],
-      "interaction_modalities": ["chat"],
+      "generative_ui": [
+        "constrained-explicit",
+        "a2ui-fixed-schema",
+        "a2ui-dynamic-schema"
+      ],
+      "interaction_modalities": ["sidebar", "embedded", "chat"],
       "features": [
         "agentic-chat",
+        "hitl-in-chat",
         "tool-rendering",
-        "hitl",
-        "gen-ui-tool-based"
+        "gen-ui-tool-based",
+        "gen-ui-agent",
+        "shared-state-read-write",
+        "shared-state-streaming",
+        "subagents"
       ],
       "demos": [
         {
@@ -1423,7 +3091,15 @@
           "description": "Natural conversation with frontend tool execution",
           "tags": ["chat-ui"],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_agentic-chat.mp4"
+        },
+        {
+          "id": "hitl-in-chat",
+          "name": "In-Chat Human in the Loop",
+          "description": "User approves agent actions before execution",
+          "tags": ["interactivity"],
+          "route": "/demos/hitl",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_hitl-in-chat.mp4"
         },
         {
           "id": "tool-rendering",
@@ -1431,15 +3107,7 @@
           "description": "Backend agent tools rendered as UI components",
           "tags": ["agent-capabilities"],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": null
-        },
-        {
-          "id": "hitl",
-          "name": "Human in the Loop",
-          "description": "User approves agent actions before execution",
-          "tags": ["interactivity"],
-          "route": "/demos/hitl",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_tool-rendering.mp4"
         },
         {
           "id": "gen-ui-tool-based",
@@ -1447,9 +3115,85 @@
           "description": "Agent uses tools to trigger UI generation",
           "tags": ["generative-ui"],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": null
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_gen-ui-tool-based.mp4"
+        },
+        {
+          "id": "gen-ui-agent",
+          "name": "Agentic Generative UI",
+          "description": "Long-running agent tasks with generated UI",
+          "tags": ["generative-ui"],
+          "route": "/demos/gen-ui-agent",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_gen-ui-agent.mp4"
+        },
+        {
+          "id": "shared-state-read-write",
+          "name": "Shared State (Read + Write)",
+          "description": "Bidirectional agent state — UI writes preferences, agent writes notes back",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-read-write",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_shared-state-read-write.mp4"
+        },
+        {
+          "id": "shared-state-streaming",
+          "name": "State Streaming",
+          "description": "Per-token state delta streaming from agent to UI",
+          "tags": ["agent-state"],
+          "route": "/demos/shared-state-streaming",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_shared-state-streaming.mp4"
+        },
+        {
+          "id": "subagents",
+          "name": "Sub-Agents",
+          "description": "Multiple agents with visible task delegation",
+          "tags": ["multi-agent"],
+          "route": "/demos/subagents",
+          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_subagents.mp4"
         }
-      ]
+      ],
+      "starter": {
+        "path": "showcase/starters/spring-ai",
+        "name": "Sales Dashboard",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
+        "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/spring-ai",
+        "demo_url": "https://showcase-starter-spring-ai-production.up.railway.app",
+        "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/spring-ai my-copilotkit-app"
+      },
+      "docs_links": {
+        "features": {
+          "agentic-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/agentic-chat-ui",
+            "shell_docs_path": "/prebuilt-components"
+          },
+          "hitl-in-chat": {
+            "og_docs_url": "https://docs.copilotkit.ai/human-in-the-loop",
+            "shell_docs_path": null
+          },
+          "tool-rendering": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/tool-rendering",
+            "shell_docs_path": "/generative-ui/tool-rendering"
+          },
+          "gen-ui-tool-based": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/your-components/display-only",
+            "shell_docs_path": "/generative-ui/your-components/display-only"
+          },
+          "gen-ui-agent": {
+            "og_docs_url": "https://docs.copilotkit.ai/generative-ui/state-rendering",
+            "shell_docs_path": null
+          },
+          "shared-state-read-write": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "shared-state-streaming": {
+            "og_docs_url": "https://docs.copilotkit.ai/shared-state",
+            "shell_docs_path": "/shared-state"
+          },
+          "subagents": {
+            "og_docs_url": null,
+            "shell_docs_path": null
+          }
+        }
+      }
     }
   ]
 }
