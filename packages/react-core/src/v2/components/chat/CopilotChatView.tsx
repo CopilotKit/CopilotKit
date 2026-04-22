@@ -519,33 +519,43 @@ export namespace CopilotChatView {
       contentRef,
       spacerRef,
       topOffset: 16,
-      inputContainerHeight,
-      featherHeight: FEATHER_HEIGHT,
     });
 
+    // The feather and scroll-to-bottom button live OUTSIDE the scroll
+    // container. `position: absolute` children of an `overflow: auto`
+    // element are positioned relative to the scroll *content*, which
+    // means they scroll away with it — producing a stray gradient in the
+    // middle of the viewport in pin-to-send mode (where the scroll is
+    // anchored, not at max). Placing them as siblings of the scroll
+    // container (inside a `relative` wrapper) keeps them pinned to the
+    // visible viewport bottom.
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
         <div
-          ref={nonAutoScrollRefCallback}
           className={cn(
-            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden cpk:relative",
+            "cpk:h-full cpk:max-h-full cpk:flex cpk:flex-col cpk:min-h-0 cpk:relative",
             className,
           )}
-          {...props}
         >
           <div
-            ref={contentRef}
-            className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            ref={nonAutoScrollRefCallback}
+            className="cpk:flex-1 cpk:min-h-0 cpk:overflow-y-auto cpk:overflow-x-hidden"
+            {...props}
           >
-            {children}
+            <div
+              ref={contentRef}
+              className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
+            >
+              {children}
+            </div>
+            <div
+              ref={spacerRef}
+              data-pin-to-send-spacer
+              aria-hidden="true"
+              style={{ height: 0, flex: "0 0 auto" }}
+            />
           </div>
-          <div
-            ref={spacerRef}
-            data-pin-to-send-spacer
-            aria-hidden="true"
-            style={{ height: 0, flex: "0 0 auto" }}
-          />
-          {/* Feather gradient overlay */}
+          {/* Feather gradient overlay — sibling of scroll, pinned to wrapper bottom */}
           {BoundFeather}
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
@@ -591,7 +601,16 @@ export namespace CopilotChatView {
   }) => {
     const mode = normalizeAutoScroll(autoScroll);
     const [hasMounted, setHasMounted] = useState(false);
-    const { scrollRef, contentRef, scrollToBottom } = useStickToBottom();
+    // Plain refs for the "none" and "pin-to-send" paths. Do NOT use
+    // useStickToBottom() here — its internal effects would attach scroll-following
+    // behavior to these refs and fight pin-to-send. The "pin-to-bottom" path
+    // gets its refs via <StickToBottom> below, scoped to that branch only.
+    const scrollRef = useRef<HTMLElement | null>(null);
+    const contentRef = useRef<HTMLElement | null>(null);
+    const scrollToBottom = useCallback(() => {
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }, []);
     const [showScrollButton, setShowScrollButton] = useState(false);
     // Tracks the scroll container element for the non-autoScroll path so the
     // context value is reactive (element state, not a ref).
@@ -606,7 +625,7 @@ export namespace CopilotChatView {
         scrollRef.current = el;
         setNonAutoScrollEl(el);
       },
-      // scrollRef is a stable object from useStickToBottom; safe to omit.
+      // scrollRef is a stable ref object; safe to omit.
       // eslint-disable-next-line react-hooks/exhaustive-deps
       [],
     );

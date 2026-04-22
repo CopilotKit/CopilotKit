@@ -6,8 +6,6 @@ export type UsePinToSendOptions = {
   contentRef: React.RefObject<HTMLElement | null>;
   spacerRef: React.RefObject<HTMLElement | null>;
   topOffset?: number;
-  inputContainerHeight?: number;
-  featherHeight?: number;
 };
 
 export function usePinToSend({
@@ -15,8 +13,6 @@ export function usePinToSend({
   contentRef,
   spacerRef,
   topOffset = 16,
-  inputContainerHeight = 0,
-  featherHeight = 0,
 }: UsePinToSendOptions): void {
   const { id, sendNonce } = useContext(LastUserMessageContext);
   const lastNonceRef = useRef<number>(-1);
@@ -41,29 +37,40 @@ export function usePinToSend({
     );
     if (!targetEl) return;
 
+    // The target message's element has a top padding (e.g. `pt-10`) that
+    // creates breathing room above the visible bubble. When we "anchor at
+    // the top", we mean anchor the *bubble*, not the element's padded box.
+    // So we scroll past the padding (it goes above the viewport, hiding
+    // whatever was above the element too — including the previous message's
+    // trailing copy button).
     const viewportHeight = scrollEl.clientHeight;
     const userMessageHeight = targetEl.getBoundingClientRect().height;
-    const bottomChrome = inputContainerHeight + featherHeight;
+    const paddingTop = parseFloat(getComputedStyle(targetEl).paddingTop) || 0;
+    const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
     const spacerHeight = Math.max(
       0,
-      viewportHeight - userMessageHeight - topOffset - bottomChrome,
+      viewportHeight - bubbleHeight - topOffset,
     );
 
     spacerEl.style.height = `${spacerHeight}px`;
     currentSpacerHeightRef.current = spacerHeight;
 
     const raf = requestAnimationFrame(() => {
-      const targetTop = computeOffsetTop(targetEl, scrollEl) - topOffset;
+      // Scroll so the BUBBLE is `topOffset` from the viewport top — the
+      // padding above the bubble ends up scrolled off-screen.
+      const targetTop =
+        computeOffsetTop(targetEl, scrollEl) + paddingTop - topOffset;
       scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     });
 
-    // Shrink-only ResizeObserver: as assistant response grows, collapse the spacer
-    // so there's no wasted empty space. Never grow the spacer after initial sizing.
+    // Shrink-only ResizeObserver: as the assistant response grows below the
+    // anchored user message, collapse the spacer by the same amount so total
+    // scrollable space below the bubble stays constant (and the bubble stays
+    // pinned). Never grow the spacer after initial sizing.
     const ro = new ResizeObserver(() => {
       if (!contentEl || !spacerEl || !scrollEl) return;
       const contentHeight = contentEl.getBoundingClientRect().height;
       const targetOffsetWithinContent = computeOffsetTop(targetEl, contentEl);
-      // Space consumed by content below the anchored user message:
       const consumedBelow =
         contentHeight - targetOffsetWithinContent - userMessageHeight;
       const remaining = Math.max(0, spacerHeight - consumedBelow);
@@ -78,16 +85,7 @@ export function usePinToSend({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [
-    id,
-    sendNonce,
-    scrollRef,
-    contentRef,
-    spacerRef,
-    topOffset,
-    inputContainerHeight,
-    featherHeight,
-  ]);
+  }, [id, sendNonce, scrollRef, contentRef, spacerRef, topOffset]);
 }
 
 // Compute the offset of el relative to stopAt, accounting for stopAt's current scrollTop.
