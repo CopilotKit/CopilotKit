@@ -20,6 +20,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { DocsPageView } from "@/components/docs-page-view";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
   buildNavTree,
@@ -81,11 +82,15 @@ export default async function FrameworkScopedDocsPage({
     notFound();
   }
 
-  // Validate the framework slug against the registry. Anything else
-  // falls through to 404 — Next.js top-level routes (`/docs`, etc.)
-  // take precedence over the catch-all automatically.
+  // Validate the framework slug against the registry.
+  // If not a registered integration, treat the URL as an unscoped doc path.
+  // This is necessary because Next.js routes /quickstart here (dynamic segment
+  // beats optional catch-all) before [[...slug]] ever sees it.
   const integration = getIntegration(framework);
-  if (!integration) notFound();
+  if (!integration) {
+    const unscopedPath = [framework, ...(slug ?? [])].join("/");
+    return <UnscopedDocsPage slugPath={unscopedPath} />;
+  }
 
   const slugPath = slug?.join("/") ?? "";
 

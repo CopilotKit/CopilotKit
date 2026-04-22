@@ -8,40 +8,22 @@
 
 import React from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { DocsPageView } from "@/components/docs-page-view";
-import {
-  FrameworkGuardedContent,
-  RouterPivot,
-} from "@/components/router-pivot";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { SidebarLink } from "@/components/sidebar-link";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { StoredFrameworkHighlight } from "@/components/stored-framework-highlight";
+import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
   FRAMEWORK_CATEGORY_ORDER,
   buildNavTree,
-  findFrameworksWithCell,
-  loadDoc,
-  readMeta,
   type NavNode,
 } from "@/lib/docs-render";
 import {
-  getIntegration,
   getIntegrations,
-  getFeature,
   getCategoryLabel,
   type Integration,
 } from "@/lib/registry";
-import demoContent from "@/data/demo-content.json";
-
-interface DemoRecord {
-  regions?: Record<string, unknown>;
-}
-const demos: Record<string, DemoRecord> = (
-  demoContent as { demos: Record<string, DemoRecord> }
-).demos;
 
 // Category ordering for the framework picker grid is imported from
 // @/lib/docs-render so the landing grid, sidebar dropdown, and this
@@ -348,140 +330,12 @@ export default async function DocsPage({
 }) {
   const { slug } = await params;
 
-  // Overview page when no slug
+  // Overview page when no slug — the only path this route exclusively owns.
+  // All other paths (e.g. /quickstart) are intercepted by [framework] first
+  // due to Next.js routing precedence and fall through to UnscopedDocsPage there.
   if (!slug || slug.length === 0) {
     return <DocsOverview />;
   }
 
-  const slugPath = slug.join("/");
-  const doc = loadDoc(slugPath);
-  if (!doc) notFound();
-
-  // Integration-scoped sidebar: if under integrations/<framework>, scope to that
-  let navTree;
-  let sidebarTitle = "CopilotKit Docs";
-  let backLink = null;
-  let showPivot = true;
-  const integrationMatch = slugPath.match(/^integrations\/([^/]+)/);
-  if (integrationMatch) {
-    const framework = integrationMatch[1];
-    // Validate the framework slug against the registry. A crafted URL
-    // like `/docs/integrations/fake-framework/anything` would otherwise
-    // silently fall through to an empty nav tree rather than a clean
-    // 404 — the reader can't tell the difference between "valid
-    // integration with no scoped content" and "invalid slug".
-    if (!getIntegration(framework)) notFound();
-    const frameworkDir = `${CONTENT_DIR}/integrations/${framework}`;
-    const frameworkMeta = readMeta(frameworkDir);
-    sidebarTitle =
-      frameworkMeta?.title ||
-      framework.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    navTree = buildNavTree(frameworkDir, `integrations/${framework}`);
-    backLink = { label: "\u2190 Back to Docs", href: "/" };
-    // Integration-scoped pages are framework-specific content and
-    // shouldn't be pivoted on.
-    showPivot = false;
-  } else {
-    navTree = buildNavTree(CONTENT_DIR);
-  }
-
-  // Build options + "which frameworks have this cell" for the pivot UI.
-  const options = getIntegrations()
-    .slice()
-    .sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999))
-    .map((i) => ({
-      slug: i.slug,
-      name: i.name,
-      category: i.category ?? "other",
-      logo: i.logo ?? null,
-      deployed: i.deployed,
-    }));
-
-  // Only consider deployed integrations — `findFrameworksWithCell`
-  // receives a slug list and doesn't know about deployment state, so
-  // filter BEFORE the `.map` to avoid seeding the "has this cell" set
-  // with slugs that point at unreachable integration pages. Downstream
-  // `<RouterPivot>` already filters options to deployed, so undeployed
-  // slugs here would be dead weight at best, dead links at worst.
-  const frameworksWithCell = doc.fm.defaultCell
-    ? findFrameworksWithCell(
-        doc.fm.defaultCell,
-        getIntegrations()
-          .filter((i) => i.deployed === true)
-          .map((i) => i.slug),
-        demos,
-      )
-    : [];
-
-  // Look up the feature record for an animated preview URL, if any
-  const featureFromCell = doc.fm.defaultCell
-    ? getFeature(doc.fm.defaultCell)
-    : undefined;
-  // Fallback to the FIRST integration (sorted by sort_order, then slug)
-  // that implements the feature and has an animated preview. Registry
-  // iteration order alone isn't deterministic w.r.t. the visual
-  // priority consumers set via `sort_order`, so sort explicitly so the
-  // preview we pick matches the ordering shown everywhere else in the
-  // docs UI.
-  let previewUrl: string | null | undefined = undefined;
-  if (doc.fm.defaultCell) {
-    // Restrict the preview search to deployed integrations. An
-    // undeployed integration may still ship a preview asset in its
-    // registry entry, but showing it would advertise an experience the
-    // user cannot actually reach via the pivot (which itself filters to
-    // deployed). Filter BEFORE sorting so the first-match loop picks
-    // the visually-priority deployed integration's preview.
-    const sortedIntegrations = getIntegrations()
-      .filter((i) => i.deployed === true)
-      .sort((a, b) => {
-        const orderA = a.sort_order ?? 999;
-        const orderB = b.sort_order ?? 999;
-        if (orderA !== orderB) return orderA - orderB;
-        return a.slug.localeCompare(b.slug);
-      });
-    for (const integration of sortedIntegrations) {
-      const demo = integration.demos?.find((d) => d.id === doc.fm.defaultCell);
-      if (demo?.animated_preview_url) {
-        previewUrl = demo.animated_preview_url;
-        break;
-      }
-    }
-  }
-
-  const pivot =
-    showPivot && doc.fm.defaultCell ? (
-      <div className="mb-8">
-        <RouterPivot
-          slugPath={slugPath}
-          options={options}
-          frameworksWithCell={frameworksWithCell}
-          previewUrl={previewUrl}
-          featureName={featureFromCell?.name ?? doc.fm.title}
-          featureDescription={
-            featureFromCell?.description ?? doc.fm.description
-          }
-        />
-      </div>
-    ) : null;
-
-  // Only gate the body behind a framework pick when the page actually
-  // depends on one (i.e. has a `defaultCell` whose code needs a backend
-  // to make sense). Framework-agnostic pages like `/docs/learn/*` —
-  // protocol overviews, concept explainers, architecture diagrams —
-  // render their prose unconditionally.
-  const contentIsFrameworkScoped = showPivot && !!doc.fm.defaultCell;
-
-  return (
-    <DocsPageView
-      slugPath={slugPath}
-      slugHrefPrefix=""
-      sidebarTitle={sidebarTitle}
-      backLink={backLink}
-      navTree={navTree}
-      bannerSlot={pivot}
-      ContentWrapper={
-        contentIsFrameworkScoped ? FrameworkGuardedContent : undefined
-      }
-    />
-  );
+  return <UnscopedDocsPage slugPath={slug.join("/")} />;
 }
