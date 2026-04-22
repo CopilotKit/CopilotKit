@@ -236,8 +236,11 @@ export function useThreads({
   // second list fetch (and a `/threads/subscribe`) once the flag lands.
   // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
   //
-  // We still dispatch `null` during Disconnected/Error so the store clears
-  // state deterministically when the runtime goes away.
+  // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
+  // transient states (Disconnected/Connecting/Error with a URL still set) we
+  // leave the previously-dispatched context in place — any in-flight
+  // realtime subscription or cached thread list stays usable while the
+  // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   const runtimeStatus = copilotkit.runtimeConnectionStatus;
   useEffect(() => {
     if (!copilotkit.runtimeUrl) {
