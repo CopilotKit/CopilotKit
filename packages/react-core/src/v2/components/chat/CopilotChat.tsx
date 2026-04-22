@@ -106,6 +106,15 @@ export function CopilotChat({
     () => providedThreadId ?? randomUUID(),
     [providedThreadId],
   );
+  // "Explicit" means a caller actually picked this thread — via the
+  // `threadId` prop on CopilotChat or a wrapping provider that marked its
+  // threadId as caller-chosen. An auto-minted UUID leaking down through a
+  // CopilotChatConfigurationProvider (e.g. from the v1 CopilotKit →
+  // ThreadsProvider chain) does NOT count; treating it as explicit is
+  // what made /connect fire against 404s and the welcome screen stay
+  // hidden for fresh empty chats.
+  const hasExplicitThreadId =
+    !!threadId || !!existingConfig?.hasExplicitThreadId;
 
   const { agent } = useAgent({
     agentId: resolvedAgentId,
@@ -205,14 +214,15 @@ export function CopilotChat({
     string | null
   >(null);
   const isConnecting =
-    !!providedThreadId && lastConnectedThreadId !== resolvedThreadId;
+    hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
 
   useEffect(() => {
-    // When no threadId was supplied by the caller, resolvedThreadId is a UUID
-    // minted in this browser tab. The backend has never seen it, so /connect
-    // would always 404. Skip the call — a real thread is only created once
-    // the user runs the agent for the first time.
-    if (!providedThreadId) return;
+    // When the caller hasn't picked a specific thread, resolvedThreadId is a
+    // UUID minted locally (either in this CopilotChat or in a wrapping
+    // ThreadsProvider). The backend has never seen it, so /connect would
+    // always 404 — skip the call. A real thread is only created once the
+    // user runs the agent for the first time.
+    if (!hasExplicitThreadId) return;
 
     let detached = false;
 
@@ -270,7 +280,7 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId, providedThreadId]);
+  }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -594,7 +604,7 @@ export function CopilotChat({
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
     isConnecting,
-    hasExplicitThreadId: !!providedThreadId,
+    hasExplicitThreadId,
   };
 
   // Always create a provider with merged values
@@ -605,6 +615,7 @@ export function CopilotChat({
     <CopilotChatConfigurationProvider
       agentId={resolvedAgentId}
       threadId={resolvedThreadId}
+      hasExplicitThreadId={hasExplicitThreadId}
       labels={labels}
       isModalDefaultOpen={isModalDefaultOpen}
     >
