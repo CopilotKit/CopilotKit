@@ -164,6 +164,12 @@ samp {
   opacity: 0.8;
 }
 
+/* Cards and nav grids inside MDX use not-prose to opt out of prose link styling */
+.reference-content .not-prose a {
+  text-decoration: none;
+  color: inherit;
+}
+
 .reference-content table {
   width: 100%;
   font-size: 0.8125rem;
