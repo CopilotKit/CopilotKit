@@ -239,11 +239,11 @@ export function CopilotChatView({
     onAddFile,
     positioning: "static",
     keyboardHeight: isKeyboardOpen ? keyboardHeight : 0,
-    containerRef: inputContainerRef,
     showDisclaimer: true,
-    // This input is the last flex child of the chat column, so it sits at
-    // the bottom where the license banner would overlap. The welcome-screen
-    // input (below) intentionally omits this flag.
+    // The parent overlay wrapper handles absolute bottom-0 positioning.
+    // `bottomAnchored` still triggers the license-banner offset padding
+    // inside CopilotChatInput. The welcome-screen input (below) intentionally
+    // omits this flag.
     bottomAnchored: true,
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
@@ -272,8 +272,9 @@ export function CopilotChatView({
     isResizing,
     children: (
       <div
+        data-testid="copilot-scroll-content"
         style={{
-          paddingBottom: `${hasSuggestions ? 4 : 32}px`,
+          paddingBottom: `${inputContainerHeight + (hasSuggestions ? 4 : 32)}px`,
         }}
       >
         <div className="cpk:max-w-3xl cpk:mx-auto">
@@ -396,17 +397,22 @@ export function CopilotChatView({
       {dragOver && <DropOverlay />}
       {BoundScrollView}
 
-      <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
+      <div
+        ref={inputContainerRef}
+        data-testid="copilot-input-overlay"
+        className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+      >
         {attachments && attachments.length > 0 && (
-          <CopilotChatAttachmentQueue
-            attachments={attachments}
-            onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
-            className="cpk:px-4"
-          />
+          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
+            <CopilotChatAttachmentQueue
+              attachments={attachments}
+              onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
+              className="cpk:px-4"
+            />
+          </div>
         )}
+        {BoundInput}
       </div>
-
-      {BoundInput}
     </div>
   );
 }
