@@ -17,13 +17,6 @@ import type {
 import { getThreadClone } from "../../hooks/use-agent";
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
-import { A2UIActivityContentSchema, A2UISurfaceActivityType } from "../a2ui";
-import {
-  MCPAppsActivityContentSchema,
-  MCPAppsActivityRenderer,
-  MCPAppsActivityType,
-} from "../MCPAppsActivityRenderer";
-import A2UISurfaceActivityRenderer from "../A2UISurfaceActivityRenderer.vue";
 import CopilotChatAssistantMessage from "./CopilotChatAssistantMessage.vue";
 import CopilotChatReasoningMessage from "./CopilotChatReasoningMessage.vue";
 import CopilotChatUserMessage from "./CopilotChatUserMessage.vue";
@@ -102,7 +95,7 @@ defineSlots<{
   }) => unknown;
 }>();
 
-const { copilotkit, a2uiTheme } = useCopilotKit();
+const { copilotkit } = useCopilotKit();
 const config = useCopilotChatConfiguration();
 const stateTick = ref(0);
 const interruptState = ref<InterruptSlotProps | null>(null);
@@ -304,20 +297,38 @@ function resolveCustomMessageRenderer(
   };
 }
 
-function parseMCPContent(content: unknown) {
-  const parsed = MCPAppsActivityContentSchema.safeParse(content);
-  if (!parsed.success) {
-    return undefined;
-  }
-  return parsed.data;
-}
+function resolveActivityRenderer(
+  message: ActivityMessage,
+): { renderer: Component; props: ActivitySlotProps } | null {
+  stateTick.value += 0;
 
-function parseA2UIContent(content: unknown) {
-  const parsed = A2UIActivityContentSchema.safeParse(content);
-  if (!parsed.success) {
-    return undefined;
-  }
-  return parsed.data;
+  const agentId = resolvedAgentId.value;
+  const renderer = [...copilotkit.value.renderActivityMessages]
+    .filter(
+      (entry) =>
+        entry.activityType === message.activityType &&
+        (entry.agentId === undefined || entry.agentId === agentId),
+    )
+    .sort((a, b) => {
+      const aScoped = a.agentId !== undefined;
+      const bScoped = b.agentId !== undefined;
+      if (aScoped === bScoped) return 0;
+      return aScoped ? -1 : 1;
+    })[0];
+
+  if (!renderer) return null;
+  const parsed = renderer.content.safeParse(message.content);
+  if (!parsed.success) return null;
+
+  return {
+    renderer: renderer.render as Component,
+    props: {
+      activityType: message.activityType,
+      content: parsed.data,
+      message,
+      agent: resolvedThreadAgent.value,
+    },
+  };
 }
 
 function resolveToolMessage(
@@ -420,27 +431,10 @@ function resolveToolMessage(
           :message="message"
           :agent="resolvedThreadAgent"
         >
-          <A2UISurfaceActivityRenderer
-            v-if="
-              message.activityType === A2UISurfaceActivityType &&
-              copilotkit.a2uiEnabled &&
-              parseA2UIContent(message.content)
-            "
-            :activity-type="A2UISurfaceActivityType"
-            :content="parseA2UIContent(message.content)!"
-            :message="message"
-            :agent="resolvedThreadAgent"
-            :theme="a2uiTheme"
-          />
-          <MCPAppsActivityRenderer
-            v-if="
-              message.activityType === MCPAppsActivityType &&
-              parseMCPContent(message.content)
-            "
-            :activity-type="MCPAppsActivityType"
-            :content="parseMCPContent(message.content)!"
-            :message="message"
-            :agent="resolvedThreadAgent"
+          <component
+            v-if="resolveActivityRenderer(message)"
+            :is="resolveActivityRenderer(message)!.renderer"
+            v-bind="resolveActivityRenderer(message)!.props"
           />
         </slot>
       </slot>

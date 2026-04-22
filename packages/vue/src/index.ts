@@ -5,3 +5,4 @@ export * from "./hooks";
 export * from "./providers";
 export * from "./types";
 export * from "./lib/vue-core";
+export * from "./lib/processPartialHtml";

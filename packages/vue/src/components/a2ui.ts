@@ -18,6 +18,12 @@ export function getOperationSurfaceId(operation: A2UIOperation): string {
     ((operation.dataModelUpdate as { surfaceId?: string } | undefined)
       ?.surfaceId as string | undefined) ??
     ((operation.deleteSurface as { surfaceId?: string } | undefined)
+      ?.surfaceId as string | undefined) ??
+    ((operation.createSurface as { surfaceId?: string } | undefined)
+      ?.surfaceId as string | undefined) ??
+    ((operation.updateComponents as { surfaceId?: string } | undefined)
+      ?.surfaceId as string | undefined) ??
+    ((operation.updateDataModel as { surfaceId?: string } | undefined)
       ?.surfaceId as string | undefined);
 
   return surfaceId ?? "default";

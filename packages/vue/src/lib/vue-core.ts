@@ -60,6 +60,12 @@ export class CopilotKitCoreVue extends CopilotKitCore {
     return this._renderActivityMessages;
   }
 
+  setRenderActivityMessages(
+    renderers: VueActivityMessageRenderer<unknown>[],
+  ): void {
+    this._renderActivityMessages = [...renderers];
+  }
+
   setRenderCustomMessages(renderers: VueCustomMessageRenderer[]): void {
     this._renderCustomMessages = renderers;
     void this.notifySubscribers((subscriber) => {

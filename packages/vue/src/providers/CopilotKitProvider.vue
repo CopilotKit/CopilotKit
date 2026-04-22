@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   computed,
+  onBeforeUnmount,
   onMounted,
   provide,
   ref,
@@ -15,11 +16,28 @@ import type {
   CopilotKitCoreSubscriber,
   FrontendTool,
 } from "@copilotkit/core";
+import { schemaToJsonSchema } from "@copilotkit/shared";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import { CopilotKitCoreVue } from "../lib/vue-core";
-import { CopilotKitKey } from "./keys";
+import { createA2UIMessageRenderer } from "../components/A2UIMessageRenderer";
+import {
+  GenerateSandboxedUiArgsSchema,
+  OpenGenerativeUIActivityRenderer,
+  OpenGenerativeUIActivityType,
+  OpenGenerativeUIContentSchema,
+  OpenGenerativeUIToolRenderer,
+} from "../components/OpenGenerativeUIRenderer";
+import {
+  MCPAppsActivityContentSchema,
+  MCPAppsActivityRenderer,
+  MCPAppsActivityType,
+} from "../components/MCPAppsActivityRenderer";
+import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
 import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
 import type {
+  SandboxFunction,
+  VueActivityMessageRenderer,
   VueFrontendTool,
   VueHumanInTheLoop,
   VueToolCallRenderer,
@@ -34,6 +52,12 @@ const HUMAN_IN_THE_LOOP_STABLE_WARNING =
   "humanInTheLoop must be a stable array. If you want to dynamically add or remove human-in-the-loop tools, use `useHumanInTheLoop` instead.";
 const RENDER_CUSTOM_MESSAGES_STABLE_WARNING =
   "renderCustomMessages must be a stable array.";
+const RENDER_ACTIVITY_MESSAGES_STABLE_WARNING =
+  "renderActivityMessages must be a stable array.";
+const SANDBOX_FUNCTIONS_STABLE_WARNING =
+  "openGenerativeUI.sandboxFunctions must be a stable array.";
+const DEFAULT_DESIGN_SKILL =
+  "When generating UI with generateSandboxedUi, use compact spacing, clear hierarchy, and avoid decorative effects.";
 
 const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   headers: () => ({}),
@@ -42,6 +66,8 @@ const props = withDefaults(defineProps<CopilotKitProviderProps>(), {
   selfManagedAgents: () => ({}),
   frontendTools: () => [],
   humanInTheLoop: () => [],
+  renderActivityMessages: () => [],
+  openGenerativeUI: undefined,
   showDevConsole: false,
   useSingleEndpoint: false,
   a2ui: undefined,
@@ -73,6 +99,8 @@ watch(() => props.showDevConsole, updateInspectorVisibility, {
 const initialFrontendTools = props.frontendTools;
 const initialHumanInTheLoop = props.humanInTheLoop;
 const initialRenderCustomMessages = props.renderCustomMessages;
+const initialRenderActivityMessages = props.renderActivityMessages;
+const initialSandboxFunctions = props.openGenerativeUI?.sandboxFunctions;
 
 watch(
   () => props.frontendTools,
@@ -97,6 +125,24 @@ watch(
   (next) => {
     if (next !== initialRenderCustomMessages) {
       console.error(RENDER_CUSTOM_MESSAGES_STABLE_WARNING);
+    }
+  },
+);
+
+watch(
+  () => props.renderActivityMessages,
+  (next) => {
+    if (next !== initialRenderActivityMessages) {
+      console.error(RENDER_ACTIVITY_MESSAGES_STABLE_WARNING);
+    }
+  },
+);
+
+watch(
+  () => props.openGenerativeUI?.sandboxFunctions,
+  (next) => {
+    if (next !== initialSandboxFunctions) {
+      console.error(SANDBOX_FUNCTIONS_STABLE_WARNING);
     }
   },
 );
@@ -178,13 +224,16 @@ const allTools = computed(() => {
   for (const t of props.frontendTools) {
     tools.push(t as FrontendTool);
   }
+  for (const t of builtInFrontendTools.value) {
+    tools.push(t as FrontendTool);
+  }
   tools.push(...processedHumanInTheLoop.value.tools);
   return tools;
 });
 
 const allRenderToolCalls = computed(() => {
   const combined: VueToolCallRenderer<unknown>[] = [];
-  for (const tool of props.frontendTools) {
+  for (const tool of [...props.frontendTools, ...builtInFrontendTools.value]) {
     if (tool.render) {
       const args = tool.parameters ?? (tool.name === "*" ? z.any() : undefined);
       if (args) {
@@ -203,6 +252,73 @@ const allRenderToolCalls = computed(() => {
 const allRenderCustomMessages = computed(
   () => props.renderCustomMessages ?? [],
 );
+const runtimeA2UIEnabled = ref(false);
+const runtimeOpenGenerativeUIEnabled = ref(false);
+const openGenerativeUIActive = computed(
+  () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
+);
+const sandboxFunctions = computed<readonly SandboxFunction[]>(
+  () => props.openGenerativeUI?.sandboxFunctions ?? [],
+);
+const zodToJsonSchemaCompat = (
+  schema: unknown,
+  options?: { $refStrategy?: string },
+): Record<string, unknown> =>
+  zodToJsonSchema(schema as z.ZodTypeAny, options as any) as Record<
+    string,
+    unknown
+  >;
+
+const builtInFrontendTools = computed<VueFrontendTool[]>(() => {
+  if (!openGenerativeUIActive.value) return [];
+  return [
+    {
+      name: "generateSandboxedUi",
+      description: "Generate sandboxed UI",
+      parameters: GenerateSandboxedUiArgsSchema,
+      handler: async () => "UI generated",
+      followUp: true,
+      render: OpenGenerativeUIToolRenderer as any,
+    } as VueFrontendTool,
+  ];
+});
+
+const builtInActivityRenderers = computed<
+  VueActivityMessageRenderer<unknown>[]
+>(() => {
+  const renderers: VueActivityMessageRenderer<unknown>[] = [
+    {
+      activityType: MCPAppsActivityType,
+      content: MCPAppsActivityContentSchema as any,
+      render: MCPAppsActivityRenderer as any,
+    },
+  ];
+
+  if (openGenerativeUIActive.value) {
+    renderers.push({
+      activityType: OpenGenerativeUIActivityType,
+      content: OpenGenerativeUIContentSchema as any,
+      render: OpenGenerativeUIActivityRenderer as any,
+    });
+  }
+
+  if (runtimeA2UIEnabled.value) {
+    renderers.unshift(
+      createA2UIMessageRenderer({
+        theme: props.a2ui?.theme ?? {},
+        catalog: props.a2ui?.catalog,
+        loadingComponent: props.a2ui?.loadingComponent,
+      }),
+    );
+  }
+
+  return renderers;
+});
+
+const allRenderActivityMessages = computed(() => [
+  ...(props.renderActivityMessages ?? []),
+  ...builtInActivityRenderers.value,
+]);
 
 const applyDefaultThrottleMs = (core: CopilotKitCoreVue) => {
   if (
@@ -226,6 +342,7 @@ const createCopilotKit = () => {
     agents__unsafe_dev_only: mergedAgents.value,
     tools: allTools.value,
     renderToolCalls: allRenderToolCalls.value,
+    renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
   });
   // Initialize synchronously so child hooks can read the value on first render.
@@ -276,6 +393,8 @@ watch(
     });
     const sub4 = core.subscribe({
       onRuntimeConnectionStatusChanged: () => {
+        runtimeA2UIEnabled.value = core.a2uiEnabled;
+        runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
         triggerRef(copilotkit);
       },
     });
@@ -319,6 +438,12 @@ watch([allRenderCustomMessages], ([renderCustomMessages]) => {
   triggerRef(copilotkit);
 });
 
+watch([allRenderActivityMessages], ([renderActivityMessages]) => {
+  if (!didMountRef.value) return;
+  copilotkit.value.setRenderActivityMessages(renderActivityMessages);
+  triggerRef(copilotkit);
+});
+
 function syncRuntimeConfig() {
   copilotkit.value.setRuntimeUrl(chatApiEndpoint.value);
   copilotkit.value.setRuntimeTransport(
@@ -357,11 +482,81 @@ watch(
 
 onMounted(() => {
   syncRuntimeConfig();
+  runtimeA2UIEnabled.value = copilotkit.value.a2uiEnabled;
+  runtimeOpenGenerativeUIEnabled.value =
+    copilotkit.value.openGenerativeUIEnabled;
   didMountRef.value = true;
 });
 
 const a2uiTheme = computed(() => props.a2ui?.theme);
-provide(CopilotKitKey, { copilotkit, executingToolCallIds, a2uiTheme });
+const a2uiCatalog = computed(() => props.a2ui?.catalog);
+const a2uiLoadingComponent = computed(() => props.a2ui?.loadingComponent);
+const a2uiIncludeSchema = computed(() => props.a2ui?.includeSchema ?? true);
+
+const providerContextIds = ref<string[]>([]);
+watch(
+  [
+    openGenerativeUIActive,
+    sandboxFunctions,
+    () => props.openGenerativeUI?.designSkill,
+  ],
+  ([active, functions, designSkill], _previous, onCleanup) => {
+    if (!active) return;
+
+    const ids: string[] = [];
+    ids.push(
+      copilotkit.value.addContext({
+        description:
+          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
+        value: designSkill ?? DEFAULT_DESIGN_SKILL,
+      }),
+    );
+
+    if (functions.length > 0) {
+      const descriptors = JSON.stringify(
+        functions.map((fn) => ({
+          name: fn.name,
+          description: fn.description,
+          parameters: schemaToJsonSchema(fn.parameters, {
+            zodToJsonSchema: zodToJsonSchemaCompat,
+          }),
+        })),
+      );
+      ids.push(
+        copilotkit.value.addContext({
+          description:
+            "Sandbox functions available in generated sandboxed UI code. Call via Websandbox.connection.remote.<functionName>(args).",
+          value: descriptors,
+        }),
+      );
+    }
+
+    providerContextIds.value = ids;
+    onCleanup(() => {
+      for (const id of ids) {
+        copilotkit.value.removeContext(id);
+      }
+    });
+  },
+  { immediate: true },
+);
+
+onBeforeUnmount(() => {
+  for (const id of providerContextIds.value) {
+    copilotkit.value.removeContext(id);
+  }
+  providerContextIds.value = [];
+});
+
+provide(CopilotKitKey, {
+  copilotkit,
+  executingToolCallIds,
+  a2uiTheme,
+  a2uiCatalog,
+  a2uiLoadingComponent,
+  a2uiIncludeSchema,
+});
+provide(SandboxFunctionsKey, sandboxFunctions);
 </script>
 
 <template>

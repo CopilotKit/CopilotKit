@@ -3,6 +3,7 @@ export type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
 export { default as CopilotChatConfigurationProvider } from "./CopilotChatConfigurationProvider.vue";
 export type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
 export { useCopilotKit } from "./useCopilotKit";
+export { useSandboxFunctions } from "./SandboxFunctionsContext";
 export { useCopilotChatConfiguration } from "./useCopilotChatConfiguration";
 export {
   CopilotChatDefaultLabels,
