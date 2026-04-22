@@ -48,6 +48,12 @@ jobs:
         working-directory: examples/integrations/${{ matrix.starter }}
         env:
           STARTER: ${{ matrix.starter }}
+          # Starters whose SDK can't be intercepted by aimock (currently
+          # google-adk — google-genai ignores endpoint overrides) need a
+          # real provider key. docker-compose.test.yml for those starters
+          # reads this via `${GOOGLE_API_KEY:-test-key-for-aimock}` so
+          # unaffected starters still run offline against aimock.
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from tests
 
