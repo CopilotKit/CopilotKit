@@ -909,7 +909,8 @@ function getAgentBuildSteps(fw: FrameworkDef): string {
 # cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
 # so the starter and package produce equivalent runtime shapes. See also
 # getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
-RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \\
+RUN npx tsc --outDir /app/dist --rootDir . \\
+    --module commonjs --moduleResolution node \\
     --target es2020 --esModuleInterop true --skipLibCheck true \\
     agent/index.ts
 `;
@@ -1104,6 +1105,17 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     ? "RUN mkdir -p /app/.langgraph_api && chown app:app /app/.langgraph_api\n"
     : "";
 
+  // Guard: an empty AGENT_DIR would turn the Dockerfile's
+  // `RUN rm -f {{AGENT_DIR}}/package.json {{AGENT_DIR}}/package-lock.json`
+  // into a root-level `rm -f /package.json /package-lock.json` after
+  // substitution, quietly wiping /app roots. Keep `rm -f` for tolerance of
+  // already-missing files, but never let this field be empty or root-like.
+  if (!fw.agentDir || fw.agentDir === "/" || fw.agentDir.startsWith("/")) {
+    throw new Error(
+      `Invalid agentDir for ${fw.slug}: ${JSON.stringify(fw.agentDir)} — must be non-empty and relative.`,
+    );
+  }
+
   const vars: Record<string, string> = {
     SLUG: fw.slug,
     NAME: fw.name,
@@ -1224,6 +1236,19 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     );
   } else {
     copyDirSync(agentSrc, agentDest);
+  }
+
+  // Strip files that only exist in the PACKAGE for prod-mode and are dead
+  // code / broken-dep-resolution in the STARTER. langgraph-typescript's
+  // server.mjs imports @langchain/langgraph-api/server (not in starter
+  // extraDependencies — resolution relies on transitive hoist through
+  // @langchain/langgraph-cli), and the starter's entrypoint uses
+  // `npx @langchain/langgraph-cli dev` — server.mjs is never invoked.
+  if (fw.slug === "langgraph-typescript") {
+    const serverMjs = path.join(agentDest, "server.mjs");
+    if (fs.existsSync(serverMjs)) {
+      fs.unlinkSync(serverMjs);
+    }
   }
 
   // For spring-ai: the source copies src/main/{java,resources} flattened into
