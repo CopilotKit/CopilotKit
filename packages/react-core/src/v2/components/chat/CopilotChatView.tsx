@@ -512,7 +512,6 @@ export namespace CopilotChatView {
     ...props
   }) => {
     const spacerRef = useRef<HTMLDivElement>(null);
-    const BoundFeather = renderSlot(feather, CopilotChatView.Feather, {});
 
     usePinToSend({
       scrollRef,
@@ -521,14 +520,20 @@ export namespace CopilotChatView {
       topOffset: 16,
     });
 
-    // The feather and scroll-to-bottom button live OUTSIDE the scroll
-    // container. `position: absolute` children of an `overflow: auto`
-    // element are positioned relative to the scroll *content*, which
-    // means they scroll away with it — producing a stray gradient in the
-    // middle of the viewport in pin-to-send mode (where the scroll is
-    // anchored, not at max). Placing them as siblings of the scroll
-    // container (inside a `relative` wrapper) keeps them pinned to the
+    // The scroll-to-bottom button lives OUTSIDE the scroll container.
+    // `position: absolute` children of an `overflow: auto` element are
+    // positioned relative to the scroll *content*, which means they
+    // scroll away with it. Placing the button as a sibling of the scroll
+    // container (inside a `relative` wrapper) keeps it pinned to the
     // visible viewport bottom.
+    //
+    // Note: pin-to-send intentionally OMITS the feather. The feather is
+    // designed for pin-to-bottom, where it smooths the visual edge of
+    // content being chased to the bottom. In pin-to-send, the user reads
+    // at their own pace and fading otherwise-readable content hurts more
+    // than it helps.
+    const BoundFeather = feather;
+    void BoundFeather;
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
         <div
@@ -555,14 +560,12 @@ export namespace CopilotChatView {
               style={{ height: 0, flex: "0 0 auto" }}
             />
           </div>
-          {/* Feather gradient overlay — sibling of scroll, pinned to wrapper bottom */}
-          {BoundFeather}
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px`,
+                bottom: `${inputContainerHeight + 16}px`,
               }}
             >
               {renderSlot(
