@@ -4,6 +4,11 @@ import { logger } from "../logger.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promises as fs } from "node:fs";
+import {
+  emptyTriggerFlags,
+  type TemplateContext,
+  type TriggerFlags,
+} from "../types/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.resolve(__dirname, "../../test/fixtures/rules");
@@ -861,6 +866,487 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
     const normalText = (normal.payload as { text: string }).text;
     expect(normalText).toContain("2 candidates ready to decommission");
     expect(normalText).not.toContain("Redirect-decommission audit failed");
+  });
+});
+
+// CR R20 bucket-(a): full YAML contract coverage. Closes the
+// YAML<->probe drift gap that produced R13/R15/R17/R19 findings. Every
+// rule in config/alerts/ is loaded via the real rule-loader and each
+// template branch is rendered with a TemplateContext shaped to match
+// the ACTUAL probe signal. Red-green verified: a representative subset
+// was mutated (YAML break or signal field rename) pre-landing to confirm
+// the assertions go red, then restored to green. See commit log.
+describe("rule-loader + renderer: full YAML contract coverage", () => {
+  // Shared helpers -----------------------------------------------------
+  const REAL_CONFIG_DIR = path.resolve(__dirname, "../../config/alerts");
+
+  /** Build a baseline TemplateContext. Signal is caller-supplied. */
+  function makeCtx(
+    rule: { id: string; name: string; owner: string; severity: string },
+    signal: Record<string, unknown>,
+    overrides: {
+      trigger?: Partial<TriggerFlags>;
+      escalated?: boolean;
+      event?: Partial<TemplateContext["event"]>;
+      env?: Partial<TemplateContext["env"]>;
+    } = {},
+  ): TemplateContext {
+    const trigger: TriggerFlags = {
+      ...emptyTriggerFlags(),
+      ...(overrides.trigger ?? {}),
+    };
+    return {
+      rule: {
+        id: rule.id,
+        name: rule.name,
+        owner: rule.owner,
+        severity: rule.severity as TemplateContext["rule"]["severity"],
+      },
+      trigger,
+      escalated: overrides.escalated ?? false,
+      signal,
+      event: {
+        id: "e1",
+        at: "2026-04-20T00:00:00Z",
+        runUrl: "https://run.example/1",
+        runId: "run-1",
+        jobUrl: "https://job.example/1",
+        ...(overrides.event ?? {}),
+      },
+      env: {
+        dashboardUrl: "https://dashboard.example",
+        repo: "cpk/showcase",
+        ...(overrides.env ?? {}),
+      },
+    };
+  }
+
+  async function loadRealRules() {
+    const { createRenderer } = await import("../render/renderer.js");
+    // redirect-decommission needs slackSafeFields registration so the
+    // whole-dir load succeeds. Other dimensions triple-brace only
+    // event.*/env.* which are handled by validateTripleBrace.
+    const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } = await import(
+      "../probes/redirect-decommission.js"
+    );
+    const loader = createRuleLoader({
+      dir: REAL_CONFIG_DIR,
+      logger,
+      slackSafeFields: {
+        redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
+      },
+    });
+    const { rules, errors } = await loader.loadWithErrors();
+    return { rules, errors, renderer: createRenderer() };
+  }
+
+  // ---- aimock-wiring-drift.yml --------------------------------------
+  describe("aimock-wiring-drift", () => {
+    it("set_drifted branch renders unwired list + count + fix hint", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("aimock-wiring-drift")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift");
+      expect(rule, "aimock-wiring-drift must load").toBeDefined();
+      // Trigger declared → otherwise resolveTriggers silently drops.
+      expect(rule!.stringTriggers).toEqual([
+        "set_drifted",
+        "set_errored",
+        "red_to_green",
+      ]);
+      const ctx = makeCtx(rule!, {
+        unwired: ["svc-a", "svc-b"],
+        unwiredCount: 2,
+        unwiredNoun: "services",
+        erroredPreview: [],
+        probeErrorDesc: "",
+      }, { trigger: { set_drifted: true } });
+      const text = (renderer.render({ text: rule!.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("aimock wiring drift");
+      expect(text).toContain("2 services bypassing");
+      expect(text).toContain("svc-a");
+      expect(text).toContain("svc-b");
+      expect(text).toContain("OPENAI_BASE_URL");
+      expect(text.trim().length).toBeGreaterThan(0);
+    });
+
+    it("set_errored branch renders erroredCount + erroredPreview + probeErrorDesc", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
+      const ctx = makeCtx(rule, {
+        unwired: [],
+        unwiredCount: 0,
+        unwiredNoun: "services",
+        erroredCount: 3,
+        erroredPreview: ["svc-1: timeout", "svc-2: 500", "svc-3: auth"],
+        probeErrorDesc: "Railway API 502",
+      }, { trigger: { set_errored: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("aimock wiring probe errored");
+      expect(text).toContain("3 service");
+      expect(text).toContain("svc-1: timeout");
+      expect(text).toContain("svc-2: 500");
+      expect(text).toContain("svc-3: auth");
+      expect(text).toContain("Probe error: `Railway API 502`");
+    });
+
+    it("red_to_green branch renders recovery message", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "aimock-wiring-drift")!;
+      const ctx = makeCtx(rule, {}, { trigger: { red_to_green: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("aimock wiring recovered");
+      expect(text).toContain("Dashboard");
+    });
+  });
+
+  // ---- e2e-smoke-failure.yml ----------------------------------------
+  describe("e2e-smoke-failure", () => {
+    it("green_to_red (isRedTick) branch renders failureSummary inside code fence", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("e2e-smoke-failure")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "e2e-smoke-failure");
+      expect(rule).toBeDefined();
+      expect(rule!.stringTriggers).toEqual([
+        "green_to_red",
+        "sustained_red",
+        "red_to_green",
+      ]);
+      const ctx = makeCtx(rule!, {
+        suite: "L2",
+        failureSummary: "assertion failed at step 3\nstack: ...\n",
+      }, { trigger: { green_to_red: true, isRedTick: true } });
+      const text = (renderer.render({ text: rule!.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("Showcase E2E suite failed");
+      expect(text).toContain("assertion failed at step 3");
+      // Code fence framing survives truncateUtf8 and stripAnsi filters.
+      expect(text).toContain("```");
+    });
+
+    it("sustained_red (isRedTick) branch renders failureSummary", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "e2e-smoke-failure")!;
+      const ctx = makeCtx(rule, {
+        suite: "L1",
+        failureSummary: "still red: timeout",
+      }, { trigger: { sustained_red: true, isRedTick: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("still red: timeout");
+      expect(text).toContain("Showcase E2E suite failed");
+    });
+
+    it("red_to_green branch renders recovery with run link", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "e2e-smoke-failure")!;
+      const ctx = makeCtx(rule, { suite: "L2", failureSummary: "" }, {
+        trigger: { red_to_green: true },
+      });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("Showcase E2E suite recovered");
+      expect(text).toContain("https://run.example/1");
+    });
+  });
+
+  // ---- image-drift.yml ----------------------------------------------
+  describe("image-drift", () => {
+    it("set_changed branch renders staleServices + errored counts", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("image-drift")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "image-drift");
+      expect(rule).toBeDefined();
+      expect(rule!.stringTriggers).toEqual(["set_changed", "set_errored"]);
+      const ctx = makeCtx(rule!, {
+        staleServices: ["svc-a", "svc-b"],
+        errored: [],
+        triggered: ["svc-a", "svc-b"],
+        rebuildNoun: "rebuilds",
+        staleServicesCount: 2,
+        erroredCount: 0,
+        triggeredCount: 2,
+      }, { trigger: { set_changed: true } });
+      const text = (renderer.render({ text: rule!.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("Image drift detected");
+      expect(text).toContain("2 rebuilds triggered");
+      expect(text).toContain("0 errored");
+    });
+
+    it("set_errored branch renders errored count (stale=0, errored=1)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "image-drift")!;
+      const ctx = makeCtx(rule, {
+        staleServices: [],
+        errored: ["ghcr-down-svc"],
+        triggered: ["ghcr-down-svc"],
+        rebuildNoun: "rebuild",
+        staleServicesCount: 0,
+        erroredCount: 1,
+        triggeredCount: 1,
+      }, { trigger: { set_errored: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("Image drift detected");
+      expect(text).toContain("0 rebuild triggered");
+      expect(text).toContain("1 errored");
+    });
+  });
+
+  // ---- pin-drift-weekly.yml -----------------------------------------
+  describe("pin-drift-weekly", () => {
+    it("noBaseline=true branch renders first-run notice without setStatus leak", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("pin-drift-weekly")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "pin-drift-weekly");
+      expect(rule).toBeDefined();
+      // Cron-only rule → stringTriggers empty, cronTriggers populated.
+      expect(rule!.stringTriggers).toEqual([]);
+      expect(rule!.cronTriggers.length).toBeGreaterThan(0);
+      const ctx = makeCtx(rule!, {
+        actualCount: 5,
+        baselineCount: null,
+        setStatus: "no_baseline",
+        noBaseline: true,
+        stable: false,
+        regressed: false,
+        improved: false,
+      }, { trigger: { first: true } });
+      const text = (renderer.render({ text: rule!.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("FAIL=5");
+      expect(text).toContain("first run — no baseline yet");
+      // The raw enum tag must NOT leak to Slack on the first-run branch.
+      expect(text).not.toContain("[no_baseline]");
+    });
+
+    it("noBaseline=false stable branch renders actual + baseline + setStatus", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
+      const ctx = makeCtx(rule, {
+        actualCount: 3,
+        baselineCount: 3,
+        setStatus: "stable",
+        noBaseline: false,
+        stable: true,
+        regressed: false,
+        improved: false,
+      }, { trigger: { first: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("FAIL=3");
+      expect(text).toContain("baseline 3");
+      expect(text).toContain("[stable]");
+      expect(text).not.toContain("first run");
+    });
+
+    it("noBaseline=false regressed branch renders setStatus=regressed", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
+      const ctx = makeCtx(rule, {
+        actualCount: 7,
+        baselineCount: 3,
+        setStatus: "regressed",
+        noBaseline: false,
+        stable: false,
+        regressed: true,
+        improved: false,
+      }, { trigger: { first: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("FAIL=7");
+      expect(text).toContain("baseline 3");
+      expect(text).toContain("[regressed]");
+    });
+
+    it("on_error template renders job-failed message", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "pin-drift-weekly")!;
+      expect(rule.onError).toBeDefined();
+      const ctx = makeCtx(rule, {}, {});
+      const text = (renderer.render(rule.onError!.template, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("job failed");
+      expect(text).toContain("https://run.example/1");
+    });
+  });
+
+  // ---- smoke-red-tick.yml -------------------------------------------
+  describe("smoke-red-tick", () => {
+    it("green_to_red branch renders slug, errorDesc and smoke/health links", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("smoke-red-tick")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "smoke-red-tick");
+      expect(rule).toBeDefined();
+      expect(rule!.stringTriggers).toEqual([
+        "green_to_red",
+        "sustained_red",
+        "red_to_green",
+      ]);
+      const ctx = makeCtx(rule!, {
+        slug: "coagents-starter",
+        errorDesc: "http 503",
+        links: {
+          smoke: "https://svc.example/smoke",
+          health: "https://svc.example/health",
+        },
+        failCount: 1,
+      }, { trigger: { green_to_red: true, isRedTick: true } });
+      const text = (renderer.render({ text: rule!.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("coagents-starter");
+      expect(text).toContain("down, error: http 503");
+      // signal.links.smoke / signal.links.health are inside Slack link
+      // markup `<URL|label>` but they're double-braced so Mustache
+      // HTML-escapes `/` → `&#x2F;`, which breaks the Slack link. Pin
+      // this behavior so the next commit (triple-brace widening +
+      // slackSafeFields registration) can red-green the fix explicitly.
+      expect(text).toContain("svc.example");
+      expect(text).toContain("smoke|smoke");
+      expect(text).toContain("health|health");
+    });
+
+    it("sustained_red branch renders failCount (attempt: N) and error", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "smoke-red-tick")!;
+      const ctx = makeCtx(rule, {
+        slug: "mastra-starter",
+        errorDesc: "timeout after 15000ms",
+        links: {
+          smoke: "https://m.example/smoke",
+          health: "https://m.example/health",
+        },
+        failCount: 3,
+      }, { trigger: { sustained_red: true, isRedTick: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("mastra-starter");
+      expect(text).toContain("attempt: 3");
+      expect(text).toContain("timeout after 15000ms");
+    });
+
+    it("red_to_green branch renders recovery + firstFailureAt", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "smoke-red-tick")!;
+      const ctx = makeCtx(rule, {
+        slug: "langgraph-starter",
+        firstFailureAt: "2026-04-19T23:00:00Z",
+      }, { trigger: { red_to_green: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("langgraph-starter");
+      expect(text).toContain("recovered");
+      expect(text).toContain("was down since 2026-04-19T23:00:00Z");
+    });
+
+    it("escalated block renders !channel ping with firstFailureAt", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "smoke-red-tick")!;
+      const ctx = makeCtx(rule, {
+        slug: "agno-starter",
+        errorDesc: "http 500",
+        firstFailureAt: "2026-04-19T22:00:00Z",
+        links: {
+          smoke: "https://a.example/smoke",
+          health: "https://a.example/health",
+        },
+        failCount: 4,
+      }, { trigger: { sustained_red: true, isRedTick: true }, escalated: true });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("<!channel>");
+      expect(text).toContain("agno-starter");
+      expect(text).toContain("failing for 1 hour");
+      expect(text).toContain("since 2026-04-19T22:00:00Z");
+    });
+  });
+
+  // ---- deploy-result.yml (remaining branches R20 didn't cover) ------
+  describe("deploy-result (R20 follow-up branches)", () => {
+    it("green_to_red partial branch renders failed/succeeded lists", async () => {
+      const { rules, errors, renderer } = await loadRealRules();
+      expect(
+        errors.find((e) => e.file.startsWith("deploy-result")),
+      ).toBeUndefined();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      expect(rule.stringTriggers).toEqual([
+        "green_to_red",
+        "red_to_green",
+        "cancelled_midmatrix",
+        "cancelled_prebuild",
+        "gate_skipped",
+      ]);
+      const ctx = makeCtx(rule, {
+        partial: true,
+        failedCount: 2,
+        totalCount: 5,
+        failedList: ["svc-a", "svc-b"],
+        succeededList: ["svc-c", "svc-d", "svc-e"],
+        servicesList: ["svc-a", "svc-b", "svc-c", "svc-d", "svc-e"],
+      }, { trigger: { green_to_red: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("Showcase deploy");
+      expect(text).toContain("2/5 service(s) failed");
+      expect(text).toContain("svc-a");
+      expect(text).toContain("svc-b");
+      expect(text).toContain("ok");
+    });
+
+    it("green_to_red total-failure branch renders servicesList (not partial)", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      const ctx = makeCtx(rule, {
+        partial: false,
+        failedCount: 3,
+        totalCount: 3,
+        failedList: ["svc-a", "svc-b", "svc-c"],
+        succeededList: [],
+        servicesList: ["svc-a", "svc-b", "svc-c"],
+      }, { trigger: { green_to_red: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("FAILED — 3 service(s) targeted");
+      expect(text).toContain("svc-a");
+    });
+
+    it("red_to_green branch renders recovered + firstFailureAt", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      const ctx = makeCtx(rule, {
+        firstFailureAt: "2026-04-19T10:00:00Z",
+      }, { trigger: { red_to_green: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("recovered");
+      expect(text).toContain("2026-04-19T10:00:00Z");
+    });
+
+    it("cancelled_midmatrix branch renders mid-matrix cancellation message", async () => {
+      const { rules, renderer } = await loadRealRules();
+      const rule = rules.find((r) => r.id === "deploy-result")!;
+      const ctx = makeCtx(rule, {
+        cancelled: true,
+        cancelledMidMatrix: true,
+      }, { trigger: { cancelled_midmatrix: true } });
+      const text = (renderer.render({ text: rule.template!.text }, ctx)
+        .payload as { text: string }).text;
+      expect(text).toContain("cancelled mid-matrix");
+      expect(text).toContain("newer run");
+    });
   });
 });
 
