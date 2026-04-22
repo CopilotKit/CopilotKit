@@ -9,12 +9,14 @@ import { icons } from "lucide";
 import type { CopilotKitCore } from "@copilotkit/core";
 import {
   CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreErrorCode,
-  type ɵThreadStore,
-  type ɵThread,
   ɵselectThreads,
   ɵcreateThreadStore,
+} from "@copilotkit/core";
+import type {
+  CopilotKitCoreSubscriber,
+  CopilotKitCoreErrorCode,
+  ɵThreadStore,
+  ɵThread,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -3474,7 +3476,7 @@ ${argsString}</pre
   }
 
   private _submitThreadsCode(value: string): void {
-    if (value.trim().toLowerCase() === "easyaccess") {
+    if (value.trim().toLowerCase() === "earlyaccess") {
       document.cookie =
         "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
       this._threadsUnlocked = true;
