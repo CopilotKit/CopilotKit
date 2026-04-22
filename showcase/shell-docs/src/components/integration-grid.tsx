@@ -3,7 +3,14 @@
 import React from "react";
 import { useFramework } from "./framework-provider";
 
-export function IntegrationGrid({ path }: { path?: string; exclude?: string[] }) {
+export function IntegrationGrid({
+  path,
+  description,
+}: {
+  path?: string;
+  exclude?: string[];
+  description?: string;
+}) {
   const { framework } = useFramework();
 
   // On a framework-scoped route the user already chose a backend — hide.
@@ -12,6 +19,11 @@ export function IntegrationGrid({ path }: { path?: string; exclude?: string[] })
   return (
     <>
       <h2>Choose your AI backend</h2>
+      {description && (
+        <p style={{ marginBottom: "1rem", color: "var(--text-secondary)" }}>
+          {description}
+        </p>
+      )}
       <div
         style={{
           padding: "1rem",
