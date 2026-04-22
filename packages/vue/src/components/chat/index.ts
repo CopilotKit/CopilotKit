@@ -4,6 +4,8 @@ export { default as CopilotChatAudioRecorder } from "./CopilotChatAudioRecorder.
 import _CopilotChat from "./CopilotChat.vue";
 import _CopilotChatView from "./CopilotChatView.vue";
 export { default as CopilotChatInput } from "./CopilotChatInput.vue";
+export { default as CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue.vue";
+export { default as CopilotChatAttachmentRenderer } from "./CopilotChatAttachmentRenderer.vue";
 export { default as CopilotChatMessageView } from "./CopilotChatMessageView.vue";
 export { default as CopilotChatReasoningMessage } from "./CopilotChatReasoningMessage.vue";
 export { default as CopilotChatSuggestionPill } from "./CopilotChatSuggestionPill.vue";

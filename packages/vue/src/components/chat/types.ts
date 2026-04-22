@@ -8,11 +8,28 @@ import type {
 } from "@ag-ui/core";
 import type { CopilotKitCoreErrorCode, ToolCallStatus } from "@copilotkit/core";
 import type { Suggestion } from "@copilotkit/core";
-import type { Attachment, AttachmentsConfig } from "@copilotkit/shared";
+import type {
+  Attachment,
+  AttachmentsConfig,
+  AttachmentModality,
+} from "@copilotkit/shared";
 import type { CopilotChatLabels } from "../../providers/types";
 import type { InterruptEvent } from "../../types";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
+export type { Attachment, AttachmentsConfig, AttachmentModality };
+
+export interface CopilotChatAttachmentRendererProps {
+  type: AttachmentModality;
+  source: Attachment["source"];
+  filename?: string;
+  className?: string;
+}
+
+export interface CopilotChatAttachmentQueueProps {
+  attachments: Attachment[];
+  className?: string;
+}
 
 export interface CopilotChatViewProps {
   messages?: Message[];
