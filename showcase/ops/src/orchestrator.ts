@@ -23,6 +23,12 @@ import { deployEventToProbeResult } from "./probes/deploy-result.js";
 import { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } from "./probes/redirect-decommission.js";
 import { SMOKE_SLACK_SAFE_FIELDS } from "./probes/smoke.js";
 import { aimockWiringProbe } from "./probes/aimock-wiring.js";
+import { createProbeRegistry } from "./probes/drivers/index.js";
+import { createDiscoveryRegistry } from "./probes/discovery/index.js";
+import { createProbeLoader } from "./probes/loader/probe-loader.js";
+import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
+import type { ProbeConfig } from "./probes/loader/schema.js";
+import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
@@ -183,6 +189,130 @@ export async function boot(opts: BootOptions = {}): Promise<{
     logger.error("orchestrator.initial-rule-load-failed", { err: String(err) });
     throw err;
   }
+
+  // ---- Probe-loader wiring (parallel to legacy buildCronProbeResolver) ----
+  //
+  // The probe-loader reads YAML probe configs from `config/probes/`, resolves
+  // each `kind` against the in-process `probeRegistry`, and schedules one
+  // handler per config via `buildProbeInvoker`. Handlers writer.write() per
+  // target (static / discovery / single) so probe ticks flow into the same
+  // status-writer + alert-engine pipeline as the deploy-result webhook path.
+  //
+  // This path runs IN PARALLEL with `buildCronProbeResolver` + `diffCronSchedules`
+  // for the alert-engine cron trigger. Both paths emit for `aimock_wiring`
+  // today: the legacy one via `rule.scheduled` (rule-level cron trigger),
+  // the new one via `status.changed` (probe-driven status write). Phase 4.1
+  // retires the legacy path once every dimension has a driver. Until then,
+  // Railway's own dedupe on identical `status` rows keeps this safe — two
+  // writers with the same probe result produce one row, not two.
+  //
+  // Scheduler IDs use the `probe:` prefix so they never collide with the
+  // rule-cron IDs (`<ruleId>:cron:<idx>`) or the internal IDs (`internal:`).
+  const probeRegistry = createProbeRegistry();
+  const discoveryRegistry = createDiscoveryRegistry();
+  probeRegistry.register(aimockWiringDriver);
+  const probeConfigDir =
+    opts.configDir !== undefined
+      ? path.resolve(opts.configDir, "../probes")
+      : path.resolve(process.cwd(), "config/probes");
+  const probeLoader = createProbeLoader(probeConfigDir, {
+    probeRegistry,
+    discoveryRegistry,
+    bus: {
+      emit(event, payload) {
+        bus.emit(event, payload);
+      },
+    },
+    logger,
+  });
+
+  function diffProbeSchedules(configs: ProbeConfig[]): void {
+    // Build desired map: scheduler-id → cfg. `probe:` prefix keeps us from
+    // unregistering rule-cron or internal IDs in the same sweep.
+    const desired = new Map<string, ProbeConfig>();
+    for (const cfg of configs) {
+      desired.set(`probe:${cfg.id}`, cfg);
+    }
+    // Unregister probe IDs that are no longer desired (YAML deleted).
+    for (const entry of scheduler.list()) {
+      if (!entry.id.startsWith("probe:")) continue;
+      if (!desired.has(entry.id)) {
+        scheduler
+          .unregister(entry.id)
+          .catch((err) =>
+            logger.error("orchestrator.probe-unregister-failed", {
+              id: entry.id,
+              err: String(err),
+            }),
+          );
+      }
+    }
+    // Register / re-register each desired probe. `scheduler.register` is
+    // idempotent — if the cron+handler combination is unchanged it's
+    // effectively a no-op; otherwise it replaces the prior entry.
+    for (const [id, cfg] of desired) {
+      const driver = probeRegistry.get(cfg.kind);
+      if (!driver) {
+        // Unreachable: probe-loader already validates kind → driver at load
+        // time and emits `probes.reload.failed`. The guard is cheap and
+        // avoids a post-condition violation inline if the loader ever
+        // relaxes that check.
+        logger.error("orchestrator.probe-driver-missing", {
+          id: cfg.id,
+          kind: cfg.kind,
+        });
+        continue;
+      }
+      const invoker = buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry,
+        writer,
+        logger,
+        fetchImpl: globalThis.fetch,
+        env: process.env as Readonly<Record<string, string | undefined>>,
+        now: () => new Date(),
+      });
+      try {
+        scheduler.register({
+          id,
+          cron: cfg.schedule,
+          handler: invoker,
+        });
+      } catch (err) {
+        logger.error("orchestrator.probe-register-failed", {
+          id,
+          kind: cfg.kind,
+          schedule: cfg.schedule,
+          err: String(err),
+        });
+      }
+    }
+  }
+
+  async function reloadProbes(): Promise<void> {
+    const next = await probeLoader.load();
+    diffProbeSchedules(next);
+    bus.emit("probes.reloaded", { count: next.length });
+  }
+
+  try {
+    await reloadProbes();
+  } catch (err) {
+    // Probe load failure must NOT take down the service — rules and other
+    // probes (deploy-result webhook) still function. Surface on the bus so
+    // operators can alert on `probes.reload.failed` without blocking boot.
+    logger.error("orchestrator.initial-probe-load-failed", {
+      err: String(err),
+    });
+    bus.emit("probes.reload.failed", {
+      errors: [{ file: "(initial-load)", error: String(err) }],
+    });
+  }
+
+  const unwatchProbes = probeLoader.watch((next) => {
+    diffProbeSchedules(next);
+    bus.emit("probes.reloaded", { count: next.length });
+  });
 
   const unwatch = loader.watch((next) => {
     rules = next;
@@ -371,6 +501,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
       schedulerRunning = false;
       process.off("SIGHUP", sigHup);
       unwatch();
+      unwatchProbes();
       engine.stop();
       await scheduler.stop();
       // Release all bus subscriptions so repeated boot/stop don't accumulate
