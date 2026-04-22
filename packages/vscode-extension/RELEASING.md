@@ -93,7 +93,7 @@ The CI workflow handles this automatically:
 
 **If the workflow fails after all retries:**
 
-1. Rerun the job from the GH Actions UI (Actions → failed run → *Re-run failed jobs*).
+1. Rerun the job from the GH Actions UI (Actions → failed run → _Re-run failed jobs_).
 2. **Do NOT bump the version.** The same tag + version is safe to re-publish because both registries treat "version already exists" as idempotent in our retry logic — whichever one previously succeeded will short-circuit, and the one that failed will get a fresh attempt.
 
 **For manual publishes** (emergencies only — prefer CI):
