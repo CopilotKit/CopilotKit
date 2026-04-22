@@ -33,7 +33,9 @@ import type {
   CopilotChatAssistantMessageToolCallsViewSlotProps,
   CopilotChatAssistantMessageToolbarSlotProps,
 } from "./types";
-import "katex/dist/katex.min.css";
+import { useKatexStyles } from "../../hooks/use-katex-styles";
+
+useKatexStyles();
 
 const props = withDefaults(
   defineProps<{

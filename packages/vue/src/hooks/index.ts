@@ -21,3 +21,6 @@ export type {
   UseAttachmentsProps,
   UseAttachmentsReturn,
 } from "./use-attachments";
+export { useKeyboardHeight } from "./use-keyboard-height";
+export type { KeyboardState } from "./use-keyboard-height";
+export { useKatexStyles } from "./use-katex-styles";

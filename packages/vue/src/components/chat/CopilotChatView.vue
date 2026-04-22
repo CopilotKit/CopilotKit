@@ -14,6 +14,7 @@ import type { Suggestion } from "@copilotkit/core";
 import type { Attachment } from "@copilotkit/shared";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
+import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
 import { IconChevronDown } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
@@ -126,6 +127,13 @@ const inputContainerHeight = ref(0);
 const isAtBottom = ref(true);
 const isControlledInput = computed(() => props.inputValue !== undefined);
 const localInputValue = ref(props.inputValue ?? "");
+
+// Track mobile keyboard state so the input can translate itself above the
+// on-screen keyboard (matches React CopilotChatView behavior).
+const { isKeyboardOpen, keyboardHeight } = useKeyboardHeight();
+const effectiveKeyboardHeight = computed(() =>
+  isKeyboardOpen.value ? keyboardHeight.value : 0,
+);
 
 const resolvedInputValue = computed(() =>
   isControlledInput.value ? (props.inputValue ?? "") : localInputValue.value,
@@ -463,6 +471,7 @@ onBeforeUnmount(() => {
                 :tools-menu="inputToolsMenu"
                 positioning="static"
                 :show-disclaimer="true"
+                :keyboard-height="effectiveKeyboardHeight"
                 v-bind="inputEventProps"
               />
             </slot>
@@ -625,6 +634,7 @@ onBeforeUnmount(() => {
             :tools-menu="inputToolsMenu"
             positioning="absolute"
             :show-disclaimer="true"
+            :keyboard-height="effectiveKeyboardHeight"
             v-bind="inputEventProps"
           />
         </slot>

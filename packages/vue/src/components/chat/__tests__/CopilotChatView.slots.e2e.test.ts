@@ -1067,4 +1067,79 @@ describe("CopilotChatView Slot System E2E Tests", () => {
       expect(text.includes("function")).toBe(true);
     });
   });
+
+  describe("mobile keyboard height integration", () => {
+    it("forwards visualViewport-driven keyboardHeight into the input transform", async () => {
+      const originalVisualViewport = window.visualViewport;
+      const originalInnerHeight = window.innerHeight;
+      const listeners = new Map<string, ((event: Event) => void)[]>();
+      const mockVisualViewport = {
+        height: 800,
+        addEventListener: vi.fn(
+          (type: string, listener: (event: Event) => void) => {
+            const bucket = listeners.get(type) ?? [];
+            bucket.push(listener);
+            listeners.set(type, bucket);
+          },
+        ),
+        removeEventListener: vi.fn(),
+      };
+
+      Object.defineProperty(window, "visualViewport", {
+        value: mockVisualViewport,
+        writable: true,
+        configurable: true,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        value: 800,
+        writable: true,
+        configurable: true,
+      });
+
+      try {
+        const Host = defineComponent({
+          components: { CopilotChatView },
+          setup() {
+            return { sampleMessages };
+          },
+          template: `
+            <CopilotChatView :messages="sampleMessages" />
+          `,
+        });
+
+        const { container } = renderInWrapper(Host);
+
+        // Simulate the on-screen keyboard opening (visual viewport shrinks
+        // by 300px, well above the 150px isKeyboardOpen threshold).
+        mockVisualViewport.height = 500;
+        (listeners.get("resize") ?? []).forEach((listener) =>
+          listener(new Event("resize")),
+        );
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const inputContainer = container.querySelector(
+          "[data-testid='copilot-chat-view-input-container']",
+        ) as HTMLElement | null;
+        expect(inputContainer).not.toBeNull();
+        // The input's absolute positioning wrapper inside the chat view
+        // should now carry the `translateY(-300px)` transform driven by
+        // useKeyboardHeight via effectiveKeyboardHeight.
+        const translatedWrapper = inputContainer!.querySelector(
+          '[style*="translateY(-300px)"]',
+        );
+        expect(translatedWrapper).not.toBeNull();
+      } finally {
+        Object.defineProperty(window, "visualViewport", {
+          value: originalVisualViewport,
+          writable: true,
+          configurable: true,
+        });
+        Object.defineProperty(window, "innerHeight", {
+          value: originalInnerHeight,
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+  });
 });
