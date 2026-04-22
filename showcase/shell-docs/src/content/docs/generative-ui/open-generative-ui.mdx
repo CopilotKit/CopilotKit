@@ -30,6 +30,8 @@ auto-registered by `CopilotKitProvider`, so no extra wiring is needed.
 
 ### Enable it in the runtime
 
+Add `OpenGenerativeUIMiddleware` to your runtime configuration:
+
 <Snippet region="minimal-runtime-flag" />
 
 The `OpenGenerativeUIMiddleware` then converts the agent's streamed
@@ -38,6 +40,8 @@ which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
 sandboxed iframe.
 
 ### Drop `<CopilotChat />` into the page
+
+Wrap your app in `CopilotKitProvider` and render `<CopilotChat>` — no extra props needed:
 
 <Snippet region="minimal-provider-setup" />
 

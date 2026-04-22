@@ -16,6 +16,8 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 
 ## Defining a tool
 
+Use `defineTool` to declare a server-side tool with a name, description, typed parameters, and an `execute` handler:
+
 ```typescript title="src/copilotkit.ts"
 const getWeather = defineTool({
   name: "getWeather",
