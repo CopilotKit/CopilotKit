@@ -15,6 +15,17 @@ jobs:
       packages: read
       actions: write
     steps:
+      - name: Checkout (starters dir only)
+        # Sparse checkout of showcase/starters/ so the "Check image drift"
+        # step can enumerate starter slugs from the filesystem. This keeps
+        # the starter list a single source of truth (directory names under
+        # showcase/starters/) instead of a literal list duplicated in this
+        # workflow.
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: showcase/starters
+          sparse-checkout-cone-mode: false
+
       - name: Restore state from cache
         id: cache-restore
         uses: actions/cache/restore@v4
@@ -183,12 +194,41 @@ jobs:
 
           STALE=""
           STALE_LIST=""
+          # Non-starter services stay literal — they don't live under
+          # showcase/starters/ and each has bespoke provisioning elsewhere.
           SERVICES=(
             shell langgraph-python langgraph-typescript langgraph-fastapi
             mastra crewai-crews pydantic-ai google-adk ag2 agno llamaindex
             strands ms-agent-python ms-agent-dotnet claude-sdk-python
             claude-sdk-typescript langroid spring-ai aimock
           )
+          # Starter slugs are derived from showcase/starters/*/ so adding a
+          # new starter directory automatically extends drift detection.
+          # `template/` is scaffolding, not a deployed service — keep in sync
+          # with showcase/scripts/validate-workflow-starters.ts EXCLUDED_DIRS.
+          # nullglob guards against an empty showcase/starters/ tree expanding
+          # the literal "showcase/starters/*/" pattern into the iteration,
+          # which would corrupt SERVICES with a "starter-*" entry.
+          shopt -s nullglob
+          for dir in showcase/starters/*/; do
+            slug=$(basename "$dir")
+            [ "$slug" = "template" ] && continue
+            SERVICES+=("starter-$slug")
+          done
+          shopt -u nullglob
+          # Count appended starter-* entries independently of the non-starter
+          # list size. Using a magic `-eq 19` sentinel tied us to a specific
+          # non-starter count; any add/remove there would have silently
+          # disabled this guard. `grep -c '^starter-'` stays correct under
+          # arbitrary churn to the literal non-starter list.
+          STARTER_COUNT=$(printf '%s\n' "${SERVICES[@]}" | grep -c '^starter-' || true)
+          if [ "$STARTER_COUNT" -eq 0 ]; then
+            # Sparse checkout failed to populate showcase/starters/, or every
+            # directory under it was `template/` — fail loudly instead of
+            # silently under-checking.
+            echo "::error::No starter directories found under showcase/starters/ — sparse checkout failed?"
+            exit 1
+          fi
           # Compare against the last commits that touched showcase-related paths,
           # NOT main HEAD. Deploys only trigger on showcase/ and examples/integrations/
           # changes, so non-showcase commits shouldn't make images appear stale.
@@ -209,21 +249,76 @@ jobs:
 
           for SVC in "${SERVICES[@]}"; do
             PKG="showcase-${SVC}"
-            # Get tags for the latest version via GitHub Packages API
-            TAGS=$(gh api "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" \
-              --jq '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || true
+            # Query GHCR for the latest package version. The previous
+            # implementation used `gh api ... || true` + `[ -z "$TAGS" ]`
+            # to skip, which silently conflated three distinct cases:
+            #   - new service, not yet published (legitimate, expected)
+            #   - GHCR 404 (legitimate — same as above)
+            #   - GHCR 401/403/5xx (transient API error — NOT legitimate;
+            #     should surface so a broken drift run doesn't look clean)
+            # Split them: capture HTTP status from gh api -i, treat 200+empty
+            # and 404 as "no versions yet" (quiet continue), and warn on any
+            # other non-200 so the run log shows a ::warning:: without
+            # failing the whole drift detector over one flaky service.
+            # Capture stderr separately from stdout. Merging them with 2>&1
+            # can splice gh error lines (auth failures, rate limits, network
+            # errors) ahead of the HTTP header block, which then corrupts
+            # HTTP_STATUS and API_BODY parsing — a drift run can look "clean"
+            # while actually failing every call. Keep stderr in a temp file
+            # and surface it only when we need to diagnose a non-zero RC.
+            API_STDERR=$(mktemp)
+            set +e
+            API_RESPONSE=$(gh api -i "/orgs/copilotkit/packages/container/${PKG}/versions?per_page=1" 2>"$API_STDERR")
+            API_RC=$?
+            set -e
+            # gh api -i emits HTTP headers on stdout followed by a blank
+            # line then the body. Extract the status line (first line
+            # beginning with HTTP/) even if redirects prepended extras.
+            HTTP_STATUS=$(printf '%s\n' "$API_RESPONSE" | awk '/^HTTP\// { status=$2 } END { print status }')
+            # Body is everything after the first blank line.
+            API_BODY=$(printf '%s\n' "$API_RESPONSE" | awk 'blank { print; next } /^\r?$/ { blank=1 }')
 
-            if [ -z "$TAGS" ]; then
-              continue  # No package versions — new service, not yet built
+            if [ "$API_RC" -ne 0 ] && [ -z "$HTTP_STATUS" ]; then
+              # gh itself failed (network, missing binary) with no response
+              # at all — surface as a warning and move on. A brief outage
+              # shouldn't mark every service stale on the next clean run.
+              GH_ERR=$(tr '\n' ' ' < "$API_STDERR" | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+              rm -f "$API_STDERR"
+              echo "::warning::${SVC}: gh api call failed (rc=$API_RC): ${GH_ERR:-no stderr captured}, skipping drift check"
+              continue
             fi
+            rm -f "$API_STDERR"
+
+            case "$HTTP_STATUS" in
+              200)
+                TAGS=$(printf '%s' "$API_BODY" | jq -r '.[0].metadata.container.tags | join(" ")' 2>/dev/null) || TAGS=""
+                if [ -z "$TAGS" ]; then
+                  echo "  ${SVC}: no package versions yet, skipping"
+                  continue
+                fi
+                ;;
+              404)
+                echo "  ${SVC}: no GHCR package yet (404), skipping"
+                continue
+                ;;
+              *)
+                # 401/403 (auth drift), 5xx (transient), any other surprise.
+                # Warn visibly but don't fail the whole drift run — one
+                # flaky service shouldn't break the monitor.
+                echo "::warning::${SVC}: GHCR returned HTTP ${HTTP_STATUS:-<no status>}, skipping"
+                continue
+                ;;
+            esac
 
             # Image is up to date if it matches EITHER the last showcase/ or
-            # examples/integrations/ commit (deploy triggers on both paths)
+            # examples/integrations/ commit (deploy triggers on both paths).
+            # Use `grep -w` (word boundary) instead of `grep` (substring)
+            # so one SHA isn't accidentally matched as a prefix of another.
             UP_TO_DATE=false
-            if [ -n "$SHOWCASE_SHA" ] && echo "$TAGS" | grep -q "$SHOWCASE_SHA"; then
+            if [ -n "$SHOWCASE_SHA" ] && echo "$TAGS" | grep -qw "$SHOWCASE_SHA"; then
               UP_TO_DATE=true
             fi
-            if [ -n "$EXAMPLES_SHA" ] && echo "$TAGS" | grep -q "$EXAMPLES_SHA"; then
+            if [ -n "$EXAMPLES_SHA" ] && echo "$TAGS" | grep -qw "$EXAMPLES_SHA"; then
               UP_TO_DATE=true
             fi
             if [ "$UP_TO_DATE" = true ]; then
@@ -266,30 +361,99 @@ jobs:
           fi  # end SHA guard
 
       - name: Trigger rebuild for stale services
+        id: rebuild
         if: steps.image_drift.outputs.has_stale == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          FAILED=""
+          FAILED_COUNT=0
+          : > rebuild-failures.txt
+          COUNT=0
           for SVC in ${{ steps.image_drift.outputs.stale_services }}; do
             echo "Triggering rebuild for ${SVC}..."
-            gh workflow run showcase_deploy.yml -f service="${SVC}" || echo "  Failed to trigger ${SVC}"
+            RC=0
+            ERR_OUTPUT=$(gh workflow run showcase_deploy.yml --repo "${{ github.repository }}" -f service="${SVC}" 2>&1) || RC=$?
+            if [ "$RC" -eq 0 ]; then
+              COUNT=$((COUNT + 1))
+            else
+              echo "::warning::Failed to trigger rebuild for ${SVC}: ${ERR_OUTPUT}"
+              # Collapse whitespace/newlines in the error so it fits on one Slack line
+              REASON=$(echo "$ERR_OUTPUT" | tr '\n' ' ' | sed 's/  */ /g' | sed 's/^ *//;s/ *$//')
+              if [ -z "$REASON" ]; then
+                REASON="unknown error"
+              fi
+              FAILED="${FAILED} ${SVC}"
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+              printf ":x: *%s* — %s\n" "$SVC" "$REASON" >> rebuild-failures.txt
+            fi
           done
+          echo "triggered_count=${COUNT}" >> "$GITHUB_OUTPUT"
+          echo "failed_count=${FAILED_COUNT}" >> "$GITHUB_OUTPUT"
+          if [ "$FAILED_COUNT" -gt 0 ]; then
+            # Surface failures via annotation and fail the job so the run shows
+            # RED in GitHub Actions UI / `gh run list`. Slack dedup is handled
+            # by guarding the failure() notifier with
+            # `steps.image_drift.outputs.has_stale != 'true'`, so this exit 1
+            # does NOT cause double-posting — the detailed drift-alert step
+            # covers the drift path.
+            echo "::error::Failed to trigger rebuilds for:${FAILED}"
+            echo "has_failures=true" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "has_failures=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Alert image drift to Slack
-        if: steps.image_drift.outputs.has_stale == 'true'
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
         run: |
-          HEADER=":package: *Image drift detected — rebuilds triggered:*"
-          BODY=$(cat image-drift.txt)
-          printf "%s\n%s" "$HEADER" "$BODY" > drift-message.txt
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          COUNT="${{ steps.rebuild.outputs.triggered_count }}"
+          FAILED_COUNT="${{ steps.rebuild.outputs.failed_count }}"
+          if [ -z "$COUNT" ]; then
+            # Fallback: rebuild step didn't run or didn't set the output; count from stale_services
+            COUNT=$(echo "${{ steps.image_drift.outputs.stale_services }}" | wc -w | tr -d ' ')
+          fi
+          if [ -z "$FAILED_COUNT" ]; then
+            FAILED_COUNT=0
+          fi
+          NOUN="rebuilds"
+          if [ "$COUNT" = "1" ]; then NOUN="rebuild"; fi
+
+          if [ "${{ steps.rebuild.outputs.has_failures }}" = "true" ] && [ -s rebuild-failures.txt ]; then
+            # Failure case: list only the services that failed to rebuild, with reasons.
+            # COUNT reflects only successfully-triggered rebuilds; FAILED_COUNT is the rest.
+            {
+              printf ":package: *Image drift detected — %s %s triggered, %s failed:*\n" "$COUNT" "$NOUN" "$FAILED_COUNT"
+              cat rebuild-failures.txt
+              printf "<%s|Workflow run>\n" "$RUN_URL"
+            } > drift-message.txt
+          else
+            # Success case: just summarize the count with a link to the run
+            printf ":package: Image drift detected — %s %s triggered (<%s|run>)\n" "$COUNT" "$NOUN" "$RUN_URL" > drift-message.txt
+          fi
           jq -n --rawfile text drift-message.txt '{"text": $text}' > drift-payload.json
 
       - name: Post image drift to Slack
-        if: steps.image_drift.outputs.has_stale == 'true'
+        if: always() && steps.image_drift.outputs.has_stale == 'true'
         uses: slackapi/slack-github-action@v2.1.0
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
           payload-file-path: drift-payload.json
+
+      - name: Notify Slack (workflow failure)
+        # Suppress when the drift-alert path is active — that step already
+        # posts a detailed Slack message covering per-service rebuild results.
+        # This generic notifier still fires for non-drift failures (e.g., the
+        # smoke-check step itself fails before drift detection runs).
+        if: failure() && steps.image_drift.outputs.has_stale != 'true'
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            { "text": ":x: *Smoke monitor*: workflow failed | <https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>" }
 
       - name: Save state to cache
         if: always()

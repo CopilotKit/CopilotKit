@@ -35,6 +35,10 @@ __pycache__/
 
 docs/next-env.d.ts
 
+# Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
+showcase/packages/*/shared_python/
+showcase/packages/*/shared_typescript/
+
 # External repos (cloned for development)
 ext-apps/
 dist

@@ -10,12 +10,28 @@ import uvicorn
 from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 from dotenv import load_dotenv
-from agents.main import proverbs_agent
+from agents.main import sales_pipeline_agent
 
 load_dotenv()
 
 app = FastAPI(title="Google ADK Agent Server")
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# `add_adk_fastapi_endpoint(app, adk_agent, path="/")` installs a catch-all
+# at the root that shadows any later `@app.get("/health")` decorator.
+# Middleware runs above the routing layer, so /health stays reachable.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
+
+
+app.add_middleware(HealthMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,18 +41,13 @@ app.add_middleware(
 )
 
 adk_agent = ADKAgent(
-    adk_agent=proverbs_agent,
+    adk_agent=sales_pipeline_agent,
     user_id="demo_user",
     session_timeout_seconds=3600,
     use_in_memory_services=True,
 )
 
 add_adk_fastapi_endpoint(app, adk_agent, path="/")
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
 
 
 def main():

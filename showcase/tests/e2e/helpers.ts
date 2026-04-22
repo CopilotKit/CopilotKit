@@ -34,45 +34,67 @@ export interface ChatResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Try multiple health endpoint paths, return the first that responds 200.
+ * Probe the health endpoint(s) and return the first 200 response.
+ *
+ * Defaults to `/api/health` only — the standard Next.js convention used by
+ * all deployed showcase backends and starters. Historically this helper also
+ * fell back to `/health`, but every starter now mounts `/api/health` and the
+ * fallback masked legitimate 5xx responses (a 503 "agent degraded" on
+ * `/api/health` would be hidden behind the subsequent 404 from the non-
+ * existent `/health`, reporting the misleading `path=/health` in failures).
+ *
+ * Callers that need to probe a different path (e.g. local Docker starters
+ * with a custom health route) can pass an explicit `paths` array.
+ *
+ * Supports retries with delay for cold-start scenarios (e.g. Railway starters).
  */
 export async function checkHealth(
   request: APIRequestContext,
   baseUrl: string,
-  paths: string[] = ["/api/health", "/health"],
+  paths: string[] = ["/api/health"],
+  retries: number = 0,
+  retryDelayMs: number = 15_000,
 ): Promise<HealthCheckResult> {
-  for (const path of paths) {
-    try {
-      const res = await request.get(`${baseUrl}${path}`, {
-        timeout: 15_000,
-      });
-      if (res.ok()) {
-        return {
-          ok: true,
+  let lastResult: HealthCheckResult = {
+    ok: false,
+    status: 0,
+    path: paths[0],
+    body: "no attempts made",
+  };
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    for (const path of paths) {
+      try {
+        const res = await request.get(`${baseUrl}${path}`, {
+          timeout: 15_000,
+        });
+        if (res.ok()) {
+          return {
+            ok: true,
+            status: res.status(),
+            path,
+            body: await res.text(),
+          };
+        }
+        lastResult = {
+          ok: false,
           status: res.status(),
           path,
           body: await res.text(),
         };
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        lastResult = { ok: false, status: 0, path, body: msg };
       }
-    } catch {
-      // try next path
+    }
+
+    // If we have retries left, wait before the next attempt
+    if (attempt < retries) {
+      await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
     }
   }
-  // All paths failed — report the first one tried
-  try {
-    const res = await request.get(`${baseUrl}${paths[0]}`, {
-      timeout: 10_000,
-    });
-    return {
-      ok: false,
-      status: res.status(),
-      path: paths[0],
-      body: await res.text(),
-    };
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return { ok: false, status: 0, path: paths[0], body: msg };
-  }
+
+  return lastResult;
 }
 
 // ---------------------------------------------------------------------------

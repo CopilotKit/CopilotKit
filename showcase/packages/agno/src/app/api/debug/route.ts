@@ -1,31 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Request log (in-memory ring buffer, last 50 requests)
-const requestLog: Array<{
-  time: string;
-  method: string;
-  path: string;
-  status: number;
-  durationMs: number;
-}> = [];
-const MAX_LOG_SIZE = 50;
-
-function logRequest(
-  method: string,
-  path: string,
-  status: number,
-  durationMs: number,
-) {
-  requestLog.push({
-    time: new Date().toISOString(),
-    method,
-    path,
-    status,
-    durationMs,
-  });
-  if (requestLog.length > MAX_LOG_SIZE) requestLog.shift();
-}
-
 export async function GET(req: NextRequest) {
   // Token-gated: SHOWCASE_DEBUG_TOKEN must be set in env and matched
   const token =
@@ -69,7 +43,6 @@ export async function GET(req: NextRequest) {
       ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
       LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ? "set" : "NOT SET",
     },
-    recentRequests: requestLog.slice(-20),
     nodeVersion: process.version,
   });
 }

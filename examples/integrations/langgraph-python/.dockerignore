@@ -1,6 +1,5 @@
 node_modules
 .next
-.turbo
 .git
 .gitignore
 .env*
@@ -10,7 +9,6 @@ node_modules
 .claude
 .worktrees
 .langgraph_api
-apps/agent/.venv
-apps/agent/__pycache__
-apps/mcp
+agent/.venv
+agent/__pycache__
 coverage

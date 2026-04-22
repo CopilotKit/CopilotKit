@@ -5,6 +5,14 @@
  * The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
  */
 
+// Cold-start instrumentation: emitted before any side-effect imports so
+// Railway logs reveal exactly which phase (module load, Anthropic SDK
+// init, express.listen) consumes the watchdog budget. Paired with the
+// `[entrypoint] pre-node ...` print in entrypoint.sh so timestamps chain.
+// Disambiguates the observed failure class where process claims to be
+// listening but /health probes never succeed.
+console.log(`[agent_server] module loaded ${new Date().toISOString()}`);
+
 import express, { Request, Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { EventEncoder } from "@ag-ui/encoder";
@@ -22,6 +30,7 @@ const HOST = process.env.AGENT_HOST || "0.0.0.0";
 const PORT = parseInt(process.env.AGENT_PORT || "8000", 10);
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-3-5-haiku-20241022";
 
+console.log(`[agent_server] pre-Anthropic ${new Date().toISOString()}`);
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
@@ -182,15 +191,13 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
     let toolCallId: string | null = null;
     let toolCallName: string | null = null;
     let toolCallArgs = "";
+    let textMessageStarted = false;
 
     for await (const event of stream) {
       if (event.type === "message_start") {
         assistantMsgId = event.message.id;
-        emit({
-          type: EventType.TEXT_MESSAGE_START,
-          messageId: msgId,
-          role: "assistant",
-        });
+        // Don't emit TEXT_MESSAGE_START here — wait until we actually
+        // receive a text_delta so tool-call-only responses stay clean.
       } else if (event.type === "content_block_start") {
         if (event.content_block.type === "tool_use") {
           toolCallId = event.content_block.id;
@@ -205,6 +212,15 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
         }
       } else if (event.type === "content_block_delta") {
         if (event.delta.type === "text_delta") {
+          // Lazily emit TEXT_MESSAGE_START on first text content
+          if (!textMessageStarted) {
+            emit({
+              type: EventType.TEXT_MESSAGE_START,
+              messageId: msgId,
+              role: "assistant",
+            });
+            textMessageStarted = true;
+          }
           emit({
             type: EventType.TEXT_MESSAGE_CONTENT,
             messageId: msgId,
@@ -229,12 +245,23 @@ app.post("/", async (req: Request, res: Response): Promise<void> => {
           toolCallArgs = "";
         }
       } else if (event.type === "message_stop") {
-        emit({
-          type: EventType.TEXT_MESSAGE_END,
-          messageId: msgId,
-        });
+        // Only close the text message if we opened one
+        if (textMessageStarted) {
+          emit({
+            type: EventType.TEXT_MESSAGE_END,
+            messageId: msgId,
+          });
+        }
       }
     }
+
+    // Design note: this is a pass-through architecture — all tools are
+    // registered by the frontend via CopilotKit and forwarded here as
+    // AG-UI tool definitions. When Claude responds with stop_reason
+    // "tool_use", the tool calls have already been emitted above as
+    // TOOL_CALL_START/ARGS/END events. The AG-UI client will execute
+    // them on the frontend and re-invoke the agent with results. No
+    // server-side tool execution loop is needed.
 
     emit({ type: EventType.RUN_FINISHED, runId, threadId });
   } catch (error: unknown) {
@@ -265,5 +292,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.listen(PORT, HOST, () => {
-  console.log(`[agent_server] Listening on http://${HOST}:${PORT}`);
+  console.log(
+    `[agent_server] listening ${new Date().toISOString()} http://${HOST}:${PORT}`,
+  );
 });

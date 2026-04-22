@@ -1,0 +1,43 @@
+{
+  "framework": "ag2",
+  "features": {
+    "agentic-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/prebuilt-components",
+      "shell_docs_path": "/prebuilt-components"
+    },
+    "hitl-in-chat": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/human-in-the-loop",
+      "shell_docs_path": "/generative-ui/your-components/interactive"
+    },
+    "tool-rendering": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/tool-rendering",
+      "shell_docs_path": "/generative-ui/tool-rendering"
+    },
+    "gen-ui-tool-based": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/your-components/display-only",
+      "shell_docs_path": "/generative-ui/your-components/display-only"
+    },
+    "gen-ui-agent": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/generative-ui/state-rendering",
+      "shell_docs_path": null
+    },
+    "shared-state-read-write": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state",
+      "shell_docs_path": "/shared-state"
+    },
+    "shared-state-streaming": {
+      "og_docs_url": "https://docs.copilotkit.ai/ag2/shared-state/write",
+      "shell_docs_path": "/shared-state"
+    },
+    "subagents": {
+      "og_docs_url": null,
+      "shell_docs_path": null
+    }
+  },
+  "missing": [
+    {
+      "feature": "subagents",
+      "reason": "No /ag2/multi-agent/subagents page on docs.copilotkit.ai (returns SPA fallback)."
+    }
+  ]
+}

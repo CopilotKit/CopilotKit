@@ -1,0 +1,236 @@
+{
+  "Agent Conversation": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://chat-interface"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 12,
+              "children": [
+                "msg1",
+                "msg2",
+                "tool1",
+                "msg3",
+                "code1",
+                "msg4",
+                "sources",
+                "suggestions"
+              ]
+            },
+            {
+              "id": "msg1",
+              "component": "ChatBubble",
+              "message": "Can you analyze the error logs from the last deployment and suggest fixes?",
+              "sender": "You",
+              "time": "2:34 PM",
+              "isUser": true
+            },
+            {
+              "id": "msg2",
+              "component": "ChatBubble",
+              "message": "I'll look into the deployment logs right away. Let me search for recent errors.",
+              "sender": "CopilotKit Agent",
+              "time": "2:34 PM"
+            },
+            {
+              "id": "tool1",
+              "component": "ToolCallCard",
+              "tool": "searchLogs",
+              "args": "{ \"timeRange\": \"last 2h\", \"level\": \"error\" }",
+              "result": "Found 3 errors:\n1. ConnectionTimeout in db-service (x47)\n2. OutOfMemory in worker-3 (x2)\n3. TLS handshake failure in api-gateway (x1)",
+              "status": "success"
+            },
+            {
+              "id": "msg3",
+              "component": "ChatBubble",
+              "message": "I found 3 distinct errors. The most critical is the database connection timeout, occurring 47 times. Here's a fix for the connection pool configuration:",
+              "sender": "CopilotKit Agent",
+              "time": "2:35 PM"
+            },
+            {
+              "id": "code1",
+              "component": "CodeBlock",
+              "filename": "db-config.ts",
+              "language": "typescript",
+              "code": "export const poolConfig = {\n  max: 20,            // was 5, too low for current load\n  idleTimeoutMs: 30000,\n  connectionTimeoutMs: 10000,  // was 2000\n  maxRetries: 3,\n  retryDelayMs: 1000,\n};"
+            },
+            {
+              "id": "msg4",
+              "component": "ChatBubble",
+              "message": "The connection pool was undersized for the traffic spike after deployment. I've also found relevant documentation on the recommended settings:",
+              "sender": "CopilotKit Agent",
+              "time": "2:35 PM"
+            },
+            {
+              "id": "sources",
+              "component": "SourceCard",
+              "sources": [
+                {
+                  "title": "PostgreSQL Connection Pooling Best Practices",
+                  "url": "https://docs.example.com/pg-pooling",
+                  "snippet": "For production workloads exceeding 1000 req/s, set max connections to at least 20 and enable connection retry with exponential backoff."
+                },
+                {
+                  "title": "Incident Report: DB Timeouts (March 2026)",
+                  "url": "https://wiki.internal/incidents/2026-03-db",
+                  "snippet": "Root cause was identical: pool exhaustion under load. Fixed by increasing max from 5 to 20 and adding retry logic."
+                }
+              ]
+            },
+            {
+              "id": "suggestions",
+              "component": "SuggestionChips",
+              "suggestions": [
+                "Apply this fix to staging",
+                "Show me the worker OOM error",
+                "What about the TLS failure?",
+                "Create a PR with these changes"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Thinking State": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://chat-interface"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 12,
+              "children": ["msg1", "tool1", "msg2"]
+            },
+            {
+              "id": "msg1",
+              "component": "ChatBubble",
+              "message": "Refactor the auth middleware to use JWT validation",
+              "sender": "You",
+              "time": "3:12 PM",
+              "isUser": true
+            },
+            {
+              "id": "tool1",
+              "component": "ToolCallCard",
+              "tool": "readFile",
+              "args": "{ \"path\": \"src/middleware/auth.ts\" }",
+              "status": "running"
+            },
+            {
+              "id": "msg2",
+              "component": "ChatBubble",
+              "message": "",
+              "sender": "CopilotKit Agent",
+              "time": "3:12 PM",
+              "isThinking": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Error Recovery": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://chat-interface"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 12,
+              "children": [
+                "msg1",
+                "tool1",
+                "msg2",
+                "tool2",
+                "msg3",
+                "suggestions"
+              ]
+            },
+            {
+              "id": "msg1",
+              "component": "ChatBubble",
+              "message": "Deploy the latest build to production",
+              "sender": "You",
+              "time": "4:00 PM",
+              "isUser": true
+            },
+            {
+              "id": "tool1",
+              "component": "ToolCallCard",
+              "tool": "deployService",
+              "args": "{ \"env\": \"production\", \"version\": \"v2.14.1\" }",
+              "result": "Error: Health check failed after deploy. Service returned 503 on /health endpoint.",
+              "status": "error"
+            },
+            {
+              "id": "msg2",
+              "component": "ChatBubble",
+              "message": "The deployment failed the health check. Let me investigate and roll back automatically.",
+              "sender": "CopilotKit Agent",
+              "time": "4:01 PM"
+            },
+            {
+              "id": "tool2",
+              "component": "ToolCallCard",
+              "tool": "rollbackDeploy",
+              "args": "{ \"env\": \"production\", \"targetVersion\": \"v2.14.0\" }",
+              "result": "Rollback successful. Service healthy at v2.14.0.",
+              "status": "success"
+            },
+            {
+              "id": "msg3",
+              "component": "ChatBubble",
+              "message": "I've rolled back to v2.14.0. The issue was a missing environment variable DATABASE_REPLICA_URL in the new config. Would you like me to fix this and redeploy?",
+              "sender": "CopilotKit Agent",
+              "time": "4:01 PM"
+            },
+            {
+              "id": "suggestions",
+              "component": "SuggestionChips",
+              "suggestions": [
+                "Fix and redeploy",
+                "Show me the diff",
+                "Deploy to staging first"
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

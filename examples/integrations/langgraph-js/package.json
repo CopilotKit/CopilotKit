@@ -2,17 +2,35 @@
   "name": "langgraph-js-starter",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "lint": "turbo run lint"
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev:debug": "LOG_LEVEL=debug npm run dev",
+    "dev:ui": "next dev",
+    "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "install:agent": "cd agent && npm install",
+    "postinstall": "npm run install:agent"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "1.56.2",
+    "@copilotkit/react-ui": "1.56.2",
+    "@copilotkit/runtime": "1.56.2",
+    "next": "16.0.8",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "shiki": "^3.22.0",
+    "zod": "^3.24.4"
   },
   "devDependencies": {
-    "@langchain/langgraph-cli": "^1.0.4",
-    "turbo": "^2.3.3"
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   },
   "overrides": {
     "@langchain/core": "^1.0.1",
@@ -20,6 +38,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "packageManager": "pnpm@9.15.0"
+  }
 }

@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@copilotkit/showcase-shared-tools": ["./shared_typescript/tools"],
+      "@copilotkit/showcase-shared-tools/*": ["./shared_typescript/tools/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

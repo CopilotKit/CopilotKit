@@ -111,14 +111,12 @@ agent = create_agent(
 <Step>
 ### Configure the runtime (TypeScript)
 
-Enable A2UI in your CopilotRuntime:
+Enable A2UI in your CopilotRuntime. The middleware auto-detects A2UI operations in any tool result, so no tool injection is needed here — the agent's `search_flights` tool returns them directly.
 
 ```typescript title="app/api/copilotkit/route.ts"
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
-  a2ui: {
-    injectA2UITool: true,
-  },
+  a2ui: {},
 });
 ```
 </Step>
