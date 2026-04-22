@@ -77,6 +77,7 @@ export async function handleRunAgent({
       request,
       agent,
       input,
+      agentId,
       debug: runtime.debug,
       logger: runtime.debugLogger,
     });

@@ -52,6 +52,7 @@ export async function handleConnectAgent({
     return handleSseConnect({
       runtime,
       request,
+      agentId,
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {
