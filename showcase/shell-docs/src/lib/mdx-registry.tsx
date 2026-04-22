@@ -523,10 +523,10 @@ export const docsComponents = {
       }}
     >
       See the{" "}
-      <a href="/matrix" style={{ color: "var(--accent)" }}>
-        Feature Matrix
+      <a href="/" style={{ color: "var(--accent)" }}>
+        integrations overview
       </a>{" "}
-      for a full comparison.
+      for all available frameworks.
     </div>
   ),
   IntegrationsGrid: ({ children }: { children?: React.ReactNode }) => (
