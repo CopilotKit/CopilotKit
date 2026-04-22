@@ -1,14 +1,21 @@
 name: test / doc-examples
 on:
   pull_request:
+    branches: [main]
     paths: ["docs/**"]
   push:
     branches: [main]
     paths: ["docs/**"]
 
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   validate-model-names:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +28,7 @@ jobs:
       - run: pnpm tsx scripts/validate-doc-model-names.ts
 
   doc-tests:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     needs: validate-model-names
     steps:
@@ -42,7 +49,7 @@ jobs:
           echo "aimock binary: $AIMOCK_BIN"
           ls -la "$AIMOCK_BIN" || echo "binary not found at expected path"
           which aimock || echo "aimock not on PATH"
-          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures > /tmp/aimock.log 2>&1 &
+          nohup node $(npm root -g)/@copilotkit/aimock/dist/cli.js --fixtures scripts/doc-tests/fixtures --validate-on-load > /tmp/aimock.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -sf http://localhost:4010/health; then
               echo "aimock ready"

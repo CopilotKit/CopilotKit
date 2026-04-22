@@ -16,10 +16,9 @@ on:
 permissions:
   contents: read
   packages: read
-  issues: write
 
 jobs:
-  starter-smoke:
+  smoke-starter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -109,9 +108,40 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: starter-smoke-${{ matrix.starter }}
+          name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/
           retention-days: 7
+
+      - name: Build Slack payload
+        if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
+        id: slack-payload
+        env:
+          SUMMARY_RAW: ${{ steps.failure-cause.outputs.summary }}
+          STARTER: ${{ matrix.starter }}
+        run: |
+          # Strip ANSI sequences (SGR, OSC, and G0/G1 charset designators), then truncate
+          # to 200 bytes and drop any trailing partial UTF-8 bytes so we don't emit mojibake.
+          SUMMARY=$(printf '%s' "$SUMMARY_RAW" | head -3 \
+            | sed -E 's/\x1b\[[0-9;?]*[A-Za-z]//g; s/\x1b\][^\x07]*\x07//g; s/\x1b[()][A-Za-z0-9]//g' \
+            | head -c 200 | iconv -f UTF-8 -t UTF-8//IGNORE)
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="(no failure detail captured — see job log)"
+          fi
+          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          JOB_URL="${URL}/job/${{ github.job }}"
+
+          SLACK_MSG=$(mktemp)
+          SLACK_PAYLOAD=$(mktemp)
+
+          # Build the message with REAL newlines, then hand it to jq via --rawfile so escaping is handled correctly.
+          {
+            printf ':x: *Starter smoke test failing: %s*\n' "$STARTER"
+            printf '<%s|View run> · <%s|View job>\n' "$URL" "$JOB_URL"
+            printf '```\n%s\n```\n' "$SUMMARY"
+          } > "$SLACK_MSG"
+          jq -n --rawfile text "$SLACK_MSG" '{text: $text}' > "$SLACK_PAYLOAD"
+          rm -f "$SLACK_MSG"
+          echo "payload_path=${SLACK_PAYLOAD}" >> "$GITHUB_OUTPUT"
 
       - name: Alert Slack on failure
         if: failure() && (github.event_name == 'schedule' || github.event_name == 'workflow_run')
@@ -119,33 +149,8 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
           webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": ${{ toJSON(format('Starter smoke test failing: *{0}*\n```{1}```\nRun: {2}/{3}/actions/runs/{4}', matrix.starter, steps.failure-cause.outputs.summary, github.server_url, github.repository, github.run_id)) }}
-            }
+          payload-file-path: ${{ steps.slack-payload.outputs.payload_path }}
 
-      - name: Create GitHub issue on failure
-        if: failure() && github.event_name == 'schedule'
-        uses: actions/github-script@v7
-        env:
-          FAILURE_SUMMARY: ${{ steps.failure-cause.outputs.summary }}
-        with:
-          script: |
-            const title = `[Drift] Starter smoke test failing: ${{ matrix.starter }}`;
-            const cause = (process.env.FAILURE_SUMMARY || 'Unknown').replace(/`/g, "'");
-            const { data: issues } = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'starter-drift',
-              state: 'open',
-            });
-            const existing = issues.find(i => i.title === title);
-            if (!existing) {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                labels: ['starter-drift'],
-                body: `The scheduled starter smoke test for \`${{ matrix.starter }}\` is failing.\n\n**Cause:**\n\`\`\`\n${cause}\n\`\`\`\n\n**Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nThis likely means a floating dependency update broke the starter.`,
-              });
-            }
+      - name: Clean up Slack payload tmpfile
+        if: always() && steps.slack-payload.outputs.payload_path
+        run: rm -f "${{ steps.slack-payload.outputs.payload_path }}"

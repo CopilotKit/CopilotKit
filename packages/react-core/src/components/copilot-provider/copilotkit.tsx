@@ -311,7 +311,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers: props.headers || {},
+      headers:
+        typeof props.headers === "function"
+          ? props.headers()
+          : props.headers || {},
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,

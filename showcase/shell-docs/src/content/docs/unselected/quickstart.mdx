@@ -1,0 +1,218 @@
+---
+title: Quickstart
+description: Get started with CopilotKit's Built-in Agent in minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+WrenchIcon,
+PlugIcon,
+CpuIcon,
+MonitorIcon,
+} from "lucide-react";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An OpenAI API key (or Anthropic/Google — see [Model Selection](/unselected/model-selection))
+- Node.js 20+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <Step>
+        ### Create your frontend
+
+        CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+        ```bash
+        npx create-next-app@latest my-copilot-app
+        cd my-copilot-app
+        ```
+    </Step>
+    <Step>
+        ### Install CopilotKit packages
+
+        ```npm
+        npm install @copilotkit/react-core @copilotkit/react-ui @copilotkit/runtime
+        ```
+    </Step>
+    <Step>
+        ### Configure your environment
+
+        Create a `.env` file and add your OpenAI API key:
+
+        ```plaintext title=".env"
+        OPENAI_API_KEY=your_openai_api_key
+        ```
+
+        <Callout type="info" title="What about other models?">
+          This example uses OpenAI's GPT-4o. See [Model Selection](/unselected/model-selection) for Anthropic, Google, or custom model setup.
+        </Callout>
+    </Step>
+    <Step>
+        ### Setup Copilot Runtime
+
+        Create an API route with the `BuiltInAgent` and `CopilotRuntime`:
+
+        ```ts title="app/api/copilotkit/route.ts"
+          CopilotRuntime,
+          copilotRuntimeNextJSAppRouterEndpoint,
+        } from "@copilotkit/runtime";
+
+        const builtInAgent = new BuiltInAgent({ // [!code highlight:3]
+          model: "openai:gpt-5.2",
+        });
+
+        const runtime = new CopilotRuntime({
+          agents: { default: builtInAgent }, // [!code highlight]
+        });
+
+        export const POST = async (req: NextRequest) => {
+          const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+            runtime,
+            endpoint: "/api/copilotkit",
+          });
+
+          return handleRequest(req);
+        };
+        ```
+    </Step>
+    <Step>
+        ### Configure CopilotKit Provider
+
+        Wrap your application with the CopilotKit provider:
+
+        ```tsx title="app/layout.tsx"
+
+        // ...
+
+        export default function RootLayout({ children }: {children: React.ReactNode}) {
+          return (
+            <html lang="en">
+              <body>
+                {/* [!code highlight:3] */}
+                <CopilotKit runtimeUrl="/api/copilotkit">
+                  {children}
+                </CopilotKit>
+              </body>
+            </html>
+          );
+        }
+        ```
+    </Step>
+    <Step>
+        ### Add the chat interface
+
+        Add the CopilotSidebar component to your page:
+
+        ```tsx title="app/page.tsx"
+
+        export default function Page() {
+          return (
+            <main>
+              <h1>Your App</h1>
+              {/* [!code highlight:1] */}
+              <CopilotSidebar />
+            </main>
+          );
+        }
+        ```
+    </Step>
+    <Step>
+        ### Start the development server
+
+        <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+            <Tab value="npm">
+                ```bash
+                npm run dev
+                ```
+            </Tab>
+            <Tab value="pnpm">
+                ```bash
+                pnpm dev
+                ```
+            </Tab>
+            <Tab value="yarn">
+                ```bash
+                yarn dev
+                ```
+            </Tab>
+            <Tab value="bun">
+                ```bash
+                bun dev
+                ```
+            </Tab>
+        </Tabs>
+    </Step>
+    <Step>
+        ### 🎉 Start chatting!
+
+        Your AI agent is now ready to use! Try asking it some questions:
+
+        ```
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Check that your API key is correctly set in the `.env` file
+                - Make sure the runtime endpoint path matches the `runtimeUrl` in your CopilotKit provider
+            </Accordion>
+        </Accordions>
+
+    </Step>
+
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Server Tools"
+    description="Give your agent backend capabilities with custom tools."
+    href="/unselected/server-tools"
+    icon={<WrenchIcon />}
+  />
+  <Card
+    title="MCP Servers"
+    description="Connect MCP servers for extended tool support."
+    href="/unselected/mcp-servers"
+    icon={<PlugIcon />}
+  />
+  <Card
+    title="Model Selection"
+    description="Switch to Anthropic, Google, or a custom model."
+    href="/unselected/model-selection"
+    icon={<CpuIcon />}
+  />
+  <Card
+    title="Frontend Tools"
+    description="Let the agent interact with your UI."
+    href="/unselected/frontend-tools"
+    icon={<MonitorIcon />}
+  />
+</Cards>

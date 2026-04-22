@@ -31,8 +31,7 @@ export async function GET(req: NextRequest) {
     publicResponse.diagnostics = {
       agent_url: AGENT_URL,
       env: {
-        OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-        ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
+        GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? "set" : "NOT SET",
         NODE_ENV: process.env.NODE_ENV,
         PORT: process.env.PORT,
       },

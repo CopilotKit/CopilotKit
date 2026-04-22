@@ -174,6 +174,67 @@ describe("ProxiedCopilotRuntimeAgent transport integration", () => {
   });
 });
 
+describe("ProxiedCopilotRuntimeAgent capabilities", () => {
+  const capabilitiesFixture = {
+    tools: { supported: true, clientProvided: true },
+    transport: { streaming: true },
+  };
+
+  it("returns capabilities from the getter when constructed with capabilities", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+      capabilities: capabilitiesFixture,
+    });
+
+    expect(agent.capabilities).toEqual(capabilitiesFixture);
+  });
+
+  it("returns capabilities from getCapabilities() when constructed with capabilities", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+      capabilities: capabilitiesFixture,
+    });
+
+    await expect(agent.getCapabilities()).resolves.toEqual(capabilitiesFixture);
+  });
+
+  it("returns undefined from the getter when constructed without capabilities", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+    });
+
+    expect(agent.capabilities).toBeUndefined();
+  });
+
+  it("returns {} from getCapabilities() when constructed without capabilities", async () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+    });
+
+    await expect(agent.getCapabilities()).resolves.toEqual({});
+  });
+
+  it("clone() preserves capabilities", () => {
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:3000",
+      agentId: "test-agent",
+      description: "Test agent",
+      capabilities: capabilitiesFixture,
+    });
+
+    const cloned = agent.clone();
+    expect(cloned.capabilities).toEqual(capabilitiesFixture);
+  });
+});
+
 describe("ProxiedCopilotRuntimeAgent cloning", () => {
   const originalFetch = global.fetch;
   const runtimeUrl = "https://runtime.example/single";

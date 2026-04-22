@@ -7,9 +7,9 @@ import {
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-type MockAgentController = {
-  emit: (key: keyof AgentSubscriber, payload: unknown) => void;
-};
+// --- Types for accessing LitElement-private reactive properties ---
+// WebInspectorElement stores these as private Lit reactive properties.
+// There's no public API to read them, so the cast is unavoidable in tests.
 
 type InspectorInternals = {
   flattenedEvents: Array<{ type: string }>;
@@ -24,6 +24,8 @@ type InspectorContextInternals = {
   persistState: () => void;
 };
 
+// --- Mock agent factory ---
+
 type MockAgentExtras = Partial<{
   messages: unknown;
   state: unknown;
@@ -31,13 +33,21 @@ type MockAgentExtras = Partial<{
   toolRenderers: Record<string, unknown>;
 }>;
 
+type MockAgentController = {
+  // Each subscriber method has a different parameter shape — TypeScript
+  // can't narrow a dynamic key lookup, so the internal cast is unavoidable.
+  emit: (key: keyof AgentSubscriber, payload: unknown) => void;
+  /** Simulate AbstractAgent.setState(): mutate the mock's state and notify subscribers. */
+  simulateSetState: (newState: Record<string, unknown>) => void;
+};
+
 function createMockAgent(
   agentId: string,
   extras: MockAgentExtras = {},
 ): { agent: AbstractAgent; controller: MockAgentController } {
   const subscribers = new Set<AgentSubscriber>();
 
-  const agent = {
+  const agentObj = {
     agentId,
     ...extras,
     subscribe(subscriber: AgentSubscriber) {
@@ -57,8 +67,24 @@ function createMockAgent(
     });
   };
 
-  return { agent: agent as unknown as AbstractAgent, controller: { emit } };
+  const simulateSetState = (newState: Record<string, unknown>) => {
+    agentObj.state = newState;
+    emit("onStateChanged", {
+      state: newState,
+      messages: agentObj.messages ?? [],
+      agent: agentObj,
+    });
+  };
+
+  // AbstractAgent is an abstract class — our plain-object mock satisfies
+  // the subset the inspector uses but can't extend the class.
+  return {
+    agent: agentObj as unknown as AbstractAgent,
+    controller: { emit, simulateSetState },
+  };
 }
+
+// --- Mock core factory ---
 
 type MockCore = {
   agents: Record<string, AbstractAgent>;
@@ -87,6 +113,8 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
     core,
     emitAgentsChanged(nextAgents = core.agents) {
       core.agents = nextAgents;
+      // CopilotKitCore is a full class — our mock only covers what the
+      // inspector reads, so this cast is unavoidable.
       subscribers.forEach((subscriber) =>
         subscriber.onAgentsChanged?.({
           copilotkit: core as unknown as CopilotKitCore,
@@ -108,7 +136,33 @@ function createMockCore(initialAgents: Record<string, AbstractAgent> = {}) {
   };
 }
 
+// --- Test helpers ---
+
+/** Create inspector, attach to DOM, wire up mock core. */
+function createInspectorWithCore(core: MockCore) {
+  const inspector = new WebInspectorElement();
+  document.body.appendChild(inspector);
+  // WebInspectorElement["core"] is a CopilotKitCore instance — our MockCore
+  // only implements the subset exercised by these tests.
+  inspector.core = core as unknown as WebInspectorElement["core"];
+  return inspector;
+}
+
+/** Access private Lit reactive properties on the inspector. */
+function getInternals(inspector: WebInspectorElement) {
+  return inspector as unknown as InspectorInternals;
+}
+
+/** Access context-related private properties on the inspector. */
+function getContextInternals(inspector: WebInspectorElement) {
+  return inspector as unknown as InspectorContextInternals;
+}
+
+// --- Tests ---
+
 describe("WebInspectorElement", () => {
+  let mockClipboard: { writeText: ReturnType<typeof vi.fn> };
+
   beforeEach(() => {
     document.body.innerHTML = "";
 
@@ -130,7 +184,9 @@ describe("WebInspectorElement", () => {
       key: (index: number) => Object.keys(store)[index] ?? null,
     });
 
-    const mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+    mockClipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+    // navigator.clipboard is readonly in DOM types — assigning
+    // the mock requires a cast in jsdom-style test environments.
     (navigator as unknown as { clipboard: typeof mockClipboard }).clipboard =
       mockClipboard;
   });
@@ -148,10 +204,7 @@ describe("WebInspectorElement", () => {
       },
     });
     const { core, emitAgentsChanged } = createMockCore({ alpha: agent });
-
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
+    const inspector = createInspectorWithCore(core);
 
     emitAgentsChanged();
     await inspector.updateComplete;
@@ -160,27 +213,26 @@ describe("WebInspectorElement", () => {
     controller.emit("onMessagesSnapshotEvent", { event: { id: "msg-1" } });
     await inspector.updateComplete;
 
-    const inspectorHandle = inspector as unknown as InspectorInternals;
+    const internals = getInternals(inspector);
 
-    const flattened = inspectorHandle.flattenedEvents;
-    expect(flattened.some((evt) => evt.type === "RUN_STARTED")).toBe(true);
-    expect(flattened.some((evt) => evt.type === "MESSAGES_SNAPSHOT")).toBe(
+    expect(
+      internals.flattenedEvents.some((evt) => evt.type === "RUN_STARTED"),
+    ).toBe(true);
+    expect(
+      internals.flattenedEvents.some((evt) => evt.type === "MESSAGES_SNAPSHOT"),
+    ).toBe(true);
+    expect(internals.agentMessages.get("alpha")?.[0]?.contentText).toContain(
+      "hi there",
+    );
+    expect(internals.agentStates.get("alpha")).toBeDefined();
+    expect(internals.cachedTools.some((tool) => tool.name === "greet")).toBe(
       true,
     );
-    expect(
-      inspectorHandle.agentMessages.get("alpha")?.[0]?.contentText,
-    ).toContain("hi there");
-    expect(inspectorHandle.agentStates.get("alpha")).toBeDefined();
-    expect(
-      inspectorHandle.cachedTools.some((tool) => tool.name === "greet"),
-    ).toBe(true);
   });
 
   it("normalizes context, persists state, and copies context values", async () => {
     const { core, emitContextChanged } = createMockCore();
-    const inspector = new WebInspectorElement();
-    document.body.appendChild(inspector);
-    inspector.core = core as unknown as WebInspectorElement["core"];
+    const inspector = createInspectorWithCore(core);
 
     emitContextChanged({
       ctxA: { value: { nested: true } },
@@ -188,22 +240,47 @@ describe("WebInspectorElement", () => {
     });
     await inspector.updateComplete;
 
-    const inspectorHandle = inspector as unknown as InspectorContextInternals;
-    const contextStore = inspectorHandle.contextStore;
-    const ctxA = contextStore.ctxA!;
-    const ctxB = contextStore.ctxB!;
+    const contextInternals = getContextInternals(inspector);
+    const ctxA = contextInternals.contextStore.ctxA!;
+    const ctxB = contextInternals.contextStore.ctxB!;
     expect(ctxA.value).toMatchObject({ nested: true });
     expect(ctxB.description).toBe("Described");
 
-    await inspectorHandle.copyContextValue({ nested: true }, "ctxA");
-    const clipboard = (
-      navigator as unknown as {
-        clipboard: { writeText: ReturnType<typeof vi.fn> };
-      }
-    ).clipboard.writeText as ReturnType<typeof vi.fn>;
-    expect(clipboard).toHaveBeenCalledTimes(1);
+    await contextInternals.copyContextValue({ nested: true }, "ctxA");
+    expect(mockClipboard.writeText).toHaveBeenCalledTimes(1);
 
-    inspectorHandle.persistState();
+    contextInternals.persistState();
     expect(localStorage.getItem("cpk:inspector:state")).toBeTruthy();
+  });
+
+  it("syncs agent state on direct setState (onStateChanged without pipeline events)", async () => {
+    // Simulates a selfManagedAgent where agent.setState() is called directly
+    // from UI code, bypassing the AG-UI event pipeline. Before the fix,
+    // only pipeline event handlers (onStateSnapshotEvent, onStateDeltaEvent)
+    // updated the inspector — onStateChanged was not subscribed to, so
+    // direct setState() left the inspector stale.
+    const { agent, controller } = createMockAgent("counter", {
+      state: { counter: 0 },
+    });
+    const { core, emitAgentsChanged } = createMockCore({ counter: agent });
+    const inspector = createInspectorWithCore(core);
+
+    emitAgentsChanged();
+    await inspector.updateComplete;
+
+    const internals = getInternals(inspector);
+
+    // Initial state should be captured on subscription
+    expect(internals.agentStates.get("counter")).toEqual({ counter: 0 });
+
+    // Simulate agent.setState({ counter: 1 })
+    controller.simulateSetState({ counter: 1 });
+    await inspector.updateComplete;
+    expect(internals.agentStates.get("counter")).toEqual({ counter: 1 });
+
+    // Simulate a second setState to verify repeated updates propagate
+    controller.simulateSetState({ counter: 5 });
+    await inspector.updateComplete;
+    expect(internals.agentStates.get("counter")).toEqual({ counter: 5 });
   });
 });

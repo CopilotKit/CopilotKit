@@ -1,0 +1,10 @@
+[project]
+name = "sample"
+version = "0.0.1"
+dependencies = ["langgraph==0.2.14", "copilotkit==1.10.0"]
+
+[project.optional-dependencies]
+dev = ["pytest==8.0.0"]
+
+[project.scripts]
+mycli = "sample.cli:main"

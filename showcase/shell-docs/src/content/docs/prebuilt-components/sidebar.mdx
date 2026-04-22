@@ -1,0 +1,85 @@
+---
+title: "CopilotSidebar"
+icon: "lucide/PanelRight"
+description: "Drop-in collapsible sidebar chat that wraps your main content."
+hideTOC: true
+snippet_cell: prebuilt-sidebar
+---
+
+## What is this?
+
+`<CopilotSidebar>` is a prebuilt chat surface that docks to the side of your
+app. It wraps your main content so the chat can slide out on demand — great
+for in-app copilots that need to stay accessible without taking over the
+entire viewport.
+
+## When should I use this?
+
+Use the sidebar when you want:
+
+- A persistent, collapsible chat attached to your app shell
+- Chat to live alongside your main content rather than on top of it
+- A launcher the user can toggle without losing their place
+
+For a floating bubble that overlays content, see
+[CopilotPopup](/prebuilt-components/popup). For a fully embedded chat pane,
+use [`<CopilotChat>`](/prebuilt-components/chat) directly.
+
+<InlineDemo demo="prebuilt-sidebar" />
+
+<img
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif"
+  alt="CopilotSidebar example"
+  className="w-full rounded-lg my-4"
+/>
+
+## Basic setup
+
+Wrap your app in `<CopilotKit>` once — it wires the runtime, session, and
+agent registry — then drop `<CopilotSidebar>` alongside your main content.
+The sidebar is rendered as a sibling, so it can slide out without reflowing
+your page:
+
+<Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
+
+## Configuring the sidebar
+
+`<CopilotSidebar>` accepts the same props as `<CopilotChat>` plus a few of
+its own. The showcase cell opens the sidebar by default and targets a named
+agent:
+
+<Snippet region="sidebar-configuration" title="frontend/src/app/page.tsx — defaultOpen + agentId" />
+
+Common sidebar-specific props:
+
+| Prop | Description |
+|------|-------------|
+| `defaultOpen` | Whether the sidebar starts open on first render. |
+| `agentId` | Agent slug the sidebar should talk to (must match an agent configured on the runtime). |
+| `labels` | User-facing copy for the header, placeholder, and disclaimer. |
+| `header` | Slot for the sidebar header bar — see the [slot system](/custom-look-and-feel/slots). |
+| `toggleButton` | Slot for the open/close launcher button. |
+
+## Styling
+
+`CopilotSidebar` participates in the slot system, so every piece of its UI
+is customizable — from Tailwind classes on the message view to a full
+component swap for the header or toggle button. See
+[custom look and feel](/custom-look-and-feel/slots) for the full slot
+reference.
+
+```tsx title="page.tsx"
+<CopilotSidebar
+  agentId="my-agent"
+  defaultOpen={false}
+  labels={{
+    modalHeaderTitle: "Sidebar Assistant",
+    welcomeMessageText: "How can I help you today?",
+  }}
+  messageView={{
+    assistantMessage: {
+      className: "bg-gray-50 rounded-xl p-4",
+    },
+  }}
+/>
+```

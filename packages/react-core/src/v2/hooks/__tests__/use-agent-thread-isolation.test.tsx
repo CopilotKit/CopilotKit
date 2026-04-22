@@ -47,6 +47,10 @@ describe("useAgent thread isolation", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    subscribeToAgentWithOptions: (
+      agent: AbstractAgent,
+      subscriber: any,
+    ) => { unsubscribe: () => void };
   };
 
   let registeredAgent: CloneableAgent;
@@ -64,6 +68,8 @@ describe("useAgent thread isolation", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: { "my-agent": registeredAgent },
+      subscribeToAgentWithOptions: (agent, subscriber) =>
+        agent.subscribe(subscriber),
     };
 
     mockUseCopilotKit.mockReturnValue({

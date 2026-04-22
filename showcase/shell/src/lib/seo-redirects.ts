@@ -35,7 +35,7 @@ const FRAMEWORKS = [
   "microsoft-agent-framework",
   "aws-strands",
   "a2a",
-  "built-in-agent",
+  "unselected",
 ] as const;
 
 /** Per-framework subpath renames (Category 5 in spec). Applied to ALL 13 frameworks. */
@@ -349,7 +349,7 @@ const SPECIFIC_FRAMEWORK: RedirectEntry[] = [
   {
     id: "F20",
     source: "/direct-to-llm/guides/mcp",
-    destination: "/docs/built-in-agent/coding-agents",
+    destination: "/docs/unselected/coding-agents",
   },
 ];
 
@@ -403,8 +403,8 @@ const ROOT_RENAMES: RedirectEntry[] = [
     source: "/copilot-suggestions",
     destination: "/docs/prebuilt-components",
   },
-  { id: "R14", source: "/direct-to-llm", destination: "/docs/built-in-agent" },
-  { id: "R15", source: "/builtin-agent", destination: "/docs/built-in-agent" },
+  { id: "R14", source: "/direct-to-llm", destination: "/docs/unselected" },
+  { id: "R15", source: "/builtin-agent", destination: "/docs/unselected" },
   { id: "R18", source: "/mcp", destination: "/docs/coding-agents" },
   { id: "R19", source: "/vibe-coding-mcp", destination: "/docs/coding-agents" },
   {
@@ -565,19 +565,19 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   {
     id: "R16",
     source: "/direct-to-llm/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    destination: "/docs/unselected/:path*",
   },
   {
     id: "R17",
     source: "/builtin-agent/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    destination: "/docs/unselected/:path*",
   },
   { id: "R26", source: "/shared/:path*", destination: "/docs/:path*" },
   // Category 6 wildcards
   {
     id: "F17",
     source: "/generative-ui/direct-to-llm/:path*",
-    destination: "/docs/built-in-agent/:path*",
+    destination: "/docs/unselected/:path*",
   },
   {
     id: "F18",
@@ -599,7 +599,7 @@ const WILDCARD_REDIRECTS: RedirectEntry[] = [
   {
     id: "P11",
     source: "/guides/:path*",
-    destination: "/docs/built-in-agent/guides/:path*",
+    destination: "/docs/unselected/guides/:path*",
   },
   { id: "P12", source: "/backend/:path*", destination: "/docs/backend/:path*" },
   { id: "P3", source: "/learn/:path*", destination: "/docs/learn/:path*" },

@@ -29,7 +29,7 @@ First, pass the configuration properties as you would like to receive them in th
 
 ```tsx title="app/page.tsx"
 import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
-
+import { useEffect } from "react";
 function YourMainContent() {
   // ...
 
@@ -40,16 +40,18 @@ function YourMainContent() {
 
   // Pass configuration when running the agent
   // [!code highlight:8]
-  agent.runAgent({
-    forwardedProps: {
-      config: {
-        configurable: {
-          authToken: 'example-token'
-        },
-        recursion_limit: 50,
+  useEffect(() => {
+    agent.runAgent({
+      forwardedProps: {
+        config: {
+          configurable: {
+            authToken: 'example-token'
+          },
+          recursion_limit: 50,
+        }
       }
-    }
-  });
+    });
+  }, []);
 
   // ...
 

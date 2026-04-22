@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { z } from "zod";
 import { defineToolCallRenderer, ReactToolCallRenderer } from "../../../types";
 import {
@@ -1060,6 +1060,128 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
       agent.complete();
     });
 
+    it("should not auto-collapse when user manually toggled during streaming", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "User toggle test" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("User toggle test")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      // Start streaming reasoning — panel should auto-open
+      agent.emit(runStartedEvent());
+      agent.emit(reasoningStartEvent(reasoningId));
+      agent.emit(reasoningMessageStartEvent(reasoningId));
+      agent.emit(
+        reasoningMessageContentEvent(reasoningId, "Deep analysis in progress"),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("Thinking…")).toBeDefined();
+      });
+
+      // Panel should be open (aria-expanded="true") while streaming
+      await waitFor(() => {
+        const header = screen.getByText("Thinking…");
+        const button = header.closest("button");
+        expect(button?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      // User manually collapses during streaming — this sets userToggledRef
+      const header = screen.getByText("Thinking…");
+      const button = header.closest("button");
+      act(() => {
+        if (button) {
+          fireEvent.click(button);
+        }
+      });
+
+      // Should now be collapsed by user action
+      await waitFor(() => {
+        const btn = screen.getByText("Thinking…").closest("button");
+        expect(btn?.getAttribute("aria-expanded")).toBe("false");
+      });
+
+      // Now streaming ends — because userToggledRef is true, the panel
+      // should stay in whatever state the user set (collapsed).
+      agent.emit(reasoningMessageEndEvent(reasoningId));
+      agent.emit(reasoningEndEvent(reasoningId));
+      agent.emit(textChunkEvent(textId, "Done."));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // Panel should remain collapsed (not flash open then closed)
+      await waitFor(() => {
+        const btn = screen.getByText(/Thought for/).closest("button");
+        expect(btn?.getAttribute("aria-expanded")).toBe("false");
+      });
+    });
+
+    it("should keep panel open when user re-expands during streaming", async () => {
+      const agent = new MockStepwiseAgent();
+      renderWithCopilotKit({ agent });
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, {
+        target: { value: "Re-expand toggle test" },
+      });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Re-expand toggle test")).toBeDefined();
+      });
+
+      const reasoningId = testId("reasoning");
+      const textId = testId("text");
+
+      // Start streaming reasoning — panel auto-opens
+      agent.emit(runStartedEvent());
+      agent.emit(reasoningStartEvent(reasoningId));
+      agent.emit(reasoningMessageStartEvent(reasoningId));
+      agent.emit(reasoningMessageContentEvent(reasoningId, "Thinking hard"));
+
+      await waitFor(() => {
+        const btn = screen.getByText("Thinking…").closest("button");
+        expect(btn?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      // User collapses, then re-expands (both set userToggledRef = true)
+      const headerEl = screen.getByText("Thinking…");
+      const btn = headerEl.closest("button");
+      act(() => {
+        if (btn) {
+          fireEvent.click(btn); // collapse
+          fireEvent.click(btn); // re-expand
+        }
+      });
+
+      await waitFor(() => {
+        const b = screen.getByText("Thinking…").closest("button");
+        expect(b?.getAttribute("aria-expanded")).toBe("true");
+      });
+
+      // Streaming ends — because userToggledRef is true, panel should
+      // stay in the user's chosen state (open).
+      agent.emit(reasoningMessageEndEvent(reasoningId));
+      agent.emit(reasoningEndEvent(reasoningId));
+      agent.emit(textChunkEvent(textId, "All done."));
+      agent.emit(runFinishedEvent());
+      agent.complete();
+
+      // Panel should remain open (not auto-collapse)
+      await waitFor(() => {
+        const b = screen.getByText(/Thought for/).closest("button");
+        expect(b?.getAttribute("aria-expanded")).toBe("true");
+      });
+    });
+
     it("should expand and collapse reasoning content on click", async () => {
       const agent = new MockStepwiseAgent();
       renderWithCopilotKit({ agent });
@@ -1094,12 +1216,16 @@ describe("CopilotChat E2E - Chat Basics and Streaming Patterns", () => {
         expect(button?.getAttribute("aria-expanded")).toBe("false");
       });
 
-      // Click to expand
+      // Click to expand — wrap in act() so React 18 flushes the state
+      // update synchronously instead of deferring it through the scheduler,
+      // which can race with waitFor polling on slow CI runners.
       const header = screen.getByText(/Thought for/);
       const button = header.closest("button");
-      if (button) {
-        fireEvent.click(button);
-      }
+      act(() => {
+        if (button) {
+          fireEvent.click(button);
+        }
+      });
 
       // Should now be expanded
       await waitFor(() => {
