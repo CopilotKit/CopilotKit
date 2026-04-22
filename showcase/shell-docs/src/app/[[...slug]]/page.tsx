@@ -25,6 +25,14 @@ import {
   type Integration,
 } from "@/lib/registry";
 
+function findFrameworksWithCell(cell: string): string[] {
+  const matches: string[] = [];
+  for (const integration of getIntegrations()) {
+    if (demos[`${integration.slug}::${cell}`]) matches.push(integration.slug);
+  }
+  return matches;
+}
+
 // Category ordering for the framework picker grid is imported from
 // @/lib/docs-render so the landing grid, sidebar dropdown, and this
 // overview share a single source of truth.
@@ -162,66 +170,36 @@ function DocsOverview() {
                   {label}
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {items.map((i) => {
-                    // Undeployed integrations render as non-interactive
-                    // cards. The framework catch-all route would happily
-                    // serve a landing page for any registry entry, but
-                    // that page has no live demos wired up — clicking an
-                    // undeployed card would drop the user on a dead end.
-                    // The "soon" pill + dimmed styling already signal
-                    // not-ready; stripping the <Link> makes the
-                    // affordance match the signal.
-                    const cardContent = (
-                      <>
-                        {i.logo ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={i.logo}
-                            alt=""
-                            className="w-5 h-5 shrink-0"
-                          />
-                        ) : (
-                          <span className="w-5 h-5 shrink-0" />
-                        )}
-                        <span
-                          className={`flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] ${
-                            i.deployed ? "group-hover:text-[var(--accent)]" : ""
-                          }`}
-                        >
-                          {i.name}
+                  {items.map((i) => (
+                    <Link
+                      key={i.slug}
+                      href={`/${i.slug}`}
+                      className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                        i.deployed
+                          ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
+                          : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
+                      }`}
+                    >
+                      {i.logo ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={i.logo} alt="" className="w-5 h-5 shrink-0" />
+                      ) : (
+                        <span className="w-5 h-5 shrink-0" />
+                      )}
+                      <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
+                        {i.name}
+                      </span>
+                      {!i.deployed && (
+                        <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+                          soon
                         </span>
-                        {!i.deployed && (
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                            soon
-                          </span>
-                        )}
-                        {/* Marks the framework currently stored in
-                            localStorage so repeat visitors can spot "their"
-                            choice at a glance without an auto-redirect. */}
-                        <StoredFrameworkHighlight slug={i.slug} />
-                      </>
-                    );
-                    if (i.deployed) {
-                      return (
-                        <Link
-                          key={i.slug}
-                          href={`/${i.slug}`}
-                          className="group relative flex items-center gap-2 p-3 rounded-lg border transition-all border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
-                        >
-                          {cardContent}
-                        </Link>
-                      );
-                    }
-                    return (
-                      <div
-                        key={i.slug}
-                        aria-disabled="true"
-                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70 cursor-not-allowed"
-                      >
-                        {cardContent}
-                      </div>
-                    );
-                  })}
+                      )}
+                      {/* Marks the framework currently stored in
+                          localStorage so repeat visitors can spot "their"
+                          choice at a glance without an auto-redirect. */}
+                      <StoredFrameworkHighlight slug={i.slug} />
+                    </Link>
+                  ))}
                 </div>
               </div>
             );

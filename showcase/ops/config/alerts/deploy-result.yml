@@ -1,0 +1,35 @@
+id: deploy-result
+name: "Showcase deploy result"
+owner: "@oss"
+
+signal:
+  dimension: deploy
+  filter:
+    key: overall
+
+# HF13-E1: `gate_skipped` fires when the showcase_deploy.yml
+# lockfile/detect-changes gate blocks the build matrix before any service
+# deploys. The probe resolves that payload to state="green" / failedCount=0,
+# so no state-machine transition matches. `deriveSignalFlags` in
+# alert-engine.ts lifts `signal.gateSkipped === true` into a derived
+# trigger flag so this rule observes the event and renders the gate-skipped
+# template branch below.
+triggers:
+  - green_to_red
+  - red_to_green
+  - cancelled_midmatrix
+  - cancelled_prebuild
+  - gate_skipped
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#trigger.green_to_red}}:x: *Showcase deploy*: {{#signal.partial}}{{signal.failedCount}}/{{signal.totalCount}} service(s) failed ({{ signal.failedList | truncateCsv 200 }}) — {{ signal.succeededList | truncateCsv 200 }} ok{{/signal.partial}}{{^signal.partial}}FAILED — {{signal.totalCount}} service(s) targeted ({{ signal.servicesList | truncateCsv 200 }}){{/signal.partial}}{{/trigger.green_to_red}}
+    {{#trigger.red_to_green}}:white_check_mark: *Showcase deploy*: recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
+    {{#trigger.cancelled_midmatrix}}:information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist{{/trigger.cancelled_midmatrix}}
+    {{#trigger.cancelled_prebuild}}:information_source: *Showcase deploy*: cancelled before any build started — likely a concurrent run superseded or manually aborted{{/trigger.cancelled_prebuild}}
+    {{#trigger.gate_skipped}}:no_entry: *Showcase deploy*: build matrix gated off — no services deployed (see run for gate reason){{/trigger.gate_skipped}}
+    | <{{{event.runUrl}}}|View run>

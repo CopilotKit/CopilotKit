@@ -9,5 +9,13 @@ packages:
   - "examples/showcases/generative-ui-playground"
   - "!examples/v1/_legacy"
   - "showcase/scripts"
+  - "showcase/ops"
+  # NOTE: `showcase/shell-dashboard` is intentionally NOT part of this
+  # pnpm workspace. It's a flat, standalone Next.js app that ships its
+  # own package-lock.json and is built with `npm ci` (see its Dockerfile).
+  # Including it here would force it into the pnpm lockfile, which
+  # breaks its independent deploy path and invalidates the npm-based
+  # Docker build. `showcase/scripts` IS in the workspace because the
+  # ops package imports from it and both use pnpm.
 onlyBuiltDependencies:
   - better-sqlite3

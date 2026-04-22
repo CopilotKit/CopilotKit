@@ -990,8 +990,8 @@ describe("canonicalizeForIsMain", () => {
       expect(plain).not.toBe(dotted); // sanity: inputs are distinct strings
       const canonPlain = canonicalizeForIsMain(plain);
       const canonDotted = canonicalizeForIsMain(dotted);
-      expect(canonPlain).toBe(canonDotted);
-      expect(canonPlain).toBe(fs.realpathSync(f));
+      expect(canonPlain).toEqual(canonDotted);
+      expect(canonPlain).toEqual({ ok: true, path: fs.realpathSync(f) });
     } finally {
       fs.rmSync(root, { recursive: true, force: true });
     }
@@ -1009,22 +1009,20 @@ describe("canonicalizeForIsMain", () => {
         "does-not-exist-xyz-" + Date.now(),
       );
       const out = canonicalizeForIsMain(missing);
-      expect(out).toBe(path.resolve(missing));
+      expect(out).toEqual({ ok: true, path: path.resolve(missing) });
       expect(spy).not.toHaveBeenCalled();
     } finally {
       spy.mockRestore();
     }
   });
 
-  it("terminates the process with EXIT_UNREADABLE on non-ENOENT realpath failure", () => {
+  it("returns ok:false with the errno code on non-ENOENT realpath failure", () => {
     // Non-ENOENT realpath failures (EACCES/ELOOP/EIO) indicate genuine
-    // filesystem-access problems that CI must surface distinctly from a
-    // clean run (exit 0) or drift (exit 1). The helper runs pre-main
-    // during the isMain guard, so `process.exitCode` would be clobbered
-    // by main()'s later `process.exitCode = report.exitCode` write —
-    // `process.exit(3)` is the only way to guarantee the signal
-    // survives. We spy on process.exit to observe the code without
-    // actually terminating the test runner.
+    // filesystem-access problems. The helper now returns a tagged union
+    // — `{ ok: false, errno, message, resolved }` — and leaves the exit
+    // semantics to the caller (the isMain guard). Importing this module
+    // must never terminate the host process, so `canonicalizeForIsMain`
+    // never calls `process.exit` itself.
     // Filter by path so tsx / vitest internals that call realpathSync
     // during module resolution or stack-trace symbolication fall
     // through to the real implementation — only the synthetic test
@@ -1039,26 +1037,16 @@ describe("canonicalizeForIsMain", () => {
       }
       return (origRealpath as (...a: unknown[]) => string)(p, ...rest);
     }) as unknown as typeof fs.realpathSync);
-    const stderrSpy = vi
-      .spyOn(process.stderr, "write")
-      .mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
-      _code?: number,
-    ) => {
-      // Throw a sentinel so the caller's control flow stops — real
-      // process.exit never returns, so code after it expects to be
-      // unreachable.
-      throw new Error(`__EXIT_CALLED__:${_code}`);
-    }) as unknown as typeof process.exit);
     try {
-      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
-        /__EXIT_CALLED__:3/,
-      );
-      expect(exitSpy).toHaveBeenCalledWith(3);
+      const out = canonicalizeForIsMain("/some/path");
+      expect(out).toEqual({
+        ok: false,
+        errno: "EIO",
+        message: "I/O error",
+        resolved: path.resolve("/some/path"),
+      });
     } finally {
       realpathSpy.mockRestore();
-      stderrSpy.mockRestore();
-      exitSpy.mockRestore();
     }
   });
 
@@ -1088,12 +1076,13 @@ describe("canonicalizeForIsMain", () => {
     }
   });
 
-  it("warns to stderr for non-ENOENT failures (e.g. EACCES) before terminating the process", () => {
+  it("returns ok:false with EACCES details and does not touch stderr itself", () => {
     // Non-ENOENT realpath failures indicate real problems (permission,
-    // loop, I/O). The helper must emit an operator-facing diagnostic
-    // to stderr BEFORE calling process.exit so the cause is visible in
-    // the terminated run's logs — a silent process.exit would produce
-    // a bare exit code with no explanation.
+    // loop, I/O). The helper now surfaces the diagnostic data through
+    // the returned tuple (`errno`, `message`, `resolved`) and leaves
+    // stderr emission + exit semantics to the caller (the isMain guard
+    // is what writes the "[canonicalizeForIsMain] realpath failed for
+    // ..." line). Importers therefore never see stderr noise.
     // Filter by path so only the synthetic test path raises EACCES —
     // tsx / vitest internals continue to use the real implementation.
     const origRealpath = fs.realpathSync;
@@ -1111,32 +1100,27 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
-      _code?: number,
-    ) => {
-      throw new Error(`__EXIT_CALLED__:${_code}`);
-    }) as unknown as typeof process.exit);
     try {
-      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
-        /__EXIT_CALLED__:3/,
-      );
-      expect(stderrSpy).toHaveBeenCalledTimes(1);
-      const msg = String(stderrSpy.mock.calls[0][0]);
-      expect(msg).toContain("[canonicalizeForIsMain] realpath failed for");
-      expect(msg).toContain("/some/path");
-      expect(msg).toContain("permission denied");
+      const out = canonicalizeForIsMain("/some/path");
+      expect(out).toEqual({
+        ok: false,
+        errno: "EACCES",
+        message: "permission denied",
+        resolved: path.resolve("/some/path"),
+      });
+      expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
       realpathSpy.mockRestore();
       stderrSpy.mockRestore();
-      exitSpy.mockRestore();
     }
   });
 
   it("does not crash when a non-Error primitive is thrown by realpathSync", () => {
     // Hardening: e instanceof Error guard prevents
     // `(e as NodeJS.ErrnoException).code` from crashing on primitive
-    // throws ("string", number, plain object). The helper should treat
-    // these as non-ENOENT and terminate with EXIT_UNREADABLE.
+    // throws ("string", number, plain object). The helper treats these
+    // as non-ENOENT and returns `ok: false` with a synthesized errno
+    // (`UNKNOWN`) plus the stringified throw value as the message.
     // Filter by path so only the synthetic test path throws the raw
     // primitive — tsx / vitest internals continue to use the real impl.
     const origRealpath = fs.realpathSync;
@@ -1154,22 +1138,18 @@ describe("canonicalizeForIsMain", () => {
     const stderrSpy = vi
       .spyOn(process.stderr, "write")
       .mockImplementation(() => true);
-    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((
-      _code?: number,
-    ) => {
-      throw new Error(`__EXIT_CALLED__:${_code}`);
-    }) as unknown as typeof process.exit);
     try {
-      expect(() => canonicalizeForIsMain("/some/path")).toThrow(
-        /__EXIT_CALLED__:3/,
-      );
-      expect(stderrSpy).toHaveBeenCalledTimes(1);
-      const msg = String(stderrSpy.mock.calls[0][0]);
-      expect(msg).toContain("raw string failure");
+      const out = canonicalizeForIsMain("/some/path");
+      expect(out).toEqual({
+        ok: false,
+        errno: "UNKNOWN",
+        message: "raw string failure",
+        resolved: path.resolve("/some/path"),
+      });
+      expect(stderrSpy).not.toHaveBeenCalled();
     } finally {
       realpathSpy.mockRestore();
       stderrSpy.mockRestore();
-      exitSpy.mockRestore();
     }
   });
 });

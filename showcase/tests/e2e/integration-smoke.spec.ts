@@ -33,7 +33,9 @@ const rewriteBackendUrl = (slug: string, railwayUrl: string): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Integration registry — source of truth: showcase/shell/src/data/registry.json
+// Hardcoded integration list — must be manually kept in sync with
+// showcase/shell/src/data/registry.json. The separate STARTERS collection
+// below IS derived from the registry.
 // ---------------------------------------------------------------------------
 
 interface Integration {
@@ -42,7 +44,6 @@ interface Integration {
   backendUrl: string;
   backendType: "langgraph" | "ag-ui";
   deployed: boolean;
-  hasToolRendering: boolean;
   demos: string[];
 }
 
@@ -53,10 +54,9 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-langgraph-python-production.up.railway.app",
     backendType: "langgraph",
     deployed: true,
-    hasToolRendering: true,
     demos: [
       "agentic-chat",
-      "hitl",
+      "hitl-in-chat",
       "tool-rendering",
       "gen-ui-tool-based",
       "gen-ui-agent",
@@ -72,8 +72,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-mastra-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "hitl", "tool-rendering", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "hitl-in-chat",
+      "tool-rendering",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "langgraph-typescript",
@@ -82,8 +86,12 @@ const INTEGRATIONS: Integration[] = [
       "https://showcase-langgraph-typescript-production.up.railway.app",
     backendType: "langgraph",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "crewai-crews",
@@ -91,8 +99,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-crewai-crews-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "pydantic-ai",
@@ -100,8 +112,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-pydantic-ai-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "google-adk",
@@ -109,8 +125,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-google-adk-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "claude-sdk-python",
@@ -118,8 +138,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-claude-sdk-python-production.up.railway.app",
     backendType: "ag-ui",
     deployed: false,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "claude-sdk-typescript",
@@ -128,8 +152,12 @@ const INTEGRATIONS: Integration[] = [
       "https://showcase-claude-sdk-typescript-production.up.railway.app",
     backendType: "ag-ui",
     deployed: false,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "agno",
@@ -137,8 +165,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-agno-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "ag2",
@@ -146,8 +178,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-ag2-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "llamaindex",
@@ -155,8 +191,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-llamaindex-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "langgraph-fastapi",
@@ -164,8 +204,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-langgraph-fastapi-production.up.railway.app",
     backendType: "langgraph",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "strands",
@@ -173,8 +217,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-strands-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "langroid",
@@ -182,8 +230,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-langroid-production.up.railway.app",
     backendType: "ag-ui",
     deployed: false,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "ms-agent-python",
@@ -191,8 +243,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-ms-agent-python-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "ms-agent-dotnet",
@@ -200,8 +256,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-ms-agent-dotnet-production.up.railway.app",
     backendType: "ag-ui",
     deployed: true,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
   {
     slug: "spring-ai",
@@ -209,8 +269,12 @@ const INTEGRATIONS: Integration[] = [
     backendUrl: "https://showcase-spring-ai-production.up.railway.app",
     backendType: "ag-ui",
     deployed: false,
-    hasToolRendering: true,
-    demos: ["agentic-chat", "tool-rendering", "hitl", "gen-ui-tool-based"],
+    demos: [
+      "agentic-chat",
+      "tool-rendering",
+      "hitl-in-chat",
+      "gen-ui-tool-based",
+    ],
   },
 ];
 
@@ -295,8 +359,12 @@ test.describe("Level 3: Round-trip Chat @chat", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("Level 4: Tool Rendering @tools", () => {
-  const toolIntegrations = activeIntegrations.filter(
-    (i) => i.hasToolRendering && i.demos.includes("tool-rendering"),
+  // Future-proofing: `demos.includes("tool-rendering")` is what actually matters —
+  // if a new integration lands without the tool-rendering demo, it's correctly
+  // skipped here. The previous `hasToolRendering` boolean was redundant with
+  // this check (always `true` alongside the demo entry) and has been removed.
+  const toolIntegrations = activeIntegrations.filter((i) =>
+    i.demos.includes("tool-rendering"),
   );
 
   for (const integration of toolIntegrations) {
@@ -318,13 +386,21 @@ test.describe("Level 4: Tool Rendering @tools", () => {
         `${integration.slug} did not render a tool result`,
       ).toBe(true);
 
-      // The response should contain weather-related content
+      // The response should contain weather-related content. Avoid a bare
+      // `/\d+/` fallback — any digit anywhere makes the assertion vacuous
+      // (timestamps, UI chrome, model names all contain digits). Match only
+      // on weather-specific vocabulary.
       const responseLC = result.responseText.toLowerCase();
       const hasWeatherContent =
         responseLC.includes("san francisco") ||
         responseLC.includes("weather") ||
         responseLC.includes("temperature") ||
-        /\d+/.test(result.responseText); // any number (temperature, etc.)
+        responseLC.includes("degrees") ||
+        responseLC.includes("sunny") ||
+        responseLC.includes("cloudy") ||
+        responseLC.includes("rain") ||
+        responseLC.includes("humidity") ||
+        responseLC.includes("wind");
 
       expect(
         hasWeatherContent,
@@ -333,30 +409,28 @@ test.describe("Level 4: Tool Rendering @tools", () => {
 
       // Check for rendered components (not just text) — catches the query_data
       // loop bug where the agent returns text but never renders a chart/card.
+      //
+      // isVisible() resolves false for missing/detached elements rather than
+      // throwing, so the previous .catch(() => false) was masking nothing on
+      // the happy path — but it ALSO masked real errors (e.g. evaluation
+      // errors in the locator) as "not visible", which is the concrete bug
+      // the original TODO in this file flagged. Drop the swallowing catches
+      // and let genuine errors surface as test failures; a missing optional
+      // renderer still just yields `false`.
       const responseArea = page
         .locator('[data-testid="copilot-assistant-message"]')
         .last();
       const checks = await Promise.all([
-        responseArea
-          .locator(".recharts-wrapper")
-          .first()
-          .isVisible()
-          .catch(() => false),
+        responseArea.locator(".recharts-wrapper").first().isVisible(),
         responseArea
           .locator("svg circle[stroke-dasharray]")
           .first()
-          .isVisible()
-          .catch(() => false),
+          .isVisible(),
         responseArea
           .locator('[data-testid="weather-card"]')
           .first()
-          .isVisible()
-          .catch(() => false),
-        responseArea
-          .locator("canvas")
-          .first()
-          .isVisible()
-          .catch(() => false),
+          .isVisible(),
+        responseArea.locator("canvas").first().isVisible(),
       ]);
       const hasRenderedComponent = checks.some(Boolean);
 

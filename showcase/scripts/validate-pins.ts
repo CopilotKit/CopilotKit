@@ -2095,6 +2095,21 @@ if (isMainPath(process.argv[1], __filename)) {
   }
 }
 
+// Re-export the drift-comparison core so downstream consumers (the
+// showcase-ops pin-drift probe driver, future CLI flags) can reach the
+// ratchet logic through the same entry point as the rest of validate-pins.
+// The core module is the single source of truth for the comparison that
+// used to live only in `.github/workflows/showcase_validate.yml` shell.
+export {
+  computePinDrift,
+  PinDriftBaselineError,
+} from "./validate-pins-core.js";
+export type {
+  PinDriftInput,
+  PinDriftResult,
+  PinDriftStatus,
+} from "./validate-pins-core.js";
+
 export {
   resolveExampleDir,
   resolveExampleDirDetailed,

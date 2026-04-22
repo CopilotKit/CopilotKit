@@ -224,17 +224,7 @@ function main() {
   // schema validation, since `docs_links` isn't part of the manifest schema.
   // Best-effort: missing file or stale shapes are tolerated and don't error.
   for (const manifest of integrations) {
-    // Runtime guard: schema validation above already enforces `slug`, but
-    // do not trust that guarantee here — a silently-undefined slug fed
-    // to path.join yields "<packages-dir>/undefined" and would produce
-    // an empty docs_links without any error. Fail loudly instead.
-    if (typeof manifest.slug !== "string" || manifest.slug.length === 0) {
-      allErrors.push(
-        `manifest is missing a valid string "slug" field (got ${typeof manifest.slug}). Cannot load docs-links.`,
-      );
-      continue;
-    }
-    const pkgDir = path.join(PACKAGES_DIR, manifest.slug);
+    const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
     manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
   }
 

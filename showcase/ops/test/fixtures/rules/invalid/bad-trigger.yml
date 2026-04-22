@@ -1,0 +1,9 @@
+id: bad-trigger
+name: "Uses 'error' as a trigger"
+owner: "@oss"
+signal:
+  dimension: smoke
+triggers:
+  - error
+template:
+  text: "x"

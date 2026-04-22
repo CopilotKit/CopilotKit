@@ -79,10 +79,8 @@ interface SnippetProps {
    */
   file?: string;
   /**
-   * Line range within the file — e.g. `"10-20"`, a single line `"5"`, or a
-   * comma-separated list of ranges `"1-5,10-15"` (concatenated with a
-   * `// ...` separator between discontinuous sections). Applied only when
-   * `file` is set. Omit to render the full file.
+   * Line range within the file — e.g. `"10-20"`, or a single line `"5"`.
+   * Applied only when `file` is set. Omit to render the full file.
    */
   lines?: string;
   /**
@@ -131,12 +129,7 @@ const warnedUnknownLanguages = new Set<string>();
 function resolveHljsLanguage(lang: string): string | null {
   const map: Record<string, string> = {
     typescript: "typescript",
-    // JSX/TSX are highlighted by hljs's javascript/typescript grammars
-    // respectively — explicit entries here avoid the highlightAuto
-    // fallback + the one-shot "unknown language" warning below.
-    tsx: "typescript",
     javascript: "javascript",
-    jsx: "javascript",
     python: "python",
     csharp: "csharp",
     css: "css",
@@ -144,12 +137,6 @@ function resolveHljsLanguage(lang: string): string | null {
     yaml: "yaml",
     markdown: "markdown",
     text: "plaintext",
-    // Shell-family hints all resolve to hljs's "bash" grammar. sh/shell
-    // are the common bundler hints; bash is a no-op passthrough so future
-    // additions don't regress.
-    sh: "bash",
-    bash: "bash",
-    shell: "bash",
   };
   const mapped = map[lang];
   if (mapped) return mapped;
@@ -164,18 +151,21 @@ function resolveHljsLanguage(lang: string): string | null {
 }
 
 /**
- * Parse a single segment of a `lines` prop — one of `"10-20"`, `"5"`, or
- * `"A-"` — into `[start, end]` (1-indexed, inclusive on both ends). Returns
- * null on invalid input.
+ * Parse a `lines` prop like `"10-20"` or `"5"` into `[start, end]` (1-indexed,
+ * inclusive on both ends). Returns null on invalid input.
  *
  * Special forms:
  *   - `"A-"` (trailing dash, no end) — treated as "start to end-of-file"; we
  *     return `[start, Number.POSITIVE_INFINITY]` and the caller clamps to the
  *     actual file length.
+ *   - empty string / whitespace — treated as "no range" (equivalent to absent
+ *     `lines`), returning null so the caller renders the full file.
  */
-function parseSingleRange(segment: string): [number, number] | null {
-  const trimmed = segment.trim();
+function parseLineRange(input: string | undefined): [number, number] | null {
+  if (!input) return null;
+  const trimmed = input.trim();
   if (trimmed === "") return null;
+  // `A-` → start through end-of-file (caller clamps).
   const openEnded = trimmed.match(/^(\d+)\s*[-\u2013]\s*$/);
   if (openEnded) {
     const start = parseInt(openEnded[1], 10);
@@ -195,33 +185,6 @@ function parseSingleRange(segment: string): [number, number] | null {
     if (n > 0) return [n, n];
   }
   return null;
-}
-
-/**
- * Parse a `lines` prop into an ordered list of `[start, end]` tuples.
- * Accepts a comma-separated list of segments — e.g. `"1-5,10-15"` yields
- * `[[1,5],[10,15]]`. Segments may be single lines, closed ranges, or an
- * open-ended range (`"A-"`); see `parseSingleRange` for the grammar.
- *
- * Returns null when:
- *   - input is absent / whitespace (caller treats as "no range")
- *   - any segment is malformed (the whole prop is rejected so authors get
- *     a single clear error instead of partial rendering)
- */
-function parseLineRange(
-  input: string | undefined,
-): Array<[number, number]> | null {
-  if (!input) return null;
-  const trimmed = input.trim();
-  if (trimmed === "") return null;
-  const segments = trimmed.split(",");
-  const ranges: Array<[number, number]> = [];
-  for (const seg of segments) {
-    const r = parseSingleRange(seg);
-    if (!r) return null;
-    ranges.push(r);
-  }
-  return ranges.length > 0 ? ranges : null;
 }
 
 /**
@@ -245,53 +208,32 @@ function regionFromFile(
       language: file.language,
     };
   }
-  const ranges = parseLineRange(lines);
-  if (!ranges) {
+  const range = parseLineRange(lines);
+  if (!range) {
     return {
-      warning: `Invalid lines="${lines}" — expected "A-B", "A-" (start to end), a single line "A", or a comma-separated list like "1-5,10-15".`,
+      warning: `Invalid lines="${lines}" — expected "A-B", "A-" (start to end), or single line "A".`,
     };
   }
-  // Validate every range is in bounds before slicing so authors get a
-  // single clear error rather than partial output.
-  for (const [start] of ranges) {
-    if (start > allLines.length) {
-      return {
-        warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
-      };
-    }
+  const [start, end] = range;
+  if (start > allLines.length) {
+    return {
+      warning: `lines="${lines}" is out of range (file has ${allLines.length} lines).`,
+    };
   }
-  // Slice each range, clamp ends, and stitch with a visual separator line
-  // between discontinuous sections. `startLine`/`endLine` in the caption
-  // span the full range (first start → last clamped end) so readers see
-  // where the snippet pulls from even when it's non-contiguous.
-  const pieces: string[] = [];
-  let firstStart = ranges[0][0];
-  let lastEnd = ranges[0][0];
-  ranges.forEach(([start, end], idx) => {
-    const effectiveEnd = Math.min(end, allLines.length);
-    if (Number.isFinite(end) && end > allLines.length) {
-      console.warn(
-        `[snippet] lines="${lines}" segment end (${end}) exceeds file length (${allLines.length}) for ${file.filename} — clamping.`,
-      );
-    }
-    if (idx === 0) firstStart = start;
-    lastEnd = effectiveEnd;
-    const slice = allLines.slice(start - 1, effectiveEnd).join("\n");
-    if (idx > 0) {
-      // Use a comment-style ellipsis that survives any highlighter as a
-      // visible gap marker. Language-specific comment syntax varies, so
-      // `// ...` is a reasonable default for the JS/TS/shell bulk; pure
-      // "..." renders fine across all grammars even when it isn't
-      // technically a comment.
-      pieces.push("// ...");
-    }
-    pieces.push(slice);
-  });
+  // Clamp `end` once up front; also warn when the author's explicit range
+  // drifted past the file so they notice the source changed under them.
+  const effectiveEnd = Math.min(end, allLines.length);
+  if (Number.isFinite(end) && end > allLines.length) {
+    console.warn(
+      `[snippet] lines="${lines}" end (${end}) exceeds file length (${allLines.length}) for ${file.filename} — clamping.`,
+    );
+  }
+  const slice = allLines.slice(start - 1, effectiveEnd).join("\n");
   return {
     file: file.filename,
-    startLine: firstStart,
-    endLine: lastEnd,
-    code: pieces.join("\n"),
+    startLine: start,
+    endLine: effectiveEnd,
+    code: slice,
     language: file.language,
   };
 }
