@@ -12,8 +12,8 @@ WORKDIR /app
 COPY showcase/scripts/package.json showcase/scripts/package-lock.json ./scripts/
 COPY showcase/shell-dashboard/package.json showcase/shell-dashboard/package-lock.json ./shell-dashboard/
 
-RUN cd scripts && npm ci --silent \
-    && cd ../shell-dashboard && npm ci --silent
+RUN cd scripts && npm ci \
+    && cd ../shell-dashboard && npm ci
 
 # Copy source
 COPY showcase/shared/ ./shared/
