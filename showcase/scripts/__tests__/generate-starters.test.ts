@@ -9,9 +9,14 @@ import * as os from "node:os";
 import {
   substituteVars,
   rewritePythonImports,
+  forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
+  getAgentBuildSteps,
+  getAgentBuildCopy,
+  generateStarterToDir,
   FRAMEWORKS,
+  PIN_OVERRIDES,
 } from "../generate-starters";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -181,17 +186,17 @@ describe("generate-starters", () => {
           }
         });
 
-        it("uses relative imports for tools (from .tools import)", () => {
+        it("tool imports are local (relative or absolute) when used", () => {
           const pyFiles = findFiles(agentDir, [".py"]);
-          const filesWithToolImport = pyFiles.filter((f) => {
+          const externalToolImport =
+            /from\s+@copilotkit[/\\]showcase-shared-tools/;
+          for (const f of pyFiles) {
             const content = fs.readFileSync(f, "utf-8");
-            return (
-              content.includes("from .tools import") ||
-              content.includes("from .tools.")
-            );
-          });
-          // At least one file should have relative tool imports
-          expect(filesWithToolImport.length).toBeGreaterThan(0);
+            // Only enforce that no external shared-tools import sneaks in.
+            // Packages may legitimately have no tools at all (e.g. controlled
+            // generative UI demos rely purely on frontend tools).
+            expect(content).not.toMatch(externalToolImport);
+          }
         });
 
         it("has self-contained tools/ directory", () => {
@@ -254,6 +259,20 @@ describe("generate-starters", () => {
     });
   });
 
+  describe("PIN_OVERRIDES integration", () => {
+    it("pins mastra dependency versions instead of floating beta tags", () => {
+      const mastraPkg = JSON.parse(
+        fs.readFileSync(
+          path.join(STARTERS_DIR, "mastra", "package.json"),
+          "utf-8",
+        ),
+      );
+      expect(mastraPkg.dependencies["@ag-ui/mastra"]).toBe("0.2.1-beta.2");
+      expect(mastraPkg.dependencies["mastra"]).toBe("^1.6.0");
+      expect(mastraPkg.dependencies["@mastra/core"]).toBe("^1.25.0");
+    });
+  });
+
   describe("spring-ai backend artifacts", () => {
     const agentDir = path.join(STARTERS_DIR, "spring-ai", "agent");
 
@@ -261,8 +280,24 @@ describe("generate-starters", () => {
       expect(fs.existsSync(path.join(agentDir, "pom.xml"))).toBe(true);
     });
 
-    it("has resources/", () => {
-      expect(fs.existsSync(path.join(agentDir, "resources"))).toBe(true);
+    it("has Maven standard src/main/java/ layout", () => {
+      expect(fs.existsSync(path.join(agentDir, "src", "main", "java"))).toBe(
+        true,
+      );
+    });
+
+    it("has Maven standard src/main/resources/ layout", () => {
+      expect(
+        fs.existsSync(path.join(agentDir, "src", "main", "resources")),
+      ).toBe(true);
+    });
+
+    it("does NOT have flattened java/ at agent root", () => {
+      expect(fs.existsSync(path.join(agentDir, "java"))).toBe(false);
+    });
+
+    it("does NOT have flattened resources/ at agent root", () => {
+      expect(fs.existsSync(path.join(agentDir, "resources"))).toBe(false);
     });
   });
 
@@ -302,14 +337,14 @@ describe("generate-starters", () => {
   });
 
   describe("extractUvicornModule()", () => {
-    it("extracts agent.agent:app from pydantic-ai devScript", () => {
+    it("extracts agent_server:app from pydantic-ai devScript", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "pydantic-ai")!;
-      expect(extractUvicornModule(fw)).toBe("agent.agent:app");
+      expect(extractUvicornModule(fw)).toBe("agent_server:app");
     });
 
-    it("extracts agent.crew:app from crewai-crews devScript", () => {
+    it("extracts agent_server:app from crewai-crews devScript", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "crewai-crews")!;
-      expect(extractUvicornModule(fw)).toBe("agent.crew:app");
+      expect(extractUvicornModule(fw)).toBe("agent_server:app");
     });
 
     it("extracts agent.main:app from langgraph-fastapi devScript", () => {
@@ -383,7 +418,7 @@ describe("generate-starters", () => {
           "from tools import foo",
         ].join("\n"),
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toContain("sys.path.insert");
       expect(result).not.toContain("import sys");
@@ -401,28 +436,57 @@ describe("generate-starters", () => {
           "from tools import foo",
         ].join("\n"),
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toContain("sys.path.insert");
     });
 
     it("rewrites 'from tools import X' to 'from .tools import X'", () => {
       const fp = writeTmp("test.py", "from tools import get_weather\n");
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toContain("from .tools import get_weather");
     });
 
     it("rewrites 'from src.agents.X import Y' to 'from .X import Y'", () => {
       const fp = writeTmp("test.py", "from src.agents.tools import helper\n");
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toContain("from .tools import helper");
     });
 
     it("leaves file unchanged when no patterns match", () => {
       const original = "import json\nprint('hello')\n";
       const fp = writeTmp("test.py", original);
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       expect(readTmp(fp)).toBe(original);
+    });
+
+    it("rewrites 'from tools import' to 'from . import' inside tools/ directory", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-rewrite-"));
+      const toolsDir = path.join(tmpDir, "tools");
+      fs.mkdirSync(toolsDir, { recursive: true });
+      const filePath = path.join(toolsDir, "custom_tool.py");
+      fs.writeFileSync(
+        filePath,
+        "from tools import get_weather\nfrom tools.search_flights import search\n",
+      );
+      rewritePythonImports(filePath);
+      const result = fs.readFileSync(filePath, "utf-8");
+      expect(result).toContain("from . import get_weather");
+      expect(result).toContain("from .search_flights import search");
+    });
+
+    it("rewrites 'from agents.X import' to relative imports", () => {
+      const fp = writeTmp(
+        "crew.py",
+        "from agents.tools import helper\nfrom agents.tools.weather import get_weather\n",
+      );
+      const result = fs.readFileSync(fp, "utf-8");
+      // Verify file was written correctly before rewrite
+      expect(result).toContain("from agents.tools import helper");
+      rewritePythonImports(fp);
+      const rewritten = fs.readFileSync(fp, "utf-8");
+      expect(rewritten).toContain("from .tools import helper");
+      expect(rewritten).toContain("from .tools.weather import get_weather");
     });
 
     it("cleans up triple blank lines", () => {
@@ -430,9 +494,103 @@ describe("generate-starters", () => {
         "test.py",
         "import sys\nsys.path.insert(0, '.')\n\n\n\nfrom tools import x\n",
       );
-      rewritePythonImports(fp, "agent");
+      rewritePythonImports(fp);
       const result = readTmp(fp);
       expect(result).not.toMatch(/\n{3,}/);
+    });
+  });
+
+  describe("import os preservation", () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir && fs.existsSync(tmpDir)) {
+        fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
+    it("keeps import os when os is used outside sys.path.insert", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-os-keep-"));
+      const fp = path.join(tmpDir, "test.py");
+      fs.writeFileSync(
+        fp,
+        [
+          "import sys",
+          "import os",
+          'sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))',
+          'os.environ["FOO"] = "bar"',
+        ].join("\n"),
+      );
+      rewritePythonImports(fp);
+      const result = fs.readFileSync(fp, "utf-8");
+      expect(result).toContain("import os");
+      expect(result).toContain('os.environ["FOO"]');
+      expect(result).not.toContain("sys.path.insert");
+    });
+
+    it("removes import os when os is only used in sys.path.insert", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-os-remove-"));
+      const fp = path.join(tmpDir, "test.py");
+      fs.writeFileSync(
+        fp,
+        [
+          "import sys",
+          "import os",
+          'sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))',
+          "from tools import foo",
+        ].join("\n"),
+      );
+      rewritePythonImports(fp);
+      const result = fs.readFileSync(fp, "utf-8");
+      expect(result).not.toContain("import os");
+      expect(result).not.toContain("import sys");
+      expect(result).not.toContain("sys.path.insert");
+    });
+  });
+
+  describe("forEachPyFile()", () => {
+    let tmpDir: string;
+
+    afterEach(() => {
+      if (tmpDir && fs.existsSync(tmpDir)) {
+        fs.rmSync(tmpDir, { recursive: true });
+      }
+    });
+
+    it("skips data/ directory", () => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "py-foreach-"));
+      const dataDir = path.join(tmpDir, "data");
+      fs.mkdirSync(dataDir, { recursive: true });
+      fs.writeFileSync(path.join(dataDir, "script.py"), "print('hi')");
+      fs.writeFileSync(path.join(tmpDir, "main.py"), "print('main')");
+
+      const visited: string[] = [];
+      forEachPyFile(tmpDir, (fp) => visited.push(fp));
+
+      expect(visited).toHaveLength(1);
+      expect(visited[0]).toContain("main.py");
+      expect(visited.some((f) => f.includes("data"))).toBe(false);
+    });
+  });
+
+  describe("PIN_OVERRIDES warn path", () => {
+    it("does not inject phantom dependencies into mastra package.json", () => {
+      // Verify that a nonexistent pinned dep doesn't appear in output
+      expect(PIN_OVERRIDES["mastra"]).toBeDefined();
+      const mastraPkg = JSON.parse(
+        fs.readFileSync(
+          path.join(STARTERS_DIR, "mastra", "package.json"),
+          "utf-8",
+        ),
+      );
+      // @fake/package is not in PIN_OVERRIDES, so it should not be in deps
+      expect(mastraPkg.dependencies["@fake/package"]).toBeUndefined();
+      // Also verify that PIN_OVERRIDES keys that ARE present got pinned
+      for (const [dep, version] of Object.entries(PIN_OVERRIDES["mastra"])) {
+        if (mastraPkg.dependencies[dep]) {
+          expect(mastraPkg.dependencies[dep]).toBe(version);
+        }
+      }
     });
   });
 
@@ -440,7 +598,7 @@ describe("generate-starters", () => {
     it("Python: returns uvicorn command with correct module", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "pydantic-ai")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("uvicorn agent.agent:app");
+      expect(block).toContain("uvicorn agent_server:app");
       expect(block).toContain("kill -0");
     });
 
@@ -457,16 +615,27 @@ describe("generate-starters", () => {
       expect(block).toContain("@langchain/langgraph-cli dev");
     });
 
-    it("TypeScript mastra: returns mastra dev", () => {
+    it("TypeScript mastra: returns prod-mode node + .mastra/output/index.mjs", () => {
+      // Prod-mode (#4133): mastra starters run a precompiled bundle via
+      // `node` rather than `npx mastra dev` at container boot. The
+      // tsx-based build has been pushed to image build time via
+      // getAgentBuildSteps() so cold start is a straight `node` call —
+      // mirrors PR #4132's fix for langgraph-typescript.
       const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("mastra dev");
+      expect(block).toContain("node /app/.mastra/output/index.mjs");
+      expect(block).not.toContain("npx mastra dev");
     });
 
-    it("TypeScript generic: returns npx tsx", () => {
+    it("TypeScript claude-sdk: returns prod-mode node + /app/dist/agent/index.js", () => {
+      // Prod-mode (#4133): claude-sdk-typescript starter runs the
+      // precompiled JS via `node` rather than `npx tsx agent/index.ts`.
+      // The tsc compile is pushed to image build time via
+      // getAgentBuildSteps() — mirrors PR #4132's langgraph-typescript fix.
       const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
       const block = getEntrypointBlock(fw);
-      expect(block).toContain("npx tsx agent/index.ts");
+      expect(block).toContain("node /app/dist/agent/index.js");
+      expect(block).not.toContain("npx tsx");
     });
 
     it("Java: returns java -jar", () => {
@@ -479,6 +648,162 @@ describe("generate-starters", () => {
       const fw = FRAMEWORKS.find((f) => f.slug === "ms-agent-dotnet")!;
       const block = getEntrypointBlock(fw);
       expect(block).toContain("dotnet ProverbsAgent.dll");
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // Prod-mode Dockerfile build-step emitters (getAgentBuildSteps /
+  // getAgentBuildCopy).
+  //
+  // Rationale: PR #4133 pushed TS compiles off the cold-start hot path by
+  // running them in the Dockerfile frontend (builder) stage and COPYing
+  // the compiled artifacts into the runner. The per-slug opt-in is keyed
+  // by fw.slug so that only the slots we've verified (claude-sdk-typescript
+  // via tsc, mastra via `mastra build`) receive the build step — other
+  // starters emit "" and their Dockerfile stays unchanged. Guard both the
+  // slot content AND the "" fallthrough so a future refactor can't
+  // silently re-enable tsx/mastra-dev at runtime.
+  // ---------------------------------------------------------------------
+  describe("getAgentBuildSteps() / getAgentBuildCopy(): prod-mode emitters", () => {
+    it("claude-sdk-typescript: builder stage emits tsc compile", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("tsc");
+      expect(steps).toContain("/app/dist");
+      expect(steps).toContain("agent/index.ts");
+    });
+
+    it("claude-sdk-typescript: runner stage COPYs /app/dist from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "claude-sdk-typescript")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain("COPY --chown=app:app --from=frontend /app/dist");
+    });
+
+    it("mastra: builder stage emits `mastra build`", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const steps = getAgentBuildSteps(fw);
+      expect(steps).toContain("mastra build");
+      expect(steps).toContain("src/mastra");
+    });
+
+    it("mastra: runner stage COPYs /app/.mastra from frontend", () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "mastra")!;
+      const copy = getAgentBuildCopy(fw);
+      expect(copy).toContain(
+        "COPY --chown=app:app --from=frontend /app/.mastra",
+      );
+    });
+
+    it("langgraph-typescript: emits empty build step (uses runtime server.mjs)", () => {
+      // langgraph-typescript was migrated separately in PR #4132 via a
+      // server.mjs entrypoint — the generator does not add a Dockerfile
+      // build step for it here. Guard the "" fallthrough so we catch any
+      // accidental opt-in that would fork the runtime shape.
+      const fw = FRAMEWORKS.find((f) => f.slug === "langgraph-typescript")!;
+      expect(getAgentBuildSteps(fw)).toBe("");
+      expect(getAgentBuildCopy(fw)).toBe("");
+    });
+
+    it("python starters: emit empty strings (Python prod-mode happens in agent-builder stage, not per-slug)", () => {
+      // Python prod-mode is encoded in the shared Dockerfile.python
+      // template (pip venv in agent-builder stage) — per-slug emitters
+      // stay silent so Python slugs keep their shared runtime shape.
+      for (const fw of FRAMEWORKS.filter((f) => f.language === "python")) {
+        expect(getAgentBuildSteps(fw)).toBe("");
+        expect(getAgentBuildCopy(fw)).toBe("");
+      }
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // entrypointOverride regression guard.
+  //
+  // Rationale: ``generateStarterImpl`` has an ``entrypointOverride`` branch
+  // that preserves the committed starter ``entrypoint.sh`` across regen
+  // (vs. the shared OpenAI-hardcoded template). langroid uses this — a
+  // future refactor that silently removes or short-circuits that branch
+  // would quietly revert the provider-agnostic entrypoint on the next
+  // regen and all existing tests would still pass (the template picks up
+  // the default ``entrypoint.sh`` for non-override slugs).
+  //
+  // Import ``generateStarterToDir`` at the suite level so the test fixture
+  // can regenerate a single starter into a tmp directory and byte-diff
+  // against the committed canonical file.
+  // ---------------------------------------------------------------------
+  describe("entrypointOverride: committed entrypoint.sh is preserved verbatim", () => {
+    it("langroid: generator-emitted entrypoint.sh equals the committed canonical file", async () => {
+      const fw = FRAMEWORKS.find((f) => f.slug === "langroid");
+      expect(fw, "langroid framework must exist in FRAMEWORKS").toBeDefined();
+      expect(fw!.entrypointOverride).toBe(true);
+
+      const canonical = fs.readFileSync(
+        path.join(STARTERS_DIR, "langroid", "entrypoint.sh"),
+        "utf-8",
+      );
+
+      const tmp = fs.mkdtempSync(
+        path.join(os.tmpdir(), "gen-starters-override-"),
+      );
+      try {
+        generateStarterToDir(fw!, tmp);
+        const generated = fs.readFileSync(
+          path.join(tmp, "langroid", "entrypoint.sh"),
+          "utf-8",
+        );
+        expect(generated).toBe(canonical);
+        // Also assert the file is executable — the override branch
+        // force-writes 0o755. Windows checkouts or archive round-trips
+        // strip +x, so pin it explicitly.
+        const stat = fs.statSync(path.join(tmp, "langroid", "entrypoint.sh"));
+        // Check the user-execute bit — platform-agnostic (works on both
+        // POSIX and Windows-simulated checkouts).
+        expect((stat.mode & 0o100) !== 0).toBe(true);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+
+    it("non-override slug: generator-emitted entrypoint.sh differs from langroid's canonical (uses template)", async () => {
+      // Pick a non-override Python slug so we actually hit the shared
+      // template codepath (not the override branch). google-adk is python
+      // and does NOT set entrypointOverride — it will regenerate from the
+      // template on every call.
+      const nonOverrideFw = FRAMEWORKS.find(
+        (f) => f.slug === "google-adk" && !f.entrypointOverride,
+      );
+      expect(
+        nonOverrideFw,
+        "expected a non-override python slug (google-adk) in FRAMEWORKS",
+      ).toBeDefined();
+
+      const langroidCanonical = fs.readFileSync(
+        path.join(STARTERS_DIR, "langroid", "entrypoint.sh"),
+        "utf-8",
+      );
+
+      const tmp = fs.mkdtempSync(
+        path.join(os.tmpdir(), "gen-starters-template-"),
+      );
+      try {
+        generateStarterToDir(nonOverrideFw!, tmp);
+        const generated = fs.readFileSync(
+          path.join(tmp, nonOverrideFw!.slug, "entrypoint.sh"),
+          "utf-8",
+        );
+        // Distinct content: the non-override slug uses the shared template
+        // which does NOT contain the provider-agnostic
+        // ``_expected_key_for_model`` function that the langroid override
+        // carries. If this assertion starts passing by equality, something
+        // has gone wrong in the generator wiring (e.g. template got the
+        // override block pasted in, or langroid's override leaked cross-
+        // slug).
+        expect(generated).not.toBe(langroidCanonical);
+        // Stronger signal: the langroid-only override guard function
+        // must NOT appear in the template-generated entrypoint.
+        expect(generated).not.toContain("_expected_key_for_model");
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
     });
   });
 });

@@ -36,7 +36,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "[e2e] Starting aimock with feature-parity fixture..."
-npx aimock --fixtures "$SHOWCASE_DIR/aimock" --port 4010 &
+npx aimock --fixtures "$SHOWCASE_DIR/aimock" --port 4010 --validate-on-load &
 AIMOCK_PID=$!
 
 # Wait for aimock to be ready

@@ -2,27 +2,36 @@
 Strands agent with sales pipeline state, weather tool, and HITL support.
 
 Adapted from examples/integrations/strands-python/agent/main.py
+
+All module-level side effects (agent construction, model init,
+``_agents_by_thread`` patching) are deferred to ``build_showcase_agent()``
+so import failures are localized and testable.
 """
 
 import json
+import logging
 import os
-import sys
+import threading
+from collections.abc import Mapping
+from typing import Optional, TypedDict
 
 from ag_ui_strands import (
     StrandsAgent,
     StrandsAgentConfig,
     ToolBehavior,
-    create_strands_app,
 )
-from dotenv import load_dotenv
-from pydantic import BaseModel, Field
 from strands import Agent, tool
+from strands.hooks import (
+    AfterToolCallEvent,
+    BeforeInvocationEvent,
+    BeforeToolCallEvent,
+    HookProvider,
+    HookRegistry,
+)
 from strands.models.openai import OpenAIModel
 
-load_dotenv()
-
 # Import shared tool implementations
-from .tools import (
+from .tools import (  # noqa: E402
     get_weather_impl,
     query_data_impl,
     manage_sales_todos_impl,
@@ -31,9 +40,23 @@ from .tools import (
     build_a2ui_operations_from_tool_call,
 )
 
-# =====
-# Tools
-# =====
+logger = logging.getLogger(__name__)
+
+class _A2uiError(TypedDict):
+    """Shape of the structured error dict returned by generate_a2ui branches.
+
+    Mirrors the google-adk and langroid sibling agents' error shape — keep
+    all three in sync. Every error branch MUST populate all three keys so
+    callers (and the LLM summarizing the tool result) see a consistent
+    surface.
+    """
+
+    error: str
+    message: str
+    remediation: str
+
+# ---- Tools --------------------------------------------------------------
+
 @tool
 def get_weather(location: str):
     """Get current weather for a location.
@@ -88,6 +111,9 @@ def get_sales_todos():
 def schedule_meeting(reason: str):
     """Schedule a meeting with user approval.
 
+    Duration is intentionally defaulted in this showcase to keep the
+    demo HITL flow minimal; callers only supply a reason.
+
     Args:
         reason: Reason for the meeting
 
@@ -120,21 +146,23 @@ def search_flights(flights: list[dict]):
     return json.dumps(result)
 
 @tool
-def generate_a2ui(context: str):
+def generate_a2ui(context: str) -> str:
     """Generate dynamic A2UI components based on the conversation.
 
     A secondary LLM designs the UI schema and data. The result is
     returned as an a2ui_operations container for the middleware to detect.
 
+    Error branches return a JSON-serialized ``_A2uiError`` dict rather
+    than raising, so OpenAI transport / quota / auth failures surface to
+    the LLM as a structured tool result (not an uncaught exception in the
+    strands tool machinery). See ``_A2uiError`` above.
+
     Args:
         context: Conversation context to generate UI from
 
     Returns:
-        A2UI operations as JSON string
+        A2UI operations (or ``_A2uiError``) as JSON string
     """
-    from openai import OpenAI
-
-    client = OpenAI()
     tool_schema = {
         "type": "function",
         "function": {
@@ -153,21 +181,86 @@ def generate_a2ui(context: str):
         },
     }
 
-    response = client.chat.completions.create(
-        model="gpt-4.1",
-        messages=[
-            {"role": "system", "content": context or "Generate a useful dashboard UI."},
-            {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
-        ],
-        tools=[tool_schema],
-        tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
-    )
+    # Wrap the OpenAI call so raw SDK / transport failures do NOT bubble up
+    # through the strands tool machinery as uncaught exceptions. Return a
+    # structured error with remediation instead — the LLM can surface this
+    # to the user. Mirrors the google-adk and langroid sibling agents'
+    # error-handling shape — keep all three in sync.
+    #
+    # Exception scope is broad on the SDK side but still bounded:
+    #   * ``openai.OpenAIError`` covers config-time failures (e.g. from
+    #     ``OpenAI()`` constructor when ``OPENAI_API_KEY`` is unset).
+    #     ``APIError`` subclasses (RateLimitError, APIConnectionError,
+    #     AuthenticationError, BadRequestError, etc.) are also caught via
+    #     the broader ``except`` tuple. Verified against ``openai>=1.0`` —
+    #     re-check hierarchy on major version bumps.
+    #   * ``httpx.HTTPError`` covers transport failures (ConnectError,
+    #     ReadTimeout, RemoteProtocolError) that can escape below the SDK's
+    #     wrap layer in rare cases.
+    # Programmer errors (AttributeError, NameError, TypeError from bad
+    # kwargs, etc.) still propagate so bugs are not silently swallowed as
+    # "LLM error". Note the client construction itself is inside the try
+    # block for the same reason.
+    import openai as _openai_mod
+    import httpx as _httpx_mod
 
-    if not response.choices[0].message.tool_calls:
-        return json.dumps({"error": "LLM did not call render_a2ui"})
+    try:
+        client = _openai_mod.OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[
+                {"role": "system", "content": context or "Generate a useful dashboard UI."},
+                {"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."},
+            ],
+            tools=[tool_schema],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+    except (_openai_mod.OpenAIError, _httpx_mod.HTTPError) as exc:
+        logger.exception("generate_a2ui: OpenAI API call failed")
+        return json.dumps(_A2uiError(
+            error="a2ui_llm_error",
+            message=f"Secondary A2UI LLM call failed: {exc.__class__.__name__}",
+            remediation=(
+                "Verify OPENAI_API_KEY is set and the OpenAI service is reachable. "
+                "See server logs for the full traceback."
+            ),
+        ))
 
-    tool_call = response.choices[0].message.tool_calls[0]
-    args = json.loads(tool_call.function.arguments)
+    if not response.choices:
+        logger.warning("generate_a2ui: OpenAI response contained no choices")
+        return json.dumps(_A2uiError(
+            error="a2ui_empty_response",
+            message="Secondary A2UI LLM returned no choices.",
+            remediation="Retry; if this persists, check OpenAI status.",
+        ))
+
+    tool_calls = response.choices[0].message.tool_calls
+    if not tool_calls:
+        logger.warning(
+            "generate_a2ui: OpenAI response had no tool_calls despite forced tool_choice"
+        )
+        return json.dumps(_A2uiError(
+            error="a2ui_no_tool_call",
+            message="Secondary A2UI LLM did not call render_a2ui.",
+            remediation=(
+                "Retry the request. If this persists, verify the tool_choice "
+                "schema matches the OpenAI API contract."
+            ),
+        ))
+
+    tool_call = tool_calls[0]
+    try:
+        args = json.loads(tool_call.function.arguments)
+    except (ValueError, TypeError) as exc:
+        logger.exception(
+            "generate_a2ui: failed to parse render_a2ui tool arguments as JSON"
+        )
+        return json.dumps(_A2uiError(
+            error="a2ui_invalid_arguments",
+            message=f"Could not parse render_a2ui arguments: {exc}",
+            remediation="Retry the request; the secondary LLM emitted malformed JSON.",
+        ))
+
     result = build_a2ui_operations_from_tool_call(args)
     return json.dumps(result)
 
@@ -183,9 +276,8 @@ def set_theme_color(theme_color: str):
     """
     return None
 
-# =====
-# State management
-# =====
+# ---- State management ---------------------------------------------------
+
 def build_sales_prompt(input_data, user_message: str) -> str:
     """Inject the current sales pipeline state into the prompt."""
     state_dict = getattr(input_data, "state", None)
@@ -208,43 +300,312 @@ async def sales_state_from_args(context):
     Returns:
         dict: State snapshot with todos array, or None on error
     """
-    try:
-        tool_input = context.tool_input
-        if isinstance(tool_input, str):
-            tool_input = json.loads(tool_input)
-
-        todos_data = tool_input.get("todos", tool_input)
-
-        # Process through shared implementation
-        if isinstance(todos_data, list):
-            processed = manage_sales_todos_impl(todos_data)
-            return {"todos": [dict(t) for t in processed]}
-
-        return None
-    except Exception:
-        return None
-
-# =====
-# Agent configuration
-# =====
-shared_state_config = StrandsAgentConfig(
-    state_context_builder=build_sales_prompt,
-    tool_behaviors={
-        "manage_sales_todos": ToolBehavior(
-            skip_messages_snapshot=True,
-            state_from_args=sales_state_from_args,
+    # Pre-validate the shape with ``isinstance`` checks rather than relying
+    # on try/except AttributeError. Exception-driven dispatch conflated
+    # three very different failure modes (missing attribute, bad JSON, wrong
+    # type) under a single log line and made reasoning about edge cases
+    # (bare lists, ints, missing ``tool_input``) harder than it needed to
+    # be. Explicit isinstance gates make each rejection branch visible and
+    # narrowly logged.
+    raw_input = getattr(context, "tool_input", None)
+    if raw_input is None:
+        logger.warning(
+            "sales_state_from_args: context has no tool_input attribute"
         )
-    },
-)
+        return None
 
-# Initialize OpenAI model
-api_key = os.getenv("OPENAI_API_KEY", "")
-model = OpenAIModel(
-    client_args={"api_key": api_key},
-    model_id="gpt-4o",
-)
+    tool_input = raw_input
+    if isinstance(tool_input, str):
+        try:
+            tool_input = json.loads(tool_input)
+        except json.JSONDecodeError as exc:
+            excerpt = repr(raw_input)[:200]
+            logger.warning(
+                "sales_state_from_args: malformed JSON tool input (%s); input excerpt: %s",
+                exc,
+                excerpt,
+            )
+            return None
 
-system_prompt = (
+    # Normalize to a todos list via shape-directed dispatch.
+    if isinstance(tool_input, dict):
+        todos_data = tool_input.get("todos", tool_input)
+    elif isinstance(tool_input, list):
+        todos_data = tool_input
+    else:
+        excerpt = repr(raw_input)[:200]
+        logger.warning(
+            "sales_state_from_args: unsupported tool_input type %s; input excerpt: %s",
+            type(tool_input).__name__,
+            excerpt,
+        )
+        return None
+
+    if not isinstance(todos_data, list):
+        return None
+
+    processed = manage_sales_todos_impl(todos_data)
+    return {"todos": [dict(t) for t in processed]}
+
+# ---- Loop guard ---------------------------------------------------------
+
+# Upstream strands Agent has no max-iterations knob, so we enforce one via a
+# BeforeToolCallEvent hook. This protects against two real failure modes:
+#   1. LLM fixation loops (e.g. aimock's fuzzy ``userMessage: "weather"``
+#      fixture returns the same get_weather tool call on every cycle because
+#      the last user message in history never changes, causing unbounded
+#      recursion).
+#   2. Genuine model confusion / looping behavior at provider level.
+# When the cap is reached, we cancel the tool call which surfaces as a benign
+# error tool result and lets the model resolve with a text turn.
+#
+# 8 = generous headroom for multi-step workflows (lookup -> calc -> save)
+# while preventing runaway tool loops on prompt-injection edge cases.
+# Observed p95 of legitimate sessions is 4-5 calls. Can be overridden via
+# the ``STRANDS_TOOL_CALL_CAP`` env var (parity with spring-ai's
+# ``copilotkit.tool.max-iterations``); invalid values fall back to the
+# default with a warning.
+_DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION = 8
+
+def _resolve_tool_call_cap() -> int:
+    """Read ``STRANDS_TOOL_CALL_CAP`` with a sane default + fallback.
+
+    Invalid (non-int or <1) values log a warning and fall back to the
+    default rather than raising — this is read at module import time, and
+    a misconfigured env var shouldn't brick the whole showcase.
+    """
+    raw = os.getenv("STRANDS_TOOL_CALL_CAP")
+    if raw is None or raw == "":
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        logger.warning(
+            "STRANDS_TOOL_CALL_CAP=%r is not an integer; falling back to default %d",
+            raw,
+            _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION,
+        )
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    if value < 1:
+        logger.warning(
+            "STRANDS_TOOL_CALL_CAP=%d is < 1; falling back to default %d",
+            value,
+            _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION,
+        )
+        return _DEFAULT_MAX_TOOL_CALLS_PER_INVOCATION
+    return value
+
+_MAX_TOOL_CALLS_PER_INVOCATION = _resolve_tool_call_cap()
+
+class _ToolCallCapHook(HookProvider):
+    """Cap total tool calls per Agent invocation to prevent runaway loops.
+
+    Two-mechanism halt, with an intentional off-by-one split:
+
+    * ``_on_before_tool`` uses ``>`` (strict greater-than). It cancels the
+      *(N+1)-th* call — i.e. the first call that would exceed the cap is
+      refused. Calls 1..N all run normally.
+    * ``_on_after_tool`` uses ``>=`` (greater-than-or-equal). It sets the
+      ``stop_event_loop`` sentinel as soon as ``_count`` reaches the cap,
+      which is *one call earlier* than the cancellation fires.
+
+    Why the asymmetry? We want the final *permitted* call (the N-th) to
+    run to completion and produce a real result, THEN halt the event loop
+    before the model can issue an (N+1)-th call that would only be
+    cancelled. The sentinel halts cleanly; the cancellation is a backstop
+    for the case where strands doesn't honor the sentinel (e.g. because
+    the tool dispatch was already in flight when the sentinel was set).
+
+    Concurrency note: ``_HookInjectingAgentDict`` enforces one
+    ``_ToolCallCapHook`` per ``Agent`` instance (via the
+    ``_CAP_HOOK_SENTINEL_ATTR`` guard in ``_inject_cap_hook``); ag_ui_strands
+    happens to construct one Agent per ``thread_id``, so in practice that
+    is also the per-thread granularity — but the invariant this hook
+    depends on is per-Agent, not per-thread. A single AG-UI thread is
+    invoked sequentially (one request at a time), so under normal use there
+    is no concurrent access to ``_count``. We still hold a lock around
+    mutations defensively because (a) strands may dispatch tool execution
+    onto its own ThreadPoolExecutor and (b) misuse (e.g. two concurrent
+    requests on the same thread_id) should degrade gracefully rather than
+    race silently.
+    """
+
+    def __init__(self, max_calls: int = _MAX_TOOL_CALLS_PER_INVOCATION):
+        # Validate up front: ``max_calls=0`` would silently cancel every
+        # tool call (since ``_count`` starts at 0 and ``_on_before_tool``
+        # increments-then-compares with ``>``; the first call goes to 1 > 0
+        # and is cancelled). Negative values are even more broken.
+        if max_calls < 1:
+            raise ValueError("max_calls must be >= 1")
+        self._max_calls = max_calls
+        self._count = 0
+        self._lock = threading.Lock()
+
+    def register_hooks(self, registry: HookRegistry, **_: object) -> None:
+        registry.add_callback(BeforeInvocationEvent, self._on_invocation_start)
+        registry.add_callback(BeforeToolCallEvent, self._on_before_tool)
+        registry.add_callback(AfterToolCallEvent, self._on_after_tool)
+
+    def _on_invocation_start(self, _event: BeforeInvocationEvent) -> None:
+        with self._lock:
+            self._count = 0
+
+    def _on_before_tool(self, event: BeforeToolCallEvent) -> None:
+        with self._lock:
+            self._count += 1
+            current = self._count
+        if current > self._max_calls:
+            logger.warning(
+                "tool call cap reached after %d calls (max=%d); cancelling tool call to break loop",
+                current,
+                self._max_calls,
+            )
+            event.cancel_tool = (
+                f"Tool call cap reached ({self._max_calls}). "
+                "Respond to the user with the information you already have."
+            )
+
+    def _on_after_tool(self, event: AfterToolCallEvent) -> None:
+        # Once we've hit the cap, force the event loop to stop after this
+        # tool's cancellation result is appended. Strands checks
+        # ``request_state["stop_event_loop"]`` at the end of each cycle.
+        with self._lock:
+            current = self._count
+        if current >= self._max_calls:
+            request_state = event.invocation_state.setdefault("request_state", {})
+            request_state["stop_event_loop"] = True
+
+# ---- Per-thread hook injection -----------------------------------------
+
+# ag_ui_strands constructs a fresh Agent per thread_id from the template and
+# does NOT copy hooks (see site-packages/ag_ui_strands/agent.py). We patch the
+# per-thread dict so every Agent instance it constructs gets its own
+# ``_ToolCallCapHook`` attached before the first invocation. The hook keeps
+# per-instance state (call count), so we give each thread its own instance.
+#
+# We subclass ``dict`` and override every mutation entry-point (``__setitem__``,
+# ``update``, ``setdefault``, ``__ior__``) to ensure hook injection happens
+# unconditionally, regardless of how ag_ui_strands populates the mapping.
+# ``dict.update`` with a non-Mapping iterable-of-pairs DOES call ``__setitem__``
+# in CPython, but ``setdefault``, ``|=``, ``|``, and ``|=``-on-ChainMap-like
+# inputs do NOT. Override all four to keep the hook-injection invariant
+# uniform across mutation vectors.
+
+_CAP_HOOK_SENTINEL_ATTR = "_cap_hook_attached"
+
+def _agent_has_cap_hook(agent: Agent) -> bool:
+    """Return True if ``agent`` already has a ``_ToolCallCapHook`` registered.
+
+    Used to guard against double-injection when the same ``thread_id`` is
+    re-inserted (otherwise a second hook would effectively halve the cap).
+
+    We attach a sentinel attribute directly to the Agent rather than
+    inspecting HookRegistry privates (``_hook_providers``/``hook_providers``).
+    Spelunking private attrs means any upstream rename silently reintroduces
+    double-injection; the sentinel we control is robust to HookRegistry
+    refactoring.
+    """
+    return bool(getattr(agent, _CAP_HOOK_SENTINEL_ATTR, False))
+
+def _inject_cap_hook(agent: Agent) -> None:
+    """Attach a fresh ``_ToolCallCapHook`` unless one is already present."""
+    if _agent_has_cap_hook(agent):
+        return
+    agent.hooks.add_hook(_ToolCallCapHook())
+    # Mark the agent after successful registration so re-inserts into the
+    # per-thread dict skip this branch.
+    setattr(agent, _CAP_HOOK_SENTINEL_ATTR, True)
+
+class _HookInjectingAgentDict(dict):
+    """``dict`` subclass that attaches a ``_ToolCallCapHook`` to every inserted Agent.
+
+    All mutation paths (``__setitem__``, ``update``, ``setdefault``, ``__ior__``)
+    are overridden so hook injection cannot be bypassed by CPython's bulk
+    update C paths.
+    """
+
+    def __setitem__(self, key, value):
+        if isinstance(value, Agent):
+            _inject_cap_hook(value)
+        super().__setitem__(key, value)
+
+    def update(self, *args, **kwargs):  # type: ignore[override]
+        # Normalize all inputs to (key, value) pairs and route through
+        # ``self[key] = value`` so our injection logic runs uniformly.
+        #
+        # For ``Mapping`` subtypes we iterate ``.items()`` rather than
+        # ``.keys()`` + subscript. The latter calls ``__getitem__`` a second
+        # time per key — which for arbitrary ``collections.abc.Mapping``
+        # implementations (e.g. ``ChainMap``, proxy objects, lazy views)
+        # may be expensive or semantically different from the key-view
+        # iteration. ``.items()`` guarantees a single fetch of each pair.
+        if args:
+            if len(args) > 1:
+                raise TypeError(
+                    f"update expected at most 1 positional argument, got {len(args)}"
+                )
+            other = args[0]
+            if isinstance(other, Mapping):
+                for k, v in other.items():
+                    self[k] = v
+            elif hasattr(other, "keys"):
+                # Duck-typed mapping-like without registering as Mapping
+                # (e.g. some dict-views). Keep the legacy path for
+                # compatibility.
+                for k in other.keys():
+                    self[k] = other[k]
+            else:
+                for k, v in other:
+                    self[k] = v
+        for k, v in kwargs.items():
+            self[k] = v
+
+    def setdefault(self, key, default=None):  # type: ignore[override]
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def __ior__(self, other):  # type: ignore[override]
+        self.update(other)
+        return self
+
+    def __or__(self, other):  # type: ignore[override]
+        # ``dict | other`` returns a new dict; preserve injection semantics.
+        new = _HookInjectingAgentDict(self)
+        new.update(other)
+        return new
+
+    def __ror__(self, other):  # type: ignore[override]
+        # ``plain_dict | hook_dict`` invokes ``plain_dict.__or__(hook_dict)``
+        # first, which returns a plain ``dict`` — losing our hook injection
+        # semantics. Python falls back to ``hook_dict.__ror__(plain_dict)``
+        # only when ``__or__`` returns ``NotImplemented``, which plain dicts
+        # don't do for dict-subclass RHS. Defining ``__ror__`` still matters
+        # for the case where ``other`` is a type whose ``__or__`` returns
+        # ``NotImplemented`` (custom mappings, etc.), and documents the
+        # intended semantics: the RESULT of merging into a
+        # ``_HookInjectingAgentDict`` must itself be one, with every Agent
+        # value getting its hook.
+        new = _HookInjectingAgentDict()
+        new.update(other)
+        new.update(self)
+        return new
+
+# ---- Factory ------------------------------------------------------------
+
+def _build_model() -> OpenAIModel:
+    """Construct the OpenAI model, failing fast on missing credentials."""
+    api_key = os.getenv("OPENAI_API_KEY", "")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY must be set for the strands showcase agent"
+        )
+    return OpenAIModel(
+        client_args={"api_key": api_key},
+        model_id="gpt-4o",
+    )
+
+SYSTEM_PROMPT = (
     "You are a polished, professional demo assistant for CopilotKit. "
     "Keep responses brief and clear -- 1 to 2 sentences max.\n\n"
     "You can:\n"
@@ -261,17 +622,69 @@ system_prompt = (
     "mentioning, updating, or discussing todos with the user."
 )
 
-# Create Strands agent with tools
-strands_agent = Agent(
-    model=model,
-    system_prompt=system_prompt,
-    tools=[get_sales_todos, manage_sales_todos, get_weather, query_data, schedule_meeting, search_flights, generate_a2ui, set_theme_color],
-)
+def build_showcase_agent(
+    model: Optional[OpenAIModel] = None,
+) -> StrandsAgent:
+    """Construct the ``StrandsAgent`` used by the showcase server.
 
-# Wrap with AG-UI integration
-agui_agent = StrandsAgent(
-    agent=strands_agent,
-    name="strands_agent",
-    description="A sales assistant that collaborates with you to manage a sales pipeline",
-    config=shared_state_config,
-)
+    Wrapping construction in a factory keeps all module-level side effects
+    (env-var reads, model initialization, per-thread hook patching) out of
+    import time, so failures surface at a single well-defined call site
+    (``agent_server.py``) rather than at arbitrary import order.
+    """
+    resolved_model = model if model is not None else _build_model()
+
+    shared_state_config = StrandsAgentConfig(
+        state_context_builder=build_sales_prompt,
+        tool_behaviors={
+            "manage_sales_todos": ToolBehavior(
+                skip_messages_snapshot=True,
+                state_from_args=sales_state_from_args,
+            ),
+            # get_weather is used by the tool-rendering demo. The frontend
+            # renders a weather card from the tool result via useRenderTool.
+            # There is no need for the agent to continue streaming a text
+            # summary afterwards -- the card IS the response. Halting after
+            # the first tool result also protects against upstream LLM/mock
+            # loops (e.g. aimock's fuzzy fixture matching on "weather"
+            # returns the same get_weather tool call every turn, which would
+            # otherwise recurse indefinitely).
+            "get_weather": ToolBehavior(
+                stop_streaming_after_result=True,
+            ),
+        },
+    )
+
+    strands_agent = Agent(
+        model=resolved_model,
+        system_prompt=SYSTEM_PROMPT,
+        tools=[
+            get_sales_todos,
+            manage_sales_todos,
+            get_weather,
+            query_data,
+            schedule_meeting,
+            search_flights,
+            generate_a2ui,
+            set_theme_color,
+        ],
+    )
+
+    agui_agent = StrandsAgent(
+        agent=strands_agent,
+        name="strands_agent",
+        description="A sales assistant that collaborates with you to manage a sales pipeline",
+        config=shared_state_config,
+    )
+
+    # Replace the per-thread agent dict with our hook-injecting variant.
+    # Preserve any entries ag_ui_strands created in ``__init__`` by copying
+    # them into the new dict first (which re-runs injection to guarantee
+    # every existing Agent also has the cap hook attached).
+    existing = getattr(agui_agent, "_agents_by_thread", None) or {}
+    hook_dict = _HookInjectingAgentDict()
+    if existing:
+        hook_dict.update(existing)
+    agui_agent._agents_by_thread = hook_dict
+
+    return agui_agent

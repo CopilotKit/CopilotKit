@@ -5,14 +5,13 @@ Provides weather, query data, and schedule meeting tools for the crew.
 """
 
 import json
-import sys
 import os
 
 from crewai.tools import BaseTool
 from typing import Type
 from pydantic import BaseModel, Field
 
-from .tools import (
+from . import (
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,

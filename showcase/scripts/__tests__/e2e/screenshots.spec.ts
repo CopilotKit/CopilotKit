@@ -25,7 +25,6 @@ const RENDERER_MODES = [
   { name: "A2UI", pill: /A2UI Catalog/ },
   { name: "json-render", pill: /json-render/ },
   { name: "HashBrown", pill: /HashBrown/ },
-  { name: "Open-GenUI", pill: /Open GenUI/ },
 ] as const;
 
 const DEMOS = [

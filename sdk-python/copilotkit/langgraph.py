@@ -173,12 +173,14 @@ def langchain_messages_to_copilotkit(
                 "id": message.id,
             })
         elif isinstance(message, AIMessage):
-            if content:
-                result.append({
-                    "role": "assistant",
-                    "content": content,
-                    "id": message.id,
-                })
+            # Always emit the assistant message, even with empty content.
+            # Tool call entries reference it via parentMessageId; omitting it
+            # orphans tool calls and breaks frontend thread reconstruction.
+            result.append({
+                "role": "assistant",
+                "content": content if content is not None else "",
+                "id": message.id,
+            })
             if message.tool_calls:
                 for tool_call in message.tool_calls:
                     result.append({
@@ -507,6 +509,13 @@ def copilotkit_interrupt(
         "__copilotkit_interrupt_value__": interrupt_values,
         "__copilotkit_messages__": [interrupt_message]
     })
-    answer = response[-1].content
+    if isinstance(response, str):
+        answer = response
+    elif isinstance(response, dict):
+        answer = json.dumps(response)
+    elif isinstance(response, list):
+        answer = response[-1].content
+    else:
+        answer = str(response)
 
     return answer, response

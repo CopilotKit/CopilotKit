@@ -19,6 +19,7 @@ import {
   type IntelligenceRuntimeInfo,
   type RuntimeInfo,
   type RuntimeMode,
+  type ResolvedDebugConfig,
 } from "@copilotkit/shared";
 import { IntelligenceAgent } from "./intelligence-agent";
 import { CopilotRuntimeTransport } from "./types";
@@ -81,6 +82,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
   runtimeMode?: ResolvedRuntimeMode;
   intelligence?: IntelligenceRuntimeInfo;
   capabilities?: AgentCapabilities;
+  debug?: ResolvedDebugConfig;
 }
 
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
@@ -120,6 +122,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     this.runtimeMode = config.runtimeMode ?? RUNTIME_MODE_SSE;
     this.intelligence = config.intelligence;
     this._capabilities = config.capabilities;
+    if (config.debug) {
+      this.debug = config.debug;
+    }
     if (this.transport === "single") {
       this.singleEndpointUrl = this.runtimeUrl;
     }
@@ -371,6 +376,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       runtimeMode: this.runtimeMode,
       intelligence: this.intelligence,
       capabilities: this._capabilities,
+      debug: this.debug,
     });
     cloned.threadId = this.threadId;
     cloned.setState(this.state);

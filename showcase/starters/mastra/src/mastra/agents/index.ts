@@ -8,7 +8,7 @@ import {
   scheduleMeetingTool,
   searchFlightsTool,
   generateA2uiTool,
-} from "@/mastra/tools";
+} from "../tools";
 import { LibSQLStore } from "@mastra/libsql";
 import { z } from "zod";
 import { Memory } from "@mastra/memory";

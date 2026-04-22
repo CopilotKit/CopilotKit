@@ -1,4 +1,4 @@
-name: "Showcase: Starter Template Drift Detection"
+name: "Showcase: Verify Starters Match Template"
 
 on:
   pull_request:
@@ -28,4 +28,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
-      - run: npx tsx showcase/scripts/generate-starters.ts --check
+      - name: Verify generated starters match template output
+        run: |
+          echo "Regenerating starters from template and comparing to committed versions..."
+          echo "If this fails, run: npx tsx showcase/scripts/generate-starters.ts"
+          npx tsx showcase/scripts/generate-starters.ts --check

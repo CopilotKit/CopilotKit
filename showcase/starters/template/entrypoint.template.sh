@@ -2,12 +2,21 @@
 # Template variables (substituted by generate-starters.ts):
 #   SLUG             — framework slug (e.g. "langgraph-python")
 #   DEV_SCRIPT_BLOCK — language-specific agent startup block
+#   WATCHDOG_BLOCK   — silent-hang watchdog (polls agent /health; kills on stall)
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
+
+# Disable Python stdout buffering so Python-based agents flush tracebacks
+# and log lines to awk (and the container log) the moment they're written.
+# Previously a silent crash during module import would sit in Python's
+# userspace buffer until the process exited, by which point the pipe to the
+# log prefixer had already closed and the error was lost. Harmless for
+# non-Python frameworks (Java/Node/.NET ignore PYTHONUNBUFFERED).
+export PYTHONUNBUFFERED=1
 
 echo "========================================="
 echo "[entrypoint] Starting showcase: {{SLUG}}"
@@ -25,17 +34,34 @@ fi
 
 {{DEV_SCRIPT_BLOCK}}
 
+{{WATCHDOG_BLOCK}}
+
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
 echo "========================================="
 
 PORT=${PORT:-10000}
-npx next start --port $PORT 2>&1 | sed 's/^/[nextjs] /' &
+# Scope NODE_ENV=production to the Next.js invocation ONLY, not the whole
+# container environment. `ENV NODE_ENV=production` at the image level would
+# leak into every child process (agent, shell scripts, healthchecks) — most
+# of which don't interpret NODE_ENV the way Next.js does. `env` prefix binds
+# the value to this single exec so the agent spawned above keeps the host
+# environment intact.
+#
+# Log prefixing uses bash process substitution (`&> >(awk …)`) rather than a
+# pipe (`| sed …`): process substitution leaves `$!` pointing at the real
+# Next.js process, so `wait -n $NEXTJS_PID` monitors the right thing.
+# `awk` with `fflush()` line-flushes each prefixed line to the container log.
+env NODE_ENV=production npx next start --port $PORT &> >(awk '{print "[nextjs] " $0; fflush()}') &
 NEXTJS_PID=$!
 
 echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
-echo "[entrypoint] Both processes running. Waiting..."
+echo "[entrypoint] All processes running. Waiting..."
 
+# Only wait on agent + next.js — NOT the watchdog. The watchdog's job is to
+# kill the agent when it hangs; if the watchdog exits first (e.g. because it
+# killed the agent), wait -n would otherwise return with the watchdog's exit
+# code and short-circuit before the agent's true exit status is observable.
 wait -n $AGENT_PID $NEXTJS_PID
 EXIT_CODE=$?
 if ! kill -0 $AGENT_PID 2>/dev/null; then
@@ -46,6 +72,6 @@ else
   echo "[entrypoint] A process exited with code $EXIT_CODE"
 fi
 
-# Clean up surviving process
-kill $AGENT_PID $NEXTJS_PID 2>/dev/null
+# Clean up surviving processes (including watchdog)
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 exit $EXIT_CODE

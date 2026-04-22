@@ -15,10 +15,13 @@ import {
 } from "@shikijs/transformers";
 import { remarkMermaid } from "@theguild/remark-mermaid";
 
-// Extend the frontmatter schema to include hideHeader and hideTOC fields
+// Extend the frontmatter schema to include hideHeader, hideTOC, and doc_type fields
 const extendedFrontmatterSchema = frontmatterSchema.extend({
   hideHeader: z.boolean().optional(),
   hideTOC: z.boolean().optional(),
+  doc_type: z
+    .enum(["how-to", "explanation", "reference", "tutorial"])
+    .optional(),
 });
 
 // You can customise Zod schemas for frontmatter and `meta.json` here

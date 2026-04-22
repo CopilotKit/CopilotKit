@@ -1,7 +1,13 @@
 crewai>=0.130.0
-ag-ui-crewai>=0.1.4
+ag-ui-crewai>=0.2.0,<0.3.0
 ag-ui-protocol>=0.1.5
 python-dotenv>=1.0.1
 uvicorn>=0.34.3
 crewai-tools>=0.38.1
 fastapi>=0.115.0
+# typing.NotRequired is stdlib on 3.11+. typing_extensions backports it for
+# 3.10 (and older) so local dev on older macOS / Linux Pythons doesn't hit
+# an opaque ImportError at module load. Pinned floor matches the PEP 655
+# parity window. Python-version marker keeps the dep out of 3.11+ installs
+# (where it's pure bloat).
+typing_extensions>=4.6; python_version < "3.11"

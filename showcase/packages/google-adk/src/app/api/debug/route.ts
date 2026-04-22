@@ -39,9 +39,7 @@ export async function GET(req: NextRequest) {
     },
     env: {
       NODE_ENV: process.env.NODE_ENV,
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY ? "set" : "NOT SET",
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY ? "set" : "NOT SET",
-      LANGSMITH_API_KEY: process.env.LANGSMITH_API_KEY ? "set" : "NOT SET",
+      GOOGLE_API_KEY: process.env.GOOGLE_API_KEY ? "set" : "NOT SET",
     },
     nodeVersion: process.version,
   });
