@@ -5,39 +5,7 @@ This package (`copilotkit-vscode-extension`) ships to two registries:
 - [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=copilotkit.copilotkit-vscode-extension) — primary, used by VS Code, Cursor, etc.
 - [Open VSX](https://open-vsx.org/extension/copilotkit/copilotkit-vscode-extension) — used by VSCodium, Gitpod, OpenVSCode Server, Theia-based IDEs.
 
-The flow mirrors the [`CopilotKit/aimock`](https://github.com/CopilotKit/aimock) release model: contributors hand-edit `package.json` + `CHANGELOG.md` and land a release commit on `main`; CI detects the version is not yet on the Marketplace and publishes. **No tag is created by hand. No `vsce publish` is run by hand.**
-
-## Prerequisites (one-time, maintainer)
-
-Configuration lives in the **`production`** GitHub environment (repo → Settings → Environments → production), split between non-secret **variables** and **secrets**:
-
-Environment **variables** (non-secret, consumed by `azure/login@v2`):
-
-- `AZURE_CLIENT_ID` — client ID of the `copilotkit-vscode-publish` Entra Service Principal.
-- `AZURE_TENANT_ID` — tenant ID for copilotkit.ai.
-- `AZURE_SUBSCRIPTION_ID` — subscription the SP is scoped into.
-
-Environment **secrets**:
-
-- `OVSX_PAT` — Open VSX Personal Access Token (bot-owned, quarterly rotation). OIDC is not yet supported on Open VSX, so a PAT is still required here.
-- `VSCE_PAT` — **retained as explicit rollback only.** No longer referenced by the workflow; Marketplace auth is OIDC. Delete this secret once OIDC publishing has been confirmed green at least once in production (see [Rollback guidance](#rollback-guidance)).
-- `SLACK_WEBHOOK` (optional) — webhook for the #oss-alerts release ping. Publish succeeds without it.
-
-### One-time Open VSX setup (first release only)
-
-Open VSX requires claiming the namespace before the first publish:
-
-1. Maintainer signs up at <https://open-vsx.org> with their GitHub identity.
-2. Creates a personal access token at <https://open-vsx.org/user-settings/tokens>.
-3. Claims the publisher namespace (one-time, from any machine):
-
-   ```bash
-   npx --yes ovsx create-namespace copilotkit -p <token>
-   ```
-
-4. Stores the token as `OVSX_PAT` in the `production` GH environment.
-
-Once the namespace is claimed, subsequent CI publishes run unattended.
+The flow mirrors the [`CopilotKit/aimock`](https://github.com/CopilotKit/aimock) release model for publish: a `chore: release vX.Y.Z` commit on `main` triggers CI, which self-gates on whether the version is already live and publishes if not. Unlike aimock, contributors don't hand-edit `package.json` — the **VS Code Extension — Metadata Sync** workflow (`.github/workflows/vscode-extension-changelog-sync.yml`) auto-syncs `package.json.version` (and optionally `package.json.description`) from the CHANGELOG entry (and optionally the README.md first paragraph) when the PR is opened, and commits `chore: release vX.Y.Z` on the PR branch for you. **No tag is created by hand. No `vsce publish` is run by hand.**
 
 ## Cutting a release
 
@@ -132,7 +100,7 @@ After CI goes green:
 If a bad version ships:
 
 1. Fix the regression on a branch, open a PR, land it on `main`.
-2. Bump the patch version in `packages/vscode-extension/package.json`, prepend a `### Fixed` entry to `CHANGELOG.md`, commit as `chore: release vX.Y.Z`, open a PR, and merge.
+2. Prepend a new `## X.Y.Z — <date>` entry with a `### Fixed` subsection to `packages/vscode-extension/CHANGELOG.md` (patch-bumping the version), open a PR, and merge. The metadata-sync workflow auto-commits the corresponding `package.json` bump as `chore: release vX.Y.Z` on the PR branch — same flow as a normal release.
 3. If the regression is severe enough to warrant pulling the listing, the Marketplace / Open VSX admin UIs each offer a per-version unlist (different from unpublish) — use that as a last resort; prefer shipping forward.
 
 ## Rollback guidance
@@ -161,3 +129,41 @@ Once OIDC publishing has been confirmed green in CI at least once, **delete `VSC
 
 - **ADO PAT retirement (2026-12-01):** Azure DevOps is sunsetting long-lived Marketplace PATs. This workflow has been migrated to OIDC / federated credentials ahead of that date; `VSCE_PAT` is retained only as a short-lived rollback lever (see above).
 - **If the npm monorepo release pipeline ever needs to coordinate with VSIX releases** (e.g. pin the extension to a known-good `@copilotkit/*` version), extend `release.config.json` with a `vscode-extension` scope and gate it on the same version-on-main trigger — do not try to bolt VSIX publishing onto `scripts/release/publish-release.ts` which is npm-only.
+
+---
+
+## One-time setup (historical reference)
+
+The following setup was completed during pipeline bootstrap (2026-04-21) and should not need to be redone. Documented here for disaster recovery / re-bootstrapping.
+
+### Prerequisites (one-time, maintainer)
+
+Configuration lives in the **`production`** GitHub environment (repo → Settings → Environments → production), split between non-secret **variables** and **secrets**:
+
+Environment **variables** (non-secret, consumed by `azure/login@v2`):
+
+- `AZURE_CLIENT_ID` — client ID of the `copilotkit-vscode-publish` Entra Service Principal.
+- `AZURE_TENANT_ID` — tenant ID for copilotkit.ai.
+- `AZURE_SUBSCRIPTION_ID` — subscription the SP is scoped into.
+
+Environment **secrets**:
+
+- `OVSX_PAT` — Open VSX Personal Access Token (bot-owned, quarterly rotation). OIDC is not yet supported on Open VSX, so a PAT is still required here.
+- `VSCE_PAT` — **retained as explicit rollback only.** No longer referenced by the workflow; Marketplace auth is OIDC. Delete this secret once OIDC publishing has been confirmed green at least once in production (see [Rollback guidance](#rollback-guidance)).
+- `SLACK_WEBHOOK` (optional) — webhook for the #oss-alerts release ping. Publish succeeds without it.
+
+### One-time Open VSX setup (first release only)
+
+Open VSX requires claiming the namespace before the first publish:
+
+1. Maintainer signs up at <https://open-vsx.org> with their GitHub identity.
+2. Creates a personal access token at <https://open-vsx.org/user-settings/tokens>.
+3. Claims the publisher namespace (one-time, from any machine):
+
+   ```bash
+   npx --yes ovsx create-namespace copilotkit -p <token>
+   ```
+
+4. Stores the token as `OVSX_PAT` in the `production` GH environment.
+
+Once the namespace is claimed, subsequent CI publishes run unattended.
