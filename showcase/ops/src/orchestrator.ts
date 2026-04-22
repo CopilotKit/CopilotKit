@@ -18,6 +18,7 @@ import {
 } from "./storage/s3-backup.js";
 import { deployEventToProbeResult } from "./probes/deploy-result.js";
 import { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } from "./probes/redirect-decommission.js";
+import { SMOKE_SLACK_SAFE_FIELDS } from "./probes/smoke.js";
 import { aimockWiringProbe } from "./probes/aimock-wiring.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
@@ -101,6 +102,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     opts.configDir ?? path.resolve(process.cwd(), "config/alerts");
   const slackSafeFields: Record<string, Set<string>> = {
     redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
+    smoke: new Set(SMOKE_SLACK_SAFE_FIELDS),
   };
   const loader = createRuleLoader({
     dir: configDir,

@@ -91,6 +91,23 @@ export const smokeProbe: Probe<SmokeInput, SmokeSignal> = {
 };
 
 /**
+ * Fields on smoke signal that are safe for triple-brace interpolation.
+ *
+ * Double-brace HTML-escapes every value via Mustache's default, which turns
+ * `/` into `&#x2F;` inside the rendered text. That breaks Slack link markup
+ * `<URL|label>` because the escaped URL is no longer a valid scheme — Slack
+ * renders the raw text instead of a clickable link. The smoke template
+ * interpolates `signal.links.smoke` / `signal.links.health` directly inside
+ * `< ... |label>` pairs, so both fields must be triple-brace safe.
+ *
+ * Structurally these URLs are produced by the smoke probe itself (caller
+ * supplies `input.url`; the probe derives the health URL by path-swap in
+ * `deriveHealthUrl`). Neither flows from untrusted user input — they're
+ * operator-configured service URLs. Safe to emit without HTML-escape.
+ */
+export const SMOKE_SLACK_SAFE_FIELDS = ["links.smoke", "links.health"] as const;
+
+/**
  * Derive a plausible health URL from the smoke URL by swapping a trailing
  * `/smoke` (with optional trailing slash) for `/health`. If the input URL
  * does not parse, return an empty string — templates should guard with

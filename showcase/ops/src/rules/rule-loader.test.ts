@@ -923,17 +923,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
 
   async function loadRealRules() {
     const { createRenderer } = await import("../render/renderer.js");
-    // redirect-decommission needs slackSafeFields registration so the
+    // Per-dimension slackSafe sets must mirror orchestrator.ts wiring so the
     // whole-dir load succeeds. Other dimensions triple-brace only
     // event.*/env.* which are handled by validateTripleBrace.
     const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } = await import(
       "../probes/redirect-decommission.js"
     );
+    const { SMOKE_SLACK_SAFE_FIELDS } = await import("../probes/smoke.js");
     const loader = createRuleLoader({
       dir: REAL_CONFIG_DIR,
       logger,
       slackSafeFields: {
         redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
+        smoke: new Set(SMOKE_SLACK_SAFE_FIELDS),
       },
     });
     const { rules, errors } = await loader.loadWithErrors();
@@ -1209,14 +1211,12 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         .payload as { text: string }).text;
       expect(text).toContain("coagents-starter");
       expect(text).toContain("down, error: http 503");
-      // signal.links.smoke / signal.links.health are inside Slack link
-      // markup `<URL|label>` but they're double-braced so Mustache
-      // HTML-escapes `/` → `&#x2F;`, which breaks the Slack link. Pin
-      // this behavior so the next commit (triple-brace widening +
-      // slackSafeFields registration) can red-green the fix explicitly.
-      expect(text).toContain("svc.example");
-      expect(text).toContain("smoke|smoke");
-      expect(text).toContain("health|health");
+      // Triple-brace signal.links.* (added via SMOKE_SLACK_SAFE_FIELDS)
+      // preserves the raw URL inside `<URL|label>` Slack link markup;
+      // prior double-brace form HTML-escaped `/` → `&#x2F;` and broke
+      // the link at Slack render time.
+      expect(text).toContain("https://svc.example/smoke");
+      expect(text).toContain("https://svc.example/health");
     });
 
     it("sustained_red branch renders failCount (attempt: N) and error", async () => {
