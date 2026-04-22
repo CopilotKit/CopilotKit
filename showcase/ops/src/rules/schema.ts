@@ -155,6 +155,25 @@ export const OnErrorSchema = z
   })
   .strict();
 
+/**
+ * Cross-service alert aggregation (plan Item 4). When declared, matching
+ * signals for this rule are collected into buckets keyed on `groupBy` field
+ * values, and a composite alert fires once either the `minMatches` threshold
+ * is hit or `windowMs` elapses since the first match.
+ *
+ * `.strict()` so a typoed field (e.g. `windowMsec`) surfaces at load time
+ * rather than silently arming a bucket with the default value of `undefined`.
+ */
+export const AggregationSchema = z
+  .object({
+    groupBy: z.array(z.string().min(1)).min(1),
+    windowMs: z.number().int().positive(),
+    minMatches: z.number().int().positive(),
+    template: z.string().min(1),
+    targets: z.array(z.string().min(1)).optional(),
+  })
+  .strict();
+
 export const RuleSchema = z
   .object({
     id: z.string().min(1),
@@ -171,6 +190,7 @@ export const RuleSchema = z
     template: TemplateSchema.optional(),
     actions: z.array(ActionSchema).optional(),
     on_error: OnErrorSchema.optional(),
+    aggregation: AggregationSchema.optional(),
   })
   .strict();
 

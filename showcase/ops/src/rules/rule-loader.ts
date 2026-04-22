@@ -20,6 +20,7 @@ import { DefaultsSchema, RuleSchema, type RuleDoc } from "./schema.js";
 // Import from the DSL leaf module rather than alert-engine to avoid the
 // type↔value cycle (alert-engine imports `CompiledRule` from this file).
 import { evalSuppress, parseDuration } from "../alerts/dsl.js";
+import type { AggregationConfig } from "../alerts/aggregation.js";
 // HF13-D1: reuse the renderer's FILTER_RE so load-time validation and
 // render-time substitution can't drift. A prior local copy here lacked
 // the negative look-arounds that exclude triple-brace spans.
@@ -136,6 +137,13 @@ export interface CompiledRule {
   template?: { text: string };
   actions: { kind: "rebuild"; target: string; forEach?: string }[];
   onError?: { template: { text: string } };
+  /**
+   * Cross-service aggregation config (plan Item 4). When present, matching
+   * signals for this rule are collected into buckets and a composite alert
+   * fires on threshold or window-expiry — bypassing per-match dispatch.
+   * Absent for normal per-match rules.
+   */
+  aggregation?: AggregationConfig;
   // `slackSafe` paths discovered from dimension registries — any `{{{ ... }}}`
   // triple-brace must reference one of these paths, else the loader rejects.
 }
@@ -474,6 +482,7 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
       template: rule.template,
       actions: rule.actions ?? [],
       onError: rule.on_error,
+      aggregation: rule.aggregation,
     };
   }
 
