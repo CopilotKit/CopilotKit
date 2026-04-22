@@ -11,13 +11,13 @@ deterministically by `showcase/scripts/generate-starters.ts`.
 Every template (and every regenerated per-slug Dockerfile) is a true
 multi-stage build:
 
-- **Builder stage** carries the full language toolchain — `node:24`,
+- **Builder stage** carries the full language toolchain — `node:22-slim`,
   `python:3.12`, `eclipse-temurin:21-jdk`, `dotnet-sdk:9.0` — and produces
   compiled/bundled artifacts (`.next`, a populated `/opt/venv`, a shaded
   jar, a `dotnet publish` output). Dev dependencies, package managers,
   and build tools live here and here only.
-- **Runtime stage** starts from a minimal base — `node:24-slim`,
-  `python:3.12-slim`, `eclipse-temurin:21-jre-alpine`,
+- **Runtime stage** starts from a minimal base — `node:22-slim`,
+  `python:3.12-slim`, `eclipse-temurin:21-jre`,
   `mcr.microsoft.com/dotnet/aspnet:9.0` — and ships **only** the compiled
   artifacts. No `pip install`, `pnpm install`, `tsx`, or `*-cli dev` runs
   at container start. Cold start is a straight `node` / `python` / `java`
