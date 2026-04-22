@@ -1,20 +1,19 @@
 /**
  * Typed errors thrown by `DiscoverySource.enumerate` implementations.
  *
- * Why four classes instead of a single generic error? The invoker converts
+ * Why five classes instead of a single generic error? The invoker converts
  * a thrown enumeration error into a single synthetic `state:"error"`
  * ProbeResult — operators then see ONE line in the writer log for an
  * entire failed discovery tick, with no per-target breadcrumbs. Narrowing
  * the error class at the source lets that one line carry the actionable
  * fault class ("RAILWAY_AUTH_FAILED" vs "GHCR 502" vs "DNS refused" vs
- * "upstream schema changed"). Bucketing on class also lets downstream
- * alert rules apply class-specific escalation without parsing error
- * strings.
+ * "upstream schema changed" vs "workspace file missing"). Bucketing on
+ * class also lets downstream alert rules apply class-specific escalation
+ * without parsing error strings.
  *
- * Classes mirror the shape already in use by the orchestrator-level
- * Railway adapter's `orchestrator.RAILWAY_AUTH_FAILED` log ID — auth
- * failures get their own class so an operator can grep by error class
- * across the log stream.
+ * Callers in tests match on class identity (`err instanceof
+ * DiscoverySourceSchemaError`) rather than string contents so renames or
+ * message tweaks don't silently break the assertion.
  */
 
 export class DiscoverySourceError extends Error {
@@ -65,13 +64,45 @@ export class DiscoverySourceTransportError extends DiscoverySourceError {
 }
 
 /**
- * Response arrived but doesn't match the expected shape — missing
- * required fields, non-JSON body, Zod rejection of the parsed payload,
- * etc. Indicates an upstream API change; operators should investigate
- * rather than retry.
+ * Response or input file arrived but doesn't match the expected shape —
+ * missing required fields, non-JSON body, Zod rejection of the parsed
+ * payload, malformed YAML, etc. Indicates an upstream API change OR a
+ * corrupted input file; operators should investigate rather than retry.
+ *
+ * `filePath` is set when the error originated from a filesystem-based
+ * source (pnpm-packages); `undefined` for network-sourced schema
+ * violations where the fault lies in the wire payload.
  */
 export class DiscoverySourceSchemaError extends DiscoverySourceError {
-  constructor(source: string, message: string, cause?: unknown) {
-    super(message, source, cause);
+  constructor(
+    source: string,
+    message: string,
+    public readonly filePath?: string,
+    cause?: unknown,
+  ) {
+    super(
+      filePath !== undefined ? `${message} (file: ${filePath})` : message,
+      source,
+      cause,
+    );
+  }
+}
+
+/**
+ * Thrown when a filesystem-based discovery source cannot reach its input
+ * at all — the workspace file is missing, the configured root directory
+ * doesn't exist, etc. Kept distinct from SchemaError so operators can
+ * tell "file is corrupt" from "file isn't there". The invoker treats
+ * both as a failed enumeration (empty input list + logged error), but
+ * the log message class differs.
+ */
+export class DiscoverySourceNotFoundError extends DiscoverySourceError {
+  constructor(
+    source: string,
+    message: string,
+    public readonly filePath: string,
+    cause?: unknown,
+  ) {
+    super(`${message} (file: ${filePath})`, source, cause);
   }
 }

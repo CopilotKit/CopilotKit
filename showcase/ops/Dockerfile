@@ -5,6 +5,21 @@ RUN corepack enable
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml .pnpmfile.cjs ./
 COPY showcase/ops/package.json ./showcase/ops/package.json
+# Copy every workspace package.json manifest (but NOT source / node_modules).
+# The version-drift probe's pnpm-packages discovery source parses these at
+# runtime. Doing this in the build stage (rather than COPY-ing packages/
+# directly into the runtime image from the host build context) keeps the
+# runtime stage hermetic and consistent — the final image is always
+# assembled strictly from build-stage artifacts.
+COPY packages ./packages-src-tmp
+RUN mkdir -p ./packages && \
+    cd packages-src-tmp && \
+    find . -maxdepth 2 -name package.json -not -path '*/node_modules/*' | \
+    while read f; do \
+      dir="../packages/$(dirname "$f")"; \
+      mkdir -p "$dir" && cp "$f" "$dir/package.json"; \
+    done && \
+    cd .. && rm -rf packages-src-tmp
 
 # `--ignore-scripts` skips the root `prepare` hook (lefthook install), which
 # requires `git` and is meaningless inside the build image. Deps themselves
@@ -49,18 +64,25 @@ COPY --from=build /repo/showcase/ops/dist ./dist
 COPY --from=build /deploy/node_modules ./node_modules
 COPY --from=build /deploy/package.json ./package.json
 COPY --from=build /repo/showcase/ops/config ./config
-# Install chromium + its system deps. `--with-deps` pulls in libnss3,
-# libatk, libxkbcommon, libdrm, etc. via apt — sourced from the
-# playwright package's postinstall-free CLI. Runs as root (we haven't
-# dropped to the `node` user yet) because apt-get needs root.
-#
-# Call `playwright/cli.js` directly (not via `npx playwright`) — pnpm's
-# deploy output materialises a hoisted node_modules but doesn't always
-# produce a `.bin/playwright` shim, so `npx playwright` would resolve
-# to "not found". The direct `node` invocation is also faster: no npx
-# registry metadata roundtrip.
+# e2e-smoke probe: install chromium + its system deps. `--with-deps`
+# pulls in libnss3, libatk, libxkbcommon, libdrm, etc. via apt. Runs as
+# root because apt-get needs root. Call `playwright/cli.js` directly
+# (not via `npx playwright`) — pnpm's deploy output materialises a
+# hoisted node_modules but doesn't always produce a `.bin/playwright`
+# shim, so `npx playwright` would resolve to "not found".
 RUN node ./node_modules/playwright/cli.js install --with-deps chromium \
  && rm -rf /var/lib/apt/lists/*
+# version-drift probe: the pnpm-packages discovery source reads
+# pnpm-workspace.yaml + each workspace package manifest at probe-tick time.
+# Copy them into /app so the source resolves with rootDir=/app (the runtime
+# WORKDIR) without any further configuration. Only manifest files are
+# copied — node_modules and source trees stay out of the runtime image.
+# packages/ is the only workspace prefix version-drift.yml filters to today
+# (filter.pathPrefix: "packages/"); adding examples/ or sdk-python here
+# would be safe — the probe's filter is the authoritative gate — but we
+# keep the image lean until another probe config actually needs those trees.
+COPY --from=build /repo/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY --from=build /repo/packages ./packages
 # chown /app AND the playwright browser cache so the runtime user can
 # read the chromium tree at launch. Orchestrator today writes only to
 # mounted volumes (PB data dir, S3 backup buffer), so the /app chown

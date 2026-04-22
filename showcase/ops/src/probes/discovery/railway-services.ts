@@ -156,6 +156,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       throw new DiscoverySourceSchemaError(
         "railway-services",
         `project response did not match expected shape: ${parsedProject.error.message}`,
+        undefined,
         parsedProject.error,
       );
     }
@@ -284,6 +285,7 @@ function makeGql(opts: {
       throw new DiscoverySourceSchemaError(
         sourceName,
         `response body was not JSON: ${err instanceof Error ? err.message : String(err)}`,
+        undefined,
         err,
       );
     }
