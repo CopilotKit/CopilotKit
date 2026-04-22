@@ -23,11 +23,7 @@ import {
   loadDoc,
   readMeta,
 } from "@/lib/docs-render";
-import {
-  getIntegration,
-  getIntegrations,
-  getFeature,
-} from "@/lib/registry";
+import { getIntegration, getIntegrations, getFeature } from "@/lib/registry";
 import demoContent from "@/data/demo-content.json";
 
 interface DemoRecord {
@@ -114,7 +110,9 @@ export async function UnscopedDocsPage({ slugPath }: { slugPath: string }) {
           frameworksWithCell={frameworksWithCell}
           previewUrl={previewUrl}
           featureName={featureFromCell?.name ?? doc.fm.title}
-          featureDescription={featureFromCell?.description ?? doc.fm.description}
+          featureDescription={
+            featureFromCell?.description ?? doc.fm.description
+          }
         />
       </div>
     ) : null;
