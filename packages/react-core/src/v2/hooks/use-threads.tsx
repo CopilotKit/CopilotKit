@@ -231,9 +231,7 @@ export function useThreads({
   const [hasDispatchedContext, setHasDispatchedContext] = useState(false);
   const preConnectLoading = !!copilotkit.runtimeUrl && !hasDispatchedContext;
 
-  const isLoading = runtimeError
-    ? false
-    : preConnectLoading || storeIsLoading;
+  const isLoading = runtimeError ? false : preConnectLoading || storeIsLoading;
   const error = runtimeError ?? storeError;
 
   useEffect(() => {
