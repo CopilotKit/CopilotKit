@@ -76,17 +76,17 @@ describe("imageDriftDriver", () => {
     expect(imageDriftDriver.kind).toBe("image_drift");
   });
 
-  it("inputSchema requires key + serviceName + imageRef", () => {
+  it("inputSchema requires key + name + imageRef", () => {
     expect(
       imageDriftDriver.inputSchema.safeParse({
         key: "image_drift:showcase-a",
-        serviceName: "showcase-a",
+        name: "showcase-a",
         imageRef: "ghcr.io/copilotkit/showcase-a:latest",
       }).success,
     ).toBe(true);
   });
 
-  it("inputSchema rejects missing serviceName", () => {
+  it("inputSchema rejects missing name", () => {
     const parsed = imageDriftDriver.inputSchema.safeParse({
       key: "image_drift:showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
@@ -110,7 +110,7 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: `ghcr.io/copilotkit/showcase-a@${LATEST_DIGEST}`,
     });
     expect(r.state).toBe("green");
@@ -131,20 +131,18 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: `ghcr.io/copilotkit/showcase-a@${CURRENT_DIGEST}`,
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as {
-      service: string;
-      currentImage: string;
-      expectedImage: string;
-      isStale: boolean;
-    };
-    expect(sig.service).toBe("showcase-a");
-    expect(sig.isStale).toBe(true);
-    expect(sig.currentImage).toBe(CURRENT_DIGEST);
-    expect(sig.expectedImage).toBe(LATEST_DIGEST);
+    // Success variant — narrowed by checking the success-only field.
+    if ("errorDesc" in r.signal) {
+      throw new Error("expected success-variant signal");
+    }
+    expect(r.signal.service).toBe("showcase-a");
+    expect(r.signal.isStale).toBe(true);
+    expect(r.signal.currentImage).toBe(CURRENT_DIGEST);
+    expect(r.signal.expectedImage).toBe(LATEST_DIGEST);
   });
 
   it("returns red with errorDesc on GHCR 404 (tag doesn't exist)", async () => {
@@ -155,13 +153,15 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl, captured);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as { rebuildError?: string };
-    expect(sig.rebuildError).toBeTypeOf("string");
-    expect(sig.rebuildError).toMatch(/404|not found/i);
+    if (!("errorDesc" in r.signal)) {
+      throw new Error("expected error-variant signal");
+    }
+    expect(r.signal.errorDesc).toBeTypeOf("string");
+    expect(r.signal.errorDesc).toMatch(/404|not found/i);
     expect(warnCalls.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -172,12 +172,14 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as { rebuildError?: string };
-    expect(sig.rebuildError).toMatch(/401|auth/i);
+    if (!("errorDesc" in r.signal)) {
+      throw new Error("expected error-variant signal");
+    }
+    expect(r.signal.errorDesc).toMatch(/401|auth/i);
   });
 
   it("returns error state when fetch throws (can't reach GHCR)", async () => {
@@ -186,15 +188,17 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     // Transport fail is treated as error (distinct from red/stale) so
     // the alert engine can suppress noisy DNS blips separately from real
     // drift.
     expect(r.state).toBe("error");
-    const sig = r.signal as { rebuildError?: string };
-    expect(sig.rebuildError).toMatch(/ENOTFOUND|fetch/i);
+    if (!("errorDesc" in r.signal)) {
+      throw new Error("expected error-variant signal");
+    }
+    expect(r.signal.errorDesc).toMatch(/ENOTFOUND|fetch/i);
   });
 
   it("uses the tag from the imageRef when looking up the expected digest", async () => {
@@ -208,29 +212,31 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:stable",
     });
     // Resolved URL must hit the `stable` manifest path.
     expect(urls[0]).toContain("/showcase-a/manifests/stable");
   });
 
-  it("returns red with rebuildError on GHCR 500 (generic non-ok)", async () => {
+  it("returns red with errorDesc on GHCR 500 (generic non-ok)", async () => {
     const { fetchImpl } = scriptedFetch([
       { status: 500, body: { errors: [{ message: "server fault" }] } },
     ]);
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as { rebuildError?: string };
-    expect(sig.rebuildError).toMatch(/500/);
+    if (!("errorDesc" in r.signal)) {
+      throw new Error("expected error-variant signal");
+    }
+    expect(r.signal.errorDesc).toMatch(/500/);
   });
 
-  it("returns red with rebuildError when GHCR response omits docker-content-digest header", async () => {
+  it("returns red with errorDesc when GHCR response omits docker-content-digest header", async () => {
     // Defensive path: some proxy layers strip headers. Without this guard
     // we'd happily compare `""` against `imageRef`'s digest and flip every
     // service red silently. Covering this prevents a regression back to
@@ -245,12 +251,14 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as { rebuildError?: string };
-    expect(sig.rebuildError).toMatch(/docker-content-digest/);
+    if (!("errorDesc" in r.signal)) {
+      throw new Error("expected error-variant signal");
+    }
+    expect(r.signal.errorDesc).toMatch(/docker-content-digest/);
   });
 
   it("falls back to globalThis.fetch when ctx.fetchImpl is undefined", async () => {
@@ -272,7 +280,7 @@ describe("imageDriftDriver", () => {
       };
       const r = await imageDriftDriver.run(ctx, {
         key: "image_drift:showcase-a",
-        serviceName: "showcase-a",
+        name: "showcase-a",
         imageRef: `ghcr.io/copilotkit/showcase-a@${LATEST_DIGEST}`,
       });
       expect(r.state).toBe("green");
@@ -292,7 +300,7 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: `ghcr.io/copilotkit/showcase-a@${LATEST_DIGEST}`,
     });
     expect(urls[0]).toContain("/showcase-a/manifests/latest");
@@ -311,16 +319,17 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl, undefined, { GHCR_TOKEN: "ghp_test" });
     await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: `ghcr.io/copilotkit/showcase-a@${LATEST_DIGEST}`,
     });
     expect(seenAuth).toBe("Bearer ghp_test");
   });
 
-  it("flips red with empty expectedImage when currentImage is missing (imageRef has no digest)", async () => {
+  it("flips red with empty currentImage when imageRef has no digest (success variant)", async () => {
     // Edge case: Railway serviceInstance missing a digest in source.image
-    // (older Railway payloads). currentImage resolves to "" and we must
-    // flip red so the operator sees "no digest pinned on the deploy".
+    // (older Railway payloads). GHCR lookup succeeds, so this stays on the
+    // success variant with currentImage="" and isStale=false; state red
+    // because the local ref lacks a digest to pin against.
     const { fetchImpl } = scriptedFetch([
       {
         status: 200,
@@ -331,13 +340,15 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     const r = await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
     });
     expect(r.state).toBe("red");
-    const sig = r.signal as { currentImage: string; isStale: boolean };
-    expect(sig.currentImage).toBe("");
-    expect(sig.isStale).toBe(false);
+    if ("errorDesc" in r.signal) {
+      throw new Error("expected success-variant signal");
+    }
+    expect(r.signal.currentImage).toBe("");
+    expect(r.signal.isStale).toBe(false);
   });
 
   it("supports explicit expectedTag override", async () => {
@@ -351,7 +362,7 @@ describe("imageDriftDriver", () => {
     const ctx = makeCtx(fetchImpl);
     await imageDriftDriver.run(ctx, {
       key: "image_drift:showcase-a",
-      serviceName: "showcase-a",
+      name: "showcase-a",
       imageRef: "ghcr.io/copilotkit/showcase-a:latest",
       expectedTag: "stable",
     });
