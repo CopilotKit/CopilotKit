@@ -269,7 +269,7 @@ export async function streamLangChainResponse({
             });
           } else if (content) {
             mode = "message";
-            currentMessageId = value.lc_kwargs?.id || randomId();
+            currentMessageId = randomId();
             eventStream$.sendTextMessageStart({ messageId: currentMessageId });
           }
         }

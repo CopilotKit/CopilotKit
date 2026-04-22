@@ -25,7 +25,7 @@ export async function getLangGraphAgents(url: string, langSmithApiKey: string) {
           "X-Api-Key": langSmithApiKey,
         },
         body: JSON.stringify({
-          limit: 10,
+          limit: 100,
           offset: 0,
         }),
       },

@@ -1,0 +1,64 @@
+---
+title: Frontend Tools
+icon: "lucide/Wrench"
+description: Define client-side functions your Built-in Agent can invoke — direct access to component state, browser APIs, and UI libraries.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: frontend-tools
+---
+
+## What is this?
+
+Frontend tools let your agent define and invoke client-side functions — logic that runs entirely in the user's browser. Because the handler executes in the frontend, it has direct access to component state, browser APIs, and any third-party UI library the page already uses. That's how an agent can "reach into" the app: update React state, trigger animations, read `localStorage`, pop a toast, or steer the user's view.
+
+This page covers the "agent drives the UI" shape of frontend tools. (The same primitive also powers Generative UI and Human-in-the-loop — see those pages for interaction patterns.)
+
+<InlineDemo integration="langgraph-python" demo="frontend-tools" />
+
+## When should I use this?
+
+Use frontend tools when your agent needs to:
+
+- Read or modify React component state
+- Access browser APIs like `localStorage`, `sessionStorage`, or cookies
+- Trigger UI updates, animations, or transitions
+- Show alerts, toasts, or notifications
+- Interact with third-party frontend libraries
+- Perform anything that requires the user's immediate browser context
+
+## How it works in code
+
+Register a frontend tool with `useFrontendTool`. Give it a name, a Zod schema for parameters, and a handler — the agent can then call it like any other tool and your frontend runs it in the browser.
+
+<Snippet region="frontend-tool-registration" title="frontend/src/app/page.tsx — useFrontendTool" />
+
+The handler receives the parsed, type-safe parameters and can do anything the browser can: update state, call an API, touch the DOM. Its return value is sent back to the agent as the tool result so the model can reason about what happened.
+
+<Snippet region="frontend-tool-handler" title="frontend/src/app/page.tsx — handler body" />
+
+## Working with the Built-in Agent
+
+With the Built-in Agent, frontend tools "just work" — no backend wiring required. The runtime serializes each `useFrontendTool` registration into the agent's tool list at request time, so the model sees them alongside any server-side tools you've registered.
+
+```tsx title="page.tsx"
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+useFrontendTool({
+  name: "setTheme",
+  description: "Switch the app's color theme",
+  parameters: z.object({
+    theme: z.enum(["light", "dark"]),
+  }),
+  handler: async ({ theme }) => {
+    document.documentElement.dataset.theme = theme;
+    return `Theme set to ${theme}!`;
+  },
+});
+```
+
+## Related patterns
+
+- **Display components** → see [Display-only Generative UI](./generative-ui/your-components/display-only)
+- **Interactive components** → see [Interactive Generative UI](./generative-ui/your-components/interactive)
+- **User approval / HITL** → see the interactive pattern's `renderAndWaitForResponse` flow

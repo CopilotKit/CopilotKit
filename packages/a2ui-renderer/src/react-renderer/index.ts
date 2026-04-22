@@ -34,6 +34,7 @@ export {
   buildCatalogContextValue,
   extractCatalogComponentSchemas,
 } from "./catalog-utils";
+export type { InlineCatalogSchema } from "./catalog-utils";
 
 // Catalog creation — new API (definitions + renderers)
 export { createCatalog, extractSchema } from "./create-catalog";

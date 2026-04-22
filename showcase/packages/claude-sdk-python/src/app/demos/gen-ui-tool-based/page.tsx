@@ -8,13 +8,41 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
-import { DemoErrorBoundary } from "../error-boundary";
 
 interface Haiku {
   japanese: string[];
   english: string[];
   image_name: string | null;
   gradient: string;
+}
+
+export default function GenUiToolBasedDemo() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <SidebarWithSuggestions />
+      <HaikuDisplay />
+    </CopilotKit>
+  );
+}
+
+function SidebarWithSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Nature Haiku", message: "Write me a haiku about nature." },
+      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
+      { title: "Spring Haiku", message: "Generate a haiku about spring." },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotSidebar
+      defaultOpen={true}
+      labels={{
+        modalHeaderTitle: "Haiku Generator",
+      }}
+    />
+  );
 }
 
 const VALID_IMAGE_NAMES = [
@@ -29,55 +57,6 @@ const VALID_IMAGE_NAMES = [
   "Cherry_Blossoms_Sakura_Night_View_City_Lights_Japan.jpg",
   "Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg",
 ];
-
-export default function GenUiToolBasedDemo() {
-  return (
-    <DemoErrorBoundary demoName="Tool-Based Generative UI">
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          overflow: "hidden",
-          position: "relative",
-        }}
-      >
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
-          <SidebarWithSuggestions />
-          <HaikuDisplay />
-        </CopilotKit>
-      </div>
-    </DemoErrorBoundary>
-  );
-}
-
-function SidebarWithSuggestions() {
-  useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Nature Haiku",
-        message: "Write me a haiku about nature.",
-      },
-      {
-        title: "Ocean Haiku",
-        message: "Create a haiku about the ocean.",
-      },
-      {
-        title: "Spring Haiku",
-        message: "Generate a haiku about spring.",
-      },
-    ],
-    available: "always",
-  });
-
-  return (
-    <CopilotSidebar
-      defaultOpen={true}
-      labels={{
-        modalHeaderTitle: "Haiku Generator",
-      }}
-    />
-  );
-}
 
 function HaikuDisplay() {
   const [haikus, setHaikus] = useState<Haiku[]>([
@@ -142,13 +121,7 @@ function HaikuDisplay() {
 
   return (
     <div className="relative flex items-center justify-center h-full w-full">
-      <div
-        style={{
-          padding: "48px 80px",
-          width: "100%",
-          maxWidth: "56rem",
-        }}
-      >
+      <div className="px-20 py-12 w-full max-w-4xl">
         <div className="space-y-6">
           {haikus.map((haiku, index) => (
             <HaikuCard key={index} haiku={haiku} />
@@ -160,23 +133,11 @@ function HaikuDisplay() {
 }
 
 function HaikuCard({ haiku }: { haiku: Partial<Haiku> }) {
-  const [imageError, setImageError] = useState(false);
-
   return (
     <div
       data-testid="haiku-card"
-      style={{
-        position: "relative",
-        borderRadius: "16px",
-        margin: "24px 0",
-        padding: "32px",
-        maxWidth: "42rem",
-        border: "1px solid #e2e8f0",
-        overflow: "hidden",
-        background:
-          haiku.gradient ||
-          "linear-gradient(to bottom right, #f8fafc, #eff6ff)",
-      }}
+      style={{ background: haiku.gradient }}
+      className="relative bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl my-6 p-8 max-w-2xl border border-slate-200 overflow-hidden"
     >
       <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-3xl -z-0" />
       <div className="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-indigo-400/10 to-pink-400/10 rounded-full blur-3xl -z-0" />
@@ -204,7 +165,7 @@ function HaikuCard({ haiku }: { haiku: Partial<Haiku> }) {
         ))}
       </div>
 
-      {haiku.image_name && !imageError && (
+      {haiku.image_name && (
         <div className="relative z-10 mt-8 pt-8 border-t border-slate-200">
           <div className="relative group overflow-hidden rounded-2xl shadow-xl">
             <img
@@ -212,7 +173,6 @@ function HaikuCard({ haiku }: { haiku: Partial<Haiku> }) {
               src={`/images/${haiku.image_name}`}
               alt={haiku.image_name}
               className="object-cover w-full h-64 md:h-80 transform transition-transform duration-500 group-hover:scale-105"
-              onError={() => setImageError(true)}
             />
           </div>
         </div>

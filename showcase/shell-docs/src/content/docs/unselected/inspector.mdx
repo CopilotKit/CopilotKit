@@ -1,0 +1,79 @@
+---
+title: Inspector
+icon: "lucide/SearchCheck"
+description: Overlay for debugging AG-UI events, agent state, frontend tools, context, and more — live, on top of your app.
+---
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
+  style={{ width: "100%", borderRadius: "0.5rem", marginBottom: "1rem" }}
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## What it shows
+
+The **CopilotKit Inspector** is a built-in debugging overlay that sits on top of your app. It gives you live visibility into everything happening between your frontend and your Built-in Agent:
+
+| Panel | What you see |
+| --- | --- |
+| **AG-UI Events** | The raw event stream between the runtime and your agent, in real time — including `RUN_STARTED`, `TEXT_MESSAGE_CONTENT`, `TOOL_CALL_*`, `STATE_SNAPSHOT`, and any custom events. |
+| **Available Agents** | Which agents CopilotKit has discovered via `/info` and which one is currently active. |
+| **Agent State** | The current `agent.state` tree, rerendered as it updates. Great for debugging [shared state](./shared-state) flows. |
+| **Frontend Tools** | Every tool registered via `useFrontendTool`, `useComponent`, `useHumanInTheLoop`, or `useRenderTool`, along with its parameter schema. |
+| **Context** | The [`useAgentContext`](./agent-app-context) entries the agent currently receives, plus any document context you've attached. |
+
+## When should I use it?
+
+Reach for the inspector when:
+
+- Your agent seems to ignore a tool you registered — check the **Frontend Tools** panel to confirm the registration landed.
+- A chat response looks "stuck" — the **AG-UI Events** panel shows exactly which event type arrived last.
+- You think state isn't syncing — the **Agent State** panel updates on every `onStateSnapshotEvent` / `onStateDeltaEvent`.
+- You want to confirm the Built-in Agent is reading the correct `useAgentContext` value.
+
+## Getting a license key
+
+The inspector is a **premium** feature. Grab a **free** `publicLicenseKey` at [https://cloud.copilotkit.ai](https://cloud.copilotkit.ai) and pass it to your provider:
+
+```tsx title="app/layout.tsx"
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+export default function RootLayout({ children }) {
+  return (
+    <CopilotKitProvider
+      runtimeUrl="/api/copilotkit"
+      publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+    >
+      {children}
+    </CopilotKitProvider>
+  );
+}
+```
+
+The inspector is enabled by default whenever a valid license key is present.
+
+## Disabling it
+
+Sometimes you want the license key (for other premium features) but not the inspector overlay:
+
+```tsx
+<CopilotKitProvider
+  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
+  enableInspector={false}
+>
+  {children}
+</CopilotKitProvider>
+```
+
+<Callout type="info">
+The inspector is **automatically disabled in production builds**. You don't need to guard it behind `process.env.NODE_ENV` or strip it manually — production bundles ship without the overlay code.
+</Callout>
+
+## Related
+
+- [Debug mode](./troubleshooting/error-debugging) — console logging for the same event pipeline without a UI overlay.
+- [Observability](./premium/observability) — production-grade event + error hooks for Sentry, Datadog, and analytics.

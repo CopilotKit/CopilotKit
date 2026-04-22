@@ -9,7 +9,7 @@ import os
 from ag_ui.core import RunAgentInput, RunErrorEvent
 from bedrock_agentcore.identity.auth import requires_access_token
 from bedrock_agentcore.runtime import BedrockAgentCoreApp, RequestContext
-from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
+from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent, StateStreamingMiddleware, StateItem
 from langchain.agents import create_agent
 from langchain_aws import ChatBedrock
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -121,7 +121,12 @@ async def invocations(payload: dict, context: RequestContext):
             model=_build_model(streaming=True),
             tools=[*gateway_tools, query_data, *todo_tools],
             checkpointer=_build_checkpointer(),
-            middleware=[CopilotKitMiddleware()],
+            middleware=[
+                CopilotKitMiddleware(),
+                StateStreamingMiddleware(
+                    StateItem(state_key="todos", tool="manage_todos", tool_argument="todos")
+                ),
+            ],
             system_prompt=SYSTEM_PROMPT,
             state_schema=AgentState,
         )

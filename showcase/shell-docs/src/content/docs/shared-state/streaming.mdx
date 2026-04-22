@@ -1,0 +1,79 @@
+---
+title: State Streaming
+description: Stream partial agent state updates to the UI while a tool call is still running.
+icon: "lucide/Podcast"
+hideTOC: true
+snippet_cell: shared-state-streaming
+---
+
+## What is this?
+
+By default, agent state only updates *between* LangGraph node
+transitions — so a long-running tool call (writing a full document,
+drafting an email) appears to the UI as one big burst at the end. For
+agent-native apps, that feels broken: users expect to watch the output
+materialise.
+
+**State streaming** forwards the value of a specific tool argument
+straight into an agent state key *as the argument is being generated*.
+The UI, subscribed via `useAgent`, re-renders every token.
+
+<InlineDemo demo="shared-state-streaming" />
+
+## When should I use this?
+
+Use state streaming whenever a tool's output is long-form text or a
+growing structured value and you want the user to see it assemble in
+real time. Common shapes:
+
+- A collaborative writing agent that emits a document
+- A research agent that accumulates a list of findings
+- A planning agent that builds up a step-by-step plan
+
+Without streaming, the user stares at a spinner. With streaming, they
+see the answer grow token-by-token.
+
+## The backend: one middleware, one StateItem
+
+The canonical pattern for prebuilt agents is `StateStreamingMiddleware`.
+It takes one or more `StateItem(...)` entries, each mapping a tool
+argument to a state key. When the LLM streams that argument, CopilotKit
+writes every partial value into shared state before the tool even
+finishes executing.
+
+<Snippet region="state-streaming-middleware" title="backend/agent.py — StateStreamingMiddleware" />
+
+A few things to note:
+
+- The `state_key` must exist on your `AgentState` schema (`document:
+  str` in this demo).
+- The `tool` and `tool_argument` name the exact LLM-facing tool and
+  argument to forward.
+- When the tool call completes, its final return value is written to
+  the same key — so the streamed partial eventually becomes the
+  authoritative final value.
+
+## The frontend: useAgent + OnStateChanged
+
+The UI side is identical to any other shared-state subscription:
+`useAgent` with `OnStateChanged` gives you a reactive `agent.state`.
+Add `OnRunStatusChanged` if you want a "LIVE" / "done" indicator.
+
+<Snippet region="frontend-use-coagent-state" title="frontend/src/app/page.tsx — useAgent subscription" />
+
+From there, `agent.state.document` is just a string that grows on every
+token, and `agent.isRunning` tells you whether to show a streaming
+indicator.
+
+## Related
+
+- **[Shared State (overview)](/shared-state)** — the bidirectional
+  read + write pattern this extends.
+- **[Agent read-only context](/shared-state/agent-readonly)** —
+  for the inverse, UI → agent one-way channel.
+
+<FeatureIntegrations feature="shared-state-streaming" />
+
+## Get started by choosing your AI backend
+
+<IntegrationGrid path="shared-state/predictive-state-updates" />

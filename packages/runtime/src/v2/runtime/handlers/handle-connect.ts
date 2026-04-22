@@ -29,7 +29,7 @@ export async function handleConnectAgent({
   });
 
   try {
-    const agent = await cloneAgentForRequest(runtime, agentId);
+    const agent = await cloneAgentForRequest(runtime, agentId, request);
     if (agent instanceof Response) {
       return agent;
     }
@@ -44,6 +44,7 @@ export async function handleConnectAgent({
         runtime,
         request,
         threadId: connectRequest.input.threadId,
+        runId: connectRequest.input.runId,
         lastSeenEventId: connectRequest.lastSeenEventId,
       });
     }
@@ -51,6 +52,7 @@ export async function handleConnectAgent({
     return handleSseConnect({
       runtime,
       request,
+      agentId,
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {
