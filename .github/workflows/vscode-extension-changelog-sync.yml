@@ -1,10 +1,11 @@
-name: VS Code Extension — Changelog Sync
+name: VS Code Extension — Metadata Sync
 
 on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - 'packages/vscode-extension/CHANGELOG.md'
+      - 'packages/vscode-extension/README.md'
 
 concurrency:
   group: changelog-sync-${{ github.event.pull_request.number }}
@@ -68,28 +69,132 @@ jobs:
             exit 1
           fi
 
-      - name: Bump package.json and commit
-        if: steps.compare.outputs.status == 'bump-needed'
+      - name: Extract README description
+        id: readme
+        run: |
+          set -euo pipefail
+          README=packages/vscode-extension/README.md
+          if [ ! -f "$README" ]; then
+            echo "README not found; skipping description extraction"
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SCRIPT=$(mktemp)
+          cat > "$SCRIPT" <<'PY'
+          import re, sys
+          path = sys.argv[1]
+          with open(path) as f:
+              md = f.read()
+          lines = md.splitlines()
+          i = 0
+          while i < len(lines) and not re.match(r'^#\s+\S', lines[i]):
+              i += 1
+          if i >= len(lines):
+              sys.stderr.write("ERROR: no H1 title found in README\n")
+              sys.exit(2)
+          i += 1
+          while i < len(lines) and lines[i].strip() == "":
+              i += 1
+          if i >= len(lines) or lines[i].lstrip().startswith("#"):
+              sys.stderr.write("ERROR: no description paragraph after H1 title\n")
+              sys.exit(2)
+          para = []
+          while i < len(lines) and lines[i].strip() != "" and not lines[i].lstrip().startswith("#"):
+              para.append(lines[i].strip())
+              i += 1
+          p = " ".join(para)
+          p = re.sub(r'!\[([^\]]*)\]\([^)]*\)', r'\1', p)
+          p = re.sub(r'\[([^\]]+)\]\([^)]*\)', r'\1', p)
+          p = re.sub(r'`([^`]+)`', r'\1', p)
+          p = re.sub(r'\*\*([^*]+)\*\*', r'\1', p)
+          p = re.sub(r'\*([^*]+)\*', r'\1', p)
+          p = re.sub(r'__([^_]+)__', r'\1', p)
+          p = re.sub(r'_([^_]+)_', r'\1', p)
+          p = re.sub(r'\s+', ' ', p).strip()
+          if not p:
+              sys.stderr.write("ERROR: empty description paragraph after stripping markdown\n")
+              sys.exit(2)
+          if len(p) > 200:
+              sys.stderr.write(f"ERROR: description too long ({len(p)} chars > 200). Shorten the first paragraph of README.md.\n")
+              sys.exit(2)
+          sys.stdout.write(p)
+          PY
+          DESC=$(python3 "$SCRIPT" "$README")
+          echo "description<<__README_EOF__" >> "$GITHUB_OUTPUT"
+          echo "$DESC" >> "$GITHUB_OUTPUT"
+          echo "__README_EOF__" >> "$GITHUB_OUTPUT"
+          echo "status=extracted" >> "$GITHUB_OUTPUT"
+          echo "Extracted description (${#DESC} chars): $DESC"
+
+      - name: Compare with package.json description
+        id: compare_desc
+        if: steps.readme.outputs.status == 'extracted'
         env:
-          TARGET: ${{ steps.changelog.outputs.version }}
+          TARGET_DESC: ${{ steps.readme.outputs.description }}
         run: |
           set -euo pipefail
           PJ=packages/vscode-extension/package.json
-          # Use jq to preserve formatting + trailing newline
-          jq --arg v "$TARGET" '.version = $v' "$PJ" > "$PJ.tmp"
-          mv "$PJ.tmp" "$PJ"
+          CURRENT=$(jq -r '.description' "$PJ")
+          if [ "$CURRENT" = "$TARGET_DESC" ]; then
+            echo "status=description-ok" >> "$GITHUB_OUTPUT"
+            echo "Description already in sync"
+          else
+            echo "status=description-sync-needed" >> "$GITHUB_OUTPUT"
+            echo "Description drift detected:"
+            echo "  package.json: $CURRENT"
+            echo "  README:       $TARGET_DESC"
+          fi
+
+      - name: Bump package.json and commit
+        if: steps.compare.outputs.status == 'bump-needed' || steps.compare_desc.outputs.status == 'description-sync-needed'
+        env:
+          TARGET: ${{ steps.changelog.outputs.version }}
+          TARGET_DESC: ${{ steps.readme.outputs.description }}
+          VERSION_STATUS: ${{ steps.compare.outputs.status }}
+          DESC_STATUS: ${{ steps.compare_desc.outputs.status }}
+        run: |
+          set -euo pipefail
+          PJ=packages/vscode-extension/package.json
+
+          # Apply version bump if needed
+          if [ "$VERSION_STATUS" = "bump-needed" ]; then
+            jq --arg v "$TARGET" '.version = $v' "$PJ" > "$PJ.tmp"
+            mv "$PJ.tmp" "$PJ"
+          fi
+
+          # Apply description sync if needed
+          if [ "$DESC_STATUS" = "description-sync-needed" ]; then
+            jq --arg d "$TARGET_DESC" '.description = $d' "$PJ" > "$PJ.tmp"
+            mv "$PJ.tmp" "$PJ"
+          fi
+
+          # Priority rule: version bump wins the commit message
+          if [ "$VERSION_STATUS" = "bump-needed" ]; then
+            MSG="chore: release v$TARGET"
+          elif [ "$DESC_STATUS" = "description-sync-needed" ]; then
+            MSG="chore(vscode-extension): sync description from README"
+          else
+            echo "Nothing to commit"
+            exit 0
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$PJ"
-          git commit -m "chore: release v$TARGET"
+          git commit -m "$MSG"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
 
       - name: Summary
         run: |
-          echo "### Changelog sync result" >> $GITHUB_STEP_SUMMARY
+          echo "### Metadata sync result" >> $GITHUB_STEP_SUMMARY
           echo "- CHANGELOG top version: \`${{ steps.changelog.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Status: \`${{ steps.compare.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Version status: \`${{ steps.compare.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- README status: \`${{ steps.readme.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.readme.outputs.status }}" = "extracted" ]; then
+            echo "- Description status: \`${{ steps.compare_desc.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           if [ "${{ steps.compare.outputs.status }}" = "bump-needed" ]; then
             echo "- Auto-committed \`chore: release v${{ steps.changelog.outputs.version }}\` to this PR branch." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.compare_desc.outputs.status }}" = "description-sync-needed" ]; then
+            echo "- Auto-committed \`chore(vscode-extension): sync description from README\` to this PR branch." >> $GITHUB_STEP_SUMMARY
           fi
