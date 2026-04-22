@@ -178,6 +178,74 @@ describe("orchestrator /health wiring (F1.1)", () => {
     }
   });
 
+  // R21 bucket-a: SIGHUP reload failure must emit rules.reload.failed
+  // on the bus. File-watch-driven reload failures already emit (see
+  // rule-loader.ts:540); SIGHUP was asymmetric — it only logged, so
+  // operators who used SIGHUP to reload saw no dashboard/alert signal
+  // on failure. Fix: sigHup.catch emits the same event with
+  // file: "<sighup>" synthetic marker.
+  it("R21-a: SIGHUP reload failure emits rules.reload.failed on the bus", async () => {
+    // Seed a minimal valid rule (valid cron) so initial boot succeeds.
+    const validYaml = [
+      "id: sighup-reload-probe",
+      'name: "SIGHUP reload probe"',
+      'owner: "@test"',
+      "signal:",
+      "  dimension: aimock_wiring",
+      "triggers:",
+      "  - cron_only:",
+      '      schedule: "0 9 * * 1"',
+      "conditions:",
+      "  rate_limit: null",
+      "targets:",
+      "  - kind: slack",
+      "    webhook: oss_alerts",
+      "template:",
+      '  text: "noop"',
+      "",
+    ].join("\n");
+    const rulePath = path.join(tempDir, "sighup-probe.yml");
+    await fs.writeFile(rulePath, validYaml, "utf8");
+
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+
+    // Capture all rules.reload.failed emissions so we can assert on the
+    // synthetic SIGHUP marker specifically (chokidar may independently
+    // pick up the file rewrite at its 100ms debounce and emit under the
+    // real file path).
+    const emissions: { file: string; error: string }[] = [];
+    booted.bus.on("rules.reload.failed", (payload) => {
+      for (const e of payload.errors) emissions.push(e);
+    });
+
+    // Delete the configDir entirely. loader.load() → loadWithErrors() →
+    // fs.readdir(dir) will throw ENOENT, reloadRules rejects, and the
+    // sigHup .catch path emits rules.reload.failed. (Rewriting YAML
+    // with invalid content wouldn't work: diffCronSchedules already
+    // per-rule-catches cron-register errors (orchestrator.ts:487-496)
+    // and the parse-error path inside rule-loader returns errors
+    // rather than throwing — so neither bubbles out of reloadRules.)
+    await fs.rm(tempDir, { recursive: true, force: true });
+
+    // Fire SIGHUP. sigHup handler is synchronous up to the reloadRules
+    // promise; the .catch runs on the microtask queue. Await one tick
+    // past that.
+    process.emit("SIGHUP");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    const sigHupEmission = emissions.find((e) => e.file === "<sighup>");
+    expect(sigHupEmission).toBeDefined();
+    // ENOENT from fs.readdir carries the tmpdir path; just assert the
+    // error string is non-empty so the test doesn't over-couple to
+    // libuv's exact wording.
+    expect(sigHupEmission!.error.length).toBeGreaterThan(0);
+  });
+
   it("/health returns 200 with loop:\"ok\" and schedulerJobs>=1 when a rule is loaded (happy path)", async () => {
     // E2 happy-path coverage. Pre-fix we only asserted the pathological
     // no-jobs and stopped states; an accidental regression where the

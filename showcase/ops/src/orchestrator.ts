@@ -32,6 +32,13 @@ export interface BootOptions {
 export async function boot(opts: BootOptions = {}): Promise<{
   stop: () => Promise<void>;
   port: number;
+  /**
+   * Exposed for tests (R21 bucket-a): subscribers can observe
+   * `rules.reload.failed` etc. without reaching into module-private state.
+   * Production callers should not rely on this — it's an escape hatch and
+   * may tighten in the future.
+   */
+  bus: ReturnType<typeof createEventBus>;
 }> {
   // HF13-A2: fail loud on missing POCKETBASE_URL in production. Pre-fix the
   // `?? "http://localhost:8090"` fallback silently bound a prod orchestrator
@@ -335,14 +342,24 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // LOG_LEVEL at module-load time; without this, operators who SIGHUP'd
     // to bump to debug saw the rule-reload log at the OLD level.
     reloadLogLevel();
-    reloadRules().catch((err) =>
-      logger.error("orchestrator.reload-failed", { err: String(err) }),
-    );
+    reloadRules().catch((err) => {
+      logger.error("orchestrator.reload-failed", { err: String(err) });
+      // R21 bucket-a: mirror the watch-path failure emission in
+      // rule-loader.ts (~line 540). File-watch reload failures hit the
+      // bus so the alert engine / dashboard can surface them; SIGHUP
+      // previously only logged, leaving operators who use SIGHUP-based
+      // reload blind to load failures. Use `<sighup>` as the synthetic
+      // file so subscribers can distinguish the failure path.
+      bus.emit("rules.reload.failed", {
+        errors: [{ file: "<sighup>", error: String(err) }],
+      });
+    });
   };
   process.on("SIGHUP", sigHup);
 
   return {
     port,
+    bus,
     async stop() {
       loopAlive = false;
       schedulerRunning = false;
