@@ -31,6 +31,11 @@ permissions:
 jobs:
   capture:
     name: Capture Preview MP4s
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
     runs-on: ubuntu-latest
     # Captures demo previews as MP4 and uploads them to a GitHub release.
     # Loop prevention: capture commits registry.json with the message below,
@@ -138,3 +143,103 @@ jobs:
             git commit -m "Update preview URLs in registry"
             git push
           fi
+
+      # Slack failure alert. This workflow only runs on main-branch pushes,
+      # workflow_run completions, and manual dispatch — all of which
+      # constitute "production" events where silent failures (e.g. the
+      # GH013 PROTECT_OUR_MAIN regression that motivated PR #4159) must
+      # surface in #oss-alerts. Extracts failed step name + first
+      # meaningful error line so the payload is triage-ready rather than
+      # forcing a click-through, per the oss-alerts detail policy.
+      #
+      # Must NEVER fail the job (runs on failure() already; a crash here
+      # would compound the original failure and could block the notify
+      # step). All extraction uses best-effort fallbacks so a malformed
+      # jobs response or truncated log still yields sane defaults.
+      - name: Extract failure details for Slack
+        id: extract
+        if: failure() && env.SLACK_WEBHOOK != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set +e  # best-effort: never block the notify step below
+
+          # --- Find the currently-running job and its first failed step ---
+          # The jobs API returns every job in the run. Match by job name
+          # first (mirrors `jobs.capture.name`); fall back to first job
+          # with a failed step if name match misses (e.g. future rename).
+          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
+          job_id=$(printf '%s' "$jobs_json" | jq -r '
+            .jobs // []
+            | map(select(.name == "Capture Preview MP4s"))
+            | (.[0].id // empty)
+          ' 2>/dev/null)
+          if [ -z "$job_id" ]; then
+            job_id=$(printf '%s' "$jobs_json" | jq -r '
+              .jobs // []
+              | map(select(.steps // [] | map(.conclusion) | index("failure")))
+              | (.[0].id // empty)
+            ' 2>/dev/null)
+          fi
+          failed_step=$(printf '%s' "$jobs_json" | jq -r --arg id "$job_id" '
+            .jobs // []
+            | map(select((.id|tostring) == $id))
+            | (.[0].steps // [])
+            | map(select(.conclusion == "failure"))
+            | (.[0].name // "unknown step")
+          ' 2>/dev/null)
+          [ -z "$failed_step" ] && failed_step="unknown step"
+
+          # --- Pull log and extract first meaningful error line ------------
+          # `gh run view --log-failed` output is TSV: job\tstep\ttimestamp +
+          # content. Strip the three leading columns, strip ANSI escape
+          # codes + BOM, skip runner/group/env header noise, grab first
+          # line matching a recognised error marker. Truncate to ~300
+          # chars so the Slack payload stays under the 800-char budget.
+          error_excerpt="see workflow run for details"
+          if [ -n "$job_id" ]; then
+            log_excerpt=$(gh run view "$RUN_ID" --repo "$GH_REPO" --log-failed --job="$job_id" 2>/dev/null \
+              | awk -F'\t' 'NF>=3 { sub(/^[\xEF\xBB\xBF]?[0-9T:.\-Z ]+/, "", $3); print $3 }' \
+              | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' \
+              | grep -vE '^(##\[|shell: |env: |Run |[[:space:]]*$)' \
+              | grep -m1 -E '^\[(FAIL|ERROR)\]|^Error:|^error:|^::error' \
+              | head -c 300)
+            if [ -n "$log_excerpt" ]; then
+              error_excerpt="$log_excerpt"
+            fi
+          fi
+
+          # --- Emit to $GITHUB_ENV using heredoc delimiter -----------------
+          # Heredoc delimiter protects against values with `=` or newlines
+          # breaking the KEY=VALUE format.
+          {
+            echo "failed_step<<EOF_FAILED_STEP_b3f2"
+            printf '%s\n' "$failed_step"
+            echo "EOF_FAILED_STEP_b3f2"
+            echo "error_excerpt<<EOF_ERROR_EXCERPT_b3f2"
+            printf '%s\n' "$error_excerpt"
+            echo "EOF_ERROR_EXCERPT_b3f2"
+          } >> "$GITHUB_ENV"
+
+          exit 0  # belt-and-suspenders: never propagate a failure
+
+      - name: Notify Slack (failure)
+        if: failure() && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          # Defensive: wrap dynamic values via toJSON(format(...)) so that
+          # if github.repository or extracted failed_step / error_excerpt
+          # contain characters that would break the JSON payload (quotes,
+          # backslashes, newlines), the value is safely JSON-encoded.
+          # Matches the pattern used in showcase_validate.yml.
+          payload: |
+            { "text": ${{ toJSON(format(':x: *Showcase: Capture Previews*: failed — {0}: {1} | <https://github.com/{2}/actions/runs/{3}|View run>', env.failed_step, env.error_excerpt, github.repository, github.run_id)) }} }
+
+      - name: Log (no Slack — webhook unset)
+        if: failure() && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::showcase_capture-previews failed but SLACK_WEBHOOK_OSS_ALERTS is not set; no Slack notification sent."
