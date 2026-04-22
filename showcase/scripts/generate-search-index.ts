@@ -294,10 +294,14 @@ function main() {
   }
 
   if (scanDirsPresent.length === 0) {
-    console.error(
-      `[generate-search-index] all scan directories missing — refusing to emit a near-empty index. Missing: ${scanDirsMissing.join(", ")}`,
+    // Some build contexts (e.g. the `shell` Docker build) intentionally
+    // omit the shell-docs content tree — they only need the static-pages
+    // stub so the header search modal has something to render and links
+    // resolve across to docs.showcase.copilotkit.ai. Warn loudly so a
+    // misconfigured full build is still visible in logs, but don't fail.
+    console.warn(
+      `[generate-search-index] all scan directories missing — emitting static-pages stub only. Missing: ${scanDirsMissing.join(", ")}`,
     );
-    process.exit(1);
   }
 
   // Write (dual-emit to shell-docs + shell)

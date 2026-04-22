@@ -568,6 +568,158 @@ else
   exit 1
 fi`;
 
+/**
+ * Per-framework agent health URL (probed by the silent-hang watchdog).
+ *
+ * The watchdog runs AFTER the initial startup check, while the agent is
+ * serving traffic on its starter-local port (8123). Mapping: each framework's
+ * HTTP health endpoint path as verified against the source:
+ *   * FastAPI / uvicorn agents (ag2, agno, claude-sdk-python, crewai-crews,
+ *     google-adk, langroid, llamaindex, ms-agent-python, pydantic-ai, strands)
+ *     -> /health (served via middleware short-circuit in agent_server.py)
+ *   * langgraph-python, langgraph-fastapi, langgraph-typescript
+ *     -> /ok (exposed by langgraph_cli dev)
+ *   * claude-sdk-typescript -> /health (express app.get("/health"))
+ *   * ms-agent-dotnet -> /health (app.MapGet("/health", ...))
+ *   * spring-ai -> /health (custom @GetMapping in AgentController)
+ *   * mastra -> /api (mastra dev serves its REST surface at /api; no
+ *                      dedicated health endpoint, but /api returns 200 once
+ *                      the dev server is ready)
+ */
+function getAgentHealthPath(fw: FrameworkDef): string {
+  if (fw.slug.startsWith("langgraph-")) return "/ok";
+  if (fw.slug === "mastra") return "/api";
+  return "/health";
+}
+
+/**
+ * Emit the silent-hang watchdog block. Runs as a backgrounded subshell after
+ * the agent PID is captured and before Next.js starts. Polls the agent's
+ * health endpoint every 30s; after 3 consecutive failures (~90s of
+ * unreachable agent), kills the agent so `wait -n` returns and Railway/ECS
+ * restart the container.
+ *
+ * Generalized from showcase/packages/crewai-crews/entrypoint.sh (commits
+ * 9ce651330 + 9379b8855) which proved the shape in production.
+ *
+ * Parameters (substituted into the emitted shell):
+ *   - AGENT_HEALTH_URL: the `http://127.0.0.1:<agent-port><health-path>` URL
+ *     the watchdog probes. Computed per-framework from getAgentHealthPath().
+ *
+ * Consumes shell vars defined earlier in the entrypoint:
+ *   - $AGENT_PID: captured after backgrounded agent launch. All frameworks'
+ *     getEntrypointBlock() outputs set this.
+ */
+/**
+ * Per-framework startup grace (seconds) — how long the watchdog waits after
+ * agent spawn before its first strike counts. Lets slow-starting agents
+ * reach their health endpoint without the 90s (3-strike) watchdog killing
+ * the process in a restart loop.
+ *
+ * `langgraph-*` agents use `langgraph-cli dev`, which on first boot does a
+ * Studio browser handshake + `@langchain/langgraph-api` JIT spawn + graph
+ * compile; on cold Railway containers this routinely exceeds the 90s
+ * strike threshold, producing the 04-20 restart loop on deployment
+ * 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. 180s is the observed upper bound
+ * across cold-start samples plus a safety margin.
+ *
+ * `mastra` starters spawn `mastra dev`, which runs a tsx-based build +
+ * Mastra server boot on first request and was observed restart-looping
+ * on Railway starting 04-20 18:18 UTC — same kill-loop shape as langgraph.
+ *
+ * `claude-sdk-typescript` starters spawn `tsx agent/index.ts` which
+ * performs a full tsx type-strip + @anthropic-ai/claude-agent-sdk init;
+ * observed restart-looping on Railway starting 04-20 16:54 UTC on the
+ * package-level deploy (same generator-emitted watchdog shape).
+ *
+ * All other starters keep the 0s grace they had before PR #4116: crewai-
+ * crews and the other uvicorn-based agents are responsive within the
+ * 2–3s `sleep` that precedes `AGENT_HEALTH_CHECK`, so adding a grace
+ * here would only delay legitimate restart on true hangs.
+ */
+function getWatchdogGraceSeconds(fw: FrameworkDef): number {
+  if (fw.slug.startsWith("langgraph-")) return 180;
+  if (fw.slug === "mastra") return 180;
+  if (fw.slug === "claude-sdk-typescript") return 180;
+  return 0;
+}
+
+function getWatchdogBlock(fw: FrameworkDef): string {
+  const healthPath = getAgentHealthPath(fw);
+  const agentPort = 8123; // Starter agents all bind to :8123.
+  const healthUrl = `http://127.0.0.1:${agentPort}${healthPath}`;
+  const graceSeconds = getWatchdogGraceSeconds(fw);
+  // Grace loop: wait for first successful health probe up to `graceSeconds`
+  // before handing off to the steady-state strike counter. If the agent
+  // reports ready sooner, fall through immediately so the watchdog becomes
+  // effective as early as possible. If the agent hasn't reported ready by
+  // the deadline, still hand off — the watchdog will then strike and kill
+  // per normal, but only after giving slow cold-starts a fair shot.
+  //
+  // We deliberately do NOT `exit 1` on grace timeout (contrast with
+  // spring-ai's startup wait which exits): an agent that's still loading
+  // after 180s might just be a very cold container, and the steady-state
+  // watchdog handles the true-hang case in another 90s.
+  const graceBlock =
+    graceSeconds > 0
+      ? `  GRACE=${graceSeconds}
+  echo "[watchdog] Startup grace: waiting up to \${GRACE}s for first successful health probe before arming strike counter"
+  ELAPSED=0
+  while [ $ELAPSED -lt $GRACE ]; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent died during startup — wait -n in the main shell will handle it.
+      exit 0
+    fi
+    if curl -fsS --max-time 5 ${healthUrl} > /dev/null 2>&1; then
+      echo "[watchdog] Agent healthy after \${ELAPSED}s — arming strike counter"
+      break
+    fi
+    sleep 5
+    ELAPSED=$((ELAPSED + 5))
+  done
+  if [ $ELAPSED -ge $GRACE ]; then
+    echo "[watchdog] Grace window elapsed without successful probe — arming strike counter anyway"
+  fi
+`
+      : "";
+  return `# Watchdog: Railway deploys of showcase starters have been observed to hit a
+# silent agent hang — the agent process stays alive (so \`wait -n\` never
+# fires and the container never restarts) but stops responding on its health
+# endpoint. Poll every 30s; after 3 consecutive failures (~90s of
+# unreachable agent), kill the agent so \`wait -n\` returns and the platform
+# restarts the container. We kill the agent (not the whole script) so
+# \`set -e\` + \`wait -n; exit $?\` handles the restart through the normal
+# path rather than a forced \`exit\` that bypasses logging.
+#
+# Some frameworks (langgraph-*) have slow cold-start paths that can exceed
+# the 90s strike budget on a fresh Railway container. For those, an
+# initial startup-grace window waits for the first healthy probe (or a
+# per-framework ceiling) before the strike counter is armed. See
+# getWatchdogGraceSeconds() for the mapping.
+(
+${graceBlock}  FAILS=0
+  while sleep 30; do
+    if ! kill -0 $AGENT_PID 2>/dev/null; then
+      # Agent already dead — wait -n in the main shell will handle it.
+      break
+    fi
+    if curl -fsS --max-time 5 ${healthUrl} > /dev/null 2>&1; then
+      FAILS=0
+    else
+      FAILS=$((FAILS + 1))
+      echo "[watchdog] Agent health probe failed (count=$FAILS)"
+      if [ $FAILS -ge 3 ]; then
+        echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
+        kill -9 $AGENT_PID 2>/dev/null || true
+        break
+      fi
+    fi
+  done
+) &
+WATCHDOG_PID=$!
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing ${healthUrl}${graceSeconds > 0 ? `, startup grace ${graceSeconds}s` : ""})"`;
+}
+
 // Previously the entrypoint used:
 //
 //   cmd 2>&1 | sed 's/^/[agent] /' &
@@ -593,8 +745,11 @@ function getEntrypointBlock(fw: FrameworkDef): string {
   switch (fw.language) {
     case "python":
       if (fw.slug === "langgraph-python" || fw.slug === "langgraph-fastapi") {
+        // `python -u` forces unbuffered stdout/stderr at the interpreter
+        // level so langgraph_cli boot failures surface in the log stream
+        // immediately (paired with PYTHONUNBUFFERED=1 in the template).
         return `echo "[entrypoint] Starting LangGraph agent server on port 8123..."
-python -m langgraph_cli dev \\
+python -u -m langgraph_cli dev \\
   --config langgraph.json \\
   --host 0.0.0.0 \\
   --port 8123 \\
@@ -603,8 +758,14 @@ AGENT_PID=$!
 sleep 3
 ${AGENT_HEALTH_CHECK}`;
       }
+      // `python -u` pairs with PYTHONUNBUFFERED=1: the env var exports the
+      // hint, the `-u` flag forces unbuffered streams at the interpreter
+      // level (not overridable by user code), and `awk ... fflush()` in
+      // AGENT_LOG_PREFIX line-flushes the prefixer. Combined, a silent
+      // crash during module import reaches the container log immediately.
+      // See crewai-crews entrypoint.sh for the reference shape.
       return `echo "[entrypoint] Starting Python agent server on port 8123..."
-cd /app && python -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 ${AGENT_LOG_PREFIX} &
+cd /app && python -u -m uvicorn agent_server:app --host 0.0.0.0 --port 8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
@@ -633,10 +794,39 @@ AGENT_PID=$!
 sleep 2
 ${AGENT_HEALTH_CHECK}`;
     case "java":
+      // Spring Boot cold-start can legitimately exceed 30s under load (JVM
+      // warmup + context refresh), so a plain `sleep 5` + PID check would
+      // falsely pass the startup gate while /health is not yet serving.
+      // Probe /health for up to 60s before handing off to the watchdog
+      // which then takes over steady-state monitoring. If the java process
+      // dies during startup, the PID probe inside the loop fails-fast so
+      // a crash-looping boot exits quickly.
       return `echo "[entrypoint] Starting Spring AI agent on port 8123..."
 java -jar agent/app.jar --server.port=8123 ${AGENT_LOG_PREFIX} &
 AGENT_PID=$!
-sleep 5
+STARTUP_TIMEOUT=60
+echo "[entrypoint] Waiting for Spring Boot /health (timeout=\${STARTUP_TIMEOUT}s)..."
+SPRING_READY=0
+for i in $(seq 1 "$STARTUP_TIMEOUT"); do
+  if curl -fsS --max-time 5 http://127.0.0.1:8123/health > /dev/null 2>&1; then
+    echo "[entrypoint] Spring Boot ready after \${i}s"
+    SPRING_READY=1
+    break
+  fi
+  if ! kill -0 "$AGENT_PID" 2>/dev/null; then
+    echo "[entrypoint] ERROR: Spring Boot (pid=$AGENT_PID) died during startup"
+    exit 1
+  fi
+  sleep 1
+done
+if [ "$SPRING_READY" -ne 1 ]; then
+  if kill -0 "$AGENT_PID" 2>/dev/null; then
+    echo "[entrypoint] ERROR: Spring Boot still alive (pid=$AGENT_PID) but /health did not return 2xx within \${STARTUP_TIMEOUT}s — exiting"
+  else
+    echo "[entrypoint] ERROR: Spring Boot exited before reporting healthy"
+  fi
+  exit 1
+fi
 ${AGENT_HEALTH_CHECK}`;
     case "csharp":
       return `echo "[entrypoint] Starting .NET agent on port 8123..."
@@ -810,6 +1000,7 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     DEV_SCRIPT: fw.devScript,
     AGENT_PORT: "8123",
     DEV_SCRIPT_BLOCK: getEntrypointBlock(fw),
+    WATCHDOG_BLOCK: getWatchdogBlock(fw),
     DOCKER_EXTRA_COPY: dockerExtraCopy,
     LANGGRAPH_MKDIR: langgraphMkdir,
   };
@@ -1426,4 +1617,6 @@ export {
   forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
+  getWatchdogBlock,
+  getAgentHealthPath,
 };

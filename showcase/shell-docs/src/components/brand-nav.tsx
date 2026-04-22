@@ -122,7 +122,7 @@ type Brand = "copilotkit" | "ag-ui";
 const AG_UI_PREFIXES = ["/ag-ui"];
 
 const COPILOTKIT_LINKS = [
-  { href: "/docs", label: "Docs" },
+  { href: "/", label: "Docs" },
   { href: "/integrations", label: "Integrations" },
   { href: "/reference", label: "Reference" },
 ];

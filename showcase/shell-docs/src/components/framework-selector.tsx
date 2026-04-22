@@ -118,10 +118,16 @@ export function FrameworkSelector({
     if (frameworkTail !== null) {
       return frameworkTail ? `/${slug}/${frameworkTail}` : `/${slug}`;
     }
-    // Case 2: currently on /docs/<rest> — switch to framework-scoped
+    // Case 2: currently on /docs/<rest> — switch to framework-scoped (legacy)
     const docsTail = stripDocsPrefix(pathname);
     if (docsTail !== null && docsTail.length > 0) {
       return `/${slug}/${docsTail}`;
+    }
+    // Case 3: currently on /<unscoped-slug> (e.g. /quickstart) — preserve the
+    // feature slug so switching frameworks keeps the user on the same topic.
+    const unscopedTail = pathname.split("/").filter(Boolean).join("/");
+    if (unscopedTail) {
+      return `/${slug}/${unscopedTail}`;
     }
     // Fallback: framework landing page
     return `/${slug}`;
@@ -270,9 +276,7 @@ export function FrameworkSelector({
                   knownFrameworks,
                 );
                 if (frameworkTail !== null) {
-                  router.replace(
-                    frameworkTail ? `/docs/${frameworkTail}` : "/docs",
-                  );
+                  router.replace(frameworkTail ? `/${frameworkTail}` : "/");
                 }
                 setOpen(false);
               }}

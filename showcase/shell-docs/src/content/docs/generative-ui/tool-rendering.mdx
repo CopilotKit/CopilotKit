@@ -3,7 +3,6 @@ title: Tool Rendering
 icon: "lucide/Server"
 description: Render your agent's tool calls with custom UI components.
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: tool-rendering
 ---
 
@@ -16,7 +15,7 @@ a branded card for the call — arguments, live status, and the eventual
 result. This is the **Generative UI** variant CopilotKit calls **tool
 rendering**.
 
-<InlineDemo integration="langgraph-python" demo="tool-rendering" />
+<InlineDemo demo="tool-rendering" />
 
 ## When should I use this?
 
@@ -44,7 +43,7 @@ invisible — the user only sees the assistant's final text summary.
   title="frontend/src/app/page.tsx — useDefaultRenderTool()"
 />
 
-<InlineDemo integration="langgraph-python" demo="tool-rendering-default-catchall" />
+<InlineDemo demo="tool-rendering-default-catchall" />
 
 ## Custom catch-all
 
@@ -59,7 +58,7 @@ tool call, named or not:
   title="frontend/src/app/page.tsx — custom wildcard renderer"
 />
 
-<InlineDemo integration="langgraph-python" demo="tool-rendering-custom-catchall" />
+<InlineDemo demo="tool-rendering-custom-catchall" />
 
 ## Per-tool renderers
 

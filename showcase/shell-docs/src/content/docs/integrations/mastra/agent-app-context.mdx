@@ -65,15 +65,14 @@ Some examples might be: the current user, the current page, etc. This can be sha
             name: "Colleagues contact Agent",
             model: openai("gpt-4o"),
             // Use the injected runtime context
-            // [!code highlight:9]
-            instructions: ({ runtimeContext }) => {
-              // AG-UI context is an array of items, the specific context can be grabbed by filtering
-              const aguiContext = runtimeContext.get('ag-ui') as { context: Array<{ description: string; value: unknown }> } | undefined;
-              const colleaguesContextItem = aguiContext?.context?.find((contextItem: { description: string; value: unknown }) => contextItem.description === "The current user's colleagues")
-              return `
-                You are a helpful assistant that can help emailing colleagues.
-                The user's colleagues are: ${JSON.stringify(colleaguesContextItem?.value, null, 2)}
-              `
+            // [!code highlight:8]
+            instructions: ({ requestContext }) => {
+                const aguiContext = requestContext.get('ag-ui')?.context;
+                const colleaguesContextItem = aguiContext?.find(contextItem => contextItem.description === "The current user's colleagues")
+                return `
+                    You are a helpful assistant that can help emailing colleagues.
+                    The user's colleagues are: ${JSON.stringify(colleaguesContextItem?.value, null, 2)}
+                `
             },
             // ... Everything else used to configure your agent
         });

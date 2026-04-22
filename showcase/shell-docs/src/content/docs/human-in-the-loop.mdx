@@ -3,7 +3,6 @@ title: Human-in-the-Loop
 icon: "lucide/User"
 description: Allow your agent and users to collaborate on complex tasks.
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: hitl-in-chat
 ---
 
@@ -70,7 +69,7 @@ calendar API, or anything else:
 
 <Snippet region="time-slots" title="frontend/src/app/page.tsx — candidate slots" />
 
-<InlineDemo integration="langgraph-python" demo="hitl-in-chat" />
+<InlineDemo demo="hitl-in-chat" />
 
 ## Pattern 2 — `useInterrupt` (graph-paused)
 
@@ -82,7 +81,7 @@ answer. CopilotKit's `useInterrupt` hook is the render contract.
 See the [`useInterrupt` deep dive](./human-in-the-loop/useInterrupt) for
 the full walkthrough, including the backend tool and render-prop wiring.
 
-<InlineDemo integration="langgraph-python" demo="gen-ui-interrupt" />
+<InlineDemo demo="gen-ui-interrupt" />
 
 ## Going headless
 

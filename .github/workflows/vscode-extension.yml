@@ -1,0 +1,109 @@
+name: VS Code Extension
+
+on:
+  push:
+    branches: [main]
+    paths: ["packages/vscode-extension/**"]
+  pull_request:
+    paths: ["packages/vscode-extension/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      # Use the Nx target rather than `pnpm run build` so caching +
+      # input-hashing cover only what this extension actually needs,
+      # instead of rebuilding the entire monorepo on every CI run.
+      - name: Build
+        run: npx nx run copilotkit-vscode-extension:build
+
+      - name: Type check
+        run: pnpm --filter copilotkit-vscode-extension exec tsc --noEmit
+
+      # Lint step omitted deliberately — the extension package has no
+      # `lint` Nx target / script yet, so invoking one would permanently
+      # fail (even behind `continue-on-error`). Add the step back once
+      # `packages/vscode-extension/package.json` declares a `lint` script.
+
+      - name: Test
+        run: npx nx run copilotkit-vscode-extension:test
+
+      - name: Package extension
+        run: npx vsce package --no-dependencies
+        working-directory: packages/vscode-extension
+
+      - name: Upload .vsix artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: copilotkit-vscode-extension
+          path: packages/vscode-extension/*.vsix
+
+  publish:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Serialize publishes so two rapid main pushes can't both reach
+    # `vsce publish` — the second would either collide on the same
+    # version or publish out-of-order. `cancel-in-progress: false` keeps
+    # an in-flight publish running to completion.
+    concurrency:
+      group: vscode-extension-publish
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      # Short-circuit the publish step when the local version already exists
+      # on the Marketplace. Prevents every push-to-main (docs, test, CI-only
+      # changes) from failing `vsce publish` with a duplicate-version error.
+      # Maintainers bump package.json `version` when they actually want
+      # to release.
+      - name: Check for published version
+        id: check
+        working-directory: packages/vscode-extension
+        run: |
+          set -e
+          LOCAL=$(node -p "require('./package.json').version")
+          PUBLISHER=$(node -p "require('./package.json').publisher")
+          NAME=$(node -p "require('./package.json').name")
+          echo "local=$LOCAL" >> "$GITHUB_OUTPUT"
+          PUBLISHED=$(npx --yes vsce show "$PUBLISHER.$NAME" --json 2>/dev/null \
+            | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{try{const j=JSON.parse(d);console.log(j.versions?.[0]?.version??'')}catch{console.log('')}})" \
+            || echo "")
+          echo "published=$PUBLISHED" >> "$GITHUB_OUTPUT"
+          if [ -n "$PUBLISHED" ] && [ "$LOCAL" = "$PUBLISHED" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Version $LOCAL already published — skipping."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.check.outputs.skip != 'true'
+        run: npx nx run copilotkit-vscode-extension:build
+
+      - name: Publish to VS Code Marketplace
+        if: steps.check.outputs.skip != 'true'
+        run: npx vsce publish --no-dependencies
+        working-directory: packages/vscode-extension
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}

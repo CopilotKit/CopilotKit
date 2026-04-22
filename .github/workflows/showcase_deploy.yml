@@ -166,6 +166,9 @@ jobs:
               - 'showcase/aimock/**'
             shell_dojo:
               - 'showcase/shell-dojo/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
             shell_dashboard:
               - 'showcase/shell-dashboard/**'
             shell_docs:
@@ -281,8 +284,23 @@ jobs:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
+  verify-image-refs:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+
   build:
-    needs: [detect-changes, check-lockfile]
+    needs: [detect-changes, check-lockfile, verify-image-refs]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
@@ -654,7 +672,7 @@ jobs:
           exit 1
 
   notify-ops:
-    needs: [detect-changes, check-lockfile, build]
+    needs: [detect-changes, check-lockfile, verify-image-refs, build]
     if: always()
     permissions:
       contents: read
@@ -670,6 +688,7 @@ jobs:
         env:
           BUILD_RESULT: ${{ needs.build.result }}
           LOCKFILE_RESULT: ${{ needs.check-lockfile.result }}
+          VERIFY_RESULT: ${{ needs.verify-image-refs.result }}
           DETECT_RESULT: ${{ needs.detect-changes.result }}
           DETECT_HAS_CHANGES: ${{ needs.detect-changes.outputs.has_changes }}
           DETECT_MATRIX: ${{ needs.detect-changes.outputs.matrix }}
@@ -714,6 +733,16 @@ jobs:
             elif [ "${LOCKFILE_RESULT}" = "cancelled" ]; then
               GATE_SKIPPED=true
               GATE_REASON="lockfile-cancelled"
+            elif [ "${VERIFY_RESULT}" = "failure" ]; then
+              # Pre-build drift assertion fired — Railway image refs don't
+              # match expected shape. showcase-ops renders a distinct alert
+              # rather than a generic deploy failure. Check the run log for
+              # the per-service violation list.
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-failed"
+            elif [ "${VERIFY_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-cancelled"
             elif [ "${DETECT_RESULT}" != "success" ]; then
               GATE_SKIPPED=true
               GATE_REASON="detect-changes-${DETECT_RESULT}"
