@@ -1,0 +1,95 @@
+name: VS Code Extension — Changelog Sync
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'packages/vscode-extension/CHANGELOG.md'
+
+concurrency:
+  group: changelog-sync-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    # Don't run on forks — GITHUB_TOKEN can't push to fork PR branches
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Extract top CHANGELOG version
+        id: changelog
+        run: |
+          set -euo pipefail
+          FILE=packages/vscode-extension/CHANGELOG.md
+          # Match lines like: "## 0.1.1 — 2026-04-22" (em-dash, en-dash, or ASCII hyphen)
+          TOP=$(awk '/^## [0-9]+\.[0-9]+\.[0-9]+/ { print; exit }' "$FILE")
+          if [ -z "$TOP" ]; then
+            echo "::error file=$FILE::No valid '## X.Y.Z — DATE' heading found"
+            exit 1
+          fi
+          VERSION=$(echo "$TOP" | grep -oE '^## [0-9]+\.[0-9]+\.[0-9]+' | sed 's/^## //')
+          if [ -z "$VERSION" ]; then
+            echo "::error file=$FILE::Could not parse semver from top heading: $TOP"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Top CHANGELOG version: $VERSION"
+
+      - name: Compare with package.json
+        id: compare
+        run: |
+          set -euo pipefail
+          PJ=packages/vscode-extension/package.json
+          CURRENT=$(jq -r '.version' "$PJ")
+          TARGET=${{ steps.changelog.outputs.version }}
+          echo "package.json: $CURRENT"
+          echo "changelog:    $TARGET"
+
+          # Compare via sort -V (semver-ish)
+          newest=$(printf '%s\n%s\n' "$CURRENT" "$TARGET" | sort -V | tail -1)
+
+          if [ "$CURRENT" = "$TARGET" ]; then
+            echo "status=in-sync" >> "$GITHUB_OUTPUT"
+          elif [ "$newest" = "$TARGET" ] && [ "$CURRENT" != "$TARGET" ]; then
+            echo "status=bump-needed" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error file=$PJ::CHANGELOG top version ($TARGET) is lower than package.json ($CURRENT). Did you edit CHANGELOG history instead of prepending?"
+            exit 1
+          fi
+
+      - name: Bump package.json and commit
+        if: steps.compare.outputs.status == 'bump-needed'
+        env:
+          TARGET: ${{ steps.changelog.outputs.version }}
+        run: |
+          set -euo pipefail
+          PJ=packages/vscode-extension/package.json
+          # Use jq to preserve formatting + trailing newline
+          jq --arg v "$TARGET" '.version = $v' "$PJ" > "$PJ.tmp"
+          mv "$PJ.tmp" "$PJ"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$PJ"
+          git commit -m "chore: release v$TARGET"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
+
+      - name: Summary
+        run: |
+          echo "### Changelog sync result" >> $GITHUB_STEP_SUMMARY
+          echo "- CHANGELOG top version: \`${{ steps.changelog.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Status: \`${{ steps.compare.outputs.status }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.compare.outputs.status }}" = "bump-needed" ]; then
+            echo "- Auto-committed \`chore: release v${{ steps.changelog.outputs.version }}\` to this PR branch." >> $GITHUB_STEP_SUMMARY
+          fi
