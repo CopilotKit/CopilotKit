@@ -326,6 +326,12 @@ jobs:
           project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          # Pin amd64: Railway and GHCR serve x86 hosts. An arm64-only
+          # image crashes on pull with "does not have a linux/amd64
+          # variant available". Matches the platform required for all
+          # local showcase Docker builds (see
+          # showcase/starters/template/README.md).
+          platforms: linux/amd64
           push: true
           tags: |
             ghcr.io/copilotkit/${{ matrix.service.image }}:latest
