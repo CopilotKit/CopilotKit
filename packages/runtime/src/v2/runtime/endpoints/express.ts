@@ -147,9 +147,9 @@ export function createCopilotExpressHandler({
     router.post(normalizedBase, expressHandler);
     router.options(normalizedBase, expressHandler);
   } else if (normalizedBase === "/") {
-    router.all("*", expressHandler);
+    router.all("{*splat}", expressHandler);
   } else {
-    router.all(`${normalizedBase}/*`, expressHandler);
+    router.all(`${normalizedBase}/{*splat}`, expressHandler);
     router.all(normalizedBase, expressHandler);
   }
 
