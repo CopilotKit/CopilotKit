@@ -29,7 +29,11 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
 const imageDriftInputSchema = z.object({
   key: z.string().min(1),
-  serviceName: z.string().min(1),
+  // Matches the `name` field emitted by railway-services discovery
+  // (RailwayServiceInfo.name). Renaming this to match the discovery
+  // record shape is what lets the invoker pass discovery records
+  // straight through inputSchema without a translation hop.
+  name: z.string().min(1),
   imageRef: z.string().min(1),
   /**
    * Override for the expected GHCR tag. Defaults to the tag embedded in
@@ -42,25 +46,40 @@ const imageDriftInputSchema = z.object({
 
 type ImageDriftDriverInput = z.infer<typeof imageDriftInputSchema>;
 
-export interface ImageDriftDriverSignal {
-  service: string;
-  /** Digest currently deployed (parsed from `imageRef`). */
-  currentImage: string;
-  /** Digest GHCR reports for `expectedTag`. Empty string on lookup failure. */
-  expectedImage: string;
-  /**
-   * True when `currentImage !== expectedImage` AND both were resolved
-   * successfully. A failed lookup yields `isStale: false` with a
-   * populated `rebuildError` — operators read the two together.
-   */
-  isStale: boolean;
-  /**
-   * Human-readable error description when the GHCR lookup failed
-   * (404, auth fail, manifest schema mismatch, etc.). Populated only
-   * on the red-with-error path.
-   */
-  rebuildError?: string;
-}
+/**
+ * Signal is a discriminated union so TS narrows success vs. error paths
+ * without casts. Success carries the full comparison tuple; error carries
+ * only the human-readable description. Callers (rule templates, writer
+ * aggregators) discriminate on the presence of `errorDesc`.
+ */
+export type ImageDriftDriverSignal =
+  | {
+      service: string;
+      /** Digest currently deployed (parsed from `imageRef`). */
+      currentImage: string;
+      /** Digest GHCR reports for `expectedTag`. */
+      expectedImage: string;
+      /**
+       * True when `currentImage !== expectedImage` AND both were resolved
+       * successfully.
+       */
+      isStale: boolean;
+      /**
+       * Populated only when the GHCR lookup succeeded but the deploy's
+       * own `imageRef` lacked a digest — surfaces "no digest pinned on
+       * the deploy" without collapsing into the error variant (the
+       * upstream lookup still worked).
+       */
+      rebuildError?: string;
+    }
+  | {
+      /**
+       * Human-readable error description when the GHCR lookup failed
+       * (404, auth fail, manifest schema mismatch, transport error, etc.).
+       * Sole field on the error variant — no partial success fields.
+       */
+      errorDesc: string;
+    };
 
 export const imageDriftDriver: ProbeDriver<
   ImageDriftDriverInput,
@@ -75,7 +94,7 @@ export const imageDriftDriver: ProbeDriver<
     const expectedTag = input.expectedTag ?? parsed.tag ?? "latest";
 
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
-    let expectedImage = "";
+    let expectedImage: string;
     try {
       expectedImage = await fetchGhcrDigest(fetchImpl, {
         repository: parsed.repository,
@@ -87,40 +106,28 @@ export const imageDriftDriver: ProbeDriver<
       // Distinguish transport failure (can't reach GHCR) from upstream
       // failure (401/404/5xx). Transport class goes to "error" state so
       // the alert engine can collapse DNS blips separately; upstream
-      // failures flip the service red with rebuildError populated so
+      // failures flip the service red with errorDesc populated so
       // operators see the fault class in the Slack payload.
       if (err instanceof GhcrTransportError) {
         ctx.logger.error("driver.image-drift.ghcr-transport", {
-          service: input.serviceName,
+          service: input.name,
           err: message,
         });
         return {
           key: input.key,
           state: "error",
-          signal: {
-            service: input.serviceName,
-            currentImage,
-            expectedImage: "",
-            isStale: false,
-            rebuildError: message,
-          },
+          signal: { errorDesc: message },
           observedAt,
         };
       }
       ctx.logger.warn("driver.image-drift.ghcr-lookup-failed", {
-        service: input.serviceName,
+        service: input.name,
         err: message,
       });
       return {
         key: input.key,
         state: "red",
-        signal: {
-          service: input.serviceName,
-          currentImage,
-          expectedImage: "",
-          isStale: false,
-          rebuildError: message,
-        },
+        signal: { errorDesc: message },
         observedAt,
       };
     }
@@ -130,7 +137,7 @@ export const imageDriftDriver: ProbeDriver<
       key: input.key,
       state: isStale || currentImage === "" ? "red" : "green",
       signal: {
-        service: input.serviceName,
+        service: input.name,
         currentImage,
         expectedImage,
         isStale,
