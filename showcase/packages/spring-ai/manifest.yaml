@@ -90,7 +90,7 @@ demos:
 starter:
   path: showcase/starters/spring-ai
   name: Sales Dashboard
-  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  description: Full-featured sales pipeline with 4 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/spring-ai
   demo_url: https://showcase-starter-spring-ai-production.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/spring-ai my-copilotkit-app
