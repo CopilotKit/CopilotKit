@@ -13,7 +13,8 @@ RUN npm run build
 # cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
 # so the starter and package produce equivalent runtime shapes. See also
 # getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
-RUN npx tsc --outDir /app/dist --module commonjs --moduleResolution node \
+RUN npx tsc --outDir /app/dist --rootDir . \
+    --module commonjs --moduleResolution node \
     --target es2020 --esModuleInterop true --skipLibCheck true \
     agent/index.ts
 
