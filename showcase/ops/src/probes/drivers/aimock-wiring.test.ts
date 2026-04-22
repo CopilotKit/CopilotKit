@@ -417,4 +417,67 @@ describe("aimockWiringDriver", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("threads ctx.abortSignal through the Railway adapter gql fetch (CR A1)", async () => {
+    // Regression guard: the adapter's `gql` helper previously called
+    // fetchImpl without a `signal`, so when the invoker aborted on
+    // timeout the Railway GraphQL socket stayed open. Observe the
+    // init.signal each call receives and assert it's the same signal
+    // ctx carries.
+    let captured: AbortSignal | undefined;
+    const fetchImpl: typeof fetch = (async (
+      _url: string | URL | Request,
+      init?: RequestInit,
+    ) => {
+      captured = init?.signal ?? undefined;
+      if (captured?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      const raw = init?.body as string | undefined;
+      const parsed = raw
+        ? (JSON.parse(raw) as { query: string })
+        : { query: "" };
+      if (parsed.query.includes("query project")) {
+        return new Response(
+          JSON.stringify({
+            data: { project: { services: { edges: [] } } },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response("{}", {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const controller = new AbortController();
+    const r = await aimockWiringDriver.run(
+      {
+        ...BASE_CTX,
+        env: FULL_ENV,
+        fetchImpl,
+        abortSignal: controller.signal,
+      },
+      { key: "aimock_wiring:global" },
+    );
+    expect(r.state).toBe("green");
+    expect(captured).toBe(controller.signal);
+
+    // Second run with a pre-aborted controller — the driver's try/catch
+    // converts the thrown AbortError into a state:"error" ProbeResult.
+    controller.abort();
+    const r2 = await aimockWiringDriver.run(
+      {
+        ...BASE_CTX,
+        env: FULL_ENV,
+        fetchImpl,
+        abortSignal: controller.signal,
+      },
+      { key: "aimock_wiring:global" },
+    );
+    expect(r2.state).toBe("error");
+    expect(
+      (r2.signal as { errorDesc: string }).errorDesc,
+    ).toMatch(/aborted/i);
+  });
 });

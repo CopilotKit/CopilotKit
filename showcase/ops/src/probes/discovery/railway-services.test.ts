@@ -447,4 +447,51 @@ describe("railwayServicesSource", () => {
     const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
     expect(out[0].imageRef).toBe("");
   });
+
+  it("threads ctx.abortSignal into every Railway GraphQL fetch (CR A1)", async () => {
+    // Regression guard: the source previously called the gql helper
+    // without plumbing an abortSignal, so a slow Railway endpoint kept
+    // its sockets open past the invoker's per-tick timeout. This test
+    // captures init.signal on every fetch and asserts the same signal
+    // ctx carries is forwarded.
+    const captured: Array<AbortSignal | undefined> = [];
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      captured.push((init as RequestInit | undefined)?.signal ?? undefined);
+      const raw = (init as RequestInit | undefined)?.body as string | undefined;
+      const parsed = raw
+        ? (JSON.parse(raw) as { query: string })
+        : { query: "" };
+      if (parsed.query.includes("query project")) {
+        return new Response(
+          JSON.stringify(
+            railwayProjectResponse([
+              {
+                id: "s1",
+                name: "showcase-a",
+                image: "ghcr.io/c/a:v1",
+                domain: "a.up.railway.app",
+              },
+            ]),
+          ),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(
+        JSON.stringify({ data: { variables: {} } }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+    const controller = new AbortController();
+    const ctx: DiscoveryContext = {
+      fetchImpl,
+      logger,
+      env: BASE_ENV,
+      abortSignal: controller.signal,
+    };
+    await railwayServicesSource.enumerate(ctx, {});
+    expect(captured.length).toBeGreaterThan(0);
+    for (const sig of captured) {
+      expect(sig).toBe(controller.signal);
+    }
+  });
 });

@@ -126,6 +126,13 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       fetchImpl: ctx.fetchImpl,
       token,
       sourceName: "railway-services",
+      // Discovery-level abort signal: when the invoker's per-tick
+      // timeout fires, stall-guard every Railway GraphQL request so the
+      // sockets close instead of hanging past the tick boundary. The
+      // source can run dozens of per-service variable lookups on a
+      // large project — one stuck call could otherwise orphan a socket
+      // for many minutes.
+      abortSignal: ctx.abortSignal,
     });
 
     // Project-level query: fetch all services with their instance image
@@ -236,8 +243,9 @@ function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
   sourceName: string;
+  abortSignal: AbortSignal | undefined;
 }): <T>(query: string, variables: Record<string, unknown>) => Promise<T> {
-  const { fetchImpl, token, sourceName } = opts;
+  const { fetchImpl, token, sourceName, abortSignal } = opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,
@@ -251,6 +259,7 @@ function makeGql(opts: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ query, variables }),
+        signal: abortSignal,
       });
     } catch (err) {
       throw new DiscoverySourceTransportError(

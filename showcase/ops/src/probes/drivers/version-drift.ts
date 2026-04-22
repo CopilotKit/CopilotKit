@@ -76,7 +76,12 @@ export const versionDriftDriver: ProbeDriver<
 
     let res: Response;
     try {
-      res = await fetchImpl(url);
+      // Thread the invoker's AbortController signal so a hung registry
+      // request aborts when `timeout_ms` fires, rather than keeping the
+      // socket open past the synthetic-timeout ProbeResult the invoker
+      // emits — otherwise per-tick outbound socket leaks during registry
+      // outages.
+      res = await fetchImpl(url, { signal: ctx.abortSignal });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return redResult(input.key, name, pinnedVersion, message, observedAt);

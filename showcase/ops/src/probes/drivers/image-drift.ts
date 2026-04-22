@@ -100,6 +100,10 @@ export const imageDriftDriver: ProbeDriver<
         repository: parsed.repository,
         reference: expectedTag,
         token: ctx.env.GHCR_TOKEN,
+        // Forward the invoker's AbortController signal so a stalled GHCR
+        // response aborts its socket when `timeout_ms` fires, rather than
+        // leaking the descriptor past the synthetic-timeout ProbeResult.
+        signal: ctx.abortSignal,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -214,7 +218,12 @@ class GhcrTransportError extends Error {
  */
 async function fetchGhcrDigest(
   fetchImpl: typeof fetch,
-  opts: { repository: string; reference: string; token?: string },
+  opts: {
+    repository: string;
+    reference: string;
+    token?: string;
+    signal?: AbortSignal;
+  },
 ): Promise<string> {
   const path = opts.repository.replace(/^ghcr\.io\//, "");
   const url = `https://ghcr.io/v2/${path}/manifests/${encodeURIComponent(opts.reference)}`;
@@ -231,7 +240,11 @@ async function fetchGhcrDigest(
   }
   let res: Response;
   try {
-    res = await fetchImpl(url, { method: "GET", headers });
+    res = await fetchImpl(url, {
+      method: "GET",
+      headers,
+      signal: opts.signal,
+    });
   } catch (err) {
     throw new GhcrTransportError(
       `ghcr fetch failed: ${err instanceof Error ? err.message : String(err)}`,

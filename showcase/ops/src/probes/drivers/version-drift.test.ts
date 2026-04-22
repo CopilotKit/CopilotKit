@@ -408,4 +408,50 @@ describe("versionDriftDriver", () => {
     });
     expect(result.observedAt).toBe("2026-04-20T00:00:00.000Z");
   });
+
+  it("threads ctx.abortSignal into the registry fetch (CR A1)", async () => {
+    // Regression guard: the driver previously called `fetchImpl(url)`
+    // without forwarding the invoker's AbortController signal. A stalled
+    // npm/pypi response kept its socket open past the synthetic-timeout
+    // tick. This test observes the `init.signal` arg and confirms both
+    // (a) the signal arrives, and (b) when pre-aborted the driver
+    // surfaces an AbortError through its transport-fail red path.
+    let captured: AbortSignal | undefined;
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      captured = (init as RequestInit | undefined)?.signal ?? undefined;
+      if (captured?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return new Response(
+        JSON.stringify({ "dist-tags": { latest: "1.0.0" } }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+    const controller = new AbortController();
+    await versionDriftDriver.run(
+      { ...BASE_CTX, fetchImpl, abortSignal: controller.signal },
+      {
+        key: "version_drift:x",
+        name: "x",
+        pinnedVersion: "1.0.0",
+        ecosystem: "npm",
+      },
+    );
+    expect(captured).toBe(controller.signal);
+
+    controller.abort();
+    const result = await versionDriftDriver.run(
+      { ...BASE_CTX, fetchImpl, abortSignal: controller.signal },
+      {
+        key: "version_drift:x",
+        name: "x",
+        pinnedVersion: "1.0.0",
+        ecosystem: "npm",
+      },
+    );
+    expect(result.state).toBe("red");
+    expect(
+      (result.signal as { errorDesc?: string }).errorDesc,
+    ).toMatch(/aborted/i);
+  });
 });

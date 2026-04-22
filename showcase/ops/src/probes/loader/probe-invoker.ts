@@ -59,15 +59,24 @@ export function buildProbeInvoker(
     deps;
 
   return async function invoke(): Promise<void> {
+    const concurrency = cfg.max_concurrency;
+    const timeoutMs = "timeout_ms" in cfg ? cfg.timeout_ms : undefined;
+    // Discovery-level abort controller: fires if the enumerate() call
+    // exceeds the per-probe `timeout_ms`, so a stalled upstream releases
+    // its socket rather than orphaning past the tick. Sources that honor
+    // the signal (railway-services, etc.) abort their in-flight GraphQL
+    // request; sources that don't still observe the natural completion
+    // path. Sharing `timeout_ms` with the per-target executor keeps the
+    // tick's total wall-clock bounded to roughly 2×timeout (one for
+    // discovery, one for the slowest target's run).
     const inputs = await resolveInputs(
       cfg,
       discoveryRegistry,
       logger,
       fetchImpl,
       env,
+      timeoutMs,
     );
-    const concurrency = cfg.max_concurrency;
-    const timeoutMs = "timeout_ms" in cfg ? cfg.timeout_ms : undefined;
 
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
@@ -131,6 +140,7 @@ async function resolveInputs(
   logger: Logger,
   fetchImpl: typeof fetch,
   env: Readonly<Record<string, string | undefined>>,
+  timeoutMs: number | undefined,
 ): Promise<ResolvedInput[]> {
   if ("targets" in cfg) {
     // Static: the YAML target object IS the driver input. `.key` is
@@ -150,9 +160,27 @@ async function resolveInputs(
     // source. Tests stub these via `deps`; production callers pass
     // `globalThis.fetch` + `process.env` at orchestrator boot.
     let records: unknown[] = [];
+    // Discovery-level abort controller: honours the probe's `timeout_ms`
+    // so a stalled enumerate() call releases its sockets on the same
+    // schedule the per-target executor uses. The timer is cleared on
+    // success to avoid dangling handles.
+    const discoveryAbort = new AbortController();
+    const discoveryTimer: ReturnType<typeof setTimeout> | null =
+      timeoutMs !== undefined
+        ? setTimeout(() => {
+            discoveryAbort.abort(
+              new Error(`discovery enumerate timeout after ${timeoutMs}ms`),
+            );
+          }, timeoutMs)
+        : null;
     try {
       records = await source.enumerate(
-        { fetchImpl, logger, env },
+        {
+          fetchImpl,
+          logger,
+          env,
+          abortSignal: discoveryAbort.signal,
+        },
         cfg.discovery.filter ?? {},
       );
     } catch (err) {
@@ -169,6 +197,8 @@ async function resolveInputs(
         err: err instanceof Error ? err.message : String(err),
       });
       return [];
+    } finally {
+      if (discoveryTimer !== null) clearTimeout(discoveryTimer);
     }
     return records.map((record) => {
       const key = interpolateTemplate(cfg.discovery.key_template, record);

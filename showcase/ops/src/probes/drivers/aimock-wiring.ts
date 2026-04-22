@@ -108,6 +108,12 @@ export const aimockWiringDriver: ProbeDriver<
       { token, projectId, environmentId },
       logger,
       fetchImpl,
+      // Thread the invoker's AbortController signal into the Railway
+      // adapter so listServices/getServiceEnv fetches abort in-flight if
+      // the probe's `timeout_ms` fires. Without this, one slow Railway
+      // response could orphan a socket past the synthetic-timeout
+      // ProbeResult the invoker emits.
+      ctx.abortSignal,
     );
     // Probe body: flip call-order `(input, ctx)` to match the legacy shape
     // and thread the Railway adapter through. The probe already isolates
@@ -151,6 +157,7 @@ function createRailwayAdapter(
   opts: { token: string; projectId: string; environmentId: string },
   logger: Logger,
   fetchImpl: typeof fetch,
+  abortSignal: AbortSignal | undefined,
 ): {
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
@@ -168,6 +175,7 @@ function createRailwayAdapter(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ query, variables }),
+      signal: abortSignal,
     });
     if (!res.ok) {
       const text = await res.text().catch(() => "");

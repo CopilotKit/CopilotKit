@@ -16,6 +16,19 @@ export interface DiscoveryContext {
   fetchImpl: typeof fetch;
   logger: Logger;
   env: Readonly<Record<string, string | undefined>>;
+  /**
+   * Optional cancellation signal, aborted by the invoker when a probe
+   * exceeds its `timeout_ms`. Mirrors `ProbeContext.abortSignal` — sources
+   * that make network round-trips (Railway GraphQL, GHCR, etc.) SHOULD
+   * forward this into their fetch() calls so a stalled upstream releases
+   * its socket when the per-tick timeout fires. Sources that don't
+   * propagate the signal are unchanged behaviour-wise; the invoker-level
+   * timeout race still returns promptly, but the underlying work keeps
+   * running until it completes naturally. Kept optional so existing
+   * discovery-source tests that construct a plain
+   * `{ fetchImpl, logger, env }` ctx continue to compile.
+   */
+  abortSignal?: AbortSignal;
 }
 
 /**

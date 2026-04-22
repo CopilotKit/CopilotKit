@@ -368,4 +368,55 @@ describe("imageDriftDriver", () => {
     });
     expect(urls[0]).toContain("/showcase-a/manifests/stable");
   });
+
+  it("threads ctx.abortSignal into the GHCR fetch so invoker timeout aborts in-flight", async () => {
+    // Regression guard for CR A1: previously the driver called fetchImpl
+    // without forwarding the invoker's AbortController signal, so a hung
+    // GHCR response kept its socket open past the synthetic-timeout
+    // ProbeResult. This test stubs fetchImpl to observe the signal arg
+    // and asserts that the signal arrives both pre-abort and post-abort
+    // (mutated in place).
+    let capturedSignal: AbortSignal | undefined;
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      capturedSignal = (init as RequestInit | undefined)?.signal ?? undefined;
+      // If the signal is already aborted at fetch time, reject with the
+      // real AbortError that undici raises so the driver's catch path
+      // exercises the "transport failed" branch.
+      if (capturedSignal?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return new Response("{}", {
+        status: 200,
+        headers: { "docker-content-digest": LATEST_DIGEST },
+      });
+    };
+    const controller = new AbortController();
+    const ctx: ProbeContext = {
+      now: () => new Date("2026-04-20T00:00:00Z"),
+      logger,
+      env: {},
+      fetchImpl,
+      abortSignal: controller.signal,
+    };
+    await imageDriftDriver.run(ctx, {
+      key: "image_drift:showcase-a",
+      name: "showcase-a",
+      imageRef: `ghcr.io/copilotkit/showcase-a:latest@${CURRENT_DIGEST}`,
+    });
+    expect(capturedSignal).toBe(controller.signal);
+    expect(capturedSignal?.aborted).toBe(false);
+
+    // Second invocation: abort BEFORE the fetch runs, so the driver's
+    // transport-error branch fires with the AbortError.
+    controller.abort();
+    const result = await imageDriftDriver.run(ctx, {
+      key: "image_drift:showcase-a",
+      name: "showcase-a",
+      imageRef: `ghcr.io/copilotkit/showcase-a:latest@${CURRENT_DIGEST}`,
+    });
+    expect(result.state).toBe("error");
+    expect((result.signal as { errorDesc: string }).errorDesc).toMatch(
+      /aborted/i,
+    );
+  });
 });
