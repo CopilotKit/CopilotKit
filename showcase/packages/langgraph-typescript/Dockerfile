@@ -26,6 +26,13 @@ RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \
  && (useradd --system --uid 1001 --gid 1001 --no-create-home app 2>/dev/null || true) \
  && mkdir -p /home/app && chown app:app /home/app
 
+# Install iproute2 for `ss` so the watchdog can snapshot :8123/:8124 listeners
+# when a probe fails. TEMPORARY — remove alongside the instrumentation once
+# the Railway kill-loop is root-caused (see debug/langgraph-ts-probe-instrumentation).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends iproute2 \
+ && rm -rf /var/lib/apt/lists/*
+
 # Next.js build artifacts
 COPY --chown=app:app --from=frontend /app/.next ./.next
 COPY --chown=app:app --from=frontend /app/node_modules ./node_modules

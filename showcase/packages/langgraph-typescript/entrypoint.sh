@@ -88,10 +88,14 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
       # Agent died during startup — wait -n in the main shell will handle it.
       exit 0
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
-      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
+    probe_out=$(curl -sS --max-time 5 -w "\nHTTP=%{http_code} TIME=%{time_total}" http://127.0.0.1:8124/ok 2>&1)
+    probe_rc=$?
+    if [ $probe_rc -eq 0 ] && echo "$probe_out" | grep -q "HTTP=200"; then
+      echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter (probe_out=$probe_out)"
       break
     fi
+    echo "[watchdog] Grace probe FAIL at ${ELAPSED}s rc=$probe_rc output=$probe_out"
+    (ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep -E ":(8123|8124)" | sed 's/^/[watchdog] /' || echo "[watchdog] no listener tool / no matches for :8123/:8124"
     sleep 5
     ELAPSED=$((ELAPSED + 5))
   done
@@ -103,11 +107,14 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
     if ! kill -0 $AGENT_PID 2>/dev/null; then
       break
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8124/ok > /dev/null 2>&1; then
+    probe_out=$(curl -sS --max-time 5 -w "\nHTTP=%{http_code} TIME=%{time_total}" http://127.0.0.1:8124/ok 2>&1)
+    probe_rc=$?
+    if [ $probe_rc -eq 0 ] && echo "$probe_out" | grep -q "HTTP=200"; then
       FAILS=0
     else
       FAILS=$((FAILS + 1))
-      echo "[watchdog] Agent health probe failed (count=$FAILS)"
+      echo "[watchdog] Agent health probe failed (count=$FAILS) rc=$probe_rc output=$probe_out"
+      (ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null) | grep -E ":(8123|8124)" | sed 's/^/[watchdog] /' || echo "[watchdog] no listener tool / no matches for :8123/:8124"
       if [ $FAILS -ge 3 ]; then
         echo "[watchdog] Agent unresponsive for ~90s — killing PID $AGENT_PID to trigger container restart"
         kill -9 $AGENT_PID 2>/dev/null || true

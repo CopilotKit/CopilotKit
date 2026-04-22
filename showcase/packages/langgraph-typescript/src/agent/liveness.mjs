@@ -29,6 +29,12 @@ createServer((req, res) => {
   res.end();
 }).listen(PORT, "0.0.0.0", () => {
   console.log(`[liveness] probe listening on 0.0.0.0:${PORT}`);
+  // Event-loop heartbeat — if this stops ticking, the loop is blocked
+  // (e.g. by a synchronous phase inside a heavy dynamic import). TEMPORARY
+  // diagnostic instrumentation (see debug/langgraph-ts-probe-instrumentation).
+  setInterval(() => {
+    console.log(`[liveness] tick ${new Date().toISOString()}`);
+  }, 5000);
   // Defer real server start until AFTER liveness is bound.
   import("./server.mjs").catch((err) => {
     console.error("[liveness] server.mjs import failed:", err);
