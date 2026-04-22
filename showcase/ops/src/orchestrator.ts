@@ -34,6 +34,7 @@ import { smokeDriver } from "./probes/drivers/smoke.js";
 import { imageDriftDriver } from "./probes/drivers/image-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
+import { e2eSmokeDriver } from "./probes/drivers/e2e-smoke.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
@@ -223,10 +224,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   probeRegistry.register(imageDriftDriver);
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
-  // e2eSmokeDriver deliberately NOT registered yet: its default runner
-  // throws (Playwright harness isn't wired end-to-end), so live rules would
-  // go red every tick. Corresponding e2e-smoke YAMLs are being removed
-  // alongside this change; re-register when the runner is production-ready.
+  probeRegistry.register(e2eSmokeDriver);
   discoveryRegistry.register(railwayServicesSource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
