@@ -92,6 +92,7 @@ export function buildProbeInvoker(
           now,
           logger,
           probeId: cfg.id,
+          fetchImpl,
         });
         try {
           await writer.write(result);
@@ -225,6 +226,7 @@ interface ExecuteOneOpts {
   now: () => Date;
   logger: Logger;
   probeId: string;
+  fetchImpl: typeof fetch;
 }
 
 /**
@@ -236,7 +238,7 @@ interface ExecuteOneOpts {
 async function executeOne(
   opts: ExecuteOneOpts,
 ): Promise<ProbeResult<unknown>> {
-  const { input, key, driver, timeoutMs, env, now, logger, probeId } = opts;
+  const { input, key, driver, timeoutMs, env, now, logger, probeId, fetchImpl } = opts;
   const parsed = driver.inputSchema.safeParse(input);
   if (!parsed.success) {
     logger.error("probe.input-rejected", {
@@ -247,7 +249,7 @@ async function executeOne(
     });
     return syntheticError(key, `inputSchema rejected: ${parsed.error.message}`, now);
   }
-  const ctx: ProbeContext = { now, logger, env };
+  const ctx: ProbeContext = { now, logger, env, fetchImpl };
   try {
     if (timeoutMs === undefined) {
       return await driver.run(ctx, parsed.data);
