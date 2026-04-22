@@ -1,0 +1,20 @@
+{
+  "name": "copilotkit",
+  "description": "CopilotKit skill plugin — installable directly from the CopilotKit monorepo",
+  "owner": {
+    "name": "CopilotKit",
+    "email": "support@copilotkit.ai"
+  },
+  "plugins": [
+    {
+      "name": "copilotkit",
+      "description": "CopilotKit v2 skills (runtime, react-core, a2ui-renderer + 6 lifecycle journeys)",
+      "version": "1.56.2",
+      "source": "./",
+      "author": {
+        "name": "CopilotKit",
+        "email": "support@copilotkit.ai"
+      }
+    }
+  ]
+}
