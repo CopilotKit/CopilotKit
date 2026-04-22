@@ -48,9 +48,14 @@ const LEGACY_WARN_TTL_MS = 60 * 60 * 1000; // 1h
 // See PocketBase error shape — PB emits validation errors as
 // `{ data: { <field>: { code, message } } }` on 400s. Bare String(err)
 // collapses the object to "[object Object]" and erases the reason.
+// R21 bucket-a: PbHttpError (pb-client.ts) exposes the HTTP code as
+// `statusCode`, but the historical PB SDK error shape uses `status`.
+// errorInfo reads whichever is present so classifyWriterError can
+// route 401/403/429/5xx correctly regardless of the error source.
 interface MaybePbError {
   message?: unknown;
   status?: unknown;
+  statusCode?: unknown;
   data?: unknown;
 }
 
@@ -67,11 +72,23 @@ export interface WriterErrorInfo {
  * payload) so downstream emitters don't have to string-match.
  */
 export function errorInfo(err: unknown): WriterErrorInfo {
+  // R21 bucket-a: pb-client.ts's PbHttpError uses `statusCode`, while the
+  // historical PB SDK error shape used `status`. Prefer `statusCode` when
+  // present (it's the newer source), fall back to `status` for back-compat.
+  // Previously errorInfo ignored `statusCode` entirely, so a retry-exhausted
+  // PbHttpError with statusCode=429 fell through to classifyWriterError's
+  // `unknown` branch instead of `pb_rate_limited`.
+  const pickStatus = (maybe: MaybePbError): number | undefined => {
+    if (typeof maybe.statusCode === "number") return maybe.statusCode;
+    if (typeof maybe.status === "number") return maybe.status;
+    return undefined;
+  };
   if (err instanceof Error) {
     const { message } = err;
     const maybe = err as unknown as MaybePbError;
     const info: WriterErrorInfo = { message };
-    if (typeof maybe.status === "number") info.status = maybe.status;
+    const s = pickStatus(maybe);
+    if (s !== undefined) info.status = s;
     if (
       maybe.data &&
       typeof maybe.data === "object" &&
@@ -90,7 +107,8 @@ export function errorInfo(err: unknown): WriterErrorInfo {
           ? maybe.message
           : safeJson(err) ?? String(err),
     };
-    if (typeof maybe.status === "number") info.status = maybe.status;
+    const s = pickStatus(maybe);
+    if (s !== undefined) info.status = s;
     if (
       maybe.data &&
       typeof maybe.data === "object" &&

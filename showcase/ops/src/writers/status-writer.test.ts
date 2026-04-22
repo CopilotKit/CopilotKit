@@ -1016,6 +1016,42 @@ describe("status-writer", () => {
     ).toBe("pb_schema_error");
   });
 
+  it("R21-a: errorInfo reads PbHttpError.statusCode so classifyWriterError routes 401/403/429/400 correctly", async () => {
+    // PbHttpError (storage/pb-client.ts) exposes `statusCode`, but the
+    // historical PB SDK error shape used `status`. Pre-fix errorInfo only
+    // read `status`, so a retry-exhausted PbHttpError with statusCode=429
+    // fell through to the `unknown` bucket instead of `pb_rate_limited`.
+    const { PbHttpError } = await import("../storage/pb-client.js");
+    const cases: Array<[number, ReturnType<typeof classifyWriterError>]> = [
+      [401, "pb_auth_error"],
+      [403, "pb_permission"],
+      [429, "pb_rate_limited"],
+      [400, "pb_schema_error"],
+    ];
+    for (const [code, expected] of cases) {
+      const err = new PbHttpError({
+        statusCode: code,
+        bodyText: "body",
+        path: "/api/collections/status/records",
+      });
+      const info = errorInfo(err);
+      expect(info.status).toBe(code);
+      expect(classifyWriterError(info)).toBe(expected);
+    }
+  });
+
+  it("R21-a: errorInfo prefers statusCode over status when both are present", () => {
+    // Paranoia: if some future wrapper shape sets both fields, prefer the
+    // newer `statusCode` — pb-client.ts is the typed source of truth.
+    class HybridErr extends Error {
+      status = 418;
+      statusCode = 429;
+    }
+    const info = errorInfo(new HybridErr("boom"));
+    expect(info.status).toBe(429);
+    expect(classifyWriterError(info)).toBe("pb_rate_limited");
+  });
+
   it("emits writer.failed when history_create throws (non-error path)", async () => {
     const pb: PbClient = {
       async getOne() {
