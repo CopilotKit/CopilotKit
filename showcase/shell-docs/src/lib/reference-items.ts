@@ -50,50 +50,7 @@ function walkMdx(dir: string, prefix: string = ""): string[] {
     if (entry.isDirectory()) {
       out.push(...walkMdx(childAbs, childRel));
     } else if (entry.isFile() && entry.name.endsWith(".mdx")) {
-      // Normalize `index.mdx` away from the slug so a file at
-      // `components/foo/index.mdx` surfaces as slug `components/foo` (not
-      // `components/foo/index`). Other slug builders in this codebase
-      // (e.g. docs-render's buildNavTreeFromFilesystem) already collapse
-      // `index.mdx` into its parent segment; authors expect
-      // `/reference/components/foo` to resolve rather than
-      // `/reference/components/foo/index`. A top-level `index.mdx`
-      // collapses to the empty string, which the consumer drops.
-      const slug = childRel.replace(/\.mdx$/, "");
-      if (entry.name === "index.mdx") {
-        const parent = prefix; // path up to but not including `index.mdx`
-        if (parent) {
-          // Collision guard: if a sibling flat file `<parent>.mdx` exists
-          // one directory up, the flat file's walkMdx iteration will emit
-          // the same slug. Skip the collapsed `index.mdx` emission so the
-          // consumer doesn't produce duplicate ReferenceItems (and so
-          // Next.js generateStaticParams doesn't hit duplicate-key
-          // warnings). This matches the lookup precedence in
-          // docs-render's loadDoc, which prefers `<slug>.mdx` over
-          // `<slug>/index.mdx`.
-          const parentDir = path.dirname(dir);
-          const parentBase = path.basename(dir); // last segment of `parent`
-          const siblingFlat = path.join(parentDir, `${parentBase}.mdx`);
-          let flatExists = false;
-          try {
-            flatExists = fs.statSync(siblingFlat).isFile();
-          } catch {
-            flatExists = false;
-          }
-          if (flatExists) {
-            if (process.env.NODE_ENV !== "production") {
-              console.warn(
-                `[reference-items] Both ${siblingFlat} and ${childAbs} define slug "${parent}"; using the flat file.`,
-              );
-            }
-          } else {
-            out.push(parent);
-          }
-        }
-        // else: root-level index.mdx (e.g. reference/index.mdx) is
-        // handled by the dedicated index route, not as a subdir slug.
-      } else {
-        out.push(slug);
-      }
+      out.push(childRel.replace(/\.mdx$/, ""));
     }
   }
   return out;
@@ -110,17 +67,7 @@ function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
 
   const items: ReferenceItem[] = [];
   for (const relSlug of walkMdx(dir)) {
-    // `walkMdx` collapses `foo/index.mdx` into a slug of `foo`, so the
-    // literal `${relSlug}.mdx` path may not exist. Resolve against both
-    // shapes and prefer the direct file (`foo.mdx`) when both happen to
-    // exist — matching the lookup order in docs-render's loadDoc.
-    const directPath = path.join(dir, `${relSlug}.mdx`);
-    const indexPath = path.join(dir, relSlug, "index.mdx");
-    const filePath = fs.existsSync(directPath)
-      ? directPath
-      : fs.existsSync(indexPath)
-        ? indexPath
-        : directPath;
+    const filePath = path.join(dir, `${relSlug}.mdx`);
     let raw: string;
     try {
       raw = fs.readFileSync(filePath, "utf-8");
@@ -153,25 +100,8 @@ function loadSubdirItems(subdir: ReferenceSubdir): ReferenceItem[] {
   return items;
 }
 
-/**
- * In-memory reference-item cache. Populated lazily on first access per
- * subdir and never invalidated for the life of the Node process.
- *
- * Lifecycle assumptions:
- *   - Production: a single `next start` boot caches once and serves cached
- *     items until the process exits. Next.js redeploys spin up a new
- *     process, so a fresh cache is a natural boundary — same as the
- *     title/meta caches in docs-render.tsx.
- *   - Dev: `isProd()` returns false, so both the read and write paths
- *     skip the cache and every render reopens the MDX files. This is the
- *     only way MDX edits show up without a server restart.
- *
- * Fragility note: a deployment that uses ISR / on-demand revalidation
- * against this module would serve stale items forever because nothing
- * clears the map. If we ever add ISR to /reference routes, refactor this
- * to key on mtime or add an explicit invalidation hook. For the current
- * `next start` deployment, the one-shot cache is correct.
- */
+// In-memory cache — keyed by subdir, rebuilt once per process in prod. In
+// dev we skip the cache so MDX edits show up without a server restart.
 const __itemsCache = new Map<ReferenceSubdir, ReferenceItem[]>();
 function isProd(): boolean {
   return process.env.NODE_ENV === "production";

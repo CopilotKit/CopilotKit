@@ -23,21 +23,12 @@ import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
   buildNavTree,
-  findFrameworksWithCell,
   loadDoc,
   type NavNode,
 } from "@/lib/docs-render";
 import { getIntegration, getIntegrations } from "@/lib/registry";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
-
-// Route cannot be statically exported: generateStaticParams returns [] and
-// Next.js' default `dynamicParams=true` is what makes runtime rendering
-// work for every framework + slug. Declare it explicitly so a future
-// migration to `output: "export"` fails loudly here (dynamicParams must
-// be false under static export, which would surface immediately) rather
-// than silently 404ing every `/<framework>/<slug>` URL.
-export const dynamicParams = true;
 
 export async function generateStaticParams() {
   // Rely on the catch-all's dynamic behaviour at runtime; returning an
@@ -120,11 +111,7 @@ export default async function FrameworkScopedDocsPage({
   const missingCell =
     doc.fm.defaultCell && !frameworkHasCellFor(framework, doc.fm.defaultCell);
   const alternativeFrameworks = doc.fm.defaultCell
-    ? findFrameworksWithCell(
-        doc.fm.defaultCell,
-        getIntegrations().map((i) => i.slug),
-        demos,
-      )
+    ? findFrameworksWithCell(doc.fm.defaultCell)
     : [];
 
   const banner = missingCell ? (
@@ -139,39 +126,23 @@ export default async function FrameworkScopedDocsPage({
           <>
             {" "}
             Try{" "}
-            {alternativeFrameworks
-              // Filter out any slug that doesn't resolve to a registered
-              // integration BEFORE mapping to fragments — otherwise the
-              // comma separator (`i > 0 && ", "`) is emitted against the
-              // pre-filter index, producing a stray leading or double
-              // comma when a slug drops out mid-sequence.
-              .map((slug) => getIntegration(slug))
-              .filter(
-                (alt): alt is NonNullable<typeof alt> => alt !== undefined,
-              )
-              // Only surface deployed integrations — `findFrameworksWithCell`
-              // walks the full `getIntegrations()` list (including
-              // undeployed ones), so without this filter the banner can
-              // link to integration pages that aren't reachable. Apply
-              // BEFORE `.slice(0, 3)` so we show up to three _deployed_
-              // alternatives rather than padding the slice with dead
-              // links. If fewer than three qualify, show what's available.
-              .filter((alt) => alt.deployed)
-              .slice(0, 3)
-              .map((alt, i) => {
-                const href = `/${alt.slug}/${slugPath}`;
-                return (
-                  <React.Fragment key={alt.slug}>
-                    {i > 0 && ", "}
-                    <Link
-                      href={href}
-                      className="text-[var(--accent)] hover:underline"
-                    >
-                      {alt.name}
-                    </Link>
-                  </React.Fragment>
-                );
-              })}{" "}
+            {alternativeFrameworks.slice(0, 3).map((slug, i) => {
+              const alt = getIntegration(slug);
+              if (!alt) return null;
+              const name = alt.name;
+              const href = `/${slug}/${slugPath}`;
+              return (
+                <React.Fragment key={slug}>
+                  {i > 0 && ", "}
+                  <Link
+                    href={href}
+                    className="text-[var(--accent)] hover:underline"
+                  >
+                    {name}
+                  </Link>
+                </React.Fragment>
+              );
+            })}{" "}
             instead, or browse the{" "}
             <Link
               href={`/${slugPath}`}
@@ -199,61 +170,18 @@ export default async function FrameworkScopedDocsPage({
   );
 }
 
+function findFrameworksWithCell(cell: string): string[] {
+  const matches: string[] = [];
+  for (const integration of getIntegrations()) {
+    if (demos[`${integration.slug}::${cell}`]) matches.push(integration.slug);
+  }
+  return matches;
+}
+
 // ---------------------------------------------------------------------------
 // Framework landing page: renders the docs shell but with an overview
 // body derived from the integration's registry metadata.
 // ---------------------------------------------------------------------------
-
-// Doc-page landing cards for the framework overview. Each entry declares
-// the doc slug (relative to `/<framework>/`) plus the registry feature IDs
-// that gate it. A card only renders when the integration declares at
-// least one of its gating features — so `strands` (no HITL support) no
-// longer shows a dead "Human-in-the-Loop" card the moment the framework
-// registry says it's unsupported. When the registry ever drops a
-// feature the card automatically disappears from the landing without a
-// code edit.
-//
-// The registry doesn't currently expose a feature-id → doc-slug map
-// (features and doc pages live in separate namespaces). Keep the
-// gating feature list colocated with the card so any future mapping
-// table can drop in as a replacement. Follow-up owners: move this into
-// `feature-registry.json` once a canonical feature→docs-slug schema
-// exists.
-const FRAMEWORK_LANDING_CARDS: {
-  docSlug: string;
-  title: string;
-  desc: string;
-  gatingFeatures: string[];
-}[] = [
-  {
-    docSlug: "agentic-chat-ui",
-    title: "Chat UI",
-    desc: "Pre-built chat components wired to the agent",
-    gatingFeatures: ["agentic-chat", "prebuilt-sidebar", "prebuilt-popup"],
-  },
-  {
-    docSlug: "generative-ui/tool-rendering",
-    title: "Tool Rendering",
-    desc: "Render agent tool calls as UI components",
-    gatingFeatures: [
-      "tool-rendering",
-      "tool-rendering-default-catchall",
-      "tool-rendering-custom-catchall",
-    ],
-  },
-  {
-    docSlug: "frontend-tools",
-    title: "Frontend Tools",
-    desc: "Expose client-side actions to the agent",
-    gatingFeatures: ["frontend-tools"],
-  },
-  {
-    docSlug: "human-in-the-loop",
-    title: "Human-in-the-Loop",
-    desc: "Intercept tool calls for approval",
-    gatingFeatures: ["hitl-in-chat", "gen-ui-interrupt", "interrupt-headless"],
-  },
-];
 
 function FrameworkLandingPage({ framework }: { framework: string }) {
   const integration = getIntegration(framework);
@@ -261,11 +189,6 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
 
   const navTree = buildNavTree(CONTENT_DIR);
   const tree = navTree;
-
-  const integrationFeatureSet = new Set(integration.features ?? []);
-  const visibleCards = FRAMEWORK_LANDING_CARDS.filter((card) =>
-    card.gatingFeatures.some((f) => integrationFeatureSet.has(f)),
-  );
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
@@ -318,14 +241,26 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {visibleCards.map((card) => (
-            <LandingCard
-              key={card.docSlug}
-              href={`/${framework}/${card.docSlug}`}
-              title={card.title}
-              desc={card.desc}
-            />
-          ))}
+          <LandingCard
+            href={`/${framework}/agentic-chat-ui`}
+            title="Chat UI"
+            desc="Pre-built chat components wired to the agent"
+          />
+          <LandingCard
+            href={`/${framework}/generative-ui/tool-rendering`}
+            title="Tool Rendering"
+            desc="Render agent tool calls as UI components"
+          />
+          <LandingCard
+            href={`/${framework}/frontend-tools`}
+            title="Frontend Tools"
+            desc="Expose client-side actions to the agent"
+          />
+          <LandingCard
+            href={`/${framework}/human-in-the-loop`}
+            title="Human-in-the-Loop"
+            desc="Intercept tool calls for approval"
+          />
         </div>
       </main>
     </div>

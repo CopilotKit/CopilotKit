@@ -21,6 +21,18 @@ export interface SidebarLinkProps {
   className?: string;
   /** Active-state data attribute. */
   active?: boolean;
+  /**
+   * The render context. `"docs"` = we're on `/docs/*`; `"framework"`
+   * = we're on `/<framework>/*`. Affects which prefix we prefer.
+   */
+  scope: "docs" | "framework";
+  /**
+   * Deprecated. Previously held a server-rendered best-guess href used
+   * before hydration; the component now resolves the href identically
+   * during SSR and on the client, so this value is ignored. Kept on the
+   * interface for call-site compatibility.
+   */
+  fallbackHref?: string;
 }
 
 export function SidebarLink({
@@ -28,6 +40,8 @@ export function SidebarLink({
   children,
   className,
   active,
+  scope: _scope,
+  fallbackHref: _fallbackHref,
 }: SidebarLinkProps) {
   const { framework, storedFramework } = useFramework();
 

@@ -39,32 +39,6 @@ export const FRAMEWORK_CATEGORY_ORDER = [
 export type FrameworkCategory = (typeof FRAMEWORK_CATEGORY_ORDER)[number];
 
 // ---------------------------------------------------------------------------
-// Demo-content cell lookup
-// ---------------------------------------------------------------------------
-
-/**
- * Return the list of integration slugs that have bundled demo content for
- * the given `defaultCell` key. Used by the pivot UI (both the
- * framework-agnostic `/docs/<slug>` route and the scoped `/<framework>/<slug>`
- * route) to answer "which frameworks actually implement this snippet?"
- *
- * The demo-content bundle is imported lazily and the iteration shape is
- * parameterized so both routes call through the same helper without
- * introducing a circular dependency between the two page.tsx files.
- */
-export function findFrameworksWithCell(
-  cell: string,
-  integrationSlugs: Iterable<string>,
-  demos: Record<string, unknown>,
-): string[] {
-  const matches: string[] = [];
-  for (const slug of integrationSlugs) {
-    if (demos[`${slug}::${cell}`]) matches.push(slug);
-  }
-  return matches;
-}
-
-// ---------------------------------------------------------------------------
 // Nav tree types
 // ---------------------------------------------------------------------------
 
@@ -111,26 +85,18 @@ export function escapeHtml(s: string): string {
 //
 // Memory footprint: titles are tiny strings, meta is a small JSON
 // object — negligible even with hundreds of docs files.
-//
-// Dev caveat: the cache would prevent MDX title / meta.json edits from
-// showing up without a server restart. We skip the cache when
-// NODE_ENV !== "production" so `next dev` picks up edits on the next
-// page reload, matching the convention in reference-items.ts.
 const titleCache = new Map<string, string | null>();
 const metaCache = new Map<
   string,
   { title?: string; pages?: string[]; root?: boolean } | null
 >();
-function isProd(): boolean {
-  return process.env.NODE_ENV === "production";
-}
 
 export function readTitle(filePath: string): string | null {
   const cacheKey = path.resolve(filePath);
-  if (isProd() && titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
+  if (titleCache.has(cacheKey)) return titleCache.get(cacheKey)!;
 
   if (!fs.existsSync(filePath)) {
-    if (isProd()) titleCache.set(cacheKey, null);
+    titleCache.set(cacheKey, null);
     return null;
   }
   let raw: string;
@@ -141,7 +107,7 @@ export function readTitle(filePath: string): string | null {
     // page render. Log loudly and cache a null so we don't retry on
     // every nav build in the same process.
     console.error("[docs-render] failed to read", filePath, err);
-    if (isProd()) titleCache.set(cacheKey, null);
+    titleCache.set(cacheKey, null);
     return null;
   }
   // Restrict frontmatter matches to the frontmatter block so we don't
@@ -152,27 +118,12 @@ export function readTitle(filePath: string): string | null {
   const fmMatch = fm.match(/^title:\s*["']?(.+?)["']?\s*$/m);
   let title: string | null = null;
   if (fmMatch) {
-    title = fmMatch[1];
+    title = fmMatch[1].replace(/["']$/, "");
   } else {
-    // Match against the post-frontmatter body so a `# ...` YAML comment
-    // inside frontmatter can't be mistaken for the page's H1.
-    let body = raw;
-    try {
-      body = matter(raw).content;
-    } catch (err) {
-      // If frontmatter parsing blows up we still want a title guess;
-      // fall back to the raw source. Log so a malformed file doesn't
-      // silently produce a garbage H1-derived title with zero diagnostic.
-      console.error(
-        "[docs-render] frontmatter parse failed for",
-        filePath,
-        err,
-      );
-    }
-    const headingMatch = body.match(/^#\s+(.+)$/m);
+    const headingMatch = raw.match(/^#\s+(.+)$/m);
     if (headingMatch) title = headingMatch[1];
   }
-  if (isProd()) titleCache.set(cacheKey, title);
+  titleCache.set(cacheKey, title);
   return title;
 }
 
@@ -181,15 +132,15 @@ export function readMeta(
 ): { title?: string; pages?: string[]; root?: boolean } | null {
   const metaPath = path.join(dir, "meta.json");
   const cacheKey = path.resolve(metaPath);
-  if (isProd() && metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
+  if (metaCache.has(cacheKey)) return metaCache.get(cacheKey)!;
 
   if (!fs.existsSync(metaPath)) {
-    if (isProd()) metaCache.set(cacheKey, null);
+    metaCache.set(cacheKey, null);
     return null;
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(metaPath, "utf-8"));
-    if (isProd()) metaCache.set(cacheKey, parsed);
+    metaCache.set(cacheKey, parsed);
     return parsed;
   } catch (err) {
     // Previously swallowed silently — a malformed meta.json rendered
@@ -197,7 +148,7 @@ export function readMeta(
     // see the offending path and parse error. Cache the null so we
     // don't re-parse a bad file on every call.
     console.error("[docs-render] failed to parse", metaPath, err);
-    if (isProd()) metaCache.set(cacheKey, null);
+    metaCache.set(cacheKey, null);
     return null;
   }
 }
@@ -491,25 +442,8 @@ export function inlineSnippets(
 ): string {
   let result = stripLeadingImports(content);
 
-  // This regex is intentionally strict: it only matches self-closing JSX
-  // tags with an optional `components={...}` attribute, e.g.
-  //   <FrontendTools />
-  //   <SharedContent components={{ ... }} />
-  //
-  // Anything else — tags with other props (`<Snippet region="x" />`),
-  // non-self-closing tags, or tags wrapping children — is deliberately
-  // skipped here and handed off to the MDX component map (see
-  // `docsComponents` in mdx-registry.tsx). The split keeps the two
-  // systems non-overlapping: SNIPPET_MAP files get inlined as raw MDX
-  // (their imports and headings are preserved), while component-map
-  // entries render as React components with full prop handling.
-  // MDX authors pass component-map overrides via doubled-brace object
-  // syntax: `<SharedContent components={{ Foo: Bar }} />`. Using
-  // `[^}]*` truncates at the inner `}` and causes the whole tag to
-  // silently fail to match, so the snippet never gets inlined. Match
-  // the doubled-brace object form explicitly.
   result = result.replace(
-    /<([A-Z]\w*)\s*(?:components=\{\{[\s\S]*?\}\}\s*)?\/>/g,
+    /<([A-Z]\w*)\s*(?:components=\{[^}]*\}\s*)?\/>/g,
     (match, componentName) => {
       let snippetRel = SNIPPET_MAP[componentName];
 
@@ -687,23 +621,9 @@ const isTableSeparator = (s: string): boolean =>
   /\|/.test(s) && /^\s*[|:\- ]+\s*$/.test(s);
 
 export function convertTablesInJSX(content: string): string {
-  // Sort longest-first so the regex alternation doesn't leftmost-FIRST
-  // match a prefix tag (e.g. `Tab`) when the source is actually the
-  // longer variant (`Tabs`). JS regex alternation is not leftmost-longest:
-  // for `<Tabs>`, `Tab|Tabs` matches "Tab", then `[^>]*` consumes the "s",
-  // group 2 captures "Tab", and the `</\2>` backref demands `</Tab>` — the
-  // actual `</Tabs>` never matches and table conversion is silently skipped.
-  const tagPattern = [...JSX_CONTAINER_TAGS]
-    .sort((a, b) => b.length - a.length)
-    .join("|");
-  // Require the closing tag to match the captured opening tag via
-  // backreference (`\\2`). Without this, alternation in the close group
-  // allowed cross-tag mismatches — e.g. `<Tabs><Tab>x</Tab></Tabs>` would
-  // pair `<Tabs>` with `</Tab>` and leave `</Tabs>` stranded. JS regex
-  // supports numbered backrefs, so `\\2` refers to the inner tag-name
-  // capture of the opener.
+  const tagPattern = JSX_CONTAINER_TAGS.join("|");
   const regex = new RegExp(
-    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/\\2>)`,
+    `(<(${tagPattern})[^>]*>)([\\s\\S]*?)(<\\/(?:${tagPattern})>)`,
     "g",
   );
 
@@ -717,7 +637,7 @@ export function convertTablesInJSX(content: string): string {
       closeTag: string,
     ) => {
       // Non-greedy `[\s\S]*?` matches through the FIRST close tag of
-      // the SAME container, so nested same-tag content (e.g.
+      // any container in the set, so nested same-tag content (e.g.
       // `<Card>outer <Card>inner</Card> rest</Card>`) closes at the
       // inner `</Card>` and leaves `rest</Card>` stranded. Detect the
       // nesting and bail — the outer match is left untouched, which
@@ -809,7 +729,7 @@ export function loadDoc(
   // and CRLF line endings correctly. Previously the regex split on
   // `^---\n` and missed anything Windows-authored.
   let data: Record<string, unknown> = {};
-  let parsed: { data: Record<string, unknown>; content: string } | null = null;
+  let parsed: { data: Record<string, unknown> } | null = null;
   try {
     parsed = matter(source);
     data = parsed.data ?? {};
@@ -820,10 +740,7 @@ export function loadDoc(
   }
 
   const rawTitle = typeof data.title === "string" ? data.title : undefined;
-  // Use the parsed body (frontmatter stripped) for the H1 fallback so a
-  // `# ...` YAML comment inside frontmatter can't masquerade as an H1.
-  const body = parsed?.content ?? source;
-  const headingMatch = rawTitle ? null : body.match(/^#\s+(.+)$/m);
+  const headingMatch = rawTitle ? null : source.match(/^#\s+(.+)$/m);
   const title =
     rawTitle ||
     headingMatch?.[1] ||
