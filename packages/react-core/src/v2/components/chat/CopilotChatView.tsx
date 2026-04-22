@@ -40,6 +40,27 @@ import { usePinToSend } from "../../hooks/use-pin-to-send";
 // Height of the feather gradient overlay (h-24 = 6rem = 96px)
 const FEATHER_HEIGHT = 96;
 
+// Pin-to-send uses a softer, shorter feather than pin-to-bottom so readable
+// content isn't obscured (h-12 = 3rem = 48px).
+const PIN_TO_SEND_FEATHER_HEIGHT = 48;
+
+const PinToSendSoftFeather: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  style,
+  ...props
+}) => (
+  <div
+    className={cn(
+      "cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-12 cpk:pointer-events-none cpk:z-10 cpk:bg-gradient-to-t",
+      "cpk:from-white cpk:to-transparent",
+      "cpk:dark:from-[rgb(33,33,33)]",
+      className,
+    )}
+    style={style}
+    {...props}
+  />
+);
+
 // Forward declaration for WelcomeScreen component type
 export type WelcomeScreenProps = WithSlots<
   {
@@ -520,20 +541,21 @@ export namespace CopilotChatView {
       topOffset: 16,
     });
 
-    // The scroll-to-bottom button lives OUTSIDE the scroll container.
+    // Pin-to-send uses a SOFTER feather than pin-to-bottom:
+    //   - default: h-24 + from-white via-white to-transparent (fully opaque
+    //     bottom half, aggressive). Good for streaming-to-bottom where
+    //     the edge is always churning.
+    //   - pin-to-send: h-12 + from-white to-transparent (gradual fade,
+    //     no opaque midline). Gives a visual soft edge above the input
+    //     without obscuring otherwise-readable content.
+    // Consumers can still override with the `feather` slot.
+    const BoundFeather = renderSlot(feather, PinToSendSoftFeather, {});
+
+    // Feather and scroll-to-bottom button live OUTSIDE the scroll container.
     // `position: absolute` children of an `overflow: auto` element are
-    // positioned relative to the scroll *content*, which means they
-    // scroll away with it. Placing the button as a sibling of the scroll
-    // container (inside a `relative` wrapper) keeps it pinned to the
-    // visible viewport bottom.
-    //
-    // Note: pin-to-send intentionally OMITS the feather. The feather is
-    // designed for pin-to-bottom, where it smooths the visual edge of
-    // content being chased to the bottom. In pin-to-send, the user reads
-    // at their own pace and fading otherwise-readable content hurts more
-    // than it helps.
-    const BoundFeather = feather;
-    void BoundFeather;
+    // positioned relative to the scroll *content*, which means they scroll
+    // away with it. Placing them as siblings of the scroll container
+    // (inside a `relative` wrapper) keeps them pinned to the viewport bottom.
     return (
       <ScrollElementContext.Provider value={nonAutoScrollEl}>
         <div
@@ -560,12 +582,14 @@ export namespace CopilotChatView {
               style={{ height: 0, flex: "0 0 auto" }}
             />
           </div>
+          {/* Soft feather — pinned to wrapper bottom */}
+          {BoundFeather}
           {/* Scroll to bottom button */}
           {showScrollButton && !isResizing && (
             <div
               className="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
               style={{
-                bottom: `${inputContainerHeight + 16}px`,
+                bottom: `${inputContainerHeight + PIN_TO_SEND_FEATHER_HEIGHT + 16}px`,
               }}
             >
               {renderSlot(
