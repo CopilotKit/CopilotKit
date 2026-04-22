@@ -26,23 +26,28 @@ const SAMPLE_REDIRECTS = [
   { id: "A2", source: "/a2-old", destination: "/a2" },
 ];
 
-function mkLoader(
-  stubCompute?: (i: unknown) => {
+function mkCore(
+  stubCompute?: (i: {
+    events: Array<{ redirect_id: string; count: number }>;
+    redirects: Array<{ id: string; source: string; destination: string }>;
+    days: number;
+    slackFormat: boolean;
+  }) => {
     body: string;
     candidateCount: number;
     hasCandidates: boolean;
   },
 ) {
-  return async () => ({
+  return {
     seoRedirects: SAMPLE_REDIRECTS,
     computeRedirectDecommission:
       stubCompute ??
-      ((_i: unknown) => ({
+      (() => ({
         body: ":warning: 1 candidate",
         candidateCount: 1,
         hasCandidates: true,
       })),
-  });
+  };
 }
 
 function mkFetch(
@@ -121,7 +126,7 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: mkLoader((i) => {
+      core: mkCore((i) => {
         // Make sure driver is piping the PostHog events through the core
         // renderer unchanged — the cross-check test proves byte-identity
         // against the CLI, so here we just verify the forwarding contract.
@@ -175,7 +180,7 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: mkLoader(() => ({
+      core: mkCore(() => ({
         body: "",
         candidateCount: 0,
         hasCandidates: false,
@@ -208,7 +213,7 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: mkLoader(),
+      core: mkCore(),
     });
     const r = await driver.run(
       {
@@ -231,7 +236,7 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: mkLoader(),
+      core: mkCore(),
     });
     const r = await driver.run(
       {
@@ -245,7 +250,7 @@ describe("redirectDecommissionDriver", () => {
     expect(sig.probeErrorDesc).toMatch(/ENOTFOUND/);
   });
 
-  it("render-error path: load() rejection → probeErrored=true", async () => {
+  it("render-error path: computeRedirectDecommission throw → probeErrored=true", async () => {
     const fetchImpl = mkFetch({
       ok: true,
       status: 200,
@@ -254,8 +259,11 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: async () => {
-        throw new Error("core module missing");
+      core: {
+        seoRedirects: SAMPLE_REDIRECTS,
+        computeRedirectDecommission: () => {
+          throw new Error("core module missing");
+        },
       },
     });
     const r = await driver.run(
@@ -270,15 +278,16 @@ describe("redirectDecommissionDriver", () => {
     expect(sig.probeErrorDesc).toMatch(/core module missing/);
   });
 
-  it("driver exercises the real loadRedirectsAndCore against shell+scripts imports", async () => {
-    // Integration-coverage test: the default driver uses a dynamic import to
-    // avoid dragging the shell import graph into cold-start. This test runs
-    // that code path end-to-end (stubbed fetch only) so the "resolver picks
-    // .seoRedirects vs .default.seoRedirects" branches are exercised and
-    // coverage on this file stays ≥ 95%. The fetched result flows all the
-    // way through the real `computeRedirectDecommission` into a rendered
-    // body — a full cross-module wiring check that would otherwise only be
-    // hit at production boot.
+  it("driver exercises the real seo-redirects catalogue + computeRedirectDecommission", async () => {
+    // Integration-coverage test: the default driver uses the hermetic
+    // sibling-module imports (`./seo-redirects.js` +
+    // `./redirect-decommission-core.js`). Previously this test exercised
+    // the dynamic-import fallback across the shell + scripts trees; after
+    // A3 the driver no longer touches those paths at runtime (the
+    // Dockerfile never copied them, so they ENOENT'd in-container).
+    // Keeping this test as an end-to-end smoke run that proves the
+    // default driver wires through the real formatter + catalogue
+    // without a stubbed core dep.
     const fetchImpl = mkFetch({
       ok: true,
       status: 200,
@@ -287,8 +296,8 @@ describe("redirectDecommissionDriver", () => {
     });
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      // No `load` override — exercises the real loader against the shell
-      // import graph AND the scripts/redirect-decommission-core module.
+      // No `core` override — exercises the default wiring (hermetic
+      // sibling-module copies of the catalogue + formatter).
     });
     const r = await driver.run(
       {
@@ -326,7 +335,7 @@ describe("redirectDecommissionDriver", () => {
     const captured: Array<{ events: unknown }> = [];
     const driver = createRedirectDecommissionDriver({
       fetchImpl: fetchImpl as unknown as typeof fetch,
-      load: mkLoader((i) => {
+      core: mkCore((i) => {
         captured.push(i as { events: unknown });
         return { body: "", candidateCount: 0, hasCandidates: false };
       }),
@@ -339,5 +348,55 @@ describe("redirectDecommissionDriver", () => {
       { key: "redirect_decommission:overall" },
     );
     expect(captured[0]!.events).toEqual([]);
+  });
+
+  it("threads ctx.abortSignal into the PostHog fetch (CR A1)", async () => {
+    // Regression guard: the driver previously called fetchImpl without
+    // forwarding the invoker's AbortController signal, so a hung
+    // PostHog response kept its socket open past the synthetic-timeout
+    // ProbeResult. Observe `init.signal` and confirm the pre-aborted
+    // case surfaces through the probeErrored branch.
+    let captured: AbortSignal | undefined;
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      captured = (init as RequestInit | undefined)?.signal ?? undefined;
+      if (captured?.aborted) {
+        throw new DOMException("The operation was aborted", "AbortError");
+      }
+      return new Response(JSON.stringify({ results: [] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const controller = new AbortController();
+    const driver = createRedirectDecommissionDriver({
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      core: mkCore(() => ({
+        body: "",
+        candidateCount: 0,
+        hasCandidates: false,
+      })),
+    });
+    await driver.run(
+      {
+        ...BASE_CTX,
+        env: { POSTHOG_API_KEY: "phx_x", POSTHOG_PROJECT_ID: "proj" },
+        abortSignal: controller.signal,
+      },
+      { key: "redirect_decommission:overall" },
+    );
+    expect(captured).toBe(controller.signal);
+
+    controller.abort();
+    const r = await driver.run(
+      {
+        ...BASE_CTX,
+        env: { POSTHOG_API_KEY: "phx_x", POSTHOG_PROJECT_ID: "proj" },
+        abortSignal: controller.signal,
+      },
+      { key: "redirect_decommission:overall" },
+    );
+    const sig = r.signal as { probeErrored: boolean; probeErrorDesc: string };
+    expect(sig.probeErrored).toBe(true);
+    expect(sig.probeErrorDesc).toMatch(/aborted/i);
   });
 });

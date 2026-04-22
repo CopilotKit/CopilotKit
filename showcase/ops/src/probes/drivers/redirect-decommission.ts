@@ -5,6 +5,11 @@ import {
 } from "../redirect-decommission.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
+import { seoRedirects } from "./seo-redirects.js";
+import {
+  computeRedirectDecommission,
+  type RedirectDecommissionInput,
+} from "./redirect-decommission-core.js";
 
 /**
  * Driver wrapper around the legacy `redirectDecommissionProbe`. Mirrors the
@@ -15,13 +20,15 @@ import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
  *      driver only adapts the YAML-driven loader path (single-target
  *      `{ key }`) to the probe's formatter-ready input shape.
  *   2. The CLI formatter is extracted into
- *      `showcase/scripts/redirect-decommission-core.ts`
- *      (see `computeRedirectDecommission`). The driver performs the same
- *      PostHog fetch the legacy CLI did, hands the events to the core
- *      formatter, and then invokes the probe — i.e. the probe receives a
- *      pre-rendered `body` string exactly like when it is called from the
- *      CLI cron path. Both paths produce byte-identical signals; the
- *      cross-check test asserts that invariant.
+ *      `showcase/scripts/redirect-decommission-core.ts` (CLI-side copy) and
+ *      a hermetic mirror sits beside this driver at `./redirect-decommission-core.ts`.
+ *      Previously this driver dynamic-imported the CLI copy AND
+ *      `showcase/shell/src/lib/seo-redirects.ts` at runtime — both paths
+ *      ENOENT'd inside the container image, because neither tree is COPYd
+ *      into the runtime stage. Static imports off sibling modules make the
+ *      driver hermetic + let tsc check the full import graph. See the
+ *      provenance banner at the top of `seo-redirects.ts` +
+ *      `redirect-decommission-core.ts`.
  *   3. PostHog env (API key + project ID) arrives via `ctx.env`, consistent
  *      with how aimock-wiring consumes Railway/AIMOCK env. Missing env
  *      surfaces as a keyed synthetic `state:"error"` ProbeResult rather
@@ -67,6 +74,7 @@ async function queryPostHog(
   projectId: string,
   fetchImpl: typeof fetch,
   logger: Logger,
+  abortSignal: AbortSignal | undefined,
 ): Promise<EventCount[]> {
   const now = new Date();
   const from = new Date(now.getTime() - DAYS * 24 * 60 * 60 * 1000);
@@ -98,6 +106,11 @@ async function queryPostHog(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ query }),
+      // Thread the invoker's AbortController signal into the fetch so the
+      // request aborts in-flight if the probe's timeout_ms fires. Without
+      // this, a hung PostHog endpoint keeps the socket alive past the
+      // synthetic-timeout ProbeResult, leaking descriptors on every tick.
+      signal: abortSignal,
     },
   );
 
@@ -118,80 +131,44 @@ async function queryPostHog(
 }
 
 /**
- * Make the imports resilient to the shell/scripts Node-25 ESM/CJS interop
- * gotcha documented in the CLI: named imports from
- * `../shell/src/lib/seo-redirects` surface via the CJS `default` namespace
- * under tsx + Node 25 when the containing package omits
- * `"type": "module"`. Use a namespace import and pick either shape.
+ * Bundle of data + formatter the driver hands to the legacy probe. Kept as
+ * an injectable seam so tests can stub the seo-redirects catalogue and
+ * `computeRedirectDecommission` implementation without requiring the real
+ * modules. Default wiring (used by the exported singleton) points at the
+ * hermetic sibling modules — no dynamic imports, no filesystem coupling
+ * to the monorepo layout.
  */
-async function loadRedirectsAndCore(): Promise<{
+export interface RedirectDecommissionCoreDeps {
   seoRedirects: Array<{ id: string; source: string; destination: string }>;
-  computeRedirectDecommission: (i: unknown) => {
+  computeRedirectDecommission: (i: RedirectDecommissionInput) => {
     body: string;
     candidateCount: number;
     hasCandidates: boolean;
   };
-}> {
-  // Non-literal module specifiers keep `tsc -p tsconfig.build.json` from
-  // following these paths out of rootDir at build time — they resolve at
-  // runtime against the monorepo tree the container ships. The same two
-  // files are covered by the probe's typecheck-scoped unit tests (via
-  // explicit imports) so signatures stay checked even though the build
-  // doesn't compile the transitive closure.
-  const seoModPath = "../../../../shell/src/lib/seo-redirects";
-  const seoMod = (await import(seoModPath)) as {
-    seoRedirects?: Array<{ id: string; source: string; destination: string }>;
-    default?: {
-      seoRedirects?: Array<{
-        id: string;
-        source: string;
-        destination: string;
-      }>;
-    };
-  };
-  const seoRedirects =
-    seoMod.seoRedirects ?? seoMod.default?.seoRedirects ?? [];
-
-  const coreModPath = "../../../../scripts/redirect-decommission-core";
-  const coreMod = (await import(coreModPath)) as {
-    computeRedirectDecommission?: (i: unknown) => {
-      body: string;
-      candidateCount: number;
-      hasCandidates: boolean;
-    };
-    default?: {
-      computeRedirectDecommission?: (i: unknown) => {
-        body: string;
-        candidateCount: number;
-        hasCandidates: boolean;
-      };
-    };
-  };
-  const computeRedirectDecommission =
-    coreMod.computeRedirectDecommission ??
-    coreMod.default?.computeRedirectDecommission;
-  if (!computeRedirectDecommission) {
-    throw new Error(
-      "redirect-decommission-core did not export computeRedirectDecommission",
-    );
-  }
-  return { seoRedirects, computeRedirectDecommission };
 }
 
+const defaultCore: RedirectDecommissionCoreDeps = {
+  seoRedirects,
+  computeRedirectDecommission,
+};
+
 /**
- * Exposed for test injection — tests override the default fetch/core/redirects
- * providers so they don't need to hit PostHog or the shell import graph.
+ * Exposed for test injection — tests override the default fetch/core
+ * providers so they don't need to hit PostHog or construct the real
+ * catalogue. The `core` seam replaces the previous `load` async factory;
+ * since everything is statically imported now, there's no async to
+ * preserve.
  */
 export interface RedirectDecommissionDriverDeps {
   fetchImpl?: typeof fetch;
-  load?: typeof loadRedirectsAndCore;
+  core?: RedirectDecommissionCoreDeps;
 }
 
 export function createRedirectDecommissionDriver(
   deps: RedirectDecommissionDriverDeps = {},
 ): ProbeDriver<RedirectDecommissionDriverInput, RedirectDecommissionSignal> {
   const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
-  const load = deps.load ?? loadRedirectsAndCore;
+  const core = deps.core ?? defaultCore;
 
   return {
     kind: redirectDecommissionProbe.dimension,
@@ -226,7 +203,13 @@ export function createRedirectDecommissionDriver(
 
       let events: EventCount[];
       try {
-        events = await queryPostHog(apiKey, projectId, fetchImpl, logger);
+        events = await queryPostHog(
+          apiKey,
+          projectId,
+          fetchImpl,
+          logger,
+          ctx.abortSignal,
+        );
       } catch (err) {
         // Route upstream audit failures through the probe's `probeErrored`
         // branch so the monthly suppress rule (`probeErrored != true`) fires
@@ -250,10 +233,9 @@ export function createRedirectDecommissionDriver(
 
       let rendered: { body: string; candidateCount: number };
       try {
-        const { seoRedirects, computeRedirectDecommission } = await load();
-        const result = computeRedirectDecommission({
+        const result = core.computeRedirectDecommission({
           events,
-          redirects: seoRedirects,
+          redirects: core.seoRedirects,
           days: DAYS,
           slackFormat: true,
         });
@@ -262,8 +244,8 @@ export function createRedirectDecommissionDriver(
           candidateCount: result.candidateCount,
         };
       } catch (err) {
-        // Core module / shell import failure — surface as an audit error so
-        // the template branch renders instead of silent suppression.
+        // Core formatter failure — surface as an audit error so the template
+        // branch renders instead of silent suppression.
         const errorDesc =
           err instanceof Error ? err.message : String(err ?? "unknown error");
         logger.error("probe.redirect-decommission.render-error", { errorDesc });
@@ -294,8 +276,9 @@ export function createRedirectDecommissionDriver(
 
 /**
  * Default driver instance registered by the orchestrator at boot. Tests
- * call `createRedirectDecommissionDriver({ fetchImpl, load })` directly to
- * stub out PostHog + the shell import graph; production callers use this
- * singleton which binds to the real `globalThis.fetch` and dynamic import.
+ * call `createRedirectDecommissionDriver({ fetchImpl, core })` directly to
+ * stub out PostHog + the formatter/data; production callers use this
+ * singleton which binds to the real `globalThis.fetch` and the hermetic
+ * sibling-module copies of the catalogue + formatter.
  */
 export const redirectDecommissionDriver = createRedirectDecommissionDriver();
