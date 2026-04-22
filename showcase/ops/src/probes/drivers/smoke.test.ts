@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { smokeDriver } from "./smoke.js";
+import { smokeDriver, type SmokeDriverSignal } from "./smoke.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -51,29 +51,40 @@ function responseFor(
   opts: {
     smokeStatus?: number;
     healthStatus?: number;
+    agentStatus?: number;
     smokeBody?: string;
     healthBody?: string;
+    agentBody?: string;
   },
 ): Response {
-  const isHealth = /\/health(\b|\/|\?|$)/.test(url);
-  const status = isHealth
-    ? (opts.healthStatus ?? 200)
-    : (opts.smokeStatus ?? 200);
-  const body = isHealth
-    ? (opts.healthBody ?? '{"status":"ok"}')
-    : (opts.smokeBody ?? '{"status":"ok"}');
+  const isAgent = /\/api\/copilotkit(\/|\b|\?|$)/.test(url);
+  const isHealth = !isAgent && /\/health(\b|\/|\?|$)/.test(url);
+  let status: number;
+  let body: string;
+  if (isAgent) {
+    status = opts.agentStatus ?? 200;
+    body = opts.agentBody ?? '{"status":"ok"}';
+  } else if (isHealth) {
+    status = opts.healthStatus ?? 200;
+    body = opts.healthBody ?? '{"status":"ok"}';
+  } else {
+    status = opts.smokeStatus ?? 200;
+    body = opts.smokeBody ?? '{"status":"ok"}';
+  }
   return new Response(body, {
     status,
     statusText: `HTTP ${status}`,
   });
 }
 
-/** Fake-fetch factory: answer smoke/health differently per test case. */
+/** Fake-fetch factory: answer smoke/health/agent differently per test case. */
 function fakeFetch(opts: {
   smokeStatus?: number;
   healthStatus?: number;
+  agentStatus?: number;
   smokeBody?: string;
   healthBody?: string;
+  agentBody?: string;
 }): typeof fetch {
   return (async (url: string | URL) => {
     const href = typeof url === "string" ? url : url.toString();
@@ -126,8 +137,11 @@ describe("smokeDriver", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("happy path: 200 on /smoke + 200 on /health → green smoke + green health side-emission", async () => {
-    vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 200, healthStatus: 200 }));
+  it("happy path: 200 /smoke + 200 /health + 200 /agent → green smoke + green health + green agent side-emissions", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
     const { writer, writes } = mkWriter();
     const r = await smokeDriver.run(mkCtx(writer), {
       key: "smoke:mastra",
@@ -136,13 +150,18 @@ describe("smokeDriver", () => {
     expect(r.state).toBe("green");
     expect(r.key).toBe("smoke:mastra");
     expect(r.signal.status).toBe(200);
-    expect(writes).toHaveLength(1);
+    expect(writes).toHaveLength(2);
     expect(writes[0]!.key).toBe("health:mastra");
     expect(writes[0]!.state).toBe("green");
+    expect(writes[1]!.key).toBe("agent:mastra");
+    expect(writes[1]!.state).toBe("green");
   });
 
   it("/smoke 500 → smoke red, health still probes", async () => {
-    vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 500, healthStatus: 200 }));
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 500, healthStatus: 200, agentStatus: 200 }),
+    );
     const { writer, writes } = mkWriter();
     const r = await smokeDriver.run(mkCtx(writer), {
       key: "smoke:mastra",
@@ -150,14 +169,22 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("red");
     expect(r.signal.errorDesc).toContain("500");
-    expect(writes).toHaveLength(1);
+    expect(writes).toHaveLength(2);
+    expect(writes[0]!.key).toBe("health:mastra");
     expect(writes[0]!.state).toBe("green");
+    expect(writes[1]!.key).toBe("agent:mastra");
+    expect(writes[1]!.state).toBe("green");
   });
 
   it("/smoke 404 → smoke red with http 404 errorDesc", async () => {
     vi.stubGlobal(
       "fetch",
-      fakeFetch({ smokeStatus: 404, smokeBody: "", healthStatus: 200 }),
+      fakeFetch({
+        smokeStatus: 404,
+        smokeBody: "",
+        healthStatus: 200,
+        agentStatus: 200,
+      }),
     );
     const { writer, writes } = mkWriter();
     const r = await smokeDriver.run(mkCtx(writer), {
@@ -166,7 +193,7 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("red");
     expect(r.signal.errorDesc).toBe("http 404");
-    expect(writes).toHaveLength(1);
+    expect(writes).toHaveLength(2);
   });
 
   it("/smoke times out → smoke red with 'timeout after Nms'", async () => {
@@ -200,12 +227,14 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("red");
     expect(r.signal.errorDesc).toBe("timeout after 5ms");
-    // Health tick should also show a timeout (same fake-fetch behaviour).
-    expect(writes).toHaveLength(1);
+    // Health + agent ticks should also show a timeout (same fake-fetch).
+    expect(writes).toHaveLength(2);
     expect(writes[0]!.state).toBe("red");
     expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toBe(
       "timeout after 5ms",
     );
+    expect(writes[1]!.key).toBe("agent:mastra");
+    expect(writes[1]!.state).toBe("red");
   });
 
   it("/smoke 200 with malformed JSON body → smoke red with parse reason", async () => {
@@ -215,6 +244,7 @@ describe("smokeDriver", () => {
         smokeStatus: 200,
         smokeBody: "<html>ServiceUnavailable</html>",
         healthStatus: 200,
+        agentStatus: 200,
       }),
     );
     const { writer, writes } = mkWriter();
@@ -224,24 +254,31 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("red");
     expect(r.signal.errorDesc).toMatch(/malformed body/);
-    // Health side-emit still OK.
-    expect(writes).toHaveLength(1);
+    // Health + agent side-emits still OK.
+    expect(writes).toHaveLength(2);
     expect(writes[0]!.state).toBe("green");
+    expect(writes[1]!.state).toBe("green");
   });
 
-  it("/health 503 → health red, smoke unaffected", async () => {
-    vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 200, healthStatus: 503 }));
+  it("/health 503 → health red, smoke + agent unaffected", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 503, agentStatus: 200 }),
+    );
     const { writer, writes } = mkWriter();
     const r = await smokeDriver.run(mkCtx(writer), {
       key: "smoke:mastra",
       url: "https://x.example/smoke",
     });
     expect(r.state).toBe("green");
-    expect(writes).toHaveLength(1);
+    expect(writes).toHaveLength(2);
+    expect(writes[0]!.key).toBe("health:mastra");
     expect(writes[0]!.state).toBe("red");
     expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toContain(
       "503",
     );
+    expect(writes[1]!.key).toBe("agent:mastra");
+    expect(writes[1]!.state).toBe("green");
   });
 
   it("missing writer logs a warning and does not throw", async () => {
@@ -280,8 +317,10 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("red");
     expect(r.signal.errorDesc).toContain("ECONNRESET");
-    expect(writes).toHaveLength(1);
+    expect(writes).toHaveLength(2);
     expect(writes[0]!.state).toBe("red");
+    expect(writes[1]!.key).toBe("agent:mastra");
+    expect(writes[1]!.state).toBe("red");
   });
 
   it("10 parallel run() calls don't cross-contaminate URLs or keys", async () => {
@@ -289,7 +328,11 @@ describe("smokeDriver", () => {
     const fetchImpl: typeof fetch = (async (url: string | URL) => {
       const href = typeof url === "string" ? url : url.toString();
       calls.push(href);
-      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
     }) as unknown as typeof fetch;
     vi.stubGlobal("fetch", fetchImpl);
 
@@ -305,21 +348,27 @@ describe("smokeDriver", () => {
       ),
     );
 
-    // All 10 smoke ticks green + all 10 health side-emissions green.
+    // All 10 smoke ticks green + 10 health + 10 agent side-emissions green.
     expect(results.map((r) => r.state)).toEqual(Array(10).fill("green"));
     expect(results.map((r) => r.key).sort()).toEqual(
       slugs.map((s) => `smoke:${s}`).sort(),
     );
-    expect(writes.map((w) => w.key).sort()).toEqual(
-      slugs.map((s) => `health:${s}`).sort(),
-    );
+    // writes has 20 entries: 10 health:<slug> + 10 agent:<slug>.
+    const writeKeys = writes.map((w) => w.key).sort();
+    const expectedWriteKeys = [
+      ...slugs.map((s) => `health:${s}`),
+      ...slugs.map((s) => `agent:${s}`),
+    ].sort();
+    expect(writeKeys).toEqual(expectedWriteKeys);
     // Every fake-fetch call received a URL matching one of the expected
-    // smoke or health URLs — no cross-contamination.
+    // smoke, health, or agent URLs — no cross-contamination.
     for (const href of calls) {
-      expect(href).toMatch(/^https:\/\/x-svc\d\.example\/(smoke|health)$/);
+      expect(href).toMatch(
+        /^https:\/\/x-svc\d\.example\/(smoke|health|api\/copilotkit\/?)$/,
+      );
     }
-    // Each slug's smoke + health URL was invoked exactly once.
-    expect(calls.length).toBe(20);
+    // Each slug's smoke + health + agent URL invoked exactly once (10 × 3 = 30).
+    expect(calls.length).toBe(30);
   });
 
   it("/smoke 500 with long body truncates errorDesc at 160 chars + ellipsis", async () => {
@@ -399,7 +448,10 @@ describe("smokeDriver", () => {
   });
 
   it("input key without ':' falls back to whole-key as slug", async () => {
-    vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 200, healthStatus: 200 }));
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
     const { writer, writes } = mkWriter();
     const r = await smokeDriver.run(mkCtx(writer), {
       key: "bare",
@@ -407,5 +459,250 @@ describe("smokeDriver", () => {
     });
     expect(r.state).toBe("green");
     expect(writes[0]!.key).toBe("health:bare");
+    expect(writes[1]!.key).toBe("agent:bare");
+  });
+
+  // -------------------------------------------------------------------
+  // L2 agent endpoint
+  // -------------------------------------------------------------------
+
+  it("/agent 200 → agent green with status 200", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("green");
+    expect((agent.signal as SmokeDriverSignal).status).toBe(200);
+  });
+
+  it("/agent 400 (runtime rejected empty payload) → agent green — runtime is mounted", async () => {
+    // The CopilotKit Hono router returns 400 for an empty `{}` body; this
+    // is still an L2 success — any non-404 response proves the route
+    // exists. Mirrors the `checkAgentEndpoint` contract.
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 400 }),
+    );
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("green");
+    expect((agent.signal as SmokeDriverSignal).status).toBe(400);
+  });
+
+  it("/agent 404 → agent red with 'route not mounted' errorDesc", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 404,
+        agentBody: "",
+      }),
+    );
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("red");
+    expect((agent.signal as SmokeDriverSignal).errorDesc).toMatch(
+      /route not mounted/,
+    );
+  });
+
+  it("/agent 404 with body → agent red with truncated body in errorDesc", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 404,
+        agentBody: "<html>Next.js 404</html>",
+      }),
+    );
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("red");
+    expect((agent.signal as SmokeDriverSignal).errorDesc).toContain(
+      "agent endpoint 404",
+    );
+    expect((agent.signal as SmokeDriverSignal).errorDesc).toContain(
+      "Next.js 404",
+    );
+  });
+
+  it("/agent transport error → agent red with raw message", async () => {
+    let callIdx = 0;
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      callIdx++;
+      if (/\/api\/copilotkit/.test(href)) {
+        throw new Error("EHOSTUNREACH");
+      }
+      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(callIdx).toBeGreaterThanOrEqual(3);
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("red");
+    expect((agent.signal as SmokeDriverSignal).errorDesc).toContain(
+      "EHOSTUNREACH",
+    );
+  });
+
+  it("POSTs `{}` to /api/copilotkit/ for the agent probe", async () => {
+    let agentInit: RequestInit | undefined;
+    const fetchImpl: typeof fetch = (async (
+      url: string | URL,
+      init?: RequestInit,
+    ) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/copilotkit/.test(href)) {
+        agentInit = init;
+      }
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(agentInit?.method).toBe("POST");
+    expect(agentInit?.body).toBe("{}");
+    // Content-Type header must be JSON so the runtime's body parser kicks in.
+    const headers = agentInit?.headers as Record<string, string> | undefined;
+    expect(headers?.["Content-Type"]).toBe("application/json");
+  });
+
+  // -------------------------------------------------------------------
+  // Discovery-shape input
+  // -------------------------------------------------------------------
+
+  it("inputSchema accepts discovery shape { key, name, publicUrl, imageRef, env }", () => {
+    const parsed = smokeInputSchema_safeParse({
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      imageRef: "ghcr.io/copilotkit/showcase-ag2:latest",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      env: { FOO: "bar" },
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("inputSchema rejects when neither `url` nor (`name` + `publicUrl`) is set", () => {
+    const parsed = smokeInputSchema_safeParse({ key: "smoke:ag2" });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("discovery input: `showcase-ag2` name strips prefix → slug=`ag2`, URLs built from publicUrl", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      imageRef: "ghcr.io/copilotkit/showcase-ag2:latest",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      env: {},
+    });
+    expect(r.state).toBe("green");
+    expect(r.key).toBe("smoke:ag2");
+    expect(writes.map((w) => w.key).sort()).toEqual(
+      ["agent:ag2", "health:ag2"].sort(),
+    );
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/smoke");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/health");
+    expect(calls).toContain(
+      "https://showcase-ag2.up.railway.app/api/copilotkit/",
+    );
+  });
+
+  it("discovery input: `showcase-starter-ag2` name strips prefix → slug=`starter-ag2`", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      imageRef: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      env: {},
+    });
+    expect(r.state).toBe("green");
+    expect(writes.map((w) => w.key).sort()).toEqual(
+      ["agent:starter-ag2", "health:starter-ag2"].sort(),
+    );
+  });
+
+  it("discovery input with trailing `/` on publicUrl strips it before appending paths", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      imageRef: "",
+      publicUrl: "https://showcase-ag2.up.railway.app/",
+      env: {},
+    });
+    // No double-slashes.
+    for (const c of calls) {
+      expect(c).not.toContain(".app//");
+    }
   });
 });
+
+/**
+ * Proxy helper for the two schema-level assertions above. Not exposed
+ * from the module itself (drivers keep their schemas private); the tests
+ * pull it through the existing `smokeDriver` import so the tested shape
+ * matches exactly what the invoker hands in.
+ */
+function smokeInputSchema_safeParse(input: unknown): { success: boolean } {
+  return smokeDriver.inputSchema.safeParse(input);
+}
