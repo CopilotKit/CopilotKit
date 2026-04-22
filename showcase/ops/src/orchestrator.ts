@@ -30,6 +30,7 @@ import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { e2eSmokeDriver } from "./probes/drivers/e2e-smoke.js";
+import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
@@ -213,6 +214,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const discoveryRegistry = createDiscoveryRegistry();
   probeRegistry.register(aimockWiringDriver);
   probeRegistry.register(e2eSmokeDriver);
+  probeRegistry.register(pinDriftDriver);
   const probeConfigDir =
     opts.configDir !== undefined
       ? path.resolve(opts.configDir, "../probes")
