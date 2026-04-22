@@ -214,17 +214,17 @@ A lefthook pre-commit check (`pnpm check:plugin-skills`) rejects commits that dr
 
 ### Skill inventory
 
-| Slug | Type | Source |
-| --- | --- | --- |
-| `runtime` | core | `packages/runtime/skills/runtime/` |
-| `react-core` | framework | `packages/react-core/skills/react-core/` |
-| `a2ui-renderer` | framework | `packages/a2ui-renderer/skills/a2ui-renderer/` |
-| `0-to-working-chat` | lifecycle | `skills/0-to-working-chat/` |
-| `spa-without-runtime` | lifecycle | `skills/spa-without-runtime/` |
-| `go-to-production` | lifecycle | `skills/go-to-production/` |
-| `scale-to-multi-agent` | lifecycle | `skills/scale-to-multi-agent/` |
-| `v1-to-v2-migration` | lifecycle | `skills/v1-to-v2-migration/` |
-| `debug-and-troubleshoot` | lifecycle | `skills/debug-and-troubleshoot/` |
+| Slug                     | Type      | Source                                         |
+| ------------------------ | --------- | ---------------------------------------------- |
+| `runtime`                | core      | `packages/runtime/skills/runtime/`             |
+| `react-core`             | framework | `packages/react-core/skills/react-core/`       |
+| `a2ui-renderer`          | framework | `packages/a2ui-renderer/skills/a2ui-renderer/` |
+| `0-to-working-chat`      | lifecycle | `skills/0-to-working-chat/`                    |
+| `spa-without-runtime`    | lifecycle | `skills/spa-without-runtime/`                  |
+| `go-to-production`       | lifecycle | `skills/go-to-production/`                     |
+| `scale-to-multi-agent`   | lifecycle | `skills/scale-to-multi-agent/`                 |
+| `v1-to-v2-migration`     | lifecycle | `skills/v1-to-v2-migration/`                   |
+| `debug-and-troubleshoot` | lifecycle | `skills/debug-and-troubleshoot/`               |
 
 ## 📄 License
 
