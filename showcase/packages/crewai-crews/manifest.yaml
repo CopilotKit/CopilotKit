@@ -24,7 +24,7 @@ managed_platform:
 starter:
   path: showcase/starters/crewai-crews
   name: Sales Dashboard
-  description: Full-featured sales pipeline with 5 GenUI rendering strategies
+  description: Full-featured sales pipeline with 4 GenUI rendering strategies
   github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/crewai-crews
   demo_url: https://showcase-starter-crewai-crews-production-ad85.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/crewai-crews my-copilotkit-app
