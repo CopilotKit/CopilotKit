@@ -717,12 +717,7 @@ describe("smokeDriver", () => {
     expect(calls).not.toContain(
       "https://showcase-starter-ag2-production.up.railway.app/health",
     );
-    // Contract: smoke and health rows feed separate alert dimensions so
-    // the driver MUST issue TWO independent GETs against /api/health
-    // rather than reusing the first response. Dashboards that correlate
-    // smoke vs health red flips rely on the rows being independent
-    // observations; a shared result would make them byte-identical and
-    // defeat the correlation signal.
+    // Contract: two independent GETs on /api/health — see smoke.ts run() for rationale.
     const healthCalls = calls.filter((c) => c.endsWith("/api/health"));
     expect(healthCalls).toHaveLength(2);
     // Health side-emit still produced (mirrors primary) so dashboards
@@ -965,12 +960,11 @@ describe("smokeDriver", () => {
   });
 
   it("shape-mismatch throws: explicit input.shape disagrees with classifier", async () => {
-    // C1 regression guard: silent-defaulting at the driver boundary
-    // inverts the whole fix. If discovery marks a service as
-    // `showcase-starter-*` (classifier → "starter") but the caller also
-    // pins `shape: "package"`, the driver must fail loud rather than
-    // pick one — silent drift is exactly the failure mode this contract
-    // prevents.
+    // Silent-defaulting at the driver boundary inverts the whole fix.
+    // When discovery marks a service as `showcase-starter-*` (classifier
+    // → "starter") but the caller pins `shape: "package"`, the driver
+    // fails loud rather than pick one — silent drift is the exact
+    // failure mode this contract prevents.
     vi.stubGlobal(
       "fetch",
       fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),

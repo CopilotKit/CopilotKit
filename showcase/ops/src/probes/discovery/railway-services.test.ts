@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { railwayServicesSource } from "./railway-services.js";
+import { describe, it, expect, vi } from "vitest";
+import {
+  classifyShape,
+  railwayServicesSource,
+  resolveShape,
+} from "./railway-services.js";
 import {
   DiscoverySourceAuthError,
   DiscoverySourceBackendError,
@@ -580,6 +584,50 @@ describe("railwayServicesSource", () => {
     expect(byName["showcase-starter-ag2"]).toBe("starter");
     expect(byName["showcase-mastra"]).toBe("package");
     expect(byName["showcase-starter-mastra"]).toBe("starter");
+  });
+
+  // -----------------------------------------------------------------
+  // Audit-warn branch on classifyShape: any `showcase-*` name that is
+  // neither a well-formed `showcase-starter-<slug>` nor a well-formed
+  // package root `showcase-<slug>` (lowercase-alnum-hyphen) falls to
+  // `package` but logs an audit warn. Covers typos like
+  // `showcase-strater-foo`, underscore forms, and future archetypes
+  // that would otherwise silently misclassify.
+  // -----------------------------------------------------------------
+
+  it("classifyShape warns on a `showcase-*` typo name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-strater-ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "showcase-strater-ag2" },
+    );
+  });
+
+  it("classifyShape does not warn on a well-formed package root", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape does not warn on a well-formed starter name", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-starter-ag2", { logger: { warn } });
+    expect(shape).toBe("starter");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("resolveShape debug-logs when neither name nor shape is supplied", () => {
+    const debug = vi.fn();
+    const shape = resolveShape({}, { logger: { debug } });
+    expect(shape).toBe("package");
+    expect(debug).toHaveBeenCalledWith(
+      "discovery.railway-services.resolve-shape-fallback",
+      { reason: "no-name-or-shape" },
+    );
   });
 
   it("threads ctx.abortSignal into every Railway GraphQL fetch", async () => {

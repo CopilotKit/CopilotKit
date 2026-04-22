@@ -454,10 +454,8 @@ describe("e2eSmokeDriver starter shape", () => {
     // Full signal contract — exhaustive field check so a regression that
     // drops any field fails this test. Narrow via the discriminator so
     // TS surfaces missing fields at compile time too.
-    const sig = result.signal as E2eSmokeSignal;
-    expect(sig.shape).toBe("starter");
-    if (sig.shape !== "starter") throw new Error("unreachable");
-    const starterSig: E2eSmokeStarterSignal = sig;
+    const starterSig = result.signal as E2eSmokeStarterSignal;
+    expect(starterSig.shape).toBe("starter");
     expect(starterSig.slug).toBe("starter-ag2");
     expect(starterSig.backendUrl).toBe(
       "https://showcase-starter-ag2-production.up.railway.app",
@@ -465,6 +463,7 @@ describe("e2eSmokeDriver starter shape", () => {
     expect(starterSig.l3).toBe("skipped");
     expect(starterSig.l4).toBe("skipped");
     expect(starterSig.failureSummary).toBe("");
+    expect(starterSig.skipReason).toBe("starter-shape");
     expect(starterSig.note).toBe("starter: no /demos/* routing");
     // errorDesc MUST NOT exist on a green-starter row — alert templates
     // render errorDesc as failure reason and surfacing one on green
@@ -505,7 +504,7 @@ describe("e2eSmokeDriver starter shape", () => {
   });
 
   it("shape-mismatch throws: explicit input.shape disagrees with classifier", async () => {
-    // C1: silent-defaulting at the driver boundary inverts the fix.
+    // Silent-defaulting at the driver boundary inverts the fix.
     // Passing shape='package' with a `showcase-starter-*` name must fail
     // loud so silent drift between discovery and driver is unmissable.
     const { browser } = makeBrowser([{ assistantText: "Hi" }]);

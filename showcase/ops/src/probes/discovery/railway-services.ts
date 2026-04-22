@@ -63,9 +63,8 @@ import {
  * archetype (e.g. `static`) is a one-line edit here plus a matching
  * classifier branch, not a cross-file ripple.
  */
-export const SHOWCASE_SHAPES = ["package", "starter"] as const;
-export type ShowcaseServiceShape = (typeof SHOWCASE_SHAPES)[number];
-export const showcaseShapeSchema = z.enum(SHOWCASE_SHAPES);
+export const showcaseShapeSchema = z.enum(["package", "starter"]);
+export type ShowcaseServiceShape = z.infer<typeof showcaseShapeSchema>;
 
 export interface RailwayServiceInfo {
   name: string;
@@ -82,39 +81,77 @@ export interface RailwayServiceInfo {
 }
 
 /**
+ * Minimal logger surface used by shape helpers. A structural subset of
+ * the orchestrator's `Logger` — kept local so `classifyShape` /
+ * `resolveShape` can accept ad-hoc test loggers without importing the
+ * full `Logger` type tree.
+ */
+interface ShapeLogger {
+  warn?: (msg: string, meta?: Record<string, unknown>) => void;
+  debug?: (msg: string, meta?: Record<string, unknown>) => void;
+}
+
+/**
  * Classify a Railway service name into a `ShowcaseServiceShape`. Exported
  * so tests can exercise the classifier directly and downstream drivers
  * can reclassify from a bare name when the discovery record wasn't
  * threaded through (static-YAML callers). The rule is deliberately tight:
- * ONLY the literal `showcase-starter-` prefix is classified as starter.
- * Everything else — `showcase-ag2`, `showcase-shell`, `some-other-svc` —
- * falls to `package`. Keeping the rule a simple prefix check keeps it
- * auditable in the YAML comments.
- *
- * Ambiguity warning: when a name matches the `showcase-` umbrella but
- * doesn't match either archetype pattern cleanly (i.e. `showcase-foo`
- * where `foo` isn't a known package slug and isn't prefixed `starter-`),
- * we cannot tell from the name alone whether it's a new package or a
- * mis-named starter. Default to `package` (safe — probes the legacy
- * `/smoke` + `/health` surface which most new services support) but emit
- * a one-shot audit warning via `opts.logger` when supplied so operators
- * adding a new archetype see the nudge on the first tick.
+ * ONLY the literal `showcase-starter-<slug>` pattern is classified as
+ * starter. A well-formed package root matches `showcase-<slug>` with
+ * lowercase, digits, and hyphens. Anything that starts with `showcase-`
+ * but fits neither pattern (typos like `showcase-strater-foo`,
+ * `showcase_starter_bar`, future archetypes like `showcase-static-landing`)
+ * still returns `"package"` as a safe default but emits an audit warn via
+ * `opts.logger?.warn` so operators adding a new archetype see the nudge
+ * on the first tick. That was the original fall-through path that
+ * produced the false-red flood this contract exists to eliminate.
  */
 export function classifyShape(
   name: string,
-  opts: {
-    logger?: {
-      warn: (msg: string, meta?: Record<string, unknown>) => void;
-    };
-  } = {},
+  opts: { logger?: ShapeLogger } = {},
 ): ShowcaseServiceShape {
-  if (name.startsWith("showcase-starter-")) return "starter";
-  // Umbrella-match but not an obvious package: the bare `showcase-` with
-  // no further segment, or the literal `showcase-starter` with no trailing
-  // slug. Both are likely wiring typos on a new service.
-  if (name === "showcase-" || name === "showcase-starter") {
-    opts.logger?.warn("railway.name_shape_unknown", { name });
+  if (/^showcase-starter-[a-z0-9-]+$/.test(name)) return "starter";
+  // Well-formed package root = `showcase-<single-segment lowercase alnum>`.
+  // The spec deliberately excludes hyphen-bearing suffixes from the
+  // "known-package" shape so multi-segment names (`showcase-langgraph-
+  // python`, `showcase-static-landing`) land in the warn branch as an
+  // audit nudge. Returning `"package"` either way keeps behaviour
+  // backwards-compatible; the warn is purely advisory.
+  if (/^showcase-[a-z0-9]+$/.test(name)) return "package";
+  if (name.startsWith("showcase-")) {
+    opts.logger?.warn?.("discovery.railway-services.name-shape-unknown", {
+      name,
+    });
   }
+  return "package";
+}
+
+/**
+ * Resolve the deployment shape for a driver invocation. Classifier wins
+ * when `name` is present — silent defaulting at the driver boundary
+ * inverts the fix this contract exists to make, so we throw on any
+ * explicit-vs-classifier disagreement rather than pick one. When `name`
+ * is absent, honour the caller-supplied `shape` verbatim. When neither
+ * is present, fall back to `package` and log a debug entry so the
+ * assumption is greppable if it ever breaks.
+ */
+export function resolveShape(
+  input: { name?: string; shape?: ShowcaseServiceShape },
+  opts: { logger?: ShapeLogger } = {},
+): ShowcaseServiceShape {
+  if (input.name) {
+    const classified = classifyShape(input.name, { logger: opts.logger });
+    if (input.shape && input.shape !== classified) {
+      throw new Error(
+        `Shape mismatch: classifier="${classified}" input="${input.shape}" — check discovery wiring`,
+      );
+    }
+    return classified;
+  }
+  if (input.shape) return input.shape;
+  opts.logger?.debug?.("discovery.railway-services.resolve-shape-fallback", {
+    reason: "no-name-or-shape",
+  });
   return "package";
 }
 

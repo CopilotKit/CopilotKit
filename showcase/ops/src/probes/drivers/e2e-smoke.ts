@@ -3,9 +3,8 @@ import path from "node:path";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import {
-  classifyShape,
+  resolveShape,
   showcaseShapeSchema,
-  type ShowcaseServiceShape,
 } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
@@ -111,8 +110,24 @@ export interface E2eSmokeStarterSignal {
   l3: "skipped";
   l4: "skipped";
   failureSummary: "";
+  /**
+   * Enum literal pinning the structural reason the level was skipped.
+   * Separate from `note` so downstream consumers can branch on a stable
+   * discriminator instead of parsing prose. Extend when a new skip
+   * reason lands.
+   */
+  skipReason: "starter-shape";
   /** Human-readable explanation of WHY the level was skipped. Never rendered as a failure reason. */
   note: string;
+  /**
+   * Starter rows MUST NOT carry a failure reason — alert templates
+   * render `errorDesc` as the red-tick summary and surfacing one on a
+   * skipped-green row would flap red in downstream views. `?: never`
+   * turns that invariant into a compile error, so a future path that
+   * sets errorDesc on a starter fails tsc rather than slipping into
+   * prod silently.
+   */
+  errorDesc?: never;
 }
 
 export interface E2eSmokePackageSignal {
@@ -334,7 +349,10 @@ export function createE2eSmokeDriver(
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
-      const shape = resolveShape(input);
+      const shape = resolveShape(
+        { name: input.name, shape: input.shape },
+        { logger: ctx.logger },
+      );
 
       // Starter short-circuit — runs BEFORE chromium launch AND BEFORE
       // demos resolution so a broken registry / missing chromium image
@@ -351,6 +369,7 @@ export function createE2eSmokeDriver(
             l3: "skipped",
             l4: "skipped",
             failureSummary: "",
+            skipReason: "starter-shape",
             note: "starter: no /demos/* routing",
           },
           observedAt,
@@ -760,27 +779,6 @@ async function runLevel(opts: {
  *      slug cleanly).
  *   3. The whole key as-is (fallback).
  */
-/**
- * Resolve the deployment shape for a driver invocation. Mirrors the
- * smoke driver's resolver: classifier wins when `input.name` is present
- * and throws on explicit-vs-classifier disagreement; honour
- * `input.shape` only when the classifier has no `name` to work with.
- * Fallback is `package` so the legacy Playwright-against-/demos/* path
- * remains the default for hand-authored YAML.
- */
-function resolveShape(input: E2eSmokeDriverInput): ShowcaseServiceShape {
-  if (input.name) {
-    const classified = classifyShape(input.name);
-    if (input.shape && input.shape !== classified) {
-      throw new Error(
-        `Shape mismatch: classifier="${classified}" input="${input.shape}" — check discovery wiring`,
-      );
-    }
-    return classified;
-  }
-  return input.shape ?? "package";
-}
-
 function deriveSlug(key: string, name?: string): string {
   const parts = key.split(":");
   let raw: string;
