@@ -1249,6 +1249,21 @@ function generateStarterImpl(fw: FrameworkDef, outDir: string): void {
     if (fs.existsSync(serverMjs)) {
       fs.unlinkSync(serverMjs);
     }
+    // Also drop the `start` script that references the now-deleted
+    // server.mjs — otherwise `npm start` from the cloned starter fails
+    // with "Cannot find module 'server.mjs'". The Docker path uses
+    // `npx @langchain/langgraph-cli dev` via entrypoint.sh, not npm start.
+    const agentPkgPath = path.join(agentDest, "package.json");
+    if (fs.existsSync(agentPkgPath)) {
+      const agentPkg = JSON.parse(fs.readFileSync(agentPkgPath, "utf8"));
+      if (agentPkg.scripts && "start" in agentPkg.scripts) {
+        delete agentPkg.scripts.start;
+        fs.writeFileSync(
+          agentPkgPath,
+          JSON.stringify(agentPkg, null, 2) + "\n",
+        );
+      }
+    }
   }
 
   // For spring-ai: the source copies src/main/{java,resources} flattened into

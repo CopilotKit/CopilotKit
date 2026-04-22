@@ -3,8 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser",
-    "start": "node --import tsx server.mjs"
+    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "1.51.4",
