@@ -198,7 +198,7 @@ function ThreadSidebar({ agentId }: { agentId: string }) {
 ```
 
 `useThreads` requires Intelligence mode on the runtime. In SSE mode it
-errors with "Runtime URL is not configured". See `copilotkit/threads`.
+errors with "Runtime URL is not configured". See `copilotkit/react-core` → `references/threads.md`.
 
 ### Context is intentionally global — per-agent context is NOT supported
 

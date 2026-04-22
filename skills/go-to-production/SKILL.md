@@ -50,7 +50,7 @@ Fail condition: runtime uses the default `InMemoryAgentRunner` (or passes
 one explicitly) while the deployment has more than one replica or any
 restart-surviving requirement.
 Fix: switch to `SqliteAgentRunner` (single-host durable) or
-CopilotKitIntelligence (multi-host durable). See `copilotkit/agent-runners`.
+CopilotKitIntelligence (multi-host durable). See `copilotkit/runtime` → `references/agent-runners.md`.
 
 ### Check: Intelligence mode points at cloud URLs if enabled
 
@@ -71,7 +71,7 @@ new CopilotRuntime({
 Fail condition: `apiUrl` points to a self-hosted URL — Intelligence is not
 self-hostable.
 Fix: use Cloud URLs or downgrade to SqliteAgentRunner for on-prem
-durability. See `copilotkit/intelligence-mode`.
+durability. See `copilotkit/runtime` → `references/intelligence-mode.md`.
 
 ## CORS Checks
 
@@ -90,7 +90,7 @@ const handler = createCopilotRuntimeHandler({
 Fail condition: frontend and runtime are on different origins, and `cors`
 is not enabled (or is not equivalently handled by a reverse proxy / CDN).
 Fix: set `cors: true` on `createCopilotRuntimeHandler`, or handle CORS at
-the proxy layer. See `copilotkit/setup-endpoint`.
+the proxy layer. See `copilotkit/runtime` → `references/setup-endpoint.md`.
 
 ## Debug Checks
 
@@ -154,7 +154,7 @@ Fail condition: cross-origin runtime with cookie-session auth, no
 `credentials="include"` — browsers strip cookies and `/info` plus the SSE
 stream go unauthenticated.
 Fix: add `credentials="include"`, and set CORS on the runtime to allow
-credentials. See `copilotkit/provider-setup`.
+credentials. See `copilotkit/react-core` → `references/provider-setup.md`.
 
 ### Check: auth / rate-limit / observability wired through middleware
 
@@ -177,7 +177,7 @@ middleware.
 Fix: centralize auth in `hooks.onBeforeHandler` or
 `beforeRequestMiddleware`. CopilotKit does NOT ship auth, rate-limit, or
 observability — use your server framework's tooling. See
-`copilotkit/middleware`.
+`copilotkit/runtime` → `references/middleware.md`.
 
 ## License Checks
 
@@ -211,7 +211,7 @@ On Cloudflare Workers, `env` here refers to the Worker binding argument
 passed to `fetch(request, env)` — not a module-global.
 
 Fail condition: license token hardcoded in source or absent in prod.
-Fix: inject via environment variable. See `copilotkit/setup-endpoint`.
+Fix: inject via environment variable. See `copilotkit/runtime` → `references/setup-endpoint.md`.
 
 ## Env-Sourced Secrets Checks
 
