@@ -29,4 +29,5 @@ targets:
     webhook: oss_alerts
 
 template:
-  text: "{{{ signal.body }}}"
+  text: |
+    {{#signal.probeErrored}}:warning: *Redirect-decommission audit failed*: {{signal.probeErrorDesc}}{{/signal.probeErrored}}{{^signal.probeErrored}}{{{ signal.body }}}{{/signal.probeErrored}}

@@ -24,7 +24,7 @@ targets:
 # block was dead and removed.
 template:
   text: |
-    {{#signal.driftType.probeErrored}}:x: *Showcase version-drift (weekly)*: probe errored — {{signal.errorMessage}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.probeErrored}}
+    {{#signal.driftType.probeErrored}}:x: *Showcase version-drift (weekly)*: probe errored — {{signal.npmProbeErrorDesc}}{{#signal.pythonProbeErrorDesc}} | {{signal.pythonProbeErrorDesc}}{{/signal.pythonProbeErrorDesc}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.probeErrored}}
     {{#signal.driftType.stable}}:white_check_mark: *Showcase version-drift (weekly)*: no drift | <{{{event.runUrl}}}|Run>{{/signal.driftType.stable}}
     {{#signal.driftType.npmDrift}}:package: *Showcase version-drift (weekly)*: npm drift detected — {{signal.npmSummary}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.npmDrift}}
     {{#signal.driftType.pythonDrift}}:snake: *Showcase version-drift (weekly)*: python drift detected — {{signal.pythonSummary}} | <{{{event.runUrl}}}|Run>{{/signal.driftType.pythonDrift}}

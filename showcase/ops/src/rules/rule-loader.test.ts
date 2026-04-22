@@ -660,6 +660,207 @@ describe("rule-loader: rate_limit.perKey filter-pipeline validation (A3)", () =>
   });
 });
 
+// CR R19 bucket-(a): renderer-integration coverage for three YAML fixes
+// that touched templates or trigger lists without TS changes. These tests
+// load the REAL config/alerts YAML via the rule-loader, then render the
+// compiled template through the real Mustache renderer with a synthetic
+// TemplateContext. The purpose is red-green coverage on the YAML changes
+// themselves — if any of these three templates regress (missing trigger,
+// wrong field name, missing branch), the assertion substring fails.
+describe("rule-loader + renderer: CR R19 YAML fixes", () => {
+  it("version-drift-weekly: probeErrored branch renders npm/python error descriptions (not signal.errorMessage)", async () => {
+    const { createRenderer } = await import("../render/renderer.js");
+    const realDir = path.resolve(__dirname, "../../config/alerts");
+    const loader = createRuleLoader({ dir: realDir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(
+      errors.find((e) => e.file.startsWith("version-drift-weekly")),
+    ).toBeUndefined();
+    const rule = rules.find((r) => r.id === "version-drift-weekly");
+    expect(rule, "version-drift-weekly must load").toBeDefined();
+    // The template must NOT reference the non-existent signal.errorMessage.
+    expect(rule!.template!.text).not.toContain("signal.errorMessage");
+    // It must reference the actual probe-emitted fields.
+    expect(rule!.template!.text).toContain("signal.npmProbeErrorDesc");
+    expect(rule!.template!.text).toContain("signal.pythonProbeErrorDesc");
+
+    // Render with a synthetic probeErrored signal; assert the error message
+    // appears in the rendered output.
+    const renderer = createRenderer();
+    const rendered = renderer.render(
+      { text: rule!.template!.text },
+      {
+        rule: {
+          id: rule!.id,
+          name: rule!.name,
+          owner: rule!.owner,
+          severity: rule!.severity,
+        },
+        trigger: {
+          green_to_red: false,
+          red_to_green: false,
+          sustained_red: false,
+          sustained_green: false,
+          first: false,
+          set_changed: false,
+          cancelled_prebuild: false,
+          cancelled_midmatrix: false,
+          stable: false,
+          regressed: false,
+          improved: false,
+          set_drifted: false,
+          set_errored: false,
+          gate_skipped: false,
+        },
+        escalated: false,
+        signal: {
+          driftType: { probeErrored: true },
+          npmProbeErrorDesc: "npm registry 500",
+          pythonProbeErrorDesc: "",
+        },
+        event: { id: "e1", at: "2026-04-20T00:00:00Z", runUrl: "https://run" },
+        env: { dashboardUrl: "https://d", repo: "r/r" },
+      },
+    );
+    expect((rendered.payload as { text: string }).text).toContain("npm registry 500");
+    expect((rendered.payload as { text: string }).text).toContain("probe errored");
+    // And non-empty — the core bug was "alert fires with empty message".
+    expect((rendered.payload as { text: string }).text.trim().length).toBeGreaterThan(0);
+  });
+
+  it("deploy-result: cancelled_prebuild is in triggers list AND template branch renders", async () => {
+    const { createRenderer } = await import("../render/renderer.js");
+    const realDir = path.resolve(__dirname, "../../config/alerts");
+    const loader = createRuleLoader({ dir: realDir, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(
+      errors.find((e) => e.file.startsWith("deploy-result")),
+    ).toBeUndefined();
+    const rule = rules.find((r) => r.id === "deploy-result");
+    expect(rule, "deploy-result must load").toBeDefined();
+    // Trigger must be declared; otherwise resolveTriggers silently drops it.
+    expect(rule!.stringTriggers).toContain("cancelled_prebuild");
+    // Template must render something for cancelled_prebuild.
+    expect(rule!.template!.text).toContain("trigger.cancelled_prebuild");
+
+    const renderer = createRenderer();
+    const rendered = renderer.render(
+      { text: rule!.template!.text },
+      {
+        rule: {
+          id: rule!.id,
+          name: rule!.name,
+          owner: rule!.owner,
+          severity: rule!.severity,
+        },
+        trigger: {
+          green_to_red: false,
+          red_to_green: false,
+          sustained_red: false,
+          sustained_green: false,
+          first: false,
+          set_changed: false,
+          cancelled_prebuild: true,
+          cancelled_midmatrix: false,
+          stable: false,
+          regressed: false,
+          improved: false,
+          set_drifted: false,
+          set_errored: false,
+          gate_skipped: false,
+        },
+        escalated: false,
+        signal: { cancelledPreBuild: true },
+        event: { id: "e1", at: "2026-04-20T00:00:00Z", runUrl: "https://run" },
+        env: { dashboardUrl: "https://d", repo: "r/r" },
+      },
+    );
+    expect((rendered.payload as { text: string }).text).toContain("cancelled before any build started");
+  });
+
+  it("redirect-decommission-monthly: probeErrored branch renders probeErrorDesc (body branch otherwise)", async () => {
+    const { createRenderer } = await import("../render/renderer.js");
+    const realDir = path.resolve(__dirname, "../../config/alerts");
+    // redirect-decommission template uses triple-brace `{{{signal.body}}}`
+    // which the loader rejects unless `body` is marked slackSafe on the
+    // redirect_decommission dimension (see orchestrator.ts wiring).
+    const loader = createRuleLoader({
+      dir: realDir,
+      logger,
+      slackSafeFields: { redirect_decommission: new Set(["body"]) },
+    });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(
+      errors.find((e) => e.file.startsWith("redirect-decommission-monthly")),
+    ).toBeUndefined();
+    const rule = rules.find((r) => r.id === "redirect-decommission-monthly");
+    expect(rule, "redirect-decommission-monthly must load").toBeDefined();
+    expect(rule!.template!.text).toContain("signal.probeErrored");
+    expect(rule!.template!.text).toContain("signal.probeErrorDesc");
+
+    const renderer = createRenderer();
+    const baseCtx = {
+      rule: {
+        id: rule!.id,
+        name: rule!.name,
+        owner: rule!.owner,
+        severity: rule!.severity,
+      },
+      trigger: {
+        green_to_red: false,
+        red_to_green: false,
+        sustained_red: false,
+        sustained_green: false,
+        first: false,
+        set_changed: false,
+        cancelled_prebuild: false,
+        cancelled_midmatrix: false,
+        stable: false,
+        regressed: false,
+        improved: false,
+        set_drifted: false,
+        set_errored: false,
+        gate_skipped: false,
+      },
+      escalated: false,
+      event: { id: "e1", at: "2026-04-20T00:00:00Z", runUrl: "https://run" },
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+    } as const;
+
+    // probeErrored=true → probeErrorDesc appears, body does NOT.
+    const errored = renderer.render(
+      { text: rule!.template!.text },
+      {
+        ...baseCtx,
+        signal: {
+          probeErrored: true,
+          probeErrorDesc: "audit script failed",
+          body: "SHOULD NOT APPEAR",
+        },
+      },
+    );
+    const erroredText = (errored.payload as { text: string }).text;
+    expect(erroredText).toContain("audit script failed");
+    expect(erroredText).toContain("Redirect-decommission audit failed");
+    expect(erroredText).not.toContain("SHOULD NOT APPEAR");
+
+    // probeErrored=false (normal audit with candidates) → body appears.
+    const normal = renderer.render(
+      { text: rule!.template!.text },
+      {
+        ...baseCtx,
+        signal: {
+          probeErrored: false,
+          body: "2 candidates ready to decommission",
+        },
+      },
+    );
+    const normalText = (normal.payload as { text: string }).text;
+    expect(normalText).toContain("2 candidates ready to decommission");
+    expect(normalText).not.toContain("Redirect-decommission audit failed");
+  });
+});
+
 async function makeSingleFixtureDir(file: string): Promise<string> {
   const os = await import("node:os");
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rule-"));
