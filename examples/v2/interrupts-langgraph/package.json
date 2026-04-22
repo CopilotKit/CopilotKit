@@ -1,6 +1,6 @@
 {
   "name": "langgraph-js-starter",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "private": true,
   "workspaces": [
     "apps/*"
@@ -14,12 +14,8 @@
     "@langchain/langgraph-cli": "^1.0.4",
     "turbo": "^2.3.3"
   },
-  "overrides": {
-    "@langchain/core": "^1.0.1",
-    "@langchain/langgraph": "1.0.2"
-  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "packageManager": "pnpm@9.15.0"
 }

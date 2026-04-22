@@ -1,0 +1,28 @@
+{
+  "name": "agent-langgraph-interrupt",
+  "version": "0.1.7",
+  "private": true,
+  "description": "LangGraph agent for the CopilotKit interrupts starter",
+  "keywords": [],
+  "license": "MIT",
+  "author": "CopilotKit",
+  "scripts": {
+    "dev": "npx @langchain/langgraph-cli dev --port 8125 --no-browser",
+    "build": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@copilotkit/sdk-js": "workspace:*",
+    "@langchain/core": "^1.1.26",
+    "@langchain/langgraph": "1.1.5",
+    "@langchain/openai": "^1.2.8",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.11",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
