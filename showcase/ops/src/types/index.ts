@@ -57,6 +57,18 @@ export interface ProbeContext {
    * plumbing a writer they don't need.
    */
   writer?: ProbeResultWriter;
+  /**
+   * Optional fetch injection for drivers that call out to the network
+   * (image-drift → GHCR, redirect-decom → origin servers, ...). Added
+   * as optional rather than required to avoid churning every existing
+   * probe/driver test that constructs a plain `{ now, logger, env }`
+   * ctx. Drivers that need network fall back to `globalThis.fetch`
+   * when this is undefined; tests stub this field to avoid monkey-
+   * patching globals. The probe-invoker passes the same `fetchImpl`
+   * it hands to discovery sources so the two paths share one
+   * injection point.
+   */
+  fetchImpl?: typeof fetch;
 }
 
 /**

@@ -94,6 +94,7 @@ export function buildProbeInvoker(
           logger,
           probeId: cfg.id,
           writer,
+          fetchImpl,
         });
         try {
           await writer.write(result);
@@ -228,6 +229,7 @@ interface ExecuteOneOpts {
   logger: Logger;
   probeId: string;
   writer: ProbeResultWriter;
+  fetchImpl: typeof fetch;
 }
 
 /**
@@ -239,8 +241,18 @@ interface ExecuteOneOpts {
 async function executeOne(
   opts: ExecuteOneOpts,
 ): Promise<ProbeResult<unknown>> {
-  const { input, key, driver, timeoutMs, env, now, logger, probeId, writer } =
-    opts;
+  const {
+    input,
+    key,
+    driver,
+    timeoutMs,
+    env,
+    now,
+    logger,
+    probeId,
+    writer,
+    fetchImpl,
+  } = opts;
   const parsed = driver.inputSchema.safeParse(input);
   if (!parsed.success) {
     logger.error("probe.input-rejected", {
@@ -255,7 +267,9 @@ async function executeOne(
   // secondary tick via `ctx.writer.write(...)`. The primary result the
   // driver RETURNS still flows through the invoker's own `writer.write`
   // call one level up so write-outcome bookkeeping stays centralized.
-  const ctx: ProbeContext = { now, logger, env, writer };
+  // Drivers that call external HTTP endpoints (e.g. image-drift) use
+  // `ctx.fetchImpl` so tests can stub the fetch layer at the boundary.
+  const ctx: ProbeContext = { now, logger, env, writer, fetchImpl };
   try {
     if (timeoutMs === undefined) {
       return await driver.run(ctx, parsed.data);
