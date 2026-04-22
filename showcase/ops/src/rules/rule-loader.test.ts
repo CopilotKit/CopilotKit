@@ -1350,6 +1350,50 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
   });
 });
 
+describe("rule-loader: validateTripleBrace covers on_error.template.text (R21 bucket-a)", () => {
+  // R21-a regression: validateTripleBrace previously only scanned
+  // rule.template.text. A rule with `on_error.template: "{{{signal.x}}}"`
+  // on a dimension where `x` wasn't slackSafe passed load validation and
+  // rendered the raw value at runtime — a Slack mrkdwn-injection surface.
+  // validateFilterNames already scanned both sources; this pulls
+  // validateTripleBrace into symmetry with it.
+  it("rejects on_error.template with triple-brace on an unsafe signal.* field", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-onerr-tb-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "bad-on-error.yml"),
+      [
+        "id: bad-on-error-triple-brace",
+        'name: "bad on_error triple-brace"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "safe top-level {{ signal.slug }}"',
+        "on_error:",
+        "  template:",
+        '    text: "{{{signal.arbitrary_unsafe_field}}}"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error).toMatch(
+      /triple-brace.*not marked slackSafe|triple-brace.*slackSafe/,
+    );
+  });
+});
+
 async function makeSingleFixtureDir(file: string): Promise<string> {
   const os = await import("node:os");
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-rule-"));

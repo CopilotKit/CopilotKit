@@ -302,46 +302,58 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
   }
 
   function validateTripleBrace(rule: RuleDoc): void {
-    const template = rule.template?.text ?? "";
-    const re = /\{\{\{\s*([^}]+?)\s*\}\}\}/g;
+    // Mirror validateFilterNames: scan BOTH template.text AND
+    // on_error.template.text. Pre-fix, a rule with
+    // `on_error.template: "{{{signal.arbitrary_field}}}"` on a dimension
+    // where `arbitrary_field` wasn't in slackSafeFields passed load
+    // validation but rendered the raw unescaped value at runtime — a
+    // Slack mrkdwn-injection / XSS surface asymmetric with the primary
+    // template's validation.
+    const sources: string[] = [];
+    if (rule.template?.text) sources.push(rule.template.text);
+    if (rule.on_error?.template?.text) sources.push(rule.on_error.template.text);
     const safeForDim =
       slackSafeFields[rule.signal.dimension] ?? new Set<string>();
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(template))) {
-      const p = m[1]!.trim();
-      // Permit triple-brace on signal.* paths marked slackSafe, OR on
-      // event.* paths (CI metadata threaded in by alert-engine.buildContext,
-      // always loader-known-safe: runUrl / runId / jobUrl / id / at).
-      if (p.startsWith("event.")) {
-        const sub = p.slice("event.".length);
-        const EVENT_SAFE = new Set(["id", "at", "runId", "runUrl", "jobUrl"]);
-        if (!EVENT_SAFE.has(sub)) {
+    const re = /\{\{\{\s*([^}]+?)\s*\}\}\}/g;
+    for (const template of sources) {
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(template))) {
+        const p = m[1]!.trim();
+        // Permit triple-brace on signal.* paths marked slackSafe, OR on
+        // event.* paths (CI metadata threaded in by alert-engine.buildContext,
+        // always loader-known-safe: runUrl / runId / jobUrl / id / at).
+        if (p.startsWith("event.")) {
+          const sub = p.slice("event.".length);
+          const EVENT_SAFE = new Set(["id", "at", "runId", "runUrl", "jobUrl"]);
+          if (!EVENT_SAFE.has(sub)) {
+            throw new Error(
+              `rule ${rule.id}: triple-brace '${p}' not among known-safe event.* fields`,
+            );
+          }
+          continue;
+        }
+        if (p.startsWith("env.")) {
+          const sub = p.slice("env.".length);
+          const ENV_SAFE = new Set(["dashboardUrl", "repo"]);
+          if (!ENV_SAFE.has(sub)) {
+            throw new Error(
+              `rule ${rule.id}: triple-brace '${p}' not among known-safe env.* fields`,
+            );
+          }
+          continue;
+        }
+        if (!p.startsWith("signal.")) {
           throw new Error(
-            `rule ${rule.id}: triple-brace '${p}' not among known-safe event.* fields`,
+            `rule ${rule.id}: triple-brace must reference 'signal.*', 'event.*', or 'env.*', got '${p}'`,
           );
         }
-        continue;
-      }
-      if (p.startsWith("env.")) {
-        const sub = p.slice("env.".length);
-        const ENV_SAFE = new Set(["dashboardUrl", "repo"]);
-        if (!ENV_SAFE.has(sub)) {
+        const sub = p.slice("signal.".length);
+        if (!safeForDim.has(sub)) {
           throw new Error(
-            `rule ${rule.id}: triple-brace '${p}' not among known-safe env.* fields`,
+            `rule ${rule.id}: triple-brace '${p}' not marked slackSafe on dimension '${rule.signal.dimension}'`,
           );
         }
-        continue;
-      }
-      if (!p.startsWith("signal.")) {
-        throw new Error(
-          `rule ${rule.id}: triple-brace must reference 'signal.*', 'event.*', or 'env.*', got '${p}'`,
-        );
-      }
-      const sub = p.slice("signal.".length);
-      if (!safeForDim.has(sub)) {
-        throw new Error(
-          `rule ${rule.id}: triple-brace '${p}' not marked slackSafe on dimension '${rule.signal.dimension}'`,
-        );
       }
     }
   }
