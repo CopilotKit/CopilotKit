@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  fetchWithRetry,
-  parseRetryAfter,
-  RETRY_CONFIG,
-} from "../retry-utils";
+import { fetchWithRetry, parseRetryAfter, RETRY_CONFIG } from "../retry-utils";
 
 function responseWithRetryAfter(
   headerValue: string | null,
