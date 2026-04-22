@@ -13,10 +13,20 @@
  * mcr.microsoft.com/dotnet/aspnet:9.0) plus the built artifacts. No
  * `pip install`, `pnpm install`, `tsx`, or `*-cli dev` invocations run
  * in the runtime stage — cold start is a straight `node`/`python`/`java`
- * /`dotnet` invocation. Per-slug prod-mode compiles (claude-sdk-typescript
- * `tsc`, mastra `mastra build`) are emitted via getAgentBuildSteps() /
- * getAgentBuildCopy() below and substituted into the TS template via the
- * AGENT_BUILD_STEPS / AGENT_BUILD_COPY tokens.
+ * /`dotnet` invocation. Target: ≥40% runtime image-size reduction per
+ * slug versus the pre-multi-stage baseline.
+ *
+ * Per-slug prod-mode compiles (claude-sdk-typescript `tsc`, mastra
+ * `mastra build`) are emitted via getAgentBuildSteps() (builder-stage
+ * compile commands) and getAgentBuildCopy() (runtime-stage COPY of the
+ * compiled artifacts) and substituted into the TS template via the
+ * AGENT_BUILD_STEPS / AGENT_BUILD_COPY tokens. Frameworks without a
+ * compile step emit empty strings for both — the template falls through
+ * to a plain `node`/`npm start` invocation.
+ *
+ * Local `docker build` MUST pass `--platform linux/amd64`; the deploy
+ * workflow (.github/workflows/showcase_deploy.yml) pins the same platform
+ * so arm64-only artifacts never reach Railway/GHCR.
  *
  * Usage:
  *   npx tsx generate-starters.ts [--slug langgraph-python] [--dry-run] [--check]
