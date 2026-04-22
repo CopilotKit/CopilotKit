@@ -242,6 +242,28 @@ export async function DocsPageView({
                         />
                       );
                     },
+                    // When rendering under a framework-scoped route, rewrite
+                    // root-relative MDX links (/quickstart, /shared-state, …)
+                    // to the framework-scoped equivalent so clicks never land
+                    // on the unscoped page and trigger a RouterPivot redirect.
+                    ...(frameworkOverride && {
+                      a: ({
+                        href,
+                        children,
+                        ...rest
+                      }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                        const resolved =
+                          href?.startsWith("/") &&
+                          !href.startsWith(`/${frameworkOverride}/`)
+                            ? `/${frameworkOverride}${href}`
+                            : href;
+                        return (
+                          <Link href={resolved ?? "#"} {...rest}>
+                            {children}
+                          </Link>
+                        );
+                      },
+                    }),
                   }}
                   options={{
                     mdxOptions: {
