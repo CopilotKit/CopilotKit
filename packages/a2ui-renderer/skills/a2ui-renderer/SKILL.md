@@ -1,5 +1,5 @@
 ---
-name: a2ui-rendering
+name: a2ui-renderer
 description: >
   Render A2UI (Agent-to-UI declarative surfaces) in CopilotKit v2. Enable the
   runtime via CopilotRuntime({ a2ui: {...} }), then enable the provider via
@@ -16,8 +16,8 @@ library: copilotkit
 framework: react
 library_version: "1.56.2"
 requires:
-  - copilotkit/provider-setup
-  - copilotkit/setup-endpoint
+  - copilotkit/react-core
+  - copilotkit/runtime
 sources:
   - "CopilotKit/CopilotKit:packages/a2ui-renderer/src/index.ts"
   - "CopilotKit/CopilotKit:packages/a2ui-renderer/src/react-renderer/index.ts"
@@ -26,8 +26,8 @@ sources:
   - "CopilotKit/CopilotKit:packages/runtime/src/v2/runtime/core/runtime.ts"
 ---
 
-This skill builds on copilotkit/provider-setup and copilotkit/setup-endpoint.
-Read those first for the CopilotKitProvider / CopilotRuntime fundamentals.
+This skill builds on copilotkit/react-core (for CopilotKitProvider fundamentals) and
+copilotkit/runtime (for CopilotRuntime fundamentals). Read those first.
 
 ## Setup
 
