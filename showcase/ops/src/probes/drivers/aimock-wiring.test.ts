@@ -2,99 +2,67 @@ import { describe, it, expect } from "vitest";
 import { aimockWiringDriver } from "./aimock-wiring.js";
 import { logger } from "../../logger.js";
 
-// Thin driver-adapter tests. Deep behavioural coverage lives in
-// `../aimock-wiring.test.ts` (491 lines); this file only confirms the
-// adapter (1) exposes the right `kind`, (2) accepts well-shaped inputs via
-// `inputSchema`, (3) rejects malformed inputs, and (4) preserves probe
-// behaviour across the `(input, ctx) -> (ctx, input)` call-order flip.
-//
-// NOTE: Duplicating the 491-line probe test suite verbatim here was
-// considered and rejected — it would double test runtime without adding
-// any new verification surface. The driver IS a wrapper; the probe IS
-// covered. Keeping them separate.
+// Driver-level tests. Deep behavioural coverage for the aimock-wiring probe
+// lives in `../aimock-wiring.test.ts` (491 lines); this file only verifies
+// the driver adapter layer — schema shape, env-missing fail path, and the
+// (ctx, input) call-order — without duplicating the probe test matrix.
 
-const ctx = {
+const BASE_CTX = {
   now: () => new Date("2026-04-20T00:00:00Z"),
   logger,
-  env: {},
 };
-const AIMOCK_URL = "https://showcase-aimock-production.up.railway.app";
 
 describe("aimockWiringDriver", () => {
   it("exposes kind === 'aimock_wiring'", () => {
     expect(aimockWiringDriver.kind).toBe("aimock_wiring");
   });
 
-  it("inputSchema accepts { aimockUrl, listServices, getServiceEnv }", () => {
+  it("inputSchema accepts { key } (single-target YAML shape)", () => {
     const parsed = aimockWiringDriver.inputSchema.safeParse({
-      aimockUrl: AIMOCK_URL,
-      listServices: async () => [],
-      getServiceEnv: async () => ({}),
+      key: "aimock_wiring:global",
     });
     expect(parsed.success).toBe(true);
   });
 
-  it("inputSchema rejects input missing getServiceEnv", () => {
-    const parsed = aimockWiringDriver.inputSchema.safeParse({
-      aimockUrl: AIMOCK_URL,
-      listServices: async () => [],
-    });
+  it("inputSchema rejects input without a key", () => {
+    const parsed = aimockWiringDriver.inputSchema.safeParse({});
     expect(parsed.success).toBe(false);
   });
 
-  it("inputSchema rejects non-function listServices", () => {
-    const parsed = aimockWiringDriver.inputSchema.safeParse({
-      aimockUrl: AIMOCK_URL,
-      listServices: "not-a-function",
-      getServiceEnv: async () => ({}),
-    });
+  it("inputSchema rejects empty key", () => {
+    const parsed = aimockWiringDriver.inputSchema.safeParse({ key: "" });
     expect(parsed.success).toBe(false);
   });
 
-  it("inputSchema rejects empty aimockUrl", () => {
-    const parsed = aimockWiringDriver.inputSchema.safeParse({
-      aimockUrl: "",
-      listServices: async () => [],
-      getServiceEnv: async () => ({}),
-    });
-    expect(parsed.success).toBe(false);
-  });
-
-  it("returns green when every service routes through aimock (ctx, input) call order", async () => {
-    // Smoke-level end-to-end that confirms the (ctx, input) adapter
-    // correctly hands (input, ctx) to the underlying probe and returns
-    // the probe's ProbeResult verbatim. Deep behavioural tests live in
-    // `../aimock-wiring.test.ts`.
-    const r = await aimockWiringDriver.run(ctx, {
-      aimockUrl: AIMOCK_URL,
-      listServices: async () => [
-        { name: "showcase-sales-dashboard" },
-        { name: "showcase-quickstart" },
-      ],
-      getServiceEnv: async (name) =>
-        name === "showcase-sales-dashboard" || name === "showcase-quickstart"
-          ? { OPENAI_BASE_URL: AIMOCK_URL }
-          : {},
-    });
-    expect(r.state).toBe("green");
+  it("returns state:'error' when RAILWAY_TOKEN missing", async () => {
+    const r = await aimockWiringDriver.run(
+      { ...BASE_CTX, env: { AIMOCK_URL: "https://aimock.example" } },
+      { key: "aimock_wiring:global" },
+    );
+    expect(r.state).toBe("error");
     expect(r.key).toBe("aimock_wiring:global");
-    expect(r.signal.wiredCount).toBe(2);
-    expect(r.signal.unwiredCount).toBe(0);
   });
 
-  it("propagates red state + unwired list from the underlying probe", async () => {
-    const r = await aimockWiringDriver.run(ctx, {
-      aimockUrl: AIMOCK_URL,
-      listServices: async () => [
-        { name: "showcase-sales-dashboard" },
-        { name: "showcase-quickstart" },
-      ],
-      getServiceEnv: async (name) =>
-        name === "showcase-sales-dashboard"
-          ? { OPENAI_BASE_URL: AIMOCK_URL }
-          : {},
-    });
-    expect(r.state).toBe("red");
-    expect(r.signal.unwired).toEqual(["showcase-quickstart"]);
+  it("returns state:'error' when AIMOCK_URL missing", async () => {
+    const r = await aimockWiringDriver.run(
+      {
+        ...BASE_CTX,
+        env: {
+          RAILWAY_TOKEN: "x",
+          RAILWAY_PROJECT_ID: "p",
+          RAILWAY_ENVIRONMENT_ID: "e",
+        },
+      },
+      { key: "aimock_wiring:global" },
+    );
+    expect(r.state).toBe("error");
+  });
+
+  it("returns state:'error' when all four env vars missing", async () => {
+    const r = await aimockWiringDriver.run(
+      { ...BASE_CTX, env: {} },
+      { key: "aimock_wiring:global" },
+    );
+    expect(r.state).toBe("error");
   });
 });
