@@ -1,8 +1,10 @@
 // LangGraph agent — production server (no CLI, no file watch, no Studio IPC).
 //
-// Invoked as `node --import tsx server.mjs`. tsx is used ONLY as a one-shot
-// ESM import hook so the initial import of graph.ts succeeds; nothing is
-// recompiled per-request. Equivalent to langgraph-cli dev for the runs,
+// Dynamic-imported by liveness.mjs (the process entry point) AFTER :8124/ok
+// is bound. The run invocation is `node --import tsx liveness.mjs`; tsx is
+// used ONLY as a one-shot ESM import hook so subsequent imports (this file,
+// graph.ts) resolve without recompilation per-request. Equivalent to
+// langgraph-cli dev for the runs,
 // threads, assistants, ok, and store surface but without:
 //
 //   - chokidar file watcher that recompiles on any .ts change,
@@ -18,44 +20,21 @@
 
 import process from "node:process";
 import path from "node:path";
-import http from "node:http";
 import { fileURLToPath } from "node:url";
 import { startServer } from "@langchain/langgraph-api/server";
 import { getStaticGraphSchema } from "@langchain/langgraph-api/schema";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Liveness side-car. The main @langchain/langgraph-api Hono server on :8123
-// only starts accepting connections AFTER `registerFromEnv` finishes the
-// initial graph import + `Starting N workers` loop — on Railway this can take
-// longer than the watchdog's 180s grace when the graph drags in the full
-// schema-worker tsx pipeline. Running a bare HTTP server on a sibling port
-// lets the entrypoint watchdog verify the process is alive and its event
-// loop is responsive during cold-start, independent of how slow the Hono
-// bind is. A true hang (event loop pinned) still fails this probe and
-// triggers the container restart.
-function startLivenessProbe() {
-  const livenessPort = Number(process.env.HEALTH_PORT ?? 8124);
-  const livenessHost = process.env.HOST ?? "0.0.0.0";
-  const server = http.createServer((req, res) => {
-    if (req.url === "/ok") {
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end('{"status":"ok"}');
-      return;
-    }
-    res.writeHead(404, { "content-type": "application/json" });
-    res.end('{"status":"not_found"}');
-  });
-  server.listen(livenessPort, livenessHost, () => {
-    console.log(
-      `[server] Liveness probe listening on ${livenessHost}:${livenessPort}`,
-    );
-  });
-  server.on("error", (err) => {
-    console.warn(`[server] Liveness probe error: ${err?.message ?? err}`);
-  });
-  return server;
-}
+// Liveness is now bound by liveness.mjs BEFORE this module is dynamic-imported
+// — see showcase/packages/langgraph-typescript/src/agent/liveness.mjs. The
+// previous sibling-probe implementation inside this file did not work: ES
+// module semantics resolve all top-level `import` statements before any
+// module-body code runs, so `import { startServer } from "@langchain/
+// langgraph-api/server"` (~4m30s cold on Railway) ran BEFORE the probe got a
+// chance to listen, and the watchdog's 180s + 3×30s = 270s budget killed the
+// container ~4s before the probe would have come up. By the time any code in
+// this file executes, :8124/ok is already serving 200.
 
 // Graph spec mirrors langgraph.json. We pin the compiled .js entry because the
 // production parser walks the source file with the TypeScript API; pointing at
@@ -91,10 +70,6 @@ async function main() {
   const cwd = __dirname; // src/agent
   const port = Number(process.env.PORT ?? 8123);
   const host = process.env.HOST ?? "0.0.0.0";
-
-  // Bring the liveness probe up synchronously before any await — gives the
-  // watchdog a valid /ok target within milliseconds of `node` boot.
-  startLivenessProbe();
 
   // Kick off pre-warm and startServer in parallel. startServer registers
   // graphs synchronously and binds the port — /ok is live before schemas

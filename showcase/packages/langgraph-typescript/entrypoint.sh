@@ -14,16 +14,19 @@ echo "[entrypoint] NODE_ENV=${NODE_ENV:-not set}"
 echo "========================================="
 
 # Start LangGraph agent server in background.
-# We invoke @langchain/langgraph-api/server directly (see src/agent/server.mjs)
-# instead of `langgraph-cli dev`. Rationale: dev mode wraps the server in
-# `tsx watch` + chokidar + Studio IPC, and its schema-extraction worker is
-# cold on first request (multi-second TS program compile). Production path:
-#   1. `node --import tsx` — tsx is a one-shot ESM hook for graph.ts at load
-#      time only, NOT a watcher (no chokidar, no restart loop).
-#   2. `server.mjs` pre-warms the schema cache before the first external
-#      /assistants/*/schemas hits.
-#   3. /ok liveness stays sub-10ms regardless of graph-compile load because
-#      the schema worker runs in a worker_thread off the main event loop.
+# `npm start` runs `node --import tsx liveness.mjs` (see src/agent/package.json).
+# liveness.mjs binds :8124/ok immediately using only node:http, then dynamic-
+# imports server.mjs to kick off the real @langchain/langgraph-api bootstrap.
+# We avoid `langgraph-cli dev` for the same reasons as before: dev wraps the
+# server in `tsx watch` + chokidar + Studio IPC, and its schema-extraction
+# worker is cold on first request (multi-second TS program compile).
+# Production path:
+#   1. `node --import tsx liveness.mjs` — tsx is a one-shot ESM hook so the
+#      subsequent dynamic import of server.mjs (and thence graph.ts) resolves
+#      without pre-compilation. NOT a watcher.
+#   2. liveness.mjs brings up :8124/ok before any heavy import runs.
+#   3. Dynamic-imported server.mjs pre-warms the schema cache before the
+#      first external /assistants/*/schemas hits.
 #
 # --host 0.0.0.0 via HOST env; binds IPv4+IPv6 so the Next.js frontend can
 # reach the agent regardless of how `localhost` resolves in the container.
@@ -60,10 +63,10 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # Watchdog: Railway deploys of showcase packages have been observed to hit a
 # silent agent hang — the langgraph process stays alive (so `wait -n` never
 # fires and the container never restarts) but stops responding on :8123.
-# Poll the liveness sidecar on :8124/ok every 30s (bound synchronously by
-# server.mjs BEFORE startServer, so it is up within ms of node boot —
-# independent of the multi-second graph import + worker_thread spawn that
-# gates the main Hono bind on :8123). After 3 consecutive failures
+# Poll the liveness sidecar on :8124/ok every 30s (bound by liveness.mjs
+# BEFORE server.mjs is dynamic-imported, so it is up within ms of node boot —
+# independent of the multi-minute @langchain/langgraph-api top-level import
+# that gates the main Hono bind on :8123). After 3 consecutive failures
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
 # showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
