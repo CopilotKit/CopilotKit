@@ -197,7 +197,7 @@ A probe config binds a `kind` (driver) to a `schedule` (cron) and a target shape
 
 Exactly one of `targets` / `discovery` / `target` is required per config. The loader's Zod schema (`ProbeConfigSchema`) enforces this — a config with zero or more than one of these three fails the load.
 
-**Static targets** — probes with a fixed, operator-authored list of endpoints. Used by `smoke` and `e2e_smoke`:
+**Static targets** — probes with a fixed, operator-authored list of endpoints. Used by `smoke` (and by `e2e_smoke` once its Playwright runner lands — the driver exists, the YAMLs are deferred):
 
 ```yaml
 kind: smoke
@@ -248,7 +248,7 @@ Every `kind` resolves to a driver registered in `src/probes/drivers/index.ts`. T
 | YAML `kind`             | Driver file                        | Emitted key prefix(es)                 | Shape     |
 | ----------------------- | ---------------------------------- | -------------------------------------- | --------- |
 | `smoke`                 | `drivers/smoke.ts`                 | `smoke:<slug>` **and** `health:<slug>` | static    |
-| `e2e_smoke`             | `drivers/e2e-smoke.ts`             | `e2e_smoke:<suite>`                    | static    |
+| `e2e_smoke` (deferred)  | `drivers/e2e-smoke.ts`             | `e2e_smoke:<suite>`                    | static    |
 | `image_drift`           | `drivers/image-drift.ts`           | `image_drift:<service>`                | discovery |
 | `version_drift`         | `drivers/version-drift.ts`         | `version_drift:<pkg>`                  | discovery |
 | `pin_drift`             | `drivers/pin-drift.ts`             | `pin_drift:overall`                    | single    |
@@ -270,7 +270,7 @@ A new source is added by implementing the `DiscoverySource` interface (`src/prob
 
 ### Fan-out semantics
 
-One probe tick produces N driver invocations (N = target count, resolved at tick time for discovery configs). Each invocation is bounded independently by `timeout_ms`; concurrency across a single tick is capped at `max_concurrency` (default 1 — set it higher to overlap independent targets). Each invocation writes ≥1 `status.changed` event, and each event independently passes through the alert engine — a multi-target probe with 17 services produces 17 rule evaluations per tick, not one.
+One probe tick produces N driver invocations (N = target count, resolved at tick time for discovery configs). Each invocation is bounded independently by `timeout_ms`; concurrency across a single tick is capped at `max_concurrency` (default 4, min 1, max 32 — raise it to overlap independent targets, lower it to serialize). Each invocation writes ≥1 `status.changed` event, and each event independently passes through the alert engine — a multi-target probe with 17 services produces 17 rule evaluations per tick, not one.
 
 `max_concurrency` is a per-tick worker pool. A tick that overruns its own schedule (e.g. 17 services × 30s timeout > 15 min cron window on `max_concurrency=1`) is skipped by Croner's overlap protection rather than queued.
 
@@ -317,7 +317,7 @@ This section is for anyone touching `showcase/ops/src/` or the Dockerfile.
 │  image-drift    │   │  keyed mutex        │   │  guards/suppress/ │
 │  aimock-wiring  │   │  writer.failed evts │   │  rate-limit →     │
 │  pin/version    │   └─────────────────────┘   │  render →         │
-│  e2e-smoke      │                             │  sendToTargets    │
+│  redirect-decom │                             │  sendToTargets    │
 └─────────────────┘                             └────────┬──────────┘
                                                          │
                                                          ▼
@@ -483,10 +483,12 @@ The four legacy GitHub Actions cron workflows (`showcase_smoke-monitor`, `showca
 | ------------------------------------------ | ----------------------------------------- | ----------------------- | ------------------ |
 | `showcase_smoke-monitor.yml` (smoke)       | `config/probes/smoke.yml`                 | `smoke`                 | — (static list)    |
 | `showcase_smoke-monitor.yml` (image drift) | `config/probes/image-drift.yml`           | `image_drift`           | `railway-services` |
-| `showcase_drift-detection.yml` (L1-3)      | `config/probes/e2e-smoke.yml`             | `e2e_smoke`             | —                  |
-| `showcase_drift-detection.yml` (L4 daily)  | `config/probes/e2e-smoke-daily.yml`       | `e2e_smoke`             | —                  |
+| `showcase_drift-detection.yml` (L1-3)      | _deferred_                                | `e2e_smoke` (deferred)  | —                  |
+| `showcase_drift-detection.yml` (L4 daily)  | _deferred_                                | `e2e_smoke` (deferred)  | —                  |
 | `showcase_drift-detection.yml` (version)   | `config/probes/version-drift.yml`         | `version_drift`         | `pnpm-packages`    |
 | `showcase_drift-report.yml` (pin)          | `config/probes/pin-drift.yml`             | `pin_drift`             | —                  |
 | `showcase_redirect-report.yml`             | `config/probes/redirect-decommission.yml` | `redirect_decommission` | —                  |
 
-**Deferred**: the auto-rebuild action from `showcase_smoke-monitor.yml` (automatically rebuild+redeploy on image drift) is NOT wired in this PR. Image drift still alerts via `image-drift.yml`; operators must manually redeploy off that Slack post. A follow-up PR adds a `railway-redeploy` action kind to alert-engine's target registry so the rule itself can close the loop.
+**Deferred — auto-rebuild**: the auto-rebuild action from `showcase_smoke-monitor.yml` (automatically rebuild+redeploy on image drift) is NOT wired in this PR. Image drift still alerts via `image-drift.yml`; operators must manually redeploy off that Slack post. A follow-up PR adds a `railway-redeploy` action kind to alert-engine's target registry so the rule itself can close the loop.
+
+**Deferred — e2e-smoke**: the `e2e_smoke` driver ships in this PR but its Playwright runner is not yet wired, so the `config/probes/e2e-smoke.yml` + `config/probes/e2e-smoke-daily.yml` YAMLs are intentionally absent from `config/probes/`. The `showcase_drift-detection.yml` (L1-3) and (L4 daily) lanes therefore remain on the legacy GitHub Actions cron until a follow-up PR lands the runner and re-adds the two YAMLs.
