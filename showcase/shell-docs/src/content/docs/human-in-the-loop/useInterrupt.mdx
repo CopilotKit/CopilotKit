@@ -3,7 +3,6 @@ title: useInterrupt (LangGraph)
 icon: "lucide/CirclePause"
 description: Pause an agent run with LangGraph's interrupt() and resolve it from the client via a render prop.
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: gen-ui-interrupt
 ---
 
@@ -19,7 +18,7 @@ CopilotKit's `useInterrupt` is the frontend half of that contract: it
 subscribes to the paused run, renders whatever component you give it,
 and calls the agent back with the user's answer.
 
-<InlineDemo integration="langgraph-python" demo="gen-ui-interrupt" />
+<InlineDemo demo="gen-ui-interrupt" />
 
 ## When should I use this?
 

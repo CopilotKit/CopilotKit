@@ -24,13 +24,19 @@ const FEATURE_REGISTRY_PATH = path.join(
   "shared",
   "feature-registry.json",
 );
-// Registry is consumed by BOTH shells:
+// Registry is consumed by ALL shells:
 //   - shell: home grid, integrations catalog, matrix, middleware
 //   - shell-docs: docs routes (framework lookup, MDX renderer)
-// so we dual-emit. constraints.json is shell-only (integration-explorer).
+//   - shell-dojo: dojo app's integration grid and demo columns
+// so we multi-emit. constraints.json is shell-only (integration-explorer).
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
-const OUTPUT_DIRS = [SHELL_OUTPUT_DIR, SHELL_DOCS_OUTPUT_DIR];
+const SHELL_DOJO_OUTPUT_DIR = path.join(ROOT, "shell-dojo", "src", "data");
+const OUTPUT_DIRS = [
+  SHELL_OUTPUT_DIR,
+  SHELL_DOCS_OUTPUT_DIR,
+  SHELL_DOJO_OUTPUT_DIR,
+];
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
 const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 

@@ -2,6 +2,7 @@ import React from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
+import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 
 vi.mock("../../providers/CopilotKitProvider", () => ({
   useCopilotKit: vi.fn(),
@@ -148,6 +149,7 @@ function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
   mockUseCopilotKit.mockReturnValue({
     copilotkit: {
       runtimeUrl,
+      runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Connected,
       headers: { Authorization: "Bearer test-token" },
       intelligence: {
         wsUrl: "ws://localhost:4000/client",
@@ -483,5 +485,71 @@ describe("useThreads", () => {
 
     expect(channel.left).toBe(true);
     expect(socket.disconnected).toBe(true);
+  });
+
+  it("waits for runtimeConnectionStatus=Connected before fetching /threads", async () => {
+    // Start in Connecting — hook should hold off on dispatching any request
+    // so the initial list fetch includes wsUrl and avoids a redundant second
+    // call once /info resolves.
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connecting,
+        headers: { Authorization: "Bearer test-token" },
+        intelligence: undefined,
+      },
+    });
+
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+    const { result, rerender } = renderHook(() => useThreads(defaultInput));
+
+    // Give effects a tick to settle; no fetch should occur while Connecting.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    // While waiting for Connected, the hook must surface isLoading=true so
+    // consumers don't render an empty-state flash before the first fetch
+    // is even dispatched. The store's own isLoading is false at this
+    // point (no contextChanged action yet), so the hook synthesizes it.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.threads).toEqual([]);
+
+    // Flip to Connected with wsUrl populated, re-render. The effect now
+    // dispatches exactly one list fetch (+ one subscribe after it lands).
+    mockUseCopilotKit.mockReturnValue({
+      copilotkit: {
+        runtimeUrl: "http://localhost:4000",
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        headers: { Authorization: "Bearer test-token" },
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+      },
+    });
+
+    rerender();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/threads?agentId=agent-1"),
+        expect.objectContaining({ method: "GET" }),
+      );
+    });
+
+    // Exactly the expected pair — no speculative list call before Connected.
+    const listCalls = fetchMock.mock.calls.filter(
+      ([url]) => typeof url === "string" && /\/threads\?agentId=/.test(url),
+    );
+    expect(listCalls).toHaveLength(1);
+
+    // After the fetch settles, isLoading returns to false.
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
   });
 });

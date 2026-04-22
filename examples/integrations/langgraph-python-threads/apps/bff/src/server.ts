@@ -25,9 +25,22 @@ const app = createCopilotEndpoint({
   basePath: "/api/copilotkit",
   runtime: new CopilotRuntime({
     intelligence,
-    identifyUser: () => ({ id: "jordan-beamson" }),
+    identifyUser: () => ({ id: "jordan-beamson", name: "Jordan Beamson" }),
     licenseToken: process.env.COPILOTKIT_LICENSE_TOKEN,
     agents: { default: agent },
+    openGenerativeUI: true,
+    a2ui: {
+      injectA2UITool: false,
+    },
+    mcpApps: {
+      servers: [
+        {
+          type: "http",
+          url: process.env.MCP_SERVER_URL || "https://mcp.excalidraw.com",
+          serverId: "example_mcp_app",
+        },
+      ],
+    },
   }),
 });
 

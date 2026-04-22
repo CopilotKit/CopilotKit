@@ -99,7 +99,7 @@
     "@ai-sdk/google-vertex": "^3.0.97",
     "@ai-sdk/mcp": "^1.0.21",
     "@ai-sdk/openai": "^3.0.36",
-    "@copilotkit/license-verifier": "0.0.1-a1",
+    "@copilotkit/license-verifier": "0.2.0",
     "@copilotkit/shared": "workspace:*",
     "@graphql-yoga/plugin-defer-stream": "^3.3.1",
     "@hono/node-server": "^1.13.5",

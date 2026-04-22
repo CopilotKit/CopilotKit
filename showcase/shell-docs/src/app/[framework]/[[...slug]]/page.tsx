@@ -10,16 +10,16 @@
 //                                             to the `mastra` cells
 //
 // The first URL segment is validated against the registry's list of
-// integration slugs. When it doesn't match, we return 404 — the only
-// top-level routes that shadow this catch-all are the existing ones
-// (`/docs`, `/integrations`, `/ag-ui`, `/reference`, `/api`, `/matrix`),
-// none of which are framework slugs, so there are no collisions.
+// integration slugs. When it doesn't match, we fall through to
+// UnscopedDocsPage so unscoped doc slugs (e.g. /quickstart) are served
+// correctly even though Next.js routes them here before [[...slug]].
 
 import React from "react";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { DocsPageView } from "@/components/docs-page-view";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
+import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
   buildNavTree,
@@ -81,11 +81,15 @@ export default async function FrameworkScopedDocsPage({
     notFound();
   }
 
-  // Validate the framework slug against the registry. Anything else
-  // falls through to 404 — Next.js top-level routes (`/docs`, etc.)
-  // take precedence over the catch-all automatically.
+  // Validate the framework slug against the registry.
+  // If not a registered integration, treat the URL as an unscoped doc path.
+  // This is necessary because Next.js routes /quickstart here (dynamic segment
+  // beats optional catch-all) before [[...slug]] ever sees it.
   const integration = getIntegration(framework);
-  if (!integration) notFound();
+  if (!integration) {
+    const unscopedPath = [framework, ...(slug ?? [])].join("/");
+    return <UnscopedDocsPage slugPath={unscopedPath} />;
+  }
 
   const slugPath = slug?.join("/") ?? "";
 
@@ -107,7 +111,7 @@ export default async function FrameworkScopedDocsPage({
   const doc = loadDoc(slugPath);
   if (!doc) notFound();
 
-  const backLink = { label: "\u2190 All docs", href: "/docs" };
+  const backLink = { label: "\u2190 All docs", href: "/" };
   const navTree = buildNavTree(CONTENT_DIR);
 
   // Detect whether this page's default cell (the feature) has any
@@ -170,7 +174,7 @@ export default async function FrameworkScopedDocsPage({
               })}{" "}
             instead, or browse the{" "}
             <Link
-              href={`/docs/${slugPath}`}
+              href={`/${slugPath}`}
               className="text-[var(--accent)] hover:underline"
             >
               framework-agnostic version
@@ -268,7 +272,7 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
       <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <Link
-          href="/docs"
+          href="/"
           className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
         >
           ← All docs

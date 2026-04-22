@@ -1,0 +1,51 @@
+# INTERIM — superseded by showcase-ops smoke cadence (see Notion).
+#
+# Goal: curl /api/health on each showcase starter every 5 min so the agent's
+# in-memory state (JIT, module cache, connection pools) stays warm. Railway Pro
+# tier doesn't sleep containers, but warm-state decays over idle.
+#
+# This workflow is intentionally minimal — no Slack, no metrics, no state.
+# Observability / alerting is already handled by showcase_smoke-monitor.yml.
+# This is strictly keep-alive.
+
+name: "Showcase: Keep-Alive"
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    name: Ping ${{ matrix.slug }}
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        slug:
+          - ag2
+          - agno
+          - claude-sdk-python
+          - claude-sdk-typescript
+          - crewai-crews
+          - google-adk
+          - langgraph-fastapi
+          - langgraph-python
+          - langgraph-typescript
+          - langroid
+          - llamaindex
+          - mastra
+          - ms-agent-dotnet
+          - ms-agent-python
+          - pydantic-ai
+          - spring-ai
+          - strands
+    steps:
+      - name: Ping /api/health
+        run: |
+          curl -fsS --max-time 15 \
+            "https://showcase-${{ matrix.slug }}-production.up.railway.app/api/health" \
+            > /dev/null

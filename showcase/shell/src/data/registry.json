@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-20T03:50:11.649Z",
+  "generated_at": "2026-04-22T11:13:48.868Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -374,7 +374,7 @@
       "starter": {
         "path": "showcase/starters/langgraph-python",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-python",
         "demo_url": "https://showcase-starter-langgraph-python-production-3f57.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-python my-copilotkit-app"
@@ -401,8 +401,6 @@
         "declarative-gen-ui",
         "a2ui-fixed-schema",
         "mcp-apps",
-        "open-gen-ui",
-        "open-gen-ui-advanced",
         "gen-ui-agent",
         "tool-rendering-default-catchall",
         "tool-rendering-custom-catchall",
@@ -760,33 +758,6 @@
           ]
         },
         {
-          "id": "open-gen-ui",
-          "name": "Open-Ended Generative UI",
-          "description": "Minimal — enable open-ended gen UI in the runtime, nothing else",
-          "tags": ["generative-ui"],
-          "route": "/demos/open-gen-ui",
-          "animated_preview_url": null,
-          "highlight": [
-            "src/agents/open_gen_ui_agent.py",
-            "src/app/demos/open-gen-ui/page.tsx",
-            "src/app/api/copilotkit-ogui/route.ts"
-          ]
-        },
-        {
-          "id": "open-gen-ui-advanced",
-          "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
-          "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
-          "tags": ["generative-ui"],
-          "route": "/demos/open-gen-ui-advanced",
-          "animated_preview_url": null,
-          "highlight": [
-            "src/agents/open_gen_ui_advanced_agent.py",
-            "src/app/demos/open-gen-ui-advanced/page.tsx",
-            "src/app/demos/open-gen-ui-advanced/sandbox-functions.ts",
-            "src/app/api/copilotkit-ogui/route.ts"
-          ]
-        },
-        {
           "id": "interrupt-headless",
           "name": "Headless Interrupt (testing)",
           "description": "Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop",
@@ -1015,7 +986,7 @@
       "starter": {
         "path": "showcase/starters/langgraph-typescript",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-typescript",
         "demo_url": "https://showcase-starter-langgraph-typescript-production-25ca.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app"
@@ -1159,7 +1130,7 @@
       "starter": {
         "path": "showcase/starters/langgraph-fastapi",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi",
         "demo_url": "https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app"
@@ -1299,7 +1270,7 @@
       "starter": {
         "path": "showcase/starters/google-adk",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/google-adk",
         "demo_url": "https://showcase-starter-google-adk-production-a56a.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/google-adk my-copilotkit-app"
@@ -1443,7 +1414,7 @@
       "starter": {
         "path": "showcase/starters/mastra",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/mastra",
         "demo_url": "https://showcase-starter-mastra-production-3a00.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app"
@@ -1587,7 +1558,7 @@
       "starter": {
         "path": "showcase/starters/crewai-crews",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/crewai-crews",
         "demo_url": "https://showcase-starter-crewai-crews-production-ad85.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/crewai-crews my-copilotkit-app"
@@ -1727,7 +1698,7 @@
       "starter": {
         "path": "showcase/starters/pydantic-ai",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/pydantic-ai",
         "demo_url": "https://showcase-starter-pydantic-ai-production-cf5b.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/pydantic-ai my-copilotkit-app"
@@ -1943,7 +1914,7 @@
       "starter": {
         "path": "showcase/starters/claude-sdk-python",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-python",
         "demo_url": "https://showcase-starter-claude-sdk-python-production.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-python my-copilotkit-app"
@@ -2083,7 +2054,7 @@
       "starter": {
         "path": "showcase/starters/claude-sdk-typescript",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-typescript",
         "demo_url": "https://showcase-starter-claude-sdk-typescript-production.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-typescript my-copilotkit-app"
@@ -2147,7 +2118,7 @@
       "starter": {
         "path": "showcase/starters/agno",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/agno",
         "demo_url": "https://showcase-starter-agno-production-359f.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/agno my-copilotkit-app"
@@ -2367,7 +2338,7 @@
       "starter": {
         "path": "showcase/starters/ag2",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ag2",
         "demo_url": "https://showcase-starter-ag2-production.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ag2 my-copilotkit-app"
@@ -2435,7 +2406,7 @@
       "starter": {
         "path": "showcase/starters/llamaindex",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/llamaindex",
         "demo_url": "https://showcase-starter-llamaindex-production-78fe.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app"
@@ -2579,7 +2550,7 @@
       "starter": {
         "path": "showcase/starters/strands",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/strands",
         "demo_url": "https://showcase-starter-strands-production-1114.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/strands my-copilotkit-app"
@@ -2795,7 +2766,7 @@
       "starter": {
         "path": "showcase/starters/langroid",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langroid",
         "demo_url": "https://showcase-starter-langroid-production.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/langroid my-copilotkit-app"
@@ -2826,7 +2797,7 @@
       "starter": {
         "path": "showcase/starters/ms-agent-python",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-python",
         "demo_url": "https://showcase-starter-ms-agent-python-production-d140.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-python my-copilotkit-app"
@@ -2966,7 +2937,7 @@
       "starter": {
         "path": "showcase/starters/ms-agent-dotnet",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-dotnet",
         "demo_url": "https://showcase-starter-ms-agent-dotnet-production-b8cf.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-dotnet my-copilotkit-app"
@@ -3182,7 +3153,7 @@
       "starter": {
         "path": "showcase/starters/spring-ai",
         "name": "Sales Dashboard",
-        "description": "Full-featured sales pipeline with 5 GenUI rendering strategies",
+        "description": "Full-featured sales pipeline with 4 GenUI rendering strategies",
         "github_url": "https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/spring-ai",
         "demo_url": "https://showcase-starter-spring-ai-production.up.railway.app",
         "clone_command": "npx degit CopilotKit/CopilotKit/showcase/starters/spring-ai my-copilotkit-app"

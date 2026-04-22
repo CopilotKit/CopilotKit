@@ -18,7 +18,7 @@ permissions:
   packages: read
 
 jobs:
-  starter-smoke:
+  smoke-starter:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -108,7 +108,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: starter-smoke-${{ matrix.starter }}
+          name: smoke-starter-${{ matrix.starter }}
           path: showcase/tests/test-results/
           retention-days: 7
 

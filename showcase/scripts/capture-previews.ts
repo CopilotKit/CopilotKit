@@ -1,17 +1,23 @@
 /**
- * Capture animated preview GIFs for ALL showcase integration demos.
+ * Capture animated preview MP4s for ALL showcase integration demos.
  *
  * Reads manifest.yaml from each deployed package, builds the full list of
  * {integration, demo, backendUrl} tuples, then uses Playwright to navigate,
- * interact, record video, and convert to optimized GIFs via ffmpeg.
+ * interact, record video, and convert to optimized MP4s via ffmpeg.
+ *
+ * After conversion, uploads all MP4 files to the `showcase-previews` GitHub
+ * release on CopilotKit/CopilotKit, then updates registry.json with the
+ * download URLs.
  *
  * Usage:
  *   npx tsx showcase/scripts/capture-previews.ts
  *   npx tsx showcase/scripts/capture-previews.ts --slug langgraph-python
  *   npx tsx showcase/scripts/capture-previews.ts --demo agentic-chat
  *   npx tsx showcase/scripts/capture-previews.ts --concurrency 5
+ *   npx tsx showcase/scripts/capture-previews.ts --skip-upload
+ *   npx tsx showcase/scripts/capture-previews.ts --skip-registry-update
  *
- * Requires: playwright (installed in showcase/tests/), ffmpeg, yaml
+ * Requires: playwright (installed in showcase/tests/), ffmpeg, yaml, gh (GitHub CLI)
  */
 
 import { chromium, type Browser, type BrowserContext } from "playwright";
@@ -29,10 +35,14 @@ const __dirname = path.dirname(__filename);
 // ---------------------------------------------------------------------------
 
 const VIEWPORT = { width: 800, height: 600 };
-const GIF_WIDTH = 400;
-const GIF_FPS = 10;
+const VIDEO_WIDTH = 400;
+const VIDEO_FPS = 10;
 const RESPONSE_TIMEOUT = 45_000;
 const POST_RESPONSE_WAIT = 3_000;
+
+const GITHUB_REPO = "CopilotKit/CopilotKit";
+const RELEASE_TAG = "showcase-previews";
+const RELEASE_BASE_URL = `https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_TAG}`;
 
 const PACKAGES_DIR = path.resolve(__dirname, "..", "packages");
 const PREVIEWS_DIR = path.resolve(
@@ -43,6 +53,14 @@ const PREVIEWS_DIR = path.resolve(
   "previews",
 );
 const VIDEO_DIR = path.resolve(PREVIEWS_DIR, "_videos");
+const REGISTRY_PATH = path.resolve(
+  __dirname,
+  "..",
+  "shell",
+  "src",
+  "data",
+  "registry.json",
+);
 
 // ---------------------------------------------------------------------------
 // Demo-specific prompts
@@ -124,11 +142,19 @@ const DEFAULT_CONFIG: DemoConfig = {
 // CLI flags
 // ---------------------------------------------------------------------------
 
-function parseArgs(): { slug?: string; demo?: string; concurrency: number } {
+function parseArgs(): {
+  slug?: string;
+  demo?: string;
+  concurrency: number;
+  skipUpload: boolean;
+  skipRegistryUpdate: boolean;
+} {
   const args = process.argv.slice(2);
   let slug: string | undefined;
   let demo: string | undefined;
   let concurrency = 3;
+  let skipUpload = false;
+  let skipRegistryUpdate = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--slug" && args[i + 1]) {
@@ -137,10 +163,14 @@ function parseArgs(): { slug?: string; demo?: string; concurrency: number } {
       demo = args[++i];
     } else if (args[i] === "--concurrency" && args[i + 1]) {
       concurrency = parseInt(args[++i], 10) || 3;
+    } else if (args[i] === "--skip-upload") {
+      skipUpload = true;
+    } else if (args[i] === "--skip-registry-update") {
+      skipRegistryUpdate = true;
     }
   }
 
-  return { slug, demo, concurrency };
+  return { slug, demo, concurrency, skipUpload, skipRegistryUpdate };
 }
 
 // ---------------------------------------------------------------------------
@@ -237,8 +267,10 @@ interface CaptureResult {
   demoId: string;
   success: boolean;
   error?: string;
-  gifPath?: string;
-  gifSize?: number;
+  mp4Path?: string;
+  mp4Size?: number;
+  /** Flat filename: {slug}_{demoId}.mp4 */
+  mp4Filename?: string;
 }
 
 async function captureDemo(
@@ -347,12 +379,11 @@ async function captureDemo(
 
     const videoPath = videoFiles[0].fullPath;
 
-    // Convert to GIF
-    const gifDir = path.join(PREVIEWS_DIR, target.integrationSlug);
-    fs.mkdirSync(gifDir, { recursive: true });
-    const gifPath = path.join(gifDir, `${target.demoId}.gif`);
+    // Convert to MP4 (flat filename for GitHub release assets)
+    const mp4Filename = `${target.integrationSlug}_${target.demoId}.mp4`;
+    const mp4Path = path.join(PREVIEWS_DIR, mp4Filename);
 
-    const gifOk = convertToGif(videoPath, gifPath, label);
+    const mp4Ok = convertToMp4(videoPath, mp4Path, label);
 
     // Clean up video subdir
     try {
@@ -361,7 +392,7 @@ async function captureDemo(
       /* ignore */
     }
 
-    if (!gifOk) {
+    if (!mp4Ok) {
       return {
         integrationSlug: target.integrationSlug,
         demoId: target.demoId,
@@ -370,17 +401,18 @@ async function captureDemo(
       };
     }
 
-    const stat = fs.statSync(gifPath);
+    const stat = fs.statSync(mp4Path);
     console.log(
-      `  [OK] ${label} -> ${gifPath} (${(stat.size / 1024).toFixed(0)} KB)`,
+      `  [OK] ${label} -> ${mp4Path} (${(stat.size / 1024).toFixed(0)} KB)`,
     );
 
     return {
       integrationSlug: target.integrationSlug,
       demoId: target.demoId,
       success: true,
-      gifPath: `${target.integrationSlug}/${target.demoId}.gif`,
-      gifSize: stat.size,
+      mp4Path,
+      mp4Size: stat.size,
+      mp4Filename,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -407,29 +439,141 @@ async function captureDemo(
   }
 }
 
-function convertToGif(
+function convertToMp4(
   videoPath: string,
-  gifPath: string,
+  mp4Path: string,
   label: string,
 ): boolean {
-  console.log(`  Converting ${label} to GIF ...`);
+  console.log(`  Converting ${label} to MP4 ...`);
 
   try {
     execSync("which ffmpeg", { stdio: "pipe" });
   } catch {
-    console.log("  [ERROR] ffmpeg not found in PATH — skipping GIF conversion");
+    console.log("  [ERROR] ffmpeg not found in PATH — skipping MP4 conversion");
     return false;
   }
 
   try {
     execSync(
-      `ffmpeg -y -i "${videoPath}" -vf "fps=${GIF_FPS},scale=${GIF_WIDTH}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 "${gifPath}"`,
+      `ffmpeg -y -i "${videoPath}" -vf "fps=${VIDEO_FPS},scale=${VIDEO_WIDTH}:-2:flags=lanczos" -c:v libx264 -preset slow -crf 28 -an -movflags +faststart "${mp4Path}"`,
       { stdio: "pipe", timeout: 120_000 },
     );
     return true;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.log(`  [FAIL] ffmpeg conversion for ${label}: ${msg}`);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Upload to GitHub release
+// ---------------------------------------------------------------------------
+
+function uploadToRelease(mp4Files: string[]): boolean {
+  if (mp4Files.length === 0) {
+    console.log("\nNo MP4 files to upload.");
+    return true;
+  }
+
+  console.log(
+    `\nUploading ${mp4Files.length} MP4 file(s) to GitHub release "${RELEASE_TAG}" ...`,
+  );
+
+  // Verify gh CLI is available
+  try {
+    execSync("which gh", { stdio: "pipe" });
+  } catch {
+    console.log(
+      "  [ERROR] gh (GitHub CLI) not found in PATH — skipping upload",
+    );
+    return false;
+  }
+
+  // Ensure the release exists (create if needed)
+  try {
+    execSync(`gh release view ${RELEASE_TAG} --repo ${GITHUB_REPO}`, {
+      stdio: "pipe",
+    });
+  } catch {
+    console.log(`  Release "${RELEASE_TAG}" does not exist, creating ...`);
+    try {
+      execSync(
+        `gh release create ${RELEASE_TAG} --repo ${GITHUB_REPO} --title "Showcase Preview Videos" --notes "Auto-generated animated preview videos for showcase demos." --latest=false`,
+        { stdio: "pipe" },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(`  [ERROR] Failed to create release: ${msg}`);
+      return false;
+    }
+  }
+
+  // Upload all files with --clobber to overwrite existing assets
+  const fileArgs = mp4Files.map((f) => `"${f}"`).join(" ");
+  try {
+    execSync(
+      `gh release upload ${RELEASE_TAG} ${fileArgs} --clobber --repo ${GITHUB_REPO}`,
+      { stdio: "pipe", timeout: 300_000 },
+    );
+    console.log(
+      `  [OK] Uploaded ${mp4Files.length} file(s) to release "${RELEASE_TAG}"`,
+    );
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`  [FAIL] Upload failed: ${msg}`);
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Update registry.json with preview URLs
+// ---------------------------------------------------------------------------
+
+function updateRegistry(results: CaptureResult[]): boolean {
+  console.log(`\nUpdating registry at ${REGISTRY_PATH} ...`);
+
+  if (!fs.existsSync(REGISTRY_PATH)) {
+    console.log("  [ERROR] registry.json not found — skipping update");
+    return false;
+  }
+
+  try {
+    const raw = fs.readFileSync(REGISTRY_PATH, "utf-8");
+    const registry = JSON.parse(raw);
+
+    // Build a lookup: "slug/demoId" -> release URL
+    const urlMap: Record<string, string> = {};
+    for (const r of results) {
+      if (r.success && r.mp4Filename) {
+        const key = `${r.integrationSlug}/${r.demoId}`;
+        urlMap[key] = `${RELEASE_BASE_URL}/${r.mp4Filename}`;
+      }
+    }
+
+    // Walk through integrations and their demos to update animated_preview_url
+    let updated = 0;
+    if (registry.integrations && Array.isArray(registry.integrations)) {
+      for (const integration of registry.integrations) {
+        if (integration.demos && Array.isArray(integration.demos)) {
+          for (const demo of integration.demos) {
+            const key = `${integration.slug}/${demo.id}`;
+            if (urlMap[key]) {
+              demo.animated_preview_url = urlMap[key];
+              updated++;
+            }
+          }
+        }
+      }
+    }
+
+    fs.writeFileSync(REGISTRY_PATH, JSON.stringify(registry, null, 2) + "\n");
+    console.log(`  [OK] Updated ${updated} demo(s) in registry.json`);
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.log(`  [ERROR] Failed to update registry: ${msg}`);
     return false;
   }
 }
@@ -464,12 +608,16 @@ async function runWithConcurrency<T>(
 // ---------------------------------------------------------------------------
 
 async function main() {
-  const { slug, demo, concurrency } = parseArgs();
+  const { slug, demo, concurrency, skipUpload, skipRegistryUpdate } =
+    parseArgs();
 
   console.log("=== Showcase Demo Preview Capture ===");
   console.log(`Concurrency: ${concurrency}`);
   if (slug) console.log(`Filter by slug: ${slug}`);
   if (demo) console.log(`Filter by demo: ${demo}`);
+  if (skipUpload) console.log("Upload: SKIPPED (--skip-upload)");
+  if (skipRegistryUpdate)
+    console.log("Registry update: SKIPPED (--skip-registry-update)");
 
   // Read all manifests
   console.log(`\nReading manifests from ${PACKAGES_DIR} ...`);
@@ -499,24 +647,6 @@ async function main() {
 
   await browser.close();
 
-  // Write manifest.json
-  const manifestJson: Record<string, Record<string, string>> = {};
-  for (const r of results) {
-    if (r.success && r.gifPath) {
-      if (!manifestJson[r.integrationSlug]) {
-        manifestJson[r.integrationSlug] = {};
-      }
-      manifestJson[r.integrationSlug][r.demoId] = r.gifPath;
-    }
-  }
-
-  const manifestJsonPath = path.join(PREVIEWS_DIR, "manifest.json");
-  fs.writeFileSync(
-    manifestJsonPath,
-    JSON.stringify(manifestJson, null, 2) + "\n",
-  );
-  console.log(`\nWrote ${manifestJsonPath}`);
-
   // Clean up video directory
   try {
     fs.rmSync(VIDEO_DIR, { recursive: true, force: true });
@@ -524,15 +654,41 @@ async function main() {
     /* ignore */
   }
 
+  // Upload to GitHub release
+  if (!skipUpload) {
+    const mp4Files = results
+      .filter((r) => r.success && r.mp4Path)
+      .map((r) => r.mp4Path!);
+    uploadToRelease(mp4Files);
+  }
+
+  // Update registry.json
+  if (!skipRegistryUpdate && !skipUpload) {
+    updateRegistry(results);
+  }
+
+  // Clean up local MP4 files (they've been uploaded)
+  if (!skipUpload) {
+    for (const r of results) {
+      if (r.success && r.mp4Path && fs.existsSync(r.mp4Path)) {
+        try {
+          fs.unlinkSync(r.mp4Path);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
   // Summary
   console.log("\n\n=== CAPTURE SUMMARY ===");
   const succeeded = results.filter((r) => r.success);
   const failed = results.filter((r) => !r.success);
-  const totalSize = succeeded.reduce((sum, r) => sum + (r.gifSize ?? 0), 0);
+  const totalSize = succeeded.reduce((sum, r) => sum + (r.mp4Size ?? 0), 0);
 
   console.log(`Succeeded: ${succeeded.length}/${results.length}`);
   for (const r of succeeded) {
-    const sizeKB = r.gifSize ? `${(r.gifSize / 1024).toFixed(0)} KB` : "?";
+    const sizeKB = r.mp4Size ? `${(r.mp4Size / 1024).toFixed(0)} KB` : "?";
     console.log(`  [OK] ${r.integrationSlug}/${r.demoId} (${sizeKB})`);
   }
 
@@ -543,7 +699,7 @@ async function main() {
     }
   }
 
-  console.log(`\nTotal GIF size: ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
+  console.log(`\nTotal MP4 size: ${(totalSize / 1024 / 1024).toFixed(1)} MB`);
 
   if (failed.length > 0) {
     process.exit(1);

@@ -3,7 +3,6 @@ title: Sub-Agents
 description: Decompose work across multiple specialized agents with a visible delegation log.
 icon: "lucide/Users"
 hideTOC: true
-snippet_framework: langgraph-python
 snippet_cell: subagents
 ---
 
@@ -19,7 +18,7 @@ This is fundamentally the same shape as tool-calling — but each "tool"
 is itself a full-blown agent with its own system prompt and (often) its
 own tools, memory, and model.
 
-<InlineDemo integration="langgraph-python" demo="subagents" />
+<InlineDemo demo="subagents" />
 
 ## When should I use this?
 
@@ -82,9 +81,9 @@ would otherwise be a long opaque spinner.
 
 ## Related
 
-- **[Shared State](/docs/shared-state)** — the channel that makes the
+- **[Shared State](/shared-state)** — the channel that makes the
   delegation log live.
-- **[State streaming](/docs/shared-state/streaming)** — stream
+- **[State streaming](/shared-state/streaming)** — stream
   *individual* sub-agent outputs token-by-token inside each log entry.
 
 <FeatureIntegrations feature="subagents" />
