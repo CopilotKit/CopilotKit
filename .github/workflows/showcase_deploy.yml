@@ -753,9 +753,14 @@ jobs:
             # Partial / all-failed / unknown aggregate: ask the Actions API
             # for per-leg conclusions. `--paginate` handles large matrices
             # (>30 jobs per page); filter to build-matrix legs by name
-            # prefix. Each job name follows the pattern
-            # "build (<serialized-matrix-value>...)" — we match each
-            # service's dispatch_name as a substring of the job name.
+            # prefix. GitHub renders matrix job names as
+            # "build (<dispatch_name>, <context>, <image>, ...)" — the
+            # dispatch_name is the first serialized matrix-object field.
+            # We match with a token-bounded prefix ("build (<svc>,") rather
+            # than substring contains() to avoid service/starter collisions
+            # (e.g. `agno` would otherwise match `build (starter-agno,...)`,
+            # same for `ag2`/`starter-ag2`, `mastra`/`starter-mastra`, and
+            # every langgraph-*/starter-langgraph-* pair).
             JOBS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
               | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
             BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]' 2>/dev/null || echo '[]')
@@ -763,7 +768,7 @@ jobs:
               [
                 .[] as $svc
                 | $jobs[]
-                | select((.name // "") | contains($svc))
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
                 | select(.conclusion == "failure")
                 | $svc
               ] | unique
@@ -776,7 +781,7 @@ jobs:
               [
                 .[] as $svc
                 | $jobs[]
-                | select((.name // "") | contains($svc))
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
                 | select(.conclusion == "success")
                 | $svc
               ] | unique
