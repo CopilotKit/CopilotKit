@@ -50,6 +50,13 @@ const FilterSchema = z
   .object({
     labels: z.record(z.string()).optional(),
     namePrefix: z.string().optional(),
+    /**
+     * Exclude-list of exact service names. Applied AFTER `namePrefix` so
+     * an operator can say "all showcase-* services EXCEPT these infra
+     * ones". Common use: skip aimock / ops / pocketbase / shell so the
+     * e2e-smoke probe targets only user-facing services.
+     */
+    nameExcludes: z.array(z.string()).optional(),
   })
   .optional();
 
@@ -176,6 +183,9 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       .map((e) => e.node)
       .filter((svc) => {
         if (filter.namePrefix && !svc.name.startsWith(filter.namePrefix)) {
+          return false;
+        }
+        if (filter.nameExcludes && filter.nameExcludes.includes(svc.name)) {
           return false;
         }
         return true;
