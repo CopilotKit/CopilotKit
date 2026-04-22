@@ -1,41 +1,107 @@
 #!/usr/bin/env bash
-# Bump version, commit, tag, and push for the VS Code extension.
+# Cut a release commit for the VS Code extension.
+#
+# Mirrors the CopilotKit/aimock release pattern:
+#   1. Bump packages/vscode-extension/package.json
+#   2. Prepend a new section to packages/vscode-extension/CHANGELOG.md
+#   3. Create a single commit: "chore(vscode-extension): release vX.Y.Z"
+#
+# You then open a PR with this commit. When the PR merges to main,
+# .github/workflows/publish-vscode-extension.yml runs, checks the Marketplace
+# for the new version, and publishes to both Marketplace and Open VSX.
+#
+# This script does NOT create a git tag and does NOT push — tagging and
+# release-creation are handled by CI after a successful publish, exactly
+# like aimock. That keeps human error out of the tag ↔ version mapping.
 #
 # Usage:
-#   scripts/release/vscode-extension-release.sh <patch|minor|major|X.Y.Z> [--dry-run]
+#   scripts/release/vscode-extension-release.sh <patch|minor|major|X.Y.Z> \
+#       --summary "One-line summary of what's in this release" \
+#       [--type Added|Changed|Fixed|Removed|Deprecated|Security] \
+#       [--dry-run]
 #
-# Runs a tag-triggered publish via .github/workflows/publish-vscode-extension.yml
-# which packages the VSIX once and publishes to VS Code Marketplace + Open VSX.
+# Multiple bullets: repeat --summary. Each becomes a bullet in CHANGELOG.md.
+# Default section type is "Changed" when --type is omitted.
 #
-# Requirements:
-#   - Clean working tree on the branch you intend to release from (typically main).
-#   - pnpm, node, git installed.
+# Examples:
+#   scripts/release/vscode-extension-release.sh patch \
+#       --summary "Fix Hook Explorer crash on empty workspace" --type Fixed
 #
-# Conventions:
-#   - Package lives at packages/vscode-extension (name: copilotkit-vscode-extension).
-#   - Tag format: vscode-extension-v<version>
-#   - Commit message: chore(vscode-extension): release v<version>
+#   scripts/release/vscode-extension-release.sh minor \
+#       --summary "Add AG-UI Inspector panel" --type Added \
+#       --summary "Rework sidebar layout" --type Changed
+#
+#   scripts/release/vscode-extension-release.sh 0.3.0 \
+#       --summary "Stabilize A2UI Preview for GA" --dry-run
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PKG_DIR="${REPO_ROOT}/packages/vscode-extension"
+CHANGELOG="${PKG_DIR}/CHANGELOG.md"
 
 DRY_RUN=0
 BUMP=""
+# Parallel arrays of summaries + their section type.
+SUMMARIES=()
+TYPES=()
+PENDING_TYPE="Changed"
 
-for arg in "$@"; do
-  case "$arg" in
-    --dry-run) DRY_RUN=1 ;;
-    patch|minor|major) BUMP="$arg" ;;
-    [0-9]*.[0-9]*.[0-9]*) BUMP="$arg" ;;
+usage() {
+  sed -n '1,36p' "$0"
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    --summary)
+      if [ $# -lt 2 ]; then
+        echo "error: --summary requires a value" >&2
+        exit 2
+      fi
+      SUMMARIES+=("$2")
+      TYPES+=("$PENDING_TYPE")
+      shift 2
+      ;;
+    --type)
+      if [ $# -lt 2 ]; then
+        echo "error: --type requires a value" >&2
+        exit 2
+      fi
+      case "$2" in
+        Added|Changed|Fixed|Removed|Deprecated|Security)
+          PENDING_TYPE="$2"
+          # Retroactively apply to the most recent --summary if --type came after.
+          if [ ${#SUMMARIES[@]} -gt 0 ]; then
+            TYPES[${#TYPES[@]}-1]="$2"
+          fi
+          ;;
+        *)
+          echo "error: --type must be one of Added|Changed|Fixed|Removed|Deprecated|Security" >&2
+          exit 2
+          ;;
+      esac
+      shift 2
+      ;;
     -h|--help)
-      sed -n '1,22p' "$0"
+      usage
       exit 0
       ;;
+    patch|minor|major)
+      BUMP="$1"
+      shift
+      ;;
+    [0-9]*.[0-9]*.[0-9]*)
+      BUMP="$1"
+      shift
+      ;;
     *)
-      echo "error: unrecognized argument '$arg'" >&2
+      echo "error: unrecognized argument '$1'" >&2
+      usage >&2
       exit 2
       ;;
   esac
@@ -43,7 +109,13 @@ done
 
 if [ -z "$BUMP" ]; then
   echo "error: missing bump level or explicit version" >&2
-  echo "usage: $0 <patch|minor|major|X.Y.Z> [--dry-run]" >&2
+  usage >&2
+  exit 2
+fi
+
+if [ ${#SUMMARIES[@]} -eq 0 ]; then
+  echo "error: at least one --summary is required" >&2
+  usage >&2
   exit 2
 fi
 
@@ -60,46 +132,122 @@ fi
 BRANCH="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
 echo "Releasing vscode-extension from branch: ${BRANCH}"
 
+# Compute the new version. `pnpm version` is semver-aware; run with
+# --no-git-tag-version so it only rewrites package.json.
 cd "$PKG_DIR"
-
-# pnpm version accepts 'patch'/'minor'/'major' OR an explicit SemVer string.
-# --no-git-tag-version prevents pnpm from making its own commit/tag; we do it ourselves.
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "[dry-run] would run: pnpm version $BUMP --no-git-tag-version"
-  # Peek at what the new version would be without mutating the file.
-  # Use pnpm version itself in a throwaway copy to get accurate semver behavior.
   TMPDIR=$(mktemp -d)
   cp package.json "$TMPDIR/package.json"
   (cd "$TMPDIR" && pnpm version "$BUMP" --no-git-tag-version >/dev/null 2>&1)
   NEW_VERSION=$(node -p "require('$TMPDIR/package.json').version")
   rm -rf "$TMPDIR"
-  echo "[dry-run] next version would be: $NEW_VERSION"
 else
   pnpm version "$BUMP" --no-git-tag-version >/dev/null
   NEW_VERSION=$(node -p "require('./package.json').version")
 fi
 
-TAG="vscode-extension-v${NEW_VERSION}"
+DATE=$(date -u +%Y-%m-%d)
+
+# Build the new CHANGELOG section in memory, grouped by section type in
+# the order Added → Changed → Fixed → Removed → Deprecated → Security.
+# aimock uses a "## <version>" heading (no date); we add the ISO date after
+# the version for clarity since this is a less-frequent release cadence.
+SECTION_ORDER=(Added Changed Fixed Removed Deprecated Security)
+
+NEW_SECTION=$(mktemp)
+{
+  echo "## ${NEW_VERSION} — ${DATE}"
+  echo ""
+  for section in "${SECTION_ORDER[@]}"; do
+    # Collect summaries whose type matches this section.
+    first=1
+    for i in "${!SUMMARIES[@]}"; do
+      if [ "${TYPES[$i]}" = "$section" ]; then
+        if [ $first -eq 1 ]; then
+          echo "### ${section}"
+          echo ""
+          first=0
+        fi
+        echo "- ${SUMMARIES[$i]}"
+      fi
+    done
+    if [ $first -eq 0 ]; then
+      echo ""
+    fi
+  done
+} > "$NEW_SECTION"
+
+# Compose the new CHANGELOG. If the file exists, preserve the top-level
+# header (first "# <title>" block) and prepend the new section above the
+# existing version sections. If not, create a fresh CHANGELOG with the
+# canonical "# copilotkit-vscode-extension" header (matches aimock's
+# "# @copilotkit/aimock" style).
+NEW_CHANGELOG=$(mktemp)
+if [ -f "$CHANGELOG" ]; then
+  # Split existing file into header block + rest.
+  awk '
+    BEGIN { in_header = 1 }
+    in_header && /^## / { in_header = 0 }
+    in_header { print > "/dev/stderr" }
+    !in_header { print }
+  ' "$CHANGELOG" > "${NEW_CHANGELOG}.rest" 2> "${NEW_CHANGELOG}.header"
+
+  # Header may be empty if the file was just sections with no title.
+  if [ -s "${NEW_CHANGELOG}.header" ]; then
+    cat "${NEW_CHANGELOG}.header" > "$NEW_CHANGELOG"
+  else
+    echo "# copilotkit-vscode-extension" > "$NEW_CHANGELOG"
+    echo "" >> "$NEW_CHANGELOG"
+  fi
+  cat "$NEW_SECTION" >> "$NEW_CHANGELOG"
+  if [ -s "${NEW_CHANGELOG}.rest" ]; then
+    cat "${NEW_CHANGELOG}.rest" >> "$NEW_CHANGELOG"
+  fi
+  rm -f "${NEW_CHANGELOG}.rest" "${NEW_CHANGELOG}.header"
+else
+  {
+    echo "# copilotkit-vscode-extension"
+    echo ""
+    cat "$NEW_SECTION"
+  } > "$NEW_CHANGELOG"
+fi
+
 COMMIT_MSG="chore(vscode-extension): release v${NEW_VERSION}"
 
-cd "$REPO_ROOT"
-
 if [ "$DRY_RUN" -eq 1 ]; then
+  echo ""
+  echo "[dry-run] next version: ${NEW_VERSION}"
+  echo "[dry-run] new CHANGELOG section:"
+  echo "--------"
+  cat "$NEW_SECTION"
+  echo "--------"
   echo "[dry-run] would run:"
-  echo "  git add packages/vscode-extension/package.json"
+  echo "  cp (new changelog) -> ${CHANGELOG}"
+  echo "  git add packages/vscode-extension/package.json packages/vscode-extension/CHANGELOG.md"
   echo "  git commit -m \"${COMMIT_MSG}\""
-  echo "  git tag ${TAG}"
-  echo "  git push --follow-tags"
   echo "[dry-run] reverting package.json changes"
   git -C "$REPO_ROOT" checkout -- "${PKG_DIR}/package.json" 2>/dev/null || true
+  rm -f "$NEW_SECTION" "$NEW_CHANGELOG"
   exit 0
 fi
 
-git add "${PKG_DIR}/package.json"
+mv "$NEW_CHANGELOG" "$CHANGELOG"
+rm -f "$NEW_SECTION"
+
+cd "$REPO_ROOT"
+git add "${PKG_DIR}/package.json" "${PKG_DIR}/CHANGELOG.md"
 git commit -m "${COMMIT_MSG}"
-git tag "${TAG}"
-git push --follow-tags
 
 echo ""
-echo "Released ${TAG}"
-echo "Watch CI: https://github.com/CopilotKit/CopilotKit/actions/workflows/publish-vscode-extension.yml"
+echo "Created release commit for ${NEW_VERSION}"
+echo "  Version: ${NEW_VERSION}"
+echo "  CHANGELOG: packages/vscode-extension/CHANGELOG.md"
+echo ""
+echo "Next steps:"
+echo "  1. Push the branch and open a PR against main."
+echo "  2. Merge the PR (no squash — use --merge)."
+echo "  3. CI (.github/workflows/publish-vscode-extension.yml) will detect the"
+echo "     version is not yet on the Marketplace, build, publish to Marketplace"
+echo "     and Open VSX, tag vscode-extension-v${NEW_VERSION}, and cut a GH Release."
+echo ""
+echo "Watch: https://github.com/CopilotKit/CopilotKit/actions/workflows/publish-vscode-extension.yml"
