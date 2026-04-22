@@ -4,8 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
-      - 'packages/vscode-extension/CHANGELOG.md'
-      - 'packages/vscode-extension/README.md'
+      - "packages/vscode-extension/CHANGELOG.md"
+      - "packages/vscode-extension/README.md"
 
 concurrency:
   group: changelog-sync-${{ github.event.pull_request.number }}
