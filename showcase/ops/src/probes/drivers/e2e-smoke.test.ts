@@ -581,6 +581,68 @@ describe("e2eSmokeDriver starter shape", () => {
   });
 });
 
+// --- Package-shape slug + registry lookup ------------------------------
+//
+// Starters short-circuit before the demosResolver runs, so the package
+// path is the only one that exercises slug-derivation-feeding-registry.
+// A regression that breaks the slug (e.g. leaves `showcase-` on the front)
+// would yield `hasToolRendering === false` silently and skip every L4
+// row. These tests pin the end-to-end flow.
+
+describe("e2eSmokeDriver package shape: deriveSlug + demosResolver", () => {
+  it("calls demosResolver with the stripped slug for a `showcase-<multi-seg>` name", async () => {
+    const resolverCalls: string[] = [];
+    const { browser } = makeBrowser([
+      { assistantText: "Hi" },
+      { assistantText: "San Francisco is sunny." },
+    ]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      demosResolver: async (slug) => {
+        resolverCalls.push(slug);
+        return ["agentic-chat", "tool-rendering"];
+      },
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:showcase-langgraph-python",
+      name: "showcase-langgraph-python",
+      backendUrl: "https://x.example.com",
+      shape: "package",
+    });
+    // Regression guard: the slug passed to demosResolver must be the
+    // registry-keyed form (`langgraph-python`), not `showcase-langgraph-
+    // python` and not a double-stripped `starter-<slug>` artefact.
+    expect(resolverCalls).toEqual(["langgraph-python"]);
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l4).toBe("green");
+  });
+
+  it("package shape + throwing demosResolver → L4 skipped, driver continues with demos=[]", async () => {
+    // Pins current swallow behavior: the orchestrator deferred changing
+    // it; this test locks the existing contract so a future refactor
+    // can't silently switch to surfacing the throw without an intentional
+    // update here. L3 still runs; L4 is "skipped" because demos=[] ⇒ no
+    // tool-rendering entry.
+    const { browser } = makeBrowser([{ assistantText: "Hi" }]);
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      demosResolver: async () => {
+        throw new Error("registry.json missing");
+      },
+    });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:showcase-langgraph-python",
+      name: "showcase-langgraph-python",
+      backendUrl: "https://x.example.com",
+      shape: "package",
+    });
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokePackageSignal;
+    expect(sig.l3).toBe("green");
+    expect(sig.l4).toBe("skipped");
+  });
+});
+
 describe("e2eSmokeDriver module export", () => {
   it("module-level e2eSmokeDriver has kind === 'e2e_smoke'", () => {
     expect(e2eSmokeDriver.kind).toBe("e2e_smoke");

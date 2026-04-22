@@ -124,19 +124,65 @@ const discoverySmokeInputSchema = z
  * `run()` fills in the discriminator from field presence (`url` ⇒
  * static, `name+publicUrl` ⇒ discovery) and produces a
  * `NormalisedSmokeInput` that the rest of the driver narrows against.
- * The union contract is enforced at parse time; the discriminator is
- * assigned at execute time.
+ *
+ * The union contract is re-asserted at parse time via `.superRefine()`:
+ *   - Exactly one of `(url)` OR `(name + publicUrl)` must be present.
+ *     A caller passing all three gets rejected here, which matters
+ *     because the discovery arm's `.passthrough()` would otherwise let
+ *     the mixed payload through.
+ *   - `shape` is only valid alongside the discovery fields; setting
+ *     `shape` with `url` is a structural mistake (static mode predates
+ *     shape detection and is always package).
+ *
+ * Callers doing `smokeInputSchema.safeParse()` in isolation now see a
+ * unified rejection path for structural invariants regardless of which
+ * arm's strictness caught the bad field.
  */
-const smokeInputSchema = z.union([
-  staticSmokeInputSchema,
-  discoverySmokeInputSchema,
-]);
+const smokeInputSchema = z
+  .union([staticSmokeInputSchema, discoverySmokeInputSchema])
+  .superRefine((val, ctx) => {
+    const raw = val as {
+      url?: unknown;
+      name?: unknown;
+      publicUrl?: unknown;
+      shape?: unknown;
+    };
+    const hasUrl = typeof raw.url === "string";
+    const hasDiscovery =
+      typeof raw.name === "string" && typeof raw.publicUrl === "string";
+    if (hasUrl && hasDiscovery) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: pass either `url` (static) OR `name`+`publicUrl` (discovery), not both",
+      });
+    }
+    if (!hasUrl && !hasDiscovery) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: requires either `url` (static) or `name`+`publicUrl` (discovery)",
+      });
+    }
+    if (hasUrl && raw.shape !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: `shape` is only valid with discovery mode (`name`+`publicUrl`)",
+      });
+    }
+  });
 
 type SmokeDriverInput = z.infer<typeof smokeInputSchema>;
 
 /**
  * Internal, post-normalisation form. `mode` is required here so every
  * downstream helper narrows by discriminator without a fallback branch.
+ * The discovery arm intentionally does NOT carry a `[k: string]: unknown`
+ * index signature: passthrough extras from the raw input are not read
+ * downstream, and keeping them off the type forces `input.url` in a
+ * `mode === "discovery"` branch to be a TS error rather than silently
+ * typechecking as `unknown`.
  */
 type NormalisedSmokeInput =
   | { mode: "static"; key: string; url: string }
@@ -146,7 +192,6 @@ type NormalisedSmokeInput =
       name: string;
       publicUrl: string;
       shape?: ShowcaseServiceShape;
-      [k: string]: unknown;
     };
 
 /**
@@ -275,20 +320,35 @@ function normaliseMode(input: unknown): NormalisedSmokeInput {
   if (!raw || typeof raw !== "object") {
     throw new Error("smoke driver: input must be an object");
   }
-  if (raw.mode === "static" || raw.mode === "discovery") {
-    return raw as NormalisedSmokeInput;
+  // Field presence is the sole discriminator. A caller-supplied `raw.mode`
+  // ("static" / "discovery") is ignored here — a previous early-return
+  // arm trusted `raw.mode` verbatim and let malformed inputs like
+  // `{mode:"static", key:"k"}` (no `url`) slip through. Letting the
+  // field-presence branches classify instead means the two paths are
+  // consistent between schema-parsed and raw inputs, and a bad shape
+  // throws loud rather than coercing.
+  if (typeof raw.key !== "string" || raw.key.length === 0) {
+    throw new Error("smoke driver: input.key is required");
   }
   if (typeof raw.url === "string") {
     return {
-      ...(raw as Record<string, unknown>),
       mode: "static",
-    } as NormalisedSmokeInput;
+      key: raw.key,
+      url: raw.url,
+    };
   }
   if (typeof raw.name === "string" && typeof raw.publicUrl === "string") {
+    const shape =
+      typeof raw.shape === "string"
+        ? (raw.shape as ShowcaseServiceShape)
+        : undefined;
     return {
-      ...(raw as Record<string, unknown>),
       mode: "discovery",
-    } as NormalisedSmokeInput;
+      key: raw.key,
+      name: raw.name,
+      publicUrl: raw.publicUrl,
+      shape,
+    };
   }
   throw new Error(
     "smoke driver: input requires either `url` (static) or `name`+`publicUrl` (discovery)",

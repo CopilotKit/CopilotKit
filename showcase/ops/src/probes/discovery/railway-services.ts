@@ -95,34 +95,38 @@ interface ShapeLogger {
  * Classify a Railway service name into a `ShowcaseServiceShape`. Exported
  * so tests can exercise the classifier directly and downstream drivers
  * can reclassify from a bare name when the discovery record wasn't
- * threaded through (static-YAML callers). The rule is deliberately tight:
- * ONLY the literal `showcase-starter-<slug>` pattern is classified as
- * starter. A well-formed package root matches `showcase-<slug>` with
- * lowercase, digits, and hyphens. Anything that starts with `showcase-`
- * but fits neither pattern (typos like `showcase-strater-foo`,
- * `showcase_starter_bar`, future archetypes like `showcase-static-landing`)
- * still returns `"package"` as a safe default but emits an audit warn via
- * `opts.logger?.warn` so operators adding a new archetype see the nudge
- * on the first tick. That was the original fall-through path that
- * produced the false-red flood this contract exists to eliminate.
+ * threaded through (static-YAML callers). The rule set:
+ *   - `showcase-starter-<slug>` → `"starter"`.
+ *   - `showcase-<slug>` where `<slug>` is lowercase-alphanumeric plus
+ *     hyphens (multi-segment names like `showcase-langgraph-python`,
+ *     `showcase-claude-sdk-typescript`, `showcase-ms-agent-dotnet`) →
+ *     `"package"`. The earlier single-segment regex misclassified every
+ *     hyphen-bearing package as unknown and fired a warn per tick on
+ *     real production services.
+ *   - Any other name — typos like `showcase-strater-foo`, mixed case,
+ *     or unrelated workloads (`copilotkit-cloud`, `my-random-service`)
+ *     — still returns `"package"` as a safe default but emits an audit
+ *     warn via `opts.logger?.warn`. That preserves the fall-through
+ *     behaviour while alerting operators on drift (renamed service,
+ *     unrelated workload picked up by discovery) on the first tick.
  */
 export function classifyShape(
   name: string,
   opts: { logger?: ShapeLogger } = {},
 ): ShowcaseServiceShape {
   if (/^showcase-starter-[a-z0-9-]+$/.test(name)) return "starter";
-  // Well-formed package root = `showcase-<single-segment lowercase alnum>`.
-  // The spec deliberately excludes hyphen-bearing suffixes from the
-  // "known-package" shape so multi-segment names (`showcase-langgraph-
-  // python`, `showcase-static-landing`) land in the warn branch as an
-  // audit nudge. Returning `"package"` either way keeps behaviour
-  // backwards-compatible; the warn is purely advisory.
-  if (/^showcase-[a-z0-9]+$/.test(name)) return "package";
-  if (name.startsWith("showcase-")) {
-    opts.logger?.warn?.("discovery.railway-services.name-shape-unknown", {
-      name,
-    });
-  }
+  // Widened package regex: starts with `showcase-`, not followed by
+  // `starter-` (that path is the branch above), then lowercase-alnum
+  // plus hyphens. Accepts `showcase-ag2`, `showcase-langgraph-python`,
+  // `showcase-claude-sdk-typescript`, etc. without firing a warn.
+  if (/^showcase-(?!starter-)[a-z0-9][a-z0-9-]*$/.test(name)) return "package";
+  // Everything else — a `showcase-*` typo, a mixed-case variant, or a
+  // name that doesn't start with `showcase-` at all — gets a warn. The
+  // return value stays `"package"` so downstream drivers keep
+  // operating; the warn is the audit trail.
+  opts.logger?.warn?.("discovery.railway-services.name-shape-unknown", {
+    name,
+  });
   return "package";
 }
 

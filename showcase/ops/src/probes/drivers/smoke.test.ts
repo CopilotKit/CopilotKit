@@ -989,6 +989,89 @@ describe("smokeDriver", () => {
     expect(parsed.success).toBe(false);
   });
 
+  // Parse-time invariants — callers that run safeParse in isolation must
+  // get a unified rejection for structural mistakes regardless of which
+  // arm's strictness would otherwise absorb them.
+  it("inputSchema rejects bare `{ key }` (no url, no name+publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({ key: "k" });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("inputSchema rejects `{ key, name }` (discovery missing publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({
+      key: "k",
+      name: "showcase-ag2",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("inputSchema rejects mixed modes `{ key, url, name, publicUrl }`", () => {
+    // Discovery arm's .passthrough() would otherwise absorb the stray
+    // `url` field; the union-level superRefine enforces XOR across the
+    // two modes.
+    const parsed = smokeDriver.inputSchema.safeParse({
+      key: "k",
+      url: "http://x.example/smoke",
+      name: "showcase-ag2",
+      publicUrl: "http://x.example",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  // Item-5 regression guards: the primary `smoke:<slug>` key is rewritten
+  // in discovery mode so YAML key_templates that interpolate `${name}`
+  // (producing `smoke:showcase-ag2`) land on the stripped slug
+  // (`smoke:ag2`) dashboards + alerts are actually keyed on. Static mode
+  // passes the YAML-authored key through verbatim.
+  it("discovery package: `smoke:showcase-ag2` is rewritten to `smoke:ag2`", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:showcase-ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      shape: "package",
+    });
+    expect(r.key).toBe("smoke:ag2");
+  });
+
+  it("discovery starter: `smoke:showcase-starter-ag2` is rewritten to `smoke:starter-ag2`", async () => {
+    vi.stubGlobal("fetch", (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch);
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:showcase-starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.key).toBe("smoke:starter-ag2");
+  });
+
+  it("static mode passes the YAML-authored key through verbatim", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:custom-yaml-key",
+      url: "https://x.example/smoke",
+    });
+    expect(r.key).toBe("smoke:custom-yaml-key");
+  });
+
   it("mixed-driver wiring: spread of RailwayServiceInfo carries `shape` through .passthrough() end-to-end", async () => {
     // Regression guard for the discovery → driver edge: the orchestrator
     // builds driver input as `{ ...discoveryRecord, key, slug }`. If the

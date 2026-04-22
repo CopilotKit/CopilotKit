@@ -541,7 +541,13 @@ describe("railwayServicesSource", () => {
     expect(out[0].shape).toBe("package");
   });
 
-  it("classifies a mixed batch of starter + package services correctly", async () => {
+  it("classifies a mixed batch of starter + package services correctly without any warn", async () => {
+    // Regression guard: prior iteration silently produced warns on the
+    // hyphen-bearing package names below. The return-value check is not
+    // enough — we also assert the classifier logger was not invoked,
+    // otherwise the audit warn fires every tick in production.
+    const warn = vi.fn();
+    const ctxLogger = { ...logger, warn };
     const { fetchImpl } = makeFetch([
       {
         status: 200,
@@ -560,9 +566,9 @@ describe("railwayServicesSource", () => {
           },
           {
             id: "s-3",
-            name: "showcase-mastra",
-            image: "ghcr.io/copilotkit/showcase-mastra:latest",
-            domain: "showcase-mastra.up.railway.app",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
           },
           {
             id: "s-4",
@@ -577,13 +583,22 @@ describe("railwayServicesSource", () => {
       { status: 200, body: { data: { variables: {} } } },
       { status: 200, body: { data: { variables: {} } } },
     ]);
-    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    const out = await railwayServicesSource.enumerate(
+      { fetchImpl, logger: ctxLogger, env: BASE_ENV },
+      {},
+    );
     expect(out).toHaveLength(4);
     const byName = Object.fromEntries(out.map((s) => [s.name, s.shape]));
     expect(byName["showcase-ag2"]).toBe("package");
     expect(byName["showcase-starter-ag2"]).toBe("starter");
-    expect(byName["showcase-mastra"]).toBe("package");
+    expect(byName["showcase-langgraph-python"]).toBe("package");
     expect(byName["showcase-starter-mastra"]).toBe("starter");
+    // No name-shape-unknown warn should have fired — every name above
+    // matches either the starter or widened-package regex.
+    const shapeWarns = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.name-shape-unknown",
+    );
+    expect(shapeWarns).toHaveLength(0);
   });
 
   // -----------------------------------------------------------------
@@ -595,14 +610,21 @@ describe("railwayServicesSource", () => {
   // that would otherwise silently misclassify.
   // -----------------------------------------------------------------
 
-  it("classifyShape warns on a `showcase-*` typo name but still returns 'package'", () => {
+  it("classifyShape warns on an underscore-form `showcase_starter_*` name but still returns 'package'", () => {
+    // Underscore forms fail both regexes because the package pattern
+    // only allows hyphens. The widened multi-segment package pattern
+    // can no longer distinguish typos that happen to be hyphen-shaped
+    // (`showcase-strater-foo` is now accepted as a valid package name
+    // — indistinguishable from legit multi-segment names like
+    // `showcase-langgraph-python`) so the warn-on-typo assertion
+    // migrates to a structurally-invalid form instead.
     const warn = vi.fn();
-    const shape = classifyShape("showcase-strater-ag2", { logger: { warn } });
+    const shape = classifyShape("showcase_starter_ag2", { logger: { warn } });
     expect(shape).toBe("package");
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn).toHaveBeenCalledWith(
       "discovery.railway-services.name-shape-unknown",
-      { name: "showcase-strater-ag2" },
+      { name: "showcase_starter_ag2" },
     );
   });
 
@@ -618,6 +640,70 @@ describe("railwayServicesSource", () => {
     const shape = classifyShape("showcase-starter-ag2", { logger: { warn } });
     expect(shape).toBe("starter");
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Hyphen-bearing multi-segment package names. The prior single-segment
+  // regex (`^showcase-[a-z0-9]+$`) rejected these and fired a warn per
+  // tick for real production services. Widened pattern accepts them as
+  // `"package"` without warning.
+  it("classifyShape returns 'package' on `showcase-langgraph-python` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-langgraph-python", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape returns 'package' on `showcase-claude-sdk-typescript` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-claude-sdk-typescript", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape returns 'package' on `showcase-ms-agent-dotnet` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-ms-agent-dotnet", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Non-`showcase-*` names also trip the warn. A Railway service renamed
+  // to drop the prefix, or an unrelated workload picked up by discovery,
+  // otherwise silently gets the package contract and floods /smoke 404s.
+  it("classifyShape warns on a non-`showcase-*` name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("my-random-service", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "my-random-service" },
+    );
+  });
+
+  it("classifyShape warns on a `copilotkit-*` workload name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("copilotkit-cloud", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "copilotkit-cloud" },
+    );
+  });
+
+  it("classifyShape warns on a mixed-case `showcase-*` name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("ShowCase-Ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "ShowCase-Ag2" },
+    );
   });
 
   it("resolveShape debug-logs when neither name nor shape is supplied", () => {
