@@ -25,6 +25,11 @@ fi
 # node process, so `wait -n $AGENT_PID` monitors the right thing.
 # `awk` with `fflush()` line-flushes each prefixed line to the container log.
 echo "[entrypoint] Starting Claude agent on port 8000..."
+# Instrumentation: package-claude-sdk-typescript health probes fail on
+# Railway but process claims to listen — narrow the cold-start window by
+# logging immediately before node exec so we can compare against the
+# agent_server.ts module-loaded / pre-Anthropic / listening prints below.
+echo "[entrypoint] pre-node $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 node /app/agent_server.js &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 2

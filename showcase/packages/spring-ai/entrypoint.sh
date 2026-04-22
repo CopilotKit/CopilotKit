@@ -44,7 +44,9 @@ if [ "$SPRING_READY" -ne 1 ]; then
 fi
 
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."
-npx next start --port ${PORT:-10000} &
+# Scope NODE_ENV=production to the Next.js invocation ONLY so it doesn't
+# leak into the Java agent process. See Dockerfile comment for rationale.
+env NODE_ENV=production npx next start --port ${PORT:-10000} &
 NODE_PID=$!
 
 # Watchdog: Railway deploys of showcase packages have been observed to hit a

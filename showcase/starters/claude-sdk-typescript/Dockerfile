@@ -8,6 +8,15 @@ COPY next.config.ts tsconfig.json postcss.config.mjs ./
 # Copy agent code (location varies by framework, e.g. agent/ or src/mastra/)
 COPY agent/ ./agent/
 RUN npm run build
+# Compile TypeScript agent server to JS so boot is a straight `node` call
+# instead of `npx tsx` (which does a fresh in-process TS compile on each
+# cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
+# so the starter and package produce equivalent runtime shapes. See also
+# getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx tsc --outDir /app/dist --rootDir . \
+    --module commonjs --moduleResolution node \
+    --target es2020 --esModuleInterop true --skipLibCheck true \
+    agent/index.ts
 
 # Stage 2: Production image
 FROM node:22-slim AS runner
@@ -29,6 +38,9 @@ COPY --chown=app:app agent/ ./agent/
 # Remove nested package.json to prevent a separate package boundary that
 # confuses ESM module resolution in tsx/node — deps are already in /app/node_modules/
 RUN rm -f agent/package.json agent/package-lock.json
+# Precompiled agent entry (from frontend stage). entrypoint.sh invokes
+# `node /app/dist/agent/index.js` instead of `npx tsx agent/index.ts`.
+COPY --chown=app:app --from=frontend /app/dist ./dist
 
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./

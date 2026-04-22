@@ -8,7 +8,7 @@ COPY next.config.ts tsconfig.json postcss.config.mjs ./
 # Copy agent code (location varies by framework, e.g. agent/ or src/mastra/)
 COPY {{AGENT_DIR}}/ ./{{AGENT_DIR}}/
 RUN npm run build
-
+{{AGENT_BUILD_STEPS}}
 # Stage 2: Production image
 FROM node:22-slim AS runner
 WORKDIR /app
@@ -29,7 +29,7 @@ COPY --chown=app:app {{AGENT_DIR}}/ ./{{AGENT_DIR}}/
 # Remove nested package.json to prevent a separate package boundary that
 # confuses ESM module resolution in tsx/node — deps are already in /app/node_modules/
 RUN rm -f {{AGENT_DIR}}/package.json {{AGENT_DIR}}/package-lock.json
-
+{{AGENT_BUILD_COPY}}
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
 RUN chmod +x entrypoint.sh

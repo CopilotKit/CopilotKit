@@ -6,7 +6,7 @@
 set -e
 
 cleanup() {
-  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+  kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -33,7 +33,7 @@ else
 fi
 
 echo "[entrypoint] Starting TypeScript agent on port 8123..."
-npx tsx agent/index.ts &> >(awk '{print "[agent] " $0; fflush()}') &
+PORT=8123 node /app/dist/agent/index.js &> >(awk '{print "[agent] " $0; fflush()}') &
 AGENT_PID=$!
 sleep 2
 if kill -0 $AGENT_PID 2>/dev/null; then
@@ -135,5 +135,5 @@ else
 fi
 
 # Clean up surviving processes (including watchdog)
-kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null
+kill $AGENT_PID $NEXTJS_PID $WATCHDOG_PID 2>/dev/null || true
 exit $EXIT_CODE
