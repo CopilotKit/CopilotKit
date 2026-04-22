@@ -217,6 +217,49 @@ describe("rule-loader: rate_limit: null disables the default rate-limit", () => 
     expect(pin!.conditions.rate_limit).toBeNull();
     expect(ver!.conditions.rate_limit).toBeNull();
   });
+
+  it("R25 A1: rejects a rule with a typoed dimension ('smokee') via the closed DimensionEnum", async () => {
+    // Pre-fix: `signal.dimension` was `z.string().min(1)`, so a YAML typo
+    // like `smokee` passed validation and the rule silently never matched
+    // any probe key — `alert-engine.handleStatusChanged` compared
+    // `rule.signal.dimension !== deriveDimension(key)` and returned false
+    // forever. No alert ever fired. Post-fix the Zod enum closes the rule
+    // side and the load path rejects the typo with Zod's standard
+    // enum-violation message listing the valid dimensions.
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "showcase-ops-dim-"));
+    await fs.writeFile(
+      path.join(tmp, "bad-dimension.yml"),
+      [
+        "id: bad-dimension",
+        'name: "bad dimension"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smokee", // typo — should be "smoke"
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "template:",
+        '  text: "x"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.file).toBe("bad-dimension.yml");
+    // Zod's invalid-enum message mentions the offending value and/or the
+    // permitted set — assert BOTH the loader wrapper prefix and some marker
+    // that the validation specifically flagged the dimension field.
+    expect(errors[0]!.error).toMatch(/rule-loader:/);
+    // Message should reference either the invalid value or the enum set so
+    // the author can diagnose the typo without consulting docs.
+    expect(errors[0]!.error).toMatch(/smokee|smoke|dimension|enum/i);
+  });
 });
 
 describe("rule-loader: target dedupe + non-empty validation", () => {

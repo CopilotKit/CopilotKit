@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
 import chokidar, { type FSWatcher } from "chokidar";
-import type { Logger, Severity } from "../types/index.js";
+import type { Dimension, Logger, Severity } from "../types/index.js";
 
 /**
  * Minimal emitter shape used by rule-loader to surface reload errors.
@@ -109,7 +109,12 @@ export interface CompiledRule {
   owner: string;
   severity: Severity;
   signal: {
-    dimension: string;
+    // R25 A1: narrowed to the closed Dimension set so rule authors get a
+    // compile-time (and load-time, via the Zod enum in schema.ts) error
+    // on typos. Probe-key consumers (alert-engine.deriveDimension etc.)
+    // still accept arbitrary `string` input, which is deliberate — the
+    // rule side is closed; the probe side stays permissive.
+    dimension: Dimension;
     filter?: { kind?: string; slug?: string; key?: string; dimension?: string };
   };
   stringTriggers: string[];

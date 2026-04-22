@@ -29,11 +29,26 @@ export interface HmacVerifyResult {
 }
 
 /**
- * NOTE: The canonical payload `path` MUST be the request path observed by
- * the server (e.g. derived from `c.req.path`), NOT a route constant. The
- * matching signer lives in .github/workflows/showcase_deploy.yml — if the
- * route is ever renamed, the workflow signer must move in lockstep or
- * signatures will silently fail.
+ * NOTE: the canonical payload `path` MUST be a stable string agreed by the
+ * signer AND the verifier. The canonical value is the ROUTE CONSTANT that
+ * the handler is mounted at (e.g. `"/webhooks/deploy"`) — NOT `c.req.path`.
+ *
+ * Rationale: `c.req.path` varies with proxy configuration. A reverse proxy
+ * that strips a path prefix, normalizes trailing slashes, or mounts this
+ * service at a different base would surface a different observed path to
+ * the handler than the one the signer hashed — producing silent
+ * signature-verification failures that are painful to diagnose.
+ *
+ * Canonical contract:
+ *   - Signer (`.github/workflows/showcase_deploy.yml`): uses the ROUTE
+ *     CONSTANT `"/webhooks/deploy"` as the `path` component.
+ *   - Verifier (`src/http/webhooks/deploy.ts`): uses the same route
+ *     constant (`deps.webhookPath ?? route`), NOT `c.req.path`.
+ *
+ * If the route is renamed, BOTH the workflow signer AND the handler's
+ * route constant MUST move in lockstep. The override via
+ * `deps.webhookPath` exists precisely for the proxy case — callers mount
+ * this service behind a rewrite and declare the path the signer used.
  */
 export function canonicalPayload(
   method: string,

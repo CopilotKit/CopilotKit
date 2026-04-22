@@ -1,6 +1,22 @@
 import { z } from "zod";
+import { DIMENSIONS, type Dimension } from "../types/index.js";
 
 export const SeverityEnum = z.enum(["info", "warn", "error", "critical"]);
+
+/**
+ * R25 A1: closed enum over the known dimensions. Derived from the
+ * `DIMENSIONS` literal array in `../types/index.ts` so this schema and the
+ * `Dimension` type can never drift. A rule YAML with a typoed dimension
+ * (e.g. `"smokee"`) is rejected at load with Zod's standard enum message
+ * listing the valid members — pre-fix this passed `z.string().min(1)` and
+ * silently never matched any probe key.
+ */
+// `z.enum` wants a writable tuple at the type level; `DIMENSIONS` is
+// `readonly` so we coerce to the expected tuple shape without widening
+// the runtime value. No `as any` — the cast is structural, not value-erasing.
+export const DimensionEnum = z.enum(
+  DIMENSIONS as unknown as readonly [Dimension, ...Dimension[]],
+);
 
 export const StringTriggerEnum = z.enum([
   "green_to_red",
@@ -52,7 +68,12 @@ export const FilterSchema = z
 
 export const SignalSchema = z
   .object({
-    dimension: z.string().min(1),
+    // R25 A1: closed enum — narrow `dimension` so a YAML typo like
+    // `"smokee"` fails at load with a listed-valid-members error. The
+    // comparison in `alert-engine.handleStatusChanged` previously silently
+    // returned false forever when the rule's dimension didn't match any
+    // probe's key-prefix.
+    dimension: DimensionEnum,
     filter: FilterSchema.optional(),
   })
   .strict();

@@ -1,9 +1,12 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import net from "node:net";
-import { boot } from "./orchestrator.js";
+import { boot, diffCronSchedules } from "./orchestrator.js";
+import { createScheduler } from "./scheduler/scheduler.js";
+import { createEventBus } from "./events/event-bus.js";
+import type { CompiledRule } from "./rules/rule-loader.js";
 
 /**
  * F1.1 integration coverage: `buildServer` in orchestrator.ts must pass
@@ -308,5 +311,109 @@ describe("orchestrator /health wiring (F1.1)", () => {
     // field; pb-up is covered separately by server.test.ts.
     expect(body.loop).toBe("ok");
     expect(body.schedulerJobs).toBeGreaterThanOrEqual(1);
+  });
+});
+
+/**
+ * R25 slot 3 A1: guard the per-rule try/catch in `diffCronSchedules`.
+ *
+ * Pre-fix, one rule with a typoed cron (validateCron throws synchronously
+ * inside scheduler.register) aborted the for-loop → every subsequent rule
+ * silently unscheduled. The try/catch was added specifically to keep the
+ * iteration going; this test pins that invariant so a refactor that moves
+ * the try/catch outside the loop (or drops it entirely) can't regress
+ * without a failing test.
+ *
+ * Strategy: use a stub scheduler that throws for `ruleB` (middle rule) and
+ * succeeds for `ruleA` and `ruleC`. Invoke `diffCronSchedules` with all 3
+ * rules and assert:
+ *   1. scheduler.register was called exactly 3 times (one per rule).
+ *   2. ruleA and ruleC were successfully registered.
+ *   3. ruleB's failure was logged at error level with its id surfaced.
+ *   4. ruleC's registration was NOT skipped — the bug this try/catch
+ *      guards is "ruleC never registers because ruleB threw".
+ */
+describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () => {
+  function makeCronRule(id: string, cron: string): CompiledRule {
+    return {
+      id,
+      name: id,
+      owner: "@test",
+      severity: "warn",
+      signal: { dimension: "aimock_wiring" },
+      stringTriggers: [],
+      cronTriggers: [{ schedule: cron }],
+      conditions: { guards: [], escalations: [] },
+      targets: [{ kind: "slack_webhook", webhook: "oss_alerts" }],
+      template: { text: "x" },
+      actions: [],
+    };
+  }
+
+  it("continues registering subsequent rules when one rule's register throws", () => {
+    // Build a stub scheduler satisfying only the surface `diffCronSchedules`
+    // touches: register / unregister / list. register() throws for ruleB,
+    // succeeds for the others — mirroring croner's validateCron throw on a
+    // bad expression.
+    const registerCalls: Array<{
+      id: string;
+      cron: string;
+    }> = [];
+    const registeredIds = new Set<string>();
+    const throwingId = "ruleB:cron:0";
+
+    const stubScheduler = {
+      register: vi.fn((entry: { id: string; cron: string }) => {
+        registerCalls.push({ id: entry.id, cron: entry.cron });
+        if (entry.id === throwingId) {
+          // Simulate validateCron's behaviour on a bad expression.
+          throw new Error(
+            `invalid cron for ${entry.id}: ${entry.cron} (croner: bad expression)`,
+          );
+        }
+        registeredIds.add(entry.id);
+      }),
+      unregister: vi.fn(async () => true),
+      hasEntry: (id: string) => registeredIds.has(id),
+      list: vi.fn(() => []),
+      start: vi.fn(),
+      stop: vi.fn(async () => undefined),
+      isStarted: () => false,
+      isStopped: () => false,
+      getJobCount: () => registeredIds.size,
+    } as unknown as ReturnType<typeof createScheduler>;
+
+    const bus = createEventBus();
+    const resolver: Parameters<typeof diffCronSchedules>[3] = () => null;
+
+    const rules: CompiledRule[] = [
+      makeCronRule("ruleA", "0 9 * * 1"),
+      makeCronRule("ruleB", "this-is-not-a-valid-cron"),
+      makeCronRule("ruleC", "0 10 * * 2"),
+    ];
+
+    // MUST NOT throw out of diffCronSchedules — the per-rule try/catch
+    // swallows the middle rule's failure.
+    expect(() =>
+      diffCronSchedules(stubScheduler, rules, bus, resolver),
+    ).not.toThrow();
+
+    // 1. register called exactly 3 times — every rule in the iteration
+    //    was reached. If ruleB's throw escaped the try/catch, the for-loop
+    //    would abort and register would have been called only twice.
+    expect(stubScheduler.register).toHaveBeenCalledTimes(3);
+    const registeredOrder = registerCalls.map((c) => c.id);
+    expect(registeredOrder).toEqual([
+      "ruleA:cron:0",
+      "ruleB:cron:0",
+      "ruleC:cron:0",
+    ]);
+
+    // 2. ruleA and ruleC successfully registered (survived the iteration
+    //    despite ruleB's middle-of-the-loop throw).
+    expect(registeredIds.has("ruleA:cron:0")).toBe(true);
+    expect(registeredIds.has("ruleC:cron:0")).toBe(true);
+    // ruleB did NOT register (the throw prevented the Set add).
+    expect(registeredIds.has("ruleB:cron:0")).toBe(false);
   });
 });

@@ -1,15 +1,29 @@
 export type State = "green" | "red" | "degraded";
 export type ProbeState = State | "error";
-export type Dimension =
-  | "health"
-  | "smoke"
-  | "image_drift"
-  | "e2e_smoke"
-  | "pin_drift"
-  | "version_drift"
-  | "redirect_decommission"
-  | "deploy"
-  | "aimock_wiring";
+
+/**
+ * R25 A1: single source of truth for the known `Dimension` literal set.
+ * The Zod enum in `src/rules/schema.ts` is derived from this array so rule
+ * YAML authors who typo a dimension (e.g. `"smokee"`) are rejected at load
+ * time with a clear "invalid enum value" message, instead of a misspelled
+ * dimension passing a `z.string().min(1)` check and silently never matching
+ * any probe key. Probe-key parsers (`deriveDimension` in alert-engine /
+ * status-writer) stay permissive — they accept arbitrary `string` input and
+ * fall back to `"unknown"` — because legacy/malformed probe keys must not
+ * crash the engine. Rule side is closed; probe-key side stays open.
+ */
+export const DIMENSIONS = [
+  "health",
+  "smoke",
+  "image_drift",
+  "e2e_smoke",
+  "pin_drift",
+  "version_drift",
+  "redirect_decommission",
+  "deploy",
+  "aimock_wiring",
+] as const;
+export type Dimension = (typeof DIMENSIONS)[number];
 
 export type Severity = "info" | "warn" | "error" | "critical";
 

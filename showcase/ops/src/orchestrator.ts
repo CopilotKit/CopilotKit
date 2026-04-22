@@ -423,7 +423,7 @@ type CronProbeResolver = (
  * Railway adapter (orchestrator-level config: RAILWAY_TOKEN,
  * RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, AIMOCK_URL).
  */
-function diffCronSchedules(
+export function diffCronSchedules(
   scheduler: ReturnType<typeof createScheduler>,
   rules: CompiledRule[],
   bus: ReturnType<typeof createEventBus>,
@@ -453,6 +453,8 @@ function diffCronSchedules(
     // expression (validateCron throws synchronously inside register())
     // does NOT poison the rest of the reload. Pre-fix, one bad rule
     // aborted the for-loop → every subsequent rule silently unscheduled.
+    // Pinned by the "continues registering subsequent rules" regression
+    // test in orchestrator.test.ts — do not remove without updating it.
     try {
       scheduler.register({
         id,
