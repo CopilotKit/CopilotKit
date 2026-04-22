@@ -1,0 +1,100 @@
+# Probe: smoke
+#
+# Per-service GET /smoke health check across every showcase starter on
+# Railway. Static-targets shape — one entry per known service slug —
+# because the smoke domain is small, bounded, and operator-authored:
+# discovery would add moving parts (Railway auth, service-list drift,
+# filter predicates) for no upside when the slug list changes roughly
+# never. When a new showcase lands, add a line here.
+#
+# Each driver invocation issues TWO HTTP GETs: `url` (the /smoke
+# endpoint) and the derived /health endpoint. The smoke driver emits
+# the primary `smoke:<slug>` ProbeResult as its return value and
+# side-emits the paired `health:<slug>` ProbeResult through
+# ctx.writer, so a single YAML target produces two writer ticks.
+#
+# Schedule mirrors the pre-YAML cron cadence (every 15 minutes) — the
+# accompanying alert rule in config/alerts/ covers green→red /
+# red→green transitions and a cron-only heartbeat tick so silent
+# green runs still produce observable liveness.
+#
+# timeout_ms (10s) bounds the WHOLE driver invocation at the invoker
+# level; the driver re-applies the same bound inside each HTTP call
+# so one hung endpoint can't steal budget from its paired probe.
+# max_concurrency (6) caps simultaneous per-tick driver invocations —
+# at 17 services the tick takes ≤ 3 pool-cycles and stays well under
+# any Railway edge rate limit.
+kind: smoke
+id: smoke
+schedule: "*/15 * * * *"
+timeout_ms: 10000
+max_concurrency: 6
+targets:
+  - {
+      key: "smoke:ag2",
+      url: "https://showcase-ag2-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:agno",
+      url: "https://showcase-agno-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:claude-sdk-python",
+      url: "https://showcase-claude-sdk-python-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:claude-sdk-typescript",
+      url: "https://showcase-claude-sdk-typescript-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:crewai-crews",
+      url: "https://showcase-crewai-crews-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:google-adk",
+      url: "https://showcase-google-adk-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:langgraph-fastapi",
+      url: "https://showcase-langgraph-fastapi-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:langgraph-python",
+      url: "https://showcase-langgraph-python-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:langgraph-typescript",
+      url: "https://showcase-langgraph-typescript-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:langroid",
+      url: "https://showcase-langroid-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:llamaindex",
+      url: "https://showcase-llamaindex-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:mastra",
+      url: "https://showcase-mastra-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:ms-agent-dotnet",
+      url: "https://showcase-ms-agent-dotnet-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:ms-agent-python",
+      url: "https://showcase-ms-agent-python-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:pydantic-ai",
+      url: "https://showcase-pydantic-ai-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:spring-ai",
+      url: "https://showcase-spring-ai-production.up.railway.app/smoke",
+    }
+  - {
+      key: "smoke:strands",
+      url: "https://showcase-strands-production.up.railway.app/smoke",
+    }

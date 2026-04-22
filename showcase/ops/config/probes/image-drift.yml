@@ -1,0 +1,24 @@
+# Probe: image-drift
+#
+# Per-service GHCR manifest drift check. Discovery source `railway-services`
+# enumerates every Railway service in the orchestrator's project, filters
+# to `showcase-*` entries, and hands each one to the `image_drift` driver.
+# The driver fetches the expected GHCR digest (tag = `latest` by default)
+# and compares against the digest embedded in the Railway service's
+# deployed `imageRef`.
+#
+# Schedule mirrors the legacy CI bash loop cadence (every 15 minutes).
+# timeout_ms is generous enough for a single GHCR round-trip on a cold
+# TCP stack but short enough that 100 stuck calls can't stack up across
+# ticks. max_concurrency=4 matches the legacy bash pool size; 17
+# showcase services × ~200ms per GHCR call ≈ 850ms wall time per tick.
+kind: image_drift
+id: image-drift
+schedule: "*/15 * * * *"
+timeout_ms: 30000
+max_concurrency: 4
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+  key_template: "image_drift:${name}"
