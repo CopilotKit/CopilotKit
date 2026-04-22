@@ -73,6 +73,66 @@ async function dropFiles(container: HTMLElement, files: File[]) {
 }
 
 describe("CopilotChat attachments", () => {
+  describe("stability", () => {
+    it("keeps attachment action identities stable across input-only rerenders", async () => {
+      const captures: Array<{
+        onAddFile: unknown;
+        onRemoveAttachment: unknown;
+      }> = [];
+
+      const agent = new NoopAgent();
+      const { getByTestId } = renderWithCopilotKit({
+        agent,
+        children: {
+          components: { CopilotChat },
+          methods: {
+            capture(slotProps: Record<string, unknown>) {
+              captures.push({
+                onAddFile: slotProps.onAddFile,
+                onRemoveAttachment: slotProps.onRemoveAttachment,
+              });
+            },
+          },
+          template: `
+            <div style="height: 400px;">
+              <CopilotChat
+                :welcome-screen="false"
+                :attachments="{ enabled: true }"
+              >
+                <template #chat-view="slotProps">
+                  <button data-testid="capture-bindings" @click="capture(slotProps)">
+                    capture
+                  </button>
+                  <button data-testid="type-a" @click="slotProps.onInputChange('a')">
+                    type-a
+                  </button>
+                  <button data-testid="type-b" @click="slotProps.onInputChange('ab')">
+                    type-b
+                  </button>
+                  <button data-testid="type-c" @click="slotProps.onInputChange('abc')">
+                    type-c
+                  </button>
+                </template>
+              </CopilotChat>
+            </div>
+          `,
+        },
+      });
+
+      await fireEvent.click(getByTestId("capture-bindings"));
+      await fireEvent.click(getByTestId("type-a"));
+      await fireEvent.click(getByTestId("type-b"));
+      await fireEvent.click(getByTestId("type-c"));
+      await fireEvent.click(getByTestId("capture-bindings"));
+
+      expect(captures).toHaveLength(2);
+      expect(captures[1].onAddFile).toBe(captures[0].onAddFile);
+      expect(captures[1].onRemoveAttachment).toBe(
+        captures[0].onRemoveAttachment,
+      );
+    });
+  });
+
   describe("onUploadFailed", () => {
     it("fires with invalid-type when file does not match accept filter", async () => {
       const onUploadFailed = vi.fn();

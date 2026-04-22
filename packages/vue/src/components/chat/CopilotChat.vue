@@ -6,12 +6,6 @@ import {
 } from "@ag-ui/client";
 import {
   DEFAULT_AGENT_ID,
-  getModalityFromMimeType,
-  matchesAcceptFilter,
-  exceedsMaxSize,
-  formatFileSize,
-  readFileAsBase64,
-  generateVideoThumbnail,
   randomUUID,
   TranscriptionErrorCode,
 } from "@copilotkit/shared";
@@ -31,6 +25,7 @@ import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfi
 import { useCopilotKit } from "../../providers/useCopilotKit";
 import { useAgent } from "../../hooks/use-agent";
 import { useSuggestions } from "../../hooks/use-suggestions";
+import { useAttachments } from "../../hooks/use-attachments";
 import { useShallowStableRef } from "../../lib/shallow-stable";
 import {
   transcribeAudio,
@@ -38,11 +33,7 @@ import {
 } from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
 import type { Message } from "@ag-ui/core";
-import type {
-  Attachment,
-  AttachmentUploadResult,
-  InputContent,
-} from "@copilotkit/shared";
+import type { InputContent } from "@copilotkit/shared";
 import type {
   CopilotChatInputSlotProps,
   CopilotChatProps,
@@ -104,10 +95,6 @@ const transcriptionError = ref<string | null>(null);
 const isTranscribing = ref(false);
 const isMounted = ref(false);
 const isUnmounting = ref(false);
-const attachments = ref<Attachment[]>([]);
-const dragOver = ref(false);
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const attachmentContainerRef = ref<HTMLElement | null>(null);
 
 type ActiveConnectCycle = {
   core: object;
@@ -147,7 +134,21 @@ const isMediaRecorderSupported = computed(
 const showTranscription = computed(
   () => isTranscriptionEnabled.value && isMediaRecorderSupported.value,
 );
-const attachmentsEnabled = computed(() => props.attachments?.enabled ?? false);
+const {
+  attachments,
+  enabled: attachmentsEnabled,
+  dragOver,
+  fileInputRef,
+  containerRef: attachmentContainerRef,
+  handleFileUpload,
+  handleDragOver,
+  handleDragLeave,
+  handleDrop,
+  removeAttachment,
+  consumeAttachments,
+} = useAttachments({
+  config: computed(() => props.attachments),
+});
 const effectiveMode = computed<"input" | "transcribe" | "processing">(() =>
   isTranscribing.value ? "processing" : transcribeMode.value,
 );
@@ -180,186 +181,6 @@ watch(
   },
   { immediate: true },
 );
-
-async function processFiles(files: File[]) {
-  const config = props.attachments;
-  if (!config?.enabled) {
-    return;
-  }
-
-  const accept = config.accept ?? "*/*";
-  const maxSize = config.maxSize ?? 20 * 1024 * 1024;
-
-  const rejectedFiles = files.filter(
-    (file) => !matchesAcceptFilter(file, accept),
-  );
-  for (const file of rejectedFiles) {
-    config.onUploadFailed?.({
-      reason: "invalid-type",
-      file,
-      message: `File "${file.name}" is not accepted. Supported types: ${accept}`,
-    });
-  }
-
-  const validFiles = files.filter((file) => matchesAcceptFilter(file, accept));
-  for (const file of validFiles) {
-    if (exceedsMaxSize(file, maxSize)) {
-      config.onUploadFailed?.({
-        reason: "file-too-large",
-        file,
-        message: `File "${file.name}" exceeds the maximum size of ${formatFileSize(maxSize)}`,
-      });
-      continue;
-    }
-
-    const modality = getModalityFromMimeType(file.type);
-    const placeholderId = randomUUID();
-    attachments.value = [
-      ...attachments.value,
-      {
-        id: placeholderId,
-        type: modality,
-        source: { type: "data", value: "", mimeType: file.type },
-        filename: file.name,
-        size: file.size,
-        status: "uploading",
-      },
-    ];
-
-    try {
-      let source: Attachment["source"];
-      let uploadMetadata: Record<string, unknown> | undefined;
-      if (config.onUpload) {
-        const uploadResult: AttachmentUploadResult =
-          await config.onUpload(file);
-        const { metadata, ...uploadSource } = uploadResult;
-        source = uploadSource;
-        uploadMetadata = metadata;
-      } else {
-        const base64 = await readFileAsBase64(file);
-        source = { type: "data", value: base64, mimeType: file.type };
-      }
-
-      let thumbnail: string | undefined;
-      if (modality === "video") {
-        thumbnail = await generateVideoThumbnail(file);
-      }
-
-      attachments.value = attachments.value.map((attachment) =>
-        attachment.id === placeholderId
-          ? {
-              ...attachment,
-              source,
-              status: "ready",
-              thumbnail,
-              metadata: uploadMetadata,
-            }
-          : attachment,
-      );
-    } catch (error) {
-      attachments.value = attachments.value.filter(
-        (attachment) => attachment.id !== placeholderId,
-      );
-      console.error(`[CopilotKit] Failed to upload "${file.name}":`, error);
-      config.onUploadFailed?.({
-        reason: "upload-failed",
-        file,
-        message:
-          error instanceof Error
-            ? error.message
-            : `Failed to upload "${file.name}"`,
-      });
-    }
-  }
-}
-
-async function handleFileUpload(event: Event) {
-  const target = event.target as HTMLInputElement | null;
-  if (!target?.files?.length) {
-    return;
-  }
-  await processFiles(Array.from(target.files));
-}
-
-function handleDragOver(event: DragEvent) {
-  if (!attachmentsEnabled.value) {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  dragOver.value = true;
-}
-
-function handleDragLeave(event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  dragOver.value = false;
-}
-
-async function handleDrop(event: DragEvent) {
-  event.preventDefault();
-  event.stopPropagation();
-  dragOver.value = false;
-  if (!attachmentsEnabled.value) {
-    return;
-  }
-  const files = Array.from(event.dataTransfer?.files ?? []);
-  if (files.length > 0) {
-    await processFiles(files);
-  }
-}
-
-function removeAttachment(id: string) {
-  attachments.value = attachments.value.filter(
-    (attachment) => attachment.id !== id,
-  );
-}
-
-function consumeAttachments() {
-  const ready = attachments.value.filter(
-    (attachment) => attachment.status === "ready",
-  );
-  if (ready.length === 0) {
-    return ready;
-  }
-  attachments.value = attachments.value.filter(
-    (attachment) => attachment.status !== "ready",
-  );
-  if (fileInputRef.value) {
-    fileInputRef.value.value = "";
-  }
-  return ready;
-}
-
-async function handlePaste(event: ClipboardEvent) {
-  if (!attachmentsEnabled.value) {
-    return;
-  }
-
-  const target = event.target as HTMLElement | null;
-  if (!target || !attachmentContainerRef.value?.contains(target)) {
-    return;
-  }
-
-  const accept = props.attachments?.accept ?? "*/*";
-  const items = Array.from(event.clipboardData?.items ?? []);
-  const fileItems = items.filter((item) => {
-    if (item.kind !== "file") {
-      return false;
-    }
-    const file = item.getAsFile();
-    return file !== null && matchesAcceptFilter(file, accept);
-  });
-  if (fileItems.length === 0) {
-    return;
-  }
-
-  event.preventDefault();
-  const files = fileItems
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => file !== null);
-  await processFiles(files);
-}
 
 watch(
   () => props.inputValue,
@@ -500,16 +321,10 @@ watch(
 
 onBeforeUnmount(() => {
   isUnmounting.value = true;
-  if (typeof document !== "undefined") {
-    document.removeEventListener("paste", handlePaste);
-  }
 });
 
 onMounted(() => {
   isMounted.value = true;
-  if (typeof document !== "undefined") {
-    document.addEventListener("paste", handlePaste);
-  }
 });
 
 watch(transcriptionError, (next, _old, onCleanup) => {
