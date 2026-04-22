@@ -84,6 +84,18 @@ export interface RulesReloadFailedEvent {
   errors: { file: string; error: string }[];
 }
 
+/**
+ * Payload for `probes.reload.failed` — produced by probe-loader.watch when
+ * one or more YAML files fail to parse, validate, or resolve (unknown
+ * driver kind / unregistered discovery source) during a hot-reload.
+ * Mirrors `RulesReloadFailedEvent` so subscribers that aggregate loader
+ * errors (e.g. a shared `/health` panel) can use the same shape for both
+ * DSLs.
+ */
+export interface ProbesReloadFailedEvent {
+  errors: { file: string; error: string }[];
+}
+
 export interface BusEvents {
   "status.changed": { outcome: WriteOutcome; result: ProbeResult<unknown> };
   "deploy.result": DeployResultEvent;
@@ -95,6 +107,15 @@ export interface BusEvents {
   "rules.reloaded": { count: number };
   /** Emitted when a hot-reload fails to parse/compile one or more rule files. */
   "rules.reload.failed": RulesReloadFailedEvent;
+  /**
+   * Emitted by probe-loader after a successful reload — symmetric with
+   * `rules.reloaded`. Consumers (e.g. the orchestrator's scheduler diff
+   * loop) use this to know the probe set changed without having to
+   * subscribe to the file watcher directly.
+   */
+  "probes.reloaded": { count: number };
+  /** Emitted when a hot-reload fails to parse/validate one or more probe YAML files. */
+  "probes.reload.failed": ProbesReloadFailedEvent;
   /**
    * Emitted when status-writer fails mid-flight (PB upsert or history
    * create throws). Orchestrator listens to surface degraded state on
