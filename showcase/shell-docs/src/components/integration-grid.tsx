@@ -10,21 +10,24 @@ export function IntegrationGrid({ path }: { path?: string; exclude?: string[] })
   if (framework) return null;
 
   return (
-    <div
-      style={{
-        padding: "1rem",
-        background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
-        marginBottom: "1rem",
-        fontSize: "0.875rem",
-        color: "var(--text-muted)",
-      }}
-    >
-      See{" "}
-      <a href="/integrations" style={{ color: "var(--accent)" }}>
-        Integrations
-      </a>{" "}
-      for all available frameworks{path ? ` (${path})` : ""}.
-    </div>
+    <>
+      <h2>Choose your AI backend</h2>
+      <div
+        style={{
+          padding: "1rem",
+          background: "var(--bg-elevated)",
+          borderRadius: "0.5rem",
+          marginBottom: "1rem",
+          fontSize: "0.875rem",
+          color: "var(--text-muted)",
+        }}
+      >
+        See{" "}
+        <a href="/integrations" style={{ color: "var(--accent)" }}>
+          Integrations
+        </a>{" "}
+        for all available frameworks{path ? ` (${path})` : ""}.
+      </div>
+    </>
   );
 }
