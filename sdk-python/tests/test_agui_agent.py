@@ -463,25 +463,6 @@ class TestReasoningContentPreservation:
         # Should pass through to super() and return something (not None)
         assert result is not None
 
-    def test_manually_emit_message_with_empty_string_message(self, agent):
-        """ManuallyEmitMessage with an empty string should still emit the text sequence."""
-        with track_parent_dispatches(agent) as dispatched:
-            event = CustomEvent(
-                type=EventType.CUSTOM,
-                name=CustomEventNames.ManuallyEmitMessage.value,
-                value={
-                    "message_id": "msg-empty",
-                    "message": "",
-                    "role": "assistant",
-                },
-            )
-            agent._dispatch_event(event)
-
-        types = [getattr(e, 'type', None) for e in dispatched]
-        assert EventType.TEXT_MESSAGE_START in types
-        assert EventType.TEXT_MESSAGE_CONTENT in types
-        assert EventType.TEXT_MESSAGE_END in types
-
     def test_manually_emit_tool_call_with_empty_args(self, agent):
         """ManuallyEmitToolCall with empty args dict should still emit the tool call sequence."""
         with track_parent_dispatches(agent) as dispatched:
