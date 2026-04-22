@@ -16,6 +16,7 @@ import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { PropertyReference } from "@/components/property-reference";
+import { IntegrationGrid } from "@/components/integration-grid";
 import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
@@ -199,24 +200,7 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  IntegrationGrid: ({ path }: { path?: string }) => (
-    <div
-      style={{
-        padding: "1rem",
-        background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
-        marginBottom: "1rem",
-        fontSize: "0.875rem",
-        color: "var(--text-muted)",
-      }}
-    >
-      See{" "}
-      <a href="/integrations" style={{ color: "var(--accent)" }}>
-        Integrations
-      </a>{" "}
-      for all available frameworks{path ? ` (${path})` : ""}.
-    </div>
-  ),
+  IntegrationGrid,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
