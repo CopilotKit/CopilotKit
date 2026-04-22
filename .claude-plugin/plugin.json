@@ -1,0 +1,20 @@
+{
+  "name": "copilotkit",
+  "description": "CopilotKit v2 skills for Claude Code — runtime (core), react-core (framework), a2ui-renderer (framework), and 6 lifecycle journey skills (0-to-working-chat, spa-without-runtime, go-to-production, scale-to-multi-agent, v1-to-v2-migration, debug-and-troubleshoot).",
+  "version": "1.56.2",
+  "author": {
+    "name": "CopilotKit",
+    "email": "support@copilotkit.ai"
+  },
+  "homepage": "https://github.com/CopilotKit/CopilotKit",
+  "repository": "https://github.com/CopilotKit/CopilotKit",
+  "license": "MIT",
+  "keywords": [
+    "copilotkit",
+    "ai",
+    "agents",
+    "skills",
+    "ag-ui",
+    "tanstack-intent"
+  ]
+}

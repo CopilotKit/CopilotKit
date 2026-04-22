@@ -28,7 +28,9 @@
     "publint": "nx run-many -t publint --projects=packages/**",
     "attw": "nx run-many -t attw --projects=packages/**",
     "check:packages": "nx run-many -t publint,attw --projects=packages/**",
-    "validate:model-names": "tsx scripts/validate-doc-model-names.ts"
+    "validate:model-names": "tsx scripts/validate-doc-model-names.ts",
+    "check:plugin-skills": "tsx scripts/sync-plugin-skills.ts --check",
+    "sync:plugin-skills": "tsx scripts/sync-plugin-skills.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.2",
