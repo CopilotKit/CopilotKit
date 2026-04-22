@@ -94,6 +94,7 @@ describe("InMemoryAgentRunner", () => {
 
   beforeEach(() => {
     runner = new InMemoryAgentRunner();
+    runner.clearThreads();
   });
 
   describe("RunStarted payload", () => {

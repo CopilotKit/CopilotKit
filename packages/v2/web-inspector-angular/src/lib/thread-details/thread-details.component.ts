@@ -1092,6 +1092,7 @@ export class ThreadDetailsComponent {
       const threadId = this.threadId();
       this.activeTab.set(this.initialTab());
       this._expandedToolCalls.set(new Set());
+      this._expandedMessages.set(new Set());
       this.fetchAbortController?.abort();
       this.fetchAbortController = null;
       if (threadId && untracked(this.conversationOverride) === null) {

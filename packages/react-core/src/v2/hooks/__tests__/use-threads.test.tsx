@@ -414,6 +414,63 @@ describe("useThreads", () => {
     expect(typeof result.current.fetchMoreThreads).toBe("function");
   });
 
+  it("fetchMoreThreads fetches the next page with the cursor and appends threads", async () => {
+    const nextPageThreads = [
+      {
+        id: "t-3",
+        organizationId: "org-1",
+        agentId: "agent-1",
+        createdById: "user-1",
+        name: "Thread Three",
+        archived: false,
+        createdAt: "2026-01-03T00:00:00Z",
+        updatedAt: "2026-01-03T00:00:00Z",
+      },
+    ];
+
+    fetchMock
+      .mockReturnValueOnce(
+        jsonResponse({
+          threads: sampleThreads,
+          joinCode: "jc-1",
+          nextCursor: "cursor-abc",
+        }),
+      )
+      .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }))
+      .mockReturnValueOnce(
+        jsonResponse({ threads: nextPageThreads, joinCode: "jc-1" }),
+      );
+
+    const { result } = renderHook(() => useThreads(defaultInput));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(result.current.threads).toHaveLength(2);
+    expect(result.current.hasMoreThreads).toBe(true);
+
+    act(() => {
+      result.current.fetchMoreThreads();
+    });
+
+    await waitFor(() => {
+      expect(result.current.threads).toHaveLength(3);
+    });
+
+    const nextPageCall = fetchMock.mock.calls.find(
+      (args: unknown[]) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).includes("cursor=cursor-abc"),
+    );
+    expect(nextPageCall).toBeDefined();
+    expect(nextPageCall![0]).toContain("agentId=agent-1");
+    expect(result.current.threads.map((t: { id: string }) => t.id)).toContain(
+      "t-3",
+    );
+    expect(result.current.threads).toHaveLength(3);
+  });
+
   it("does not expose organizationId or createdById on threads", async () => {
     fetchMock
       .mockReturnValueOnce(

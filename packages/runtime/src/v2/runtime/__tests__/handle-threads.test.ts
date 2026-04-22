@@ -423,6 +423,29 @@ describe("thread handlers", () => {
       expect(intelligence.getThreadMessages).toHaveBeenCalledWith({
         threadId: "thread-1",
       });
+      expect(identifyUser).toHaveBeenCalledTimes(1);
+      expect(identifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({ url: expect.stringContaining("thread-1") }),
+      );
+    });
+
+    it("returns 500 when identifyUser throws for getThreadMessages", async () => {
+      const intelligence = {
+        getThreadMessages: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime({
+        intelligence,
+        identifyUser: vi.fn().mockRejectedValue(new Error("auth failed")),
+      });
+
+      const response = await handleGetThreadMessages({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/messages"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(500);
+      expect(intelligence.getThreadMessages).not.toHaveBeenCalled();
     });
 
     it("returns 422 when neither in-memory nor intelligence is configured", async () => {

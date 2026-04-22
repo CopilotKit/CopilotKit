@@ -9,6 +9,7 @@ export class ThreadStoreRegistry {
 
   register(agentId: string, store: ɵThreadStore): void {
     if (agentId in this._stores) {
+      delete this._stores[agentId];
       void this.notifyUnregistered(agentId);
     }
     this._stores[agentId] = store;
