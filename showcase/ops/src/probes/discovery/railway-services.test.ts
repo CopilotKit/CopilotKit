@@ -485,6 +485,103 @@ describe("railwayServicesSource", () => {
     expect(out[0].imageRef).toBe("");
   });
 
+  // -----------------------------------------------------------------
+  // Shape classification: starter vs. package
+  //
+  // Each discovered service is tagged with `shape: "package" | "starter"`
+  // so downstream drivers (smoke, e2e-smoke) can branch on the URL
+  // surface without re-parsing the service name. Starters mount as a
+  // single-app integration at `/` with health at `/api/health`; packages
+  // are the shell-based showcases with `/smoke`, `/health`, and
+  // `/demos/*` routing. Without the field, probes hit `/smoke` on every
+  // starter and produce 17×3 false-red alerts per tick.
+  // -----------------------------------------------------------------
+
+  it("tags services whose name starts with `showcase-starter-` as shape='starter'", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-starter-ag2",
+            image: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+            domain: "showcase-starter-ag2-production.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(1);
+    expect(out[0].shape).toBe("starter");
+  });
+
+  it("tags non-starter `showcase-*` services as shape='package'", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(1);
+    expect(out[0].shape).toBe("package");
+  });
+
+  it("classifies a mixed batch of starter + package services correctly", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-starter-ag2",
+            image: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+            domain: "showcase-starter-ag2-production.up.railway.app",
+          },
+          {
+            id: "s-3",
+            name: "showcase-mastra",
+            image: "ghcr.io/copilotkit/showcase-mastra:latest",
+            domain: "showcase-mastra.up.railway.app",
+          },
+          {
+            id: "s-4",
+            name: "showcase-starter-mastra",
+            image: "ghcr.io/copilotkit/showcase-starter-mastra:latest",
+            domain: "showcase-starter-mastra-production.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(4);
+    const byName = Object.fromEntries(out.map((s) => [s.name, s.shape]));
+    expect(byName["showcase-ag2"]).toBe("package");
+    expect(byName["showcase-starter-ag2"]).toBe("starter");
+    expect(byName["showcase-mastra"]).toBe("package");
+    expect(byName["showcase-starter-mastra"]).toBe("starter");
+  });
+
   it("threads ctx.abortSignal into every Railway GraphQL fetch (CR A1)", async () => {
     // Regression guard: the source previously called the gql helper
     // without plumbing an abortSignal, so a slow Railway endpoint kept

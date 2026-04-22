@@ -422,6 +422,104 @@ describe("e2eSmokeDriver side-emits", () => {
   });
 });
 
+// --- Starter shape: skip L3/L4 ---------------------------------------
+//
+// Starters are single-app integrations deployed from showcase/starters/*;
+// they mount at `/` with no `/demos/*` routing. Running L3/L4 against a
+// starter would 404 the navigation step and produce false-red alerts on
+// every tick. The driver must detect `shape === "starter"` (from the
+// discovery source) and skip both levels with explicit `l3/l4: "skipped"`
+// rather than silently producing a red page-error. This also avoids the
+// registry-lookup path (starters aren't keyed in registry.json).
+
+describe("e2eSmokeDriver starter shape", () => {
+  it("aggregate green-skipped when shape='starter' — L3 and L4 both skipped", async () => {
+    // The fake browser is never used, but we still wire it in to verify
+    // the driver short-circuits BEFORE launching chromium (no newContext
+    // calls, no pages opened).
+    const { browser, state } = makeBrowser([]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      backendUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("skipped");
+    expect(sig.l4).toBe("skipped");
+    // Zero chromium contexts opened — shape check happens before launch.
+    expect(state.contextsOpened).toBe(0);
+    // No side-emits written for skipped levels so dashboards don't count
+    // them as flaps; operators reading the primary aggregate see the
+    // explicit `skipped` state.
+    expect(writer.results).toHaveLength(0);
+  });
+
+  it("starter shape: never navigates to /demos/* (no registry lookup needed)", async () => {
+    // Regression guard: the pre-fix driver navigated to
+    // `${backendUrl}/demos/agentic-chat` for every discovered service.
+    // On a starter (no /demos/* routing) that fires a 404 and flips the
+    // row red. We assert the driver never asks for a new page — it
+    // short-circuits on shape BEFORE any page.goto() call.
+    let gotoCalled = false;
+    const scriptedBrowser: E2eBrowser = {
+      async newContext(): Promise<E2eBrowserContext> {
+        return {
+          async newPage(): Promise<E2ePage> {
+            return {
+              async goto() {
+                gotoCalled = true;
+                throw new Error("should not be called on starter shape");
+              },
+              async type() {},
+              async press() {},
+              async waitForSelector() {},
+              async textContent() {
+                return "";
+              },
+              async close() {},
+            };
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+    const driver = createE2eSmokeDriver({
+      launcher: async () => scriptedBrowser,
+    });
+    await driver.run(baseCtx(), {
+      key: "e2e-smoke:starter-mastra",
+      name: "showcase-starter-mastra",
+      backendUrl: "https://showcase-starter-mastra-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(gotoCalled).toBe(false);
+  });
+
+  it("starter shape: in-band `demos` field is ignored (starters have no /demos/*)", async () => {
+    // Even if an operator accidentally passes demos in the YAML for a
+    // starter, the driver must honour the shape flag and skip — shape
+    // wins over demos.
+    const { browser, state } = makeBrowser([]);
+    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const result = await driver.run(baseCtx(), {
+      key: "e2e-smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      backendUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+      demos: ["agentic-chat", "tool-rendering"],
+    });
+    const sig = result.signal as E2eSmokeSignal;
+    expect(sig.l3).toBe("skipped");
+    expect(sig.l4).toBe("skipped");
+    expect(state.contextsOpened).toBe(0);
+  });
+});
+
 describe("e2eSmokeDriver module export", () => {
   it("module-level e2eSmokeDriver has kind === 'e2e_smoke'", () => {
     expect(e2eSmokeDriver.kind).toBe("e2e_smoke");

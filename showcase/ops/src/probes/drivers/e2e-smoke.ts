@@ -54,6 +54,15 @@ const inputSchema = z
     // usually leave this undefined and let the driver resolve via the
     // registry.
     demos: z.array(z.string()).optional(),
+    /**
+     * Deployment shape tag from the discovery source. Starters are
+     * single-app integrations with NO `/demos/*` routing, so L3/L4 is
+     * skipped entirely on `shape === "starter"` — they would otherwise
+     * produce 17 × 2 = 34 false-red `chat:<slug>` / `tools:<slug>`
+     * alerts per tick. Package shape (default) keeps the legacy
+     * Playwright-against-/demos/* behaviour.
+     */
+    shape: z.enum(["package", "starter"]).optional(),
   })
   .passthrough()
   .refine((v) => !!(v.backendUrl ?? v.publicUrl), {
@@ -71,8 +80,16 @@ type E2eSmokeDriverInput = z.infer<typeof inputSchema>;
 export interface E2eSmokeSignal {
   slug: string;
   backendUrl: string;
-  /** "green" | "red" | "skipped" per level. Skipped L4 = demo not available. */
-  l3: "green" | "red";
+  /**
+   * Per-level outcome.
+   *   - "green" / "red"  standard probe result
+   *   - "skipped"        the level did not run. For L3 this only
+   *                      happens under `shape === "starter"` (single-app
+   *                      integrations with no `/demos/*` routing). For
+   *                      L4 it also happens when the registry entry has
+   *                      no `tool-rendering` demo.
+   */
+  l3: "green" | "red" | "skipped";
   l4: "green" | "red" | "skipped";
   failureSummary: string;
   errorDesc?: string;
@@ -281,6 +298,30 @@ export function createE2eSmokeDriver(
       // Schema already guaranteed at least one is present.
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+
+      // Starter shape short-circuit: starters are single-app Next.js
+      // integrations mounted at `/` with no `/demos/*` routing. Running
+      // L3/L4 against them would 404 on navigation and emit 34 false-
+      // red `chat:<slug>` / `tools:<slug>` rows per tick. Return an
+      // explicit green-skipped aggregate BEFORE launching chromium so
+      // the whole skip costs milliseconds (no browser process, no
+      // registry lookup, no side-emits). Dashboards see `l3: "skipped"`
+      // / `l4: "skipped"` instead of silently-missing rows.
+      if (input.shape === "starter") {
+        return {
+          key: input.key,
+          state: "green",
+          signal: {
+            slug,
+            backendUrl,
+            l3: "skipped",
+            l4: "skipped",
+            failureSummary: "",
+            errorDesc: "starter: no /demos/* routing",
+          },
+          observedAt,
+        };
+      }
 
       // Demos resolution: (1) in-band `input.demos`, (2) registry lookup
       // via the injected resolver. A slug with no demos entry gets

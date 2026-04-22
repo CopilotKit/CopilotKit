@@ -39,11 +39,54 @@ import {
  * behaviour of the legacy adapter in `orchestrator.ts`.
  */
 
+/**
+ * Service shape — distinguishes the two deployment archetypes that share
+ * the `showcase-*` naming scheme on Railway but have wildly different URL
+ * surfaces. Drivers branch on this field to pick the right probe contract
+ * (see `drivers/smoke.ts` and `drivers/e2e-smoke.ts`).
+ *
+ *   - `package`  Shell-based showcases (`showcase-ag2`, `showcase-mastra`,
+ *                ...). They expose `/smoke`, `/health`, `/demos/*`, and
+ *                `/api/copilotkit/` as distinct routes.
+ *   - `starter`  Single-app integrations deployed from
+ *                `showcase/starters/*` (Railway service name pattern
+ *                `showcase-starter-*`). They mount the integration at
+ *                `/`, health at `/api/health`, and have NO `/smoke` or
+ *                `/demos/*` routing.
+ *
+ * Classification is derived from the Railway service name, so adding a
+ * new starter requires no YAML edit — the next tick picks it up with
+ * `shape: "starter"` automatically.
+ */
+export type ShowcaseServiceShape = "package" | "starter";
+
 export interface RailwayServiceInfo {
   name: string;
   imageRef: string;
   publicUrl: string;
   env: Record<string, string>;
+  /**
+   * Deployment archetype, classified from the service name. Drivers
+   * that probe per-service URLs branch on this field to pick the right
+   * contract (starter: `/api/health` + skip `/smoke` + skip `/demos/*`;
+   * package: legacy `/smoke` + `/health` + `/demos/*`).
+   */
+  shape: ShowcaseServiceShape;
+}
+
+/**
+ * Classify a Railway service name into a `ShowcaseServiceShape`. Exported
+ * so tests can exercise the classifier directly and downstream drivers
+ * can reclassify from a bare name when the discovery record wasn't
+ * threaded through (static-YAML callers). The rule is deliberately tight:
+ * ONLY the literal `showcase-starter-` prefix is classified as starter.
+ * Everything else — `showcase-ag2`, `showcase-shell`, `some-other-svc` —
+ * falls to `package`. Keeping the rule a simple prefix check keeps it
+ * auditable in the YAML comments and matches the 17 starter Railway
+ * service names 1:1.
+ */
+export function classifyShape(name: string): ShowcaseServiceShape {
+  return name.startsWith("showcase-starter-") ? "starter" : "package";
 }
 
 const FilterSchema = z
@@ -245,7 +288,13 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         });
       }
 
-      out.push({ name: svc.name, imageRef, publicUrl, env });
+      out.push({
+        name: svc.name,
+        imageRef,
+        publicUrl,
+        env,
+        shape: classifyShape(svc.name),
+      });
     }
     return out;
   },

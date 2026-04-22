@@ -670,6 +670,218 @@ describe("smokeDriver", () => {
     );
   });
 
+  // -------------------------------------------------------------------
+  // Starter shape: probes hit `/api/health` instead of `/smoke` + `/health`.
+  // Starters are single-app Next.js integrations deployed from
+  // showcase/starters/*. They expose `/api/health` (returning JSON) but
+  // no `/smoke`, no `/health`, and no `/demos/*`. Without shape branching
+  // every starter registers 51 false red alerts per tick (17 services ×
+  // 3 endpoints).
+  // -------------------------------------------------------------------
+
+  it("starter shape: primary smoke probe hits /api/health, green on 200", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      // Starter only answers /api/health; everything else is 404.
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"ok","integration":"ag2"}', {
+          status: 200,
+        });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response('{"error":"bad body"}', { status: 400 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("green");
+    expect(r.key).toBe("smoke:starter-ag2");
+    // Starter smoke probe MUST hit /api/health — the whole reason for
+    // shape detection. Seeing /smoke here is the primary regression.
+    expect(calls).toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/api/health",
+    );
+    expect(calls).not.toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/smoke",
+    );
+    expect(calls).not.toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/health",
+    );
+    // Health side-emit still produced (mirrors primary) so dashboards
+    // keyed on `health:<slug>` stay populated.
+    const health = writes.find((w) => w.key === "health:starter-ag2");
+    expect(health?.state).toBe("green");
+  });
+
+  it("starter shape: /api/health 503 → primary smoke red with http 503", async () => {
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"degraded"}', { status: 503 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toContain("503");
+    // The agent side-emit (L2) should still run + succeed.
+    const agent = writes.find((w) => w.key === "agent:starter-ag2");
+    expect(agent?.state).toBe("green");
+  });
+
+  it("starter shape: never probes /smoke (real starters 404 on it)", async () => {
+    // Regression guard: the previous contract fired GET /smoke which
+    // produced 17 false-red smoke alerts the first tick after deploy.
+    // Under the new shape contract, /smoke must NOT be called at all —
+    // the primary probe, the health side-emit, and the agent probe are
+    // all expected to use `/api/health` / `/api/copilotkit/`.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-mastra",
+      name: "showcase-starter-mastra",
+      publicUrl: "https://showcase-starter-mastra.up.railway.app",
+      shape: "starter",
+    });
+    for (const c of calls) {
+      expect(c).not.toMatch(/\/smoke(\b|\?|$)/);
+      // `/health` without the `/api` prefix must also not appear.
+      expect(c).not.toMatch(/\.app\/health(\b|\?|$)/);
+    }
+  });
+
+  it("package shape (explicit): keeps the legacy /smoke + /health contract", async () => {
+    // Sanity check that the new `shape` field is optional and
+    // backward-compatible: when `shape === "package"` (or omitted), the
+    // driver still hits /smoke + /health exactly like before.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      shape: "package",
+    });
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/smoke");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/health");
+  });
+
+  // -------------------------------------------------------------------
+  // L2 308 redirect handling: /api/copilotkit/ → /api/copilotkit
+  //
+  // Railway's Next.js edge serves a 308 for the trailing-slash variant.
+  // The previous contract accepted the raw 308 as proof-of-life, which
+  // quietly masked regressions where the redirect target was a 404
+  // (e.g. wrong mount path). Enabling redirect following makes the
+  // probe classify on the FINAL status: 308→200 stays green, 308→400
+  // (runtime rejected the empty body) stays green, but 308→404 flips
+  // red so we actually catch unmounted routes.
+  // -------------------------------------------------------------------
+
+  it("agent probe follows 308 redirects and judges the final response", async () => {
+    const seenPaths: string[] = [];
+    // Simulate Railway edge: 308 with Location, then the real handler.
+    // We can't actually send 308 from a synthetic Response + have fetch
+    // follow — testing the effect via the probe's behaviour after the
+    // redirect lands on a 404 target URL. The driver MUST request with
+    // `redirect: "follow"` so the undici runtime handles the redirect.
+    let sawRedirectOption = false;
+    const fetchImpl: typeof fetch = (async (
+      url: string | URL,
+      init?: RequestInit,
+    ) => {
+      const href = typeof url === "string" ? url : url.toString();
+      seenPaths.push(href);
+      if (/\/api\/copilotkit/.test(href)) {
+        if ((init as RequestInit | undefined)?.redirect === "follow") {
+          sawRedirectOption = true;
+        }
+        // Simulate the post-redirect reply: runtime got our `{}` and
+        // responded with 400. That's a non-404 → proof-of-life → green.
+        return new Response('{"error":"missing fields"}', { status: 400 });
+      }
+      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(sawRedirectOption).toBe(true);
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("green");
+    expect((agent.signal as SmokeDriverSignal).status).toBe(400);
+  });
+
+  it("agent probe red when 308 redirect lands on a 404 (route actually missing)", async () => {
+    const fetchImpl: typeof fetch = (async (
+      url: string | URL,
+      _init?: RequestInit,
+    ) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/copilotkit/.test(href)) {
+        // Post-redirect reply: edge says "page not found". Under the old
+        // contract the raw 308 was treated as green — this test locks in
+        // that we now see the terminal 404 and flip red.
+        return new Response("<html>not found</html>", { status: 404 });
+      }
+      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    const agent = writes.find((w) => w.key === "agent:mastra")!;
+    expect(agent.state).toBe("red");
+    expect((agent.signal as SmokeDriverSignal).errorDesc).toMatch(
+      /route not mounted|agent endpoint 404/,
+    );
+  });
+
   it("discovery input with trailing `/` on publicUrl strips it before appending paths", async () => {
     const calls: string[] = [];
     const fetchImpl: typeof fetch = (async (url: string | URL) => {

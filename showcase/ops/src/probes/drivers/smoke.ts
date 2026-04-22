@@ -73,8 +73,22 @@ const smokeInputSchema = z
     url: z.string().url().optional(),
     /** Discovery mode: Railway service name (`showcase-<slug>` or `showcase-starter-<slug>`). */
     name: z.string().min(1).optional(),
-    /** Discovery mode: `https://<domain>` base URL. The driver appends `/smoke`. */
+    /** Discovery mode: `https://<domain>` base URL. The driver appends `/smoke` or `/api/health` per shape. */
     publicUrl: z.string().optional(),
+    /**
+     * Deployment shape tag from the discovery source
+     * (`discovery/railway-services.ts`). Controls which URL contract the
+     * driver exercises:
+     *
+     *   - `package` (default) → legacy `/smoke` + `/health` + `/api/copilotkit/`.
+     *   - `starter`           → `/api/health` (primary + side-emit) +
+     *                           `/api/copilotkit/`. Starters have no
+     *                           `/smoke` route; using the legacy contract
+     *                           produces 34 false-red alerts per tick.
+     *
+     * Missing → treated as `package` so static-YAML callers keep working.
+     */
+    shape: z.enum(["package", "starter"]).optional(),
   })
   .passthrough()
   .refine((v) => v.url || (v.name && v.publicUrl), {
@@ -109,7 +123,8 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch.bind(globalThis);
     const timeoutMs = readTimeoutMs(ctx);
     const slug = deriveSlug(input);
-    const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input);
+    const shape = input.shape ?? "package";
+    const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input, shape);
     // Primary key for the smoke ProbeResult. In DISCOVERY mode (when
     // `input.name` is set), `input.key` arrives as `smoke:showcase-ag2`
     // because the `key_template` in YAML interpolates `${name}` and
@@ -128,6 +143,14 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
     // Railway, which has historically triggered edge-side rate
     // limiting. Sequential keeps the bound at max_concurrency * 3 = 18 —
     // still well under any edge threshold.
+    //
+    // Starter shape: smoke and health share the same endpoint
+    // (`/api/health`) because starters expose no `/smoke` route. To
+    // keep the probe HTTP count consistent across shapes (2 GETs + 1
+    // POST per tick), we call `/api/health` ONCE and reuse the result
+    // for both the primary `smoke:<slug>` tick and the `health:<slug>`
+    // side-emit — dashboards keyed on either row still populate, and
+    // we don't pay a second round-trip for the same JSON.
     const smokeResult = await probeOne({
       fetchImpl,
       url: smokeUrl,
@@ -138,17 +161,22 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
       method: "GET",
     });
 
-    // Side-emit #1: health tick.
+    // Side-emit #1: health tick. Reuse the smoke result when the two
+    // endpoints coincide (starter shape); otherwise run the classic
+    // second GET against `/health`.
     const healthKey = `health:${slug}`;
-    const healthResult = await probeOne({
-      fetchImpl,
-      url: healthUrl,
-      key: healthKey,
-      slug,
-      timeoutMs,
-      now: ctx.now,
-      method: "GET",
-    });
+    const healthResult =
+      smokeUrl === healthUrl
+        ? { ...smokeResult, key: healthKey }
+        : await probeOne({
+            fetchImpl,
+            url: healthUrl,
+            key: healthKey,
+            slug,
+            timeoutMs,
+            now: ctx.now,
+            method: "GET",
+          });
     await sideEmit(ctx, healthResult, healthKey);
 
     // Side-emit #2: agent endpoint POST. Non-404 2xx-5xx response is
@@ -327,6 +355,14 @@ async function probeAgent(opts: {
       headers: { "Content-Type": "application/json" },
       body: "{}",
       signal: controller.signal,
+      // Railway's Next.js edge serves a 308 for the trailing-slash
+      // variant of `/api/copilotkit/` → `/api/copilotkit`. Without
+      // following, the probe classifies the raw 308 as proof-of-life,
+      // which quietly masks regressions where the redirect target is a
+      // 404 (route actually unmounted). Following means we judge the
+      // FINAL response: a runtime-rejected `{}` payload (400) stays
+      // green, but an unmounted route (final 404) correctly flips red.
+      redirect: "follow",
     });
     const latencyMs = now().getTime() - started;
     const signal: SmokeDriverSignal = {
@@ -434,9 +470,25 @@ interface DerivedUrls {
  * static-mode callers can pass an explicit agent URL in a future
  * schema extension if needed.
  */
-function deriveUrls(input: SmokeDriverInput): DerivedUrls {
+function deriveUrls(
+  input: SmokeDriverInput,
+  shape: "package" | "starter",
+): DerivedUrls {
   if (input.publicUrl) {
     const base = input.publicUrl.replace(/\/$/, "");
+    if (shape === "starter") {
+      // Starters expose `/api/health` as the canonical liveness route
+      // (see `showcase/starters/template/frontend/app/api/health/route.ts`).
+      // There is no `/smoke` and no separate `/health` route — so the
+      // primary smoke probe and the health side-emit both target
+      // `/api/health`. The run() loop re-uses the single GET result
+      // rather than round-tripping twice.
+      return {
+        smokeUrl: `${base}/api/health`,
+        healthUrl: `${base}/api/health`,
+        agentUrl: `${base}/api/copilotkit/`,
+      };
+    }
     return {
       smokeUrl: `${base}/smoke`,
       healthUrl: `${base}/health`,
@@ -444,7 +496,9 @@ function deriveUrls(input: SmokeDriverInput): DerivedUrls {
     };
   }
   // Static fallback. `url` is guaranteed present by the refine() guard
-  // in `smokeInputSchema` when `publicUrl` is absent.
+  // in `smokeInputSchema` when `publicUrl` is absent. Static mode
+  // predates shape detection and always assumes package shape — the
+  // YAML author already picked concrete URLs.
   const smokeUrl = input.url!;
   const healthUrl = deriveHealthUrl(smokeUrl);
   const agentUrl = deriveAgentUrl(smokeUrl);
