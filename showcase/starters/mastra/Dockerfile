@@ -8,6 +8,12 @@ COPY next.config.ts tsconfig.json postcss.config.mjs ./
 # Copy agent code (location varies by framework, e.g. agent/ or src/mastra/)
 COPY src/mastra/ ./src/mastra/
 RUN npm run build
+# Build Mastra application to .mastra/output/index.mjs so boot is a
+# straight `node` call instead of `npx mastra dev` (which does a
+# tsx-based build on first request — observed blowing past 180s watchdog
+# grace on Railway, same failure class as langgraph-typescript pre-#4132).
+# See also getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
+RUN npx mastra build --dir src/mastra
 
 # Stage 2: Production image
 FROM node:22-slim AS runner
@@ -29,6 +35,9 @@ COPY --chown=app:app src/mastra/ ./src/mastra/
 # Remove nested package.json to prevent a separate package boundary that
 # confuses ESM module resolution in tsx/node — deps are already in /app/node_modules/
 RUN rm -f src/mastra/package.json src/mastra/package-lock.json
+# Precompiled Mastra server (from frontend stage). entrypoint.sh invokes
+# `node /app/.mastra/output/index.mjs` instead of `npx mastra dev`.
+COPY --chown=app:app --from=frontend /app/.mastra ./.mastra
 
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
