@@ -13,20 +13,55 @@
  *
  * The --slack flag outputs a Slack-formatted message to stdout (for CI).
  * Without --slack, outputs a human-readable report.
+ *
+ * For deterministic replay (cross-check fixture generation / offline
+ * smoke-test), pass `--events-json=<path>` to skip the PostHog fetch and
+ * read an EventCount[] array from disk instead. The PostHog env-var checks
+ * are also skipped in this mode. Intended for tests and reproducible
+ * diffs — do not use in scheduled runs.
+ *
+ * Formatter logic lives in `./redirect-decommission-core.ts` so showcase-ops
+ * can drive the same body from a probe tick. Any drift between this CLI
+ * and that core is caught by a byte-for-byte cross-check in
+ * `showcase/ops/test/fixtures/redirect-decommission/cli-stdout.txt`.
  */
 
-import { seoRedirects } from "../shell/src/lib/seo-redirects";
+import fs from "fs";
+// Named-import interop: `../shell/src/lib/seo-redirects` has no "type":"module"
+// one level up, so tsx under Node 25 surfaces its exports via the CJS `default`
+// namespace rather than direct named bindings. Use a namespace import and
+// pick either shape to stay compatible across both toolchains.
+import * as seoRedirectsModule from "../shell/src/lib/seo-redirects";
+import {
+  computeRedirectDecommission,
+  type EventCount,
+  type RedirectEntryLite,
+} from "./redirect-decommission-core";
+
+const seoRedirects: RedirectEntryLite[] = (
+  (seoRedirectsModule as { seoRedirects?: RedirectEntryLite[] }).seoRedirects ??
+  (seoRedirectsModule as unknown as { default?: { seoRedirects?: RedirectEntryLite[] } })
+    .default?.seoRedirects ??
+  []
+) as RedirectEntryLite[];
 
 const POSTHOG_HOST = "https://eu.i.posthog.com";
 const DAYS = 30;
 
-interface EventCount {
-  redirect_id: string;
-  count: number;
+interface ParsedArgs {
+  slackFormat: boolean;
+  eventsJsonPath: string | null;
 }
 
-function parseArgs(): { slackFormat: boolean } {
-  return { slackFormat: process.argv.includes("--slack") };
+function parseArgs(): ParsedArgs {
+  const slackFormat = process.argv.includes("--slack");
+  let eventsJsonPath: string | null = null;
+  for (const arg of process.argv.slice(2)) {
+    if (arg.startsWith("--events-json=")) {
+      eventsJsonPath = arg.slice("--events-json=".length);
+    }
+  }
+  return { slackFormat, eventsJsonPath };
 }
 
 async function queryPostHog(
@@ -73,120 +108,49 @@ async function queryPostHog(
   return results;
 }
 
-function buildReport(
-  events: EventCount[],
-  slackFormat: boolean,
-): { text: string; hasCandidates: boolean } {
-  const eventMap = new Map(events.map((e) => [e.redirect_id, e.count]));
-  const totalHits = events.reduce((sum, e) => sum + e.count, 0);
-
-  // All unique redirect IDs from the definitions
-  const allIds = new Set(seoRedirects.map((r) => r.id));
-  const zerohit = [...allIds].filter((id) => !eventMap.has(id)).sort();
-
-  const top10 = events.slice(0, 10);
-
-  if (slackFormat) {
-    const lines: string[] = [];
-    lines.push(
-      `:bar_chart: *SEO Redirect Decommission Report* (last ${DAYS} days)`,
+function loadEventsFromFile(path: string): EventCount[] {
+  const raw = fs.readFileSync(path, "utf8");
+  const parsed = JSON.parse(raw) as unknown;
+  if (!Array.isArray(parsed)) {
+    throw new Error(
+      `--events-json fixture at ${path} is not a JSON array of { redirect_id, count }`,
     );
-    lines.push(`Total redirects defined: ${allIds.size}`);
-    lines.push(`Total hits: ${totalHits.toLocaleString()}`);
-    lines.push("");
-
-    if (zerohit.length > 0) {
-      lines.push(
-        `:warning: *${zerohit.length} redirect(s) with zero hits — decommission candidates:*`,
-      );
-      // Group by prefix for readability
-      const grouped = new Map<string, string[]>();
-      for (const id of zerohit) {
-        const prefix = id.replace(/×.*$/, "");
-        if (!grouped.has(prefix)) grouped.set(prefix, []);
-        grouped.get(prefix)!.push(id);
-      }
-      for (const [prefix, ids] of grouped) {
-        if (ids.length <= 3) {
-          lines.push(`  • ${ids.join(", ")}`);
-        } else {
-          lines.push(
-            `  • ${prefix}: ${ids.length} entries (${ids.slice(0, 3).join(", ")}, ...)`,
-          );
-        }
-      }
-      lines.push("");
-      lines.push(
-        `Cross-reference: <https://www.notion.so/33c3aa38185281d7b243c5cf0a7c14cb|SEO Redirect Inventory>`,
-      );
-    } else {
-      lines.push(
-        `:white_check_mark: All redirects received traffic — no decommission candidates.`,
-      );
-    }
-
-    if (top10.length > 0) {
-      lines.push("");
-      lines.push(`*Top 10 most-hit redirects:*`);
-      for (const e of top10) {
-        lines.push(`  ${e.redirect_id}: ${e.count.toLocaleString()} hits`);
-      }
-    }
-
-    return { text: lines.join("\n"), hasCandidates: zerohit.length > 0 };
   }
-
-  // Human-readable format
-  const lines: string[] = [];
-  lines.push(`=== SEO Redirect Decommission Report (last ${DAYS} days) ===`);
-  lines.push(`Total redirects defined: ${allIds.size}`);
-  lines.push(`Total hits: ${totalHits.toLocaleString()}`);
-  lines.push(`Redirects with hits: ${eventMap.size}`);
-  lines.push(`Zero-hit candidates: ${zerohit.length}`);
-  lines.push("");
-
-  if (top10.length > 0) {
-    lines.push("Top 10 most-hit redirects:");
-    for (const e of top10) {
-      lines.push(
-        `  ${e.redirect_id.padEnd(25)} ${e.count.toLocaleString()} hits`,
-      );
-    }
-    lines.push("");
-  }
-
-  if (zerohit.length > 0) {
-    lines.push("Decommission candidates (zero hits):");
-    for (const id of zerohit) {
-      const entry = seoRedirects.find((r) => r.id === id);
-      lines.push(
-        `  ${id.padEnd(25)} ${entry?.source ?? "?"} → ${entry?.destination ?? "?"}`,
-      );
-    }
-  }
-
-  return { text: lines.join("\n"), hasCandidates: zerohit.length > 0 };
+  return parsed as EventCount[];
 }
 
 async function main() {
-  const { slackFormat } = parseArgs();
+  const { slackFormat, eventsJsonPath } = parseArgs();
 
-  const apiKey = process.env.POSTHOG_API_KEY;
-  if (!apiKey) {
-    console.error("POSTHOG_API_KEY env var is required");
-    process.exit(1);
+  let events: EventCount[];
+  if (eventsJsonPath) {
+    // Offline / fixture-driven mode — used by the cross-check test and for
+    // reproducible golden generation. Skips PostHog entirely.
+    events = loadEventsFromFile(eventsJsonPath);
+  } else {
+    const apiKey = process.env.POSTHOG_API_KEY;
+    if (!apiKey) {
+      console.error("POSTHOG_API_KEY env var is required");
+      process.exit(1);
+    }
+
+    const projectId = process.env.POSTHOG_PROJECT_ID;
+    if (!projectId) {
+      console.error("POSTHOG_PROJECT_ID env var is required");
+      process.exit(1);
+    }
+
+    events = await queryPostHog(apiKey, projectId);
   }
 
-  const projectId = process.env.POSTHOG_PROJECT_ID;
-  if (!projectId) {
-    console.error("POSTHOG_PROJECT_ID env var is required");
-    process.exit(1);
-  }
+  const { body, hasCandidates } = computeRedirectDecommission({
+    events,
+    redirects: seoRedirects,
+    days: DAYS,
+    slackFormat,
+  });
 
-  const events = await queryPostHog(apiKey, projectId);
-  const { text, hasCandidates } = buildReport(events, slackFormat);
-
-  console.log(text);
+  console.log(body);
 
   // Exit code signals CI whether to post to Slack
   if (slackFormat && !hasCandidates) {
