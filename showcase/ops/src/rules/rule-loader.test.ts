@@ -711,6 +711,7 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
           set_drifted: false,
           set_errored: false,
           gate_skipped: false,
+          isRedTick: false,
         },
         escalated: false,
         signal: {
@@ -768,6 +769,7 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
           set_drifted: false,
           set_errored: false,
           gate_skipped: false,
+          isRedTick: false,
         },
         escalated: false,
         signal: { cancelledPreBuild: true },
@@ -821,6 +823,7 @@ describe("rule-loader + renderer: CR R19 YAML fixes", () => {
         set_drifted: false,
         set_errored: false,
         gate_skipped: false,
+        isRedTick: false,
       },
       escalated: false,
       event: { id: "e1", at: "2026-04-20T00:00:00Z", runUrl: "https://run" },
