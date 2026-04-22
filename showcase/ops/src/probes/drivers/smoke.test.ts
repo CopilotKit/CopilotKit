@@ -321,6 +321,82 @@ describe("smokeDriver", () => {
     expect(calls.length).toBe(20);
   });
 
+  it("/smoke 500 with long body truncates errorDesc at 160 chars + ellipsis", async () => {
+    const longBody = "x".repeat(500);
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 500, smokeBody: longBody, healthStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(r.state).toBe("red");
+    // Truncated tail is ellipsis (…) — operator sees the shape without
+    // dragging a 500-byte blob into the alert payload.
+    expect(r.signal.errorDesc).toMatch(/^http 500: x+…$/);
+  });
+
+  it("response body read throwing is treated as 'no extra detail'", async () => {
+    // Response whose `.text()` rejects — simulates a corrupted stream or
+    // an already-consumed body. The safeReadBody helper swallows the
+    // error and returns ""; the driver falls back to the bare `http N`
+    // errorDesc without the body suffix.
+    const brokenResponse = new Response(null, {
+      status: 502,
+      statusText: "HTTP 502",
+    });
+    // Overwrite .text() to reject.
+    Object.defineProperty(brokenResponse, "text", {
+      value: () => Promise.reject(new Error("stream borked")),
+    });
+    const fetchImpl: typeof fetch = (async () =>
+      brokenResponse) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toBe("http 502");
+  });
+
+  it("SMOKE_TIMEOUT_MS=invalid falls back to the 10s default", async () => {
+    vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 200, healthStatus: 200 }));
+    const { writer } = mkWriter();
+    const ctx: ProbeContext = {
+      now: () => new Date("2026-04-22T00:00:00Z"),
+      logger,
+      env: { SMOKE_TIMEOUT_MS: "nonsense" },
+      writer,
+    };
+    const r = await smokeDriver.run(ctx, {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(r.state).toBe("green");
+  });
+
+  it("fetch throwing a non-Error value → errorDesc is String-coerced", async () => {
+    // Modern fetch impls always throw Errors, but some transport shims
+    // (old undici branches, certain wasm polyfills) can throw strings.
+    // Ensure the coercion path still produces a readable errorDesc.
+    const fetchImpl: typeof fetch = (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-throw-literal
+      throw "weird-string-error";
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toBe("weird-string-error");
+  });
+
   it("input key without ':' falls back to whole-key as slug", async () => {
     vi.stubGlobal("fetch", fakeFetch({ smokeStatus: 200, healthStatus: 200 }));
     const { writer, writes } = mkWriter();
