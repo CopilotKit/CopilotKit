@@ -155,23 +155,15 @@ jobs:
             echo "::error::OVSX_PAT secret is not configured in the 'production' environment"
             exit 1
           fi
-          echo "::group::Open VSX token introspection"
-          response=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $OVSX_PAT" https://open-vsx.org/api/user 2>&1)
-          body=$(echo "$response" | sed '$d')
-          code=$(echo "$response" | tail -n 1)
-          echo "HTTP $code"
-          echo "$body" | jq '.' 2>/dev/null || echo "$body"
+          echo "::group::ovsx verify-pat copilotkit"
+          if npx --yes ovsx verify-pat copilotkit -p "$OVSX_PAT" 2>&1; then
+            echo "✅ Open VSX token has publish rights for namespace 'copilotkit'"
+          else
+            rc=$?
+            echo "::error::ovsx verify-pat failed (exit $rc) — token is invalid or lacks namespace access"
+            exit $rc
+          fi
           echo "::endgroup::"
-          if [ "$code" != "200" ]; then
-            echo "::error::Open VSX token invalid (HTTP $code)"
-            exit 1
-          fi
-          login=$(echo "$body" | jq -r '.loginName // .userName // empty')
-          if [ -z "$login" ]; then
-            echo "::error::Open VSX token has no associated user"
-            exit 1
-          fi
-          echo "Open VSX authenticated as: $login"
 
       - name: Publish to VS Code Marketplace
         if: inputs.dry_run != true && steps.check.outputs.published == 'false'
