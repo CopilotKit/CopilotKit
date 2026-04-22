@@ -187,6 +187,91 @@ Operators: `==`, `!=`, `<`, `<=`, `>`, `>=`, `&&`, `||`, `!`, literal strings, l
 
 Dedupe key is `alpha-sorted([rule.id, key, trigger1, trigger2, ...])` joined by `:`. A multi-target rule advances dedupe only when **all** targets succeed; a partial failure leaves the key unadvanced so the failing target retries next tick.
 
+## 1.3a Probe configs
+
+Location: `showcase/ops/config/probes/*.yml`. One YAML per probe. Loaded at startup + hot-reloaded via chokidar + SIGHUP, exactly like alert rules (`probes.reloaded` / `probes.reload.failed` emit on the bus on success/error).
+
+A probe config binds a `kind` (driver) to a `schedule` (cron) and a target shape. At each tick the scheduler calls the driver with one input per target; every driver invocation produces one `ProbeResult` which flows through `writer.write()` → `status.changed` → the alert engine. One YAML = one scheduler entry = N target invocations per tick.
+
+### Three YAML shapes
+
+Exactly one of `targets` / `discovery` / `target` is required per config. The loader's Zod schema (`ProbeConfigSchema`) enforces this — a config with zero or more than one of these three fails the load.
+
+**Static targets** — probes with a fixed, operator-authored list of endpoints. Used by `smoke` and `e2e_smoke`:
+
+```yaml
+kind: smoke
+id: smoke
+schedule: "*/15 * * * *"
+timeout_ms: 10000
+max_concurrency: 6
+targets:
+  - { key: "smoke:mastra", url: "https://showcase-mastra-production.up.railway.app/smoke" }
+  - { key: "smoke:agno",   url: "https://showcase-agno-production.up.railway.app/smoke" }
+```
+
+**Dynamic discovery** — probes that enumerate targets from an external source (Railway API, pnpm workspace, etc.). Used by `image_drift` and `version_drift`:
+
+```yaml
+kind: image_drift
+id: image-drift
+schedule: "*/15 * * * *"
+timeout_ms: 30000
+max_concurrency: 4
+discovery:
+  source: railway-services
+  filter:
+    namePrefix: "showcase-"
+  key_template: "image_drift:${name}"
+```
+
+**Single target** — report-style probes whose driver fans out internally across many entities but emits exactly one synthetic ProbeResult. Used by `pin_drift`, `redirect_decommission`, `aimock_wiring`:
+
+```yaml
+kind: pin_drift
+id: pin-drift-weekly
+schedule: "0 10 * * 1"
+target:
+  key: "pin_drift:overall"
+```
+
+### Kind → dimension mapping
+
+Every `kind` resolves to a driver registered in `src/probes/drivers/index.ts`. The driver owns the emitted ProbeResult's `key` prefix, which must match a declared `Dimension` in `src/types/index.ts` (closed enum) so the rule-YAML side can narrow cleanly.
+
+| YAML `kind`             | Driver file                                  | Emitted key prefix(es)                  | Shape      |
+| ----------------------- | -------------------------------------------- | --------------------------------------- | ---------- |
+| `smoke`                 | `drivers/smoke.ts`                           | `smoke:<slug>` **and** `health:<slug>`  | static     |
+| `e2e_smoke`             | `drivers/e2e-smoke.ts`                       | `e2e_smoke:<suite>`                     | static     |
+| `image_drift`           | `drivers/image-drift.ts`                     | `image_drift:<service>`                 | discovery  |
+| `version_drift`         | `drivers/version-drift.ts`                   | `version_drift:<pkg>`                   | discovery  |
+| `pin_drift`             | `drivers/pin-drift.ts`                       | `pin_drift:overall`                     | single     |
+| `redirect_decommission` | `drivers/redirect-decommission.ts`           | `redirect_decommission:overall`         | single     |
+| `aimock_wiring`         | `drivers/aimock-wiring.ts`                   | `aimock_wiring:global`                  | single     |
+
+The `smoke` driver is the only one that emits **two** keys per target invocation: the primary `smoke:<slug>` ProbeResult is the driver's return value (written by the invoker), and the paired `health:<slug>` ProbeResult is side-emitted through `ctx.writer.write()` before returning. One YAML static target = two writer ticks per cycle. See the JSDoc on `smokeDriver` for why the paired emission is a writer side-channel rather than an array return.
+
+### Discovery sources
+
+Registered in `src/probes/discovery/index.ts`. Closed enum — a typo in `discovery.source` fails the load with `probe-loader: <file>: discovery.source 'X' is not registered (registered: …)`.
+
+| Source              | Used by         | Reads                                                                                                                        |
+| ------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `railway-services`  | `image_drift`   | Railway GraphQL `project.services` via `RAILWAY_TOKEN` + `RAILWAY_PROJECT_ID`. Filter by `namePrefix` / `nameRegex`.         |
+| `pnpm-packages`     | `version_drift` | `pnpm-workspace.yaml` + per-package manifests via `fs`. Filter by `pathPrefix` / `nameGlob`.                                 |
+
+A new source is added by implementing the `DiscoverySource` interface (`src/probes/types.ts`), writing ≥95% unit coverage against a fake backend, and registering it in the orchestrator's discovery registry at boot alongside the existing entries.
+
+### Fan-out semantics
+
+One probe tick produces N driver invocations (N = target count, resolved at tick time for discovery configs). Each invocation is bounded independently by `timeout_ms`; concurrency across a single tick is capped at `max_concurrency` (default 1 — set it higher to overlap independent targets). Each invocation writes ≥1 `status.changed` event, and each event independently passes through the alert engine — a multi-target probe with 17 services produces 17 rule evaluations per tick, not one.
+
+`max_concurrency` is a per-tick worker pool. A tick that overruns its own schedule (e.g. 17 services × 30s timeout > 15 min cron window on `max_concurrency=1`) is skipped by Croner's overlap protection rather than queued.
+
+### Hot reload
+
+`chokidar` watches `config/probes/`. Any add / change / unlink re-runs the loader and calls `diffProbeSchedules` — removed configs are `scheduler.unregister`'d (drains in-flight handlers first); added / changed configs are re-registered (ID uses a `probe:` prefix so it never collides with rule-cron `<ruleId>:cron:<idx>` or internal IDs). A load failure emits `probes.reload.failed` on the bus without dropping the running schedule, mirroring rule-loader semantics. SIGHUP forces the same re-read path.
+
 ## 1.4 Slack webhook alias convention
 
 A rule declares `webhook: <alias>`. The Slack target resolves it by uppercasing + dash-to-underscore, then reading `SLACK_WEBHOOK_<ALIAS>` from the env.
@@ -264,9 +349,15 @@ src/
 │   ├── event-bus.ts          # TypedEventBus + BusEvents union
 │   └── transition-detector.ts # 16-cell state-machine table
 ├── probes/
-│   ├── smoke.ts, health (via smoke), e2e-smoke.ts, aimock-wiring.ts
-│   ├── image-drift.ts, pin-drift.ts, version-drift.ts
-│   ├── redirect-decommission.ts, deploy-result.ts
+│   ├── types.ts                  # ProbeDriver / DiscoverySource / registry interfaces
+│   ├── deploy-result.ts          # webhook deploy-event → ProbeResult mapper
+│   ├── smoke.ts                  # legacy smoke probe (deriveHealthUrl + SMOKE_SLACK_SAFE_FIELDS)
+│   ├── pin-drift.ts              # pinDriftProbe state-machine authority
+│   ├── aimock-wiring.ts          # aimockWiringProbe (used by driver + legacy cron resolver)
+│   ├── redirect-decommission.ts  # legacy probe + REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS
+│   ├── drivers/                  # YAML-driven ProbeDriver implementations (one per kind)
+│   ├── discovery/                # DiscoverySource implementations (railway-services, pnpm-packages)
+│   └── loader/                   # probe-loader + probe-invoker + ProbeConfigSchema
 ├── rules/
 │   ├── schema.ts             # Zod schema + TriggerEnum + DimensionEnum
 │   └── rule-loader.ts        # compile + chokidar watcher + bus emission
@@ -309,7 +400,7 @@ Needs a running PocketBase. For local iteration, either `pnpm --filter showcase-
 ## 2.4 Tests
 
 ```bash
-pnpm test                # 482 unit tests, <10s
+pnpm test                # 675 unit tests, <10s
 pnpm test:watch
 pnpm test:coverage
 pnpm test:integration    # config wired but test/integration/ empty today
@@ -351,7 +442,7 @@ There is no CI workflow that auto-builds showcase-ops. Deploys are manual until 
 
 ## 2.6 Adding things
 
-**A new probe.** Create `src/probes/<name>.ts` exporting a `Probe<Signal>`. Add your dimension to `DIMENSIONS` in `src/types/index.ts`. Wire it in `orchestrator.ts` under the scheduler registration block. If any `signal.*` field is safe to triple-brace in a template, export it as `<NAME>_SLACK_SAFE_FIELDS` and register it in the renderer's `slackSafeFields` map (orchestrator boot). Write unit tests for the probe's signal shape and edge cases.
+**A new probe.** Pick or extend a `kind` in `src/probes/drivers/`. Implement `ProbeDriver<Input, Signal>` with ≥95% test coverage. Register the driver in `orchestrator.ts` (`probeRegistry.register(...)`). Drop a `config/probes/<name>.yml` — one of `targets` / `discovery` / `target` (see §1.3a). Add the dimension to `DIMENSIONS` in `src/types/index.ts` if new. If any `signal.*` field is safe to triple-brace in a template, export it as `<NAME>_SLACK_SAFE_FIELDS` and register it in the renderer's `slackSafeFields` map (orchestrator boot). Reviewer checklist: unit tests cover success + each error branch + timeout; the discovery source (if any) has its own tests with a fake backend at ≥95% coverage; YAML validates against `ProbeConfigSchema` at load (`pnpm typecheck` + `pnpm test` cover both).
 
 **A new alert rule.** Drop a `.yml` under `config/alerts/`. Reload via SIGHUP or edit-in-place (chokidar watches). Load-time validator rejects unknown filters, unsafe triple-brace, unknown trigger names, and malformed durations — fix the load error, the service never ships a broken rule.
 
@@ -366,7 +457,7 @@ There is no CI workflow that auto-builds showcase-ops. Deploys are manual until 
 ## 2.7 Known quirks
 
 - **PocketBase 0.22 auth** — superuser auth uses `/api/admins` (pre-0.23 endpoint); a warn-once log calls this out at boot. Upgrade path: drop the legacy fallback once deployed PB is 0.23+.
-- **No integration tests** — `test/integration/` and `test/e2e/` dirs exist but are empty. Unit coverage is dense (482 tests across 27 files) but no test hits a live PB or posts a real Slack webhook end-to-end.
+- **No integration tests** — `test/integration/` and `test/e2e/` dirs exist but are empty. Unit coverage is dense (675 tests across 37 files) but no test hits a live PB or posts a real Slack webhook end-to-end.
 - **No auto-build workflow** — push to main does not produce a new `ghcr.io/copilotkit/showcase-ops:latest`; deploys are manual via §2.5.
 - **`/metrics` is unauthenticated** — intentional, gated by Railway private networking. If the service ever moves to a public mesh, add a scraper token.
 - **Bootstrap window is 15m and not env-overridable** — shift requires a code change to `AlertEngineDeps.bootstrapWindowMs`.
@@ -377,3 +468,19 @@ There is no CI workflow that auto-builds showcase-ops. Deploys are manual until 
 - `showcase/pocketbase/` — PB image + migrations. Deployed as `showcase-pocketbase` Railway service.
 - `showcase/aimock/` — fixture-based LLM mock. The aimock-wiring probe checks that every showcase package routes through it.
 - `showcase/ops/docs/rotation-drill.md` — secret rotation.
+
+## 2.9 Legacy cron workflows — where their logic lives now
+
+The four legacy GitHub Actions cron workflows (`showcase_smoke-monitor`, `showcase_drift-detection`, `showcase_drift-report`, `showcase_redirect-report`) are replaced by in-process probes driven by showcase-ops. Each legacy workflow lane maps to one YAML probe config + one driver in `src/probes/drivers/`:
+
+| Legacy workflow                            | New probe YAML                            | Driver                  | Discovery           |
+| ------------------------------------------ | ----------------------------------------- | ----------------------- | ------------------- |
+| `showcase_smoke-monitor.yml` (smoke)       | `config/probes/smoke.yml`                 | `smoke`                 | — (static list)     |
+| `showcase_smoke-monitor.yml` (image drift) | `config/probes/image-drift.yml`           | `image_drift`           | `railway-services`  |
+| `showcase_drift-detection.yml` (L1-3)      | `config/probes/e2e-smoke.yml`             | `e2e_smoke`             | —                   |
+| `showcase_drift-detection.yml` (L4 daily)  | `config/probes/e2e-smoke-daily.yml`       | `e2e_smoke`             | —                   |
+| `showcase_drift-detection.yml` (version)   | `config/probes/version-drift.yml`         | `version_drift`         | `pnpm-packages`     |
+| `showcase_drift-report.yml` (pin)          | `config/probes/pin-drift.yml`             | `pin_drift`             | —                   |
+| `showcase_redirect-report.yml`             | `config/probes/redirect-decommission.yml` | `redirect_decommission` | —                   |
+
+**Deferred**: the auto-rebuild action from `showcase_smoke-monitor.yml` (automatically rebuild+redeploy on image drift) is NOT wired in this PR. Image drift still alerts via `image-drift.yml`; operators must manually redeploy off that Slack post. A follow-up PR adds a `railway-redeploy` action kind to alert-engine's target registry so the rule itself can close the loop.
