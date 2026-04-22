@@ -61,6 +61,7 @@ jobs:
           EXT_ID="${PUBLISHER}.${PKG_NAME}"
           echo "version=${PKG_VERSION}" >> "$GITHUB_OUTPUT"
           echo "name=${PKG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "publisher=${PUBLISHER}" >> "$GITHUB_OUTPUT"
           echo "ext_id=${EXT_ID}" >> "$GITHUB_OUTPUT"
           echo "Resolved ${EXT_ID}@${PKG_VERSION}"
 
@@ -317,21 +318,28 @@ jobs:
             gh release create "${TAG}" --title "${TAG}" --verify-tag --latest --generate-notes
           fi
 
-      - name: Notify Slack
-        if: steps.check.outputs.published == 'false'
+      - name: Notify Slack (published)
+        if: steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        run: |
-          # Silently skip if the webhook secret isn't configured — Slack alerts
-          # are a nice-to-have, not a release blocker.
-          if [ -z "${SLACK_WEBHOOK:-}" ]; then
-            echo "SLACK_WEBHOOK not configured — skipping Slack notify."
-            exit 0
-          fi
-          VERSION="${{ steps.pkg.outputs.version }}"
-          TAG="vscode-extension-v${VERSION}"
-          EXT_ID="${{ steps.pkg.outputs.ext_id }}"
-          OVSX_PATH="$(echo "$EXT_ID" | tr '.' '/')"
-          curl -s -X POST "$SLACK_WEBHOOK" \
-            -H "Content-Type: application/json" \
-            -d "{\"text\":\"*copilotkit-vscode-extension v${VERSION} published*\nMarketplace: https://marketplace.visualstudio.com/items?itemName=${EXT_ID}\nOpen VSX: https://open-vsx.org/extension/${OVSX_PATH}\nRelease: https://github.com/${{ github.repository }}/releases/tag/${TAG}\"}" || true
+          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":package: *copilotkit-vscode-extension v${{ steps.pkg.outputs.version }} published*\nMarketplace: https://marketplace.visualstudio.com/items?itemName=${{ steps.pkg.outputs.ext_id }}\nOpen VSX: https://open-vsx.org/extension/${{ steps.pkg.outputs.publisher }}/${{ steps.pkg.outputs.name }}\nRelease: https://github.com/${{ github.repository }}/releases/tag/vscode-extension-v${{ steps.pkg.outputs.version }}"
+            }
+
+      - name: Notify Slack (publish failure)
+        if: failure() && steps.check.outputs.published == 'false' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
+        env:
+          SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": ":x: *copilotkit-vscode-extension v${{ steps.pkg.outputs.version }} publish failed*\nFailed job: ${{ github.job }} | vsce=${{ steps.publish_vsce.outcome }} ovsx=${{ steps.publish_ovsx.outcome }}\n<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+            }
