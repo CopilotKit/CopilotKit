@@ -41,6 +41,8 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "@copilotkit/aimock": "^1.10.0",
+    "@copilotkit/runtime": "workspace:*",
     "ignore": "^7.0.5",
     "oxc-parser": "^0.72.0",
     "rolldown": "^1.0.0-rc.15",
