@@ -2,12 +2,9 @@
 # Mirrors the user experience: uv sync + langgraph dev (same as npm run dev:agent).
 FROM python:3.12-slim
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
-    curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-ENV PATH="/root/.local/bin:$PATH"
+# Install uv by copying from the official image (avoids curl|sh pipe-swallow bug
+# where a 5xx on astral.sh silently produces an exit-0 layer with no uv binary).
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 

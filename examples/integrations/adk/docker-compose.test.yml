@@ -11,7 +11,13 @@ services:
       context: ./agent
       dockerfile: ../docker/Dockerfile.agent
     environment:
-      - GOOGLE_API_KEY=test-key-for-aimock
+      # google-genai SDK does not honor a custom endpoint the way the
+      # OpenAI / Anthropic clients do, so aimock can't intercept calls
+      # from the adk agent — the SDK hits generativelanguage.googleapis.com
+      # directly. Pass a real key via CI secret (see .github/workflows/
+      # test_smoke-starter.yml). Fall back to the placeholder for local
+      # dev runs where the local harness may provide its own stub.
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-test-key-for-aimock}
       - GOOGLE_GENAI_USE_VERTEXAI=false
     depends_on:
       aimock:

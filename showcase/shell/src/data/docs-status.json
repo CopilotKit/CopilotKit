@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-19T23:10:19.049Z",
+  "generated_at": "2026-04-21T07:26:03.921Z",
   "features": {
     "beautiful-chat": {
       "og": "missing",
@@ -73,10 +73,6 @@
       "og": "missing",
       "shell": "missing"
     },
-    "gen-ui-agent": {
-      "og": "notfound",
-      "shell": "notfound"
-    },
     "tool-rendering-default-catchall": {
       "og": "notfound",
       "shell": "notfound"
@@ -100,6 +96,10 @@
     "reasoning-default-render": {
       "og": "missing",
       "shell": "missing"
+    },
+    "gen-ui-agent": {
+      "og": "notfound",
+      "shell": "notfound"
     },
     "frontend-tools": {
       "og": "notfound",

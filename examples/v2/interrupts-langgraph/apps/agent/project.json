@@ -1,0 +1,29 @@
+{
+  "name": "agent-langgraph-interrupt",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/agent/src",
+  "projectType": "application",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm --filter agent-langgraph-interrupt dev"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p tsconfig.json --noEmit",
+        "cwd": "examples/v2/interrupts-langgraph/apps/agent"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p tsconfig.json --noEmit",
+        "cwd": "examples/v2/interrupts-langgraph/apps/agent"
+      }
+    }
+  },
+  "tags": []
+}

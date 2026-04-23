@@ -1,0 +1,12 @@
+id: unknown-action-kind
+name: "bad action kind"
+owner: "@oss"
+signal:
+  dimension: smoke
+triggers:
+  - green_to_red
+actions:
+  - kind: nuke
+    target: railway_redeploy
+template:
+  text: "x"

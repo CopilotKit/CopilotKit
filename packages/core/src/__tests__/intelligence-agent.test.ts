@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { EventType, BaseEvent, RunAgentInput } from "@ag-ui/client";
-import { Observable } from "rxjs";
-import { MockSocket, MockChannel } from "./test-utils";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { RUNTIME_MODE_INTELLIGENCE } from "@copilotkit/shared";
+import type { MockChannel } from "./test-utils";
+import { MockSocket } from "./test-utils";
 
 vi.mock("phoenix", () => ({
   Socket: MockSocket,
@@ -9,6 +12,7 @@ vi.mock("phoenix", () => ({
 
 // Must come after vi.mock so phoenix is mocked when the module is loaded.
 const { IntelligenceAgent } = await import("../intelligence-agent");
+const { ProxiedCopilotRuntimeAgent } = await import("../agent");
 type IntelligenceAgentInstance = InstanceType<typeof IntelligenceAgent>;
 
 let mockFetch: ReturnType<typeof vi.fn>;
@@ -1234,6 +1238,58 @@ describe("IntelligenceAgent", () => {
       expect(getChannel(agent)).toBeNull();
     });
 
+    it("hydrates agent state from bootstrap STATE_SNAPSHOT events through connectAgent", async () => {
+      // Reproduces the shared-state thread-resume case:
+      // on resume, the /connect bootstrap plan replays STATE_SNAPSHOT events
+      // captured during the original run. After connectAgent resolves,
+      // agent.state must reflect the final snapshot — otherwise UI that reads
+      // from agent.state (e.g. todo list) shows empty on resume.
+      const finalSnapshot = {
+        todos: [
+          { id: "1", title: "Read CopilotKit docs", status: "pending" },
+          { id: "2", title: "Build a CopilotKit prototype", status: "pending" },
+          { id: "3", title: "Explore agent state", status: "pending" },
+        ],
+      };
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          mode: "bootstrap",
+          latestEventId: "event-4",
+          events: [
+            {
+              type: EventType.RUN_STARTED,
+              threadId: "thread-1",
+              run_id: "backend-run-1",
+              input: { messages: [] },
+            },
+            // Earlier intermediate snapshot — agent.state must not be stuck here.
+            {
+              type: EventType.STATE_SNAPSHOT,
+              snapshot: {
+                todos: [
+                  { id: "1", title: "Read CopilotKit docs", status: "pending" },
+                ],
+              },
+            },
+            // Final snapshot captured before RUN_FINISHED.
+            {
+              type: EventType.STATE_SNAPSHOT,
+              snapshot: finalSnapshot,
+            },
+            { type: EventType.RUN_FINISHED },
+          ],
+        }),
+      );
+
+      const agent = createAgent();
+      setThreadIdForTest(agent, "thread-1");
+
+      await agent.connectAgent({ runId: "run-1" });
+
+      expect(agent.state).toEqual(finalSnapshot);
+    });
+
     it("does not create a socket for bootstrap-only connect plans", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse({
@@ -1525,5 +1581,59 @@ describe("IntelligenceAgent", () => {
         last_seen_event_id: null,
       });
     });
+  });
+});
+
+describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
+  // Mirrors the real demo wiring: Vite app → BFF runtime that exposes a
+  // ProxiedCopilotRuntimeAgent in intelligence mode → IntelligenceAgent delegate
+  // talking to the realtime gateway. On thread resume, the delegate's /connect
+  // bootstrap plan replays STATE_SNAPSHOT events captured during the original run;
+  // the proxy bridges delegate.state → proxy.state so useAgent re-renders.
+  it("hydrates proxy state from bootstrap STATE_SNAPSHOT events via the intelligence delegate", async () => {
+    const finalSnapshot = {
+      todos: [
+        { id: "1", title: "Read CopilotKit docs", status: "pending" },
+        { id: "2", title: "Build a CopilotKit prototype", status: "pending" },
+        { id: "3", title: "Explore agent state", status: "pending" },
+      ],
+    };
+
+    mockFetch.mockResolvedValueOnce(
+      await jsonResponse({
+        mode: "bootstrap",
+        latestEventId: "event-4",
+        events: [
+          {
+            type: EventType.RUN_STARTED,
+            threadId: "thread-1",
+            run_id: "backend-run-1",
+            input: { messages: [] },
+          },
+          {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot: {
+              todos: [
+                { id: "1", title: "Read CopilotKit docs", status: "pending" },
+              ],
+            },
+          },
+          { type: EventType.STATE_SNAPSHOT, snapshot: finalSnapshot },
+          { type: EventType.RUN_FINISHED },
+        ],
+      }),
+    );
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "http://localhost:4000/api/copilotkit",
+      agentId: "default",
+      runtimeMode: RUNTIME_MODE_INTELLIGENCE,
+      intelligence: { wsUrl: "ws://localhost:4401/client" },
+    });
+    agent.threadId = "thread-1";
+
+    await agent.connectAgent({ runId: "run-1" });
+
+    expect(agent.state).toEqual(finalSnapshot);
   });
 });

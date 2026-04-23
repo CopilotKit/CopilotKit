@@ -22,6 +22,13 @@ RUN npx tsc --outDir /app/dist --rootDir . \
 FROM node:22-slim AS runner
 WORKDIR /app
 
+# Install curl — entrypoint.sh watchdog uses it to probe the liveness endpoint.
+# node:22-slim does NOT include curl by default, so without this the probe
+# exits rc=127 "command not found" every cycle and the watchdog kill-loops
+# the agent process indefinitely.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Create unprivileged runtime user BEFORE any COPY so --chown resolves
 # by name and so recursive chown over /app is never needed (fast builds).
 RUN (groupadd --system --gid 1001 app 2>/dev/null || true) \

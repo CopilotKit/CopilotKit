@@ -66,101 +66,6 @@ function warnSilentNull(component: string, reason: string): void {
   console.warn(`[mdx-registry] <${component}> rendered nothing — ${reason}`);
 }
 
-// Validate a user-supplied URL string destined for an <iframe src>. Only
-// https:// URLs are accepted — http is too easy to mix-content-block, and
-// `javascript:` / `data:` are an XSS surface even inside a sandboxed
-// iframe (some engines still evaluate scripts in the parent for javascript:
-// schemes). Returns null when the URL is malformed or non-https, and warns
-// in dev so authors notice their embed silently vanished.
-function validateIframeSrc(
-  component: string,
-  src: string | undefined,
-): string | null {
-  if (!src) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(src);
-  } catch {
-    if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[mdx-registry] <${component}> src is not a valid URL — skipping embed.`,
-        { src },
-      );
-    }
-    return null;
-  }
-  if (parsed.protocol !== "https:") {
-    if (process.env.NODE_ENV !== "production") {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[mdx-registry] <${component}> src protocol "${parsed.protocol}" is not allowed (expected https:) — skipping embed.`,
-        { src },
-      );
-    }
-    return null;
-  }
-  return parsed.toString();
-}
-
-// Detect links that should NOT go through next/link's client-side router.
-// next/link is only meaningful for same-origin in-app navigation; using it
-// for external URLs (or non-http schemes like mailto:/tel:) either fires a
-// spurious prefetch or fails outright. Internal href forms (`/foo`, `#id`,
-// `?q=`) are safe for next/link.
-function isExternalHref(href: string): boolean {
-  if (!href) return false;
-  // Protocol-relative URLs (`//example.com/foo`) are external and must not
-  // go through next/link. Check this BEFORE the `/`-prefix internal guard.
-  if (href.startsWith("//")) return true;
-  if (href.startsWith("/") || href.startsWith("#") || href.startsWith("?"))
-    return false;
-  // Any URL with a scheme that isn't a relative path → treat as external.
-  // Covers https://..., http://..., mailto:..., tel:..., ftp:..., etc.
-  return /^[a-zA-Z][a-zA-Z0-9+\-.]*:/.test(href);
-}
-
-// Scheme allowlist for MDX-authored hrefs. `javascript:`, `data:`, `vbscript:`,
-// `file:`, and any other scheme classify as external via isExternalHref() but
-// are live XSS vectors — `rel="noopener noreferrer"` does NOT neutralize them.
-// Accept only well-known safe schemes plus relative / protocol-relative /
-// fragment / query-only URLs. Anything else → sanitizeHref() returns null and
-// callers render text instead of an <a>.
-function sanitizeHref(href: string | undefined): string | null {
-  if (!href) return null;
-  // Relative-ish forms are safe.
-  if (
-    href.startsWith("/") ||
-    href.startsWith("#") ||
-    href.startsWith("?") ||
-    href.startsWith("//")
-  ) {
-    return href;
-  }
-  const schemeMatch = href.match(/^([a-zA-Z][a-zA-Z0-9+\-.]*):/);
-  if (!schemeMatch) {
-    // No scheme → relative path. Safe.
-    return href;
-  }
-  const scheme = schemeMatch[1].toLowerCase();
-  if (
-    scheme === "http" ||
-    scheme === "https" ||
-    scheme === "mailto" ||
-    scheme === "tel"
-  ) {
-    return href;
-  }
-  if (process.env.NODE_ENV !== "production") {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[mdx-registry] rejected href with disallowed scheme "${scheme}:" — rendering without link.`,
-      { href },
-    );
-  }
-  return null;
-}
-
 export const docsComponents = {
   Callout,
   Cards,
@@ -243,22 +148,9 @@ export const docsComponents = {
     // otherwise it'd 404 on docs.showcase.copilotkit.ai which has no
     // /integrations route.
     const demoUrl = `${int.backend_url}/demos/${demo}`;
-    // Validate at the sink even though the registry is trusted today —
-    // a malformed backend_url (http://, empty, non-URL) should not silently
-    // embed. If validation fails, render a visible error placeholder so
-    // authors / operators notice rather than ship a broken/unsafe iframe.
-    const safeDemoUrl = validateIframeSrc("InlineDemo", demoUrl);
     const shellHost =
       process.env.NEXT_PUBLIC_SHELL_URL || "https://showcase.copilotkit.ai";
     const profileUrl = `${shellHost}/integrations/${integration}?demo=${demo}`;
-    if (!safeDemoUrl) {
-      return (
-        <div className="my-6 rounded-xl border border-dashed border-[var(--border)] px-4 py-3 text-xs font-mono text-[var(--text-faint)]">
-          [InlineDemo] Refusing to embed — registry entry for &quot;
-          {integration}&quot; has an invalid backend_url.
-        </div>
-      );
-    }
     return (
       <div className="my-6 rounded-xl border border-[var(--border)] overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-elevated)] border-b border-[var(--border)]">
@@ -272,20 +164,11 @@ export const docsComponents = {
             Open full demo →
           </a>
         </div>
-        {/*
-          NOTE on sandbox: we intentionally OMIT `allow-same-origin`. Per MDN,
-          combining `allow-scripts` + `allow-same-origin` lets the framed page
-          remove its own sandbox attribute — that's a sandbox escape. The
-          integration demos are served from a different origin (int.backend_url)
-          than the docs host, so they do not need same-origin semantics to
-          function (no shared cookies / storage / DOM access with the parent).
-          Keep forms + popups so the demo can still submit / open new tabs.
-        */}
         <iframe
-          src={safeDemoUrl}
+          src={demoUrl}
           className="w-full"
           style={{ height: "500px" }}
-          sandbox="allow-scripts allow-forms allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           loading="lazy"
         />
       </div>
@@ -374,47 +257,22 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  video: (props: Record<string, unknown>) => {
+  video: (props: Record<string, unknown>) => (
     // Accept user className from MDX — prior impl spread className in then
     // immediately overrode it to `undefined`, silently dropping it.
-    // Merge author-provided `style` so we preserve author keys while still
-    // enforcing our layout defaults (maxWidth etc.) last.
-    const authorStyle =
-      typeof props.style === "object" && props.style !== null
-        ? (props.style as React.CSSProperties)
-        : {};
-    return (
-      <video
-        {...props}
-        style={{
-          ...authorStyle,
-          borderRadius: "0.5rem",
-          width: "100%",
-          marginBottom: "1rem",
-        }}
-      />
-    );
-  },
-  img: (props: Record<string, unknown>) => {
-    // Accept user className from MDX (see note on `video` above). Merge
-    // author `style` before our defaults so our layout guards still win.
-    const authorStyle =
-      typeof props.style === "object" && props.style !== null
-        ? (props.style as React.CSSProperties)
-        : {};
-    return (
-      // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
-      <img
-        {...props}
-        style={{
-          ...authorStyle,
-          borderRadius: "0.5rem",
-          maxWidth: "100%",
-          marginBottom: "1rem",
-        }}
-      />
-    );
-  },
+    <video
+      {...props}
+      style={{ borderRadius: "0.5rem", width: "100%", marginBottom: "1rem" }}
+    />
+  ),
+  img: (props: Record<string, unknown>) => (
+    // Accept user className from MDX (see note on `video` above).
+    // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+    <img
+      {...props}
+      style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
+    />
+  ),
   CodeGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -454,10 +312,8 @@ export const docsComponents = {
     children?: React.ReactNode;
     src?: string;
     title?: string;
-  }) => {
-    const safeSrc = validateIframeSrc("IframeSwitcher", src);
-    if (!safeSrc) return <div>{children}</div>;
-    return (
+  }) =>
+    src ? (
       <div
         style={{
           border: "1px solid var(--border)",
@@ -466,23 +322,17 @@ export const docsComponents = {
           marginBottom: "1rem",
         }}
       >
-        {/*
-          Sandbox: drop `allow-same-origin`. Combining it with `allow-scripts`
-          lets the framed page remove its own sandbox attribute (MDN). This
-          component embeds arbitrary MDX-author-supplied URLs — it is NOT
-          trusted content — so defense-in-depth is mandatory. Keep forms +
-          popups for parity with typical embedded content (StackBlitz etc.).
-        */}
         <iframe
-          src={safeSrc}
+          src={src}
           title={title || "Embedded content"}
           style={{ width: "100%", height: "400px", border: "none" }}
-          sandbox="allow-scripts allow-forms allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
           loading="lazy"
         />
       </div>
-    );
-  },
+    ) : (
+      <div>{children}</div>
+    ),
   IframeSwitcherGroup: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
@@ -585,26 +435,8 @@ export const docsComponents = {
   ReasoningMessages: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) => {
-    // YouTube video IDs are 11 chars of [A-Za-z0-9_-]. Accept only that
-    // shape — anything else either traversal-injects query params into
-    // the embed URL or points at some non-YouTube origin.
-    if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) {
-      if (id && process.env.NODE_ENV !== "production") {
-        // eslint-disable-next-line no-console
-        console.warn(
-          "[mdx-registry] <YouTubeVideo> invalid id — skipping embed.",
-          { id },
-        );
-      }
-      return null;
-    }
-    const src = validateIframeSrc(
-      "YouTubeVideo",
-      `https://www.youtube.com/embed/${id}`,
-    );
-    if (!src) return null;
-    return (
+  YouTubeVideo: ({ id, title }: { id?: string; title?: string }) =>
+    id ? (
       <div
         style={{
           position: "relative",
@@ -612,15 +444,8 @@ export const docsComponents = {
           marginBottom: "1rem",
         }}
       >
-        {/*
-          Sandbox: drop `allow-same-origin`. YouTube is trusted content, but
-          the `allow-scripts` + `allow-same-origin` combination lets the
-          framed page escape its sandbox regardless of origin trust — pure
-          defense-in-depth loss. YouTube's embed player works without
-          same-origin access to the parent. Keep presentation + popups.
-        */}
         <iframe
-          src={src}
+          src={`https://www.youtube.com/embed/${id}`}
           title={title || "YouTube video"}
           style={{
             position: "absolute",
@@ -631,13 +456,12 @@ export const docsComponents = {
             border: "none",
             borderRadius: "0.5rem",
           }}
-          sandbox="allow-scripts allow-presentation allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups"
           loading="lazy"
           allowFullScreen
         />
       </div>
-    );
-  },
+    ) : null,
   CTACards: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -802,19 +626,11 @@ export const docsComponents = {
       style={{ borderRadius: "0.5rem", maxWidth: "100%", marginBottom: "1rem" }}
     />
   ),
-  A: ({ children, href }: { children?: React.ReactNode; href?: string }) => {
-    const safe = sanitizeHref(href);
-    if (!safe) {
-      // Strip the href entirely — rendering as text avoids the XSS vector
-      // while preserving the author's visible content.
-      return <span style={{ color: "var(--accent)" }}>{children}</span>;
-    }
-    return (
-      <a href={safe} style={{ color: "var(--accent)" }}>
-        {children}
-      </a>
-    );
-  },
+  A: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
+    <a href={href} style={{ color: "var(--accent)" }}>
+      {children}
+    </a>
+  ),
   Button: ({
     children,
     onClick,
@@ -862,43 +678,17 @@ export const docsComponents = {
     children?: React.ReactNode;
     href?: string;
     [key: string]: unknown;
-  }) => {
-    if (!href) {
-      return <a {...(rest as Record<string, unknown>)}>{children}</a>;
-    }
-    // Scheme allowlist: reject `javascript:`, `data:`, `vbscript:`, etc. These
-    // match the external-href branch (scheme with `:`) but `rel="noopener"`
-    // does NOT neutralize script-URL schemes. Strip the href entirely.
-    const safeHref = sanitizeHref(href);
-    if (!safeHref) {
-      return <span {...(rest as Record<string, unknown>)}>{children}</span>;
-    }
-    // External hrefs (https://..., mailto:..., etc.) must NOT use next/link —
-    // next/link is client-router-only and spuriously prefetches external
-    // URLs. Internal forms (`/foo`, `#id`, `?q=`) route through next/link for
-    // client-side navigation. Add rel/target on external links so they don't
-    // leak the opener reference + open in a new tab by default.
-    if (isExternalHref(safeHref)) {
-      const extraProps = rest as Record<string, unknown>;
-      // Put the spread first so caller-supplied target/rel win; fall back
-      // to safe defaults (_blank + noopener noreferrer) only when absent.
-      return (
-        <a
-          {...extraProps}
-          href={safeHref}
-          target={(extraProps.target as string) ?? "_blank"}
-          rel={(extraProps.rel as string) ?? "noopener noreferrer"}
-        >
-          {children}
-        </a>
-      );
-    }
-    return (
-      <Link href={safeHref} {...(rest as Record<string, unknown>)}>
+  }) =>
+    href ? (
+      // Route internal MDX <Link> through next/link so navigation is
+      // client-side (prior impl rendered a plain <a>, triggering a full
+      // page reload on every internal link).
+      <Link href={href} {...(rest as Record<string, unknown>)}>
         {children}
       </Link>
-    );
-  },
+    ) : (
+      <a {...(rest as Record<string, unknown>)}>{children}</a>
+    ),
   Code: ({ children }: { children?: React.ReactNode }) => (
     <code>{children}</code>
   ),
@@ -1004,11 +794,12 @@ export const docsComponents = {
   ResponsiveContainer: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  // Radix-style <Tooltip content=... label=...> props would be silently
-  // dropped by a plain children-only shim. Route through stub() so dev-mode
-  // gets a one-shot warning listing the discarded prop names.
-  Tooltip: stub("Tooltip"),
-  TooltipProvider: stub("TooltipProvider"),
+  Tooltip: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  TooltipProvider: ({ children }: { children?: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
   Markdown: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

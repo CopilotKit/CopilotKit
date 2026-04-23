@@ -1,0 +1,7 @@
+{
+  "_fixture": {
+    "description": "Synthetic timeout marker. There is no HTTP status here — the probe's AbortController fires before bytes come back. The driver distinguishes this from a generic AbortError by checking `controller.signal.aborted` and surfaces `timeout after Nms`; the marker below is what tests should assert on when they want to confirm the timeout-shaped errorDesc."
+  },
+  "simulatedBehaviour": "never-resolve",
+  "expectedErrorDesc": "timeout after 10000ms"
+}

@@ -55,7 +55,16 @@ on:
           - shell-docs
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}
+  # Key on `event_name + ref` so push events and manual workflow_dispatch
+  # runs queue INDEPENDENTLY. A previous revision keyed on ref alone and
+  # let a push-to-main (cancel-in-progress: true) kill a 38-service
+  # `service=all` manual dispatch mid-run — operator intent was lost.
+  # Splitting the group means:
+  #   - push → push:     cancel-in-progress true (latest main wins)
+  #   - dispatch → push: coexist (different groups)
+  #   - dispatch → dispatch: queue (cancel-in-progress false — let the
+  #     prior fleet rebuild finish before the next one starts)
+  group: showcase-deploy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
@@ -64,6 +73,7 @@ env:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
@@ -74,47 +84,86 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          # All filter values use list form for consistency. `shell`
+          # genuinely needs multiple paths; the others could collapse to
+          # single-line strings, but mixing styles (list vs. string)
+          # in the same filters block is easy to misread during review.
           filters: |
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
-            langgraph: 'showcase/packages/langgraph-python/**'
-            mastra: 'showcase/packages/mastra/**'
-            crewai_crews: 'showcase/packages/crewai-crews/**'
-            pydantic_ai: 'showcase/packages/pydantic-ai/**'
-            google_adk: 'showcase/packages/google-adk/**'
-            ag2: 'showcase/packages/ag2/**'
-            agno: 'showcase/packages/agno/**'
-            llamaindex: 'showcase/packages/llamaindex/**'
-            langgraph_fastapi: 'showcase/packages/langgraph-fastapi/**'
-            langgraph_typescript: 'showcase/packages/langgraph-typescript/**'
-            langroid: 'showcase/packages/langroid/**'
-            spring_ai: 'showcase/packages/spring-ai/**'
-            strands: 'showcase/packages/strands/**'
-            ms_agent_python: 'showcase/packages/ms-agent-python/**'
-            claude_sdk_typescript: 'showcase/packages/claude-sdk-typescript/**'
-            ms_agent_dotnet: 'showcase/packages/ms-agent-dotnet/**'
-            claude_sdk_python: 'showcase/packages/claude-sdk-python/**'
-            starter_ag2: 'showcase/starters/ag2/**'
-            starter_agno: 'showcase/starters/agno/**'
-            starter_claude_sdk_python: 'showcase/starters/claude-sdk-python/**'
-            starter_claude_sdk_typescript: 'showcase/starters/claude-sdk-typescript/**'
-            starter_crewai_crews: 'showcase/starters/crewai-crews/**'
-            starter_google_adk: 'showcase/starters/google-adk/**'
-            starter_langgraph_fastapi: 'showcase/starters/langgraph-fastapi/**'
-            starter_langgraph_python: 'showcase/starters/langgraph-python/**'
-            starter_langgraph_typescript: 'showcase/starters/langgraph-typescript/**'
-            starter_langroid: 'showcase/starters/langroid/**'
-            starter_llamaindex: 'showcase/starters/llamaindex/**'
-            starter_mastra: 'showcase/starters/mastra/**'
-            starter_ms_agent_dotnet: 'showcase/starters/ms-agent-dotnet/**'
-            starter_ms_agent_python: 'showcase/starters/ms-agent-python/**'
-            starter_pydantic_ai: 'showcase/starters/pydantic-ai/**'
-            starter_spring_ai: 'showcase/starters/spring-ai/**'
-            starter_strands: 'showcase/starters/strands/**'
-            aimock: 'showcase/aimock/**'
+            langgraph_python:
+              - 'showcase/packages/langgraph-python/**'
+            mastra:
+              - 'showcase/packages/mastra/**'
+            crewai_crews:
+              - 'showcase/packages/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/packages/pydantic-ai/**'
+            google_adk:
+              - 'showcase/packages/google-adk/**'
+            ag2:
+              - 'showcase/packages/ag2/**'
+            agno:
+              - 'showcase/packages/agno/**'
+            llamaindex:
+              - 'showcase/packages/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/packages/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/packages/langgraph-typescript/**'
+            langroid:
+              - 'showcase/packages/langroid/**'
+            spring_ai:
+              - 'showcase/packages/spring-ai/**'
+            strands:
+              - 'showcase/packages/strands/**'
+            ms_agent_python:
+              - 'showcase/packages/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/packages/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/packages/ms-agent-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/packages/claude-sdk-python/**'
+            starter_ag2:
+              - 'showcase/starters/ag2/**'
+            starter_agno:
+              - 'showcase/starters/agno/**'
+            starter_claude_sdk_python:
+              - 'showcase/starters/claude-sdk-python/**'
+            starter_claude_sdk_typescript:
+              - 'showcase/starters/claude-sdk-typescript/**'
+            starter_crewai_crews:
+              - 'showcase/starters/crewai-crews/**'
+            starter_google_adk:
+              - 'showcase/starters/google-adk/**'
+            starter_langgraph_fastapi:
+              - 'showcase/starters/langgraph-fastapi/**'
+            starter_langgraph_python:
+              - 'showcase/starters/langgraph-python/**'
+            starter_langgraph_typescript:
+              - 'showcase/starters/langgraph-typescript/**'
+            starter_langroid:
+              - 'showcase/starters/langroid/**'
+            starter_llamaindex:
+              - 'showcase/starters/llamaindex/**'
+            starter_mastra:
+              - 'showcase/starters/mastra/**'
+            starter_ms_agent_dotnet:
+              - 'showcase/starters/ms-agent-dotnet/**'
+            starter_ms_agent_python:
+              - 'showcase/starters/ms-agent-python/**'
+            starter_pydantic_ai:
+              - 'showcase/starters/pydantic-ai/**'
+            starter_spring_ai:
+              - 'showcase/starters/spring-ai/**'
+            starter_strands:
+              - 'showcase/starters/strands/**'
+            aimock:
+              - 'showcase/aimock/**'
             shell_dojo:
               - 'showcase/shell-dojo/**'
               - 'showcase/shared/**'
@@ -122,14 +171,8 @@ jobs:
               - 'showcase/packages/*/manifest.yaml'
             shell_dashboard:
               - 'showcase/shell-dashboard/**'
-              - 'showcase/shared/**'
-              - 'showcase/scripts/**'
-              - 'showcase/packages/*/manifest.yaml'
             shell_docs:
               - 'showcase/shell-docs/**'
-              - 'showcase/shared/**'
-              - 'showcase/scripts/**'
-              - 'showcase/packages/*/manifest.yaml'
 
       - name: Build service matrix
         id: build-matrix
@@ -143,7 +186,7 @@ jobs:
           # fix in the matrix, not runtime behavior to hide.
           ALL_SERVICES='[
             {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
-            {"dispatch_name":"langgraph-python","filter_key":"langgraph","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/packages/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/packages/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/packages/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
@@ -178,8 +221,8 @@ jobs:
             {"dispatch_name":"starter-spring-ai","filter_key":"starter_spring_ai","context":"showcase/starters/spring-ai","image":"showcase-starter-spring-ai","railway_id":"3559ece3-7ba3-41ac-b24c-1f780133ec58","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"starter-strands","filter_key":"starter_strands","context":"showcase/starters/strands","image":"showcase-starter-strands","railway_id":"06db2bb8-e15d-4c6a-97ad-e14777c92d9f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
             {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health"},
-            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
-            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","build_args_shell_url":"https://showcase.copilotkit.ai","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
             {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"}
           ]'
 
@@ -188,7 +231,11 @@ jobs:
           CHANGES="${CHANGES:-[]}"
 
           # Filter services based on three dispatch modes:
-          #   dispatch == "all": manual "deploy all" — include every service unconditionally
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally.
+          #     This re-pulls :latest for every matrix slot (~38 services); intentional for
+          #     drift-rebuild runs and full-fleet restarts. Do NOT try to short-circuit
+          #     unchanged services here — operators invoke "all" precisely when they want
+          #     the fleet re-deployed regardless of git state (cache poisoning, base-image CVE).
           #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
           #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
           #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
@@ -202,6 +249,17 @@ jobs:
             ))]
           ')
 
+          # Fail loudly on typo'd workflow_dispatch inputs. If a user types a
+          # service name that doesn't exist in ALL_SERVICES, the jq filter
+          # silently produces [] and the run shows green with zero work
+          # done — a common "did my dispatch deploy?" footgun. The `all` and
+          # empty (push-event) modes legitimately produce [] when there are
+          # no changes and must still succeed.
+          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
+            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+            exit 1
+          fi
+
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
@@ -214,21 +272,18 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (enforced via corepack).
+      # Earlier revisions hard-pinned `version: 10.13.1` which silently
+      # drifted from package.json whenever the repo bumped pnpm —
+      # resulting in lockfile-vs-engine mismatches that only surfaced on
+      # the slow `--frozen-lockfile` path.
       - uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
-  # Drift assertion — fails the workflow BEFORE the build matrix fans out
-  # if any Railway showcase service has a malformed image ref. On 2026-04-21
-  # 18 services were found with `ghcr.io/copilotkit/showcase-<slug>atest`
-  # (missing `:` before `latest`) after an out-of-band API mutation; since
-  # no committed code touched those refs, only a live-Railway assertion can
-  # catch that class of corruption. Runs unconditionally on every deploy
-  # run so a drifted env can never silently ship.
   verify-image-refs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_changes == 'true'
@@ -248,7 +303,7 @@ jobs:
     needs: [detect-changes, check-lockfile, verify-image-refs]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: depot-ubuntu-24.04-4
-    timeout-minutes: ${{ matrix.service.timeout }}
+    timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
     permissions:
       id-token: write
       contents: read
@@ -282,16 +337,6 @@ jobs:
             ARGS="COMMIT_SHA=${{ matrix.service.build_args_sha }}"
             ARGS="${ARGS}"$'\n'"BRANCH=${{ matrix.service.build_args_branch }}"
           fi
-          # shell-dashboard needs NEXT_PUBLIC_SHELL_URL at build time —
-          # Next.js inlines NEXT_PUBLIC_* during `next build`, so the
-          # Railway runtime env var alone can't rescue a bad build.
-          if [ -n "${{ matrix.service.build_args_shell_url }}" ]; then
-            if [ -n "$ARGS" ]; then
-              ARGS="${ARGS}"$'\n'"NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
-            else
-              ARGS="NEXT_PUBLIC_SHELL_URL=${{ matrix.service.build_args_shell_url }}"
-            fi
-          fi
           # Use delimiter to safely pass multiline value
           echo "args<<BUILDARGS_EOF" >> $GITHUB_OUTPUT
           echo "$ARGS" >> $GITHUB_OUTPUT
@@ -299,23 +344,24 @@ jobs:
 
       - name: Copy shared modules into build context
         run: |
+          set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
-          # Allowlist: only the framework-integration packages under
-          # showcase/packages/* consume shared_python / shared_typescript/tools.
-          # Everything else (starters, shell-family with context=".", aimock,
-          # shell-dojo) is self-contained — their Dockerfiles never reference
-          # these paths, and copying into their contexts either pollutes the
-          # repo root (context=".") or leaves stray unused dirs in the build
-          # context. Allowlist beats denylist here since the set of consumers
-          # is small, known, and grows with package additions (easy to spot).
-          if [[ "$CONTEXT" != showcase/packages/* ]]; then
-            echo "Self-contained build context ($CONTEXT) — skipping shared module copies"
+          # Starters are self-contained — skip shared module copies
+          if [[ "$CONTEXT" == showcase/starters/* ]]; then
+            echo "Starter build — skipping shared module copies"
             exit 0
           fi
+          # Idempotent copy: if a stale `shared_python`/`shared_typescript`
+          # already exists (previous failed run on the same runner, or a
+          # checkout artifact), remove it first. `cp -r src dst` into an
+          # existing directory nests source-inside-destination, which
+          # would silently produce a broken build context.
           if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_python"
             cp -r showcase/shared/python "$CONTEXT/shared_python"
           fi
           if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_typescript"
             mkdir -p "$CONTEXT/shared_typescript"
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
@@ -348,14 +394,13 @@ jobs:
         run: |
           # Capture the current deployment ID BEFORE redeploying so the verify
           # step can distinguish the fresh deployment from the prior one.
-          # Railway's `deployments` query has no explicit orderBy argument;
-          # the API's default is createdAt DESC, which is exactly what we
-          # want here (edges[0] == most recent). Confirmed against the
-          # public GraphQL schema. If Railway ever changes the default,
-          # this query needs an explicit orderBy — the `first: 1` pagination
-          # would otherwise return an arbitrary deployment and the
-          # stale-deployment guard in the verify step would break open.
-          PRIOR_RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+          # `--retry 2 --retry-all-errors --retry-delay 1` tolerates the
+          # occasional transient 5xx from Railway GraphQL without failing
+          # the deploy; `--fail-with-body` prints the HTML error body on
+          # hard failure so a reviewer can diagnose without re-running.
+          PRIOR_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
             https://backboard.railway.com/graphql/v2 2>/dev/null)
@@ -370,10 +415,29 @@ jobs:
           echo "Prior deployment ID: ${PRIOR_DEPLOY_ID:-<none>}"
           echo "prior_deploy_id=$PRIOR_DEPLOY_ID" >> "$GITHUB_OUTPUT"
 
+          # Record a cutoff AT the mutation time (no -5s subtraction).
+          # An earlier revision subtracted 5 seconds "for clock skew" — but
+          # that opened a 5s window where an externally-triggered concurrent
+          # redeploy could be mis-attributed as ours (its createdAt would
+          # legitimately exceed cutoff-5). Computing the cutoff immediately
+          # before the mutation (and after the mutation lands it's the
+          # NEW deploy's timestamp that matters) is tighter; Railway's
+          # createdAt monotonicity + serialized GraphQL ordering guarantees
+          # our fresh deployment's createdAt is >= this cutoff. Normalize
+          # to ms precision so the lex-compare in Verify handles Railway's
+          # ISO8601-with-ms format correctly.
+          REDEPLOY_CUTOFF_EPOCH=$(date -u +%s)
+          REDEPLOY_CUTOFF_ISO=$(date -u -d "@${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z" 2>/dev/null || date -u -r "${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z")
+          echo "Redeploy cutoff (ISO): $REDEPLOY_CUTOFF_ISO"
+          echo "redeploy_cutoff_iso=$REDEPLOY_CUTOFF_ISO" >> "$GITHUB_OUTPUT"
+          echo "redeploy_cutoff_epoch=$REDEPLOY_CUTOFF_EPOCH" >> "$GITHUB_OUTPUT"
+
           # All Railway services are configured to pull :latest from GHCR.
           # serviceInstanceRedeploy triggers a fresh pull of the configured image.
           # Check response body for GraphQL errors (HTTP 200 + errors is valid).
-          REDEPLOY_RESULT=$(curl -s -X POST "https://backboard.railway.com/graphql/v2" \
+          REDEPLOY_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -X POST "https://backboard.railway.com/graphql/v2" \
             -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
             -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
@@ -396,6 +460,8 @@ jobs:
           SERVICE_ID: ${{ matrix.service.railway_id }}
           ENV_ID: ${{ env.RAILWAY_ENV_ID }}
           PRIOR_DEPLOY_ID: ${{ steps.deploy.outputs.prior_deploy_id }}
+          REDEPLOY_CUTOFF_ISO: ${{ steps.deploy.outputs.redeploy_cutoff_iso }}
+          REDEPLOY_CUTOFF_EPOCH: ${{ steps.deploy.outputs.redeploy_cutoff_epoch }}
         run: |
           # Fail fast if RAILWAY_TOKEN is not set
           if [ -z "$RAILWAY_TOKEN" ]; then
@@ -403,16 +469,31 @@ jobs:
             exit 1
           fi
 
-          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>})..."
-          # 24 attempts * 15s = 360s to accommodate JVM/slow-boot services (spring-ai, mastra)
-          # Require 2 consecutive healthy polls before declaring success — catches
-          # SUCCESS-then-crash (JVM lazy init failure, Python OOM on first request).
+          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>}, cutoff: ${REDEPLOY_CUTOFF_ISO:-<none>})..."
+          # Enforce a 600s wall-clock budget rather than a fixed iteration
+          # count. Previous revision counted 40 attempts * 15s sleep and
+          # *assumed* total ≈ 600s — but each iteration also spent up to
+          # 15s on the curl (--max-time 15) plus health probes, so the
+          # actual budget could stretch past 900s in practice.
+          # Tracking START and checking elapsed per-loop makes the budget
+          # real. Previous 360s was tight for JVM services (spring-ai's
+          # lazy bean init + first HTTP serve can exceed 5 min on a cold
+          # Railway container). 600s is still bounded.
+          # Require 2 consecutive healthy polls before declaring success —
+          # catches SUCCESS-then-crash (JVM lazy init failure, Python OOM
+          # on first request).
           HEALTHY_STREAK=0
           REQUIRED_STREAK=2
-          for i in $(seq 1 24); do
-            RESULT=$(curl -s -H "Authorization: Bearer $RAILWAY_TOKEN" \
+          START=$(date +%s)
+          BUDGET=600
+          i=0
+          while [ $(($(date +%s) - START)) -lt "$BUDGET" ]; do
+            i=$((i + 1))
+            RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+              --fail-with-body \
+              -H "Authorization: Bearer $RAILWAY_TOKEN" \
               -H "Content-Type: application/json" \
-              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl } } } }\"}" \
+              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl createdAt } } } }\"}" \
               https://backboard.railway.com/graphql/v2 2>/dev/null)
 
             # Surface GraphQL errors and fail fast
@@ -430,7 +511,8 @@ jobs:
             DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
             STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
             DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
-            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN streak=$HEALTHY_STREAK"
+            CREATED_AT=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.createdAt // empty')
+            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN createdAt=$CREATED_AT streak=$HEALTHY_STREAK"
 
             # Skip stale deployments: if we see the prior deployment, the fresh
             # one hasn't appeared yet — wait without declaring success or failure.
@@ -439,6 +521,32 @@ jobs:
               HEALTHY_STREAK=0
               sleep 15
               continue
+            fi
+
+            # Secondary guard: close the race window between the prior-ID read
+            # and serviceInstanceRedeploy. If a concurrent external deploy
+            # landed a different new ID (neither PRIOR nor ours), its
+            # createdAt may predate the redeploy cutoff. Reject those so we
+            # don't mis-attribute someone else's deploy as our fresh one.
+            #
+            # Epoch-number compare (instead of lex string compare) sidesteps
+            # Railway's mixed-precision createdAt format: the API returns
+            # `2006-01-02T15:04:05.123Z` (ms precision) while a lex cutoff
+            # in `2006-01-02T15:04:05Z` (second precision) sorted the fresh
+            # deploy as OLDER because ASCII `.` < `Z`. Converting both
+            # sides to epoch seconds eliminates the format-sensitivity.
+            if [ -n "${REDEPLOY_CUTOFF_EPOCH:-}" ] && [ -n "$CREATED_AT" ]; then
+              # Strip fractional seconds + Z for cross-platform `date -d`.
+              CREATED_AT_SANE=$(printf '%s' "$CREATED_AT" | sed -E 's/\.[0-9]+Z$/Z/')
+              CREATED_EPOCH=$(date -u -d "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || date -u -jf "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || echo 0)
+              if [ "$CREATED_EPOCH" -gt 0 ] && [ "$CREATED_EPOCH" -lt "$REDEPLOY_CUTOFF_EPOCH" ]; then
+                echo "  (latest deploy createdAt $CREATED_AT predates cutoff $REDEPLOY_CUTOFF_ISO — waiting for our deploy)"
+                HEALTHY_STREAK=0
+                sleep 15
+                continue
+              fi
             fi
 
             # Fail on any terminal failure status. Railway's DeploymentStatus enum
@@ -450,7 +558,11 @@ jobs:
                 ;;
             esac
 
-            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ] && [ "$DOMAIN" != "null" ]; then
+            # `DOMAIN` is empty string on missing edge (jq `// empty`), so a
+            # `-n` check is sufficient. The prior `!= "null"` guard was dead
+            # — jq `// empty` already resolves JSON null to "", never to the
+            # literal string "null".
+            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ]; then
               # Probe the service-specific health_path. Hit a real endpoint
               # rather than root: many services are API-only backends that 404
               # at /, so a 404 at root can't distinguish "dead" from
@@ -472,17 +584,76 @@ jobs:
               # 3 times within this iteration before treating it as a genuine
               # non-200; legitimate failures still fail because all 3 tries
               # must return non-200.
+              HTTP_CODE="000"
+              RETRY_AFTER=""
               for probe_try in 1 2 3; do
-                HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                RESP_HEADERS=$(mktemp)
+                HTTP_CODE=$(curl -s -o /dev/null -D "$RESP_HEADERS" -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                # Capture Retry-After so 429/503 waits respect the server hint
+                # instead of hammering every 2s. Header case-insensitive grep.
+                RETRY_AFTER=$(awk 'BEGIN{IGNORECASE=1} /^Retry-After:/ {sub(/\r$/,""); print $2; exit}' "$RESP_HEADERS" 2>/dev/null || echo "")
+                rm -f "$RESP_HEADERS"
                 if [ "$HTTP_CODE" = "200" ]; then
                   break
                 fi
                 if [ "$probe_try" -lt 3 ]; then
                   echo "HTTP check: $HEALTH_URL → $HTTP_CODE (retry $probe_try/3)"
-                  sleep 2
+                  # Honor Retry-After. RFC 7231 allows either a
+                  # delta-seconds integer OR an HTTP-date. Railway's
+                  # upstreams have been observed emitting both, so we
+                  # parse both forms; unknown/unparseable falls through
+                  # to the 2s default.
+                  RETRY_SECONDS=""
+                  if [ -n "$RETRY_AFTER" ]; then
+                    if printf '%s' "$RETRY_AFTER" | grep -Eq '^[0-9]+$'; then
+                      RETRY_SECONDS="$RETRY_AFTER"
+                    else
+                      # HTTP-date form: `Wed, 21 Oct 2015 07:28:00 GMT`.
+                      # GNU date on the runner parses this directly; BSD
+                      # date (macOS CI fallback) has a different flag set
+                      # — `|| true` ensures neither path aborts the probe
+                      # loop if the header is garbled.
+                      HD_EPOCH=$(date -u -d "$RETRY_AFTER" +%s 2>/dev/null || echo "")
+                      if [ -n "$HD_EPOCH" ]; then
+                        NOW_EPOCH=$(date -u +%s)
+                        DELTA=$((HD_EPOCH - NOW_EPOCH))
+                        if [ "$DELTA" -gt 0 ]; then
+                          RETRY_SECONDS="$DELTA"
+                        fi
+                      fi
+                    fi
+                    # If the header was present but neither decimal-seconds
+                    # nor HTTP-date parsed, surface a warning so operators
+                    # can spot misformatted Retry-After headers instead of
+                    # silently burning retry budget at 2s/try.
+                    if [ -z "$RETRY_SECONDS" ]; then
+                      echo "::warning::Unparseable Retry-After header '$RETRY_AFTER' from $HEALTH_URL — falling back to 2s"
+                    fi
+                  fi
+                  # Clamp to [1, 30]: upper cap keeps a broken Retry-After from
+                  # blowing the 600s budget; lower clamp ensures `Retry-After: 0`
+                  # still yields at least one tick of backoff rather than a busy
+                  # loop of same-second retries.
+                  if [ -n "$RETRY_SECONDS" ]; then
+                    if [ "$RETRY_SECONDS" -lt 1 ]; then RETRY_SECONDS=1; fi
+                    if [ "$RETRY_SECONDS" -gt 30 ]; then RETRY_SECONDS=30; fi
+                    sleep "$RETRY_SECONDS"
+                  else
+                    sleep 2
+                  fi
                 fi
               done
               echo "HTTP check: $HEALTH_URL → $HTTP_CODE"
+              # Fail fast on permanent client errors. 404 (wrong health_path),
+              # 410 (endpoint decommissioned), 501 (method not implemented)
+              # will never recover — retrying for 10 min wastes the job budget
+              # and hides misconfiguration behind "did not become healthy".
+              case "$HTTP_CODE" in
+                404|410|501)
+                  echo "::error::Service ${{ matrix.service.dispatch_name }} health endpoint returned $HTTP_CODE at $HEALTH_URL — check health_path in ALL_SERVICES or confirm the service still serves that route"
+                  exit 1
+                  ;;
+              esac
               if [ "$HTTP_CODE" = "200" ]; then
                 HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
                 if [ "$HEALTHY_STREAK" -ge "$REQUIRED_STREAK" ]; then
@@ -500,389 +671,239 @@ jobs:
 
             sleep 15
           done
-          echo "::error::Service ${{ matrix.service.dispatch_name }} did not become healthy within 360s"
+          echo "::error::Service ${{ matrix.service.dispatch_name }} did not become healthy within 600s"
           # Fail the job so Slack alerts fire — silent deploy failures
           # should never report green. Railway is on the Pro tier and does
           # not sleep on idle, so a persistent timeout is a real failure.
           exit 1
 
-  notify:
+  notify-ops:
     needs: [detect-changes, check-lockfile, verify-image-refs, build]
     if: always()
     permissions:
       contents: read
       actions: read
     runs-on: ubuntu-latest
-    timeout-minutes: 2
-    env:
-      # Hoisted to job level so the step-level `if:` on "Post to Slack" can
-      # reference `env.SLACK_WEBHOOK_OSS_ALERTS`. Step-level `env:` mappings
-      # are NOT visible to the same step's `if:` — only workflow-level and
-      # job-level env are. Previously defined only at step level, which made
-      # the gate always evaluate false and silently disabled Slack posts.
-      SLACK_WEBHOOK_OSS_ALERTS: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
+    # 3 attempts * (30s curl + up to 10s backoff) is ~130s in the worst case,
+    # plus payload assembly. 2 minutes leaves no headroom and truncated the
+    # final retry under load; bumping to 3 gives a clean budget.
+    timeout-minutes: 3
     steps:
-      - name: Build deploy summary
-        id: summary
-        if: needs.detect-changes.result == 'success' && needs.detect-changes.outputs.has_changes == 'true'
-        run: |
-          MATRIX='${{ needs.detect-changes.outputs.matrix }}'
-          SERVICES=$(echo "$MATRIX" | jq -r '[.[].dispatch_name] | join(", ")')
-          COUNT=$(echo "$MATRIX" | jq 'length')
-          echo "services=$SERVICES" >> $GITHUB_OUTPUT
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
-
-      # Restore previous run's pass/fail status from cache so we can emit
-      # a red→green transition alert on recovery. Mirrors the per-service
-      # transition pattern in showcase_smoke-monitor.yml. The restore-keys
-      # prefix gives us the most recently saved state regardless of which
-      # run_id wrote it. Cache TTL is ~7 days, which is fine — deploys run
-      # more frequently than that.
-      - name: Restore deploy state from cache
-        id: cache-restore
-        uses: actions/cache/restore@v4
-        with:
-          path: showcase-deploy-state.json
-          key: showcase-deploy-state-impossible-match
-          restore-keys: |
-            showcase-deploy-state-
-
-      - name: Initialize state if missing
-        run: |
-          # First-ever run (or cache eviction): assume "ok" so we don't
-          # emit a false recovery alert on the first green run after
-          # deploying this workflow change.
-          if [ ! -f showcase-deploy-state.json ]; then
-            echo '{"lastStatus":"ok","lastFailureAt":""}' > showcase-deploy-state.json
-          fi
-
-      - name: Compute per-leg build results
-        id: legs
-        if: always() && needs.build.result == 'failure'
+      - name: Compute deploy-result payload
+        id: payload
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          LOCKFILE_RESULT: ${{ needs.check-lockfile.result }}
+          VERIFY_RESULT: ${{ needs.verify-image-refs.result }}
+          DETECT_RESULT: ${{ needs.detect-changes.result }}
+          DETECT_HAS_CHANGES: ${{ needs.detect-changes.outputs.has_changes }}
+          DETECT_MATRIX: ${{ needs.detect-changes.outputs.matrix }}
           RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # The build job is a matrix with fail-fast: false, so
-          # `needs.build.result == 'failure'` can mean "ALL legs failed" or
-          # "one leg failed and N others succeeded". Without per-leg detail
-          # the notify step would say "FAILED — N service(s) targeted",
-          # falsely implying every leg failed when only one did.
+          set -euo pipefail
+          # Only short-circuit on the genuine "nothing to deploy" case: detect
+          # ran successfully AND reported no changed services. A detect-changes
+          # failure must fall through so the GATE_REASON="detect-changes-<result>"
+          # branch below can fire an alert — previously this was the explicit
+          # intent (see the comment on "upstream gate, also not our fault") but
+          # the compound guard swallowed the failure path entirely, making the
+          # detect-changes-failure branch unreachable dead code.
+          if [ "${DETECT_RESULT}" = "success" ] && [ "${DETECT_HAS_CHANGES}" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # DETECT_MATRIX is empty or malformed when detect-changes failed or
+          # was cancelled. Fall back to an empty array so `jq` doesn't error
+          # out and kill the whole notify-ops step — the gate-reason branch
+          # below still fires the alert with an empty services list.
+          SERVICES=$(echo "$DETECT_MATRIX" | jq -c '[.[].dispatch_name]' 2>/dev/null || echo '[]')
+          SERVICES=${SERVICES:-'[]'}
+          # Disambiguate skipped-because-gated from ran-and-failed-everything.
+          # `needs.build.result == "skipped"` can arise from THREE distinct
+          # causes — reporting every service as failed in any of them is a
+          # false positive and spams #oss-alerts with bogus "all services
+          # failed" messages. The previous single-condition check
+          # (LOCKFILE_RESULT != success) conflated:
+          #   - lockfile actually failed (gated intentionally)
+          #   - lockfile cancelled (external cancel, not our concern)
+          #   - detect-changes failed (upstream gate, also not our fault)
+          # Split into explicit branches so each case is identifiable.
+          GATE_SKIPPED=false
+          GATE_REASON=""
+          if [ "${BUILD_RESULT}" = "skipped" ]; then
+            if [ "${LOCKFILE_RESULT}" = "failure" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-failed"
+            elif [ "${LOCKFILE_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-cancelled"
+            elif [ "${VERIFY_RESULT}" = "failure" ]; then
+              # Pre-build drift assertion fired — Railway image refs don't
+              # match expected shape. showcase-ops renders a distinct alert
+              # rather than a generic deploy failure. Check the run log for
+              # the per-service violation list.
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-failed"
+            elif [ "${VERIFY_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-cancelled"
+            elif [ "${DETECT_RESULT}" != "success" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="detect-changes-${DETECT_RESULT}"
+            fi
+          fi
+          # HF13-E3: per-matrix-leg partition via `gh api`.
           #
-          # Query the Actions API to list every `build (<leg>)` job in this
-          # run and bucket by conclusion. Best-effort: if the API lookup
-          # fails (auth, transient 5xx), the notify step falls back to the
-          # softer "1+ of N failed" wording which doesn't lie either way.
-          set +e
-          jobs_json=$(gh api "/repos/${GH_REPO}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null)
-          rc=$?
-          set -e
-          if [ "$rc" -ne 0 ] || [ -z "$jobs_json" ]; then
-            echo "::warning::Could not fetch per-leg job results (rc=$rc); notify will use softer wording"
-            echo "have_detail=false" >> "$GITHUB_OUTPUT"
-            exit 0
+          # The aggregate `needs.build.result` CANNOT be used to partition
+          # failed-vs-succeeded services when the build matrix has
+          # `fail-fast: false`. `needs.build.result == "failure"` means "at
+          # least one leg failed" — it does NOT mean "all legs failed".
+          # Previously we set `FAILED="$SERVICES"` on aggregate-failure,
+          # marking every successful leg as failed and rendering the
+          # signal.partial branch in deploy-result.yml unreachable. Query
+          # the per-job conclusions directly and partition by matching job
+          # name against each service's dispatch_name.
+          if [ "${BUILD_RESULT}" = "cancelled" ]; then
+            FAILED='[]'
+            SUCCEEDED='[]'
+            CANCELLED=true
+          elif [ "$GATE_SKIPPED" = "true" ]; then
+            # Build matrix never ran. Send an empty failed/succeeded pair plus
+            # a `gateSkipped: true` discriminator so showcase-ops can render
+            # a "blocked by lockfile gate" alert instead of a deploy failure.
+            FAILED='[]'
+            SUCCEEDED='[]'
+            CANCELLED=false
+          elif [ "${BUILD_RESULT}" = "success" ]; then
+            # Fast-path: aggregate success means every leg succeeded — no
+            # need to round-trip through the API just to re-derive the same
+            # answer. Keeps notify-ops within its retry budget on the happy
+            # path where most runs land.
+            FAILED='[]'
+            SUCCEEDED="$SERVICES"
+            CANCELLED=false
+          else
+            # Partial / all-failed / unknown aggregate: ask the Actions API
+            # for per-leg conclusions. `--paginate` handles large matrices
+            # (>30 jobs per page); filter to build-matrix legs by name
+            # prefix. GitHub renders matrix job names as
+            # "build (<dispatch_name>, <context>, <image>, ...)" — the
+            # dispatch_name is the first serialized matrix-object field.
+            # We match with a token-bounded prefix ("build (<svc>,") rather
+            # than substring contains() to avoid service/starter collisions
+            # (e.g. `agno` would otherwise match `build (starter-agno,...)`,
+            # same for `ag2`/`starter-ag2`, `mastra`/`starter-mastra`, and
+            # every langgraph-*/starter-langgraph-* pair).
+            JOBS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
+              | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
+            BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]' 2>/dev/null || echo '[]')
+            FAILED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
+                | select(.conclusion == "failure")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo "$SERVICES")
+            # SUCCEEDED = services with at least one job whose conclusion
+            # is "success". Matrix legs that were cancelled/skipped by the
+            # platform land in neither bucket — surfaced implicitly as
+            # `totalCount - failedCount - succeededCount` on the receiver.
+            SUCCEEDED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
+                | select(.conclusion == "success")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo '[]')
+            # Defensive fallback: if the API query failed and FAILED is an
+            # empty array while the aggregate says failure, fall back to
+            # marking all services failed rather than silently reporting
+            # "everything green on a failed run".
+            FAILED_LEN=$(echo "$FAILED" | jq 'length' 2>/dev/null || echo 0)
+            SUCCEEDED_LEN=$(echo "$SUCCEEDED" | jq 'length' 2>/dev/null || echo 0)
+            if [ "$FAILED_LEN" = "0" ] && [ "$SUCCEEDED_LEN" = "0" ]; then
+              echo "::warning::gh api job-partition query returned no matches; falling back to aggregate-failure"
+              FAILED="$SERVICES"
+              SUCCEEDED='[]'
+            fi
+            CANCELLED=false
           fi
-
-          # Matrix legs are named "build (<leg-name>)" by default. We extract
-          # the leg name from parentheses; anything that doesn't match is
-          # ignored. jq -r emits one SLUG<TAB>CONCLUSION pair per line so
-          # we can bucket in shell without re-parsing JSON.
-          # Single-pass pipeline: iterate .jobs directly and emit on the
-          # matching branch — avoids the map-then-flatten indirection that
-          # made the previous version harder to read.
-          pairs=$(printf '%s' "$jobs_json" | jq -r '
-            .jobs[]?
-            | select(.name | test("^build \\(.+\\)$"))
-            | "\(.name | capture("^build \\((?<s>.+)\\)$").s)\t\(.conclusion // "unknown")"
-          ')
-          if [ -z "$pairs" ]; then
-            echo "::warning::No matrix-leg jobs found in run; notify will use softer wording"
-            echo "have_detail=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          succeeded=""
-          failed=""
-          while IFS=$'\t' read -r slug conclusion; do
-            [ -z "$slug" ] && continue
-            case "$conclusion" in
-              success) succeeded="$succeeded $slug" ;;
-              failure|cancelled|timed_out) failed="$failed $slug" ;;
-              *) ;;  # skipped/neutral/unknown — exclude from both lists
-            esac
-          done <<< "$pairs"
-
-          succeeded=$(echo "$succeeded" | xargs)
-          failed=$(echo "$failed" | xargs)
-          succeeded_count=$(echo "$succeeded" | wc -w | xargs)
-          failed_count=$(echo "$failed" | wc -w | xargs)
-
-          # Cap list length for Slack readability (same 200-char cap as
-          # services_list in the payload step). `cut -c1-200` used to
-          # truncate mid-slug, producing garbage like `starter-claude-sdk-pyth`;
-          # drop whole comma-separated entries instead and append a single
-          # ellipsis so truncation is legible to humans. Keeps the 200-char
-          # budget so Slack single-line formatting still fits.
-          truncate_csv() {
-            local budget=$1 input=$2 out="" item proposed
-            # Split on whitespace (entries come from shell word-split),
-            # then render as comma-separated. Disable globbing inside the
-            # loop so a slug containing a shell glob character (*, ?, [)
-            # can't expand against the filesystem — defense in depth even
-            # though our current slug set is controlled via the matrix.
-            local _old_glob
-            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
-            set -f
-            # Use explicit IFS so whitespace tokenisation is predictable
-            # regardless of the caller's environment.
-            local _old_ifs="$IFS"
-            IFS=$' \t\n'
-            for item in $input; do
-              if [ -z "$out" ]; then
-                proposed="$item"
-              else
-                proposed="$out, $item"
-              fi
-              if [ ${#proposed} -le "$budget" ]; then
-                out="$proposed"
-              else
-                if [ -z "$out" ]; then
-                  # First item already exceeds the budget — fall back to
-                  # a hard cut so we at least emit something.
-                  out=$(printf '%s' "$item" | cut -c1-"$budget")
-                else
-                  out="$out, …"
-                fi
-                break
-              fi
-            done
-            IFS="$_old_ifs"
-            [ "$_old_glob" = 0 ] && set +f
-            printf '%s' "$out"
-          }
-          succeeded_list=$(truncate_csv 200 "$succeeded")
-          failed_list=$(truncate_csv 200 "$failed")
-
+          PAYLOAD=$(jq -cn \
+            --arg runId "$RUN_ID" \
+            --arg runUrl "$RUN_URL" \
+            --arg gateReason "$GATE_REASON" \
+            --argjson services "$SERVICES" \
+            --argjson failed "$FAILED" \
+            --argjson succeeded "$SUCCEEDED" \
+            --argjson cancelled "$CANCELLED" \
+            --argjson gateSkipped "$GATE_SKIPPED" \
+            '{runId:$runId,runUrl:$runUrl,services:$services,failed:$failed,succeeded:$succeeded,cancelled:$cancelled,gateSkipped:$gateSkipped,gateReason:$gateReason}')
+          echo "skip=false" >> "$GITHUB_OUTPUT"
           {
-            echo "have_detail=true"
-            echo "succeeded_count=$succeeded_count"
-            echo "failed_count=$failed_count"
-            echo "succeeded_list=$succeeded_list"
-            echo "failed_list=$failed_list"
+            echo "payload<<EOF_PAYLOAD"
+            echo "$PAYLOAD"
+            echo "EOF_PAYLOAD"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Build Slack payload
-        id: payload
-        if: always()
+      - name: POST deploy result to showcase-ops
+        if: steps.payload.outputs.skip != 'true'
+        env:
+          SHOWCASE_OPS_URL: ${{ secrets.SHOWCASE_OPS_URL }}
+          SHARED_SECRET: ${{ secrets.SHOWCASE_OPS_SHARED_SECRET }}
+          PAYLOAD: ${{ steps.payload.outputs.payload }}
         run: |
-          URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          DETECT="${{ needs.detect-changes.result }}"
-          LOCKFILE="${{ needs.check-lockfile.result }}"
-          VERIFY="${{ needs.verify-image-refs.result }}"
-          BUILD="${{ needs.build.result }}"
-          COUNT="${{ steps.summary.outputs.count }}"
-          NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          # Read previous run's status (restored from cache). Mirrors the
-          # smoke-monitor transition pattern: on red→green we post a
-          # recovery message; green→green stays silent.
-          PREV_STATUS=$(jq -r '.lastStatus // "ok"' showcase-deploy-state.json)
-          PREV_FAILURE_AT=$(jq -r '.lastFailureAt // ""' showcase-deploy-state.json)
-
-          # See truncate_csv in steps.legs for the truncation contract —
-          # drop whole entries, not mid-slug characters, then append `…`
-          # if the list exceeds the budget. Duplicate the helper inline
-          # because YAML run blocks don't share shell functions.
-          truncate_csv() {
-            local budget=$1 input=$2 out="" item proposed ws
-            # Input is comma-separated (jq join(", ")) — normalise to
-            # space separation for the shell word-split below.
-            ws="${input//,/ }"
-            # Disable globbing while iterating so an (unexpected) glob
-            # char in a slug can't expand against the filesystem; restore
-            # the prior setting on the way out. Also lock IFS to
-            # whitespace for deterministic word-splitting regardless of
-            # caller environment.
-            local _old_glob
-            case "$-" in *f*) _old_glob=1 ;; *) _old_glob=0 ;; esac
-            set -f
-            local _old_ifs="$IFS"
-            IFS=$' \t\n'
-            for item in $ws; do
-              if [ -z "$out" ]; then
-                proposed="$item"
-              else
-                proposed="$out, $item"
-              fi
-              if [ ${#proposed} -le "$budget" ]; then
-                out="$proposed"
-              else
-                if [ -z "$out" ]; then
-                  out=$(printf '%s' "$item" | cut -c1-"$budget")
-                else
-                  out="$out, …"
-                fi
-                break
-              fi
-            done
-            IFS="$_old_ifs"
-            [ "$_old_glob" = 0 ] && set +f
-            printf '%s' "$out"
-          }
-          SERVICES=$(truncate_csv 200 "${{ steps.summary.outputs.services }}")
-
-          # Classify the run outcome into one of:
-          #   failure  → update state→failure, post red alert
-          #   success  → update state→ok, post recovery iff PREV_STATUS=failure
-          #   skip     → no state change, no post (indeterminate)
-          OUTCOME=""
-          MSG=""
-
-          # Cancellations can come from concurrency group supersession (rapid
-          # pushes), manual cancel via the UI, or an upstream-failure cascade.
-          # We handle pre-build and mid-build cancellations differently:
-          #
-          # Pre-build stages (detect-changes, check-lockfile): no build work
-          # has happened yet. Safe to stay silent — any newer run (or the
-          # manual re-trigger) will redo all work from scratch. Don't touch
-          # state either way — indeterminate outcome.
-          if [ "$DETECT" = "cancelled" ] || [ "$LOCKFILE" = "cancelled" ] || [ "$VERIFY" = "cancelled" ]; then
-            echo "Pre-build stage cancelled — newer run will redo all work, skipping Slack notification"
-            echo "should_post=false" >> "$GITHUB_OUTPUT"
-            echo "update_state=false" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [ -z "${SHOWCASE_OPS_URL:-}" ] || [ -z "${SHARED_SECRET:-}" ]; then
+            echo "::warning::SHOWCASE_OPS_URL or SHOWCASE_OPS_SHARED_SECRET not set; skipping webhook"
             exit 0
           fi
-
-          # Mid-build cancellation: the build job is a matrix over many
-          # services with fail-fast: false. If ANY leg was cancelled while
-          # OTHERS completed, the aggregate rolls up to 'cancelled'. Silently
-          # skipping would hide those already-run legs. Additionally, a newer
-          # push's detect-changes is path-scoped and may not target the same
-          # services, so the cancelled leg may never be re-verified. Post a
-          # distinct muted message so humans can spot the anomaly instead of
-          # assuming green. Don't touch state — indeterminate outcome.
-          if [ "$BUILD" = "cancelled" ]; then
-            MSG=":information_source: *Showcase deploy*: cancelled mid-matrix — newer run (or manual retrigger) continuing; inspect if issues persist"
-            jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
-            echo "should_post=true" >> "$GITHUB_OUTPUT"
-            echo "update_state=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # Classify the terminal outcome.
-          if [ "$VERIFY" = "failure" ]; then
-            # Drift assertion fired — one or more Railway services have a
-            # malformed image ref. This is actionable: check the run log
-            # for the per-service violation list (service name, current
-            # image, expected shape).
-            OUTCOME="failure"
-            MSG=":x: *Showcase deploy*: FAILED — Railway image-ref drift detected (inspect run log for affected services)"
-          elif [ "$DETECT" = "failure" ] || [ "$LOCKFILE" = "failure" ]; then
-            OUTCOME="failure"
-            MSG=":x: *Showcase deploy*: FAILED (pre-build check)"
-          elif [ "$BUILD" = "success" ]; then
-            OUTCOME="success"
-          elif [ "$BUILD" = "skipped" ] && [ "$DETECT" = "success" ]; then
-            # No service changes matched the paths filter — run proved
-            # nothing either way. Don't flip state.
-            OUTCOME="skip"
-          elif [ "$BUILD" = "failure" ]; then
-            # Build failed. Distinguish full failure (every leg failed) from
-            # partial failure (some legs passed, some failed). The previous
-            # wording said "FAILED — N service(s) targeted" which implied
-            # ALL N services failed when in fact only a subset did. Use the
-            # per-leg detail from steps.legs when available; fall back to a
-            # softer "1+ of N failed" phrasing if the API lookup didn't
-            # return detail (see the "Compute per-leg build results" step).
-            OUTCOME="failure"
-            HAVE_DETAIL="${{ steps.legs.outputs.have_detail }}"
-            FAILED_COUNT="${{ steps.legs.outputs.failed_count }}"
-            SUCCEEDED_COUNT="${{ steps.legs.outputs.succeeded_count }}"
-            FAILED_LIST="${{ steps.legs.outputs.failed_list }}"
-            SUCCEEDED_LIST="${{ steps.legs.outputs.succeeded_list }}"
-            if [ "$HAVE_DETAIL" = "true" ] && [ -n "$FAILED_COUNT" ] && [ "$FAILED_COUNT" -gt 0 ]; then
-              if [ -n "$SUCCEEDED_COUNT" ] && [ "$SUCCEEDED_COUNT" -gt 0 ]; then
-                # Partial failure — some legs passed, some failed.
-                MSG=":x: *Showcase deploy*: ${FAILED_COUNT}/${COUNT} service(s) failed (${FAILED_LIST}) — ${SUCCEEDED_LIST} ok"
-              else
-                # All legs failed.
-                MSG=":x: *Showcase deploy*: FAILED — ${COUNT} service(s) targeted (${SERVICES})"
-              fi
-            else
-              # Softer fallback when per-leg detail isn't available — avoids
-              # the lie that "N of N failed" when we don't actually know.
-              MSG=":x: *Showcase deploy*: 1+ of ${COUNT} service(s) failed (${SERVICES} targeted)"
+          TS=$(date +%s)
+          METHOD="POST"
+          WEBHOOK_PATH="/webhooks/deploy"
+          BODY_SHA=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hex | awk '{print $2}')
+          CANONICAL="${METHOD}|${WEBHOOK_PATH}|${TS}|${BODY_SHA}"
+          SIG=$(printf '%s' "$CANONICAL" | openssl dgst -sha256 -hmac "$SHARED_SECRET" -hex | awk '{print $2}')
+          # Bounded retry loop. curl's `--retry` alone is insufficient here:
+          # it only retries on transient transport failures, not on the 502/503/
+          # 504 responses Railway occasionally emits while a new showcase-ops
+          # deploy is coming up. We want retry on both transport + 5xx, with
+          # backoff, and a hard fail if the service is really down.
+          HTTP_CODE="000"
+          ATTEMPT=0
+          MAX_ATTEMPTS=3
+          while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            # `--retry-all-errors` covers DNS/TLS/connect-reset failures that
+            # plain `--retry` skips (`--retry` only retries on 5xx + transient
+            # transport). 2 in-curl retries give us a short fast-path against
+            # a flapping resolver without blowing the 30s per-attempt budget;
+            # the outer loop still handles persistent 5xx.
+            HTTP_CODE=$(curl -sS -o /tmp/body -w '%{http_code}' \
+              --connect-timeout 10 --max-time 30 \
+              --retry 2 --retry-all-errors --retry-delay 1 \
+              -X POST "${SHOWCASE_OPS_URL%/}${WEBHOOK_PATH}" \
+              -H 'content-type: application/json' \
+              -H "X-Ops-Timestamp: ${TS}" \
+              -H "X-Ops-Signature: sha256=${SIG}" \
+              --data-raw "$PAYLOAD" || echo "000")
+            echo "webhook attempt ${ATTEMPT}/${MAX_ATTEMPTS}: ${HTTP_CODE}"
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+              cat /tmp/body || true
+              exit 0
             fi
-          else
-            # BUILD is empty/unknown + no other signal — no-op.
-            OUTCOME="skip"
-          fi
-
-          # Policy: #oss-alerts should only surface actionable state —
-          # failures and red→green transitions. green→green is silent
-          # (suppresses per-run success noise, especially during bulk drift
-          # rebuilds which fan out one showcase_deploy.yml run per service
-          # up to ~18). The top-line ":package: Image drift detected — N
-          # rebuilds triggered" posted by showcase_smoke-monitor.yml is the
-          # aggregate success signal for bulk rebuilds; ad-hoc single-service
-          # pushes/dispatches stay quiet on success.
-          case "$OUTCOME" in
-            failure)
-              jq -n --arg text "$MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
-              echo "should_post=true" >> "$GITHUB_OUTPUT"
-              echo "update_state=true" >> "$GITHUB_OUTPUT"
-              echo "new_status=failure" >> "$GITHUB_OUTPUT"
-              echo "new_failure_at=$NOW" >> "$GITHUB_OUTPUT"
-              ;;
-            success)
-              if [ "$PREV_STATUS" = "failure" ]; then
-                # Red→green transition — emit recovery. Wording mirrors
-                # the smoke-monitor per-service format.
-                RECOVERY_MSG=":white_check_mark: *Showcase deploy*: recovered (was down since ${PREV_FAILURE_AT})"
-                jq -n --arg text "$RECOVERY_MSG | <$URL|View run>" '{text: $text}' > /tmp/slack-payload.json
-                echo "should_post=true" >> "$GITHUB_OUTPUT"
-              else
-                echo "Build succeeded (green→green) — suppressing per-run success notification (policy: actionable-only)"
-                echo "should_post=false" >> "$GITHUB_OUTPUT"
-              fi
-              echo "update_state=true" >> "$GITHUB_OUTPUT"
-              echo "new_status=ok" >> "$GITHUB_OUTPUT"
-              echo "new_failure_at=" >> "$GITHUB_OUTPUT"
-              ;;
-            skip)
-              echo "Indeterminate / no-changes run — suppressing notification (policy: actionable-only)"
-              echo "should_post=false" >> "$GITHUB_OUTPUT"
-              echo "update_state=false" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
-
-      - name: Post to Slack
-        if: always() && steps.payload.outputs.should_post == 'true' && env.SLACK_WEBHOOK_OSS_ALERTS != ''
-        uses: slackapi/slack-github-action@v2.1.0
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-          webhook-type: incoming-webhook
-          payload-file-path: /tmp/slack-payload.json
-
-      # Persist the transition state for the NEXT run to read. We save
-      # iff the payload step classified this run as a terminal outcome
-      # (failure or success); indeterminate runs (cancelled, no-changes)
-      # leave the prior state untouched so streaks aren't broken.
-      - name: Update deploy state file
-        if: always() && steps.payload.outputs.update_state == 'true'
-        run: |
-          NEW_STATUS='${{ steps.payload.outputs.new_status }}'
-          NEW_FAILURE_AT='${{ steps.payload.outputs.new_failure_at }}'
-          jq -n \
-            --arg status "$NEW_STATUS" \
-            --arg failureAt "$NEW_FAILURE_AT" \
-            '{lastStatus: $status, lastFailureAt: $failureAt}' \
-            > showcase-deploy-state.json
-
-      - name: Save deploy state to cache
-        if: always() && steps.payload.outputs.update_state == 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: showcase-deploy-state.json
-          key: showcase-deploy-state-${{ github.run_id }}
+            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+              SLEEP=$((ATTEMPT * 5))
+              echo "  retrying in ${SLEEP}s..."
+              sleep "$SLEEP"
+            fi
+          done
+          echo "webhook response body (last attempt):"
+          cat /tmp/body || true
+          echo "::error::showcase-ops webhook returned ${HTTP_CODE} after ${MAX_ATTEMPTS} attempts"
+          exit 1

@@ -478,7 +478,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
   }, [props.agent]);
 
-  const { threadId, setThreadId: setInternalThreadId } = useThreads();
+  const {
+    threadId,
+    setThreadId: setInternalThreadId,
+    isThreadIdExplicit,
+  } = useThreads();
 
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
@@ -757,6 +761,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       // isModalDefaultOpen={isModalDefaultOpen}
       agentId={props.agent ?? "default"}
       threadId={threadId}
+      hasExplicitThreadId={isThreadIdExplicit}
     >
       <CopilotContext.Provider value={copilotContextValue}>
         <CopilotListeners />

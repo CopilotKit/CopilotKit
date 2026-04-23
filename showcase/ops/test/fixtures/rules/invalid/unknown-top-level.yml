@@ -1,0 +1,10 @@
+id: unknown-top-level
+name: "stray key"
+owner: "@oss"
+signal:
+  dimension: smoke
+triggers:
+  - green_to_red
+template:
+  text: "x"
+nope: "this key is not in the schema"

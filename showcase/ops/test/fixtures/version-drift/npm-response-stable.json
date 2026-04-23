@@ -1,0 +1,17 @@
+{
+  "name": "react",
+  "dist-tags": {
+    "latest": "19.0.0",
+    "next": "19.1.0-rc.0",
+    "experimental": "0.0.0-experimental-1"
+  },
+  "versions": {
+    "19.0.0": {
+      "name": "react",
+      "version": "19.0.0"
+    }
+  },
+  "time": {
+    "19.0.0": "2024-12-05T00:00:00.000Z"
+  }
+}

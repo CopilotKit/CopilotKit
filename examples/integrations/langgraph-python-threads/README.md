@@ -14,12 +14,11 @@ This project is a monorepo with three services:
 
 When threads are enabled, additional infrastructure runs via Docker Compose:
 
-| Service              | Port | Description                              |
-| -------------------- | ---- | ---------------------------------------- |
-| **PostgreSQL**       | 5432 | Thread and event storage                 |
-| **Redis**            | 6379 | Session/cache                            |
-| **App API**          | 4201 | Intelligence REST API                    |
-| **Realtime Gateway** | 4401 | WebSocket gateway for live thread events |
+| Service          | Port       | Description                                                                                                                                       |
+| ---------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL**   | 5432       | Thread and event storage                                                                                                                          |
+| **Redis**        | 6379       | Session/cache                                                                                                                                     |
+| **Intelligence** | 4201, 4401 | All-in-one CopilotKit Intelligence container (app-api on 4201, realtime-gateway on 4401, plus thread-culler and db-migrations, under s6-overlay). |
 
 ## Prerequisites
 
@@ -59,7 +58,7 @@ This authenticates you and issues a `COPILOTKIT_LICENSE_TOKEN`. Add it to your `
 docker compose up -d --wait
 ```
 
-This pulls the GHCR images pinned to `0.1.0-rc.7`.
+This pulls `ghcr.io/copilotkit/intelligence/composite` — a single container that runs app-api, realtime-gateway, thread-culler, and the db-migrations oneshot together under s6-overlay supervision. The per-service images remain available at `ghcr.io/copilotkit/intelligence/{app-api,realtime-gateway,thread-culler,db-migrations}` if you'd rather run them separately.
 
 5. Start all services:
 
