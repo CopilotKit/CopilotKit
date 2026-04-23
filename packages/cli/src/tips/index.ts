@@ -19,6 +19,17 @@ export { MarkdownTipRenderer } from "./renderers/markdown.js";
 export { JsonFileTipStore } from "./stores/json-file.js";
 export { InMemoryTipStore } from "./stores/in-memory.js";
 
-// Content
+// Content (hardcoded fallbacks)
 export { postCreateTips } from "./content/post-create.js";
 export { devTips } from "./content/dev.js";
+
+// Remote loader
+export { loadRemoteTips } from "./loaders/remote.js";
+export type {
+  Alert,
+  RemoteTipsConfig,
+  RemoteTipResult,
+} from "./loaders/remote.js";
+
+// Alert renderer
+export { renderAlert } from "./renderers/alert.js";

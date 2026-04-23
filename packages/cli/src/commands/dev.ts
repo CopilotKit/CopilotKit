@@ -16,11 +16,12 @@ import { AnalyticsService } from "../services/analytics.service.js";
 import { BaseCommand } from "./base-command.js";
 import {
   createTipEngine,
-  devTips,
   WeightedRandomStrategy,
   MarkdownTipRenderer,
   JsonFileTipStore,
 } from "../tips/index.js";
+import { loadRemoteTips } from "../tips/loaders/remote.js";
+import { renderAlert } from "../tips/renderers/alert.js";
 
 const DEFAULT_CLOUD_BASE_URL = "https://cloud.copilotkit.ai";
 const CLOUD_BASE_URL =
@@ -200,8 +201,14 @@ export default class Dev extends BaseCommand {
         spinner.text = "🚀 Local tunnel is live and linked to Copilot Cloud!\n";
         spinner.succeed();
 
+        const { tips, alert } = await loadRemoteTips("dev");
+
+        if (alert) {
+          renderAlert(alert, this.log.bind(this));
+        }
+
         const tipEngine = createTipEngine({
-          tips: devTips,
+          tips,
           strategy: new WeightedRandomStrategy({ noRepeatCount: 2 }),
           renderer: new MarkdownTipRenderer(),
           store: new JsonFileTipStore(),
@@ -212,6 +219,7 @@ export default class Dev extends BaseCommand {
                 tip_id: tip.id,
                 category: tip.category,
                 command: "dev",
+                source: "remote",
               },
             });
           },

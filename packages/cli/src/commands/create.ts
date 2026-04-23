@@ -16,11 +16,12 @@ import {
 } from "../lib/init/scaffold/github.js";
 import {
   createTipEngine,
-  postCreateTips,
   WeightedRandomStrategy,
   MarkdownTipRenderer,
   JsonFileTipStore,
 } from "../tips/index.js";
+import { loadRemoteTips } from "../tips/loaders/remote.js";
+import { renderAlert } from "../tips/renderers/alert.js";
 import { AnalyticsService } from "../services/analytics.service.js";
 
 const streamPipeline = promisify(pipeline);
@@ -325,8 +326,14 @@ export default class Create extends BaseCommand {
     this.log(theme.bottomPadding);
 
     const analytics = new AnalyticsService();
+    const { tips, alert } = await loadRemoteTips("post-create");
+
+    if (alert) {
+      renderAlert(alert, this.log.bind(this));
+    }
+
     const tipEngine = createTipEngine({
-      tips: postCreateTips,
+      tips,
       strategy: new WeightedRandomStrategy({ noRepeatCount: 3 }),
       renderer: new MarkdownTipRenderer(),
       store: new JsonFileTipStore(),
@@ -337,6 +344,7 @@ export default class Create extends BaseCommand {
             tip_id: tip.id,
             category: tip.category,
             command: "create",
+            source: "remote",
           },
         });
       },
