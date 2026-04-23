@@ -55,21 +55,7 @@ All three of `CopilotChat`, `CopilotSidebar`, and `CopilotPopup` share the same 
 
 A flexible, inline chat that can be placed anywhere in your app and sized as needed. Good for dedicated chat pages.
 
-```tsx title="page.tsx"
-// [!code word:CopilotChat]
-import { CopilotChat } from "@copilotkit/react-core/v2";
-
-export default function YourComponent() {
-  return (
-    <CopilotChat
-      labels={{
-        modalHeaderTitle: "Your Assistant",
-        welcomeMessageText: "Hi! How can I assist you today?",
-      }}
-    />
-  );
-}
-```
+<Snippet region="chat-component" title="frontend/src/app/page.tsx — the Chat component" />
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotchat-example.gif" alt="CopilotChat example" className="w-full rounded-lg my-4" />
 
@@ -77,24 +63,7 @@ export default function YourComponent() {
 
 A docked sidebar that pushes content. Good for "co-present" layouts.
 
-```tsx title="page.tsx"
-// [!code word:CopilotSidebar]
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
-
-export function YourApp() {
-  return (
-    <CopilotSidebar
-      defaultOpen={true}
-      labels={{
-        modalHeaderTitle: "Sidebar Assistant",
-        welcomeMessageText: "How can I help you today?",
-      }}
-    >
-      <YourMainContent />
-    </CopilotSidebar>
-  );
-}
-```
+<Snippet region="sidebar-basic-setup" cell="prebuilt-sidebar" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif" alt="CopilotSidebar example" className="w-full rounded-lg my-4" />
 
@@ -102,24 +71,7 @@ export function YourApp() {
 
 A floating chat bubble that sits alongside your content and toggles open/closed. Good for contextual copilots on landing pages or dashboards.
 
-```tsx title="page.tsx"
-// [!code word:CopilotPopup]
-import { CopilotPopup } from "@copilotkit/react-core/v2";
-
-export function YourApp() {
-  return (
-    <>
-      <YourMainContent />
-      <CopilotPopup
-        labels={{
-          modalHeaderTitle: "Popup Assistant",
-          welcomeMessageText: "Need any help?",
-        }}
-      />
-    </>
-  );
-}
-```
+<Snippet region="popup-basic-setup" cell="prebuilt-popup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
 
 <img src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif" alt="CopilotPopup example" className="w-full rounded-lg my-4" />
 
@@ -136,29 +88,7 @@ You can mix all four levels in the same app — change one color token, replace 
 
 ## Deep customization
 
-Start with defaults, customize as you need. All three components support the [slot system](./custom-look-and-feel/slots) — from Tailwind classes to full component replacement:
-
-```tsx title="page.tsx"
-<CopilotChat
-  // Style slots with Tailwind classes
-  input={{
-    textArea: "text-lg",
-    sendButton: "bg-blue-600 hover:bg-blue-700",
-  }}
-  // Customize nested message slots
-  messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-      toolbar: "border-t mt-2",
-    },
-    userMessage: "bg-blue-100 rounded-xl",
-  }}
-  // Hide elements by returning null
-  scrollView={{
-    feather: () => null,
-  }}
-/>
-```
+Start with defaults, customize as you need. All three components support the [slot system](./custom-look-and-feel/slots) — from Tailwind classes to full component replacement. See the [Slots guide](./custom-look-and-feel/slots) for runnable examples.
 
 What you can override:
 
