@@ -12,16 +12,17 @@ owner: "@oss"
 signal:
   dimension: smoke
 
-# Any matching trigger is enough — aggregation ingress is unconditional on
-# match, not on per-trigger semantics. Listing all three keeps the rule alive
-# regardless of which transition type dominates a given outage.
+# Fleet aggregation is for red-only signals. `red_to_green` recoveries do NOT
+# ingest (see alert-engine.ts aggregation ingress — A1); declaring it here
+# would be decorative but misleading.
 triggers:
   - green_to_red
   - sustained_red
-  - red_to_green
 
+# A7: groupBy omitted — the rule's `signal.dimension: smoke` already partitions
+# traffic to smoke-only events, so there's no finer partition to apply. The
+# bucket key collapses to `rule.id` alone (see buildBucketKey in aggregation.ts).
 aggregation:
-  groupBy: [dimension]
   # windowMs: 2 min — one probe tick (90s) plus slack for signal arrival jitter.
   windowMs: 120000
   minMatches: 3

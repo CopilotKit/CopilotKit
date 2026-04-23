@@ -10,10 +10,10 @@ signal:
 triggers:
   - green_to_red
   - sustained_red
-  - red_to_green
 
+# A7: groupBy omitted; signal.dimension already partitions traffic. See
+# smoke-red-fleet.yml for rationale and buildBucketKey for the mechanics.
 aggregation:
-  groupBy: [dimension]
   windowMs: 120000
   minMatches: 3
   template: |
