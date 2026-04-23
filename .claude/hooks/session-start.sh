@@ -17,7 +17,6 @@ if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
 fi
 
 if [ -z "${SKILLS_REPO:-}" ] || [ -z "${SKILLS_TOKEN:-}" ]; then
-  echo "[session-start] SKILLS_REPO/SKILLS_TOKEN not set; skipping skills install" >&2
   exit 0
 fi
 
