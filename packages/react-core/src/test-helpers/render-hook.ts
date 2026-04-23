@@ -17,4 +17,6 @@ if (!resolved) {
   resolved = rth.renderHook;
 }
 
-export const renderHook = resolved as NonNullable<RtlWithRenderHook["renderHook"]>;
+export const renderHook = resolved as NonNullable<
+  RtlWithRenderHook["renderHook"]
+>;
