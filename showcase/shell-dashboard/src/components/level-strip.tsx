@@ -56,7 +56,11 @@ export function LevelStrip({
   );
   const tools: LevelBadge = hasToolRendering
     ? resolveBadge(liveStatus, "tools", slug, "Tools")
-    : { name: "Tools", tone: "gray", title: "Tools: n/a (no tool-rendering demo)" };
+    : {
+        name: "Tools",
+        tone: "gray",
+        title: "Tools: n/a (no tool-rendering demo)",
+      };
 
   const badges = [up, wired, chats, tools];
 

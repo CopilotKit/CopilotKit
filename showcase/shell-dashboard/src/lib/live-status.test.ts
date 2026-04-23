@@ -98,9 +98,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
   });
 
   it("rolls up to unknown when health is missing", () => {
-    const live = mapOf([
-      row("e2e_smoke:agno/ac", "e2e_smoke", "green"),
-    ]);
+    const live = mapOf([row("e2e_smoke:agno/ac", "e2e_smoke", "green")]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("gray");
   });
@@ -180,9 +178,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
   });
 
   it("red row + connection=error: red wins over the hook error tone (C5 F14)", () => {
-    const live = mapOf([
-      row("health:a", "health", "red"),
-    ]);
+    const live = mapOf([row("health:a", "health", "red")]);
     const c = resolveCell(live, "a", "b", { connection: "error" });
     expect(c.rollup).toBe("red");
   });

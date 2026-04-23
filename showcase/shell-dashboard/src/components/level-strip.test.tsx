@@ -34,7 +34,12 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
 
 const makeIntegration = (
   slug: string,
-  demos: Array<{ id: string; name: string; description: string; tags: string[] }> = [],
+  demos: Array<{
+    id: string;
+    name: string;
+    description: string;
+    tags: string[];
+  }> = [],
 ): Integration => ({
   slug,
   name: slug,
@@ -63,7 +68,12 @@ describe("LevelStrip", () => {
 
   it("shows green tone when dimension rows are green", () => {
     const integration = makeIntegration("test", [
-      { id: "tool-rendering", name: "Tool Rendering", description: "", tags: [] },
+      {
+        id: "tool-rendering",
+        name: "Tool Rendering",
+        description: "",
+        tags: [],
+      },
     ]);
     const live = mapOf([
       row("health:test", "health", "green"),
@@ -118,7 +128,12 @@ describe("LevelStrip", () => {
 
   it("Tools badge shows real state when integration has tool-rendering demo", () => {
     const integration = makeIntegration("test", [
-      { id: "tool-rendering", name: "Tool Rendering", description: "", tags: [] },
+      {
+        id: "tool-rendering",
+        name: "Tool Rendering",
+        description: "",
+        tags: [],
+      },
     ]);
     const live = mapOf([row("tools:test", "tools", "green")]);
     const { getByTestId } = render(

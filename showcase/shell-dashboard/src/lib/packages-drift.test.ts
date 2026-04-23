@@ -17,19 +17,23 @@ interface RegistryShape {
 describe("packages-drift", () => {
   it("packages.json slugs match integration slugs from registry", () => {
     const registry = registryData as unknown as RegistryShape;
-    const integrationSlugs = new Set(
-      registry.integrations.map((i) => i.slug),
-    );
+    const integrationSlugs = new Set(registry.integrations.map((i) => i.slug));
     const packageSlugs = new Set(getPackages().map((p) => p.slug));
 
     // Every package must correspond to an integration
     for (const slug of packageSlugs) {
-      expect(integrationSlugs.has(slug), `package ${slug} not in integrations`).toBe(true);
+      expect(
+        integrationSlugs.has(slug),
+        `package ${slug} not in integrations`,
+      ).toBe(true);
     }
 
     // Every integration must have a corresponding package
     for (const slug of integrationSlugs) {
-      expect(packageSlugs.has(slug), `integration ${slug} not in packages`).toBe(true);
+      expect(
+        packageSlugs.has(slug),
+        `integration ${slug} not in packages`,
+      ).toBe(true);
     }
 
     expect(packageSlugs.size).toBe(integrationSlugs.size);

@@ -96,20 +96,14 @@ describe("computeColumnTally", () => {
 
   it("missing health row contributes zero (does not count as red)", () => {
     const live: LiveStatusMap = new Map();
-    live.set(
-      "e2e_smoke:i1/f1",
-      row("e2e_smoke:i1/f1", "e2e_smoke", "green"),
-    );
+    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "green"));
     const t = computeColumnTally(integration, features, live);
     expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
   });
 
   it("returns unknown=true when connection is error", () => {
     const live: LiveStatusMap = new Map();
-    live.set(
-      "e2e_smoke:i1/f1",
-      row("e2e_smoke:i1/f1", "e2e_smoke", "green"),
-    );
+    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "green"));
     const t = computeColumnTally(integration, features, live, "error");
     expect(t.unknown).toBe(true);
     expect(t.green).toBe(0);

@@ -202,7 +202,11 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
         <LiveBadge
           name="E2E"
           badge={cell.e2e}
-          dimensionKey={keyFor("e2e_smoke", ctx.integration.slug, ctx.feature.id)}
+          dimensionKey={keyFor(
+            "e2e_smoke",
+            ctx.integration.slug,
+            ctx.feature.id,
+          )}
         />
       </div>
     </>

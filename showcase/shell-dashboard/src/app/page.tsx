@@ -93,9 +93,8 @@ function Legend() {
         {" / "}
         <span className="text-[var(--danger)]">docs-shell ✗</span>
         {" / "}
-        <span className="text-[var(--amber)]">!</span>
-        {" "}
-        docs: ok / missing / 404 / probe error
+        <span className="text-[var(--amber)]">!</span> docs: ok / missing / 404
+        / probe error
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--accent)] font-medium">Demo ↗</span>/

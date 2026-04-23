@@ -176,14 +176,7 @@ export function FeatureGrid({
         chat.rows,
         tools.rows,
       ),
-    [
-      smoke.rows,
-      health.rows,
-      e2eSmoke.rows,
-      agent.rows,
-      chat.rows,
-      tools.rows,
-    ],
+    [smoke.rows, health.rows, e2eSmoke.rows, agent.rows, chat.rows, tools.rows],
   );
   const connection = aggregateConnection(
     smoke.status,

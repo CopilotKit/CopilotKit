@@ -5,7 +5,11 @@
  */
 import { useMemo } from "react";
 import { getPackages, type Package } from "@/lib/registry";
-import { mergeRowsToMap, type ConnectionStatus, type LiveStatusMap } from "@/lib/live-status";
+import {
+  mergeRowsToMap,
+  type ConnectionStatus,
+  type LiveStatusMap,
+} from "@/lib/live-status";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { LevelStrip } from "@/components/level-strip";
 
