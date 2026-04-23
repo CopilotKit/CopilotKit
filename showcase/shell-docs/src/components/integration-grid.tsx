@@ -3,8 +3,7 @@
 import React from "react";
 import { useFramework } from "./framework-provider";
 
-const SHELL_HOST =
-  process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
 export function IntegrationGrid({
   path,

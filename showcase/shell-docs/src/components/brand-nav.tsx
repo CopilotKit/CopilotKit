@@ -121,8 +121,7 @@ type Brand = "copilotkit" | "ag-ui";
 
 const AG_UI_PREFIXES = ["/ag-ui"];
 
-const SHELL_HOST =
-  process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+const SHELL_HOST = process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
 
 const COPILOTKIT_LINKS = [
   { href: "/", label: "Docs" },
