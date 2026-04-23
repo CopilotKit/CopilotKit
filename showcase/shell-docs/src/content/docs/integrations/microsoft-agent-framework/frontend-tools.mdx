@@ -3,9 +3,7 @@ title: Frontend Tools
 icon: "lucide/Wrench"
 description: Create frontend tools and use them within your Microsoft Agent Framework agent.
 ---
-
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
-
 <IframeSwitcher
   id="frontend-actions-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/agentic_chat?sidebar=false&chatDefaultOpen=false"
@@ -16,7 +14,6 @@ description: Create frontend tools and use them within your Microsoft Agent Fram
 />
 
 ## What is this?
-
 Frontend tools enable you to define client-side functions that your agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool,
 the logic runs on the client side, giving you direct access to the frontend environment.
 
@@ -25,9 +22,7 @@ This can be utilized to let your agent control the UI, power generative UI, or s
 In this guide, we cover the use of frontend tools driving and interacting with the UI.
 
 ## When should I use this?
-
 Use frontend tools when you need your agent to interact with client-side primitives such as:
-
 - Reading or modifying React component state
 - Accessing browser APIs like localStorage, sessionStorage, or cookies
 - Triggering UI updates or animations
@@ -49,6 +44,8 @@ Use frontend tools when you need your agent to interact with client-side primiti
         that says hello to the user.
 
         ```tsx title="page.tsx"
+        import { z } from "zod";
+        import { useFrontendTool } from "@copilotkit/react-core/v2" // [!code highlight]
 
         export function Page() {
           // ...
@@ -108,10 +105,11 @@ Use frontend tools when you need your agent to interact with client-side primiti
           <Tab value="Python">
             ```python title="agent/src/byo_agent.py"
             from __future__ import annotations
+            import os
             from fastapi import FastAPI
             from dotenv import load_dotenv
-            from agent_framework import ChatAgent
-            from agent_framework import ChatClientProtocol
+            from agent_framework import Agent
+            from agent_framework import SupportsChatGetResponse
             from agent_framework.azure import AzureOpenAIChatClient
             from agent_framework.openai import OpenAIChatClient
             from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
@@ -119,25 +117,25 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
             load_dotenv()
 
-            def _build_chat_client() -> ChatClientProtocol:
+            def _build_chat_client() -> SupportsChatGetResponse:
                 if bool(os.getenv("AZURE_OPENAI_ENDPOINT")):
                     return AzureOpenAIChatClient(
                         credential=DefaultAzureCredential(),
-                        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.2-mini"),
+                        deployment_name=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.4-mini"),
                         endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                     )
                 if bool(os.getenv("OPENAI_API_KEY")):
                     return OpenAIChatClient(
-                        model_id=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.2-mini"),
+                        model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.4-mini"),
                         api_key=os.getenv("OPENAI_API_KEY"),
                     )
                 raise RuntimeError("Set AZURE_OPENAI_* or OPENAI_API_KEY in agent/.env")
 
             chat_client = _build_chat_client()
-            agent = ChatAgent(
+            agent = Agent(
                 name="AGUIAssistant",
                 instructions="You are a helpful assistant.",
-                chat_client=chat_client,
+                client=chat_client,
             )
 
             app = FastAPI(title="AG-UI Server (Python)")
@@ -156,5 +154,4 @@ Use frontend tools when you need your agent to interact with client-side primiti
 
         <video src="https://cdn.copilotkit.ai/docs/copilotkit/images/frontend-actions-demo.mp4" className="rounded-lg shadow-xl" loop playsInline controls autoPlay muted />
     </Step>
-
 </Steps>
