@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import * as http from "node:http";
+import type { AddressInfo } from "node:net";
 import { smokeDriver, type SmokeDriverSignal } from "./smoke.js";
 import { logger } from "../../logger.js";
 import type {
@@ -670,6 +672,444 @@ describe("smokeDriver", () => {
     );
   });
 
+  // -------------------------------------------------------------------
+  // Starter shape: probes hit `/api/health` instead of `/smoke` + `/health`.
+  // Starters are single-app Next.js integrations deployed from
+  // showcase/starters/*. They expose `/api/health` (returning JSON) but
+  // no `/smoke`, no `/health`, and no `/demos/*`. Without shape branching
+  // each starter emits one false-red row per probed endpoint per tick.
+  // -------------------------------------------------------------------
+
+  it("starter shape: primary smoke probe hits /api/health, green on 200", async () => {
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      // Starter only answers /api/health; everything else is 404.
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"ok","integration":"ag2"}', {
+          status: 200,
+        });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response('{"error":"bad body"}', { status: 400 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("green");
+    expect(r.key).toBe("smoke:starter-ag2");
+    // Starter smoke probe MUST hit /api/health — the whole reason for
+    // shape detection. Seeing /smoke here is the primary regression.
+    expect(calls).toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/api/health",
+    );
+    expect(calls).not.toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/smoke",
+    );
+    expect(calls).not.toContain(
+      "https://showcase-starter-ag2-production.up.railway.app/health",
+    );
+    // Contract: two independent GETs on /api/health — see smoke.ts run() for rationale.
+    const healthCalls = calls.filter((c) => c.endsWith("/api/health"));
+    expect(healthCalls).toHaveLength(2);
+    // Health side-emit still produced (mirrors primary) so dashboards
+    // keyed on `health:<slug>` stay populated.
+    const health = writes.find((w) => w.key === "health:starter-ag2");
+    expect(health?.state).toBe("green");
+  });
+
+  it("starter shape: /api/health 404 → both smoke:<slug> and health:<slug> flip red", async () => {
+    // Distinct from the 503 case (service answering but degraded): a 404
+    // means the starter's /api/health route is not mounted at all. Both
+    // the primary smoke tick and the health side-emit must flip red so
+    // dashboards keyed on either dimension catch the outage.
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health\b/.test(href)) {
+        return new Response("", { status: 404 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toContain("404");
+    const health = writes.find((w) => w.key === "health:starter-ag2");
+    expect(health?.state).toBe("red");
+    expect((health?.signal as SmokeDriverSignal).errorDesc).toContain("404");
+  });
+
+  it("starter shape: /api/health 503 → primary smoke red with http 503", async () => {
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"degraded"}', { status: 503 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer, writes } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2-production.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.state).toBe("red");
+    expect(r.signal.errorDesc).toContain("503");
+    // The agent side-emit (L2) should still run + succeed.
+    const agent = writes.find((w) => w.key === "agent:starter-ag2");
+    expect(agent?.state).toBe("green");
+  });
+
+  it("starter shape: never probes /smoke (real starters 404 on it)", async () => {
+    // Regression guard: the previous contract fired GET /smoke which
+    // produced 17 false-red smoke alerts the first tick after deploy.
+    // Under the new shape contract, /smoke must NOT be called at all —
+    // the primary probe, the health side-emit, and the agent probe are
+    // all expected to use `/api/health` / `/api/copilotkit/`.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      if (/\/api\/health\b/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-mastra",
+      name: "showcase-starter-mastra",
+      publicUrl: "https://showcase-starter-mastra.up.railway.app",
+      shape: "starter",
+    });
+    for (const c of calls) {
+      expect(c).not.toMatch(/\/smoke(\b|\?|$)/);
+      // `/health` without the `/api` prefix must also not appear.
+      expect(c).not.toMatch(/\.app\/health(\b|\?|$)/);
+    }
+  });
+
+  it("package shape (explicit): keeps the legacy /smoke + /health contract", async () => {
+    // Sanity check that the new `shape` field is optional and
+    // backward-compatible: when `shape === "package"` (or omitted), the
+    // driver still hits /smoke + /health exactly like before.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      return responseFor(href, {
+        smokeStatus: 200,
+        healthStatus: 200,
+        agentStatus: 200,
+      });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      shape: "package",
+    });
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/smoke");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/health");
+  });
+
+  // -------------------------------------------------------------------
+  // L2 308 redirect handling: /api/copilotkit/ → /api/copilotkit
+  //
+  // Railway's Next.js edge serves a 308 for the trailing-slash variant.
+  // The previous contract accepted the raw 308 as proof-of-life, which
+  // quietly masked regressions where the redirect target was a 404
+  // (e.g. wrong mount path). Enabling redirect following makes the
+  // probe classify on the FINAL status: 308→200 stays green, 308→400
+  // (runtime rejected the empty body) stays green, but 308→404 flips
+  // red so we actually catch unmounted routes.
+  // -------------------------------------------------------------------
+
+  // Real-server 308 tests: stand up an ephemeral http.Server that replies
+  // with a genuine 308 + Location to the first path, then the terminal
+  // status on the redirect target. A regression that drops
+  // `redirect: "follow"` from the agent POST will fail these — the driver
+  // would classify the raw 308 as proof-of-life and miss the final 404.
+  it("agent probe follows a real 308 redirect to a 200 and stays green", async () => {
+    const { url, close } = await startRealRedirectServer({
+      first: { status: 308, locationPath: "/final" },
+      final: { status: 200, body: '{"ok":true}' },
+    });
+    try {
+      // Restore real fetch — we're intentionally talking to a real socket.
+      vi.unstubAllGlobals();
+      const { writer, writes } = mkWriter();
+      await smokeDriver.run(mkCtx(writer), {
+        key: "smoke:mastra",
+        url: `${url}/smoke`,
+      });
+      const agent = writes.find((w) => w.key === "agent:mastra")!;
+      expect(agent.state).toBe("green");
+      expect((agent.signal as SmokeDriverSignal).status).toBe(200);
+    } finally {
+      await close();
+    }
+  });
+
+  it("agent probe follows a real 308 redirect to a 404 and flips red", async () => {
+    const { url, close } = await startRealRedirectServer({
+      first: { status: 308, locationPath: "/final" },
+      final: { status: 404, body: "<html>not found</html>" },
+    });
+    try {
+      vi.unstubAllGlobals();
+      const { writer, writes } = mkWriter();
+      await smokeDriver.run(mkCtx(writer), {
+        key: "smoke:mastra",
+        url: `${url}/smoke`,
+      });
+      const agent = writes.find((w) => w.key === "agent:mastra")!;
+      expect(agent.state).toBe("red");
+      expect((agent.signal as SmokeDriverSignal).errorDesc).toMatch(
+        /route not mounted|agent endpoint 404/,
+      );
+    } finally {
+      await close();
+    }
+  });
+
+  // Regression guard for discovery-mode `redirect: "follow"` propagation.
+  // Earlier coverage asserted the option only for static-URL mode; a
+  // refactor could drop the option in the discovery branch without the
+  // original test catching it.
+  it("discovery + package: agent POST carries `redirect: 'follow'`", async () => {
+    let sawRedirect = false;
+    const fetchImpl: typeof fetch = (async (
+      url: string | URL,
+      init?: RequestInit,
+    ) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/copilotkit/.test(href)) {
+        if ((init as RequestInit | undefined)?.redirect === "follow") {
+          sawRedirect = true;
+        }
+        return new Response("{}", { status: 200 });
+      }
+      return responseFor(href, { smokeStatus: 200, healthStatus: 200 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+    });
+    expect(sawRedirect).toBe(true);
+  });
+
+  it("discovery + starter: agent POST carries `redirect: 'follow'`", async () => {
+    let sawRedirect = false;
+    const fetchImpl: typeof fetch = (async (
+      url: string | URL,
+      init?: RequestInit,
+    ) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/copilotkit/.test(href)) {
+        if ((init as RequestInit | undefined)?.redirect === "follow") {
+          sawRedirect = true;
+        }
+        return new Response("{}", { status: 200 });
+      }
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      shape: "starter",
+    });
+    expect(sawRedirect).toBe(true);
+  });
+
+  it("shape-mismatch throws: explicit input.shape disagrees with classifier", async () => {
+    // Silent-defaulting at the driver boundary inverts the whole fix.
+    // When discovery marks a service as `showcase-starter-*` (classifier
+    // → "starter") but the caller pins `shape: "package"`, the driver
+    // fails loud rather than pick one — silent drift is the exact
+    // failure mode this contract prevents.
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    await expect(
+      smokeDriver.run(mkCtx(writer), {
+        key: "smoke:starter-ag2",
+        name: "showcase-starter-ag2",
+        publicUrl: "https://showcase-starter-ag2.up.railway.app",
+        shape: "package",
+      }),
+    ).rejects.toThrow(/Shape mismatch/);
+  });
+
+  it("inputSchema rejects `url` + `shape` combo (shape only valid with publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({
+      key: "smoke:mastra",
+      url: "https://x.example/smoke",
+      shape: "starter",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  // Parse-time invariants — callers that run safeParse in isolation must
+  // get a unified rejection for structural mistakes regardless of which
+  // arm's strictness would otherwise absorb them.
+  it("inputSchema rejects bare `{ key }` (no url, no name+publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({ key: "k" });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("inputSchema rejects `{ key, name }` (discovery missing publicUrl)", () => {
+    const parsed = smokeDriver.inputSchema.safeParse({
+      key: "k",
+      name: "showcase-ag2",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("inputSchema rejects mixed modes `{ key, url, name, publicUrl }`", () => {
+    // Discovery arm's .passthrough() would otherwise absorb the stray
+    // `url` field; the union-level superRefine enforces XOR across the
+    // two modes.
+    const parsed = smokeDriver.inputSchema.safeParse({
+      key: "k",
+      url: "http://x.example/smoke",
+      name: "showcase-ag2",
+      publicUrl: "http://x.example",
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  // Item-5 regression guards: the primary `smoke:<slug>` key is rewritten
+  // in discovery mode so YAML key_templates that interpolate `${name}`
+  // (producing `smoke:showcase-ag2`) land on the stripped slug
+  // (`smoke:ag2`) dashboards + alerts are actually keyed on. Static mode
+  // passes the YAML-authored key through verbatim.
+  it("discovery package: `smoke:showcase-ag2` is rewritten to `smoke:ag2`", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:showcase-ag2",
+      name: "showcase-ag2",
+      publicUrl: "https://showcase-ag2.up.railway.app",
+      shape: "package",
+    });
+    expect(r.key).toBe("smoke:ag2");
+  });
+
+  it("discovery starter: `smoke:showcase-starter-ag2` is rewritten to `smoke:starter-ag2`", async () => {
+    vi.stubGlobal("fetch", (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch);
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:showcase-starter-ag2",
+      name: "showcase-starter-ag2",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      shape: "starter",
+    });
+    expect(r.key).toBe("smoke:starter-ag2");
+  });
+
+  it("static mode passes the YAML-authored key through verbatim", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch({ smokeStatus: 200, healthStatus: 200, agentStatus: 200 }),
+    );
+    const { writer } = mkWriter();
+    const r = await smokeDriver.run(mkCtx(writer), {
+      key: "smoke:custom-yaml-key",
+      url: "https://x.example/smoke",
+    });
+    expect(r.key).toBe("smoke:custom-yaml-key");
+  });
+
+  it("mixed-driver wiring: spread of RailwayServiceInfo carries `shape` through .passthrough() end-to-end", async () => {
+    // Regression guard for the discovery → driver edge: the orchestrator
+    // builds driver input as `{ ...discoveryRecord, key, slug }`. If the
+    // driver schema stops carrying `shape` through `.passthrough()`, the
+    // field would be silently dropped and starters would fall back to
+    // `package` shape — producing the very false-red row flood this
+    // contract exists to prevent.
+    const calls: string[] = [];
+    const fetchImpl: typeof fetch = (async (url: string | URL) => {
+      const href = typeof url === "string" ? url : url.toString();
+      calls.push(href);
+      if (/\/api\/health/.test(href)) {
+        return new Response('{"status":"ok"}', { status: 200 });
+      }
+      if (/\/api\/copilotkit/.test(href)) {
+        return new Response("{}", { status: 200 });
+      }
+      return new Response("", { status: 404 });
+    }) as unknown as typeof fetch;
+    vi.stubGlobal("fetch", fetchImpl);
+    const { writer } = mkWriter();
+    const discoveryRecord = {
+      name: "showcase-starter-ag2",
+      imageRef: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+      publicUrl: "https://showcase-starter-ag2.up.railway.app",
+      env: { FOO: "bar" },
+      shape: "starter" as const,
+    };
+    await smokeDriver.run(mkCtx(writer), {
+      ...discoveryRecord,
+      key: "smoke:starter-ag2",
+    });
+    for (const c of calls) {
+      expect(c).not.toMatch(/\.app\/smoke(\b|\?|$)/);
+      expect(c).not.toMatch(/\.app\/health(\b|\?|$)/);
+    }
+  });
+
   it("discovery input with trailing `/` on publicUrl strips it before appending paths", async () => {
     const calls: string[] = [];
     const fetchImpl: typeof fetch = (async (url: string | URL) => {
@@ -705,4 +1145,50 @@ describe("smokeDriver", () => {
  */
 function smokeInputSchema_safeParse(input: unknown): { success: boolean } {
   return smokeDriver.inputSchema.safeParse(input);
+}
+
+/**
+ * Stand up an ephemeral HTTP server that answers the first path with a
+ * real 308 redirect (Location header → `/final`) and the terminal path
+ * with the configured status + body. Used to verify that the driver's
+ * agent POST actually follows redirects via `redirect: "follow"` rather
+ * than classifying the raw 308 as proof-of-life.
+ */
+async function startRealRedirectServer(spec: {
+  first: { status: number; locationPath: string };
+  final: { status: number; body: string };
+}): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = http.createServer((req, res) => {
+    const url = req.url ?? "/";
+    if (url === spec.first.locationPath) {
+      res.writeHead(spec.final.status, {
+        "Content-Type": "text/html; charset=utf-8",
+      });
+      res.end(spec.final.body);
+      return;
+    }
+    // First hop — handles the `/api/copilotkit/` POST. Respond 308 with
+    // Location so undici follows to `/final`.
+    if (/\/api\/copilotkit/.test(url)) {
+      res.writeHead(spec.first.status, {
+        Location: spec.first.locationPath,
+      });
+      res.end();
+      return;
+    }
+    // Smoke / health GETs land on `/smoke` / `/health` — respond 200 with
+    // a JSON body so those rows don't accidentally fail.
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end('{"status":"ok"}');
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const addr = server.address() as AddressInfo;
+  const url = `http://127.0.0.1:${addr.port}`;
+  return {
+    url,
+    close: () =>
+      new Promise<void>((resolve, reject) => {
+        server.close((err) => (err ? reject(err) : resolve()));
+      }),
+  };
 }
