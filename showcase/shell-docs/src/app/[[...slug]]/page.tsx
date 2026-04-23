@@ -128,112 +128,124 @@ function DocsOverview() {
         ))}
       </SidebarNav>
 
-      <main className="flex-1 max-w-4xl px-8 py-10 overflow-y-auto">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-          Documentation
-        </div>
-        <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
-          Build AI-powered apps with CopilotKit
-        </h1>
-        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
-          CopilotKit ships deep integrations across every major agent framework
-          and SDK. Pick your <em>agentic backend</em> below — the rest of the
-          docs adapt every snippet and code sample to that framework.
-        </p>
-
-        {/* Framework picker — big grid of all integrations, grouped by category */}
-        <section className="mb-12">
+      {/* <main> is the full-width scroll container so the scrollbar
+       * lands at the viewport edge. Content width is capped by the
+       * inner wrapper below. Previously `max-w-4xl` sat on <main>
+       * directly, which parked the scrollbar mid-page. */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl px-8 py-10">
           <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Step 1
+            Documentation
           </div>
-          <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
-            Pick an agentic backend
-          </h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-5">
-            We store your choice locally so every page renders the right code.
+          <h1 className="text-[2.25rem] font-bold text-[var(--text)] tracking-tight mb-3 leading-tight">
+            Build AI-powered apps with CopilotKit
+          </h1>
+          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-10 max-w-2xl">
+            CopilotKit ships deep integrations across every major agent
+            framework and SDK. Pick your <em>agentic backend</em> below — the
+            rest of the docs adapt every snippet and code sample to that
+            framework.
           </p>
 
-          {[...buckets.entries()].map(([catId, items]) => {
-            if (items.length === 0) return null;
-            const label = catId === "other" ? "Other" : getCategoryLabel(catId);
-            return (
-              <div key={catId} className="mb-6">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                  {label}
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {items.map((i) => (
-                    <Link
-                      key={i.slug}
-                      href={`/${i.slug}`}
-                      className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
-                        i.deployed
-                          ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
-                          : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
-                      }`}
-                    >
-                      {i.logo ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={i.logo} alt="" className="w-5 h-5 shrink-0" />
-                      ) : (
-                        <span className="w-5 h-5 shrink-0" />
-                      )}
-                      <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
-                        {i.name}
-                      </span>
-                      {!i.deployed && (
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                          soon
+          {/* Framework picker — big grid of all integrations, grouped by category */}
+          <section className="mb-12">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+              Step 1
+            </div>
+            <h2 className="text-xl font-semibold text-[var(--text)] mb-1">
+              Pick an agentic backend
+            </h2>
+            <p className="text-sm text-[var(--text-secondary)] mb-5">
+              We store your choice locally so every page renders the right code.
+            </p>
+
+            {[...buckets.entries()].map(([catId, items]) => {
+              if (items.length === 0) return null;
+              const label =
+                catId === "other" ? "Other" : getCategoryLabel(catId);
+              return (
+                <div key={catId} className="mb-6">
+                  <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
+                    {label}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {items.map((i) => (
+                      <Link
+                        key={i.slug}
+                        href={`/${i.slug}`}
+                        className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
+                          i.deployed
+                            ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
+                            : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
+                        }`}
+                      >
+                        {i.logo ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={i.logo}
+                            alt=""
+                            className="w-5 h-5 shrink-0"
+                          />
+                        ) : (
+                          <span className="w-5 h-5 shrink-0" />
+                        )}
+                        <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
+                          {i.name}
                         </span>
-                      )}
-                      {/* Marks the framework currently stored in
+                        {!i.deployed && (
+                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
+                            soon
+                          </span>
+                        )}
+                        {/* Marks the framework currently stored in
                           localStorage so repeat visitors can spot "their"
                           choice at a glance without an auto-redirect. */}
-                      <StoredFrameworkHighlight slug={i.slug} />
-                    </Link>
-                  ))}
+                        <StoredFrameworkHighlight slug={i.slug} />
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </section>
+              );
+            })}
+          </section>
 
-        {/* Section cards — grouped by broad topic. Clicking any of
+          {/* Section cards — grouped by broad topic. Clicking any of
             these before picking a framework lands on the per-feature
             pivot; once a framework is stored the destination's
             <RouterPivot /> redirects into the scoped view. */}
-        <section>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            Step 2
-          </div>
-          <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
-            Or jump into a topic
-          </h2>
-
-          {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
-            <div key={catLabel} className="mb-6">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
-                {catLabel}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {sections.map((s) => (
-                  <SidebarLink
-                    key={s.href}
-                    slug={s.href.slice(1)}
-                    className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
-                  >
-                    <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
-                      {s.title}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] leading-relaxed">
-                      {s.description}
-                    </div>
-                  </SidebarLink>
-                ))}
-              </div>
+          <section>
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+              Step 2
             </div>
-          ))}
-        </section>
+            <h2 className="text-xl font-semibold text-[var(--text)] mb-5">
+              Or jump into a topic
+            </h2>
+
+            {[...sectionsByCategory.entries()].map(([catLabel, sections]) => (
+              <div key={catLabel} className="mb-6">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-3">
+                  {catLabel}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {sections.map((s) => (
+                    <SidebarLink
+                      key={s.href}
+                      slug={s.href.slice(1)}
+                      className="group p-4 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] transition-all"
+                    >
+                      <div className="text-sm font-semibold text-[var(--text)] group-hover:text-[var(--accent)] mb-1">
+                        {s.title}
+                      </div>
+                      <div className="text-xs text-[var(--text-muted)] leading-relaxed">
+                        {s.description}
+                      </div>
+                    </SidebarLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+        </div>
       </main>
     </div>
   );

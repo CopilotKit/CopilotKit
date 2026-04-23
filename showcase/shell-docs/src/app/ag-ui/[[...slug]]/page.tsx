@@ -442,22 +442,26 @@ export default async function AgUiDocPage({
         ))}
       </SidebarNav>
 
-      {/* Content */}
-      <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
-        <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
-          {title}
-        </h1>
-        <div className="reference-content">
-          <MDXRemote
-            source={content}
-            components={components}
-            options={{
-              mdxOptions: {
-                remarkPlugins: [remarkGfm],
-                rehypePlugins: [rehypeHighlight],
-              },
-            }}
-          />
+      {/* Content — <main> is the full-width scroll container so the
+       * scrollbar lands at the viewport edge; content width is capped
+       * by the inner wrapper. */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl px-8 py-8">
+          <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
+            {title}
+          </h1>
+          <div className="reference-content">
+            <MDXRemote
+              source={content}
+              components={components}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [rehypeHighlight],
+                },
+              }}
+            />
+          </div>
         </div>
       </main>
     </div>

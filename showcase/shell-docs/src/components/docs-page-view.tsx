@@ -174,123 +174,131 @@ export async function DocsPageView({
         {tree.map((node) => renderNavItem(node))}
       </SidebarNav>
 
-      <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
-        <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
-          {breadcrumbs.map((crumb, i) => (
-            <React.Fragment key={i}>
-              {i > 0 && <span className="text-[var(--text-faint)]">&gt;</span>}
-              {crumb.href ? (
-                <Link
-                  href={crumb.href}
-                  className="hover:text-[var(--text-secondary)] transition-colors"
-                >
-                  {crumb.label}
-                </Link>
-              ) : (
-                <span className="text-[var(--text)]">{crumb.label}</span>
-              )}
-            </React.Fragment>
-          ))}
-        </nav>
+      {/* <main> is the full-width scroll container so the scrollbar
+       * lands at the viewport (or TOC) edge. Content width is capped
+       * by the inner wrapper. Previously `max-w-3xl` sat on <main>
+       * directly, which parked the scrollbar mid-page. */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl px-8 py-8">
+          <nav className="flex items-center gap-1 text-xs text-[var(--text-muted)] mb-4 flex-wrap">
+            {breadcrumbs.map((crumb, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <span className="text-[var(--text-faint)]">&gt;</span>
+                )}
+                {crumb.href ? (
+                  <Link
+                    href={crumb.href}
+                    className="hover:text-[var(--text-secondary)] transition-colors"
+                  >
+                    {crumb.label}
+                  </Link>
+                ) : (
+                  <span className="text-[var(--text)]">{crumb.label}</span>
+                )}
+              </React.Fragment>
+            ))}
+          </nav>
 
-        <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
-          {doc.fm.title}
-        </h1>
-        {doc.fm.description && (
-          <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
-            {doc.fm.description}
-          </p>
-        )}
+          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
+            {doc.fm.title}
+          </h1>
+          {doc.fm.description && (
+            <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
+              {doc.fm.description}
+            </p>
+          )}
 
-        {bannerSlot}
+          {bannerSlot}
 
-        {!hideBody &&
-          (() => {
-            const body = (
-              <div className="reference-content">
-                <MDXRemote
-                  source={content}
-                  components={{
-                    ...docsComponents,
-                    Snippet: (props: Record<string, unknown>) => (
-                      <Snippet
-                        {...(props as Record<string, string | undefined>)}
-                        defaultFramework={defaultFramework}
-                        defaultCell={defaultCell}
-                      />
-                    ),
-                    InlineDemo: (props: Record<string, unknown>) => {
-                      const InlineDemoComp = docsComponents.InlineDemo;
-                      return (
-                        <InlineDemoComp
-                          {...(props as {
-                            integration?: string;
-                            demo?: string;
-                          })}
-                          integration={
-                            defaultFramework ??
-                            (props.integration as string | undefined)
-                          }
+          {!hideBody &&
+            (() => {
+              const body = (
+                <div className="reference-content">
+                  <MDXRemote
+                    source={content}
+                    components={{
+                      ...docsComponents,
+                      Snippet: (props: Record<string, unknown>) => (
+                        <Snippet
+                          {...(props as Record<string, string | undefined>)}
+                          defaultFramework={defaultFramework}
+                          defaultCell={defaultCell}
                         />
-                      );
-                    },
-                    // Inject stable IDs on H2/H3 so the right-rail TOC's
-                    // #anchor links resolve. Slugify the child text with the
-                    // same algorithm used by extractHeadings() so IDs line up
-                    // with the TOC entries.
-                    h2: ({
-                      children,
-                      ...rest
-                    }: React.HTMLAttributes<HTMLHeadingElement>) => (
-                      <h2 id={slugify(childrenToText(children))} {...rest}>
-                        {children}
-                      </h2>
-                    ),
-                    h3: ({
-                      children,
-                      ...rest
-                    }: React.HTMLAttributes<HTMLHeadingElement>) => (
-                      <h3 id={slugify(childrenToText(children))} {...rest}>
-                        {children}
-                      </h3>
-                    ),
-                    // When rendering under a framework-scoped route, rewrite
-                    // root-relative MDX links (/quickstart, /shared-state, …)
-                    // to the framework-scoped equivalent so clicks never land
-                    // on the unscoped page and trigger a RouterPivot redirect.
-                    ...(frameworkOverride && {
-                      a: ({
-                        href,
-                        children,
-                        ...rest
-                      }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
-                        const resolved =
-                          href?.startsWith("/") &&
-                          !href.startsWith(`/${frameworkOverride}/`)
-                            ? `/${frameworkOverride}${href}`
-                            : href;
+                      ),
+                      InlineDemo: (props: Record<string, unknown>) => {
+                        const InlineDemoComp = docsComponents.InlineDemo;
                         return (
-                          <Link href={resolved ?? "#"} {...rest}>
-                            {children}
-                          </Link>
+                          <InlineDemoComp
+                            {...(props as {
+                              integration?: string;
+                              demo?: string;
+                            })}
+                            integration={
+                              defaultFramework ??
+                              (props.integration as string | undefined)
+                            }
+                          />
                         );
                       },
-                    }),
-                  }}
-                  options={{
-                    mdxOptions: {
-                      remarkPlugins: [remarkGfm],
-                      rehypePlugins: [rehypeHighlight],
-                    },
-                  }}
-                />
-              </div>
-            );
-            if (ContentWrapper) {
-              return <ContentWrapper>{body}</ContentWrapper>;
-            }
-            return body;
-          })()}
+                      // Inject stable IDs on H2/H3 so the right-rail TOC's
+                      // #anchor links resolve. Slugify the child text with the
+                      // same algorithm used by extractHeadings() so IDs line up
+                      // with the TOC entries.
+                      h2: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => (
+                        <h2 id={slugify(childrenToText(children))} {...rest}>
+                          {children}
+                        </h2>
+                      ),
+                      h3: ({
+                        children,
+                        ...rest
+                      }: React.HTMLAttributes<HTMLHeadingElement>) => (
+                        <h3 id={slugify(childrenToText(children))} {...rest}>
+                          {children}
+                        </h3>
+                      ),
+                      // When rendering under a framework-scoped route, rewrite
+                      // root-relative MDX links (/quickstart, /shared-state, …)
+                      // to the framework-scoped equivalent so clicks never land
+                      // on the unscoped page and trigger a RouterPivot redirect.
+                      ...(frameworkOverride && {
+                        a: ({
+                          href,
+                          children,
+                          ...rest
+                        }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+                          const resolved =
+                            href?.startsWith("/") &&
+                            !href.startsWith(`/${frameworkOverride}/`)
+                              ? `/${frameworkOverride}${href}`
+                              : href;
+                          return (
+                            <Link href={resolved ?? "#"} {...rest}>
+                              {children}
+                            </Link>
+                          );
+                        },
+                      }),
+                    }}
+                    options={{
+                      mdxOptions: {
+                        remarkPlugins: [remarkGfm],
+                        rehypePlugins: [rehypeHighlight],
+                      },
+                    }}
+                  />
+                </div>
+              );
+              if (ContentWrapper) {
+                return <ContentWrapper>{body}</ContentWrapper>;
+              }
+              return body;
+            })()}
+        </div>
       </main>
 
       <DocsToc headings={tocHeadings} />
