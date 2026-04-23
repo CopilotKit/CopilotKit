@@ -1,0 +1,179 @@
+---
+title: Multimodal Attachments
+icon: "lucide/Paperclip"
+description: Let users send images, audio, video, and documents to the AI alongside their messages.
+---
+
+You have a working CopilotChat and want users to attach files — images, PDFs, audio, video — that the AI can see and respond to. By the end of this guide, your chat will support drag-and-drop file attachments with previews, lightbox viewing, and multimodal AI responses.
+
+## Quick start
+
+Add `attachments` to your `CopilotChat` component:
+
+```tsx title="page.tsx"
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+<CopilotChat
+  agentId="my-agent"
+  attachments={{ enabled: true }} // [!code highlight]
+/>
+```
+
+That's it. Users can now click the attachment button or drag-and-drop files into the chat. The files are sent as part of the message content to your agent.
+
+## Configuration
+
+The `attachments` prop accepts an `AttachmentsConfig` object:
+
+```tsx
+<CopilotChat
+  attachments={{
+    enabled: true,
+    accept: "image/*",              // MIME filter (default: "*/*")
+    maxSize: 10 * 1024 * 1024,      // 10MB limit (default: 20MB)
+  }}
+/>
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `boolean` | — | Enable file attachments in the chat input. |
+| `accept` | `string` | `"*/*"` | MIME type filter. Supports patterns like `"image/*"`, `".pdf,.docx"`, or comma-separated lists. |
+| `maxSize` | `number` | `20 * 1024 * 1024` | Maximum file size in bytes. |
+| `onUpload` | `(file: File) => AttachmentUploadResult \| Promise<...>` | — | Custom upload handler. See [Custom upload handler](#custom-upload-handler). |
+| `onUploadFailed` | `(error: AttachmentUploadError) => void` | — | Called when a file fails validation or upload. See [Handling upload errors](#handling-upload-errors). |
+
+## Supported file types
+
+Attachments are categorized by modality based on their MIME type:
+
+| Modality | MIME types | Preview | AI support |
+| --- | --- | --- | --- |
+| **Image** | `image/*` | Thumbnail with lightbox | Supported by most vision-capable models (GPT-4o, Claude, etc.) |
+| **Audio** | `audio/*` | Audio player | Model-dependent |
+| **Video** | `video/*` | Thumbnail with play button + lightbox | Model-dependent |
+| **Document** | Everything else | File icon + name; PDF and text get lightbox preview | Sent as file content — model support varies |
+
+<Callout type="info">
+  Not all models support all modalities. For example, OpenAI's GPT-4o supports images but not audio file parts. If the model doesn't support a file type, you'll get a `RUN_ERROR` event. Use the `onError` callback to handle this gracefully.
+</Callout>
+
+## Custom upload handler
+
+By default, files are read as base64 and sent inline. For large files or production apps, you'll want to upload to your own storage and pass a URL instead.
+
+`onUpload` returns an `AttachmentUploadResult` — a discriminated union with two variants:
+
+<Tabs items={["Base64 (inline)", "URL (hosted)"]}>
+  <Tab value="Base64 (inline)">
+    ```tsx
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        onUpload: async (file) => {
+          const buffer = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+          return {
+            type: "data",
+            value: base64,
+            mimeType: file.type,
+          };
+        },
+      }}
+    />
+    ```
+  </Tab>
+  <Tab value="URL (hosted)">
+    ```tsx
+    <CopilotChat
+      attachments={{
+        enabled: true,
+        onUpload: async (file) => {
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await fetch("/api/upload", { method: "POST", body: formData });
+          const { url } = await res.json();
+          return {
+            type: "url",
+            value: url,
+            mimeType: file.type,
+          };
+        },
+      }}
+    />
+    ```
+  </Tab>
+</Tabs>
+
+### Adding metadata
+
+You can attach custom metadata to any upload. It's included in the `InputContent` part sent to the agent and accessible via `metadata` on the content part.
+
+```tsx
+onUpload: async (file) => {
+  const url = await uploadToStorage(file);
+  return {
+    type: "url",
+    value: url,
+    mimeType: file.type,
+    metadata: {
+      uploadedBy: currentUser.id,
+      category: "support-ticket",
+    },
+  };
+},
+```
+
+The filename is always included in metadata automatically — you don't need to add it yourself.
+
+## Handling upload errors
+
+Use `onUploadFailed` to react when a file is rejected or an upload fails — for example, to show a toast:
+
+```tsx
+<CopilotChat
+  attachments={{
+    enabled: true,
+    accept: "image/*",
+    maxSize: 5 * 1024 * 1024, // 5MB
+    onUploadFailed: (error) => {
+      // error.reason: "file-too-large" | "invalid-type" | "upload-failed"
+      // error.file: the original File object
+      // error.message: human-readable description
+      toast.error(error.message);
+    },
+  }}
+/>
+```
+
+| Reason | When it fires |
+| --- | --- |
+| `invalid-type` | File doesn't match the `accept` filter. |
+| `file-too-large` | File exceeds `maxSize`. |
+| `upload-failed` | The `onUpload` handler threw, or the default base64 reader failed. |
+
+For errors that happen _after_ the message is sent (e.g., the model doesn't support the file type), use the `onError` callback on `CopilotChat`:
+
+```tsx
+<CopilotChat
+  attachments={{ enabled: true }}
+  onError={(event) => {
+    console.error(`[${event.code}]`, event.error.message);
+  }}
+/>
+```
+
+## How it works
+
+When a user attaches files and sends a message, CopilotKit:
+
+1. Reads each file (via the default base64 reader or your `onUpload` handler)
+2. Builds an array of `InputContent` parts — text + one part per attachment
+3. Adds the message to the agent with `content: [{ type: "text", ... }, { type: "image", source: ... }, ...]`
+4. The agent receives the multimodal content via the AG-UI protocol and forwards it to the model
+
+The attachments are part of the standard AG-UI `InputContent` schema, so any AG-UI-compatible agent (BuiltInAgent, LangGraph, custom) can receive them.
+
+<Callout type="info">
+  Migrating from the old `imageUploadsEnabled` prop? See the [migration guide](/migration-guides/migrate-attachments) for a step-by-step walkthrough.
+</Callout>
