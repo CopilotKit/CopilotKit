@@ -1,10 +1,17 @@
 import type { PlaygroundScanResult } from "./types";
+import type { FixtureListEntry } from "./fixture-store";
 
 export interface BundleReadyPayload {
   /** IIFE JavaScript the webview injects as a nonced <script>. */
   code: string;
   /** Optional collected CSS to inject. */
   css?: string;
+}
+
+export interface MountErrorPayload {
+  componentName: string;
+  filePath: string;
+  error: { message: string; stack?: string };
 }
 
 /** Messages the extension host sends to the webview. */
@@ -19,10 +26,25 @@ export type PlaygroundExtensionToWebviewMessage =
     }
   | { type: "llm-config-missing" }
   | { type: "runtime-error"; message: string }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  // Plan #4 additions
+  | { type: "fixtures-list"; fixtures: FixtureListEntry[] }
+  | {
+      type: "session-info";
+      runtimeUrl: string;
+      replayMode: boolean;
+      fixtureName: string | null;
+    }
+  | { type: "fixture-saved"; filePath: string }
+  | { type: "diagnostics"; errors: MountErrorPayload[]; tools: unknown[] };
 
 /** Messages the webview sends back to the extension host. */
 export type PlaygroundWebviewToExtensionMessage =
   | { type: "ready" }
   | { type: "refresh" }
-  | { type: "open-source"; filePath: string; line?: number };
+  | { type: "open-source"; filePath: string; line?: number }
+  // Plan #4 additions
+  | { type: "save-fixture"; name: string }
+  | { type: "load-fixture"; filePath: string }
+  | { type: "new-chat" }
+  | { type: "delete-fixture"; filePath: string };
