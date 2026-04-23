@@ -264,6 +264,10 @@ function useStableArrayProp<T>(
   return value;
 }
 
+// Module-level flag so the Tailwind warning fires at most once per page load,
+// even under React StrictMode's double-invoke behavior.
+let _tailwindWarningShown = false;
+
 // Provider component
 export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   children,
@@ -717,6 +721,19 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   // so it runs last in the effect queue on the initial mount cycle.
   useEffect(() => {
     didMountRef.current = true;
+  }, []);
+
+  // Remind developers to use Tailwind v4. CopilotKit v2 is not compatible with v3.
+  // Module-level flag ensures this fires at most once per page load (survives StrictMode double-invoke).
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    if (_tailwindWarningShown) return;
+    _tailwindWarningShown = true;
+    console.warn(
+      "[CopilotKit] If your UI appears unstyled, ensure you are using Tailwind CSS v4. " +
+        "Tailwind v3 is not supported.\n" +
+        "Upgrade guide: https://docs.copilotkit.ai/tailwind-v4-upgrade",
+    );
   }, []);
 
   // Sync defaultThrottleMs to the core instance on prop changes.

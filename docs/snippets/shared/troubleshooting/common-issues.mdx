@@ -10,6 +10,53 @@ Welcome to the CopilotKit Troubleshooting Guide! Here, you can find answers to c
 
 </Callout>
 
+## CopilotKit UI is unstyled (Tailwind v3 issue)
+
+If the chat panel renders without any styles, or you see layout issues and missing colors, the most common cause is a Tailwind CSS version mismatch.
+
+<Accordions>
+  <Accordion title="Using Tailwind v3 with CopilotKit v2">
+    CopilotKit v2 requires Tailwind CSS v4. If your project still has Tailwind v3 set up, the prebuilt components will not render correctly.
+
+    **Signs you have this problem:**
+    - You see a `[CopilotKit]` warning in the browser console mentioning Tailwind v3
+    - Your `postcss.config.mjs` (or `.js`) has `tailwindcss: {}` and `autoprefixer: {}`
+    - Your CSS still has `@tailwind base; @tailwind components; @tailwind utilities;`
+
+    **Fix:** Follow the [Tailwind v4 upgrade guide](/tailwind-v4-upgrade).
+  </Accordion>
+  <Accordion title='Error: "tailwindcss is not a function"'>
+    Your PostCSS config is loading the old Tailwind v3 plugin. Replace it with the v4 dedicated plugin:
+
+    ```js title="postcss.config.mjs"
+    export default {
+      plugins: {
+        "@tailwindcss/postcss": {},
+      },
+    };
+    ```
+
+    Also run:
+    ```bash
+    npm install @tailwindcss/postcss@^4
+    npm uninstall autoprefixer
+    ```
+  </Accordion>
+  <Accordion title='Error: "Unknown at rule @tailwind"'>
+    Your CSS still uses the old v3 directives. Replace them with a single import:
+
+    ```css title="globals.css"
+    /* Remove this: */
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+
+    /* Add this: */
+    @import "tailwindcss";
+    ```
+  </Accordion>
+</Accordions>
+
 ## I am getting network errors / API not found error
 
 If you're encountering network or API errors, here's how to troubleshoot:

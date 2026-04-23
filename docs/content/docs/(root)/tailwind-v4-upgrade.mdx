@@ -1,0 +1,103 @@
+---
+title: Tailwind CSS v4 Setup
+description: CopilotKit v2 requires Tailwind CSS v4. This guide covers installation, PostCSS configuration, and common migration errors.
+icon: "lucide/Paintbrush"
+keywords: ["tailwind v3", "tailwind v4", "@tailwindcss/postcss", "postcss tailwind plugin", "tailwindcss is not a function", "@layer base error", "autoprefixer", "tailwind upgrade"]
+---
+
+import { Callout } from "fumadocs-ui/components/callout";
+
+<Callout type="warn">
+  CopilotKit v2 requires Tailwind CSS v4. **Tailwind v3 is not supported** and will produce broken or unstyled UI.
+</Callout>
+
+## Install
+
+```bash
+npm install tailwindcss@^4 @tailwindcss/postcss@^4
+npm uninstall autoprefixer
+```
+
+Autoprefixer is no longer needed — Tailwind v4 handles vendor prefixes automatically.
+
+## PostCSS config
+
+Replace the v3 plugin with the dedicated v4 PostCSS plugin:
+
+```js title="postcss.config.mjs"
+export default {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+```
+
+The old `tailwindcss: {}` and `autoprefixer: {}` entries must be removed. Keeping them will cause a build error.
+
+## Global CSS entry point
+
+Replace the three `@tailwind` directives with a single import:
+
+```css title="globals.css"
+@import "tailwindcss";
+```
+
+## Remove `tailwind.config.js`
+
+Tailwind v4 is configured in CSS, not JavaScript. Delete `tailwind.config.js` (or `tailwind.config.ts`).
+
+If you had custom `content` paths or `theme.extend` values, migrate them to your CSS file:
+
+```css title="globals.css"
+@import "tailwindcss";
+
+/* Replaces "content" in tailwind.config.js */
+@source "../components/**/*.{ts,tsx}";
+
+/* Replaces "theme.extend" in tailwind.config.js */
+@theme {
+  --color-brand: oklch(0.5 0.2 250);
+  --font-display: "Inter", sans-serif;
+}
+```
+
+## Verify the upgrade
+
+After making the changes above, start your dev server. If the page renders without errors and CopilotKit components are styled, the upgrade is complete.
+
+If you see a console warning from CopilotKit about Tailwind v3, your `globals.css` still has the old `@tailwind` directives or PostCSS is still loading the old `tailwindcss` plugin.
+
+## Error → fix reference
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `tailwindcss is not a function` | PostCSS config still has `tailwindcss: {}` | Replace with `"@tailwindcss/postcss": {}` |
+| `Cannot find module 'tailwindcss/plugin'` | Code importing from `tailwindcss/plugin` (v3 API) | Remove or rewrite — v4 uses `@plugin` in CSS |
+| `Unknown at rule @tailwind` | CSS still has `@tailwind base/components/utilities` | Replace with `@import "tailwindcss"` |
+| `Unknown at rule @apply` inside `@layer base` | PostCSS isn't loading `@tailwindcss/postcss` | Check `postcss.config.mjs` has the correct plugin |
+| CopilotKit UI renders unstyled | Styles imported before `@import "tailwindcss"` loads | Ensure `@import "tailwindcss"` is the first line in your CSS |
+| `Error: It looks like you're trying to use a feature that requires PostCSS` | Vite project using Tailwind CLI instead of PostCSS | Add `postcss.config.mjs` with `@tailwindcss/postcss` |
+
+## Using Vite?
+
+If you're using Vite, you can use the dedicated Vite plugin instead of PostCSS:
+
+```bash
+npm install @tailwindcss/vite@^4
+npm uninstall autoprefixer @tailwindcss/postcss
+```
+
+```ts title="vite.config.ts"
+import tailwindcss from "@tailwindcss/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [tailwindcss()],
+});
+```
+
+No `postcss.config.mjs` needed when using the Vite plugin.
+
+## Full upgrade reference
+
+For the complete Tailwind v3→v4 migration guide (including plugins, arbitrary values, and breaking changes), see the [official Tailwind CSS v4 upgrade guide](https://tailwindcss.com/docs/upgrade-guide).
