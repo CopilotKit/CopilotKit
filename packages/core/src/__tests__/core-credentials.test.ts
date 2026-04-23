@@ -1,6 +1,39 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CopilotKitCore } from "../core";
+import { ProxiedCopilotRuntimeAgent } from "../agent";
 import { waitForCondition } from "./test-utils";
+
+const encoder = new TextEncoder();
+
+function createSseResponse(): Response {
+  const stream = new ReadableStream({
+    start(controller) {
+      const events = [
+        {
+          type: "RUN_STARTED",
+          threadId: "test-thread",
+          runId: "test-run",
+        },
+        {
+          type: "RUN_FINISHED",
+          threadId: "test-thread",
+          runId: "test-run",
+          result: { newMessages: [] },
+        },
+      ];
+      const payload = events
+        .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+        .join("");
+      controller.enqueue(encoder.encode(payload));
+      controller.close();
+    },
+  });
+
+  return new Response(stream, {
+    status: 200,
+    headers: { "content-type": "text/event-stream" },
+  });
+}
 
 describe("CopilotKitCore credentials", () => {
   const originalFetch = global.fetch;
@@ -160,5 +193,60 @@ describe("CopilotKitCore credentials", () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://runtime.example"); // Single endpoint, no /info suffix
     expect(init.credentials).toBe("include");
+  });
+
+  it("forwards credentials to fetch on REST transport run requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(createSseResponse());
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "rest-agent",
+      transport: "rest",
+      credentials: "include",
+    });
+
+    await agent.runAgent({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://runtime.example/agent/rest-agent/run");
+    expect(init.credentials).toBe("include");
+  });
+
+  it("forwards credentials to fetch on REST transport connect requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(createSseResponse());
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "rest-agent",
+      transport: "rest",
+      credentials: "same-origin",
+    });
+
+    await agent.connectAgent({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://runtime.example/agent/rest-agent/connect");
+    expect(init.credentials).toBe("same-origin");
+  });
+
+  it("omits credentials on REST transport when not configured", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(createSseResponse());
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const agent = new ProxiedCopilotRuntimeAgent({
+      runtimeUrl: "https://runtime.example",
+      agentId: "rest-agent",
+      transport: "rest",
+    });
+
+    await agent.runAgent({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.credentials).toBeUndefined();
   });
 });
