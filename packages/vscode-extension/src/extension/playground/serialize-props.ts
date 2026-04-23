@@ -1,4 +1,5 @@
 import type { CopilotKitProps, UnserializableRef } from "./types";
+import { buildLineOffsets, offsetToLineColumn } from "./ast-utils";
 
 /**
  * Maps a JSXOpeningElement's attributes to JSON-safe values. Any expression
@@ -12,14 +13,14 @@ export function serializeJsxProps(
 ): CopilotKitProps {
   const result: CopilotKitProps = {};
   const attributes = openingElement.attributes ?? [];
+  const lineOffsets = buildLineOffsets(sourceText);
+
+  const unserializable = (node: any, reason: string): UnserializableRef =>
+    unserializableFromNode(node, sourceText, reason, lineOffsets);
 
   for (const attr of attributes) {
     if (attr.type === "JSXSpreadAttribute") {
-      result["__spread"] = unserializableFromNode(
-        attr.argument,
-        sourceText,
-        "spread attribute",
-      );
+      result["__spread"] = unserializable(attr.argument, "spread attribute");
       continue;
     }
     if (attr.type !== "JSXAttribute") continue;
@@ -43,15 +44,11 @@ export function serializeJsxProps(
     }
 
     if (attr.value.type === "JSXExpressionContainer") {
-      result[name] = serializeExpression(attr.value.expression, sourceText);
+      result[name] = serializeExpression(attr.value.expression, sourceText, lineOffsets);
       continue;
     }
 
-    result[name] = unserializableFromNode(
-      attr.value,
-      sourceText,
-      "non-literal JSX value",
-    );
+    result[name] = unserializable(attr.value, "non-literal JSX value");
   }
 
   return result;
@@ -60,6 +57,7 @@ export function serializeJsxProps(
 function serializeExpression(
   expr: any,
   sourceText: string,
+  lineOffsets: number[],
 ):
   | string
   | number
@@ -68,8 +66,10 @@ function serializeExpression(
   | CopilotKitProps
   | CopilotKitProps[]
   | UnserializableRef {
-  if (!expr)
-    return unserializableFromNode(expr, sourceText, "empty expression");
+  const unserializable = (node: any, reason: string): UnserializableRef =>
+    unserializableFromNode(node, sourceText, reason, lineOffsets);
+
+  if (!expr) return unserializable(expr, "empty expression");
 
   switch (expr.type) {
     case "Literal":
@@ -78,16 +78,12 @@ function serializeExpression(
       if (expr.expressions.length === 0) {
         return expr.quasis.map((q: any) => q.value.cooked).join("");
       }
-      return unserializableFromNode(
-        expr,
-        sourceText,
-        "template with expressions",
-      );
+      return unserializable(expr, "template with expressions");
     case "ObjectExpression": {
       const obj: CopilotKitProps = {};
       for (const prop of expr.properties ?? []) {
         if (prop.type === "SpreadElement") {
-          obj["__spread"] = unserializableFromNode(prop, sourceText, "spread");
+          obj["__spread"] = unserializable(prop, "spread");
           continue;
         }
         if (prop.type !== "Property") continue;
@@ -98,7 +94,7 @@ function serializeExpression(
               ? String(prop.key.value)
               : null;
         if (!key) continue;
-        obj[key] = serializeExpression(prop.value, sourceText);
+        obj[key] = serializeExpression(prop.value, sourceText, lineOffsets);
       }
       return obj;
     }
@@ -106,7 +102,7 @@ function serializeExpression(
       const arr: CopilotKitProps[] = [];
       for (const el of expr.elements ?? []) {
         if (el == null) continue;
-        const serialized = serializeExpression(el, sourceText);
+        const serialized = serializeExpression(el, sourceText, lineOffsets);
         arr.push(serialized as unknown as CopilotKitProps);
       }
       return arr;
@@ -115,27 +111,19 @@ function serializeExpression(
       if (expr.operator === "-" && expr.argument?.type === "Literal") {
         return -(expr.argument.value as number);
       }
-      return unserializableFromNode(expr, sourceText, "unary expression");
+      return unserializable(expr, "unary expression");
     case "Identifier":
-      return unserializableFromNode(expr, sourceText, "identifier reference");
+      return unserializable(expr, "identifier reference");
     case "MemberExpression":
       // Label includes "identifier" so tests matching stringContaining("identifier") pass
-      return unserializableFromNode(
-        expr,
-        sourceText,
-        "identifier member expression",
-      );
+      return unserializable(expr, "identifier member expression");
     case "CallExpression":
-      return unserializableFromNode(expr, sourceText, "call expression");
+      return unserializable(expr, "call expression");
     case "ArrowFunctionExpression":
     case "FunctionExpression":
-      return unserializableFromNode(expr, sourceText, "inline function");
+      return unserializable(expr, "inline function");
     default:
-      return unserializableFromNode(
-        expr,
-        sourceText,
-        `expression of type ${expr.type}`,
-      );
+      return unserializable(expr, `expression of type ${expr.type}`);
   }
 }
 
@@ -143,18 +131,21 @@ function unserializableFromNode(
   node: any,
   sourceText: string,
   reason: string,
+  lineOffsets: number[],
 ): UnserializableRef {
   const start = typeof node?.start === "number" ? node.start : 0;
   const end = typeof node?.end === "number" ? node.end : start;
+  const startLC = offsetToLineColumn(start, lineOffsets);
+  const endLC = offsetToLineColumn(end, lineOffsets);
   return {
     __unserializable: true,
     reason,
     source: sourceText.slice(start, end),
     loc: {
-      line: 0,
-      column: start,
-      endLine: 0,
-      endColumn: end,
+      line: startLC.line,
+      column: startLC.column,
+      endLine: endLC.line,
+      endColumn: endLC.column,
     },
   };
 }

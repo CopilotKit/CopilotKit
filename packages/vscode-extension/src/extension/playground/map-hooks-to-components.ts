@@ -1,7 +1,7 @@
 import { parseSync } from "oxc-parser";
 import type { HookCallSite } from "../hooks/hook-scanner";
 import type { ComponentWithHooks, ScanWarning } from "./types";
-import { buildLineOffsets, offsetToLineColumn } from "./ast-utils";
+import { buildLineOffsets, lineColumnToOffset, offsetToLineColumn } from "./ast-utils";
 
 interface FunctionInfo {
   node: any;
@@ -41,7 +41,7 @@ export function mapHooksToComponents(
   const functions = collectFunctions(ast);
   const lineOffsets = buildLineOffsets(content);
   const siteOffsets = new Map<HookCallSite, number>();
-  for (const s of sites) siteOffsets.set(s, resolveSiteOffset(s, content));
+  for (const s of sites) siteOffsets.set(s, lineColumnToOffset(s.loc.line, s.loc.column, content));
 
   const byFunction = new Map<FunctionInfo, HookCallSite[]>();
   const warnings: ScanWarning[] = [];
@@ -156,7 +156,8 @@ function collectFunctions(ast: any): FunctionInfo[] {
       if (key === "loc" || key === "range" || key === "parent") continue;
       const child = (node as any)[key];
       if (Array.isArray(child)) for (const c of child) walk(c);
-      else if (child && typeof child === "object" && "type" in child) walk(child);
+      else if (child && typeof child === "object" && "type" in child)
+        walk(child);
     }
   };
   walk(ast);
@@ -218,12 +219,3 @@ function innermostFunctionContaining(
   return best;
 }
 
-function resolveSiteOffset(site: HookCallSite, content: string): number {
-  let offset = 0;
-  let line = 1;
-  while (line < site.loc.line && offset < content.length) {
-    if (content.charCodeAt(offset) === 10) line++;
-    offset++;
-  }
-  return offset + site.loc.column;
-}

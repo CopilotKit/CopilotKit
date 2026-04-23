@@ -3,6 +3,7 @@ import * as path from "node:path";
 import ignore, { type Ignore } from "ignore";
 import { parseSync } from "oxc-parser";
 import { getHookDef, isCopilotKitHook } from "./hook-registry";
+import { buildLineOffsets, offsetToLineColumn } from "../playground/ast-utils";
 
 export interface HookCallSite {
   filePath: string;
@@ -42,40 +43,6 @@ function readFile(filePath: string): string | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Pre-computes line-start offsets for O(log n) offset→line/column conversion.
- */
-function buildLineOffsets(source: string): number[] {
-  const offsets = [0];
-  for (let i = 0; i < source.length; i++) {
-    if (source.charCodeAt(i) === 10 /* \n */) {
-      offsets.push(i + 1);
-    }
-  }
-  return offsets;
-}
-
-function offsetToLineColumn(
-  offset: number,
-  lineOffsets: number[],
-): { line: number; column: number } {
-  // Binary search for the largest line-start offset ≤ offset.
-  let lo = 0;
-  let hi = lineOffsets.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >>> 1;
-    if (lineOffsets[mid]! <= offset) {
-      lo = mid;
-    } else {
-      hi = mid - 1;
-    }
-  }
-  return {
-    line: lo + 1,
-    column: offset - lineOffsets[lo]!,
-  };
 }
 
 /**
