@@ -3123,7 +3123,6 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
       windowMs: 30_000,
       minMatches: 3,
       template: "<!channel> {{count}} smoke-red across fleet: {{services}}",
-      targets: ["slack-oss-alerts"],
       ...overrides,
     };
     return { ...base, aggregation } satisfies AggregatedRule;
@@ -3288,12 +3287,16 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
     const BOOTSTRAP_MS = 15 * 60 * 1_000;
     const engineStartedAt = Date.now();
     const dispatched: string[] = [];
+    // A6: declare `rule` BEFORE the `onFlush` closure so the closure's
+    // reference is not a TDZ trap. The prior ordering (rule after store)
+    // worked only because the closure was never invoked before the rule
+    // was initialized — a silent hazard once any flush fires earlier.
+    const rule = aggRule({ minMatches: 3 });
     const onFlush = vi.fn((bucket) => {
       if (Date.now() - engineStartedAt < BOOTSTRAP_MS) return; // suppressed
       dispatched.push(buildCompositeDedupeKey(rule, bucket.groupValues));
     });
     const store = new AggregationBucketStore(onFlush);
-    const rule = aggRule({ minMatches: 3 });
 
     // All three matches arrive inside the first minute of engine uptime.
     const t0 = engineStartedAt;
@@ -3320,5 +3323,201 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
     vi.advanceTimersByTime(2 * windowMs + 1);
 
     expect(store.size).toBe(0);
+  });
+
+  it("drain_awaits_onflush_promises", async () => {
+    // A4: drain() must await async onFlush callbacks so SIGTERM handlers
+    // can guarantee in-flight buckets finish dispatching before the process
+    // exits. Pre-fix drain() was synchronous and onFlush returning a Promise
+    // vanished into .catch() — beforeExit returned before flushes completed.
+    vi.useRealTimers();
+    let resolved = false;
+    const onFlush = vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+      resolved = true;
+    });
+    const store = new AggregationBucketStore(onFlush);
+    const rule = aggRule({ minMatches: 99, windowMs: 60_000 });
+    store.ingest(rule, mkSignal("smoke", "a"), Date.now());
+    expect(store.size).toBe(1);
+
+    const drainPromise = store.drain();
+    // drain should return a Promise that awaits the async onFlush.
+    expect(drainPromise).toBeInstanceOf(Promise);
+    expect(resolved).toBe(false); // still in flight before await
+    await drainPromise;
+    expect(resolved).toBe(true);
+    expect(onFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("bucket_stays_live_when_flush_suppressed", () => {
+    // A5: when onFlush returns "suppressed" (engine's bootstrap / rate-limit
+    // gate short-circuits dispatch), the store must NOT mark flushedAt or
+    // remove the bucket. Subsequent ingestion must re-cross threshold and
+    // re-invoke onFlush so a post-bootstrap tick can actually deliver.
+    const onFlush = vi.fn(() => "suppressed" as const);
+    const store = new AggregationBucketStore(onFlush);
+    const rule = aggRule({ minMatches: 3, windowMs: 60_000 });
+    const t0 = Date.now();
+    store.ingest(rule, mkSignal("smoke", "a"), t0);
+    store.ingest(rule, mkSignal("smoke", "b"), t0 + 1_000);
+    store.ingest(rule, mkSignal("smoke", "c"), t0 + 2_000); // threshold hit
+
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    // Bucket must still be live so a future ingestion re-fires onFlush.
+    expect(store.size).toBe(1);
+
+    // Second ingestion after "gate opened" (onFlush returns undefined now).
+    const calls = onFlush.mock.calls.length;
+    (
+      onFlush as unknown as { mockImplementation: (f: () => void) => void }
+    ).mockImplementation(() => undefined);
+    store.ingest(rule, mkSignal("smoke", "d"), t0 + 3_000);
+    expect(onFlush.mock.calls.length).toBeGreaterThan(calls);
+  });
+
+  it("bucket_key_collision_safe_with_special_chars", () => {
+    // B4: intra-key delimiter must be NUL ( ), not `&`, so a groupBy
+    // value containing `=` or `&` can't be crafted to collide with a
+    // distinct grouping. Use `buildCompositeDedupeKey` as the public
+    // surface for the collision check.
+    const rule = aggRule();
+    // Pre-fix `${k}=${v}` joined on `&` had a concrete collision:
+    //   { a: "x", b: "y&c=z" }      → "a=x&b=y&c=z"
+    //   { a: "x", b: "y", c: "z" }  → "a=x&b=y&c=z"
+    const keyA = buildCompositeDedupeKey(rule, { a: "x", b: "y&c=z" });
+    const keyB = buildCompositeDedupeKey(rule, { a: "x", b: "y", c: "z" });
+    expect(keyA).not.toBe(keyB);
+  });
+
+  it("no_groupBy_uses_ruleid_only_as_bucket_scope", () => {
+    // A7: omitting `groupBy` (or passing empty) must key the bucket purely
+    // on `rule.id`. Pre-fix rules declaring `groupBy: [dimension]` produced
+    // `signal.dimension === undefined → ""` under the hood and silently
+    // collapsed to one bucket — the new contract makes that explicit.
+    const onFlush = vi.fn();
+    const store = new AggregationBucketStore(onFlush);
+    const rule = aggRule({ groupBy: [], minMatches: 3 });
+    const t0 = Date.now();
+    // Signals across multiple dimensions — all collapse to the rule-id
+    // bucket because groupBy is empty.
+    store.ingest(rule, mkSignal("smoke", "a"), t0);
+    store.ingest(rule, mkSignal("agent", "b"), t0 + 100);
+    store.ingest(rule, mkSignal("chat", "c"), t0 + 200);
+    expect(onFlush).toHaveBeenCalledTimes(1);
+    const [bucket] = onFlush.mock.calls[0]!;
+    expect(bucket.matches).toHaveLength(3);
+    expect(bucket.groupValues).toEqual({});
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Engine-level aggregation ingress — A1 fix: red_to_green transitions must
+// NOT ingest into the aggregation bucket (recovery is not a "fleet red"
+// signal). green_to_red and sustained_red continue to ingest.
+// -----------------------------------------------------------------------------
+describe("alert-engine aggregation ingress (A1)", () => {
+  let bus: ReturnType<typeof createEventBus>;
+  let renderer: ReturnType<typeof createRenderer>;
+  let store: AlertStateStore;
+  let tgt: ReturnType<typeof captureTarget>;
+
+  beforeEach(() => {
+    bus = createEventBus();
+    renderer = createRenderer();
+    store = memStore();
+    tgt = captureTarget();
+  });
+
+  function engine(
+    overrides: Partial<Parameters<typeof createAlertEngine>[0]> = {},
+  ): ReturnType<typeof createAlertEngine> {
+    const tMap = new Map([["slack_webhook", tgt.target]]);
+    return createAlertEngine({
+      bus,
+      renderer,
+      stateStore: store,
+      targets: tMap,
+      logger,
+      now: () => new Date("2026-04-20T01:00:00Z"),
+      env: { dashboardUrl: "https://d", repo: "r/r" },
+      bootstrapWindowMs: 0,
+      ...overrides,
+    });
+  }
+
+  function aggregatedSmokeRule(): CompiledRule {
+    return {
+      id: "smoke-red-fleet",
+      name: "fleet",
+      owner: "@oss",
+      severity: "warn",
+      signal: { dimension: "smoke" },
+      // minMatches: 1 so a single ingress would immediately flush — if the
+      // gate fails open on red_to_green we SEE one Slack dispatch, if it
+      // fails closed we see zero.
+      stringTriggers: ["green_to_red", "sustained_red"],
+      cronTriggers: [],
+      conditions: { guards: [], escalations: [] },
+      targets: [{ kind: "slack_webhook", webhook: "oss_alerts" }],
+      actions: [],
+      aggregation: {
+        groupBy: [],
+        windowMs: 60_000,
+        minMatches: 1,
+        template: "<!channel> fleet red {{count}}",
+      },
+    };
+  }
+
+  it("red_to_green_does_not_trigger_aggregation_flush", async () => {
+    const e = engine();
+    e.start();
+    e.reload([aggregatedSmokeRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "red",
+        newState: "green",
+        transition: "red_to_green",
+        failCount: 0,
+        firstFailureAt: null,
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "green",
+        signal: { slug: "mastra", dimension: "smoke" },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    // No aggregation dispatch despite minMatches: 1.
+    expect(tgt.sent).toHaveLength(0);
+    e.stop();
+  });
+
+  it("green_to_red_does_trigger_aggregation_flush", async () => {
+    const e = engine();
+    e.start();
+    e.reload([aggregatedSmokeRule()]);
+    bus.emit("status.changed", {
+      outcome: {
+        previousState: "green",
+        newState: "red",
+        transition: "green_to_red",
+        failCount: 1,
+        firstFailureAt: "2026-04-20T00:00:00Z",
+      },
+      result: {
+        key: "smoke:mastra",
+        state: "red",
+        signal: { slug: "mastra", dimension: "smoke" },
+        observedAt: "2026-04-20T00:00:00Z",
+      },
+    });
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+    expect(tgt.sent).toHaveLength(1);
+    e.stop();
   });
 });

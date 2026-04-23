@@ -166,11 +166,17 @@ export const OnErrorSchema = z
  */
 export const AggregationSchema = z
   .object({
-    groupBy: z.array(z.string().min(1)).min(1),
+    // A7: groupBy is optional / may be empty → single bucket per rule. Use
+    // this when the rule's `when` clause already partitions traffic (e.g.
+    // one rule per dimension) and there's no finer partition to apply.
+    groupBy: z.array(z.string().min(1)).optional(),
     windowMs: z.number().int().positive(),
     minMatches: z.number().int().positive(),
     template: z.string().min(1),
-    targets: z.array(z.string().min(1)).optional(),
+    // B1: `targets` removed — the engine uses `rule.targets` for aggregation
+    // dispatch; a separate aggregation-level override was never wired and
+    // silently dropped. Rule authors declaring it got no feedback and no
+    // effect; `.strict()` on RuleSchema now rejects the field at load.
   })
   .strict();
 
