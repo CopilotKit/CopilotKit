@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   unit:
-    name: "unit"
+    name: "Node ${{ matrix.node-version }}, React ${{ matrix.react-version }}"
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     strategy:
