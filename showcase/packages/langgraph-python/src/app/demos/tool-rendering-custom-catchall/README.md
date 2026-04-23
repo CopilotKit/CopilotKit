@@ -22,11 +22,19 @@ The backend prompt nudges the agent to chain a second tool after the first, so e
 ## Technical Details
 
 ```tsx
-useDefaultRenderTool({
-  render: ({ name, parameters, status, result }) => (
-    <CustomCatchallRenderer name={name} parameters={parameters} status={status} result={result} />
-  ),
-}, []);
+useDefaultRenderTool(
+  {
+    render: ({ name, parameters, status, result }) => (
+      <CustomCatchallRenderer
+        name={name}
+        parameters={parameters}
+        status={status}
+        result={result}
+      />
+    ),
+  },
+  [],
+);
 ```
 
 `useDefaultRenderTool` is a convenience wrapper around `useRenderTool({ name: "*", ... })` — a single wildcard renderer claims every tool call not picked up by a named renderer. The `CustomCatchallRenderer` receives the tool `name`, parsed `parameters`, a `status` enum, and the streamed `result` string so it can show a live "streaming → running → done" badge and a formatted arguments/result view.

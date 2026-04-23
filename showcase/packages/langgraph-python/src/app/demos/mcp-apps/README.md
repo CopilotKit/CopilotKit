@@ -2,7 +2,7 @@
 
 ## What This Demo Shows
 
-MCP Apps are MCP servers that expose tools *with* associated UI resources. The agent has zero local tools — it talks to a remote MCP server (Excalidraw), and CopilotKit renders the server's UI inline as a sandboxed iframe.
+MCP Apps are MCP servers that expose tools _with_ associated UI resources. The agent has zero local tools — it talks to a remote MCP server (Excalidraw), and CopilotKit renders the server's UI inline as a sandboxed iframe.
 
 - **Remote tools**: tools are fetched at request time from `https://mcp.excalidraw.com`
 - **Auto-rendered UI**: the built-in `MCPAppsActivityRenderer` handles the iframe — no frontend renderer registration needed

@@ -30,7 +30,11 @@ useFrontendTool({
     return { keyword, count: matches.length, notes: matches };
   },
   render: ({ args, result, status }) => (
-    <NotesCard loading={status !== "complete"} keyword={args?.keyword} notes={parse(result).notes} />
+    <NotesCard
+      loading={status !== "complete"}
+      keyword={args?.keyword}
+      notes={parse(result).notes}
+    />
   ),
 });
 ```
