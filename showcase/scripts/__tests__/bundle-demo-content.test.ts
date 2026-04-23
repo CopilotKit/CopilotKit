@@ -63,7 +63,6 @@ describe("Content Bundler", () => {
     expect(fs.existsSync(CONTENT_PATH)).toBe(true);
 
     const content = JSON.parse(fs.readFileSync(CONTENT_PATH, "utf-8"));
-    expect(content.generated_at).toBeDefined();
     expect(Object.keys(content.demos).length).toBeGreaterThan(0);
   });
 

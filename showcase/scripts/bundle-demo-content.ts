@@ -106,7 +106,6 @@ interface DemoContent {
 }
 
 interface BundledContent {
-  generated_at: string;
   demos: Record<string, DemoContent>; // key: "integration-slug::demo-id"
 }
 
@@ -352,8 +351,12 @@ function collectDemoFiles(
 function main() {
   console.log("Bundling demo content...\n");
 
+  // Output is content-addressable: given the same demo sources we emit the
+  // same bytes. A prior revision stamped `generated_at: new Date().toISOString()`
+  // on every run which caused the committed JSON to churn in git status
+  // every dev/build cycle. Timestamp provenance lives in git log, not the
+  // file itself.
   const bundle: BundledContent = {
-    generated_at: new Date().toISOString(),
     demos: {},
   };
 
@@ -367,10 +370,17 @@ function main() {
     return;
   }
 
+  // Sort for deterministic output: fs.readdirSync order is platform-dependent
+  // (alphabetical on macOS/APFS, hash-order on Linux/ext4), which would
+  // permute the top-level `demos` key insertion order and produce
+  // byte-different JSON between macOS dev and Linux CI even for identical
+  // source trees. With output now content-addressable (no `generated_at`),
+  // any remaining platform-driven drift must be eliminated here.
   const packageDirs = fs
     .readdirSync(PACKAGES_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
-    .map((d) => d.name);
+    .map((d) => d.name)
+    .sort();
 
   for (const pkgDir of packageDirs) {
     try {

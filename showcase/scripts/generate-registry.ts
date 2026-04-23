@@ -272,8 +272,13 @@ function main() {
     console.log(`\nLoaded ${packages.length} packages from packages.json`);
   }
 
+  // Output shape is content-addressable: given the same inputs (manifests,
+  // feature-registry, packages.json, constraints.yaml), we emit the same
+  // bytes. A prior revision stamped `generated_at: new Date().toISOString()`
+  // which bumped on every run and caused the committed JSON to churn in
+  // git status / diff noise on every dev/build cycle. Timestamp provenance
+  // lives in git log, not the file itself.
   const registry = {
-    generated_at: new Date().toISOString(),
     feature_registry: featureRegistry,
     integrations,
     packages,

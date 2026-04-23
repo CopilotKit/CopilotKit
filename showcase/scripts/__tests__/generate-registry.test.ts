@@ -62,7 +62,6 @@ describe("Registry Generator", () => {
     expect(fs.existsSync(registryPath)).toBe(true);
 
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
-    expect(registry.generated_at).toBeDefined();
     expect(registry.feature_registry).toBeDefined();
     expect(registry.feature_registry.features.length).toBeGreaterThan(0);
     expect(registry.integrations.length).toBeGreaterThan(0);

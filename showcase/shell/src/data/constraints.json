@@ -70,7 +70,9 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": [
+        "voice"
+      ]
     }
   }
 }

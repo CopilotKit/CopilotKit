@@ -69,7 +69,6 @@ export interface Package {
 }
 
 export interface Registry {
-  generated_at: string;
   feature_registry: {
     version: string;
     categories: FeatureCategory[];
