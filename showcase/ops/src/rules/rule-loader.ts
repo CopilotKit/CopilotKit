@@ -323,19 +323,31 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
   }
 
   function validateTripleBrace(rule: RuleDoc): void {
-    // Mirror validateFilterNames: scan BOTH template.text AND
-    // on_error.template.text. Pre-fix, a rule with
+    // Mirror validateFilterNames: scan template.text, on_error.template.text,
+    // AND aggregation.template (A8). Pre-fix, a rule with
     // `on_error.template: "{{{signal.arbitrary_field}}}"` on a dimension
     // where `arbitrary_field` wasn't in slackSafeFields passed load
     // validation but rendered the raw unescaped value at runtime — a
     // Slack mrkdwn-injection / XSS surface asymmetric with the primary
-    // template's validation.
+    // template's validation. The same hole existed for aggregation.template
+    // (rendered via Mustache.render in alert-engine.onAggregationFlush).
     const sources: string[] = [];
     if (rule.template?.text) sources.push(rule.template.text);
     if (rule.on_error?.template?.text)
       sources.push(rule.on_error.template.text);
+    // A8: aggregation.template is rendered in onAggregationFlush with the
+    // context `{ count, services, firstSignal, lastSignal, groupValues }`.
+    // Triple-brace on `firstSignal.*` / `lastSignal.*` is essentially a
+    // `signal.*` reference and must honour the same dimension's slackSafe
+    // set. We normalise those prefixes to `signal.` before the per-path
+    // check below so the existing allowlist applies transparently.
+    const aggSource = rule.aggregation?.template;
+    if (aggSource) sources.push(aggSource);
     const safeForDim =
       slackSafeFields[rule.signal.dimension] ?? new Set<string>();
+    // Non-signal identifiers the aggregation template's render context
+    // injects directly. These are always loader-known-safe.
+    const AGG_SAFE_NON_SIGNAL = new Set(["count", "services"]);
     const re = /\{\{\{\s*([^}]+?)\s*\}\}\}/g;
     for (const template of sources) {
       re.lastIndex = 0;
@@ -365,12 +377,26 @@ export function createRuleLoader(opts: RuleLoaderOptions): RuleLoader {
           }
           continue;
         }
-        if (!p.startsWith("signal.")) {
+        // A8: aggregation-template engine context fields. `count` and
+        // `services` are simple (number/string) values — triple-brace is
+        // pointless on them but not unsafe; allow them for symmetry with
+        // the flat `{{count}}` usage already present in fleet rules.
+        if (AGG_SAFE_NON_SIGNAL.has(p)) continue;
+        // A8: firstSignal.* / lastSignal.* are aliases for signal.* in the
+        // aggregation render context; rewrite to the canonical signal path
+        // so the per-dimension slackSafe set applies unchanged.
+        let normPath = p;
+        if (p.startsWith("firstSignal.")) {
+          normPath = "signal." + p.slice("firstSignal.".length);
+        } else if (p.startsWith("lastSignal.")) {
+          normPath = "signal." + p.slice("lastSignal.".length);
+        }
+        if (!normPath.startsWith("signal.")) {
           throw new Error(
             `rule ${rule.id}: triple-brace must reference 'signal.*', 'event.*', or 'env.*', got '${p}'`,
           );
         }
-        const sub = p.slice("signal.".length);
+        const sub = normPath.slice("signal.".length);
         if (!safeForDim.has(sub)) {
           throw new Error(
             `rule ${rule.id}: triple-brace '${p}' not marked slackSafe on dimension '${rule.signal.dimension}'`,
