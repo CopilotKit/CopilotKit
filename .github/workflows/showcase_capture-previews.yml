@@ -138,11 +138,28 @@ jobs:
           cd showcase/shell/src/data
           if git diff --quiet registry.json; then
             echo "No registry changes"
-          else
-            git add registry.json
-            git commit -m "Update preview URLs in registry"
-            git push
+            exit 0
           fi
+          git add registry.json
+          git commit -m "Update preview URLs in registry"
+          # Rebase-and-retry loop: the capture job can take ~30 minutes,
+          # during which other commits routinely land on main. Without
+          # this loop, `git push` loses the race and fails with "fetch
+          # first" (observed in runs 24799601181 and 24809331709 on
+          # 2026-04-22). Rebase our single registry commit onto the
+          # latest main and retry; bounded attempts so a persistent
+          # failure still surfaces rather than looping forever.
+          attempts=0
+          max_attempts=5
+          until git push; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge "$max_attempts" ]; then
+              echo "::error::push failed after $max_attempts rebase attempts"
+              exit 1
+            fi
+            echo "push rejected — rebasing onto latest main (attempt $attempts/$max_attempts)"
+            git pull --rebase origin "$(git rev-parse --abbrev-ref HEAD)"
+          done
 
       # Slack failure alert. This workflow only runs on main-branch pushes,
       # workflow_run completions, and manual dispatch — all of which
