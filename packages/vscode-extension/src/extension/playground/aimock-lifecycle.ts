@@ -11,11 +11,15 @@ export interface AimockStartOptions {
    * returns 503 for unmatched requests but still journals them.
    */
   enableUpstreamRecording?: boolean;
+  /** Load this fixture file on start — switches aimock into replay mode
+   *  (no upstream proxy, no recording). */
+  replayFixturePath?: string;
 }
 
 export interface AimockHandle {
   url: string;
   provider: LlmProvider;
+  isReplayMode: boolean;
   /** Returns the current in-memory journal (recorded requests). */
   getJournal(): unknown[];
   stop(): Promise<void>;
@@ -39,7 +43,10 @@ export async function startAimock(
     port: 0,
     logLevel: "silent",
   });
-  if (options.enableUpstreamRecording !== false) {
+  if (options.replayFixturePath) {
+    // Replay mode: load the fixture file, no upstream, no recording.
+    mock.loadFixtureFile(options.replayFixturePath);
+  } else if (options.enableUpstreamRecording !== false) {
     mock.enableRecording({
       providers: { [options.provider]: upstream },
       proxyOnly: false,
@@ -49,10 +56,12 @@ export async function startAimock(
   return {
     url,
     provider: options.provider,
+    isReplayMode: !!options.replayFixturePath,
     getJournal: () => {
-      // getRequests() is the canonical accessor on LLMock — returns JournalEntry[]
-      // journal.getAll() is the equivalent via the Journal object
-      return mock.getRequests();
+      const m = mock as unknown as { getRequests?: () => unknown[]; journal?: { getAll?: () => unknown[] } };
+      if (typeof m.getRequests === "function") return m.getRequests();
+      if (m.journal?.getAll) return m.journal.getAll();
+      return [];
     },
     stop: async () => {
       await mock.stop();

@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { startAimock } from "../aimock-lifecycle";
 
@@ -35,6 +38,46 @@ describe("startAimock", () => {
       }).catch(() => undefined);
       const journal = handle.getJournal();
       expect(journal.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      await handle.stop();
+    }
+  }, 5_000);
+
+  it("loads a fixture file and enters replay mode", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aimock-replay-"));
+    const fixturePath = path.join(tmpDir, "replay.json");
+    fs.writeFileSync(
+      fixturePath,
+      JSON.stringify({
+        fixtures: [
+          { match: { userMessage: "hi" }, response: { content: "hello back" } },
+        ],
+      }),
+      "utf-8",
+    );
+    try {
+      const handle = await startAimock({
+        provider: "openai",
+        replayFixturePath: fixturePath,
+      });
+      try {
+        expect(handle.isReplayMode).toBe(true);
+        expect(handle.url).toMatch(/^http:\/\//);
+      } finally {
+        await handle.stop();
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }, 10_000);
+
+  it("is not in replay mode when no fixture is loaded", async () => {
+    const handle = await startAimock({
+      provider: "openai",
+      enableUpstreamRecording: false,
+    });
+    try {
+      expect(handle.isReplayMode).toBe(false);
     } finally {
       await handle.stop();
     }

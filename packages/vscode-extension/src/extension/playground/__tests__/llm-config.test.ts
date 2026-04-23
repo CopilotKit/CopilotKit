@@ -78,7 +78,9 @@ describe("resolveLlmConfig", () => {
   it("resolves anthropic explicit config via SecretStorage + settings", async () => {
     const deps = makeDeps({
       readSecret: vi.fn((k: string) =>
-        Promise.resolve(k === "copilotkit.anthropic.apiKey" ? "sk-ant-xxx" : undefined),
+        Promise.resolve(
+          k === "copilotkit.anthropic.apiKey" ? "sk-ant-xxx" : undefined,
+        ),
       ),
       readSetting: vi.fn((k: string) =>
         k === "copilotkit.playground.provider" ? "anthropic" : undefined,
