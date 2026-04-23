@@ -124,9 +124,20 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   const configDir =
     opts.configDir ?? path.resolve(process.cwd(), "config/alerts");
+  // L1-L4 per-starter dimensions (agent/chat/tools) don't have dedicated probe
+  // modules today — their signals flow through the same smoke/e2e-smoke drivers
+  // as side-emissions (see probes/drivers/smoke.ts). The safe-field sets for
+  // them mirror smoke's sanitized-errorDesc allow-list so triple-brace
+  // {{{signal.errorDesc}}} in the red-tick YAMLs loads. Keep these in lockstep
+  // with SMOKE_SLACK_SAFE_FIELDS — any new sanitized field added there SHOULD
+  // be added here too unless there's a dimension-specific reason otherwise.
+  const L1_L4_SLACK_SAFE_FIELDS = ["errorDesc"] as const;
   const slackSafeFields: Record<string, Set<string>> = {
     redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
     smoke: new Set(SMOKE_SLACK_SAFE_FIELDS),
+    agent: new Set(L1_L4_SLACK_SAFE_FIELDS),
+    chat: new Set(L1_L4_SLACK_SAFE_FIELDS),
+    tools: new Set(L1_L4_SLACK_SAFE_FIELDS),
   };
   const loader = createRuleLoader({
     dir: configDir,

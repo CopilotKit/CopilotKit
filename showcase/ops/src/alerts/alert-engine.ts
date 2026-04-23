@@ -7,6 +7,12 @@ import type { Renderer } from "../render/renderer.js";
 import type { CompiledRule } from "../rules/rule-loader.js";
 import type { AlertStateStore } from "../storage/alert-state-store.js";
 import { parseDuration, evalSuppress } from "./dsl.js";
+import {
+  AggregationBucketStore,
+  buildCompositeDedupeKey,
+  type Bucket,
+  type FlushReason,
+} from "./aggregation.js";
 // Re-export so existing callers (rule-loader, tests) that import from
 // alert-engine.js continue to work without touching every import site.
 // Fresh modules should import from ./dsl.js directly.
@@ -115,6 +121,36 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
         // counter reflects rule activity, not delivery. Delivery counted via
         // alert_sends inside sendToTargets.
         metrics?.inc("alert_matches", { rule: rule.id });
+
+        // Aggregated rules: ingest only RED-bearing transitions. Per-match
+        // dispatch is short-circuited so aggregated rules never fire the
+        // normal path. A1: a `red_to_green` recovery is not a "fleet red"
+        // signal — ingesting it would fire <!channel> on recoveries. We
+        // evaluate the rule's declared triggers via `resolveTriggers` and
+        // skip ingest when the triggered set is purely `red_to_green`.
+        // `error` transitions also do not ingest (they route through the
+        // dispatchOnError path for non-aggregated rules; aggregated rules
+        // don't support onError today).
+        if (rule.aggregation) {
+          if (evt.outcome.transition === "error") continue;
+          const t = evt.outcome.transition as Transition;
+          const signalFlags = deriveSignalFlags(evt.result.signal);
+          const triggered = resolveTriggers(rule, t, signalFlags);
+          const hasRedBearing = triggered.some(
+            (name) => name !== "red_to_green",
+          );
+          if (!hasRedBearing) {
+            logger.debug("alert-engine.aggregation-skip-recovery", {
+              ruleId: rule.id,
+              transition: t,
+              triggered,
+            });
+            continue;
+          }
+          const signalObj = signalAsObject(evt.result.signal);
+          aggStore.ingest(rule, signalObj, now().getTime());
+          continue;
+        }
 
         if (evt.outcome.transition === "error") {
           // Apply the same guard-set to onError paths so minDeployAgeMin (and
@@ -487,6 +523,12 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     rule: CompiledRule,
     evt: { ruleId: string; scheduledAt: string; result?: ProbeResult<unknown> },
   ): Promise<void> {
+    // B3: aggregated rules are handled via the status.changed ingress path
+    // (handleStatusChanged calls `aggStore.ingest`). The cron path would
+    // render `rule.template` (often empty for aggregation-only rules) or
+    // bypass aggregation entirely. Skip defensively so a rule that ever
+    // declares BOTH cron triggers AND aggregation can't double-dispatch.
+    if (rule.aggregation) return;
     const probeState = evt.result?.state;
     // Guard: a rule without a top-level template is still valid if it declares
     // `on_error: { template: ... }` — error ticks route to dispatchOnError which
@@ -892,6 +934,162 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     }
   }
 
+  /**
+   * Composite flush callback invoked by the aggregation store when a bucket
+   * either hits `minMatches` or expires. Applies rate_limit + bootstrap gates
+   * against `buildCompositeDedupeKey(rule, groupValues)` so successive
+   * windows with the same logical group collapse to one dispatch; renders
+   * the aggregation template with `{ count, services, firstSignal, lastSignal,
+   * groupValues }` context.
+   *
+   * Failures inside here are logged but must not propagate — a render or
+   * dispatch error on one bucket must not kill the engine or block
+   * subsequent ingress. The store itself tolerates a throwing onFlush (the
+   * bucket is already removed before invocation), so swallowing here is
+   * belt-and-braces.
+   */
+  async function onAggregationFlush(
+    bucket: Bucket,
+    _reason: FlushReason,
+  ): Promise<void | "suppressed"> {
+    const rule = rules.find((r) => r.id === bucket.ruleId);
+    if (!rule || !rule.aggregation) return;
+    const dedupeKey = buildCompositeDedupeKey(rule, bucket.groupValues);
+    try {
+      // Bootstrap gate — mirrors handleStatusChanged: fresh-boot bursts of
+      // matches would otherwise fire a composite during the bootstrap window.
+      // A5: return "suppressed" so the store keeps the bucket live; the next
+      // ingestion crossing threshold after bootstrap closes can re-fire.
+      if (bootstrapActive()) {
+        logger.info("alert-engine.bootstrap-suppress", {
+          ruleId: rule.id,
+          reason: "bootstrap_aggregation",
+          dedupeKey,
+        });
+        return "suppressed";
+      }
+      // Rate-limit gate against the composite dedupeKey so two consecutive
+      // window expiries for the same groupValues collapse to one dispatch
+      // when rate_limit.window spans multiple aggregation windows. A5: like
+      // bootstrap, return "suppressed" so the bucket stays live — post
+      // rate-limit window the next ingestion can deliver.
+      if (rule.conditions.rate_limit?.window) {
+        const windowMs = parseDuration(rule.conditions.rate_limit.window);
+        const last = await stateStore.get(rule.id, dedupeKey);
+        if (last?.last_alert_at) {
+          const elapsed =
+            now().getTime() - new Date(last.last_alert_at).getTime();
+          if (elapsed < windowMs) {
+            logger.debug("alert-engine.rate-limited", {
+              rule: rule.id,
+              path: "aggregation",
+            });
+            return "suppressed";
+          }
+        }
+      }
+      const count = bucket.matches.length;
+      const services = bucket.matches
+        .map((s) => {
+          const slug = (s as Record<string, unknown>)["slug"];
+          return typeof slug === "string" ? slug : "";
+        })
+        .filter((s) => s.length > 0)
+        .join(", ");
+      const firstSignal = bucket.matches[0] ?? {};
+      const lastSignal = bucket.matches[bucket.matches.length - 1] ?? {};
+      const text = Mustache.render(rule.aggregation.template, {
+        count,
+        services,
+        firstSignal,
+        lastSignal,
+        groupValues: bucket.groupValues,
+      });
+      const rendered = {
+        payload: { text } as Record<string, unknown>,
+        contentType: "application/json" as const,
+      };
+      const { results, allSucceeded } = await sendToTargets(rule, rendered);
+      const anySucceeded = results.some((r) => r.ok);
+      if (!anySucceeded) {
+        logger.warn("alert-engine.record-skipped", {
+          rule: rule.id,
+          reason: "all-targets-failed",
+          path: "aggregation",
+        });
+        return;
+      }
+      if (!allSucceeded) {
+        logger.warn("alert-engine.dedupe-held-partial", {
+          rule: rule.id,
+          path: "aggregation",
+          failed: results.filter((r) => !r.ok).map((r) => r.kind),
+        });
+        return;
+      }
+      const hash = hashPayload(rendered.payload);
+      const preview = JSON.stringify(rendered.payload).slice(0, 500);
+      await stateStore.record(rule.id, dedupeKey, {
+        at: now().toISOString(),
+        hash,
+        preview,
+      });
+    } catch (err) {
+      logger.error("alert-engine.aggregation-flush-failed", {
+        ruleId: rule.id,
+        dedupeKey,
+        err: String(err),
+      });
+    }
+  }
+
+  const aggStore = new AggregationBucketStore((bucket, reason) => {
+    // A4 / A5: return the promise directly so the store can `await` it
+    // inside `drain()` (SIGTERM path) AND observe the "suppressed" sentinel
+    // to keep the bucket live when an engine gate short-circuits dispatch.
+    // Attach a `.catch` tail for unhandled throws without swallowing the
+    // return value.
+    return onAggregationFlush(bucket, reason).catch((err) => {
+      logger.error("alert-engine.aggregation-flush-unhandled", {
+        ruleId: bucket.ruleId,
+        err: String(err),
+      });
+      // Undefined → store treats as a normal (non-suppressed) flush; the
+      // bucket will be marked flushedAt and drop on timer expiry.
+      return undefined;
+    });
+  });
+
+  // Register a drain on graceful shutdown so in-flight buckets flush their
+  // composites rather than silently vanishing. SIGKILL still loses them by
+  // design — the next probe tick rebuilds bucket state naturally.
+  //
+  // A4: SIGTERM handler awaits drain() so composites actually dispatch
+  // before the process exits. `beforeExit` stays as best-effort (Node's
+  // beforeExit cannot truly await) — we swallow the promise tail with a
+  // .catch so an async flush error on shutdown doesn't crash the process.
+  // Guard against repeated registration when the engine is re-created in
+  // tests.
+  const sigtermHandler = (): void => {
+    aggStore.drain().catch((err) =>
+      logger.error("alert-engine.drain-failed", {
+        err: String(err),
+        path: "sigterm",
+      }),
+    );
+  };
+  const beforeExit = (): void => {
+    aggStore.drain().catch((err) =>
+      logger.warn("alert-engine.drain-failed", {
+        err: String(err),
+        path: "beforeExit",
+        hint: "beforeExit cannot actually await — SIGKILL / abrupt exit would drop in-flight buckets",
+      }),
+    );
+  };
+  process.once("beforeExit", beforeExit);
+  process.once("SIGTERM", sigtermHandler);
+
   return {
     start() {
       unsubs.push(
@@ -918,6 +1116,24 @@ export function createAlertEngine(deps: AlertEngineDeps): AlertEngine {
     stop() {
       for (const u of unsubs) u();
       unsubs.length = 0;
+      // Remove the beforeExit + SIGTERM listeners so repeated engine
+      // create/stop cycles in tests don't accumulate listeners and trip
+      // Node's MaxListenersExceededWarning. `process.once` would self-remove
+      // after the first emit — but tests never reach those signals, so we
+      // drop the listeners explicitly here.
+      process.removeListener("beforeExit", beforeExit);
+      process.removeListener("SIGTERM", sigtermHandler);
+      // Drain any in-flight buckets on stop() too, so test runs that create
+      // many engines don't leak timers into subsequent tests. A4: fire and
+      // forget here — callers that need to await drain must invoke the
+      // `drain()` directly on the store (engine deliberately stays a sync
+      // stop() for backward-compat with the AlertEngine interface).
+      aggStore.drain().catch((err) =>
+        logger.warn("alert-engine.drain-failed", {
+          err: String(err),
+          path: "stop",
+        }),
+      );
     },
     reload(next) {
       rules = next;

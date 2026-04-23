@@ -5,6 +5,7 @@ import {
   showcaseShapeSchema,
   type ShowcaseServiceShape,
 } from "../discovery/railway-services.js";
+import { sanitizeErrorDesc } from "./sanitize.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -421,10 +422,12 @@ async function probeOne(opts: {
       // if the endpoint returned JSON. We don't BLOCK on the body — a
       // hung body read after a 503 header is an easy way to stall the
       // whole tick. Opt for a best-effort text read with a hard bound.
-      signal.errorDesc = `http ${res.status}`;
+      signal.errorDesc = sanitizeErrorDesc(`http ${res.status}`);
       const body = await safeReadBody(res);
       if (body && body.length > 0) {
-        signal.errorDesc = `http ${res.status}: ${truncate(body, 160)}`;
+        signal.errorDesc = sanitizeErrorDesc(
+          `http ${res.status}: ${truncate(body, 160)}`,
+        );
       }
       return {
         key,
@@ -440,7 +443,10 @@ async function probeOne(opts: {
       return {
         key,
         state: "red",
-        signal: { ...signal, errorDesc: `malformed body: ${parseErr}` },
+        signal: {
+          ...signal,
+          errorDesc: sanitizeErrorDesc(`malformed body: ${parseErr}`),
+        },
         observedAt: now().toISOString(),
       };
     }
@@ -456,14 +462,20 @@ async function probeOne(opts: {
       err instanceof Error &&
       (err.name === "AbortError" || err.name === "TimeoutError") &&
       controller.signal.aborted;
-    const errorDesc = timedOut
-      ? `timeout after ${timeoutMs}ms`
-      : err instanceof Error
-        ? err.message
-        : String(err);
+    const errorDesc = sanitizeErrorDesc(
+      timedOut
+        ? `timeout after ${timeoutMs}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err),
+    );
     return {
       key,
       state: "red",
+      // B2: drop the redundant outer sanitize wrap — `errorDesc` was already
+      // sanitized on the line above. Double-sanitize is harmless today but
+      // would turn into a silent escape-on-escape regression the moment
+      // sanitizeErrorDesc ever grows a non-idempotent rule.
       signal: {
         slug,
         url,
@@ -530,10 +542,11 @@ async function probeAgent(opts: {
     };
     if (res.status === 404) {
       const body = await safeReadBody(res);
-      signal.errorDesc =
+      signal.errorDesc = sanitizeErrorDesc(
         body.length > 0
           ? `agent endpoint 404: ${truncate(body, 160)}`
-          : "agent endpoint 404 — route not mounted";
+          : "agent endpoint 404 — route not mounted",
+      );
       return {
         key,
         state: "red",
@@ -557,14 +570,17 @@ async function probeAgent(opts: {
       err instanceof Error &&
       (err.name === "AbortError" || err.name === "TimeoutError") &&
       controller.signal.aborted;
-    const errorDesc = timedOut
-      ? `timeout after ${timeoutMs}ms`
-      : err instanceof Error
-        ? err.message
-        : String(err);
+    const errorDesc = sanitizeErrorDesc(
+      timedOut
+        ? `timeout after ${timeoutMs}ms`
+        : err instanceof Error
+          ? err.message
+          : String(err),
+    );
     return {
       key,
       state: "red",
+      // B2: already sanitized above; drop the outer wrap.
       signal: {
         slug,
         url,

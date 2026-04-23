@@ -979,12 +979,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
     const { REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS } =
       await import("../probes/redirect-decommission.js");
     const { SMOKE_SLACK_SAFE_FIELDS } = await import("../probes/smoke.js");
+    // Mirror orchestrator.ts L1-L4 safe-field wiring: agent/chat/tools have
+    // no probe module, so their safe-field set is defined inline (errorDesc
+    // only, pre-sanitized by the shared smoke driver).
+    const L1_L4_SLACK_SAFE_FIELDS = ["errorDesc"] as const;
     const loader = createRuleLoader({
       dir: REAL_CONFIG_DIR,
       logger,
       slackSafeFields: {
         redirect_decommission: new Set(REDIRECT_DECOMMISSION_SLACK_SAFE_FIELDS),
         smoke: new Set(SMOKE_SLACK_SAFE_FIELDS),
+        agent: new Set(L1_L4_SLACK_SAFE_FIELDS),
+        chat: new Set(L1_L4_SLACK_SAFE_FIELDS),
+        tools: new Set(L1_L4_SLACK_SAFE_FIELDS),
       },
     });
     const { rules, errors } = await loader.loadWithErrors();
@@ -1392,7 +1399,7 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
 
   // ---- smoke-red-tick.yml -------------------------------------------
   describe("smoke-red-tick", () => {
-    it("green_to_red branch renders slug, errorDesc and smoke/health links", async () => {
+    it("green_to_red branch renders slug, errorDesc and endpoint link", async () => {
       const { rules, errors, renderer } = await loadRealRules();
       expect(
         errors.find((e) => e.file.startsWith("smoke-red-tick")),
@@ -1409,10 +1416,10 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         {
           slug: "coagents-starter",
           errorDesc: "http 503",
-          links: {
-            smoke: "https://svc.example/smoke",
-            health: "https://svc.example/health",
-          },
+          // A3: driver signal carries `url` (endpoint that was probed)
+          // instead of a `links` object — the template now renders a single
+          // endpoint link rather than separate smoke/health pair.
+          url: "https://svc.example/smoke",
           failCount: 1,
         },
         { trigger: { green_to_red: true, isRedTick: true } },
@@ -1424,12 +1431,11 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       ).text;
       expect(text).toContain("coagents-starter");
       expect(text).toContain("down, error: http 503");
-      // Triple-brace signal.links.* (added via SMOKE_SLACK_SAFE_FIELDS)
-      // preserves the raw URL inside `<URL|label>` Slack link markup;
-      // prior double-brace form HTML-escaped `/` → `&#x2F;` and broke
-      // the link at Slack render time.
-      expect(text).toContain("https://svc.example/smoke");
-      expect(text).toContain("https://svc.example/health");
+      // Triple-brace signal.url (marked slackSafe in SMOKE_SLACK_SAFE_FIELDS)
+      // preserves the raw URL inside `<URL|label>` Slack link markup; prior
+      // double-brace would HTML-escape `/` → `&#x2F;` and break the link at
+      // Slack render time.
+      expect(text).toContain("<https://svc.example/smoke|endpoint>");
     });
 
     it("sustained_red branch renders failCount (attempt: N) and error", async () => {
@@ -1440,10 +1446,8 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
         {
           slug: "mastra-starter",
           errorDesc: "timeout after 15000ms",
-          links: {
-            smoke: "https://m.example/smoke",
-            health: "https://m.example/health",
-          },
+          // A3: endpoint URL lives under `signal.url` now.
+          url: "https://m.example/smoke",
           failCount: 3,
         },
         { trigger: { sustained_red: true, isRedTick: true } },
@@ -1479,32 +1483,19 @@ describe("rule-loader + renderer: full YAML contract coverage", () => {
       expect(text).toContain("was down since 2026-04-19T23:00:00Z");
     });
 
-    it("escalated block renders !channel ping with firstFailureAt", async () => {
-      const { rules, renderer } = await loadRealRules();
-      const rule = rules.find((r) => r.id === "smoke-red-tick")!;
-      const ctx = makeCtx(
-        rule,
-        {
-          slug: "agno-starter",
-          errorDesc: "http 500",
-          firstFailureAt: "2026-04-19T22:00:00Z",
-          links: {
-            smoke: "https://a.example/smoke",
-            health: "https://a.example/health",
-          },
-          failCount: 4,
-        },
-        { trigger: { sustained_red: true, isRedTick: true }, escalated: true },
-      );
-      const text = (
-        renderer.render({ text: rule.template!.text }, ctx).payload as {
-          text: string;
-        }
-      ).text;
-      expect(text).toContain("<!channel>");
-      expect(text).toContain("agno-starter");
-      expect(text).toContain("failing for 1 hour");
-      expect(text).toContain("since 2026-04-19T22:00:00Z");
+    it("fleet rule owns <!channel> escalation (migrated from per-service red-tick)", async () => {
+      // Plan Item 4: <!channel> moved off smoke-red-tick onto smoke-red-fleet.
+      // The per-service rule still fires per-match via its own targets; the
+      // fleet rule is the single pager for cross-service outages. Per-service
+      // red-tick template must NOT contain <!channel>; fleet rule template
+      // MUST. Both invariants asserted together so a future refactor can't
+      // silently drop one without the other surfacing.
+      const { rules } = await loadRealRules();
+      const perService = rules.find((r) => r.id === "smoke-red-tick")!;
+      const fleet = rules.find((r) => r.id === "smoke-red-fleet")!;
+      expect(perService.template!.text).not.toContain("<!channel>");
+      expect(fleet.aggregation).toBeDefined();
+      expect(fleet.aggregation!.template).toContain("<!channel>");
     });
   });
 
@@ -1770,6 +1761,46 @@ describe("rule-loader: validateTripleBrace covers on_error.template.text (R21 bu
     expect(errors[0]!.error).toMatch(
       /triple-brace.*not marked slackSafe|triple-brace.*slackSafe/,
     );
+  });
+});
+
+describe("rule-loader: validateTripleBrace covers aggregation.template (A8)", () => {
+  // A8: validateTripleBrace previously scanned only `rule.template.text` and
+  // `rule.on_error.template.text`. An aggregation rule with a malformed
+  // `{{{firstSignal.unsafe}}}` reference in `aggregation.template` passed load
+  // and rendered the unsafe value at runtime. Pull aggregation.template into
+  // the same triple-brace gate.
+  it("rejects aggregation.template with triple-brace on an unsafe signal.* field", async () => {
+    const os = await import("node:os");
+    const tmp = await fs.mkdtemp(
+      path.join(os.tmpdir(), "showcase-ops-agg-tb-"),
+    );
+    await fs.writeFile(
+      path.join(tmp, "bad-agg.yml"),
+      [
+        "id: bad-aggregation-triple-brace",
+        'name: "bad aggregation triple-brace"',
+        'owner: "@oss"',
+        "signal:",
+        "  dimension: smoke",
+        "triggers:",
+        "  - green_to_red",
+        "targets:",
+        "  - kind: slack_webhook",
+        "    webhook: oss_alerts",
+        "aggregation:",
+        "  windowMs: 60000",
+        "  minMatches: 3",
+        '  template: "{{{firstSignal.arbitrary_unsafe_field}}}"',
+        "",
+      ].join("\n"),
+      "utf-8",
+    );
+    const loader = createRuleLoader({ dir: tmp, logger });
+    const { rules, errors } = await loader.loadWithErrors();
+    expect(rules).toHaveLength(0);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.error).toMatch(/triple-brace/);
   });
 });
 

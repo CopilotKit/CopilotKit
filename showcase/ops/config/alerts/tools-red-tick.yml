@@ -30,11 +30,12 @@ targets:
   - kind: slack_webhook
     webhook: oss_alerts
 
+# errorDesc is pre-sanitized in showcase/ops/src/probes/drivers/sanitize.ts
+# — triple-brace intentional so literal characters survive to Slack.
 template:
   text: |
-    {{#trigger.green_to_red}}:red_circle: *{{signal.slug}}* — tool invocation failed, error: {{signal.errorDesc}}{{/trigger.green_to_red}}
-    {{#trigger.sustained_red}}:red_circle: *{{signal.slug}}* — tools attempt: {{signal.failCount}}, error: {{signal.errorDesc}}{{/trigger.sustained_red}}
+    {{#trigger.green_to_red}}:red_circle: *{{signal.slug}}* — tool invocation failed, error: {{{signal.errorDesc}}}{{/trigger.green_to_red}}
+    {{#trigger.sustained_red}}:red_circle: *{{signal.slug}}* — tools attempt: {{signal.failCount}}, error: {{{signal.errorDesc}}}{{/trigger.sustained_red}}
     {{#trigger.red_to_green}}:white_check_mark: *{{signal.slug}}* tools recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
-    {{#escalated}}<!channel> :rotating_light: *{{signal.slug}}* tools have been failing for 1 hour (since {{signal.firstFailureAt}}){{/escalated}}
 
-    <{{{env.dashboardUrl}}}|Showcase> · <{{{env.dashboardUrl}}}/runs/{{{event.runId}}}|Run>
+    <{{{env.dashboardUrl}}}|Showcase>{{#event.runId}} · <{{{env.dashboardUrl}}}/runs/{{{event.runId}}}|Run>{{/event.runId}}
