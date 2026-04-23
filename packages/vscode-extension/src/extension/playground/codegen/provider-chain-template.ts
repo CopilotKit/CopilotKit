@@ -13,6 +13,8 @@ export interface RenderEntryOptions {
   aggregatorModule: string;
   /** Absolute directory where the generated entry.tsx will be written. */
   outDir: string;
+  /** Overrides the user's runtimeUrl in the emitted <CopilotKitProvider>. */
+  runtimeUrlOverride?: string;
 }
 
 /**
@@ -116,7 +118,10 @@ export function renderEntry(opts: RenderEntryOptions): string {
     indent += "  ";
   }
 
-  const providerProps = renderProps(provider.props);
+  const effectiveProps: CopilotKitProps = opts.runtimeUrlOverride
+    ? { ...provider.props, runtimeUrl: opts.runtimeUrlOverride }
+    : provider.props;
+  const providerProps = renderProps(effectiveProps);
   lines.push(`${indent}<${provider.importedName}${providerProps}>`);
   indent += "  ";
   lines.push(`${indent}<HooksAggregator />`);

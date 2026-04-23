@@ -174,4 +174,29 @@ describe("renderEntry", () => {
     );
     expect(code).toContain('<Theme mode="dark">');
   });
+
+  it("overrides runtimeUrl when runtimeUrlOverride is provided", () => {
+    const code = renderEntry({
+      provider,
+      ancestors: [],
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+      runtimeUrlOverride: "http://127.0.0.1:54321",
+    });
+    expect(code).toContain('runtimeUrl="http://127.0.0.1:54321"');
+    // The user's original runtimeUrl must not appear.
+    expect(code).not.toContain('"/api/copilotkit"');
+  });
+
+  it("preserves other provider props when overriding runtimeUrl", () => {
+    const code = renderEntry({
+      provider,
+      ancestors: [],
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+      runtimeUrlOverride: "http://127.0.0.1:54321",
+    });
+    // publicApiKey and other props from the existing `provider` fixture still appear.
+    expect(code).toContain('publicApiKey="pk_test"');
+  });
 });

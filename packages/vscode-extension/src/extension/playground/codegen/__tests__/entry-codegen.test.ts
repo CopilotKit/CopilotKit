@@ -89,4 +89,13 @@ describe("writePlaygroundSources", () => {
     fs.rmSync(first.outDir, { recursive: true, force: true });
     fs.rmSync(second.outDir, { recursive: true, force: true });
   });
+
+  it("forwards runtimeUrlOverride to renderEntry", () => {
+    const result = writePlaygroundSources(scan, {
+      runtimeUrlOverride: "http://127.0.0.1:9999",
+    })!;
+    createdDir = result.outDir;
+    const entry = fs.readFileSync(result.entryPath, "utf-8");
+    expect(entry).toContain('runtimeUrl="http://127.0.0.1:9999"');
+  });
 });

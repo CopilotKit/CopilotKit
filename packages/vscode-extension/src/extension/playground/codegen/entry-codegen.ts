@@ -11,6 +11,10 @@ export interface PlaygroundSources {
   entryPath: string;
 }
 
+export interface WriteSourcesOptions {
+  runtimeUrlOverride?: string;
+}
+
 /**
  * Emits the three generated files into a unique temp directory and returns
  * the entry path the bundler will consume. Returns null when there's no
@@ -20,6 +24,7 @@ export interface PlaygroundSources {
  */
 export function writePlaygroundSources(
   scan: PlaygroundScanResult,
+  opts: WriteSourcesOptions = {},
 ): PlaygroundSources | null {
   const provider = scan.providers[0];
   if (!provider) return null;
@@ -45,6 +50,7 @@ export function writePlaygroundSources(
     ancestors: scan.ancestorChain ?? [],
     aggregatorModule: "./aggregator",
     outDir,
+    runtimeUrlOverride: opts.runtimeUrlOverride,
   });
   const entryPath = path.join(outDir, "entry.tsx");
   fs.writeFileSync(entryPath, entrySrc, "utf-8");

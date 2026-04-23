@@ -34,8 +34,8 @@ describe("renderAggregator", () => {
       outDir: "/tmp/test/out",
       errorBoundaryModule: "./error-boundary",
     });
-    expect(code).toContain('import { MyPage } from');
-    expect(code).toContain('import Sidebar from');
+    expect(code).toContain("import { MyPage } from");
+    expect(code).toContain("import Sidebar from");
     expect(code).toContain('import { MountCard } from "./error-boundary"');
     expect(code).toContain('<MountCard componentName="MyPage"');
     expect(code).toContain('<MountCard componentName="Sidebar"');
@@ -59,7 +59,10 @@ describe("renderAggregator", () => {
       outDir: "/tmp/test/out",
       errorBoundaryModule: "./error-boundary",
     });
-    const res = parseSync("aggregator.tsx", code, { lang: "tsx", sourceType: "module" });
+    const res = parseSync("aggregator.tsx", code, {
+      lang: "tsx",
+      sourceType: "module",
+    });
     expect(res.errors).toEqual([]);
   });
 });
