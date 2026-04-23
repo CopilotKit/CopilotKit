@@ -14,6 +14,7 @@ safety net, not the primary deploy path.
 ## Adding a New Railway Service
 
 1. **Enable auto-updates** via the GraphQL API:
+
    ```graphql
    mutation {
      environmentPatchCommit(
@@ -29,6 +30,7 @@ safety net, not the primary deploy path.
      )
    }
    ```
+
    Or via Dashboard: Settings > Configure Auto Updates > "Automatically
    update to the latest tag" + "At any time, immediately".
 
