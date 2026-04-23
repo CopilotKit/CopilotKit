@@ -104,7 +104,6 @@ export function CopilotChat({
 
   const { agent } = useAgent({
     agentId: resolvedAgentId,
-    threadId: resolvedThreadId,
     throttleMs,
   });
   const { copilotkit } = useCopilotKit();
@@ -214,6 +213,7 @@ export function CopilotChat({
         console.error("CopilotChat: connectAgent failed", error);
       }
     };
+    agent.threadId = resolvedThreadId;
     connect(agent);
     return () => {
       // Abort the HTTP request and detach the active run.

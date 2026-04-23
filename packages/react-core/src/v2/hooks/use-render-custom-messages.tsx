@@ -1,5 +1,4 @@
 import { useCopilotChatConfiguration, useCopilotKit } from "../providers";
-import { getThreadClone } from "./use-agent";
 import { ReactCustomMessageRendererPosition } from "../types/react-custom-message-renderer";
 import { Message } from "@ag-ui/core";
 
@@ -39,11 +38,7 @@ export function useRenderCustomMessages() {
       copilotkit.getRunIdForMessage(agentId, threadId, message.id) ??
       copilotkit.getRunIdsForThread(agentId, threadId).slice(-1)[0];
     const runId = resolvedRunId ?? `missing-run-id:${message.id}`;
-    // Prefer the per-thread clone so that agent.messages reflects the actual
-    // conversation state (messages live on the clone, not the registry agent).
-    // Fall back to the registry agent when no clone exists (no threadId).
-    const registryAgent = copilotkit.getAgent(agentId);
-    const agent = getThreadClone(registryAgent, threadId) ?? registryAgent;
+    const agent = copilotkit.getAgent(agentId);
     if (!agent) {
       throw new Error("Agent not found");
     }

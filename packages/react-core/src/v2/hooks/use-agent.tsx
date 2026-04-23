@@ -1,8 +1,7 @@
 import { useCopilotKit } from "../providers/CopilotKitProvider";
-import { useCopilotChatConfiguration } from "../providers/CopilotChatConfigurationProvider";
 import { useMemo, useEffect, useReducer, useRef } from "react";
 import { DEFAULT_AGENT_ID } from "@copilotkit/shared";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
 import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
@@ -22,7 +21,6 @@ const ALL_UPDATES: UseAgentUpdate[] = [
 
 export interface UseAgentProps {
   agentId?: string;
-  threadId?: string;
   updates?: UseAgentUpdate[];
   /**
    * Throttle interval (in milliseconds) for React re-renders triggered by
@@ -46,96 +44,15 @@ export interface UseAgentProps {
   throttleMs?: number;
 }
 
-/**
- * Clone a registry agent for per-thread isolation.
- * Copies agent configuration (transport, headers, etc.) but resets conversation
- * state (messages, threadId, state) so each thread starts fresh.
- */
-function cloneForThread(
-  source: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  const clone = source.clone();
-  if (clone === source) {
-    throw new Error(
-      `useAgent: ${source.constructor.name}.clone() returned the same instance. ` +
-        `clone() must return a new, independent object.`,
-    );
-  }
-  clone.threadId = threadId;
-  clone.setMessages([]);
-  clone.setState({});
-  if (clone instanceof HttpAgent) {
-    clone.headers = { ...headers };
-  }
-  return clone;
-}
-
-/**
- * Module-level WeakMap: registryAgent → (threadId → clone).
- * Shared across all useAgent() calls so that every component using the same
- * (agentId, threadId) pair receives the same agent instance. Using WeakMap
- * ensures the clone map is garbage-collected when the registry agent is
- * replaced (e.g. after reconnect or hot-reload).
- */
-export const globalThreadCloneMap = new WeakMap<
-  AbstractAgent,
-  Map<string, AbstractAgent>
->();
-
-/**
- * Look up an existing per-thread clone without creating one.
- * Returns undefined when no clone has been created yet for this pair.
- */
-export function getThreadClone(
-  registryAgent: AbstractAgent | undefined | null,
-  threadId: string | undefined | null,
-): AbstractAgent | undefined {
-  if (!registryAgent || !threadId) return undefined;
-  return globalThreadCloneMap.get(registryAgent)?.get(threadId);
-}
-
-function getOrCreateThreadClone(
-  existing: AbstractAgent,
-  threadId: string,
-  headers: Record<string, string>,
-): AbstractAgent {
-  let byThread = globalThreadCloneMap.get(existing);
-  if (!byThread) {
-    byThread = new Map();
-    globalThreadCloneMap.set(existing, byThread);
-  }
-  const cached = byThread.get(threadId);
-  if (cached) return cached;
-
-  const clone = cloneForThread(existing, threadId, headers);
-  byThread.set(threadId, clone);
-  return clone;
-}
-
-export function useAgent({
-  agentId,
-  threadId,
-  updates,
-  throttleMs,
-}: UseAgentProps = {}) {
+export function useAgent({ agentId, updates, throttleMs }: UseAgentProps = {}) {
   agentId ??= DEFAULT_AGENT_ID;
 
   const { copilotkit } = useCopilotKit();
   const providerThrottleMs = copilotkit.defaultThrottleMs;
-  // Fall back to the enclosing CopilotChatConfigurationProvider's threadId so
-  // that useAgent() called without explicit threadId (e.g. inside a custom
-  // message renderer) automatically uses the same per-thread clone as the
-  // CopilotChat component it lives within.
-  const chatConfig = useCopilotChatConfiguration();
-  threadId ??= chatConfig?.threadId;
 
   const effectiveThrottleMs = useMemo(() => {
     const resolved = throttleMs ?? providerThrottleMs ?? 0;
     if (!Number.isFinite(resolved) || resolved < 0) {
-      // When both throttleMs and providerThrottleMs are undefined, resolved
-      // is 0 which passes validation — so one of them must be defined here.
       const source =
         throttleMs !== undefined
           ? "hook-level throttleMs"
@@ -147,7 +64,6 @@ export function useAgent({
     }
     return resolved;
   }, [throttleMs, providerThrottleMs]);
-
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
   const updateFlags = useMemo(
@@ -163,29 +79,11 @@ export function useAgent({
   );
 
   const agent: AbstractAgent = useMemo(() => {
-    // Use a composite key when threadId is provided so that different threads
-    // for the same agent get independent instances.
-    const cacheKey = threadId ? `${agentId}:${threadId}` : agentId;
-
     const existing = copilotkit.getAgent(agentId);
     if (existing) {
-      // Real agent found — clear any cached provisionals for this key and the
-      // bare agentId key (handles the case where a provisional was created
-      // before threadId was available, then the component re-renders with one).
-      provisionalAgentCache.current.delete(cacheKey);
+      // Real agent found — clear any cached provisional for this ID
       provisionalAgentCache.current.delete(agentId);
-
-      if (!threadId) {
-        // No threadId — return the shared registry agent (original behavior)
-        return existing;
-      }
-
-      // threadId provided — return the shared per-thread clone.
-      // The global WeakMap ensures all components using the same
-      // (registryAgent, threadId) pair receive the same instance, so state
-      // mutations (addMessage, setState) are visible everywhere. The WeakMap
-      // entry is GC-collected automatically when the registry agent is replaced.
-      return getOrCreateThreadClone(existing, threadId, copilotkit.headers);
+      return existing;
     }
 
     const isRuntimeConfigured = copilotkit.runtimeUrl !== undefined;
@@ -198,7 +96,7 @@ export function useAgent({
         status === CopilotKitCoreRuntimeConnectionStatus.Connecting)
     ) {
       // Return cached provisional if available (keeps reference stable)
-      const cached = provisionalAgentCache.current.get(cacheKey);
+      const cached = provisionalAgentCache.current.get(agentId);
       if (cached) {
         // Update headers on the cached agent in case they changed
         cached.headers = { ...copilotkit.headers };
@@ -213,10 +111,7 @@ export function useAgent({
       });
       // Apply current headers so runs/connects inherit them
       provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
+      provisionalAgentCache.current.set(agentId, provisional);
       return provisional;
     }
 
@@ -229,14 +124,6 @@ export function useAgent({
       isRuntimeConfigured &&
       status === CopilotKitCoreRuntimeConnectionStatus.Error
     ) {
-      // Cache the provisional so that dep changes while in Error state (e.g.
-      // headers update) return the same agent reference, matching the
-      // Disconnected/Connecting path and preventing spurious re-subscriptions.
-      const cached = provisionalAgentCache.current.get(cacheKey);
-      if (cached) {
-        cached.headers = { ...copilotkit.headers };
-        return cached;
-      }
       const provisional = new ProxiedCopilotRuntimeAgent({
         runtimeUrl: copilotkit.runtimeUrl,
         agentId,
@@ -244,10 +131,6 @@ export function useAgent({
         runtimeMode: "pending",
       });
       provisional.headers = { ...copilotkit.headers };
-      if (threadId) {
-        provisional.threadId = threadId;
-      }
-      provisionalAgentCache.current.set(cacheKey, provisional);
       return provisional;
     }
 
@@ -266,7 +149,6 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentId,
-    threadId,
     copilotkit.agents,
     copilotkit.runtimeConnectionStatus,
     copilotkit.runtimeUrl,
@@ -343,16 +225,6 @@ export function useAgent({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, forceUpdate, effectiveThrottleMs, updateFlags]);
-
-  // Keep HttpAgent headers fresh without mutating inside useMemo, which is
-  // unsafe in concurrent mode (React may invoke useMemo multiple times and
-  // discard intermediate results, but mutations always land).
-  useEffect(() => {
-    if (agent instanceof HttpAgent) {
-      agent.headers = { ...copilotkit.headers };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agent, JSON.stringify(copilotkit.headers)]);
 
   return {
     agent,

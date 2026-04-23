@@ -79,61 +79,7 @@ class MockMCPProxyAgent extends AbstractAgent {
   }
 
   clone(): MockMCPProxyAgent {
-    const cloned = new MockMCPProxyAgent();
-    cloned.agentId = this.agentId;
-    type Internal = {
-      subject: Subject<BaseEvent>;
-      runAgentCalls: Array<{ input: Partial<RunAgentInput> }>;
-      runAgentResponses: Map<string, unknown>;
-    };
-    (cloned as unknown as Internal).subject = (
-      this as unknown as Internal
-    ).subject;
-    (cloned as unknown as Internal).runAgentCalls = (
-      this as unknown as Internal
-    ).runAgentCalls;
-    (cloned as unknown as Internal).runAgentResponses = (
-      this as unknown as Internal
-    ).runAgentResponses;
-    // Share isRunning with the original so that emit(runFinishedEvent()) on the
-    // registry is visible to waitForAgentIdle() which now receives the clone.
-    //
-    // Also proxy runAgent dynamically so tests that monkey-patch agent.runAgent
-    // after renderWithCopilotKit (which creates the clone) still take effect.
-    // The clone is created and cached before tests can override runAgent, so a
-    // static copy would always see the pre-patch prototype method.
-    const registry = this;
-    Object.defineProperty(cloned, "isRunning", {
-      get() {
-        return registry.isRunning;
-      },
-      set(v: boolean) {
-        registry.isRunning = v;
-      },
-      configurable: true,
-      enumerable: true,
-    });
-    // Override runAgent so that:
-    // - Proxied MCP requests delegate to registry.runAgent (picking up any
-    //   monkey-patches the test installed after renderWithCopilotKit).
-    // - User-message runs call the prototype method with `this = clone` so
-    //   that clone.messages is updated (CopilotKit renders clone.messages).
-    const proto = MockMCPProxyAgent.prototype;
-    cloned.runAgent = async function (
-      input?: Partial<RunAgentInput>,
-    ): Promise<RunAgentResult> {
-      const proxiedRequest = input?.forwardedProps?.__proxiedMCPRequest;
-      if (proxiedRequest) {
-        // Delegate to the registry so that monkey-patches applied by tests
-        // (e.g. "throws an error", "uses a controlled promise") take effect.
-        return registry.runAgent(input);
-      }
-      // For user-message runs: call the prototype method bound to the clone
-      // so AbstractAgent.runAgent processes events on clone and updates
-      // clone.messages (which is what CopilotKit reads to render messages).
-      return proto.runAgent.call(cloned, input);
-    };
-    return cloned;
+    return this;
   }
 
   async detachActiveRun(): Promise<void> {}
