@@ -1,0 +1,132 @@
+---
+title: VS Code Extension
+icon: "lucide/Monitor"
+description: Live preview your CopilotKit render hooks, A2UI catalog components, and AG-UI event stream — without leaving VS Code.
+---
+
+The CopilotKit VS Code extension is a three-in-one workbench for iterating on CopilotKit features inside your editor. Install it once and you get three sidebars under the CopilotKit activity-bar icon:
+
+- **CopilotKit Hooks** — discover every `useCopilotAction`, `useRenderTool`, `useCoAgentStateRender`, etc. in your workspace, and live-preview their `render` components with auto-generated form controls.
+- **A2UI Catalog** — live preview of your A2UI catalog components with fixture-driven scenarios and hot-reload on save.
+- **AG-UI Inspector** — a real-time, color-coded, filterable stream of every AG-UI event your runtime emits.
+
+No localhost server, no browser tab, no agent run required for the first two — you can iterate on rendering and UI structure entirely offline.
+
+## Install
+
+<Steps>
+<Step>
+### Install the extension
+
+Open VS Code, go to Extensions (`Ctrl+Shift+X` / `Cmd+Shift+X`), search for **CopilotKit**, and click Install. Or from a terminal:
+
+```bash
+code --install-extension copilotkit.copilotkit
+```
+</Step>
+
+<Step>
+### Open the CopilotKit activity bar
+
+Click the **CopilotKit icon** in the Activity Bar on the left edge of VS Code. Three sidebar views expand underneath it, in this order:
+
+1. **CopilotKit Hooks**
+2. **A2UI Catalog**
+3. **AG-UI Inspector**
+
+Each is a self-contained tool — pick the one that matches what you're working on.
+</Step>
+</Steps>
+
+## Hook Explorer
+
+You have a file that calls `useCopilotAction`, `useRenderTool`, or any other render-capable CopilotKit hook, and you want to iterate on the `render` prop. The **CopilotKit Hooks** sidebar lists every call-site in your workspace; clicking one opens a live preview panel where the `render` output is driven by a form built from your hook's declared parameters.
+
+Extra niceties:
+
+- A `▶️ Preview Component` CodeLens sits directly above every render-hook call in your editor — one click opens the preview for exactly that site.
+- A `</>` button on each sidebar row jumps to the source file.
+- Cross-file hook switches auto-recover — a forced render-prop crash in one hook doesn't strand the whole webview.
+
+<Callout type="info">
+  Full walkthrough, hook coverage table, and limitations: [Hook Explorer](/troubleshooting/hook-explorer).
+</Callout>
+
+## A2UI Catalog
+
+You have a file that exports an A2UI catalog via `createCatalog` (or imports `@copilotkit/a2ui-renderer`). The **A2UI Catalog** sidebar lists every catalog file in your workspace, plus any named fixtures you've defined alongside them. Clicking a component opens a live preview; edit the file and the preview updates on save while preserving interaction state.
+
+<Steps>
+<Step>
+### Find your catalog files
+
+Open the **A2UI Catalog** sidebar. Each row is a catalog file (discovered by scanning for `@copilotkit/a2ui-renderer` imports). Rows with fixture files expand to show named scenarios; rows without one get an `auto` badge and render with a default empty surface.
+
+Hover any row to reveal a `</>` button that jumps to the source — on fixture rows, it jumps to the named fixture key inside the fixture file.
+</Step>
+
+<Step>
+### Preview a component
+
+Click a component row to open the preview. If the component has fixtures, click the row to expand and pick a fixture — otherwise the click previews directly. Edit the file and save — the preview rebundles and re-renders automatically.
+</Step>
+
+<Step>
+### Add fixtures
+
+Fixtures are named test-data scenarios. Create a fixture file next to your component:
+
+<Tabs items={["JSON", "TypeScript"]}>
+<Tab value="JSON">
+`MyComponent.fixture.json`:
+```json
+{
+  "default": {
+    "surfaceId": "preview",
+    "messages": [
+      { "beginRendering": { "surfaceId": "preview", "root": "root" } },
+      { "surfaceUpdate": { "surfaceId": "preview", "components": [] } }
+    ]
+  },
+  "empty state": {
+    "surfaceId": "preview",
+    "messages": []
+  }
+}
+```
+</Tab>
+<Tab value="TypeScript">
+`MyComponent.fixture.ts`:
+```ts
+export default {
+  "default": {
+    surfaceId: "preview",
+    messages: [
+      { beginRendering: { surfaceId: "preview", root: "root" } },
+      { surfaceUpdate: { surfaceId: "preview", components: [] } },
+    ],
+  },
+  "empty state": {
+    surfaceId: "preview",
+    messages: [],
+  },
+};
+```
+</Tab>
+</Tabs>
+
+Each top-level key is a named fixture. Switch between them from the fixture dropdown inside the preview panel.
+</Step>
+</Steps>
+
+<Callout type="info">
+  The extension validates fixture files on save and surfaces structural warnings (missing `surfaceId`, invalid `messages`, unknown component types) as in-editor diagnostics.
+</Callout>
+
+## AG-UI Inspector
+
+You're running a CopilotKit runtime and something in an agent interaction is off — a tool call isn't firing, a state delta is wrong, or the run ends before the UI settles. The **AG-UI Inspector** sidebar opens a dedicated SSE connection to your runtime's `/cpk-debug-events` endpoint and renders every event in a filterable, color-coded stream. Click any event row to expand the full JSON payload.
+
+<Callout type="info">
+  Full walkthrough, event-type color reference, and production guard details: [AG-UI Event Inspector](/troubleshooting/event-inspector).
+</Callout>

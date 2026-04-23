@@ -416,7 +416,7 @@ export default async function AgUiDocPage({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
       {/* Sidebar */}
       <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <Link
@@ -442,22 +442,26 @@ export default async function AgUiDocPage({
         ))}
       </SidebarNav>
 
-      {/* Content */}
-      <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
-        <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
-          {title}
-        </h1>
-        <div className="reference-content">
-          <MDXRemote
-            source={content}
-            components={components}
-            options={{
-              mdxOptions: {
-                remarkPlugins: [remarkGfm],
-                rehypePlugins: [rehypeHighlight],
-              },
-            }}
-          />
+      {/* Content — <main> is the full-width scroll container so the
+       * scrollbar lands at the viewport edge; content width is capped
+       * by the inner wrapper. */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl px-8 py-8">
+          <h1 className="text-2xl font-semibold text-[var(--text)] tracking-tight mb-6">
+            {title}
+          </h1>
+          <div className="reference-content">
+            <MDXRemote
+              source={content}
+              components={components}
+              options={{
+                mdxOptions: {
+                  remarkPlugins: [remarkGfm],
+                  rehypePlugins: [rehypeHighlight],
+                },
+              }}
+            />
+          </div>
         </div>
       </main>
     </div>
