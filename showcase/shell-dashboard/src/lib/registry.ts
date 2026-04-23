@@ -63,6 +63,11 @@ export interface Integration {
   };
 }
 
+export interface Package {
+  slug: string;
+  name: string;
+}
+
 export interface Registry {
   generated_at: string;
   feature_registry: {
@@ -71,6 +76,7 @@ export interface Registry {
     features: Feature[];
   };
   integrations: Integration[];
+  packages?: Package[];
 }
 
 const registry = registryData as unknown as Registry;
@@ -89,4 +95,8 @@ export function getFeatures(): Feature[] {
 
 export function getFeatureCategories(): FeatureCategory[] {
   return registry.feature_registry.categories;
+}
+
+export function getPackages(): Package[] {
+  return registry.packages ?? [];
 }
