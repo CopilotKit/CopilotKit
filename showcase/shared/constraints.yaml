@@ -22,6 +22,7 @@ generative_ui:
       - shared-state-streaming
       - subagents
       - voice
+      - auth
     excluded:
       - tool-rendering
       - hitl-in-chat
@@ -64,6 +65,7 @@ generative_ui:
       - shared-state-streaming
       - subagents
       - voice
+      - auth
 
 interaction_modalities:
   headless:

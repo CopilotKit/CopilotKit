@@ -63,6 +63,7 @@ features:
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
+  - auth
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -423,3 +424,16 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
+    tags:
+      - chat-ui
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts

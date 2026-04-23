@@ -18,7 +18,8 @@
         "readonly-state-agent-context",
         "shared-state-streaming",
         "subagents",
-        "voice"
+        "voice",
+        "auth"
       ],
       "excluded": [
         "tool-rendering",
@@ -62,13 +63,16 @@
         "readonly-state-agent-context",
         "shared-state-streaming",
         "subagents",
-        "voice"
+        "voice",
+        "auth"
       ]
     }
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": [
+        "voice"
+      ]
     }
   }
 }
