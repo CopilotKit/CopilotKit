@@ -366,8 +366,10 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         (e) => e.node.environmentId === environmentId,
       );
       const imageRef = instance?.node.source?.image ?? "";
-      const rawDigest = instance?.node.latestDeployment?.meta?.["imageDigest"];
-      const deployedDigest = typeof rawDigest === "string" ? rawDigest : "";
+      const rawDigest =
+        instance?.node.latestDeployment?.meta?.["imageDigest"];
+      const deployedDigest =
+        typeof rawDigest === "string" ? rawDigest : "";
       const domain =
         instance?.node.domains?.serviceDomains?.[0]?.domain ?? null;
       const publicUrl = domain ? `https://${domain}` : "";
