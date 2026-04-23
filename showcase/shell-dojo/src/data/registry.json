@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-23T17:48:00.754Z",
+  "generated_at": "2026-04-23T20:24:31.237Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -413,7 +413,8 @@
         "readonly-state-agent-context",
         "subagents",
         "open-gen-ui",
-        "open-gen-ui-advanced"
+        "open-gen-ui-advanced",
+        "voice"
       ],
       "demos": [
         {
@@ -898,7 +899,9 @@
           "id": "open-gen-ui",
           "name": "Fully Open-Ended Generative UI",
           "description": "Agent generates UI from an arbitrary component library",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/open-gen-ui",
           "animated_preview_url": null,
           "highlight": [
@@ -911,7 +914,9 @@
           "id": "open-gen-ui-advanced",
           "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
           "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
-          "tags": ["generative-ui"],
+          "tags": [
+            "generative-ui"
+          ],
           "route": "/demos/open-gen-ui-advanced",
           "animated_preview_url": null,
           "highlight": [
@@ -920,6 +925,22 @@
             "src/app/demos/open-gen-ui-advanced/sandbox-functions.ts",
             "src/app/demos/open-gen-ui-advanced/suggestions.ts",
             "src/app/api/copilotkit-ogui/route.ts"
+          ]
+        },
+        {
+          "id": "voice",
+          "name": "Voice Input",
+          "description": "Speech-to-text via @copilotkit/voice with a bundled sample audio button",
+          "tags": [
+            "chat-ui"
+          ],
+          "route": "/demos/voice",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/main.py",
+            "src/app/demos/voice/page.tsx",
+            "src/app/demos/voice/sample-audio-button.tsx",
+            "src/app/api/copilotkit-voice/route.ts"
           ]
         }
       ],
@@ -1052,6 +1073,10 @@
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
             "shell_docs_path": "/multi-agent-flows"
+          },
+          "voice": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/voice",
+            "shell_docs_path": null
           }
         }
       }

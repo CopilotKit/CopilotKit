@@ -65,6 +65,7 @@ features:
   - subagents
   - open-gen-ui
   - open-gen-ui-advanced
+  - voice
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -449,3 +450,15 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
+  - id: voice
+    name: Voice Input
+    description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
+    tags:
+      - chat-ui
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
