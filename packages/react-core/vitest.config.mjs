@@ -26,12 +26,25 @@ export default defineConfig({
       "src/**/*.{test,spec}.{ts,tsx}",
     ],
     globalSetup: ["./src/v2/__tests__/globalSetup.ts"],
-    setupFiles: ["./src/setupTests.ts", "./src/v2/__tests__/setup.ts"],
+    setupFiles: [
+      ...(reactHasNoExportsField
+        ? ["./src/test-helpers/react17-polyfills.ts"]
+        : []),
+      "./src/setupTests.ts",
+      "./src/v2/__tests__/setup.ts",
+    ],
     reporters: [["default", { summary: false }]],
     silent: true,
     server: {
       deps: {
-        inline: ["react-markdown", "streamdown", "@copilotkit"],
+        inline: reactHasNoExportsField
+          ? // React 17 has no package "exports" field. Without exports, Node's
+            // native ESM resolver can't find bare subpaths like
+            // `react/jsx-runtime` imported from pre-built .mjs dependencies.
+            // Inlining everything routes those imports through Vite so the
+            // aliases below can rewrite them.
+            true
+          : ["react-markdown", "streamdown", "@copilotkit"],
       },
     },
     css: {
