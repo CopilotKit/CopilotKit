@@ -7,7 +7,11 @@ interface Props {
   onOpenSource: (filePath: string, line?: number) => void;
 }
 
-export function ScannerView({ result, onRefresh, onOpenSource }: Props): React.JSX.Element {
+export function ScannerView({
+  result,
+  onRefresh,
+  onOpenSource,
+}: Props): React.JSX.Element {
   const hasProvider = result.providers.length > 0;
   const primary = result.providers[0];
 
@@ -15,21 +19,25 @@ export function ScannerView({ result, onRefresh, onOpenSource }: Props): React.J
     <div className="playground-root">
       <header className="playground-header">
         <h2>CopilotKit Playground</h2>
-        <button type="button" onClick={onRefresh}>Refresh</button>
+        <button type="button" onClick={onRefresh}>
+          Refresh
+        </button>
       </header>
 
       {result.warnings.length > 0 && (
         <ul className="playground-warnings">
           {result.warnings.map((w, i) => (
-            <li key={i} className={`warning warning--${w.kind}`}>{w.message}</li>
+            <li key={i} className={`warning warning--${w.kind}`}>
+              {w.message}
+            </li>
           ))}
         </ul>
       )}
 
       {!hasProvider ? (
         <p className="playground-empty">
-          No &lt;CopilotKit&gt; provider found in this workspace.
-          Add one to try the chat playground.
+          No &lt;CopilotKit&gt; provider found in this workspace. Add one to try
+          the chat playground.
         </p>
       ) : (
         <section className="playground-provider">
@@ -80,7 +88,12 @@ export function ScannerView({ result, onRefresh, onOpenSource }: Props): React.J
                 {c.hooks.map((h, i) => (
                   <li key={i}>
                     <code>{h.hook}</code>
-                    {h.name ? <> <em>{h.name}</em></> : null}
+                    {h.name ? (
+                      <>
+                        {" "}
+                        <em>{h.name}</em>
+                      </>
+                    ) : null}
                   </li>
                 ))}
               </ul>

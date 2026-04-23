@@ -10,7 +10,9 @@ declare const acquireVsCodeApi: () =>
 const vscode =
   typeof acquireVsCodeApi !== "undefined" ? acquireVsCodeApi() : undefined;
 
-export function sendToExtension(msg: PlaygroundWebviewToExtensionMessage): void {
+export function sendToExtension(
+  msg: PlaygroundWebviewToExtensionMessage,
+): void {
   vscode?.postMessage(msg);
 }
 

@@ -45,7 +45,13 @@ const result: PlaygroundScanResult = {
 
 describe("ScannerView", () => {
   it("renders provider, ancestor chain, and components", () => {
-    render(<ScannerView result={result} onOpenSource={() => {}} onRefresh={() => {}} />);
+    render(
+      <ScannerView
+        result={result}
+        onOpenSource={() => {}}
+        onRefresh={() => {}}
+      />,
+    );
     expect(screen.getByText(/app\.tsx/)).toBeDefined();
     expect(screen.getByText("AuthProvider")).toBeDefined();
     expect(screen.getByText("MyPage")).toBeDefined();
@@ -55,7 +61,12 @@ describe("ScannerView", () => {
   it('shows "no provider" empty state when no providers found', () => {
     render(
       <ScannerView
-        result={{ providers: [], componentsWithHooks: [], hookSites: [], warnings: [] }}
+        result={{
+          providers: [],
+          componentsWithHooks: [],
+          hookSites: [],
+          warnings: [],
+        }}
         onOpenSource={() => {}}
         onRefresh={() => {}}
       />,
@@ -67,7 +78,12 @@ describe("ScannerView", () => {
     const onRefresh = vi.fn();
     render(
       <ScannerView
-        result={{ providers: [], componentsWithHooks: [], hookSites: [], warnings: [] }}
+        result={{
+          providers: [],
+          componentsWithHooks: [],
+          hookSites: [],
+          warnings: [],
+        }}
         onOpenSource={() => {}}
         onRefresh={onRefresh}
       />,
@@ -78,7 +94,13 @@ describe("ScannerView", () => {
 
   it("invokes onOpenSource with file path when a location is clicked", () => {
     const onOpenSource = vi.fn();
-    render(<ScannerView result={result} onOpenSource={onOpenSource} onRefresh={() => {}} />);
+    render(
+      <ScannerView
+        result={result}
+        onOpenSource={onOpenSource}
+        onRefresh={() => {}}
+      />,
+    );
     fireEvent.click(screen.getByText(/app\.tsx/));
     expect(onOpenSource).toHaveBeenCalledWith("/workspace/src/app.tsx", 5);
   });
