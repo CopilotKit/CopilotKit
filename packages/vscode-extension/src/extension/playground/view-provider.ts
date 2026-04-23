@@ -33,6 +33,8 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | null = null;
   private ready = false;
   private latestResult: PlaygroundScanResult | null = null;
+  private latestBundle: PlaygroundExtensionToWebviewMessage | null = null;
+  private bundleSeq = 0;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -42,6 +44,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 
   setScanResult(result: PlaygroundScanResult): void {
     this.latestResult = result;
+    this.latestBundle = null;
     if (this.ready) this.postResult();
     void this.runBundle(result);
   }
@@ -68,6 +71,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
           case "ready":
             this.ready = true;
             if (this.latestResult) this.postResult();
+            if (this.latestBundle) this.post(this.latestBundle);
             return;
           case "refresh":
             void this.callbacks.onRefresh();
@@ -86,33 +90,52 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async runBundle(result: PlaygroundScanResult): Promise<void> {
-    const sources = this.deps.writeSources(result);
-    if (!sources) return;
+    const seq = ++this.bundleSeq;
+    let sources: PlaygroundSources | null = null;
+
     try {
+      sources = this.deps.writeSources(result);
+      if (!sources) return;
+
       const bundle = await this.deps.bundle(sources.entryPath);
+
+      // A newer scan has superseded us — discard this result silently.
+      if (seq !== this.bundleSeq) return;
+
       if (!bundle.success || !bundle.code) {
-        this.post({
+        this.emitBundle({
           type: "bundle-error",
           message: bundle.error ?? "unknown bundle error",
         });
         return;
       }
-      this.post({
+
+      this.emitBundle({
         type: "bundle-ready",
         payload: { code: bundle.code, css: bundle.css },
       });
     } catch (err) {
-      this.post({
+      // Only emit if we're still the latest in-flight bundle.
+      if (seq !== this.bundleSeq) return;
+      this.emitBundle({
         type: "bundle-error",
         message: err instanceof Error ? err.message : String(err),
       });
     } finally {
-      try {
-        fs.rmSync(sources.outDir, { recursive: true, force: true });
-      } catch {
-        /* best-effort cleanup */
+      if (sources) {
+        try {
+          fs.rmSync(sources.outDir, { recursive: true, force: true });
+        } catch {
+          /* best-effort cleanup */
+        }
       }
     }
+  }
+
+  /** Caches the bundle envelope for replay-on-ready and posts it now. */
+  private emitBundle(msg: PlaygroundExtensionToWebviewMessage): void {
+    this.latestBundle = msg;
+    this.post(msg);
   }
 
   private post(msg: PlaygroundExtensionToWebviewMessage): void {
