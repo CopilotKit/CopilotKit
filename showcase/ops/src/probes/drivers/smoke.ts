@@ -472,10 +472,14 @@ async function probeOne(opts: {
     return {
       key,
       state: "red",
+      // B2: drop the redundant outer sanitize wrap — `errorDesc` was already
+      // sanitized on the line above. Double-sanitize is harmless today but
+      // would turn into a silent escape-on-escape regression the moment
+      // sanitizeErrorDesc ever grows a non-idempotent rule.
       signal: {
         slug,
         url,
-        errorDesc: sanitizeErrorDesc(errorDesc),
+        errorDesc,
         latencyMs,
       },
       observedAt: now().toISOString(),
@@ -576,10 +580,11 @@ async function probeAgent(opts: {
     return {
       key,
       state: "red",
+      // B2: already sanitized above; drop the outer wrap.
       signal: {
         slug,
         url,
-        errorDesc: sanitizeErrorDesc(errorDesc),
+        errorDesc,
         latencyMs,
       },
       observedAt: now().toISOString(),
