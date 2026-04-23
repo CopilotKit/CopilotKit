@@ -93,14 +93,7 @@ function serializeExpression(
               ? String(prop.key.value)
               : null;
         if (!key) continue;
-        obj[key] = serializeExpression(prop.value, sourceText) as
-          | string
-          | number
-          | boolean
-          | null
-          | CopilotKitProps
-          | CopilotKitProps[]
-          | UnserializableRef;
+        obj[key] = serializeExpression(prop.value, sourceText);
       }
       return obj;
     }
