@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-23T16:09:52.998Z",
+  "generated_at": "2026-04-23T17:48:00.754Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -100,9 +100,7 @@
         "id": "chat-customization-css",
         "name": "Chat Customization (CSS)",
         "category": "chat-ui",
-        "description": "Customizing chat components via CSS",
-        "og_docs_url": "https://docs.copilotkit.ai/features/chat-customization-css",
-        "shell_docs_url": "/docs/features/chat-customization-css"
+        "description": "Customizing chat components via CSS"
       },
       {
         "id": "headless-simple",
@@ -409,7 +407,9 @@
         "shared-state-read-write",
         "shared-state-streaming",
         "readonly-state-agent-context",
-        "subagents"
+        "subagents",
+        "open-gen-ui",
+        "open-gen-ui-advanced"
       ],
       "demos": [
         {
@@ -829,6 +829,34 @@
             "src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx",
             "src/app/api/copilotkit-beautiful-chat/route.ts"
           ]
+        },
+        {
+          "id": "open-gen-ui",
+          "name": "Fully Open-Ended Generative UI",
+          "description": "Agent generates UI from an arbitrary component library",
+          "tags": ["generative-ui"],
+          "route": "/demos/open-gen-ui",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/open_gen_ui_agent.py",
+            "src/app/demos/open-gen-ui/page.tsx",
+            "src/app/api/copilotkit-ogui/route.ts"
+          ]
+        },
+        {
+          "id": "open-gen-ui-advanced",
+          "name": "Open-Ended Gen UI (Advanced: with frontend function calling)",
+          "description": "Agent-authored UI that can invoke frontend sandbox functions from inside the iframe",
+          "tags": ["generative-ui"],
+          "route": "/demos/open-gen-ui-advanced",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/open_gen_ui_advanced_agent.py",
+            "src/app/demos/open-gen-ui-advanced/page.tsx",
+            "src/app/demos/open-gen-ui-advanced/sandbox-functions.ts",
+            "src/app/demos/open-gen-ui-advanced/suggestions.ts",
+            "src/app/api/copilotkit-ogui/route.ts"
+          ]
         }
       ],
       "docs_links": {
@@ -893,9 +921,13 @@
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interactive",
             "shell_docs_path": "/generative-ui/your-components/interactive"
           },
+          "hitl-in-app": {
+            "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+            "shell_docs_path": "/frontend-tools"
+          },
           "gen-ui-interrupt": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-            "shell_docs_path": null
+            "shell_docs_path": "/human-in-the-loop/interrupt-flow"
           },
           "interrupt-headless": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
@@ -943,19 +975,19 @@
           },
           "shared-state-read-write": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/in-app-agent-write",
-            "shell_docs_path": "/shared-state"
+            "shell_docs_path": "/shared-state/in-app-agent-write"
           },
           "shared-state-streaming": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/predictive-state-updates",
-            "shell_docs_path": "/shared-state"
+            "shell_docs_path": "/shared-state/predictive-state-updates"
           },
           "readonly-state-agent-context": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/agent-app-context",
-            "shell_docs_path": null
+            "shell_docs_path": "/agent-app-context"
           },
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
-            "shell_docs_path": "/multi-agent/subagents"
+            "shell_docs_path": "/multi-agent-flows"
           }
         }
       }
