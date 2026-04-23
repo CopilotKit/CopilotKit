@@ -261,14 +261,21 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // Project-level query: fetch all services with their instance image
     // refs + domains in one round-trip. A failure here aborts the tick —
     // we can't synthesize targets without the service list.
+    //
+    // Note: `serviceInstances` on `Service` takes NO arguments in the
+    // current Railway schema — passing `environmentId` there raises
+    // `Unknown argument "environmentId" on field "Service.serviceInstances"`
+    // and 400s the whole tick. We fetch every instance and filter by
+    // environment client-side below (the loop that finds
+    // `environmentId === environmentId`).
     const projectRaw = await gql<unknown>(
-      `query project($id: String!, $envId: String!) {
+      `query project($id: String!) {
         project(id: $id) {
           services {
             edges { node {
               id
               name
-              serviceInstances(environmentId: $envId) {
+              serviceInstances {
                 edges { node {
                   environmentId
                   source { image }
@@ -279,7 +286,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
           }
         }
       }`,
-      { id: projectId, envId: environmentId },
+      { id: projectId },
     );
     const parsedProject = ProjectServicesSchema.safeParse(projectRaw);
     if (!parsedProject.success) {
