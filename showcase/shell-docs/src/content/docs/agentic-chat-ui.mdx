@@ -9,7 +9,7 @@ snippet_cell: agentic-chat
 ## Pre-built components for agentic chat
 
 CopilotKit's chat components give you a fully functional, customizable AI chat interface out of the box.
-They handle streaming, generative UI, and deep customization — so you can focus on your agent's behavior, not UI plumbing.
+They handle streaming, generative UI, and deep customization so you can focus on your agent's behavior, not UI plumbing.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
@@ -25,9 +25,7 @@ They handle streaming, generative UI, and deep customization — so you can focu
 
 ## What it looks like in code
 
-The live `agentic-chat` cell above is built from a single, small page. Wrap
-your UI in `<CopilotKit>` once — it wires the runtime, session, and agent
-registry — and drop `<CopilotChat>` wherever the chat should go:
+The live `agentic-chat` cell above is built from a single, small page. Wrap your UI in `<CopilotKit>` once (it wires the runtime, session, and agent registry) and drop `<CopilotChat>` wherever the chat should go:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — CopilotKit provider" />
 
@@ -37,8 +35,4 @@ suggestion:
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — starter suggestions" />
 
-## Get started by choosing your AI backend
-
-The chat components work with any AI backend. Pick your integration to get started.
-
-<IntegrationGrid path="chat" />
+<IntegrationGrid path="chat" description="The chat components work with any AI backend. Pick your integration to get started." />

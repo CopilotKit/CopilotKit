@@ -8,9 +8,7 @@ snippet_cell: readonly-state-agent-context
 
 ## What is this?
 
-Sometimes you want the agent to *know* something about the current UI
-— the logged-in user, the current page, a recent activity log — but
-you don't want the agent to be able to modify it. That's what
+Sometimes you want the agent to *know* something about the current UI, like the logged-in user, the current page, or a recent activity log, but you don't want the agent to be able to modify it. That's what
 `useAgentContext` is for: a one-way **UI → agent** channel for
 read-only context.
 
@@ -47,13 +45,13 @@ runtime that is:
 
 <Snippet region="use-agent-context-call" title="frontend/src/app/page.tsx — useAgentContext" />
 
-The `description` is important — it's a short human-readable label the
+The `description` is important: it's a short human-readable label the
 agent sees alongside the value, so it knows what to do with it. Treat
 it like a parameter docstring.
 
 ## Wire it to your own state
 
-`useAgentContext` doesn't care where the value comes from — local
+`useAgentContext` doesn't care where the value comes from: local
 state, a React Context, Redux, a query cache, anything. The only
 requirement is that the identity of the value is stable enough for
 React to avoid a render loop. In the demo we use a handful of
@@ -67,7 +65,7 @@ provider, a router hook, and your domain state stores.
 Because the agent never sees a setter or a mutation tool for these
 values, there's no way for a confused LLM to "update" them. That
 makes `useAgentContext` the right tool whenever the value in question
-is an input, not a field — the "context object passed to the agent on
+is an input, not a field: the "context object passed to the agent on
 every turn", rather than "shared workspace you both edit".
 
 When you need both reads *and* writes, you want full

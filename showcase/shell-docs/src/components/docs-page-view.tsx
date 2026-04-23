@@ -16,6 +16,7 @@ import { SidebarNav } from "@/components/sidebar-nav";
 import { SidebarLink } from "@/components/sidebar-link";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { Snippet } from "@/components/snippet";
+import { DocsToc } from "@/components/docs-toc";
 import { docsComponents } from "@/lib/mdx-registry";
 import {
   NavNode,
@@ -26,6 +27,7 @@ import {
   loadDoc,
   CONTENT_DIR,
 } from "@/lib/docs-render";
+import { childrenToText, extractHeadings, slugify } from "@/lib/toc";
 
 export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
@@ -85,6 +87,12 @@ export async function DocsPageView({
   const rawContent = doc.source.replace(/^---[\s\S]*?---\n?/, "");
   const inlined = inlineSnippets(rawContent, slugPath);
   const content = convertTablesInJSX(inlined);
+
+  // Extract H2/H3 headings for the right-rail TOC. Run on the final
+  // content (post-snippet-inlining) so a page like threads.mdx whose
+  // body comes from a shared snippet still surfaces its sections.
+  const tocHeadings =
+    hideBody || doc.fm.hideTOC ? [] : extractHeadings(content);
 
   const defaultFramework = frameworkOverride ?? doc.fm.defaultFramework;
   const defaultCell = doc.fm.defaultCell;
@@ -226,6 +234,26 @@ export async function DocsPageView({
                         />
                       );
                     },
+                    // Inject stable IDs on H2/H3 so the right-rail TOC's
+                    // #anchor links resolve. Slugify the child text with the
+                    // same algorithm used by extractHeadings() so IDs line up
+                    // with the TOC entries.
+                    h2: ({
+                      children,
+                      ...rest
+                    }: React.HTMLAttributes<HTMLHeadingElement>) => (
+                      <h2 id={slugify(childrenToText(children))} {...rest}>
+                        {children}
+                      </h2>
+                    ),
+                    h3: ({
+                      children,
+                      ...rest
+                    }: React.HTMLAttributes<HTMLHeadingElement>) => (
+                      <h3 id={slugify(childrenToText(children))} {...rest}>
+                        {children}
+                      </h3>
+                    ),
                     // When rendering under a framework-scoped route, rewrite
                     // root-relative MDX links (/quickstart, /shared-state, …)
                     // to the framework-scoped equivalent so clicks never land
@@ -264,6 +292,8 @@ export async function DocsPageView({
             return body;
           })()}
       </main>
+
+      <DocsToc headings={tocHeadings} />
     </div>
   );
 }

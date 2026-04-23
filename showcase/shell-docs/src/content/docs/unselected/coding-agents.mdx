@@ -37,6 +37,8 @@ Point your editor's MCP configuration at that URL — that's the whole setup.
 <Step>
 ### Add the server
 
+Paste the following into your `mcp.json` to register the CopilotKit MCP server:
+
 ```json
 {
   "mcpServers": {
@@ -59,6 +61,8 @@ Save the file — Cursor picks up the new server automatically.
 <Step>
 ### Register the server
 
+Run the following command to add the CopilotKit MCP server over HTTP:
+
 ```bash
 claude mcp add --transport http copilotkit-mcp https://mcp.copilotkit.ai/mcp
 ```
@@ -66,6 +70,8 @@ claude mcp add --transport http copilotkit-mcp https://mcp.copilotkit.ai/mcp
 
 <Step>
 ### Verify
+
+Confirm the server registered successfully:
 
 ```bash
 claude mcp list

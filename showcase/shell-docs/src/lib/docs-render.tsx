@@ -711,6 +711,7 @@ export interface DocFrontmatter {
   description?: string;
   defaultFramework?: string;
   defaultCell?: string;
+  hideTOC?: boolean;
 }
 
 /**
@@ -780,6 +781,7 @@ export function loadDoc(
       : undefined;
   const defaultCell =
     typeof data.snippet_cell === "string" ? data.snippet_cell : undefined;
+  const hideTOC = data.hideTOC === true;
 
   return {
     source,
@@ -789,6 +791,7 @@ export function loadDoc(
       description,
       defaultFramework,
       defaultCell,
+      hideTOC,
     },
   };
 }

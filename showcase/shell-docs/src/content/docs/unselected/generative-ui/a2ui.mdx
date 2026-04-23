@@ -104,6 +104,8 @@ That tree lives in `backend/schemas/flight_schema.json`. Components without data
 
 ### Building the catalog
 
+Define the React components for each primitive type and assemble them into a catalog. The A2UI binder uses this catalog to resolve schema nodes to components at render time:
+
 <Snippet region="definitions-types" cell="a2ui-fixed-schema" />
 
 <Snippet region="renderers-tsx" cell="a2ui-fixed-schema" />
@@ -111,6 +113,8 @@ That tree lives in `backend/schemas/flight_schema.json`. Components without data
 <Snippet region="catalog-creation" cell="a2ui-fixed-schema" />
 
 ### Wiring the schema + tool
+
+Load the schema file and register the tool that emits render operations. The agent calls this tool with structured data; A2UI resolves each field against the schema and passes typed props to your components:
 
 <Snippet region="backend-schema-json-load" cell="a2ui-fixed-schema" />
 

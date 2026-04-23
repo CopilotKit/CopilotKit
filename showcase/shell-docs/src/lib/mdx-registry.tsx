@@ -16,6 +16,7 @@ import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { PropertyReference } from "@/components/property-reference";
+import { IntegrationGrid } from "@/components/integration-grid";
 import { getRegistry } from "@/lib/registry";
 
 const Callout = DocsCallout;
@@ -199,24 +200,7 @@ export const docsComponents = {
       {children}
     </div>
   ),
-  IntegrationGrid: ({ path }: { path?: string }) => (
-    <div
-      style={{
-        padding: "1rem",
-        background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
-        marginBottom: "1rem",
-        fontSize: "0.875rem",
-        color: "var(--text-muted)",
-      }}
-    >
-      See{" "}
-      <a href="/integrations" style={{ color: "var(--accent)" }}>
-        Integrations
-      </a>{" "}
-      for all available frameworks{path ? ` (${path})` : ""}.
-    </div>
-  ),
+  IntegrationGrid,
   FeatureGrid: ({ children }: { children?: React.ReactNode }) => (
     <div
       style={{
@@ -513,22 +497,92 @@ export const docsComponents = {
   EcosystemTable: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),
-  FeatureMatrix: () => (
-    <div
-      style={{
-        padding: "1rem",
-        background: "var(--bg-elevated)",
-        borderRadius: "0.5rem",
-        marginBottom: "1rem",
-      }}
-    >
-      See the{" "}
-      <a href="/matrix" style={{ color: "var(--accent)" }}>
-        Feature Matrix
-      </a>{" "}
-      for a full comparison.
-    </div>
-  ),
+  FeatureMatrix: () => {
+    const reg = getRegistry();
+    const integrations = reg.integrations.filter((i) => i.deployed);
+
+    const columns = [
+      { id: "agentic-chat", label: "Chat UI" },
+      { id: "gen-ui-tool-based", label: "Tool-Based Gen UI" },
+      { id: "tool-rendering", label: "Tool Rendering" },
+      { id: "gen-ui-agent", label: "Agentic Gen UI" },
+      { id: "hitl-in-chat", label: "Human-in-the-Loop" },
+      { id: "frontend-tools", label: "Frontend Tools" },
+      { id: "shared-state-read-write", label: "Shared State" },
+      { id: "shared-state-streaming", label: "State Streaming" },
+      { id: "subagents", label: "Sub-Agents" },
+      { id: "declarative-gen-ui", label: "Declarative Gen UI" },
+      { id: "agentic-chat-reasoning", label: "Reasoning" },
+      { id: "mcp-apps", label: "MCP Apps" },
+    ];
+
+    return (
+      <div className="overflow-x-auto my-6 rounded-lg border border-[var(--border)]">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-10 bg-[var(--bg-elevated)] text-left px-4 py-3 font-semibold text-[var(--text)] border-b border-r border-[var(--border)] min-w-[200px] whitespace-nowrap">
+                Framework
+              </th>
+              {columns.map((col) => (
+                <th
+                  key={col.id}
+                  className="bg-[var(--bg-elevated)] px-3 py-3 text-center font-medium text-[var(--text-muted)] border-b border-[var(--border)] text-xs whitespace-nowrap"
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {integrations.map((integration, idx) => {
+              const features = new Set(integration.features ?? []);
+              const rowBg =
+                idx % 2 === 0
+                  ? "bg-[var(--bg-surface)]"
+                  : "bg-[var(--bg-elevated)]";
+              return (
+                <tr key={integration.slug} className={rowBg}>
+                  <td
+                    className={`sticky left-0 z-10 px-4 py-2.5 font-medium text-[var(--text)] border-r border-b border-[var(--border-dim)] whitespace-nowrap ${rowBg}`}
+                  >
+                    <Link
+                      href={`/${integration.slug}`}
+                      className="hover:text-[var(--accent)] transition-colors"
+                    >
+                      {integration.name}
+                    </Link>
+                  </td>
+                  {columns.map((col) => (
+                    <td
+                      key={col.id}
+                      className="px-3 py-2.5 text-center border-b border-[var(--border-dim)]"
+                    >
+                      {features.has(col.id) ? (
+                        <span
+                          className="text-[var(--accent)]"
+                          aria-label="supported"
+                        >
+                          ✓
+                        </span>
+                      ) : (
+                        <span
+                          className="text-[var(--text-faint)] text-xs"
+                          aria-label="not supported"
+                        >
+                          —
+                        </span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  },
   IntegrationsGrid: ({ children }: { children?: React.ReactNode }) => (
     <div>{children}</div>
   ),

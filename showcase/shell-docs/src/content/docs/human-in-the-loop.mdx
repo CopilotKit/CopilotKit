@@ -11,7 +11,7 @@ snippet_cell: hitl-in-chat
 Human-in-the-loop (HITL) lets an agent pause mid-run to collect input,
 confirmation, or a choice from the user, then resume with that answer
 folded back into its reasoning. It's what turns an autonomous workflow
-into a collaborative one — the agent keeps its context, the user keeps
+into a collaborative one: the agent keeps its context, the user keeps
 the steering wheel.
 
 <video
@@ -36,9 +36,9 @@ Use HITL when you need:
 ## Two patterns for HITL in CopilotKit
 
 CopilotKit ships two complementary ways to pause an agent turn and ask
-the human something. They look similar from the outside — the chat
-pauses, a custom component appears, the user answers, the run resumes —
-but they're wired differently on the backend and each has its own niche.
+the human something. They look similar from the outside (the chat
+pauses, a custom component appears, the user answers, the run resumes)
+but they're wired differently on the backend, and each has its own niche.
 
 | Pattern | Who decides to pause? | Backend surface |
 | --- | --- | --- |
@@ -92,7 +92,5 @@ interrupt resolution from a custom UI that lives anywhere in the tree
 [headless interrupts guide](./human-in-the-loop/headless) — it shows
 how to compose `useAgent`, `agent.subscribe`, and `copilotkit.runAgent`
 to build your own `useInterrupt` equivalent.
-
-## Get started by choosing your AI backend
 
 <IntegrationGrid path="human-in-the-loop" />

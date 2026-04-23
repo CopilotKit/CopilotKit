@@ -135,6 +135,8 @@ interface CopilotErrorEvent {
 
 ### Sentry
 
+Forward error events to Sentry using its `captureException` API:
+
 ```tsx
 import * as Sentry from "@sentry/react";
 
@@ -161,6 +163,8 @@ import * as Sentry from "@sentry/react";
 
 ### Custom analytics
 
+Route all CopilotKit events to your analytics pipeline via the `onError` callback:
+
 ```tsx
 <CopilotKitProvider
   publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
@@ -183,6 +187,8 @@ import * as Sentry from "@sentry/react";
 
 ### Development
 
+Enable the dev console and attach lightweight logging hooks for local iteration:
+
 ```tsx
 <CopilotKitProvider
   runtimeUrl="http://localhost:3000/api/copilotkit"
@@ -200,6 +206,8 @@ import * as Sentry from "@sentry/react";
 ```
 
 ### Production
+
+Disable the dev console and route errors to your logging and monitoring services:
 
 ```tsx
 <CopilotKitProvider
