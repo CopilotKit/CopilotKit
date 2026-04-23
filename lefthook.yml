@@ -30,6 +30,13 @@ pre-commit:
       # would default to operating on the current directory, defeating the
       # scoping entirely. stage_fixed re-stages whatever the hooks modify.
       glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      # Mirror the ignorePatterns in .oxlintrc.json / .oxfmtrc.json at the
+      # hook layer. Without this, a docs-only commit expands {staged_files}
+      # to a single docs/** path; oxlint silently processes 0 files, then
+      # oxfmt exits 2 with "Expected at least one target file" and blocks
+      # the commit.
+      exclude:
+        - "docs/**"
       run: |
         if [ -n "{staged_files}" ]; then
           pnpm exec oxlint --fix {staged_files} && pnpm exec oxfmt --write {staged_files}

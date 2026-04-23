@@ -53,4 +53,4 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-  key_template: "e2e-smoke:${name}"
+  key_template: "e2e_smoke:${name}"
