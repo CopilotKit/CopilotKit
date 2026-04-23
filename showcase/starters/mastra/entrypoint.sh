@@ -58,7 +58,7 @@ fi
 # per-framework ceiling) before the strike counter is armed. See
 # getWatchdogGraceSeconds() for the mapping.
 (
-  GRACE=180
+  GRACE=360
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
   ELAPSED=0
   while [ $ELAPSED -lt $GRACE ]; do
@@ -96,7 +96,7 @@ fi
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/api, startup grace 180s)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/api, startup grace 360s)"
 
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."

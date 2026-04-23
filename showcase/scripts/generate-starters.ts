@@ -650,6 +650,8 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  * `mastra` starters spawn `mastra dev`, which runs a tsx-based build +
  * Mastra server boot on first request and was observed restart-looping
  * on Railway starting 04-20 18:18 UTC — same kill-loop shape as langgraph.
+ * Cold-start observed at ~280s; 180s grace + 90s strike budget = 270s was
+ * not enough, so mastra uses 360s grace (total budget 450s).
  *
  * `claude-sdk-typescript` starters spawn `tsx agent/index.ts` which
  * performs a full tsx type-strip + @anthropic-ai/claude-agent-sdk init;
@@ -663,7 +665,7 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  */
 function getWatchdogGraceSeconds(fw: FrameworkDef): number {
   if (fw.slug.startsWith("langgraph-")) return 180;
-  if (fw.slug === "mastra") return 180;
+  if (fw.slug === "mastra") return 360;
   if (fw.slug === "claude-sdk-typescript") return 180;
   return 0;
 }
