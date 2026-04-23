@@ -9,8 +9,17 @@ describe("useAgent error state", () => {
   const originalWindow = (globalThis as { window?: unknown }).window;
 
   beforeEach(() => {
-    // Simulate browser environment
-    (globalThis as { window?: unknown }).window = {};
+    // Leave the jsdom window intact (React 17's scheduler/renderer relies on
+    // window.addEventListener and window.HTMLIFrameElement during commit) and
+    // only shadow location so CopilotKitProvider's localhost auto-open-inspector
+    // heuristic skips.
+    if (originalWindow && typeof originalWindow === "object") {
+      Object.defineProperty(originalWindow, "location", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+    }
     // Mock fetch to reject (simulates runtime unreachable)
     global.fetch = vi.fn().mockRejectedValue(new Error("network failure"));
   });

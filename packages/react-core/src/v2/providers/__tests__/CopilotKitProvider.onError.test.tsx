@@ -9,7 +9,18 @@ describe("CopilotKitProvider onError", () => {
   const originalWindow = (globalThis as { window?: unknown }).window;
 
   beforeEach(() => {
-    (globalThis as { window?: unknown }).window = {};
+    // Leave the jsdom window intact (needed by React 17's scheduler/renderer
+    // event binding) but shadow location so CopilotKitProvider's localhost
+    // auto-open-inspector heuristic skips. The previous `window = {}` broke
+    // React 17 which calls `window.addEventListener` and
+    // `instanceof window.HTMLIFrameElement` during commit.
+    if (originalWindow && typeof originalWindow === "object") {
+      Object.defineProperty(originalWindow, "location", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+    }
   });
 
   afterEach(() => {

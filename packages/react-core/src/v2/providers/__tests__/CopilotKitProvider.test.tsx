@@ -431,7 +431,17 @@ describe("CopilotKitProvider", () => {
     const originalWindow = (globalThis as { window?: unknown }).window;
 
     beforeEach(() => {
-      (globalThis as { window?: unknown }).window = {};
+      // Leave the jsdom window intact (React 17's renderer touches
+      // window.HTMLIFrameElement and window.addEventListener during commit)
+      // and only shadow location so CopilotKitProvider's localhost
+      // auto-open-inspector heuristic skips.
+      if (originalWindow && typeof originalWindow === "object") {
+        Object.defineProperty(originalWindow, "location", {
+          value: undefined,
+          configurable: true,
+          writable: true,
+        });
+      }
     });
 
     afterEach(() => {
