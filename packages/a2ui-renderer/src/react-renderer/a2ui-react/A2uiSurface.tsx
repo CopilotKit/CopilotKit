@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-import React, { useSyncExternalStore, memo, useMemo, useCallback } from "react";
+import React, { memo, useMemo, useCallback } from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 import {
   type SurfaceModel,
   ComponentContext,

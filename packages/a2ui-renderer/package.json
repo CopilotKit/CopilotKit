@@ -50,6 +50,7 @@
   "dependencies": {
     "@a2ui/web_core": "0.9.0",
     "clsx": "^2.1.1",
+    "use-sync-external-store": "^1.2.2",
     "zod": "^3.25.75",
     "zod-to-json-schema": "^3.24.1"
   },
@@ -58,6 +59,7 @@
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
+    "@types/use-sync-external-store": "^0.0.6",
     "jsdom": "^26.1.0",
     "tsdown": "^0.20.3",
     "typescript": "5.9.2",

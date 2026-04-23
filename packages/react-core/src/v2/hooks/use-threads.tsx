@@ -10,13 +10,8 @@ import {
   type ɵThreadRuntimeContext,
   type ɵThreadStore,
 } from "@copilotkit/core";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 
 /**
  * A conversation thread managed by the Intelligence platform.

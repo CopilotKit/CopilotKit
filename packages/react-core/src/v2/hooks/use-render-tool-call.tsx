@@ -1,4 +1,5 @@
-import React, { useCallback, useMemo, useSyncExternalStore } from "react";
+import React, { useCallback, useMemo } from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 import { ToolCall, ToolMessage } from "@ag-ui/core";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
