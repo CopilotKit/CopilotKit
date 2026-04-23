@@ -320,6 +320,22 @@
           }
         ]
       }
+    },
+    {
+      "match": {
+        "userMessage": "Describe this image"
+      },
+      "response": {
+        "content": "This appears to be the CopilotKit logo. The mark combines clean geometric shapes typical of the CopilotKit brand identity."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this document"
+      },
+      "response": {
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+      }
     }
   ]
 }

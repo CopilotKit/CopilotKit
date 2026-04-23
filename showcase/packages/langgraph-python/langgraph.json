@@ -23,6 +23,7 @@
     "frontend_tools_async": "./src/agents/frontend_tools_async.py:graph",
     "gen_ui_agent": "./src/agents/gen_ui_agent.py:graph",
     "gen_ui_tool_based": "./src/agents/gen_ui_tool_based.py:graph",
-    "beautiful_chat": "./src/agents/beautiful_chat.py:graph"
+    "beautiful_chat": "./src/agents/beautiful_chat.py:graph",
+    "multimodal": "./src/agents/multimodal_agent.py:graph"
   }
 }

@@ -12,7 +12,7 @@
         "frontend-tools-async",
         "gen-ui-tool-based",
         "useComponent",
-        "multi-modal",
+        "multimodal",
         "suggestions",
         "shared-state-read-write",
         "readonly-state-agent-context",
@@ -56,7 +56,7 @@
         "mcp-apps",
         "tool-rendering",
         "useComponent",
-        "multi-modal",
+        "multimodal",
         "suggestions",
         "shared-state-read-write",
         "readonly-state-agent-context",
@@ -68,7 +68,9 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": [
+        "voice"
+      ]
     }
   }
 }
