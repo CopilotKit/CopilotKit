@@ -19,6 +19,12 @@ import {
 } from "./llm-config";
 import { startAimock, type AimockHandle } from "./aimock-lifecycle";
 import { spawnRuntime, type RuntimeHandle } from "./runtime-spawn";
+import {
+  FixtureStore,
+  type FixtureListEntry,
+  type FixtureMetadata,
+  type SavedFixture,
+} from "./fixture-store";
 
 export interface PlaygroundCallbacks {
   onRefresh(): void | Promise<void>;
@@ -36,6 +42,7 @@ export interface PlaygroundDeps {
   startAimock: (opts: {
     provider: "openai" | "anthropic";
     upstreamUrl: string;
+    replayFixturePath?: string;
   }) => Promise<AimockHandle>;
   spawnRuntime: (opts: {
     entryScript: string;
@@ -49,6 +56,12 @@ export interface PlaygroundDeps {
   }) => Promise<RuntimeHandle>;
   /** Absolute path to dist/runtime/subprocess-entry.cjs. */
   runtimeEntryScript: string;
+  fixtureStore: {
+    list(): FixtureListEntry[];
+    read(filePath: string): SavedFixture;
+    save(metadata: FixtureMetadata, body: { recording: unknown[] }): string;
+    delete(filePath: string): void;
+  };
 }
 
 export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
@@ -63,6 +76,8 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
     aimock: AimockHandle;
     runtime: RuntimeHandle;
   } | null = null;
+  private replayFixturePath: string | null = null;
+  private replayFixtureName: string | null = null;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -94,12 +109,16 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
     webviewView.webview.html = this.renderHtml(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(
-      (msg: PlaygroundWebviewToExtensionMessage) => {
+      async (msg: PlaygroundWebviewToExtensionMessage) => {
         switch (msg.type) {
           case "ready":
             this.ready = true;
             if (this.latestResult) this.postResult();
             if (this.latestBundle) this.post(this.latestBundle);
+            this.post({
+              type: "fixtures-list",
+              fixtures: this.deps.fixtureStore.list(),
+            });
             return;
           case "refresh":
             void this.callbacks.onRefresh();
@@ -107,6 +126,56 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
           case "open-source":
             void this.callbacks.onOpenSource(msg.filePath, msg.line);
             return;
+          case "save-fixture": {
+            if (!this.currentSession) return;
+            const journal = this.currentSession.aimock.getJournal();
+            const config = await this.deps.resolveLlmConfig();
+            if (config.source === "missing") return;
+            const filePath = this.deps.fixtureStore.save(
+              {
+                name: msg.name,
+                createdAt: new Date().toISOString(),
+                provider: config.provider,
+                model: config.model,
+              },
+              { recording: journal },
+            );
+            this.post({ type: "fixture-saved", filePath });
+            this.post({
+              type: "fixtures-list",
+              fixtures: this.deps.fixtureStore.list(),
+            });
+            return;
+          }
+          case "load-fixture": {
+            this.replayFixturePath = msg.filePath;
+            try {
+              this.replayFixtureName =
+                this.deps.fixtureStore.read(msg.filePath).metadata.name ?? null;
+            } catch {
+              this.replayFixtureName = null;
+            }
+            if (this.latestResult) {
+              this.setScanResult(this.latestResult);
+            }
+            return;
+          }
+          case "new-chat": {
+            this.replayFixturePath = null;
+            this.replayFixtureName = null;
+            if (this.latestResult) {
+              this.setScanResult(this.latestResult);
+            }
+            return;
+          }
+          case "delete-fixture": {
+            this.deps.fixtureStore.delete(msg.filePath);
+            this.post({
+              type: "fixtures-list",
+              fixtures: this.deps.fixtureStore.list(),
+            });
+            return;
+          }
         }
       },
     );
@@ -167,6 +236,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
           config.provider === "openai"
             ? "https://api.openai.com"
             : "https://api.anthropic.com",
+        replayFixturePath: this.replayFixturePath ?? undefined,
       });
       const runtime = await this.deps.spawnRuntime({
         entryScript: this.deps.runtimeEntryScript,
@@ -214,6 +284,16 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
       this.emitBundle({
         type: "bundle-ready",
         payload: { code: bundle.code, css: bundle.css },
+      });
+      this.post({
+        type: "session-info",
+        runtimeUrl: runtime.url,
+        replayMode: aimock.isReplayMode,
+        fixtureName: this.replayFixtureName,
+      });
+      this.post({
+        type: "fixtures-list",
+        fixtures: this.deps.fixtureStore.list(),
       });
     } catch (err) {
       if (seq !== this.bundleSeq) return;
@@ -309,5 +389,6 @@ export function createPlaygroundDeps(
       "runtime",
       "subprocess-entry.cjs",
     ).fsPath,
+    fixtureStore: new FixtureStore(workspaceRoot ?? ""),
   };
 }

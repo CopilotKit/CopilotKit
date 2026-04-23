@@ -29,6 +29,7 @@ function makeDeps(overrides: Partial<PlaygroundDeps> = {}): PlaygroundDeps {
     startAimock: vi.fn().mockResolvedValue({
       url: "http://127.0.0.1:11111",
       provider: "openai",
+      isReplayMode: false,
       getJournal: () => [],
       stop: vi.fn().mockResolvedValue(undefined),
     }),
@@ -37,6 +38,12 @@ function makeDeps(overrides: Partial<PlaygroundDeps> = {}): PlaygroundDeps {
       stop: vi.fn().mockResolvedValue(undefined),
     }),
     runtimeEntryScript: "/fake/subprocess-entry.cjs",
+    fixtureStore: {
+      list: vi.fn().mockReturnValue([]),
+      read: vi.fn(),
+      save: vi.fn().mockReturnValue("/fake/.copilotkit/fixtures/x.json"),
+      delete: vi.fn(),
+    },
     ...overrides,
   };
 }
@@ -405,8 +412,14 @@ describe("PlaygroundViewProvider — orchestration", () => {
         entryPath: "/tmp/ignored/entry.tsx",
       }),
       bundle: vi.fn().mockResolvedValue({ success: true, code: "var x;" }),
-      startAimock: vi.fn().mockResolvedValueOnce(aimock1).mockResolvedValueOnce(aimock2),
-      spawnRuntime: vi.fn().mockResolvedValueOnce(runtime1).mockResolvedValueOnce(runtime2),
+      startAimock: vi
+        .fn()
+        .mockResolvedValueOnce(aimock1)
+        .mockResolvedValueOnce(aimock2),
+      spawnRuntime: vi
+        .fn()
+        .mockResolvedValueOnce(runtime1)
+        .mockResolvedValueOnce(runtime2),
     });
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
@@ -438,5 +451,77 @@ describe("PlaygroundViewProvider — orchestration", () => {
 
     expect(stop1).toHaveBeenCalled();
     expect(stop2).toHaveBeenCalled();
+  });
+
+  it("saves a fixture when save-fixture is received", async () => {
+    const saveFn = vi.fn().mockReturnValue("/fake/.copilotkit/fixtures/x.json");
+    const listFn = vi.fn().mockReturnValue([
+      {
+        filePath: "/fake/.copilotkit/fixtures/x.json",
+        metadata: {
+          name: "x",
+          createdAt: "2026-04-23T12:00:00Z",
+          provider: "openai" as const,
+          model: "gpt-4o-mini",
+        },
+      },
+    ]);
+    const journal = [{ request: { a: 1 }, response: { b: 2 } }];
+    const deps = makeDeps({
+      writeSources: vi.fn().mockReturnValue({
+        outDir: "/tmp",
+        entryPath: "/tmp/x.tsx",
+      }),
+      bundle: vi.fn().mockResolvedValue({ success: true, code: "var x;" }),
+      startAimock: vi.fn().mockResolvedValue({
+        url: "http://127.0.0.1:11111",
+        provider: "openai" as const,
+        isReplayMode: false,
+        getJournal: () => journal,
+        stop: vi.fn().mockResolvedValue(undefined),
+      }),
+      spawnRuntime: vi.fn().mockResolvedValue({
+        url: "http://127.0.0.1:22222",
+        stop: vi.fn().mockResolvedValue(undefined),
+      }),
+      fixtureStore: {
+        list: listFn,
+        read: vi.fn(),
+        save: saveFn,
+        delete: vi.fn(),
+      },
+    });
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      deps,
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    view.send({ type: "ready" });
+    provider.setScanResult({
+      providers: [
+        {
+          filePath: "/x/App.tsx",
+          loc: { line: 1, column: 0, endLine: 1, endColumn: 1 },
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+          props: {},
+        },
+      ],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    });
+    await new Promise((r) => setTimeout(r, 60));
+    view.send({ type: "save-fixture", name: "my-session" });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(saveFn).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "my-session", provider: "openai" }),
+      { recording: journal },
+    );
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "fixture-saved" }),
+    );
   });
 });
