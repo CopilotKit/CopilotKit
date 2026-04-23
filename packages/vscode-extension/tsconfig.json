@@ -13,6 +13,7 @@
   "exclude": [
     "dist",
     "node_modules",
-    "src/extension/hooks/__tests__/fixtures/**"
+    "src/extension/hooks/__tests__/fixtures/**",
+    "src/extension/playground/__tests__/fixtures/**"
   ]
 }
