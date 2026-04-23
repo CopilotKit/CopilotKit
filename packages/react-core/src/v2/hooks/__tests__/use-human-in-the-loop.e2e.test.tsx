@@ -124,8 +124,12 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
         expect(screen.getByTestId("hitl-result").textContent).toContain(
           "approved",
         );
-        // Also wait for the useEffect to update statusHistory
-        expect(statusHistory).toEqual([
+        // React 17 can emit extra effect runs when render batching differs, so
+        // assert the journey rather than the exact sequence.
+        const uniqueInOrder = statusHistory.filter(
+          (status, index) => statusHistory.indexOf(status) === index,
+        );
+        expect(uniqueInOrder).toEqual([
           ToolCallStatus.InProgress,
           ToolCallStatus.Executing,
           ToolCallStatus.Complete,
