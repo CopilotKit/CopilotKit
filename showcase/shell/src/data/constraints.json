@@ -62,7 +62,9 @@
         "readonly-state-agent-context",
         "shared-state-streaming",
         "subagents",
-        "voice"
+        "voice",
+        "open-gen-ui",
+        "open-gen-ui-advanced"
       ]
     }
   },

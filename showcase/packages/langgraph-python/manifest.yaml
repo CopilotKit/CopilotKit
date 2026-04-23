@@ -63,7 +63,8 @@ features:
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
-  - voice
+  - open-gen-ui
+  - open-gen-ui-advanced
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -424,15 +425,27 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
-  - id: voice
-    name: Voice Input
-    description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
+  - id: open-gen-ui
+    name: Fully Open-Ended Generative UI
+    description: Agent generates UI from an arbitrary component library
     tags:
-      - chat-ui
-    route: /demos/voice
+      - generative-ui
+    route: /demos/open-gen-ui
     animated_preview_url:
     highlight:
-      - src/agents/main.py
-      - src/app/demos/voice/page.tsx
-      - src/app/demos/voice/sample-audio-button.tsx
-      - src/app/api/copilotkit-voice/route.ts
+      - src/agents/open_gen_ui_agent.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
+    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_advanced_agent.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
+      - src/app/api/copilotkit-ogui/route.ts
