@@ -37,6 +37,9 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          # Full history so we can diff HEAD against the current base branch
+          # tip to scope the formatter to PR-changed files.
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -53,17 +56,53 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Collect PR-changed files for formatting
+        if: github.event_name == 'pull_request'
+        id: changed
+        run: |
+          base_ref="${{ github.event.pull_request.base.ref }}"
+          # Fetch the current tip of the base branch so the merge-base tracks
+          # main as it advances (using the PR's stored base.sha would pull in
+          # every file main has touched since the PR opened).
+          git fetch --no-tags origin "$base_ref"
+          # Scope to files changed between the current base-branch merge-base
+          # and HEAD so advances on main don't drag unrelated files into the
+          # PR. Restrict to oxfmt-supported extensions so oxfmt never errors
+          # on an unknown target. Canonical list lives upstream in oxfmt
+          # (https://github.com/oxc-project/oxc-formatter) — update here when
+          # oxfmt adds a new format.
+          git diff --name-only --diff-filter=ACMR "origin/$base_ref"...HEAD -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+            '*.json' '*.jsonc' '*.json5' \
+            '*.md' '*.mdx' \
+            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+            > .pr-format-files.txt
+          : > .pr-format-files.existing.txt
+          while IFS= read -r f; do
+            [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f" >> .pr-format-files.existing.txt
+          done < .pr-format-files.txt
+          count=$(wc -l < .pr-format-files.existing.txt | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "PR-changed format candidates: $count"
+          cat .pr-format-files.existing.txt
+
       - name: Run formatter (check on push, fix on PR)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if ! pnpm run format; then
+            if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
+              echo "No formattable files changed in this PR — skipping oxfmt."
+              exit 0
+            fi
+            if ! xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --write; then
               echo "::warning::Formatter exited with error — auto-fix may be incomplete"
             fi
             if [ -n "$(git diff --name-only)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
+            xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --check
+          else
+            pnpm run check-format
           fi
-          pnpm run check-format
 
       - name: Commit formatting fixes
         if: >-
