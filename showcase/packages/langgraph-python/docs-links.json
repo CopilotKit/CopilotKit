@@ -124,6 +124,10 @@
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
       "shell_docs_path": "/multi-agent/subagents"
+    },
+    "agent-config": {
+      "og_docs_url": null,
+      "shell_docs_path": null
     }
   }
 }

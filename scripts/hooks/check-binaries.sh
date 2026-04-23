@@ -41,6 +41,12 @@ while IFS= read -r f; do
     showcase/shell/src/data/demo-content.json) continue ;;
     showcase/shell/src/data/search-index.json) continue ;;
     showcase/shell/src/data/starter-content.json) continue ;;
+    showcase/shell-docs/src/data/demo-content.json) continue ;;
+    showcase/shell-docs/src/data/search-index.json) continue ;;
+    showcase/shell-docs/src/data/starter-content.json) continue ;;
+    showcase/shell-dojo/src/data/demo-content.json) continue ;;
+    showcase/shell-dojo/src/data/search-index.json) continue ;;
+    showcase/shell-dojo/src/data/starter-content.json) continue ;;
   esac
   SIZE=$(wc -c < "$f" | tr -d ' ')
   [ -z "$SIZE" ] && continue

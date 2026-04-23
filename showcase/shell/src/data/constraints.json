@@ -4,6 +4,7 @@
       "allowed": [
         "beautiful-chat",
         "cli-start",
+        "agent-config",
         "agentic-chat",
         "chat-customization-css",
         "tool-rendering-default-catchall",
@@ -31,6 +32,7 @@
       "allowed": [
         "beautiful-chat",
         "cli-start",
+        "agent-config",
         "agentic-chat",
         "chat-customization-css",
         "tool-rendering-default-catchall",
@@ -68,7 +70,9 @@
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": [
+        "voice"
+      ]
     }
   }
 }
