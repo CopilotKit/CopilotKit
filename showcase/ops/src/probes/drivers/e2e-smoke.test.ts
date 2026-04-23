@@ -190,7 +190,11 @@ describe("e2eSmokeDriver L3 (chat)", () => {
 
   it("red when chat yields an empty assistant response", async () => {
     const { browser } = makeBrowser([{ assistantText: "" }]);
-    const driver = createE2eSmokeDriver({ launcher: async () => browser });
+    const driver = createE2eSmokeDriver({
+      launcher: async () => browser,
+      // Short poll timeout so the test doesn't spin for 60s.
+      textPollTimeoutMs: 50,
+    });
     const writer = new CapturingWriter();
     const result = await driver.run(baseCtx({ writer }), {
       key: "e2e-smoke:foo",
@@ -202,6 +206,58 @@ describe("e2eSmokeDriver L3 (chat)", () => {
     expect(sig.failureSummary).toMatch(/L3:/);
     const chat = writer.results.find((r) => r.key === "chat:foo");
     expect(chat?.state).toBe("red");
+  });
+
+  it("polls for non-empty textContent when initial read is empty (streaming race)", async () => {
+    // Simulates the race condition where CopilotKit renders the
+    // assistant-message container before tokens stream in. The first
+    // two textContent reads return "" (container visible but empty);
+    // the third returns real text. The driver must poll and eventually
+    // read the text rather than reporting "empty assistant response".
+    let textContentCalls = 0;
+    const delayedPage: E2ePage = {
+      async goto() {},
+      async type() {},
+      async press() {},
+      async waitForSelector() {},
+      async textContent(sel) {
+        if (sel === '[data-testid="copilot-assistant-message"]:last-of-type') {
+          textContentCalls++;
+          // First two calls return empty (tokens not yet streamed).
+          if (textContentCalls <= 2) return "";
+          return "Hello! Nice to meet you.";
+        }
+        return "";
+      },
+      async close() {},
+    };
+    const delayedBrowser: E2eBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return delayedPage;
+          },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+    const driver = createE2eSmokeDriver({
+      launcher: async () => delayedBrowser,
+      textPollTimeoutMs: 5000,
+    });
+    const writer = new CapturingWriter();
+    const result = await driver.run(baseCtx({ writer }), {
+      key: "e2e-smoke:foo",
+      backendUrl: "https://x.example.com",
+    });
+    expect(result.state).toBe("green");
+    const chat = writer.results.find((r) => r.key === "chat:foo");
+    expect(chat?.state).toBe("green");
+    const chatSig = chat?.signal as E2eSmokeLevelSignal;
+    expect(chatSig.responseText).toBe("Hello! Nice to meet you.");
+    // Must have polled more than once.
+    expect(textContentCalls).toBeGreaterThan(1);
   });
 
   it("falls back to body scraping when the assistant selector never resolves", async () => {

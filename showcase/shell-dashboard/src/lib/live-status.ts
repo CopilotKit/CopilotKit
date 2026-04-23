@@ -3,8 +3,9 @@
  * showcase-ops design spec).
  *
  * PB row keys: `<dimension>:<slug>` for integration-level dimensions
- * (e.g. `health`), or `<dimension>:<slug>/<featureId>` for per-feature
- * dimensions (e.g. `smoke`, `e2e`, `qa`).
+ * (e.g. `health`, `agent`, `chat`, `tools`), or
+ * `<dimension>:<slug>/<featureId>` for per-feature dimensions
+ * (e.g. `smoke`, `e2e_smoke`).
  */
 
 export type State = "green" | "red" | "degraded";
@@ -37,7 +38,6 @@ export interface CellState {
   /** Per-badge resolved tones + labels + tooltips. */
   e2e: BadgeRender;
   smoke: BadgeRender;
-  qa: BadgeRender;
   health: BadgeRender;
   /** Rollup tone for the cell, by precedence red > degraded > green > error > unknown. */
   rollup: BadgeTone;
@@ -75,7 +75,7 @@ function rowTone(row: StatusRow | null): BadgeTone {
 }
 
 function formatLabel(
-  dim: "e2e" | "smoke" | "qa" | "health",
+  dim: "e2e_smoke" | "smoke" | "health" | "agent" | "chat" | "tools",
   row: StatusRow | null,
 ): string {
   if (!row) return "?";
@@ -95,7 +95,7 @@ function formatLabel(
 }
 
 function formatTooltip(
-  dim: "e2e" | "smoke" | "qa" | "health",
+  dim: "e2e_smoke" | "smoke" | "health" | "agent" | "chat" | "tools",
   row: StatusRow | null,
   connection: ConnectionStatus,
 ): string {
@@ -130,8 +130,10 @@ export interface ResolveCellOptions {
  * Multi-dimension precedence (spec §5.4):
  *   red > degraded > green > error > unknown
  *
- * Only smoke, health, and e2e contribute to the rollup. QA is informational
- * and does not feed the rollup — it stays a per-cell badge.
+ * Rollup contributors: health + e2e_smoke only. smokeRow was dropped from
+ * the rollup in Phase 3 (Decision #7) because the producer writes
+ * integration-scoped smoke:<slug>, not feature-scoped smoke:<slug>/<feature>.
+ * The L1 signal now lives in the per-integration strip.
  */
 export function resolveCell(
   live: LiveStatusMap,
@@ -142,12 +144,11 @@ export function resolveCell(
   const connection: ConnectionStatus = opts.connection ?? "live";
 
   const healthRow = live.get(keyFor("health", slug)) ?? null;
-  const e2eRow = live.get(keyFor("e2e", slug, featureId)) ?? null;
+  const e2eRow = live.get(keyFor("e2e_smoke", slug, featureId)) ?? null;
   const smokeRow = live.get(keyFor("smoke", slug, featureId)) ?? null;
-  const qaRow = live.get(keyFor("qa", slug, featureId)) ?? null;
 
-  // Rollup contributors: smoke, health, e2e — NOT qa.
-  const contributors: Array<StatusRow | null> = [smokeRow, healthRow, e2eRow];
+  // Rollup contributors: health + e2e_smoke (Decision #7: smokeRow dropped).
+  const contributors: Array<StatusRow | null> = [healthRow, e2eRow];
   const toneSet = contributors.map(rowTone);
   const hasAnyRed = toneSet.includes("red");
   const hasAnyAmber = toneSet.includes("amber");
@@ -160,7 +161,6 @@ export function resolveCell(
   // rather than a misleading green check.
   const allGreen =
     connection !== "error" &&
-    smokeRow?.state === "green" &&
     healthRow?.state === "green" &&
     (e2eRow === null || e2eRow.state === "green");
 
@@ -182,8 +182,8 @@ export function resolveCell(
   return {
     e2e: {
       tone: rowTone(e2eRow),
-      label: formatLabel("e2e", e2eRow),
-      tooltip: formatTooltip("e2e", e2eRow, connection),
+      label: formatLabel("e2e_smoke", e2eRow),
+      tooltip: formatTooltip("e2e_smoke", e2eRow, connection),
       row: e2eRow,
     },
     smoke: {
@@ -191,12 +191,6 @@ export function resolveCell(
       label: formatLabel("smoke", smokeRow),
       tooltip: formatTooltip("smoke", smokeRow, connection),
       row: smokeRow,
-    },
-    qa: {
-      tone: rowTone(qaRow),
-      label: formatLabel("qa", qaRow),
-      tooltip: formatTooltip("qa", qaRow, connection),
-      row: qaRow,
     },
     health: {
       tone: rowTone(healthRow),

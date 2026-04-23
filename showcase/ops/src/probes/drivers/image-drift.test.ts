@@ -351,6 +351,84 @@ describe("imageDriftDriver", () => {
     expect(r.signal.isStale).toBe(false);
   });
 
+  it("uses deployedDigest as currentImage when imageRef lacks a digest", async () => {
+    // This is the core fix: Railway stores tag-only refs like
+    // `ghcr.io/copilotkit/showcase-a:latest` in source.image, so
+    // parsed.digest is always null. The discovery layer now surfaces
+    // `latestDeployment.meta.imageDigest` as `deployedDigest`, and the
+    // driver must prefer it over the parsed (empty) digest.
+    const { fetchImpl } = scriptedFetch([
+      {
+        status: 200,
+        body: {},
+        headers: { "docker-content-digest": LATEST_DIGEST },
+      },
+    ]);
+    const ctx = makeCtx(fetchImpl);
+    const r = await imageDriftDriver.run(ctx, {
+      key: "image_drift:showcase-a",
+      name: "showcase-a",
+      imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+      deployedDigest: LATEST_DIGEST,
+    });
+    expect(r.state).toBe("green");
+    if ("errorDesc" in r.signal) {
+      throw new Error("expected success-variant signal");
+    }
+    expect(r.signal.currentImage).toBe(LATEST_DIGEST);
+    expect(r.signal.isStale).toBe(false);
+  });
+
+  it("returns red+stale when deployedDigest differs from GHCR digest", async () => {
+    const { fetchImpl } = scriptedFetch([
+      {
+        status: 200,
+        body: {},
+        headers: { "docker-content-digest": LATEST_DIGEST },
+      },
+    ]);
+    const ctx = makeCtx(fetchImpl);
+    const r = await imageDriftDriver.run(ctx, {
+      key: "image_drift:showcase-a",
+      name: "showcase-a",
+      imageRef: "ghcr.io/copilotkit/showcase-a:latest",
+      deployedDigest: CURRENT_DIGEST,
+    });
+    expect(r.state).toBe("red");
+    if ("errorDesc" in r.signal) {
+      throw new Error("expected success-variant signal");
+    }
+    expect(r.signal.currentImage).toBe(CURRENT_DIGEST);
+    expect(r.signal.expectedImage).toBe(LATEST_DIGEST);
+    expect(r.signal.isStale).toBe(true);
+  });
+
+  it("prefers parsed digest from imageRef over deployedDigest when both exist", async () => {
+    // When imageRef has `@sha256:...`, the parsed digest wins. This
+    // preserves backward compat for any future case where Railway pins
+    // by digest in source.image.
+    const { fetchImpl } = scriptedFetch([
+      {
+        status: 200,
+        body: {},
+        headers: { "docker-content-digest": LATEST_DIGEST },
+      },
+    ]);
+    const ctx = makeCtx(fetchImpl);
+    const r = await imageDriftDriver.run(ctx, {
+      key: "image_drift:showcase-a",
+      name: "showcase-a",
+      imageRef: `ghcr.io/copilotkit/showcase-a@${LATEST_DIGEST}`,
+      deployedDigest: CURRENT_DIGEST,
+    });
+    // parsed.digest = LATEST_DIGEST wins over deployedDigest = CURRENT_DIGEST
+    expect(r.state).toBe("green");
+    if ("errorDesc" in r.signal) {
+      throw new Error("expected success-variant signal");
+    }
+    expect(r.signal.currentImage).toBe(LATEST_DIGEST);
+  });
+
   it("supports explicit expectedTag override", async () => {
     const { fetchImpl, urls } = scriptedFetch([
       {

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-21T07:26:03.921Z",
+  "generated_at": "2026-04-23T17:49:28.453Z",
   "features": {
     "beautiful-chat": {
       "og": "missing",
@@ -26,8 +26,8 @@
       "shell": "notfound"
     },
     "chat-customization-css": {
-      "og": "notfound",
-      "shell": "notfound"
+      "og": "missing",
+      "shell": "missing"
     },
     "headless-simple": {
       "og": "notfound",
