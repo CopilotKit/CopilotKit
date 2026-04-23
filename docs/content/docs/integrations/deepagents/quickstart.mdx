@@ -52,10 +52,10 @@ Before you begin, you'll need the following:
                 ```
             </Tab>
             <Tab value="TypeScript">
-                Add the `langchain`, `@langchain/langgraph`, `@copilotkit/sdk-js`, and `@langchain/openai` packages:
+                Add the `deepagents`, `@langchain/langgraph`, `@copilotkit/sdk-js`, and `@langchain/openai` packages:
 
                 ```bash
-                npm install langchain @langchain/langgraph @copilotkit/sdk-js @langchain/openai
+                npm install deepagents @langchain/langgraph @copilotkit/sdk-js @langchain/openai
                 ```
             </Tab>
         </Tabs>
@@ -108,14 +108,14 @@ Before you begin, you'll need the following:
                 Create a simple Deep Agent:
 
                 ```ts title="agent.ts"
-                import { createAgent } from "langchain";
+                import { createDeepAgent } from "deepagents";
                 import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
 
                 function getWeather(location: string): string {
                     return `The weather in ${location} is sunny.`;
                 }
 
-                export const agent = createAgent({
+                export const agent = createDeepAgent({
                     model: "openai:gpt-4o",
                     tools: [getWeather],
                     middleware: [copilotkitMiddleware],
@@ -245,6 +245,14 @@ Before you begin, you'll need the following:
         ```sh
         mkdir -p app/api/copilotkit && touch app/api/copilotkit/route.ts
         ```
+
+        <Callout type="info" title="Using Next.js is optional">
+            If you'd rather skip the Next.js API proxy and connect your frontend directly to the agent,
+            expose a CopilotKit-compatible HTTP endpoint from your LangGraph deployment instead.
+            See the [Vite + Direct Connection](#alternative-vite--direct-connection) alternative below,
+            or the [LangChain CopilotKit guide](https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit)
+            for how to add a custom CopilotKit route to an existing LangGraph app.
+        </Callout>
 
         <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
             <Tab value="Deep Agent">
