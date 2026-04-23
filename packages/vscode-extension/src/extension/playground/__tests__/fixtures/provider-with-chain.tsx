@@ -3,7 +3,13 @@ import { CopilotKit } from "@copilotkit/react-core";
 function AuthProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
-function ThemeProvider({ children, mode }: { children: React.ReactNode; mode: string }) {
+function ThemeProvider({
+  children,
+  mode,
+}: {
+  children: React.ReactNode;
+  mode: string;
+}) {
   return <>{children}</>;
 }
 

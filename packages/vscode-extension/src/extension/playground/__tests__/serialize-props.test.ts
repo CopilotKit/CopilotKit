@@ -25,9 +25,9 @@ describe("serializeJsxProps", () => {
       __unserializable: true,
       reason: expect.stringContaining("function"),
     });
-    expect(
-      (props.onError as { source: string }).source,
-    ).toContain("console.error");
+    expect((props.onError as { source: string }).source).toContain(
+      "console.error",
+    );
   });
 
   it("marks identifier references as unserializable", () => {

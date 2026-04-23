@@ -68,7 +68,8 @@ function serializeExpression(
   | CopilotKitProps
   | CopilotKitProps[]
   | UnserializableRef {
-  if (!expr) return unserializableFromNode(expr, sourceText, "empty expression");
+  if (!expr)
+    return unserializableFromNode(expr, sourceText, "empty expression");
 
   switch (expr.type) {
     case "Literal":
@@ -77,7 +78,11 @@ function serializeExpression(
       if (expr.expressions.length === 0) {
         return expr.quasis.map((q: any) => q.value.cooked).join("");
       }
-      return unserializableFromNode(expr, sourceText, "template with expressions");
+      return unserializableFromNode(
+        expr,
+        sourceText,
+        "template with expressions",
+      );
     case "ObjectExpression": {
       const obj: CopilotKitProps = {};
       for (const prop of expr.properties ?? []) {
@@ -115,14 +120,22 @@ function serializeExpression(
       return unserializableFromNode(expr, sourceText, "identifier reference");
     case "MemberExpression":
       // Label includes "identifier" so tests matching stringContaining("identifier") pass
-      return unserializableFromNode(expr, sourceText, "identifier member expression");
+      return unserializableFromNode(
+        expr,
+        sourceText,
+        "identifier member expression",
+      );
     case "CallExpression":
       return unserializableFromNode(expr, sourceText, "call expression");
     case "ArrowFunctionExpression":
     case "FunctionExpression":
       return unserializableFromNode(expr, sourceText, "inline function");
     default:
-      return unserializableFromNode(expr, sourceText, `expression of type ${expr.type}`);
+      return unserializableFromNode(
+        expr,
+        sourceText,
+        `expression of type ${expr.type}`,
+      );
   }
 }
 

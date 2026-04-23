@@ -18,15 +18,28 @@ describe("walkSameFileAncestors", () => {
   it("returns empty chain when <CopilotKit> is the root JSX of its component", () => {
     const { ast, src } = parse("provider-no-chain.tsx");
     const [node] = findCopilotKitNodes(fx("provider-no-chain.tsx"), src);
-    const chain = walkSameFileAncestors(node.jsxElement, ast, src, fx("provider-no-chain.tsx"));
+    const chain = walkSameFileAncestors(
+      node.jsxElement,
+      ast,
+      src,
+      fx("provider-no-chain.tsx"),
+    );
     expect(chain).toEqual([]);
   });
 
   it("returns outermost-first chain for nested wrappers", () => {
     const { ast, src } = parse("provider-with-chain.tsx");
     const [node] = findCopilotKitNodes(fx("provider-with-chain.tsx"), src);
-    const chain = walkSameFileAncestors(node.jsxElement, ast, src, fx("provider-with-chain.tsx"));
-    expect(chain.map((p) => p.tagName)).toEqual(["AuthProvider", "ThemeProvider"]);
+    const chain = walkSameFileAncestors(
+      node.jsxElement,
+      ast,
+      src,
+      fx("provider-with-chain.tsx"),
+    );
+    expect(chain.map((p) => p.tagName)).toEqual([
+      "AuthProvider",
+      "ThemeProvider",
+    ]);
     expect(chain[1].props.mode).toBe("dark");
   });
 });
