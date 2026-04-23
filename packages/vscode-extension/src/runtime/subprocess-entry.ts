@@ -64,8 +64,19 @@ async function main(): Promise<void> {
     );
   });
 
-  process.on("SIGINT", () => server.close(() => process.exit(0)));
-  process.on("SIGTERM", () => server.close(() => process.exit(0)));
+  const shutdown = (): void => {
+    // closeAllConnections destroys keep-alive/SSE sockets immediately so
+    // server.close() can resolve — without it, open streams block shutdown
+    // indefinitely and the parent has to SIGKILL.
+    if (typeof server.closeAllConnections === "function") {
+      server.closeAllConnections();
+    }
+    server.close(() => process.exit(0));
+    // Hard timeout in case something still hangs.
+    setTimeout(() => process.exit(0), 2000).unref();
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 main().catch((err) => {

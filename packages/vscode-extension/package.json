@@ -41,6 +41,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.36",
     "@copilotkit/aimock": "^1.10.0",
     "@copilotkit/runtime": "workspace:*",
     "ignore": "^7.0.5",
@@ -189,7 +190,10 @@
       "properties": {
         "copilotkit.playground.provider": {
           "type": "string",
-          "enum": ["openai", "anthropic"],
+          "enum": [
+            "openai",
+            "anthropic"
+          ],
           "default": "openai",
           "description": "LLM provider for the Chat tab playground runtime."
         },
