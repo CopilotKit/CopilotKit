@@ -47,23 +47,9 @@ choosing:
 
 ## Code example
 
-The minimal component needed to render an in-page chat:
+A self-contained component that renders the chat and wires in starter suggestions:
 
-```tsx title="page.tsx"
-// [!code word:CopilotChat]
-import { CopilotChat } from "@copilotkit/react-core/v2";
-
-export default function YourComponent() {
-  return (
-    <CopilotChat
-      labels={{
-        modalHeaderTitle: "Your Assistant",
-        welcomeMessageText: "Hi! How can I assist you today?",
-      }}
-    />
-  );
-}
-```
+<Snippet region="chat-component" title="frontend/src/app/page.tsx — the Chat component" />
 
 ## Common props
 
