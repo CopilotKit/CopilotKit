@@ -63,6 +63,7 @@ features:
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
+  - voice
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -423,3 +424,15 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: voice
+    name: Voice Input
+    description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
+    tags:
+      - chat-ui
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
