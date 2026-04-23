@@ -261,7 +261,7 @@ describe("handleConnectAgent", () => {
         joinToken: "jt-connect-1",
         realtime: {
           clientUrl: "wss://runtime.example/client",
-          threadTopic: "thread:thread-1",
+          topic: "thread:thread-1",
         },
       });
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
@@ -293,7 +293,7 @@ describe("handleConnectAgent", () => {
         joinToken: "jt-connect-1",
         realtime: {
           clientUrl: "wss://runtime.example/client",
-          threadTopic: "thread:thread-1",
+          topic: "thread:thread-1",
         },
       });
     });
@@ -338,6 +338,30 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(404);
       const body = await response.json();
       expect(body.error).toBe("Connect plan not available");
+    });
+
+    it("preserves platform not found errors when connect fails with 404", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 404"), {
+            status: 404,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(404);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "Connect request rejected",
+        message: "Intelligence platform error 404",
+      });
     });
 
     it("preserves platform validation errors when connect fails validation", async () => {

@@ -391,7 +391,7 @@ describe("handleRunAgent", () => {
         joinToken: "jt-123",
         realtime: {
           clientUrl: "wss://runtime.example/client",
-          threadTopic: "thread:thread-1",
+          topic: "thread:thread-1",
         },
       });
       expect(platform.getOrCreateThread).toHaveBeenCalledWith({
@@ -623,6 +623,101 @@ describe("handleRunAgent", () => {
         threadId: "canonical-thread",
         runId: "canonical-run",
       });
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledTimes(1);
+    });
+
+    it("delays the run success response until the runner startup boundary resolves", async () => {
+      const agent = createAgentForIntelligence();
+      let resolveStartup: (() => void) | undefined;
+      const startup = new Promise<void>((resolve) => {
+        resolveStartup = resolve;
+      });
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "canonical-thread",
+          runId: "canonical-run",
+          joinToken: "jt-123",
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform);
+      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
+        events: new Observable<BaseEvent>(() => {}),
+        startup,
+      }));
+      let settled = false;
+
+      const responsePromise = handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      }).then((response) => {
+        settled = true;
+        return response;
+      });
+
+      await Promise.resolve();
+
+      expect(settled).toBe(false);
+
+      resolveStartup?.();
+      const response = await responsePromise;
+
+      expect(response.status).toBe(200);
+      expect(runtime.runner.runWithStartupBoundary).toHaveBeenCalledWith(
+        expect.objectContaining({
+          threadId: "canonical-thread",
+          input: expect.objectContaining({
+            threadId: "canonical-thread",
+            runId: "canonical-run",
+          }),
+        }),
+      );
+    });
+
+    it("cleans up the lock and returns 502 when the runner startup boundary rejects", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          threadId: "canonical-thread",
+          runId: "canonical-run",
+          joinToken: "jt-123",
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform);
+      runtime.runner.runWithStartupBoundary = vi.fn(() => ({
+        events: new Observable<BaseEvent>(() => {}),
+        startup: Promise.reject(new Error("Failed to join channel: denied")),
+      }));
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "Failed to start runner",
+        message: "Failed to join channel: denied",
+      });
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "canonical-thread",
+        runId: "canonical-run",
+      });
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledTimes(1);
     });
 
     it("aborts the agent when lock renewal fails", async () => {

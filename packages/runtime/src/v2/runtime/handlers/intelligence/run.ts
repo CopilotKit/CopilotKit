@@ -11,6 +11,8 @@ import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+import { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import { Observable } from "rxjs";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -18,11 +20,35 @@ import { isHandlerResponse } from "../shared/json-response";
 function buildRealtimeConnectionInfo(params: {
   clientUrl: string;
   threadId: string;
-}): { clientUrl: string; threadTopic: string } {
+}): { clientUrl: string; topic: string } {
   return {
     clientUrl: params.clientUrl,
-    threadTopic: `thread:${params.threadId}`,
+    topic: `thread:${params.threadId}`,
   };
+}
+
+interface RunnerStartupBoundary {
+  events: Observable<BaseEvent>;
+  startup: Promise<void>;
+}
+
+interface RunnerWithStartupBoundary {
+  runWithStartupBoundary(
+    request: AgentRunnerRunRequest,
+  ): RunnerStartupBoundary;
+}
+
+function hasRunnerStartupBoundary(
+  runner: CopilotIntelligenceRuntimeLike["runner"],
+): runner is CopilotIntelligenceRuntimeLike["runner"] &
+  RunnerWithStartupBoundary {
+  const candidate = runner as { runWithStartupBoundary?: unknown };
+
+  return (
+    typeof candidate.runWithStartupBoundary === "function" &&
+    (Object.prototype.hasOwnProperty.call(runner, "runWithStartupBoundary") ||
+      Object.prototype.hasOwnProperty.call(runner, "threads"))
+  );
 }
 
 interface HandleIntelligenceRunParams {
@@ -206,56 +232,66 @@ export async function handleIntelligenceRun({
   let immediateStartupErrorMessage: string | undefined;
   let immediateStartupCleanup: Promise<void> | undefined;
 
+  const runRequest: AgentRunnerRunRequest = {
+    threadId: canonicalThreadId,
+    agent,
+    input: canonicalInput,
+    ...(persistedInputMessages !== undefined
+      ? { persistedInputMessages }
+      : {}),
+  };
+
   try {
-    runtime.runner
-      .run({
-        threadId: canonicalThreadId,
-        agent,
-        input: canonicalInput,
-        ...(persistedInputMessages !== undefined
-          ? { persistedInputMessages }
-          : {}),
-      })
-      .subscribe({
-        next: (event: BaseEvent) => {
-          if (event.type === EventType.RUN_STARTED) {
-            runStarted.current = true;
-          }
-          if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-            clearHeartbeat();
-            immediateStartupErrorMessage =
-              "message" in event && typeof event.message === "string"
-                ? event.message
-                : "Runner failed before the run started";
-            immediateStartupCleanup = cleanupLock("runner-start-failed");
-          }
-        },
-        error: (error) => {
+    const runStart = hasRunnerStartupBoundary(runtime.runner)
+      ? runtime.runner.runWithStartupBoundary(runRequest)
+      : {
+          events: runtime.runner.run(runRequest),
+          startup: Promise.resolve(),
+        };
+
+    runStart.events.subscribe({
+      next: (event: BaseEvent) => {
+        if (event.type === EventType.RUN_STARTED) {
+          runStarted.current = true;
+        }
+        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
           clearHeartbeat();
-          if (!runStarted.current) {
-            immediateStartupErrorMessage =
-              error instanceof Error ? error.message : String(error);
-            immediateStartupCleanup = cleanupLock("runner-start-error");
-          } else {
-            cleanupLock("runner-error");
-          }
-          telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          logger.error("Error running agent:", error);
-        },
-        complete: () => {
-          clearHeartbeat();
-          telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
-        },
-      });
+          immediateStartupErrorMessage =
+            "message" in event && typeof event.message === "string"
+              ? event.message
+              : "Runner failed before the run started";
+          immediateStartupCleanup = cleanupLock("runner-start-failed");
+        }
+      },
+      error: (error) => {
+        clearHeartbeat();
+        if (!runStarted.current) {
+          immediateStartupErrorMessage =
+            error instanceof Error ? error.message : String(error);
+          immediateStartupCleanup = cleanupLock("runner-start-error");
+        } else {
+          cleanupLock("runner-error");
+        }
+        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        logger.error("Error running agent:", error);
+      },
+      complete: () => {
+        clearHeartbeat();
+        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+      },
+    });
+
+    await runStart.startup;
   } catch (error) {
     clearHeartbeat();
-    await cleanupLock("runner-start-threw");
+    await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
     logger.error("Error starting agent runner:", error);
     return Response.json(
       {
         error: "Failed to start runner",
+        message: error instanceof Error ? error.message : String(error),
       },
       { status: 502 },
     );
@@ -272,9 +308,8 @@ export async function handleIntelligenceRun({
     );
   }
 
-  // The Phoenix runner join is callback-based, so this handler cannot provide
-  // a true synchronous join confirmation. It only catches immediate runner
-  // construction/subscription failures before returning credentials.
+  // IntelligenceAgentRunner resolves this boundary after Phoenix channel join.
+  // Other runner implementations fall back to construction/subscription errors.
   return Response.json(
     {
       threadId: canonicalThreadId,

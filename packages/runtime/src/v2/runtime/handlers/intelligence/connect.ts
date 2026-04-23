@@ -1,8 +1,5 @@
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
-import {
-  getPlatformErrorStatus,
-  isPlatformNotFoundError,
-} from "../shared/intelligence-utils";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 
@@ -12,10 +9,10 @@ import { isHandlerResponse } from "../shared/json-response";
 function buildRealtimeConnectionInfo(params: {
   clientUrl: string;
   threadId: string;
-}): { clientUrl: string; threadTopic: string } {
+}): { clientUrl: string; topic: string } {
   return {
     clientUrl: params.clientUrl,
-    threadTopic: `thread:${params.threadId}`,
+    topic: `thread:${params.threadId}`,
   };
 }
 
@@ -74,14 +71,14 @@ export async function handleIntelligenceConnect({
       },
     );
   } catch (error) {
-    if (isPlatformNotFoundError(error)) {
-      return new Response(null, {
-        status: 204,
-      });
-    }
-
     const status = getPlatformErrorStatus(error);
-    if (status === 400 || status === 401 || status === 403 || status === 409) {
+    if (
+      status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 409
+    ) {
       return Response.json(
         {
           error: "Connect request rejected",

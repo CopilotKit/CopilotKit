@@ -32,6 +32,11 @@ export interface IntelligenceAgentRunnerOptions {
   maxRejoinMs?: number;
 }
 
+export interface RunnerStartupBoundary {
+  events: Observable<BaseEvent>;
+  startup: Promise<void>;
+}
+
 interface ThreadState {
   socket: Socket;
   channel: Channel;
@@ -153,6 +158,35 @@ export class IntelligenceAgentRunner extends AgentRunner {
   }
 
   run(request: AgentRunnerRunRequest): Observable<BaseEvent> {
+    return this.createRunObservable(request);
+  }
+
+  runWithStartupBoundary(
+    request: AgentRunnerRunRequest,
+  ): RunnerStartupBoundary {
+    let resolveStartup: (() => void) | undefined;
+    let rejectStartup: ((reason: Error) => void) | undefined;
+    const startup = new Promise<void>((resolve, reject) => {
+      resolveStartup = resolve;
+      rejectStartup = reject;
+    });
+
+    return {
+      events: this.createRunObservable(request, {
+        resolveStartup: () => resolveStartup?.(),
+        rejectStartup: (error) => rejectStartup?.(error),
+      }),
+      startup,
+    };
+  }
+
+  private createRunObservable(
+    request: AgentRunnerRunRequest,
+    startupBoundary?: {
+      resolveStartup: () => void;
+      rejectStartup: (error: Error) => void;
+    },
+  ): Observable<BaseEvent> {
     const { threadId, agent, input } = request;
 
     const existing = this.threads.get(threadId);
@@ -229,30 +263,37 @@ export class IntelligenceAgentRunner extends AgentRunner {
       channel
         .join()
         .receive("ok", () => {
+          startupBoundary?.resolveStartup();
           this.executeAgentRun(request, state, threadId).subscribe({
             complete: () => observer.complete(),
           });
         })
         .receive("error", (resp) => {
+          const error = new Error(
+            `Failed to join channel: ${JSON.stringify(resp)}`,
+          );
           const errorEvent = {
             type: EventType.RUN_ERROR,
-            message: `Failed to join channel: ${JSON.stringify(resp)}`,
+            message: error.message,
             code: "CHANNEL_JOIN_ERROR",
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
           this.removeThread(threadId);
+          startupBoundary?.rejectStartup(error);
           observer.complete();
         })
         .receive("timeout", () => {
+          const error = new Error("Timed out joining channel");
           const errorEvent = {
             type: EventType.RUN_ERROR,
-            message: "Timed out joining channel",
+            message: error.message,
             code: "CHANNEL_JOIN_TIMEOUT",
           } as BaseEvent;
           observer.next(errorEvent);
           state.currentEvents.push(errorEvent);
           this.removeThread(threadId);
+          startupBoundary?.rejectStartup(error);
           observer.complete();
         });
 
