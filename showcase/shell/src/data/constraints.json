@@ -62,13 +62,16 @@
         "readonly-state-agent-context",
         "shared-state-streaming",
         "subagents",
-        "voice"
+        "voice",
+        "byoc-json-render"
       ]
     }
   },
   "interaction_modalities": {
     "headless": {
-      "excluded": ["voice"]
+      "excluded": [
+        "voice"
+      ]
     }
   }
 }

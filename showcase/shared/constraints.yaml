@@ -64,6 +64,7 @@ generative_ui:
       - shared-state-streaming
       - subagents
       - voice
+      - byoc-json-render
 
 interaction_modalities:
   headless:

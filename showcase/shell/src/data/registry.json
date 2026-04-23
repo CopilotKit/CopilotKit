@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-23T16:09:52.998Z",
+  "generated_at": "2026-04-23T19:48:18.775Z",
   "feature_registry": {
     "version": "1.0.0",
     "categories": [
@@ -413,7 +413,8 @@
         "shared-state-read-write",
         "shared-state-streaming",
         "readonly-state-agent-context",
-        "subagents"
+        "subagents",
+        "byoc-json-render"
       ],
       "demos": [
         {
@@ -433,7 +434,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_agentic-chat.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/agentic_chat.py",
             "src/app/demos/agentic-chat/page.tsx",
@@ -448,7 +449,7 @@
             "chat-ui"
           ],
           "route": "/demos/chat-customization-css",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_chat-customization-css.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/chat-customization-css/page.tsx",
@@ -464,7 +465,7 @@
             "generative-ui"
           ],
           "route": "/demos/tool-rendering-default-catchall",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-default-catchall.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/app/demos/tool-rendering-default-catchall/page.tsx",
             "src/agents/tool_rendering_agent.py",
@@ -479,7 +480,7 @@
             "generative-ui"
           ],
           "route": "/demos/tool-rendering-custom-catchall",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-custom-catchall.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/app/demos/tool-rendering-custom-catchall/page.tsx",
             "src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx",
@@ -495,7 +496,7 @@
             "interactivity"
           ],
           "route": "/demos/frontend-tools",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_frontend-tools.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/frontend_tools.py",
             "src/app/demos/frontend-tools/page.tsx",
@@ -510,7 +511,7 @@
             "interactivity"
           ],
           "route": "/demos/frontend-tools-async",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_frontend-tools-async.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/frontend_tools_async.py",
             "src/app/demos/frontend-tools-async/page.tsx",
@@ -526,7 +527,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl-in-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_hitl-in-chat.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/hitl_in_chat_agent.py",
             "src/app/demos/hitl-in-chat/page.tsx",
@@ -542,7 +543,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl-in-app",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_hitl-in-app.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/hitl_in_app.py",
             "src/app/demos/hitl-in-app/page.tsx",
@@ -558,7 +559,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/tool_rendering_agent.py",
             "src/app/demos/tool-rendering/page.tsx",
@@ -575,7 +576,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-tool-based.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/gen_ui_tool_based.py",
             "src/app/demos/gen-ui-tool-based/page.tsx",
@@ -591,7 +592,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-agent.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/gen_ui_agent.py",
             "src/app/demos/gen-ui-agent/page.tsx",
@@ -607,7 +608,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_shared-state-read-write.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/shared_state_read_write.py",
             "src/app/demos/shared-state-read-write/page.tsx",
@@ -624,7 +625,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_shared-state-streaming.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/shared_state_streaming.py",
             "src/app/demos/shared-state-streaming/page.tsx",
@@ -640,7 +641,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_subagents.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/subagents.py",
             "src/app/demos/subagents/page.tsx",
@@ -656,7 +657,7 @@
             "chat-ui"
           ],
           "route": "/demos/prebuilt-sidebar",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_prebuilt-sidebar.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/prebuilt-sidebar/page.tsx",
@@ -671,7 +672,7 @@
             "chat-ui"
           ],
           "route": "/demos/prebuilt-popup",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_prebuilt-popup.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/prebuilt-popup/page.tsx",
@@ -686,7 +687,7 @@
             "chat-ui"
           ],
           "route": "/demos/chat-slots",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_chat-slots.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/chat-slots/page.tsx",
@@ -702,7 +703,7 @@
             "chat-ui"
           ],
           "route": "/demos/headless-simple",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_headless-simple.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/main.py",
             "src/app/demos/headless-simple/page.tsx",
@@ -717,7 +718,7 @@
             "chat-ui"
           ],
           "route": "/demos/headless-complete",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_headless-complete.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/headless_complete.py",
             "src/app/demos/headless-complete/page.tsx",
@@ -734,7 +735,7 @@
             "generative-ui"
           ],
           "route": "/demos/agentic-chat-reasoning",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_agentic-chat-reasoning.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/app/demos/agentic-chat-reasoning/page.tsx",
             "src/app/demos/agentic-chat-reasoning/reasoning-block.tsx",
@@ -750,7 +751,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-interrupt",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_gen-ui-interrupt.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/interrupt_agent.py",
             "src/app/demos/gen-ui-interrupt/page.tsx",
@@ -766,7 +767,7 @@
             "generative-ui"
           ],
           "route": "/demos/declarative-gen-ui",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_declarative-gen-ui.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/a2ui_dynamic.py",
             "src/app/demos/declarative-gen-ui/page.tsx",
@@ -784,7 +785,7 @@
             "generative-ui"
           ],
           "route": "/demos/a2ui-fixed-schema",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_a2ui-fixed-schema.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/a2ui_fixed.py",
             "src/agents/a2ui_schemas/flight_schema.json",
@@ -804,7 +805,7 @@
             "generative-ui"
           ],
           "route": "/demos/mcp-apps",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_mcp-apps.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/mcp_apps_agent.py",
             "src/app/demos/mcp-apps/page.tsx",
@@ -819,7 +820,7 @@
             "interactivity"
           ],
           "route": "/demos/interrupt-headless",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_interrupt-headless.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/interrupt_agent.py",
             "src/app/demos/interrupt-headless/page.tsx",
@@ -834,7 +835,7 @@
             "agent-state"
           ],
           "route": "/demos/readonly-state-agent-context",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_readonly-state-agent-context.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/readonly_state_agent_context.py",
             "src/app/demos/readonly-state-agent-context/page.tsx",
@@ -849,7 +850,7 @@
             "generative-ui"
           ],
           "route": "/demos/reasoning-default-render",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_reasoning-default-render.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/reasoning_agent.py",
             "src/app/demos/reasoning-default-render/page.tsx",
@@ -864,13 +865,36 @@
             "generative-ui"
           ],
           "route": "/demos/tool-rendering-reasoning-chain",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_tool-rendering-reasoning-chain.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/tool_rendering_reasoning_chain_agent.py",
             "src/app/demos/tool-rendering-reasoning-chain/page.tsx",
             "src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx",
             "src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx",
             "src/app/api/copilotkit/route.ts"
+          ]
+        },
+        {
+          "id": "byoc-json-render",
+          "name": "BYOC json-render",
+          "description": "Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)",
+          "tags": [
+            "generative-ui"
+          ],
+          "route": "/demos/byoc-json-render",
+          "animated_preview_url": null,
+          "highlight": [
+            "src/agents/byoc_json_render_agent.py",
+            "src/app/demos/byoc-json-render/page.tsx",
+            "src/app/demos/byoc-json-render/json-render-renderer.tsx",
+            "src/app/demos/byoc-json-render/registry.tsx",
+            "src/app/demos/byoc-json-render/catalog.ts",
+            "src/app/demos/byoc-json-render/metric-card.tsx",
+            "src/app/demos/byoc-json-render/charts/bar-chart.tsx",
+            "src/app/demos/byoc-json-render/charts/pie-chart.tsx",
+            "src/app/demos/byoc-json-render/types.ts",
+            "src/app/demos/byoc-json-render/suggestions.ts",
+            "src/app/api/copilotkit-byoc-json-render/route.ts"
           ]
         },
         {
@@ -881,7 +905,7 @@
             "chat-ui"
           ],
           "route": "/demos/beautiful-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-python_beautiful-chat.mp4",
+          "animated_preview_url": null,
           "highlight": [
             "src/agents/beautiful_chat.py",
             "src/app/demos/beautiful-chat/page.tsx",
@@ -1020,6 +1044,10 @@
           "subagents": {
             "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
             "shell_docs_path": "/multi-agent/subagents"
+          },
+          "byoc-json-render": {
+            "og_docs_url": null,
+            "shell_docs_path": null
           }
         }
       }
@@ -1078,7 +1106,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1088,7 +1116,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1098,7 +1126,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1108,7 +1136,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1118,7 +1146,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1128,7 +1156,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1138,7 +1166,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1148,7 +1176,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-typescript_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -1242,7 +1270,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1252,7 +1280,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1262,7 +1290,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1272,7 +1300,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1282,7 +1310,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1292,7 +1320,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1302,7 +1330,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1312,7 +1340,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langgraph-fastapi_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -1402,7 +1430,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1412,7 +1440,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1422,7 +1450,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1432,7 +1460,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1442,7 +1470,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1452,7 +1480,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1462,7 +1490,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1472,7 +1500,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/google-adk_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -1566,7 +1594,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1576,7 +1604,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1586,7 +1614,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1596,7 +1624,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1606,7 +1634,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1616,7 +1644,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1626,7 +1654,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1636,7 +1664,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/mastra_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -1730,7 +1758,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1740,7 +1768,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1750,7 +1778,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1760,7 +1788,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1770,7 +1798,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1780,7 +1808,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1790,7 +1818,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1800,7 +1828,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/crewai-crews_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -1890,7 +1918,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -1900,7 +1928,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -1910,7 +1938,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -1920,7 +1948,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -1930,7 +1958,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -1940,7 +1968,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -1950,7 +1978,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -1960,7 +1988,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/pydantic-ai_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -2042,7 +2070,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2052,7 +2080,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2062,7 +2090,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2072,7 +2100,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2082,7 +2110,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2092,7 +2120,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2102,7 +2130,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2112,7 +2140,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-python_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "starter": {
@@ -2202,7 +2230,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2212,7 +2240,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2222,7 +2250,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2232,7 +2260,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2242,7 +2270,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2252,7 +2280,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2262,7 +2290,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2272,7 +2300,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/claude-sdk-typescript_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "starter": {
@@ -2370,7 +2398,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2380,7 +2408,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2390,7 +2418,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2400,7 +2428,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2410,7 +2438,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2420,7 +2448,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2430,7 +2458,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2440,7 +2468,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/agno_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "managed_platform": {
@@ -2526,7 +2554,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2536,7 +2564,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2546,7 +2574,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2556,7 +2584,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2566,7 +2594,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2576,7 +2604,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2586,7 +2614,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2596,7 +2624,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ag2_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "starter": {
@@ -2698,7 +2726,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2708,7 +2736,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2718,7 +2746,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2728,7 +2756,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2738,7 +2766,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2748,7 +2776,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2758,7 +2786,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2768,7 +2796,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/llamaindex_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -2862,7 +2890,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -2872,7 +2900,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -2882,7 +2910,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -2892,7 +2920,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -2902,7 +2930,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -2912,7 +2940,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -2922,7 +2950,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -2932,7 +2960,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/strands_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -3014,7 +3042,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -3024,7 +3052,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -3034,7 +3062,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -3044,7 +3072,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -3054,7 +3082,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -3064,7 +3092,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -3074,7 +3102,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -3084,7 +3112,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/langroid_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "starter": {
@@ -3149,7 +3177,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -3159,7 +3187,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -3169,7 +3197,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -3179,7 +3207,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -3189,7 +3217,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -3199,7 +3227,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -3209,7 +3237,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -3219,7 +3247,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-python_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -3309,7 +3337,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -3319,7 +3347,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -3329,7 +3357,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -3339,7 +3367,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -3349,7 +3377,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -3359,7 +3387,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -3369,7 +3397,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -3379,7 +3407,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/ms-agent-dotnet_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "docs_links": {
@@ -3461,7 +3489,7 @@
             "chat-ui"
           ],
           "route": "/demos/agentic-chat",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_agentic-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "hitl-in-chat",
@@ -3471,7 +3499,7 @@
             "interactivity"
           ],
           "route": "/demos/hitl",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_hitl-in-chat.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "tool-rendering",
@@ -3481,7 +3509,7 @@
             "agent-capabilities"
           ],
           "route": "/demos/tool-rendering",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_tool-rendering.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-tool-based",
@@ -3491,7 +3519,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-tool-based",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_gen-ui-tool-based.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "gen-ui-agent",
@@ -3501,7 +3529,7 @@
             "generative-ui"
           ],
           "route": "/demos/gen-ui-agent",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_gen-ui-agent.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-read-write",
@@ -3511,7 +3539,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-read-write",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_shared-state-read-write.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "shared-state-streaming",
@@ -3521,7 +3549,7 @@
             "agent-state"
           ],
           "route": "/demos/shared-state-streaming",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_shared-state-streaming.mp4"
+          "animated_preview_url": null
         },
         {
           "id": "subagents",
@@ -3531,7 +3559,7 @@
             "multi-agent"
           ],
           "route": "/demos/subagents",
-          "animated_preview_url": "https://github.com/CopilotKit/CopilotKit/releases/download/showcase-previews/spring-ai_subagents.mp4"
+          "animated_preview_url": null
         }
       ],
       "starter": {
