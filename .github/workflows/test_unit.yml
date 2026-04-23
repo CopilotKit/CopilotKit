@@ -35,6 +35,7 @@ env:
 permissions:
   contents: read
   id-token: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -123,10 +124,76 @@ jobs:
         run: npx nx run @copilotkit/runtime-client-gql:graphql-codegen
 
       - name: Build
-        run: pnpm run build
+        id: build
+        run: pnpm run build 2>&1 | tee /tmp/build.log
+        continue-on-error: true
 
       - name: Run tests
-        run: pnpm run test
+        id: tests
+        if: steps.build.outcome == 'success'
+        run: pnpm run test 2>&1 | tee /tmp/test.log
+        continue-on-error: true
 
       - name: Run release script tests
-        run: npx vitest run --config scripts/release/vitest.config.mts
+        id: release_tests
+        if: steps.build.outcome == 'success'
+        run: npx vitest run --config scripts/release/vitest.config.mts 2>&1 | tee /tmp/release.log
+        continue-on-error: true
+
+      - name: Post failure diagnostics to PR
+        if: |
+          github.event_name == 'pull_request' &&
+          matrix.node-version == '24.x' &&
+          matrix.react-version != '19' &&
+          (steps.build.outcome == 'failure' ||
+           steps.tests.outcome == 'failure' ||
+           steps.release_tests.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          LEG: "Node ${{ matrix.node-version }}, React ${{ matrix.react-version }}"
+          REPO: ${{ github.repository }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
+          TESTS_OUTCOME: ${{ steps.tests.outcome }}
+          RELEASE_OUTCOME: ${{ steps.release_tests.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            printf '### CI diagnostics: %s\n\n' "$LEG"
+            printf '- build: %s\n- tests: %s\n- release-tests: %s\n\n' \
+              "$BUILD_OUTCOME" "$TESTS_OUTCOME" "$RELEASE_OUTCOME"
+
+            for pair in "build:/tmp/build.log" "tests:/tmp/test.log" "release-tests:/tmp/release.log"; do
+              label="${pair%%:*}"
+              path="${pair#*:}"
+              outcome_var=""
+              case "$label" in
+                build) outcome_var="$BUILD_OUTCOME" ;;
+                tests) outcome_var="$TESTS_OUTCOME" ;;
+                release-tests) outcome_var="$RELEASE_OUTCOME" ;;
+              esac
+              if [ "$outcome_var" = "failure" ] && [ -s "$path" ]; then
+                printf '#### %s (last 250 lines)\n\n' "$label"
+                printf '```\n'
+                tail -n 250 "$path"
+                printf '\n```\n\n'
+              fi
+            done
+          } > /tmp/comment.md
+
+          body_json=$(jq -Rs '{body: .}' < /tmp/comment.md)
+          curl -sS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments" \
+            -d "$body_json" > /dev/null
+
+      - name: Fail job if any step failed
+        if: |
+          steps.build.outcome == 'failure' ||
+          steps.tests.outcome == 'failure' ||
+          steps.release_tests.outcome == 'failure'
+        run: |
+          echo "build=${{ steps.build.outcome }} tests=${{ steps.tests.outcome }} release-tests=${{ steps.release_tests.outcome }}"
+          exit 1
