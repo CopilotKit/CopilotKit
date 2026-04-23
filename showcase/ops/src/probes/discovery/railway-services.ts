@@ -235,12 +235,13 @@ const ProjectServicesSchema = z.object({
                       .optional(),
                     latestDeployment: z
                       .object({
-                        meta: z
-                          .object({
-                            imageDigest: z.string().nullable().optional(),
-                          })
-                          .nullable()
-                          .optional(),
+                        // Railway's `DeploymentMeta` is a GraphQL scalar
+                        // (untyped JSON object) — not a typed object with
+                        // sub-fields. The query fetches `meta` without
+                        // sub-selection; we parse it as a record and
+                        // extract `imageDigest` in the service-building
+                        // loop below.
+                        meta: z.record(z.unknown()).nullable().optional(),
                       })
                       .nullable()
                       .optional(),
@@ -315,7 +316,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
                   environmentId
                   source { image }
                   domains { serviceDomains { domain } }
-                  latestDeployment { meta { imageDigest } }
+                  latestDeployment { meta }
                 } }
               }
             } }
@@ -365,8 +366,10 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         (e) => e.node.environmentId === environmentId,
       );
       const imageRef = instance?.node.source?.image ?? "";
+      const rawDigest =
+        instance?.node.latestDeployment?.meta?.["imageDigest"];
       const deployedDigest =
-        instance?.node.latestDeployment?.meta?.imageDigest ?? "";
+        typeof rawDigest === "string" ? rawDigest : "";
       const domain =
         instance?.node.domains?.serviceDomains?.[0]?.domain ?? null;
       const publicUrl = domain ? `https://${domain}` : "";
