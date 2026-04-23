@@ -24,9 +24,9 @@ export interface RuntimeHandle {
 
 /**
  * Forks dist/runtime/subprocess-entry.cjs as a child process, passing the
- * stringified config as argv[2]. Waits for the child to print
- * `{ "ready": true, "port": N }\n` to stdout, then resolves with a handle
- * whose `url` is http://127.0.0.1:N.
+ * stringified config via the COPILOTKIT_PLAYGROUND_CONFIG environment variable.
+ * Waits for the child to print `{ "ready": true, "port": N }\n` to stdout,
+ * then resolves with a handle whose `url` is http://127.0.0.1:N.
  *
  * stop() sends SIGTERM and resolves when the child exits. The subprocess
  * handles SIGTERM cleanly (closeAllConnections + server.close — see Task 5),
@@ -41,13 +41,13 @@ export function spawnRuntime(
   return new Promise((resolve, reject) => {
     let child: ChildProcess;
     try {
-      child = spawn(
-        process.execPath,
-        [options.entryScript, JSON.stringify(options.config)],
-        {
-          stdio: ["ignore", "pipe", "pipe"],
+      child = spawn(process.execPath, [options.entryScript], {
+        stdio: ["ignore", "pipe", "pipe"],
+        env: {
+          ...process.env,
+          COPILOTKIT_PLAYGROUND_CONFIG: JSON.stringify(options.config),
         },
-      );
+      });
     } catch (err) {
       reject(err);
       return;

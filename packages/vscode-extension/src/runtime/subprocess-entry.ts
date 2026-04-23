@@ -12,10 +12,10 @@ interface SubprocessConfig {
 }
 
 function parseConfig(): SubprocessConfig {
-  const raw = process.argv[2];
+  const raw = process.env.COPILOTKIT_PLAYGROUND_CONFIG;
   if (!raw) {
     throw new Error(
-      "subprocess-entry requires a JSON config as argv[2]: {port, llmBaseUrl, provider, model, apiKey}",
+      "subprocess-entry requires a JSON config in COPILOTKIT_PLAYGROUND_CONFIG env var: {port, llmBaseUrl, provider, model, apiKey}",
     );
   }
   return JSON.parse(raw) as SubprocessConfig;

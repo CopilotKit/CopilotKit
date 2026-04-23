@@ -22,8 +22,12 @@ describe("runtime subprocess", () => {
       model: "gpt-4o-mini",
       apiKey: "sk-test",
     });
-    const child = spawn(process.execPath, [ENTRY_PATH, config], {
+    const child = spawn(process.execPath, [ENTRY_PATH], {
       stdio: ["ignore", "pipe", "pipe"],
+      env: {
+        ...process.env,
+        COPILOTKIT_PLAYGROUND_CONFIG: config,
+      },
     });
 
     let port = 0;

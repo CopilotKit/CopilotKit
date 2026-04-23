@@ -3,6 +3,12 @@ import * as path from "node:path";
 
 export type LlmProvider = "openai" | "anthropic";
 
+// Plan #3 scope: only OpenAI is wired end-to-end. Anthropic support lands
+// in Plan #4 (new adapter in subprocess-entry). Treat anthropic config as
+// missing here so the user sees the standard "configure your API key" banner
+// instead of a confusing runtime-error from the subprocess.
+const ENABLED_PROVIDERS: readonly LlmProvider[] = ["openai"];
+
 export type LlmConfigResult =
   | {
       source: "explicit" | "auto-detect";
@@ -49,7 +55,7 @@ export async function resolveLlmConfig(
   const settingProvider = coerceProvider(
     deps.readSetting("copilotkit.playground.provider"),
   );
-  if (settingProvider) {
+  if (settingProvider && ENABLED_PROVIDERS.includes(settingProvider)) {
     const apiKey = await deps.readSecret(SECRET_KEY_FOR[settingProvider]);
     if (apiKey) {
       const model =
@@ -61,7 +67,7 @@ export async function resolveLlmConfig(
   }
 
   const env = deps.readEnvFile(workspaceRoot);
-  for (const provider of ["openai", "anthropic"] as const) {
+  for (const provider of ENABLED_PROVIDERS) {
     const envKey = ENV_KEY_FOR[provider];
     const value = env[envKey];
     if (value) {
