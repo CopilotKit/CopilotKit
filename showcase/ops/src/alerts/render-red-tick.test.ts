@@ -132,18 +132,94 @@ describe("red-tick YAML rendering — Items 2 & 3", () => {
           failCount: 1,
           errorDesc: "http 503",
           firstFailureAt: "2026-04-20T00:00:00Z",
-          links: {
-            smoke: "https://example.test/smoke",
-            health: "https://example.test/health",
-          },
+          url: "https://example.test/smoke",
         },
       }),
     );
     const rendered = String(out.payload.text);
-    expect(rendered).toContain("<https://example.test/smoke|smoke>");
-    expect(rendered).toContain("<https://example.test/health|health>");
+    // A3: smoke template now references `signal.url` directly (driver signal
+    // has no `links` object). Render label "endpoint" since the linked URL is
+    // the smoke endpoint that was actually probed.
+    expect(rendered).toContain("<https://example.test/smoke|endpoint>");
     // Guard-wrap must not introduce empty/dangling artifacts even with links
     // present.
     expect(rendered).not.toMatch(/<\|/);
+  });
+
+  // A2: the dashboard Run link must be wrapped in a `{{#event.runId}}…{{/event.runId}}`
+  // section so a missing runId doesn't render a broken `/runs/|Run` link every
+  // alert. Parametrize across all 4 red-tick YAMLs.
+  describe.each(YAMLS)("%s — A2 Run link guard", (filename) => {
+    it("renders_no_run_link_when_runId_missing", () => {
+      const text = loadTemplate(filename);
+      const r = createRenderer();
+      const flags = { ...emptyTriggerFlags(), green_to_red: true };
+      const out = r.render(
+        { text },
+        ctx({
+          trigger: flags,
+          signal: {
+            slug: "mastra",
+            failCount: 1,
+            errorDesc: "timeout",
+            firstFailureAt: "2026-04-20T00:00:00Z",
+          },
+          // event.runId intentionally absent.
+          event: { id: "e", at: "2026-04-20T00:00:00Z" },
+        }),
+      );
+      const rendered = String(out.payload.text);
+      // Bug shape: `<https://…/runs/|Run>` with an empty runId between `/runs/`
+      // and `|`. After the guard wrap, the entire "Run" chunk disappears.
+      expect(rendered).not.toMatch(/\/runs\/\|/);
+      expect(rendered).not.toMatch(/\/runs\/\s*\|/);
+    });
+
+    it("renders_run_link_when_runId_present", () => {
+      const text = loadTemplate(filename);
+      const r = createRenderer();
+      const flags = { ...emptyTriggerFlags(), green_to_red: true };
+      const out = r.render(
+        { text },
+        ctx({
+          trigger: flags,
+          signal: {
+            slug: "mastra",
+            failCount: 1,
+            errorDesc: "timeout",
+            firstFailureAt: "2026-04-20T00:00:00Z",
+          },
+          event: { id: "e", at: "2026-04-20T00:00:00Z", runId: "run-abc" },
+        }),
+      );
+      const rendered = String(out.payload.text);
+      expect(rendered).toContain("/runs/run-abc|Run");
+    });
+  });
+
+  // A3: the smoke template historically referenced `signal.links.smoke` /
+  // `signal.links.health` — the DRIVER signal (probes/drivers/smoke.ts) has
+  // `slug, url, status, errorDesc, latencyMs` and no `links` object, so those
+  // section-guards were always empty. The template should pull `signal.url`
+  // directly and render an "endpoint" link.
+  it("smoke: renders_endpoint_link_from_signal_url (A3)", () => {
+    const text = loadTemplate("smoke-red-tick.yml");
+    const r = createRenderer();
+    const flags = { ...emptyTriggerFlags(), green_to_red: true };
+    const out = r.render(
+      { text },
+      ctx({
+        trigger: flags,
+        signal: {
+          slug: "mastra",
+          failCount: 1,
+          errorDesc: "http 503",
+          firstFailureAt: "2026-04-20T00:00:00Z",
+          url: "https://starter.example/smoke",
+        },
+      }),
+    );
+    const rendered = String(out.payload.text);
+    expect(rendered).toContain("<https://starter.example/smoke|endpoint>");
   });
 });

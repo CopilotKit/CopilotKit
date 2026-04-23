@@ -106,8 +106,12 @@ export const smokeProbe: Probe<SmokeInput, SmokeSignal> = {
  * operator-configured service URLs. Safe to emit without HTML-escape.
  */
 export const SMOKE_SLACK_SAFE_FIELDS = [
-  "links.smoke",
-  "links.health",
+  // A3: the `links` object lives on the old `SmokeSignal` shape below (still
+  // exported for backward compatibility). The driver-emitted
+  // `SmokeDriverSignal` (probes/drivers/smoke.ts) carries `url` instead —
+  // the URL that was actually probed — which is now the canonical field
+  // template authors reference for endpoint links.
+  "url",
   // errorDesc is pre-sanitized at the probe driver's 8 assignment sites
   // (probes/drivers/smoke.ts via sanitizeErrorDesc) — triple-brace is
   // intentional so already-stripped HTML / mrkdwn control tokens render

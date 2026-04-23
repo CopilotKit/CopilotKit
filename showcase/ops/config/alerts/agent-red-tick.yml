@@ -38,4 +38,4 @@ template:
     {{#trigger.sustained_red}}:red_circle: *{{signal.slug}}* — agent attempt: {{signal.failCount}}, error: {{{signal.errorDesc}}}{{/trigger.sustained_red}}
     {{#trigger.red_to_green}}:white_check_mark: *{{signal.slug}}* agent recovered (was down since {{signal.firstFailureAt}}){{/trigger.red_to_green}}
 
-    <{{{env.dashboardUrl}}}|Showcase> · <{{{env.dashboardUrl}}}/runs/{{{event.runId}}}|Run>
+    <{{{env.dashboardUrl}}}|Showcase>{{#event.runId}} · <{{{env.dashboardUrl}}}/runs/{{{event.runId}}}|Run>{{/event.runId}}
