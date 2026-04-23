@@ -118,8 +118,13 @@ describe("railwayServicesSource", () => {
   });
 
   it("configSchema accepts a filter with namePrefix + labels", () => {
+    // configSchema is the filter block itself — the invoker hands
+    // `cfg.discovery.filter` to enumerate() directly, so the schema
+    // parses `{namePrefix, labels, nameExcludes}` at the top level
+    // rather than nested under a `filter:` key.
     const parsed = railwayServicesSource.configSchema.safeParse({
-      filter: { namePrefix: "showcase-", labels: { env: "prod" } },
+      namePrefix: "showcase-",
+      labels: { env: "prod" },
     });
     expect(parsed.success).toBe(true);
   });
@@ -187,7 +192,7 @@ describe("railwayServicesSource", () => {
       { status: 200, body: { data: { variables: {} } } },
     ]);
     const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
-      filter: { namePrefix: "showcase-" },
+      namePrefix: "showcase-",
     });
     expect(out).toHaveLength(1);
     expect(out[0].name).toBe("showcase-a");
@@ -222,14 +227,116 @@ describe("railwayServicesSource", () => {
       { status: 200, body: { data: { variables: {} } } },
     ]);
     const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
-      filter: {
-        namePrefix: "showcase-",
-        nameExcludes: ["showcase-aimock"],
-      },
+      namePrefix: "showcase-",
+      nameExcludes: ["showcase-aimock"],
     });
     expect(out).toHaveLength(1);
     expect(out[0].name).toBe("showcase-langgraph-python");
     expect(calls).toHaveLength(2);
+  });
+
+  it("honours filter passed flat (invoker shape) — drops all 7 infra services in smoke.yml", async () => {
+    // REGRESSION: the probe-invoker at `loader/probe-invoker.ts` calls
+    // `source.enumerate(ctx, cfg.discovery.filter ?? {})` — i.e. it passes
+    // the FILTER OBJECT DIRECTLY, not a `{filter: {...}}` wrapper. The
+    // previous ConfigSchema wrapped FilterSchema in an outer `.filter`
+    // key, so at runtime `cfg.filter` was undefined, BOTH `namePrefix`
+    // and `nameExcludes` silently defaulted to undefined, and all 7
+    // infra services (showcase-shell*, showcase-ops, showcase-pocketbase,
+    // showcase-aimock) produced smoke:/health:/agent: ProbeResults every
+    // tick → ~21 false-red rows in PocketBase.
+    //
+    // This test asserts the contract DiscoverySource.enumerate advertises
+    // in `probes/types.ts`: the second argument is `discovery.filter`,
+    // not the whole discovery block.
+    const { fetchImpl, calls } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          // Real user-facing showcase services — MUST be enumerated.
+          {
+            id: "s-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          // The 7 infra services from smoke.yml's `nameExcludes` — MUST
+          // be dropped before per-service env fetch.
+          {
+            id: "i-1",
+            name: "showcase-ops",
+            image: "ghcr.io/copilotkit/showcase-ops:latest",
+            domain: "showcase-ops.up.railway.app",
+          },
+          {
+            id: "i-2",
+            name: "showcase-pocketbase",
+            image: "ghcr.io/copilotkit/showcase-pocketbase:latest",
+            domain: "showcase-pocketbase.up.railway.app",
+          },
+          {
+            id: "i-3",
+            name: "showcase-shell",
+            image: "ghcr.io/copilotkit/showcase-shell:latest",
+            domain: "showcase-shell.up.railway.app",
+          },
+          {
+            id: "i-4",
+            name: "showcase-shell-dashboard",
+            image: "ghcr.io/copilotkit/showcase-shell-dashboard:latest",
+            domain: "showcase-shell-dashboard.up.railway.app",
+          },
+          {
+            id: "i-5",
+            name: "showcase-shell-docs",
+            image: "ghcr.io/copilotkit/showcase-shell-docs:latest",
+            domain: "showcase-shell-docs.up.railway.app",
+          },
+          {
+            id: "i-6",
+            name: "showcase-shell-dojo",
+            image: "ghcr.io/copilotkit/showcase-shell-dojo:latest",
+            domain: "showcase-shell-dojo.up.railway.app",
+          },
+          {
+            id: "i-7",
+            name: "showcase-aimock",
+            image: "ghcr.io/copilotkit/showcase-aimock:latest",
+            domain: "showcase-aimock.up.railway.app",
+          },
+        ]),
+      },
+      // Only TWO variables calls — one per user-facing showcase. If
+      // excludes leak, the queue exhausts and makeFetch throws.
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    // Invoker shape: flat filter object, no `{filter: ...}` wrapper.
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
+      namePrefix: "showcase-",
+      nameExcludes: [
+        "showcase-ops",
+        "showcase-pocketbase",
+        "showcase-shell",
+        "showcase-shell-dashboard",
+        "showcase-shell-docs",
+        "showcase-shell-dojo",
+        "showcase-aimock",
+      ],
+    });
+    expect(out.map((s) => s.name).sort()).toEqual([
+      "showcase-ag2",
+      "showcase-langgraph-python",
+    ]);
+    // Project query + two per-service env queries only; the 7 infra
+    // services must not cost a round-trip each.
+    expect(calls).toHaveLength(3);
   });
 
   it("returns [] when namePrefix matches nothing (no variables calls)", async () => {
@@ -247,7 +354,7 @@ describe("railwayServicesSource", () => {
       },
     ]);
     const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {
-      filter: { namePrefix: "showcase-" },
+      namePrefix: "showcase-",
     });
     expect(out).toEqual([]);
     expect(calls).toHaveLength(1);
