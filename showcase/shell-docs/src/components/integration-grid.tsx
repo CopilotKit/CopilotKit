@@ -3,6 +3,9 @@
 import React from "react";
 import { useFramework } from "./framework-provider";
 
+const SHELL_HOST =
+  process.env.NEXT_PUBLIC_SHELL_URL ?? "http://localhost:3000";
+
 export function IntegrationGrid({
   path,
   description,
@@ -35,7 +38,10 @@ export function IntegrationGrid({
         }}
       >
         See{" "}
-        <a href="/integrations" style={{ color: "var(--accent)" }}>
+        <a
+          href={`${SHELL_HOST}/integrations`}
+          style={{ color: "var(--accent)" }}
+        >
           Integrations
         </a>{" "}
         for all available frameworks{path ? ` (${path})` : ""}.

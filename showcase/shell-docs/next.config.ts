@@ -28,6 +28,24 @@ if (!process.env.NEXT_PUBLIC_BASE_URL) {
   );
 }
 
+// NEXT_PUBLIC_SHELL_URL points at the shell (showcase) host, which owns
+// `/integrations` and `/matrix` — the live integration explorer and
+// feature-matrix pages. Components use it directly in cross-host hrefs
+// (e.g. the top-nav "Integrations" link). Same validation pattern as
+// NEXT_PUBLIC_BASE_URL above: fail at `next build` if missing; warn in dev.
+if (!process.env.NEXT_PUBLIC_SHELL_URL) {
+  if (isNextBuild) {
+    throw new Error(
+      "NEXT_PUBLIC_SHELL_URL is required for `next build` of showcase/shell-docs. " +
+        "Set it to the shell host before running the build.",
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.warn(
+    "[shell-docs] NEXT_PUBLIC_SHELL_URL is not set; consumers should fall back to a sensible dev default (e.g. http://localhost:3000).",
+  );
+}
+
 const nextConfig: NextConfig = {};
 
 export default nextConfig;
