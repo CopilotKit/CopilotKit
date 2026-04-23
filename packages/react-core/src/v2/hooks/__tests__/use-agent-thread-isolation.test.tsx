@@ -2,13 +2,11 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { renderHook } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import {
-  AbstractAgent,
-  type BaseEvent,
-  type RunAgentInput,
-} from "@ag-ui/client";
+import { AbstractAgent } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
+import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";
 import { Observable } from "rxjs";
 
@@ -136,6 +134,86 @@ describe("useAgent thread isolation", () => {
 
     render(<Tracker />);
     expect(captured).toBe(registeredAgent);
+  });
+
+  // REGRESSION: the "backward compat" guarantee above only holds when the
+  // caller is rendered *outside* a CopilotChatConfigurationProvider. In
+  // practice, every <CopilotChat> sets one up for its children, so a
+  // `useAgent({ agentId })` call anywhere under a chat component no longer
+  // returns the registry singleton — it silently falls through
+  // `threadId ??= chatConfig?.threadId` (use-agent.tsx:139) and gets a
+  // per-thread clone instead. The `if (!threadId) return existing` branch
+  // (use-agent.tsx:168–171) becomes dead code in that tree.
+  it("BROKEN: useAgent({ agentId }) under CopilotChatConfigurationProvider returns a clone, not the registry singleton", () => {
+    let capturedInside: AbstractAgent | undefined;
+    let capturedOutside: AbstractAgent | undefined;
+
+    function TrackerInside() {
+      const { agent } = useAgent({ agentId: "my-agent" });
+      capturedInside = agent;
+      return null;
+    }
+
+    function TrackerOutside() {
+      const { agent } = useAgent({ agentId: "my-agent" });
+      capturedOutside = agent;
+      return null;
+    }
+
+    render(
+      <>
+        <CopilotChatConfigurationProvider threadId="conversation-1">
+          <TrackerInside />
+        </CopilotChatConfigurationProvider>
+        <TrackerOutside />
+      </>,
+    );
+
+    // Outside the provider the documented "no-threadId returns existing"
+    // branch still holds.
+    expect(capturedOutside).toBe(registeredAgent);
+
+    // Inside the provider, two claims break:
+    //   (a) the same call no longer returns the registry singleton, and
+    //   (b) two useAgent({ agentId }) callers in the same app observe
+    //       different agent objects, so any state written through one is
+    //       invisible to the other.
+    expect(capturedInside).toBe(registeredAgent);
+    expect(capturedInside).toBe(capturedOutside);
+  });
+
+  // Complement to the regression above: two useAgent({ agentId }) callers
+  // under the SAME CopilotChatConfigurationProvider should observe the same
+  // (cloned) object, because globalThreadCloneMap is keyed on
+  // (registryAgent, threadId) at module scope. If this ever broke, chat
+  // components wouldn't see each other's message mutations.
+  it("two useAgent({ agentId }) calls under the same provider share one clone", () => {
+    let capturedA: AbstractAgent | undefined;
+    let capturedB: AbstractAgent | undefined;
+
+    function TrackerA() {
+      const { agent } = useAgent({ agentId: "my-agent" });
+      capturedA = agent;
+      return null;
+    }
+    function TrackerB() {
+      const { agent } = useAgent({ agentId: "my-agent" });
+      capturedB = agent;
+      return null;
+    }
+
+    render(
+      <CopilotChatConfigurationProvider threadId="conversation-1">
+        <TrackerA />
+        <TrackerB />
+      </CopilotChatConfigurationProvider>,
+    );
+
+    expect(capturedA).toBeDefined();
+    expect(capturedB).toBeDefined();
+    expect(capturedA).not.toBe(registeredAgent); // both on the clone path
+    expect(capturedA).toBe(capturedB); // shared via globalThreadCloneMap
+    expect(capturedA!.threadId).toBe("conversation-1");
   });
 
   it("isolates messages between thread-specific agents", () => {
