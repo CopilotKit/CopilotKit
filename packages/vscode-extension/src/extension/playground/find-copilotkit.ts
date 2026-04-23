@@ -2,9 +2,9 @@ import { parseSync } from "oxc-parser";
 
 export interface CopilotKitNode {
   filePath: string;
-  /** The raw JSX opening-element AST node, passed to serializers later. */
+  /** The JSX opening-element AST node; serializers use its attributes. */
   openingElement: any;
-  /** The raw JSX element (or self-closing element) node. */
+  /** The enclosing JSXElement node; ancestor walker uses this as the target. */
   jsxElement: any;
   loc: { line: number; column: number; endLine: number; endColumn: number };
 }
@@ -38,10 +38,13 @@ function offsetToLineColumn(
 }
 
 /**
- * Finds every JSX opening element that resolves (through imports, incl.
- * aliasing) to `CopilotKit` from `@copilotkit/react-core`. Returns empty
- * if the file doesn't reference that package at all (prefilter short-
- * circuit — matches hook-scanner's pattern).
+ * Finds every JSXElement whose opening element resolves (through imports,
+ * incl. aliasing) to `CopilotKit` from `@copilotkit/react-core`. Returns
+ * empty if the file doesn't reference that package at all (prefilter).
+ *
+ * Single-pass: we match on JSXElement (not JSXOpeningElement), so both the
+ * JSXElement and its opening element are captured in one traversal — no
+ * second walk, no null-jsxElement filter.
  */
 export function findCopilotKitNodes(
   filePath: string,
@@ -88,24 +91,25 @@ export function findCopilotKitNodes(
     seen.add(node);
 
     if (
-      node.type === "JSXOpeningElement" &&
-      node.name?.type === "JSXIdentifier"
+      node.type === "JSXElement" &&
+      node.openingElement?.type === "JSXOpeningElement" &&
+      node.openingElement.name?.type === "JSXIdentifier" &&
+      localToCanonical.has(node.openingElement.name.name)
     ) {
-      if (localToCanonical.has(node.name.name)) {
-        const start = offsetToLineColumn(node.start ?? 0, lineOffsets);
-        const end = offsetToLineColumn(node.end ?? 0, lineOffsets);
-        results.push({
-          filePath,
-          openingElement: node,
-          jsxElement: null,
-          loc: {
-            line: start.line,
-            column: start.column,
-            endLine: end.line,
-            endColumn: end.column,
-          },
-        });
-      }
+      const opening = node.openingElement;
+      const start = offsetToLineColumn(opening.start ?? 0, lineOffsets);
+      const end = offsetToLineColumn(opening.end ?? 0, lineOffsets);
+      results.push({
+        filePath,
+        openingElement: opening,
+        jsxElement: node,
+        loc: {
+          line: start.line,
+          column: start.column,
+          endLine: end.line,
+          endColumn: end.column,
+        },
+      });
     }
 
     for (const key of Object.keys(node)) {
@@ -121,32 +125,5 @@ export function findCopilotKitNodes(
 
   visit(ast);
 
-  // Second pass: for each opening element, find its enclosing JSXElement
-  // (or JSXFragment) so Task 4 can walk ancestors.
-  const matched = new Set(results.map((r) => r.openingElement));
-  const walkWithJsxParent = (node: any, jsxParent: any): void => {
-    if (!node || typeof node !== "object") return;
-    if (node.type === "JSXElement" && matched.has(node.openingElement)) {
-      const target = results.find(
-        (r) => r.openingElement === node.openingElement,
-      )!;
-      target.jsxElement = node;
-    }
-    const nextParent =
-      node.type === "JSXElement" || node.type === "JSXFragment"
-        ? node
-        : jsxParent;
-    for (const key of Object.keys(node)) {
-      if (key === "loc" || key === "range" || key === "parent") continue;
-      const child = (node as any)[key];
-      if (Array.isArray(child)) {
-        for (const c of child) walkWithJsxParent(c, nextParent);
-      } else if (child && typeof child === "object" && "type" in child) {
-        walkWithJsxParent(child, nextParent);
-      }
-    }
-  };
-  walkWithJsxParent(ast, null);
-
-  return results.filter((r) => r.jsxElement !== null);
+  return results;
 }
