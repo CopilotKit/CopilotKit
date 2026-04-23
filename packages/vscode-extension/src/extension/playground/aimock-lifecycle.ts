@@ -3,8 +3,14 @@ import type { LlmProvider } from "./llm-config";
 
 export interface AimockStartOptions {
   provider: LlmProvider;
-  /** Upstream base URL — e.g. https://api.openai.com. */
-  upstreamUrl: string;
+  /** Upstream base URL. Defaults to the provider's public API. */
+  upstreamUrl?: string;
+  /**
+   * When true (default), unmatched requests proxy to upstream and are
+   * recorded. Tests can pass false to get a pure in-memory server that
+   * returns 503 for unmatched requests but still journals them.
+   */
+  enableUpstreamRecording?: boolean;
 }
 
 export interface AimockHandle {
@@ -33,10 +39,12 @@ export async function startAimock(
     port: 0,
     logLevel: "silent",
   });
-  mock.enableRecording({
-    providers: { [options.provider]: upstream },
-    proxyOnly: false,
-  });
+  if (options.enableUpstreamRecording !== false) {
+    mock.enableRecording({
+      providers: { [options.provider]: upstream },
+      proxyOnly: false,
+    });
+  }
   const url = await mock.start();
   return {
     url,
@@ -50,8 +58,4 @@ export async function startAimock(
       await mock.stop();
     },
   };
-}
-
-export function defaultUpstreamFor(provider: LlmProvider): string {
-  return DEFAULT_UPSTREAM[provider];
 }

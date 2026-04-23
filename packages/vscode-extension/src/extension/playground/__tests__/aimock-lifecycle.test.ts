@@ -5,7 +5,7 @@ describe("startAimock", () => {
   it("starts an LLMock on a random localhost port and exposes its URL", async () => {
     const handle = await startAimock({
       provider: "openai",
-      upstreamUrl: "https://api.openai.com",
+      enableUpstreamRecording: false,
     });
     try {
       expect(handle.url).toMatch(/^http:\/\/(localhost|127\.0\.0\.1):\d+$/);
@@ -13,16 +13,18 @@ describe("startAimock", () => {
     } finally {
       await handle.stop();
     }
-  }, 10_000);
+  }, 5_000);
 
-  it("records requests to the journal", async () => {
+  it("records requests to the journal (no upstream)", async () => {
     const handle = await startAimock({
       provider: "openai",
-      upstreamUrl: "https://api.openai.com",
+      enableUpstreamRecording: false,
     });
     try {
-      // Send a request to aimock; don't worry about it matching a fixture or
-      // actually reaching upstream — we only care that the journal captures it.
+      // Send a request to aimock. Without a fixture match it returns 503,
+      // but crucially the journal still captures the inbound request — we
+      // don't follow the upstream-proxy path because the test doesn't need
+      // to assert on the response body, only on journal capture.
       await fetch(`${handle.url}/v1/chat/completions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -36,5 +38,5 @@ describe("startAimock", () => {
     } finally {
       await handle.stop();
     }
-  }, 15_000);
+  }, 5_000);
 });
