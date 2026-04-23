@@ -16,11 +16,16 @@ describe("executePlaygroundBundle", () => {
       window.__copilotkit_playground = {
         PlaygroundEntry: function PlaygroundEntry() {
           return window.__copilotkit_deps.React.createElement('div', null, 'ok');
+        },
+        ChatPlayground: function ChatPlayground() {
+          return window.__copilotkit_deps.React.createElement('div', null, 'chat');
         }
       };
     `;
-    const { PlaygroundEntry } = await executePlaygroundBundle(code);
+    const { PlaygroundEntry, ChatPlayground } =
+      await executePlaygroundBundle(code);
     expect(typeof PlaygroundEntry).toBe("function");
+    expect(typeof ChatPlayground).toBe("function");
 
     const deps = (window as { __copilotkit_deps?: { React?: unknown } })
       .__copilotkit_deps;
@@ -30,7 +35,7 @@ describe("executePlaygroundBundle", () => {
   it("rejects when the bundle does not assign __copilotkit_playground", async () => {
     const code = `/* noop */`;
     await expect(executePlaygroundBundle(code)).rejects.toThrow(
-      /PlaygroundEntry/,
+      /PlaygroundEntry.*ChatPlayground/,
     );
   });
 });

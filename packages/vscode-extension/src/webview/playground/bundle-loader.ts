@@ -6,7 +6,10 @@ import { createForwardingStubs } from "./forwarding-stubs";
 
 declare global {
   interface Window {
-    __copilotkit_playground?: { PlaygroundEntry: React.ComponentType };
+    __copilotkit_playground?: {
+      PlaygroundEntry: React.ComponentType;
+      ChatPlayground: React.ComponentType;
+    };
     __copilotkit_deps?: Record<string, unknown>;
     __copilotkit_nonce?: string;
   }
@@ -14,6 +17,7 @@ declare global {
 
 export interface PlaygroundBundleExports {
   PlaygroundEntry: React.ComponentType;
+  ChatPlayground: React.ComponentType;
 }
 
 /**
@@ -120,10 +124,14 @@ export function executePlaygroundBundle(
       window.__copilotkit_playground = exports;
     }
 
-    if (!exports || typeof exports.PlaygroundEntry !== "function") {
+    if (
+      !exports ||
+      typeof exports.PlaygroundEntry !== "function" ||
+      typeof exports.ChatPlayground !== "function"
+    ) {
       reject(
         new Error(
-          "Bundle did not expose __copilotkit_playground.PlaygroundEntry",
+          "Bundle did not expose __copilotkit_playground.PlaygroundEntry + ChatPlayground",
         ),
       );
       return;

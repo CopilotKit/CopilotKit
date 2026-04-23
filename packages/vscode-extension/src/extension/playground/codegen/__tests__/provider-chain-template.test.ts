@@ -63,6 +63,21 @@ describe("renderEntry", () => {
       'import { CopilotKitProvider } from "@copilotkit/react-core/v2"',
     );
     expect(code).toContain('import { HooksAggregator } from "./aggregator"');
+    expect(code).toContain(
+      'import { CopilotChat } from "@copilotkit/react-core/v2"',
+    );
+  });
+
+  it("emits PlaygroundEntry AND ChatPlayground exports", () => {
+    const code = renderEntry({
+      provider,
+      ancestors,
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+    });
+    expect(code).toContain("export function PlaygroundEntry");
+    expect(code).toContain("export function ChatPlayground");
+    expect(code).toContain("<CopilotChat />");
   });
 
   it("rebuilds the provider chain outermost-first", () => {

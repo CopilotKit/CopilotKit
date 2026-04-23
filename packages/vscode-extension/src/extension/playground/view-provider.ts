@@ -110,72 +110,80 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.onDidReceiveMessage(
       async (msg: PlaygroundWebviewToExtensionMessage) => {
-        switch (msg.type) {
-          case "ready":
-            this.ready = true;
-            if (this.latestResult) this.postResult();
-            if (this.latestBundle) this.post(this.latestBundle);
-            this.post({
-              type: "fixtures-list",
-              fixtures: this.deps.fixtureStore.list(),
-            });
-            return;
-          case "refresh":
-            void this.callbacks.onRefresh();
-            return;
-          case "open-source":
-            void this.callbacks.onOpenSource(msg.filePath, msg.line);
-            return;
-          case "save-fixture": {
-            if (!this.currentSession) return;
-            const journal = this.currentSession.aimock.getJournal();
-            const config = await this.deps.resolveLlmConfig();
-            if (config.source === "missing") return;
-            const filePath = this.deps.fixtureStore.save(
-              {
-                name: msg.name,
-                createdAt: new Date().toISOString(),
-                provider: config.provider,
-                model: config.model,
-              },
-              { recording: journal },
-            );
-            this.post({ type: "fixture-saved", filePath });
-            this.post({
-              type: "fixtures-list",
-              fixtures: this.deps.fixtureStore.list(),
-            });
-            return;
-          }
-          case "load-fixture": {
-            this.replayFixturePath = msg.filePath;
-            try {
-              this.replayFixtureName =
-                this.deps.fixtureStore.read(msg.filePath).metadata.name ?? null;
-            } catch {
+        try {
+          switch (msg.type) {
+            case "ready":
+              this.ready = true;
+              if (this.latestResult) this.postResult();
+              if (this.latestBundle) this.post(this.latestBundle);
+              this.post({
+                type: "fixtures-list",
+                fixtures: this.deps.fixtureStore.list(),
+              });
+              return;
+            case "refresh":
+              void this.callbacks.onRefresh();
+              return;
+            case "open-source":
+              void this.callbacks.onOpenSource(msg.filePath, msg.line);
+              return;
+            case "save-fixture": {
+              if (!this.currentSession) return;
+              const journal = this.currentSession.aimock.getJournal();
+              const config = await this.deps.resolveLlmConfig();
+              if (config.source === "missing") return;
+              const filePath = this.deps.fixtureStore.save(
+                {
+                  name: msg.name,
+                  createdAt: new Date().toISOString(),
+                  provider: config.provider,
+                  model: config.model,
+                },
+                { recording: journal },
+              );
+              this.post({ type: "fixture-saved", filePath });
+              this.post({
+                type: "fixtures-list",
+                fixtures: this.deps.fixtureStore.list(),
+              });
+              return;
+            }
+            case "load-fixture": {
+              this.replayFixturePath = msg.filePath;
+              try {
+                this.replayFixtureName =
+                  this.deps.fixtureStore.read(msg.filePath).metadata.name ??
+                  null;
+              } catch {
+                this.replayFixtureName = null;
+              }
+              if (this.latestResult) {
+                this.setScanResult(this.latestResult);
+              }
+              return;
+            }
+            case "new-chat": {
+              this.replayFixturePath = null;
               this.replayFixtureName = null;
+              if (this.latestResult) {
+                this.setScanResult(this.latestResult);
+              }
+              return;
             }
-            if (this.latestResult) {
-              this.setScanResult(this.latestResult);
+            case "delete-fixture": {
+              this.deps.fixtureStore.delete(msg.filePath);
+              this.post({
+                type: "fixtures-list",
+                fixtures: this.deps.fixtureStore.list(),
+              });
+              return;
             }
-            return;
           }
-          case "new-chat": {
-            this.replayFixturePath = null;
-            this.replayFixtureName = null;
-            if (this.latestResult) {
-              this.setScanResult(this.latestResult);
-            }
-            return;
-          }
-          case "delete-fixture": {
-            this.deps.fixtureStore.delete(msg.filePath);
-            this.post({
-              type: "fixtures-list",
-              fixtures: this.deps.fixtureStore.list(),
-            });
-            return;
-          }
+        } catch (err) {
+          this.post({
+            type: "error",
+            message: err instanceof Error ? err.message : String(err),
+          });
         }
       },
     );

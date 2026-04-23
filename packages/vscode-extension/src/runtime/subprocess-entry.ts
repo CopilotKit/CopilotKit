@@ -3,7 +3,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
-import type { LanguageModel } from "ai";
 
 interface SubprocessConfig {
   port: number;
@@ -23,14 +22,20 @@ function parseConfig(): SubprocessConfig {
   return JSON.parse(raw) as SubprocessConfig;
 }
 
-function buildModel(config: SubprocessConfig): LanguageModel {
+function buildModel(config: SubprocessConfig) {
   switch (config.provider) {
     case "openai": {
-      const provider = createOpenAI({ apiKey: config.apiKey, baseURL: config.llmBaseUrl });
+      const provider = createOpenAI({
+        apiKey: config.apiKey,
+        baseURL: config.llmBaseUrl,
+      });
       return provider(config.model);
     }
     case "anthropic": {
-      const provider = createAnthropic({ apiKey: config.apiKey, baseURL: config.llmBaseUrl });
+      const provider = createAnthropic({
+        apiKey: config.apiKey,
+        baseURL: config.llmBaseUrl,
+      });
       return provider(config.model);
     }
     default: {

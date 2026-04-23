@@ -58,6 +58,9 @@ export class FixtureStore {
   }
 
   read(filePath: string): SavedFixture {
+    if (!filePath.startsWith(this.fixturesDir())) {
+      throw new Error("refusing to read file outside fixtures directory");
+    }
     const content = fs.readFileSync(filePath, "utf-8");
     return JSON.parse(content) as SavedFixture;
   }

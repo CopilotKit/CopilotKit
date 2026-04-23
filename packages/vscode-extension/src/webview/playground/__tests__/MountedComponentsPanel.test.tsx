@@ -19,9 +19,10 @@ describe("MountedComponentsPanel", () => {
 
   it("renders the bundle's PlaygroundEntry when present", () => {
     const PlaygroundEntry = () => <div>mounted</div>;
+    const ChatPlayground = () => <div>chat</div>;
     render(
       <MountedComponentsPanel
-        bundle={{ PlaygroundEntry }}
+        bundle={{ PlaygroundEntry, ChatPlayground }}
         bundleError={null}
       />,
     );

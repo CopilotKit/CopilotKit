@@ -10,10 +10,8 @@ import {
 } from "./bundle-loader";
 import { onExtensionMessage, sendToExtension } from "./bridge";
 import type { PlaygroundScanResult } from "../../extension/playground/types";
-import type {
-  FixtureListEntry,
-  MountErrorPayload,
-} from "../../extension/playground/bridge-types";
+import type { MountErrorPayload } from "../../extension/playground/bridge-types";
+import type { FixtureListEntry } from "../../extension/playground/fixture-store";
 
 export function App(): React.JSX.Element {
   const [result, setResult] = React.useState<PlaygroundScanResult>({

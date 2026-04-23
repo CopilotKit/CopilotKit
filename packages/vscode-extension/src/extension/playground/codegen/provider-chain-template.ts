@@ -23,6 +23,14 @@ export interface RenderEntryOptions {
  * itself from the user's package, and renders the reconstructed chain wrapping
  * HooksAggregator.
  *
+ * Exports two components:
+ * - `PlaygroundEntry` — the provider chain wrapping HooksAggregator only.
+ *   Used by the MountedComponentsPanel to show user components in isolation.
+ * - `ChatPlayground` — the same provider chain wrapping both HooksAggregator
+ *   AND CopilotChat. Because both are resolved inside the same bundle module
+ *   instance (forwarding-stubs → real v2), React context flows correctly and
+ *   the chat connects to the spawned runtime.
+ *
  * Ancestors with no resolvable import source (locally declared in the user's
  * file) are skipped with a comment — the wrapper is omitted rather than
  * generating broken code.
@@ -37,6 +45,7 @@ export function renderEntry(opts: RenderEntryOptions): string {
     `import { ${provider.importedName} } from ${JSON.stringify(
       provider.importSource,
     )};`,
+    `import { CopilotChat } from "@copilotkit/react-core/v2";`,
   ];
 
   // Emit per-ancestor imports using the user's real import specifier.
@@ -53,6 +62,7 @@ export function renderEntry(opts: RenderEntryOptions): string {
     "HooksAggregator",
     "React",
     provider.importedName,
+    "CopilotChat",
   ]);
 
   for (const a of ancestors) {
@@ -97,14 +107,50 @@ export function renderEntry(opts: RenderEntryOptions): string {
   }
 
   lines.push("");
-  lines.push("export function PlaygroundEntry(): React.ReactElement {");
-  lines.push("  return (");
+
+  const playgroundEntry = renderProviderChain(
+    opts,
+    renderables,
+    skipped,
+    "<HooksAggregator />",
+    "PlaygroundEntry",
+  );
+
+  const chatPlayground = renderProviderChain(
+    opts,
+    renderables,
+    skipped,
+    "<HooksAggregator />\n        <CopilotChat />",
+    "ChatPlayground",
+  );
+
+  return (
+    lines.join("\n") + "\n" + playgroundEntry + "\n" + chatPlayground + "\n"
+  );
+}
+
+/**
+ * Builds the JSX body for a single named export that wraps the given children
+ * string inside the reconstructed provider chain.
+ */
+function renderProviderChain(
+  opts: RenderEntryOptions,
+  renderables: Array<{ ancestor: ProviderChainEntry; localName: string }>,
+  skipped: ProviderChainEntry[],
+  childrenJsx: string,
+  exportName: string,
+): string {
+  const { provider } = opts;
+  const fnLines: string[] = [];
+
+  fnLines.push(`export function ${exportName}(): React.ReactElement {`);
+  fnLines.push("  return (");
 
   const closeTags: string[] = [];
   let indent = "    ";
 
   for (const s of skipped) {
-    lines.push(
+    fnLines.push(
       `${indent}{/* skipped ancestor: ${s.tagName} (locally declared in ${
         s.filePath
       }, not exported) */}`,
@@ -113,7 +159,7 @@ export function renderEntry(opts: RenderEntryOptions): string {
 
   for (const { ancestor, localName } of renderables) {
     const props = renderProps(ancestor.props);
-    lines.push(`${indent}<${localName}${props}>`);
+    fnLines.push(`${indent}<${localName}${props}>`);
     closeTags.push(`</${localName}>`);
     indent += "  ";
   }
@@ -122,22 +168,25 @@ export function renderEntry(opts: RenderEntryOptions): string {
     ? { ...provider.props, runtimeUrl: opts.runtimeUrlOverride }
     : provider.props;
   const providerProps = renderProps(effectiveProps);
-  lines.push(`${indent}<${provider.importedName}${providerProps}>`);
+  fnLines.push(`${indent}<${provider.importedName}${providerProps}>`);
   indent += "  ";
-  lines.push(`${indent}<HooksAggregator />`);
+  // Indent each line of the children block.
+  for (const childLine of childrenJsx.split("\n")) {
+    fnLines.push(`${indent}${childLine}`);
+  }
   indent = indent.slice(2);
-  lines.push(`${indent}</${provider.importedName}>`);
+  fnLines.push(`${indent}</${provider.importedName}>`);
 
   for (let i = closeTags.length - 1; i >= 0; i--) {
     indent = indent.slice(2);
-    lines.push(`${indent}${closeTags[i]}`);
+    fnLines.push(`${indent}${closeTags[i]}`);
   }
 
-  lines.push("  );");
-  lines.push("}");
-  lines.push("");
+  fnLines.push("  );");
+  fnLines.push("}");
+  fnLines.push("");
 
-  return lines.join("\n");
+  return fnLines.join("\n");
 }
 
 /**
