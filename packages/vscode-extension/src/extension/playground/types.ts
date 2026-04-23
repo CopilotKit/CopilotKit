@@ -59,8 +59,8 @@ export interface ProviderChainEntry {
  */
 export interface ComponentWithHooks {
   filePath: string;
-  /** Exported identifier, or `"default"` for the default export. */
-  exportName: string;
+  /** Exported identifier, `"default"` for the default export, or `null` if not exported. */
+  exportName: string | null;
   /** Local function name inside the module (may differ from exportName). */
   componentName: string;
   /** Location of the function/arrow declaration. */

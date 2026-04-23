@@ -8,7 +8,7 @@ interface FunctionInfo {
   start: number;
   end: number;
   componentName: string;
-  exportName: string;
+  exportName: string | null;
 }
 
 export interface MapResult {
@@ -40,14 +40,14 @@ export function mapHooksToComponents(
 
   const functions = collectFunctions(ast);
   const lineOffsets = buildLineOffsets(content);
-  const offsetToSite = new Map<HookCallSite, number>();
-  for (const s of sites) offsetToSite.set(s, resolveSiteOffset(s, content));
+  const siteOffsets = new Map<HookCallSite, number>();
+  for (const s of sites) siteOffsets.set(s, resolveSiteOffset(s, content));
 
   const byFunction = new Map<FunctionInfo, HookCallSite[]>();
   const warnings: ScanWarning[] = [];
 
   for (const site of sites) {
-    const offset = offsetToSite.get(site)!;
+    const offset = siteOffsets.get(site)!;
     const fn = innermostFunctionContaining(functions, offset);
     if (!fn) {
       warnings.push({
@@ -103,12 +103,12 @@ function collectFunctions(ast: any): FunctionInfo[] {
       localName ??
       (node.id?.type === "Identifier" ? node.id.name : null) ??
       "(anonymous)";
-    const exportName =
+    const exportName: string | null =
       defaultExportName === inferredName
         ? "default"
         : namedExports.has(inferredName)
           ? inferredName
-          : inferredName;
+          : null;
     result.push({
       node,
       start: node.start ?? 0,
@@ -123,6 +123,7 @@ function collectFunctions(ast: any): FunctionInfo[] {
 
     if (node.type === "FunctionDeclaration") {
       consider(node, null);
+      // Recurse into body only — `id` is an Identifier, no functions inside.
     } else if (node.type === "VariableDeclarator") {
       if (
         node.id?.type === "Identifier" &&
@@ -130,6 +131,10 @@ function collectFunctions(ast: any): FunctionInfo[] {
           node.init?.type === "FunctionExpression")
       ) {
         consider(node.init, node.id.name);
+        // Skip re-visiting node.init below.
+        // Still recurse into the function body (it may contain nested components).
+        walk(node.init.body);
+        return;
       }
     } else if (
       node.type === "ExportDefaultDeclaration" &&
@@ -137,7 +142,14 @@ function collectFunctions(ast: any): FunctionInfo[] {
         node.declaration?.type === "FunctionExpression" ||
         node.declaration?.type === "FunctionDeclaration")
     ) {
-      consider(node.declaration, "default");
+      // Pass null so consider() infers the name from the function's own id;
+      // readDefaultExport already recorded this function's name, so the
+      // defaultExportName === inferredName check will fire correctly.
+      consider(node.declaration, null);
+      // Walk into the function body to find nested components but skip the
+      // declaration node itself, which has already been recorded.
+      walk(node.declaration.body);
+      return;
     }
 
     for (const key of Object.keys(node)) {

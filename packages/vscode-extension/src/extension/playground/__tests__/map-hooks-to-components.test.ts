@@ -36,6 +36,20 @@ describe("mapHooksToComponents", () => {
     expect(components[0].exportName).toBe("default");
   });
 
+  it("handles `export default function Foo` without duplicating the component", () => {
+    const sites = scanFile(fx("hooks-in-default-function.tsx"));
+    const src = read("hooks-in-default-function.tsx");
+    const { components, warnings } = mapHooksToComponents(
+      fx("hooks-in-default-function.tsx"),
+      src,
+      sites,
+    );
+    expect(components).toHaveLength(1);
+    expect(components[0].componentName).toBe("Main");
+    expect(components[0].exportName).toBe("default");
+    expect(warnings).toEqual([]);
+  });
+
   it("emits a warning for hooks that aren't inside any component", () => {
     const sites = scanFile(fx("hooks-top-level.tsx"));
     const src = read("hooks-top-level.tsx");
