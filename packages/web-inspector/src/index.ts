@@ -304,8 +304,7 @@ function highlightedJson(obj: unknown): string {
 }
 
 function eventColors(type: string): { bg: string; fg: string } {
-  if (type.startsWith("TEXT_MESSAGE"))
-    return { bg: "#EEE6FE", fg: "#57575B" };
+  if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
   if (type.startsWith("TOOL_CALL"))
     return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
   if (type.startsWith("STATE"))
@@ -540,16 +539,18 @@ class CpkThreadList extends LitElement {
           ${filtered.map(
             (thread) => html`
               <div
-                class="cpk-tl__item ${this.selectedThreadId === thread.id
-                  ? "cpk-tl__item--active"
-                  : ""}"
+                class="cpk-tl__item ${
+                  this.selectedThreadId === thread.id
+                    ? "cpk-tl__item--active"
+                    : ""
+                }"
                 @click=${() => this.onThreadClick(thread.id)}
               >
                 <div class="cpk-tl__row1">
                   <span
-                    class="cpk-tl__name ${!thread.name
-                      ? "cpk-tl__name--unnamed"
-                      : ""}"
+                    class="cpk-tl__name ${
+                      !thread.name ? "cpk-tl__name--unnamed" : ""
+                    }"
                     >${thread.name ?? "Untitled"}</span
                   >
                   <span class="cpk-tl__time"
@@ -562,32 +563,36 @@ class CpkThreadList extends LitElement {
               </div>
             `,
           )}
-          ${filtered.length === 0
-            ? html`
+          ${
+            filtered.length === 0
+              ? html`
                 <div class="cpk-tl__empty">
-                  ${this.threads.length === 0
-                    ? html`
-                        <svg
-                          width="24"
-                          height="24"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.5"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          class="cpk-tl__empty-icon"
-                        >
-                          <path
-                            d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                          />
-                        </svg>
-                        No threads yet
-                      `
-                    : html`No threads match your search.`}
+                  ${
+                    this.threads.length === 0
+                      ? html`
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="cpk-tl__empty-icon"
+                          >
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                          </svg>
+                          No threads yet
+                        `
+                      : html`
+                          No threads match your search.
+                        `
+                  }
                 </div>
               `
-            : nothing}
+              : nothing
+          }
         </div>
       </div>
     `;
@@ -662,7 +667,10 @@ class CpkThreadDetails extends LitElement {
   private _dividerStartWidth = 0;
 
   static readonly COLLAPSE_THRESHOLD = 800;
-  private static readonly TAB_LIST: Array<{ id: ThreadDetailsTab; label: string }> = [
+  private static readonly TAB_LIST: Array<{
+    id: ThreadDetailsTab;
+    label: string;
+  }> = [
     { id: "conversation", label: "Conversation" },
     { id: "agent-state", label: "Agent State" },
     { id: "ag-ui-events", label: "AG-UI Events" },
@@ -1524,9 +1532,9 @@ class CpkThreadDetails extends LitElement {
                 (tab) => html`
                   <button
                     role="tab"
-                    class="cpk-td__tab ${this._tab === tab.id
-                      ? "cpk-td__tab--active"
-                      : ""}"
+                    class="cpk-td__tab ${
+                      this._tab === tab.id ? "cpk-td__tab--active" : ""
+                    }"
                     @click=${() => {
                       this._tab = tab.id;
                     }}
@@ -1537,9 +1545,9 @@ class CpkThreadDetails extends LitElement {
               )}
             </div>
             <button
-              class="cpk-td__panel-toggle ${this._showDetailPanel
-                ? "cpk-td__panel-toggle--active"
-                : ""}"
+              class="cpk-td__panel-toggle ${
+                this._showDetailPanel ? "cpk-td__panel-toggle--active" : ""
+              }"
               @click=${() => {
                 this._showDetailPanel = !this._showDetailPanel;
               }}
@@ -1564,16 +1572,19 @@ class CpkThreadDetails extends LitElement {
 
           <!-- Scrollable content -->
           <div class="cpk-td__content">
-            ${this._tab === "conversation"
-              ? this.renderConversation()
-              : this._tab === "agent-state"
-                ? this.renderState()
-                : this.renderEvents()}
+            ${
+              this._tab === "conversation"
+                ? this.renderConversation()
+                : this._tab === "agent-state"
+                  ? this.renderState()
+                  : this.renderEvents()
+            }
           </div>
         </div>
 
-        ${this._showDetailPanel
-          ? html`
+        ${
+          this._showDetailPanel
+            ? html`
               <!-- Resize divider -->
               <div
                 class="cpk-td__detail-divider"
@@ -1591,14 +1602,17 @@ class CpkThreadDetails extends LitElement {
                 ${this.renderDetailPanel()}
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
 
   private renderConversation() {
     if (this._loadingMessages) {
-      return html`<div class="cpk-td__status">Loading messages…</div>`;
+      return html`
+        <div class="cpk-td__status">Loading messages…</div>
+      `;
     }
     if (this._messagesError) {
       return html`<div class="cpk-td__status cpk-td__status--error">
@@ -1619,9 +1633,7 @@ class CpkThreadDetails extends LitElement {
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path
-              d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-            />
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <span>No messages yet</span>
         </div>
@@ -1644,9 +1656,11 @@ class CpkThreadDetails extends LitElement {
           <span>Reasoned for ${item.duration}</span>
         </div>`;
       case "state_update":
-        return html`<div class="cpk-td__inline-chip">
-          <span>Updated agent state</span>
-        </div>`;
+        return html`
+          <div class="cpk-td__inline-chip">
+            <span>Updated agent state</span>
+          </div>
+        `;
       case "generative-ui":
         return this.renderGenerativeUI(item);
       case "agent_responded":
@@ -1665,23 +1679,27 @@ class CpkThreadDetails extends LitElement {
         : item.content;
     return html`
       <div
-        class="cpk-td__bubble ${isUser
-          ? "cpk-td__bubble--user"
-          : "cpk-td__bubble--assistant"}"
+        class="cpk-td__bubble ${
+          isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
+        }"
       >
         <div
-          class="cpk-td__bubble-inner ${isUser
-            ? "cpk-td__bubble-inner--user"
-            : "cpk-td__bubble-inner--assistant"}"
+          class="cpk-td__bubble-inner ${
+            isUser
+              ? "cpk-td__bubble-inner--user"
+              : "cpk-td__bubble-inner--assistant"
+          }"
         >
           ${shown}
-          ${tooLong
-            ? html`<span
+          ${
+            tooLong
+              ? html`<span
                 class="cpk-td__show-more"
                 @click=${() => this.toggleMessageExpand(item.id)}
                 >${expanded ? "Show less" : "Show more"}</span
               >`
-            : nothing}
+              : nothing
+          }
         </div>
       </div>
     `;
@@ -1705,23 +1723,28 @@ class CpkThreadDetails extends LitElement {
             />
           </svg>
           <span class="cpk-td__tool-name">${item.toolName}</span>
-          ${item.result
-            ? html`<span class="cpk-td__tool-status">DONE</span>`
-            : html`<span
-                class="cpk-td__tool-status cpk-td__tool-status--pending"
-                >PENDING</span
-              >`}
+          ${
+            item.result
+              ? html`
+                  <span class="cpk-td__tool-status">DONE</span>
+                `
+              : html`
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">PENDING</span>
+                `
+          }
           <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
         </div>
-        ${expanded
-          ? html`
+        ${
+          expanded
+            ? html`
               <div class="cpk-td__tool-body">
                 <div class="cpk-td__tool-section-label">Arguments</div>
                 <pre class="cpk-td__tool-pre">
 ${unsafeHTML(highlightedJson(item.arguments))}</pre
                 >
-                ${item.result
-                  ? html`
+                ${
+                  item.result
+                    ? html`
                       <div
                         class="cpk-td__tool-section-label"
                         style="margin-top:8px"
@@ -1732,10 +1755,12 @@ ${unsafeHTML(highlightedJson(item.arguments))}</pre
 ${unsafeHTML(highlightedJson(item.result))}</pre
                       >
                     `
-                  : nothing}
+                    : nothing
+                }
               </div>
             `
-          : nothing}
+            : nothing
+        }
       </div>
     `;
   }
@@ -1760,20 +1785,24 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
           </svg>
           Generative UI
         </div>
-        ${item.html
-          ? html`<div class="cpk-td__genui-card">
+        ${
+          item.html
+            ? html`<div class="cpk-td__genui-card">
               ${unsafeHTML(item.html)}
             </div>`
-          : html`<div class="cpk-td__genui-placeholder">
+            : html`<div class="cpk-td__genui-placeholder">
               ${item.activityType} — rendered in chat
-            </div>`}
+            </div>`
+        }
       </div>
     `;
   }
 
   private renderState() {
     if (this._loadingState) {
-      return html`<div class="cpk-td__status">Loading state…</div>`;
+      return html`
+        <div class="cpk-td__status">Loading state…</div>
+      `;
     }
     if (this._stateError) {
       return html`<div class="cpk-td__status cpk-td__status--error">
@@ -1799,8 +1828,8 @@ ${unsafeHTML(highlightedJson(item.result))}</pre
           </svg>
           <span>State history not available</span>
           <span class="cpk-td__empty-hint"
-            >This runtime doesn't yet expose per-thread agent state. Available
-            when running against the in-memory runner.</span
+            >This runtime doesn't yet expose per-thread agent state. Available when
+            running against the in-memory runner.</span
           >
         </div>
       `;
@@ -1836,7 +1865,9 @@ ${unsafeHTML(highlightedJson(this.activeState))}</pre
 
   private renderEvents() {
     if (this._loadingEvents) {
-      return html`<div class="cpk-td__status">Loading events…</div>`;
+      return html`
+        <div class="cpk-td__status">Loading events…</div>
+      `;
     }
     if (this._eventsError) {
       return html`<div class="cpk-td__status cpk-td__status--error">
@@ -1848,8 +1879,8 @@ ${unsafeHTML(highlightedJson(this.activeState))}</pre
         <div class="cpk-td__empty-state">
           <span>Event history not available</span>
           <span class="cpk-td__empty-hint"
-            >This runtime doesn't yet expose per-thread AG-UI events. Available
-            when running against the in-memory runner.</span
+            >This runtime doesn't yet expose per-thread AG-UI events. Available when
+            running against the in-memory runner.</span
           >
         </div>
       `;

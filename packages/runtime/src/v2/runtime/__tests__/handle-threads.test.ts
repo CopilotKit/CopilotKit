@@ -648,9 +648,7 @@ describe("thread handlers", () => {
           role: "assistant",
         },
       ];
-      vi.spyOn(runner, "getThreadEvents").mockReturnValue(
-        fakeEvents as never,
-      );
+      vi.spyOn(runner, "getThreadEvents").mockReturnValue(fakeEvents as never);
       const runtime = new CopilotRuntime({ agents: {}, runner });
 
       const response = await handleGetThreadEvents({
@@ -670,9 +668,7 @@ describe("thread handlers", () => {
 
       const response = await handleGetThreadEvents({
         runtime,
-        request: new Request(
-          "https://example.com/threads/nonexistent/events",
-        ),
+        request: new Request("https://example.com/threads/nonexistent/events"),
         threadId: "nonexistent",
       });
 
@@ -734,9 +730,7 @@ describe("thread handlers", () => {
 
       const response = await handleGetThreadState({
         runtime,
-        request: new Request(
-          "https://example.com/threads/nonexistent/state",
-        ),
+        request: new Request("https://example.com/threads/nonexistent/state"),
         threadId: "nonexistent",
       });
 
