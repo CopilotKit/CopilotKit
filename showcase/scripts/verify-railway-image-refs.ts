@@ -33,12 +33,25 @@ const SHOWCASE = {
 
 // Canonical shape: ghcr.io/copilotkit/<name>:latest where <name> is the
 // service name itself. This single pattern covers showcase-<slug>,
-// showcase-starter-<slug>, showcase-aimock, showcase-pocketbase,
-// showcase-ops, and any future showcase-* service. Enforcing identity
-// between Railway service name and image name (modulo the ghcr.io/copilotkit/
-// prefix and :latest tag) is the invariant — if these ever drift apart we
-// want to know.
-const IMAGE_SHAPE = /^ghcr\.io\/copilotkit\/showcase-[a-z0-9-]+:latest$/;
+// showcase-starter-<slug>, showcase-pocketbase, showcase-ops, and any
+// future showcase-* service. Enforcing identity between Railway service
+// name and image name (modulo the ghcr.io/copilotkit/ prefix and :latest
+// tag) is the invariant — if these ever drift apart we want to know.
+//
+// The regex accepts both `showcase-*` and bare `<name>` images to
+// accommodate services like aimock whose wrapper was eliminated — the
+// Railway service is still named `showcase-aimock` but the image is now
+// `ghcr.io/copilotkit/aimock:latest`.
+const IMAGE_SHAPE = /^ghcr\.io\/copilotkit\/[a-z0-9-]+:latest$/;
+
+// Services whose GHCR image name intentionally differs from the Railway
+// service name. After the aimock wrapper elimination (PR #128), Railway
+// pulls `ghcr.io/copilotkit/aimock:latest` directly instead of the old
+// `showcase-aimock` wrapper image. The verify job must accept this
+// divergence rather than requiring image === service name.
+const IMAGE_OVERRIDES: Record<string, string> = {
+  "showcase-aimock": "ghcr.io/copilotkit/aimock:latest",
+};
 
 function getToken(): string {
   if (process.env.RAILWAY_TOKEN) return process.env.RAILWAY_TOKEN;
@@ -128,10 +141,11 @@ export function validateImage(
     return {
       service: serviceName,
       image,
-      reason: `does not match canonical shape ^ghcr\\.io/copilotkit/showcase-[a-z0-9-]+:latest$`,
+      reason: `does not match canonical shape ^ghcr\\.io/copilotkit/[a-z0-9-]+:latest$`,
     };
   }
-  const expected = `ghcr.io/copilotkit/${serviceName}:latest`;
+  const expected =
+    IMAGE_OVERRIDES[serviceName] ?? `ghcr.io/copilotkit/${serviceName}:latest`;
   if (image !== expected) {
     return {
       service: serviceName,
