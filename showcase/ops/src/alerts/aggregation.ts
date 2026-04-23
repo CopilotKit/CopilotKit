@@ -181,14 +181,18 @@ export class AggregationBucketStore {
   ): void {
     if (result && typeof (result as Promise<FlushResult>).then === "function") {
       void (result as Promise<FlushResult>).then((r) => {
-        if (r !== "suppressed") {
-          bucket.flushedAt = now;
+        if (r === "suppressed") {
+          // A5: promise resolved suppressed → revert the optimistic set so
+          // the bucket stays live for re-threshold. Since `onAggregationFlush`
+          // is wired with `.catch()` in the engine, this branch IS the
+          // production path (every real flush is a Promise).
+          bucket.flushedAt = null;
         }
       });
-      // Synchronous optimism: assume success for immediate state. The
-      // post-resolve `.then` above can still flip flushedAt to a non-null
-      // timestamp; for the "suppressed" path we leave flushedAt null so
-      // re-ingestion can re-trigger.
+      // Optimistic set: assume non-suppressed for immediate state so a
+      // follow-up ingest within the same synchronous tick won't re-fire
+      // onFlush. The .then above reverts flushedAt back to null if the
+      // flush actually resolves as "suppressed".
       bucket.flushedAt = now;
       return;
     }

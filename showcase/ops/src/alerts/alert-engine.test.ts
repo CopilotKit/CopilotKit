@@ -3376,6 +3376,34 @@ describe("AggregationBucketStore (Item 4 red phase)", () => {
     expect(onFlush.mock.calls.length).toBeGreaterThan(calls);
   });
 
+  it("bucket_stays_live_when_flush_suppressed_async", async () => {
+    // A5 (async path): onAggregationFlush is wired with `.catch()` in the
+    // engine, so it ALWAYS returns a Promise — this is the production path.
+    // If applyFlushResult's .then handler fails to revert flushedAt when the
+    // promise resolves to "suppressed", the bucket is marked flushed and a
+    // subsequent re-threshold ingestion will NOT re-fire onFlush. This test
+    // locks the async-branch invariant so the sync-only test above can't
+    // mask a regression in the common-case path.
+    const onFlush = vi.fn(async () => "suppressed" as const);
+    const store = new AggregationBucketStore(onFlush);
+    const rule = aggRule({ minMatches: 3, windowMs: 60_000 });
+    const t0 = Date.now();
+    store.ingest(rule, mkSignal("smoke", "a"), t0);
+    store.ingest(rule, mkSignal("smoke", "b"), t0 + 1_000);
+    store.ingest(rule, mkSignal("smoke", "c"), t0 + 2_000); // threshold hit
+    expect(onFlush).toHaveBeenCalledTimes(1);
+
+    // Flush microtask queue so the .then resolution handler runs and (if
+    // implemented correctly) reverts flushedAt back to null.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Another ingest that re-crosses threshold — A5 says onFlush must fire
+    // again because the bucket stayed live through the suppressed flush.
+    store.ingest(rule, mkSignal("smoke", "d"), t0 + 3_000);
+    expect(onFlush).toHaveBeenCalledTimes(2);
+  });
+
   it("bucket_key_collision_safe_with_special_chars", () => {
     // B4: intra-key delimiter must be NUL ( ), not `&`, so a groupBy
     // value containing `=` or `&` can't be crafted to collide with a
