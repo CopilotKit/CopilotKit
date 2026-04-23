@@ -1,6 +1,7 @@
 import { defineConfig } from "tsdown";
 import { createRequire } from "node:module";
 import * as path from "node:path";
+import * as fs from "node:fs";
 
 const require = createRequire(import.meta.url);
 
@@ -179,6 +180,30 @@ const shim = { randomFillSync, randomBytes, randomUUID };
 export default shim;
 `;
 
+/**
+ * Rolldown plugin that copies a CSS source file to the output directory as a
+ * standalone asset (not bundled into JS). Used to emit playground.css from
+ * chat-tab.css so view-provider.ts can reference it via webview.asWebviewUri.
+ *
+ * The stubNodeBuiltinsAndCss plugin stubs `.css` imports to empty modules
+ * inside the bundle, but we still want the CSS file itself to land in dist/.
+ * This plugin emits the file via `this.emitFile` in `buildStart`, which is
+ * the rolldown-compatible way to add assets to the output.
+ */
+function copyCssAsset(srcPath: string, destName: string) {
+  return {
+    name: "copy-css-asset",
+    buildStart() {
+      const css = fs.readFileSync(srcPath, "utf-8");
+      (this as { emitFile: (opts: unknown) => void }).emitFile({
+        type: "asset",
+        fileName: destName,
+        source: css,
+      });
+    },
+  };
+}
+
 function stubNodeBuiltinsAndCss(extraStubs: Record<string, string[]> = {}) {
   const allStubs = { ...HOOK_PREVIEW_STUBBED_DEPS, ...extraStubs };
   const EMPTY_MODULE_ID = "\0empty-module";
@@ -321,6 +346,13 @@ export default defineConfig([
     plugins: [
       stubNodeBuiltinsAndCss(PLAYGROUND_EXTRA_STUBBED_DEPS),
       nodeResolveFallback(playgroundSourceAliases),
+      copyCssAsset(
+        path.resolve(
+          import.meta.dirname,
+          "src/webview/playground/chat-tab.css",
+        ),
+        "playground.css",
+      ),
     ],
   },
 ]);

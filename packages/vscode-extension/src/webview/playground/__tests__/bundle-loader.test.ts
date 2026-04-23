@@ -22,7 +22,8 @@ describe("executePlaygroundBundle", () => {
     const { PlaygroundEntry } = await executePlaygroundBundle(code);
     expect(typeof PlaygroundEntry).toBe("function");
 
-    const deps = (window as { __copilotkit_deps?: { React?: unknown } }).__copilotkit_deps;
+    const deps = (window as { __copilotkit_deps?: { React?: unknown } })
+      .__copilotkit_deps;
     expect(deps?.React).toBeDefined();
   });
 

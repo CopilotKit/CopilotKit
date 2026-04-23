@@ -11,7 +11,9 @@ describe("MountedComponentsPanel", () => {
   });
 
   it("renders the error card when bundleError is set", () => {
-    render(<MountedComponentsPanel bundle={null} bundleError="rolldown broke" />);
+    render(
+      <MountedComponentsPanel bundle={null} bundleError="rolldown broke" />,
+    );
     expect(screen.getByText(/rolldown broke/)).toBeDefined();
   });
 

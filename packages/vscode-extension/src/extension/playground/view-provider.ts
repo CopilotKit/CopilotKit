@@ -344,6 +344,14 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         "playground.js",
       ),
     );
+    const stylesUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        "dist",
+        "webview",
+        "playground.css",
+      ),
+    );
     const nonce = getNonce();
     const csp = [
       `default-src 'none'`,
@@ -357,6 +365,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
+  <link rel="stylesheet" href="${stylesUri}" />
 </head>
 <body>
   <div id="root"></div>

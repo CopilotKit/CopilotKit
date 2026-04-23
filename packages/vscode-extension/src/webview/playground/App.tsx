@@ -1,12 +1,19 @@
 import * as React from "react";
 import { ScannerView } from "./ScannerView";
 import { MountedComponentsPanel } from "./MountedComponentsPanel";
+import { ChatSurface } from "./ChatSurface";
+import { ConversationSidebar } from "./ConversationSidebar";
+import { DiagnosticsPanel } from "./DiagnosticsPanel";
 import {
   executePlaygroundBundle,
   type PlaygroundBundleExports,
 } from "./bundle-loader";
 import { onExtensionMessage, sendToExtension } from "./bridge";
 import type { PlaygroundScanResult } from "../../extension/playground/types";
+import type {
+  FixtureListEntry,
+  MountErrorPayload,
+} from "../../extension/playground/bridge-types";
 
 export function App(): React.JSX.Element {
   const [result, setResult] = React.useState<PlaygroundScanResult>({
@@ -19,22 +26,21 @@ export function App(): React.JSX.Element {
     null,
   );
   const [bundleError, setBundleError] = React.useState<string | null>(null);
-  const [stateBanner, setStateBanner] = React.useState<
-    | {
-        kind: "mode-unsupported";
-        subKind: "proxy" | "dynamic-runtime-url";
-        detail?: string;
-      }
-    | { kind: "llm-config-missing" }
-    | { kind: "runtime-error"; message: string }
-    | null
-  >(null);
+  const [stateBanner, setStateBanner] = React.useState<{
+    message: string;
+  } | null>(null);
+  const [fixtures, setFixtures] = React.useState<FixtureListEntry[]>([]);
+  const [sessionInfo, setSessionInfo] = React.useState<{
+    runtimeUrl: string;
+    replayMode: boolean;
+    fixtureName: string | null;
+  }>({ runtimeUrl: "", replayMode: false, fixtureName: null });
+  const [mountErrors, setMountErrors] = React.useState<MountErrorPayload[]>([]);
 
   React.useEffect(() => {
     const unsubscribe = onExtensionMessage((msg) => {
-      if (msg.type === "scan-result") {
-        setResult(msg.result);
-      } else if (msg.type === "bundle-ready") {
+      if (msg.type === "scan-result") setResult(msg.result);
+      else if (msg.type === "bundle-ready") {
         setStateBanner(null);
         setBundleError(null);
         executePlaygroundBundle(msg.payload.code).then(
@@ -49,69 +55,97 @@ export function App(): React.JSX.Element {
         setBundle(null);
       } else if (msg.type === "mode-unsupported") {
         setStateBanner({
-          kind: "mode-unsupported",
-          subKind: msg.kind,
-          detail: msg.detail,
+          message:
+            msg.kind === "proxy"
+              ? `Proxy mode unsupported — change runtimeUrl to a relative path. Current: ${msg.detail ?? ""}`
+              : `Dynamic runtimeUrl unsupported: ${msg.detail ?? ""}`,
         });
         setBundle(null);
         setBundleError(null);
       } else if (msg.type === "llm-config-missing") {
-        setStateBanner({ kind: "llm-config-missing" });
+        setStateBanner({
+          message:
+            "Configure an LLM API key: run 'CopilotKit: Set Playground LLM API Key' or add OPENAI_API_KEY/ANTHROPIC_API_KEY to your workspace .env.",
+        });
         setBundle(null);
         setBundleError(null);
       } else if (msg.type === "runtime-error") {
-        setStateBanner({ kind: "runtime-error", message: msg.message });
+        setStateBanner({ message: `Runtime error: ${msg.message}` });
         setBundle(null);
         setBundleError(null);
+      } else if (msg.type === "fixtures-list") {
+        setFixtures(msg.fixtures);
+      } else if (msg.type === "session-info") {
+        setSessionInfo({
+          runtimeUrl: msg.runtimeUrl,
+          replayMode: msg.replayMode,
+          fixtureName: msg.fixtureName,
+        });
+      } else if (msg.type === "diagnostics") {
+        setMountErrors(msg.errors);
       }
     });
     sendToExtension({ type: "ready" });
     return unsubscribe;
   }, []);
 
-  function renderStateBanner(): React.JSX.Element | null {
-    if (!stateBanner) return null;
-    switch (stateBanner.kind) {
-      case "mode-unsupported": {
-        const message =
-          stateBanner.subKind === "proxy"
-            ? `Your <CopilotKit> provider points at ${stateBanner.detail ?? "an external runtime"}. Mode 1 (proxy to external runtime) isn't supported yet — change runtimeUrl to a relative path (e.g. "/api/copilotkit") to use the playground.`
-            : `Your runtimeUrl is a dynamic expression (${stateBanner.detail ?? ""}). The playground can't use dynamic URLs — use a string literal instead.`;
-        return (
-          <div role="alert" className="playground-state-banner">
-            <strong>Playground unavailable.</strong> {message}
-          </div>
-        );
+  // Poll window.__copilotkit_playground_errors so the diagnostics panel
+  // reflects new mount errors without requiring a full round-trip through
+  // the extension host. The bundle's ErrorBoundary writes into this array.
+  React.useEffect(() => {
+    const tick = (): void => {
+      const w = window as unknown as {
+        __copilotkit_playground_errors?: MountErrorPayload[];
+      };
+      const arr = w.__copilotkit_playground_errors;
+      if (arr && arr.length !== mountErrors.length) {
+        setMountErrors([...arr]);
       }
-      case "llm-config-missing":
-        return (
-          <div role="alert" className="playground-state-banner">
-            <strong>No LLM API key configured.</strong> Run the command{" "}
-            <code>CopilotKit: Set Playground LLM API Key</code> from the Command
-            Palette, or add <code>OPENAI_API_KEY</code> /{" "}
-            <code>ANTHROPIC_API_KEY</code> to your workspace <code>.env</code>.
-          </div>
-        );
-      case "runtime-error":
-        return (
-          <div role="alert" className="playground-state-banner">
-            <strong>Runtime error:</strong> {stateBanner.message}
-          </div>
-        );
-    }
-  }
+    };
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [mountErrors.length]);
 
   return (
     <div className="playground-layout">
-      {renderStateBanner()}
-      <ScannerView
-        result={result}
-        onRefresh={() => sendToExtension({ type: "refresh" })}
-        onOpenSource={(filePath, line) =>
-          sendToExtension({ type: "open-source", filePath, line })
+      {stateBanner && (
+        <div role="alert" className="playground-state-banner">
+          {stateBanner.message}
+        </div>
+      )}
+      <ConversationSidebar
+        fixtures={fixtures}
+        currentFixtureName={sessionInfo.fixtureName}
+        replayMode={sessionInfo.replayMode}
+        onNewChat={() => sendToExtension({ type: "new-chat" })}
+        onLoad={(filePath) =>
+          sendToExtension({ type: "load-fixture", filePath })
+        }
+        onSave={(name) => sendToExtension({ type: "save-fixture", name })}
+        onDelete={(filePath) =>
+          sendToExtension({ type: "delete-fixture", filePath })
         }
       />
+      {bundle ? (
+        <ChatSurface bundle={bundle} />
+      ) : (
+        <div className="playground-chat">
+          <ScannerView
+            result={result}
+            onRefresh={() => sendToExtension({ type: "refresh" })}
+            onOpenSource={(filePath, line) =>
+              sendToExtension({ type: "open-source", filePath, line })
+            }
+          />
+        </div>
+      )}
       <MountedComponentsPanel bundle={bundle} bundleError={bundleError} />
+      <DiagnosticsPanel
+        mountErrors={mountErrors}
+        runtimeUrl={sessionInfo.runtimeUrl || null}
+        replayMode={sessionInfo.replayMode}
+        fixtureName={sessionInfo.fixtureName}
+      />
     </div>
   );
 }
