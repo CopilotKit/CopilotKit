@@ -619,10 +619,9 @@ describe("IntelligenceAgentRunner", () => {
     });
   });
 
-  describe("run with joinCode", () => {
-    it("uses joinCode for the channel topic when provided", async () => {
+  describe("run channel ownership", () => {
+    it("uses runId for the ingestion channel topic", async () => {
       const threadId = "t-jc";
-      const joinCode = "join-abc-123";
       const input = createRunInput({ threadId, runId: "r-jc" });
       const agent = new MockAgent([
         {
@@ -632,16 +631,15 @@ describe("IntelligenceAgentRunner", () => {
         } as RunFinishedEvent,
       ]);
 
-      const eventsPromise = collectEvents(
-        runner.run({ threadId, agent, input, joinCode }),
-      );
+      const eventsPromise = collectEvents(runner.run({ threadId, agent, input }));
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`ingestion:${joinCode}`);
+      expect(ch.topic).toBe("ingestion:r-jc");
+      expect(ch.params).toEqual({ thread_id: threadId, run_id: "r-jc" });
       ch.triggerJoin("ok");
       await eventsPromise;
     });
 
-    it("falls back to threadId when joinCode is not provided", async () => {
+    it("keeps pushed event payload ownership on canonical threadId and runId", async () => {
       const threadId = "t-no-jc";
       const input = createRunInput({ threadId, runId: "r-no-jc" });
       const agent = new MockAgent([
@@ -656,9 +654,17 @@ describe("IntelligenceAgentRunner", () => {
         runner.run({ threadId, agent, input }),
       );
       const ch = mockChannels[0];
-      expect(ch.topic).toBe(`ingestion:${threadId}`);
       ch.triggerJoin("ok");
       await eventsPromise;
+
+      expect(ch.pushLog[0].payload).toEqual(
+        expect.objectContaining({
+          threadId,
+          runId: "r-no-jc",
+          thread_id: threadId,
+          run_id: "r-no-jc",
+        }),
+      );
     });
   });
 

@@ -1,4 +1,10 @@
-import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  Message,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
@@ -66,20 +72,23 @@ export async function handleIntelligenceRun({
     );
   }
 
-  let joinCode: string | undefined;
+  let canonicalThreadId = input.threadId;
+  let canonicalRunId = input.runId;
   let joinToken: string | undefined;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       threadId: input.threadId,
       runId: input.runId,
       userId,
+      agentId,
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
       ttlSeconds: runtime.lockTtlSeconds,
     });
+    canonicalThreadId = lockResult.threadId;
+    canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
-    joinCode = lockResult.joinCode;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     return Response.json(
@@ -90,21 +99,41 @@ export async function handleIntelligenceRun({
     );
   }
 
-  if (!joinToken) {
+  if (!canonicalThreadId || !canonicalRunId || !joinToken) {
     return Response.json(
       {
-        error: "Join token not available",
-        message: "Intelligence platform did not return a join token",
+        error: "Run connection credentials not available",
+        message:
+          "Intelligence platform did not return canonical threadId, runId, and joinToken",
       },
       { status: 502 },
     );
   }
 
+  const canonicalInput: RunAgentInput = {
+    ...input,
+    threadId: canonicalThreadId,
+    runId: canonicalRunId,
+  };
+
+  const cleanupLock = (reason: string): Promise<void> =>
+    runtime.intelligence
+      .ɵcleanupThreadLock({
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
+      })
+      .catch((cleanupError) => {
+        logger.error(
+          { err: cleanupError, reason },
+          "Failed to cleanup thread lock",
+        );
+      });
+
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
       const history = await runtime.intelligence.getThreadMessages({
-        threadId: input.threadId,
+        threadId: canonicalThreadId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),
@@ -114,6 +143,7 @@ export async function handleIntelligenceRun({
       );
     } catch (error) {
       logger.error("Thread history lookup failed:", error);
+      await cleanupLock("thread-history-lookup-failed");
       return Response.json(
         {
           error: "Thread history lookup failed",
@@ -130,8 +160,8 @@ export async function handleIntelligenceRun({
   heartbeatTimer = setInterval(() => {
     runtime.intelligence
       .ɵrenewThreadLock({
-        threadId: input.threadId,
-        runId: input.runId,
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
@@ -139,6 +169,15 @@ export async function handleIntelligenceRun({
       })
       .catch((err) => {
         logger.error("Failed to renew thread lock:", err);
+        clearHeartbeat();
+        try {
+          agent.abortRun();
+        } catch (abortError) {
+          logger.error(
+            "Failed to abort agent after lock renewal failure:",
+            abortError,
+          );
+        }
       });
   }, runtime.lockHeartbeatIntervalSeconds * 1_000);
 
@@ -149,32 +188,59 @@ export async function handleIntelligenceRun({
     }
   };
 
-  runtime.runner
-    .run({
-      threadId: input.threadId,
-      agent,
-      input,
-      ...(persistedInputMessages !== undefined
-        ? { persistedInputMessages }
-        : {}),
-      ...(joinCode ? { joinCode } : {}),
-    })
-    .subscribe({
-      error: (error) => {
-        clearHeartbeat();
-        telemetry.capture("oss.runtime.agent_execution_stream_errored", {
-          error: error instanceof Error ? error.message : String(error),
-        });
-        logger.error("Error running agent:", error);
+  const runStarted = { current: false };
+
+  try {
+    runtime.runner
+      .run({
+        threadId: canonicalThreadId,
+        agent,
+        input: canonicalInput,
+        ...(persistedInputMessages !== undefined
+          ? { persistedInputMessages }
+          : {}),
+      })
+      .subscribe({
+        next: (event: BaseEvent) => {
+          if (event.type === EventType.RUN_STARTED) {
+            runStarted.current = true;
+          }
+          if (event.type === EventType.RUN_ERROR && !runStarted.current) {
+            cleanupLock("runner-start-failed");
+          }
+        },
+        error: (error) => {
+          clearHeartbeat();
+          cleanupLock("runner-start-error");
+          telemetry.capture("oss.runtime.agent_execution_stream_errored", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+          logger.error("Error running agent:", error);
+        },
+        complete: () => {
+          clearHeartbeat();
+          telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
+        },
+      });
+  } catch (error) {
+    clearHeartbeat();
+    await cleanupLock("runner-start-threw");
+    logger.error("Error starting agent runner:", error);
+    return Response.json(
+      {
+        error: "Failed to start runner",
       },
-      complete: () => {
-        clearHeartbeat();
-        telemetry.capture("oss.runtime.agent_execution_stream_ended", {});
-      },
-    });
+      { status: 502 },
+    );
+  }
 
   return Response.json(
-    { joinToken },
+    {
+      threadId: canonicalThreadId,
+      runId: canonicalRunId,
+      joinToken,
+      intelligence: { wsUrl: runtime.intelligence.ɵgetClientWsUrl() },
+    },
     {
       headers: { "Cache-Control": "no-cache" },
     },

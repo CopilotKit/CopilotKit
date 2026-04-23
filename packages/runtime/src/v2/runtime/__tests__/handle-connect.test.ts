@@ -231,17 +231,18 @@ describe("handleConnectAgent", () => {
         identifyUser: vi
           .fn()
           .mockResolvedValue({ id: "user-1", name: "User One" }),
-        intelligence: platform,
+        intelligence: {
+          ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
+          ...platform,
+        },
       } as unknown as CopilotRuntime;
     };
 
-    it("returns a live connect plan when join credentials are available", async () => {
+    it("returns runtime websocket connection credentials when available", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue({
-          mode: "live",
+          threadId: "thread-1",
           joinToken: "jt-connect-1",
-          joinFromEventId: "event-1",
-          events: [],
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
@@ -256,33 +257,23 @@ describe("handleConnectAgent", () => {
       expect(response.headers.get("Content-Type")).toBe("application/json");
       const body = await response.json();
       expect(body).toEqual({
-        mode: "live",
+        threadId: "thread-1",
+        runId: "run-1",
         joinToken: "jt-connect-1",
-        joinFromEventId: "event-1",
-        events: [],
+        intelligence: { wsUrl: "wss://runtime.example/client" },
       });
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: null,
+        agentId: "my-agent",
       });
     });
 
-    it("returns a bootstrap connect plan when no socket is needed", async () => {
+    it("does not restamp historical replay plans during connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue({
-          mode: "bootstrap",
-          latestEventId: "event-2",
-          events: [
-            {
-              type: "RUN_STARTED",
-              threadId: "thread-1",
-              run_id: "backend-run-1",
-              input: { messages: [] },
-            },
-            { type: "RUN_FINISHED" },
-          ],
+          threadId: "thread-1",
+          joinToken: "jt-connect-1",
         }),
       };
       const runtime = createIntelligenceRuntime(platform);
@@ -296,25 +287,10 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body).toEqual({
-        mode: "bootstrap",
-        latestEventId: "event-2",
-        events: [
-          {
-            type: "RUN_STARTED",
-            threadId: "thread-1",
-            runId: "run-1",
-            input: {
-              messages: [],
-              threadId: "thread-1",
-              runId: "run-1",
-            },
-          },
-          {
-            type: "RUN_FINISHED",
-            threadId: "thread-1",
-            runId: "run-1",
-          },
-        ],
+        threadId: "thread-1",
+        runId: "run-1",
+        joinToken: "jt-connect-1",
+        intelligence: { wsUrl: "wss://runtime.example/client" },
       });
     });
 
@@ -337,8 +313,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: null,
+        agentId: "my-agent",
       });
     });
 
@@ -361,7 +336,7 @@ describe("handleConnectAgent", () => {
       expect(body.error).toBe("Connect plan not available");
     });
 
-    it("forwards lastSeenEventId to the intelligence platform", async () => {
+    it("does not forward replay cursors to the credentials-only intelligence platform connect", async () => {
       const platform = {
         ɵconnectThread: vi.fn().mockResolvedValue(null),
       };
@@ -377,8 +352,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: "event-9",
+        agentId: "my-agent",
       });
     });
 
@@ -408,8 +382,7 @@ describe("handleConnectAgent", () => {
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
         userId: "resolved-user",
-        runId: "run-1",
-        lastSeenEventId: "event-9",
+        agentId: "my-agent",
       });
     });
 
