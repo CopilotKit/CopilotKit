@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as vscode from "vscode";
 import type { PlaygroundScanResult } from "./types";
 import type {
@@ -5,11 +6,26 @@ import type {
   PlaygroundWebviewToExtensionMessage,
 } from "./bridge-types";
 import { getNonce } from "../utils";
+import {
+  writePlaygroundSources,
+  type PlaygroundSources,
+} from "./codegen/entry-codegen";
+import { bundlePlayground, type PlaygroundBundleResult } from "./bundler";
 
 export interface PlaygroundCallbacks {
   onRefresh(): void | Promise<void>;
   onOpenSource(filePath: string, line?: number): void | Promise<void>;
 }
+
+export interface PlaygroundDeps {
+  writeSources: (scan: PlaygroundScanResult) => PlaygroundSources | null;
+  bundle: (entryPath: string) => Promise<PlaygroundBundleResult>;
+}
+
+const DEFAULT_DEPS: PlaygroundDeps = {
+  writeSources: writePlaygroundSources,
+  bundle: bundlePlayground,
+};
 
 export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = "copilotkit.chat";
@@ -21,11 +37,13 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly callbacks: PlaygroundCallbacks,
+    private readonly deps: PlaygroundDeps = DEFAULT_DEPS,
   ) {}
 
   setScanResult(result: PlaygroundScanResult): void {
     this.latestResult = result;
     if (this.ready) this.postResult();
+    void this.runBundle(result);
   }
 
   resolveWebviewView(
@@ -67,18 +85,54 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private postResult(): void {
-    if (!this.latestResult || !this.view) return;
-    const msg: PlaygroundExtensionToWebviewMessage = {
-      type: "scan-result",
-      result: this.latestResult,
-    };
+  private async runBundle(result: PlaygroundScanResult): Promise<void> {
+    const sources = this.deps.writeSources(result);
+    if (!sources) return;
+    try {
+      const bundle = await this.deps.bundle(sources.entryPath);
+      if (!bundle.success || !bundle.code) {
+        this.post({
+          type: "bundle-error",
+          message: bundle.error ?? "unknown bundle error",
+        });
+        return;
+      }
+      this.post({
+        type: "bundle-ready",
+        payload: { code: bundle.code, css: bundle.css },
+      });
+    } catch (err) {
+      this.post({
+        type: "bundle-error",
+        message: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      try {
+        fs.rmSync(sources.outDir, { recursive: true, force: true });
+      } catch {
+        /* best-effort cleanup */
+      }
+    }
+  }
+
+  private post(msg: PlaygroundExtensionToWebviewMessage): void {
+    if (!this.view) return;
     this.view.webview.postMessage(msg);
+  }
+
+  private postResult(): void {
+    if (!this.latestResult) return;
+    this.post({ type: "scan-result", result: this.latestResult });
   }
 
   private renderHtml(webview: vscode.Webview): string {
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, "dist", "webview", "playground.js"),
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        "dist",
+        "webview",
+        "playground.js",
+      ),
     );
     const nonce = getNonce();
     const csp = [

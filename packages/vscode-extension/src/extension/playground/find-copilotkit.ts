@@ -55,7 +55,10 @@ export function findCopilotKitNodes(
   for (const node of ast.body) {
     if (node.type !== "ImportDeclaration") continue;
     const src = typeof node.source?.value === "string" ? node.source.value : "";
-    if (src !== "@copilotkit/react-core" && src !== "@copilotkit/react-core/v2") {
+    if (
+      src !== "@copilotkit/react-core" &&
+      src !== "@copilotkit/react-core/v2"
+    ) {
       continue;
     }
     for (const spec of node.specifiers ?? []) {
@@ -67,7 +70,9 @@ export function findCopilotKitNodes(
       if (imported === "CopilotKit") {
         localToAlias.set(local, {
           importedName: "CopilotKit",
-          importSource: src as "@copilotkit/react-core" | "@copilotkit/react-core/v2",
+          importSource: src as
+            | "@copilotkit/react-core"
+            | "@copilotkit/react-core/v2",
         });
       } else if (
         imported === "CopilotKitProvider" &&

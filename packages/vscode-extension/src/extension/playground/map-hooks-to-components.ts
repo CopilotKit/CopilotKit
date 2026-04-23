@@ -1,7 +1,11 @@
 import { parseSync } from "oxc-parser";
 import type { HookCallSite } from "../hooks/hook-scanner";
 import type { ComponentWithHooks, ScanWarning } from "./types";
-import { buildLineOffsets, lineColumnToOffset, offsetToLineColumn } from "./ast-utils";
+import {
+  buildLineOffsets,
+  lineColumnToOffset,
+  offsetToLineColumn,
+} from "./ast-utils";
 
 interface FunctionInfo {
   node: any;
@@ -41,7 +45,8 @@ export function mapHooksToComponents(
   const functions = collectFunctions(ast);
   const lineOffsets = buildLineOffsets(content);
   const siteOffsets = new Map<HookCallSite, number>();
-  for (const s of sites) siteOffsets.set(s, lineColumnToOffset(s.loc.line, s.loc.column, content));
+  for (const s of sites)
+    siteOffsets.set(s, lineColumnToOffset(s.loc.line, s.loc.column, content));
 
   const byFunction = new Map<FunctionInfo, HookCallSite[]>();
   const warnings: ScanWarning[] = [];
@@ -218,4 +223,3 @@ function innermostFunctionContaining(
   }
   return best;
 }
-

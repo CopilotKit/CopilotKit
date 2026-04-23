@@ -44,7 +44,11 @@ export function serializeJsxProps(
     }
 
     if (attr.value.type === "JSXExpressionContainer") {
-      result[name] = serializeExpression(attr.value.expression, sourceText, lineOffsets);
+      result[name] = serializeExpression(
+        attr.value.expression,
+        sourceText,
+        lineOffsets,
+      );
       continue;
     }
 
