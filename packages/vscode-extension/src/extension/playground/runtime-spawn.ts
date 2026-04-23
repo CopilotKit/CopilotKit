@@ -74,14 +74,21 @@ export function spawnRuntime(
         url,
         stop: () =>
           new Promise<void>((resolveStop) => {
-            child.once("exit", () => resolveStop());
+            let exited = false;
+            const finish = (): void => {
+              if (exited) return;
+              exited = true;
+              clearTimeout(fallback);
+              resolveStop();
+            };
+            child.once("exit", finish);
             try {
               child.kill();
             } catch {
               /* best effort */
             }
-            // Fallback in case the process doesn't exit cleanly.
-            setTimeout(() => resolveStop(), 2000);
+            const fallback = setTimeout(finish, 2000);
+            fallback.unref();
           }),
       });
     };

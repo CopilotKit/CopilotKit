@@ -118,7 +118,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  private async stopSession(): Promise<void> {
+  async stopSession(): Promise<void> {
     if (!this.currentSession) return;
     const { aimock, runtime } = this.currentSession;
     this.currentSession = null;

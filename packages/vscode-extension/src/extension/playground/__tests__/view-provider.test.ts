@@ -379,4 +379,64 @@ describe("PlaygroundViewProvider — orchestration", () => {
       expect.objectContaining({ type: "bundle-ready" }),
     );
   });
+
+  it("stops the previous session when setScanResult is called again", async () => {
+    const stop1 = vi.fn().mockResolvedValue(undefined);
+    const stop2 = vi.fn().mockResolvedValue(undefined);
+    const aimock1 = {
+      url: "http://127.0.0.1:11111",
+      provider: "openai" as const,
+      isReplayMode: false,
+      getJournal: () => [],
+      stop: stop1,
+    };
+    const aimock2 = {
+      url: "http://127.0.0.1:22222",
+      provider: "openai" as const,
+      isReplayMode: false,
+      getJournal: () => [],
+      stop: stop1,
+    };
+    const runtime1 = { url: "http://127.0.0.1:33333", stop: stop2 };
+    const runtime2 = { url: "http://127.0.0.1:44444", stop: stop2 };
+    const deps = makeDeps({
+      writeSources: vi.fn().mockReturnValue({
+        outDir: "/tmp/ignored",
+        entryPath: "/tmp/ignored/entry.tsx",
+      }),
+      bundle: vi.fn().mockResolvedValue({ success: true, code: "var x;" }),
+      startAimock: vi.fn().mockResolvedValueOnce(aimock1).mockResolvedValueOnce(aimock2),
+      spawnRuntime: vi.fn().mockResolvedValueOnce(runtime1).mockResolvedValueOnce(runtime2),
+    });
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      deps,
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    view.send({ type: "ready" });
+
+    const scan: PlaygroundScanResult = {
+      providers: [
+        {
+          filePath: "/x/App.tsx",
+          loc: { line: 1, column: 0, endLine: 1, endColumn: 1 },
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+          props: {},
+        },
+      ],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    };
+    provider.setScanResult(scan);
+    await new Promise((r) => setTimeout(r, 30));
+    provider.setScanResult(scan);
+    await new Promise((r) => setTimeout(r, 60));
+
+    expect(stop1).toHaveBeenCalled();
+    expect(stop2).toHaveBeenCalled();
+  });
 });

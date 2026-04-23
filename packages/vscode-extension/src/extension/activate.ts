@@ -21,6 +21,8 @@ import {
 } from "./playground/view-provider";
 import { scanPlayground } from "./playground/scanner";
 
+let activePlaygroundProvider: PlaygroundViewProvider | null = null;
+
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
@@ -308,6 +310,7 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     createPlaygroundDeps(context, workspaceRoot ?? null),
   );
+  activePlaygroundProvider = playgroundProvider;
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       PlaygroundViewProvider.viewType,
@@ -356,7 +359,12 @@ export function activate(context: vscode.ExtensionContext): void {
   activateHookExplorer(context, workspaceRoot);
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  if (activePlaygroundProvider) {
+    void activePlaygroundProvider.stopSession();
+    activePlaygroundProvider = null;
+  }
+}
 
 /**
  * Validates a fixture document and sets diagnostics (yellow squiggly lines).
