@@ -104,6 +104,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             ```python title="agent.py"
             from langgraph.types import interrupt # [!code highlight]
             from langchain_core.messages import SystemMessage
+            from langchain_core.runnables import RunnableConfig
             from langchain_openai import ChatOpenAI
             from copilotkit import CopilotKitState
 
@@ -233,6 +234,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                 ```python title="agent.py"
                 from langgraph.types import interrupt # [!code highlight]
                 from langchain_core.messages import SystemMessage
+                from langchain_core.runnables import RunnableConfig
                 from langchain_openai import ChatOpenAI
 
                 # ... your full state definition

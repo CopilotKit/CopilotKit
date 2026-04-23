@@ -23,6 +23,7 @@ You can disable all message streaming and tool call streaming by passing `emit_m
     <Tab value="Python">
         ```python
         from copilotkit.langgraph import copilotkit_customize_config
+        from langchain_core.runnables import RunnableConfig
 
         async def frontend_actions_node(state: AgentState, config: RunnableConfig):
 

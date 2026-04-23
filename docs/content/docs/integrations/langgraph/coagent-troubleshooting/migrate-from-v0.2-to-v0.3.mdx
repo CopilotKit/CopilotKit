@@ -10,6 +10,8 @@ Starting with `v0.3`, we changed how messages are synced between the agent (Lang
 This means that you need to return the messages you want to appear in CopilotKit chat from your LangGraph nodes, for example:
 
 ```python
+from langchain_core.runnables import RunnableConfig
+
 def my_node(state: State, config: RunnableConfig) -> State:
     response = # ... llm call ...
     return {

@@ -113,6 +113,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     <Tab value="Python">
                         ```python title="agent.py"
                         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+                        from langchain_core.runnables import RunnableConfig
                         # ...
                         async def chat_node(state: AgentState, config: RunnableConfig) -> Command[Literal["cpk_action_node", "tool_node", "__end__"]]:
                             # ...
