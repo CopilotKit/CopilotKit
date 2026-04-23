@@ -159,7 +159,24 @@ export function resolveShape(
   return "package";
 }
 
-const FilterSchema = z
+/**
+ * Filter block accepted from YAML's `discovery.filter` — the
+ * probe-invoker (`loader/probe-invoker.ts`) calls
+ * `source.enumerate(ctx, cfg.discovery.filter ?? {})`, passing the
+ * FILTER CONTENTS DIRECTLY (not wrapped in an outer `{filter: ...}`
+ * object). This schema is therefore the source's full config contract,
+ * not a nested field inside one. An earlier version wrapped the block
+ * in an outer `{filter: FilterSchema}` ConfigSchema; the wrapper never
+ * matched the invoker's call shape, so `cfg.filter` was always
+ * undefined, `namePrefix` + `nameExcludes` silently defaulted to
+ * undefined, and all 7 infra services declared in smoke.yml's
+ * `nameExcludes` produced smoke:/health:/agent: rows every tick.
+ *
+ * `.passthrough()` preserves the previous lenient behaviour — tests
+ * and callers that pass extra keys still parse cleanly rather than
+ * trigger a strict-mode rejection.
+ */
+const ConfigSchema = z
   .object({
     labels: z.record(z.string()).optional(),
     namePrefix: z.string().optional(),
@@ -173,12 +190,6 @@ const FilterSchema = z
      * those two names and nothing else.
      */
     nameExcludes: z.array(z.string().min(1)).optional(),
-  })
-  .optional();
-
-const ConfigSchema = z
-  .object({
-    filter: FilterSchema,
   })
   .passthrough();
 
@@ -230,8 +241,10 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
   async enumerate(ctx, rawConfig) {
-    const cfg = ConfigSchema.parse(rawConfig ?? {});
-    const filter = cfg.filter ?? {};
+    // `rawConfig` is the filter-contents object the invoker hands us —
+    // see ConfigSchema docstring above for why this is flat, not a
+    // `{filter: {...}}` wrapper.
+    const filter = ConfigSchema.parse(rawConfig ?? {});
     const token = ctx.env.RAILWAY_TOKEN;
     const projectId = ctx.env.RAILWAY_PROJECT_ID;
     const environmentId = ctx.env.RAILWAY_ENVIRONMENT_ID;
