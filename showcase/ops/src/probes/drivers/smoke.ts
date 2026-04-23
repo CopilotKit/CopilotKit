@@ -41,8 +41,8 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  * behaviour contained to this file.
  *
  * Input shapes: the driver accepts TWO inputs.
- *   - Static YAML: `{ key, url }`. `url` is the `/smoke` endpoint; the
- *     derived /health + agent URLs come from path manipulation.
+ *   - Static YAML: `{ key, url }`. `url` is the `/api/smoke` endpoint;
+ *     the derived /api/health + agent URLs come from path manipulation.
  *   - Discovery: `{ key, name, imageRef, publicUrl, env }`. The smoke
  *     URL is `${publicUrl}/smoke`; slug is `name` with the `showcase-`
  *     prefix stripped (`showcase-ag2` → `ag2`, `showcase-starter-ag2`
@@ -103,7 +103,7 @@ const discoverySmokeInputSchema = z
      * (`discovery/railway-services.ts`). Controls which URL contract the
      * driver exercises:
      *
-     *   - `package` → legacy `/smoke` + `/health` + `/api/copilotkit/`.
+     *   - `package` → `/api/smoke` + `/api/health` + `/api/copilotkit/`.
      *   - `starter` → `/api/health` (primary + side-emit) +
      *                 `/api/copilotkit/`. Starters have no `/smoke`
      *                 route; using the legacy contract produces one
@@ -627,8 +627,8 @@ interface DerivedUrls {
 /**
  * Derive the three per-target URLs from the input shape.
  *
- *   - Discovery mode (`publicUrl` present): smoke = `${publicUrl}/smoke`,
- *     health = `${publicUrl}/health`, agent = `${publicUrl}/api/copilotkit/`.
+ *   - Discovery mode (`publicUrl` present): smoke = `${publicUrl}/api/smoke`,
+ *     health = `${publicUrl}/api/health`, agent = `${publicUrl}/api/copilotkit/`.
  *     The trailing slash on the agent path mirrors the runtime router's
  *     expectation — CopilotKit Hono routes are mounted at
  *     `/api/copilotkit/` with a trailing slash in every showcase.
@@ -663,8 +663,8 @@ function deriveUrls(
       };
     }
     return {
-      smokeUrl: `${base}/smoke`,
-      healthUrl: `${base}/health`,
+      smokeUrl: `${base}/api/smoke`,
+      healthUrl: `${base}/api/health`,
       agentUrl: `${base}/api/copilotkit/`,
     };
   }
@@ -688,7 +688,9 @@ function deriveUrls(
 function deriveAgentUrl(url: string): string {
   try {
     const u = new URL(url);
-    if (/\/smoke\/?$/.test(u.pathname)) {
+    if (/\/api\/smoke\/?$/.test(u.pathname)) {
+      u.pathname = u.pathname.replace(/\/api\/smoke\/?$/, "/api/copilotkit/");
+    } else if (/\/smoke\/?$/.test(u.pathname)) {
       u.pathname = u.pathname.replace(/\/smoke\/?$/, "/api/copilotkit/");
     } else {
       u.pathname = u.pathname.replace(/\/$/, "") + "/api/copilotkit/";

@@ -646,8 +646,8 @@ describe("smokeDriver", () => {
     expect(writes.map((w) => w.key).sort()).toEqual(
       ["agent:ag2", "health:ag2"].sort(),
     );
-    expect(calls).toContain("https://showcase-ag2.up.railway.app/smoke");
-    expect(calls).toContain("https://showcase-ag2.up.railway.app/health");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/api/smoke");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/api/health");
     expect(calls).toContain(
       "https://showcase-ag2.up.railway.app/api/copilotkit/",
     );
@@ -815,10 +815,7 @@ describe("smokeDriver", () => {
     }
   });
 
-  it("package shape (explicit): keeps the legacy /smoke + /health contract", async () => {
-    // Sanity check that the new `shape` field is optional and
-    // backward-compatible: when `shape === "package"` (or omitted), the
-    // driver still hits /smoke + /health exactly like before.
+  it("package shape (explicit): hits /api/smoke + /api/health", async () => {
     const calls: string[] = [];
     const fetchImpl: typeof fetch = (async (url: string | URL) => {
       const href = typeof url === "string" ? url : url.toString();
@@ -837,8 +834,8 @@ describe("smokeDriver", () => {
       publicUrl: "https://showcase-ag2.up.railway.app",
       shape: "package",
     });
-    expect(calls).toContain("https://showcase-ag2.up.railway.app/smoke");
-    expect(calls).toContain("https://showcase-ag2.up.railway.app/health");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/api/smoke");
+    expect(calls).toContain("https://showcase-ag2.up.railway.app/api/health");
   });
 
   // -------------------------------------------------------------------
