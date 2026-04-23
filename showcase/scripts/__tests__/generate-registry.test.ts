@@ -77,8 +77,9 @@ describe("Registry Generator", () => {
     // Count matches current manifest after Wave 1 re-wired open-gen-ui +
     // open-gen-ui-advanced (30→32; they had existed pre-#4029, were scrubbed,
     // and are now re-declared for the langgraph-python column completion).
-    expect(langgraph.features.length).toBe(32);
-    expect(langgraph.demos.length).toBe(32);
+    // Wave 2a adds `voice` → 33.
+    expect(langgraph.features.length).toBe(33);
+    expect(langgraph.demos.length).toBe(33);
   });
 
   it("sorts integrations by sort_order", () => {
