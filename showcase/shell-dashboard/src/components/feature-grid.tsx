@@ -144,20 +144,35 @@ export function FeatureGrid({
   title,
   subtitle,
   renderCell,
-  minColWidth = 220,
+  minColWidth = 200,
+  integrations: integrationsProp,
+  features: featuresProp,
+  onlyGreen = false,
 }: {
   title: string;
   subtitle?: string;
   renderCell: CellRenderer;
   minColWidth?: number;
+  /** Pre-filtered integrations. Falls back to the full registry when omitted. */
+  integrations?: Integration[];
+  /** Pre-filtered features. Falls back to the full registry when omitted. */
+  features?: Feature[];
+  /**
+   * Hide any feature row where at least one visible integration has a non-green
+   * rollup (red / amber / gray / error) for that feature. Evaluated after live
+   * status resolves so it reacts to the SSE stream.
+   */
+  onlyGreen?: boolean;
 }) {
   const shellUrl = resolveShellUrl();
   // `getIntegrations()` / `getFeatures()` call `.sort()` / array spread on
   // every invocation, returning a fresh array identity. Memoize once per
   // mount so downstream `useMemo`s keyed on these arrays don't identity-
   // invalidate every render (C5 F9).
-  const integrations = useMemo(() => getIntegrations(), []);
-  const features = useMemo(() => getFeatures(), []);
+  const allIntegrations = useMemo(() => getIntegrations(), []);
+  const allFeatures = useMemo(() => getFeatures(), []);
+  const integrations = integrationsProp ?? allIntegrations;
+  const features = featuresProp ?? allFeatures;
   const categories = useMemo(() => getFeatureCategories(), []);
 
   // One subscription per dimension — each resolves into `rows` that we
@@ -192,33 +207,54 @@ export function FeatureGrid({
     return out;
   }, [integrations, features, liveStatus, connection]);
 
+  // When `onlyGreen` is on, a feature is visible only if EVERY integration
+  // that has a demo for it rolls up green. Integrations without a demo for
+  // the feature are treated as N/A (they don't sabotage the row), but a row
+  // with zero green cells across the visible integrations is still hidden —
+  // "fully green" means "something is green and nothing is failing".
+  const greenVisible = useMemo(() => {
+    if (!onlyGreen) return features;
+    return features.filter((f) => {
+      let sawGreen = false;
+      for (const i of integrations) {
+        const hasDemo = i.demos.some((d) => d.id === f.id);
+        if (!hasDemo) continue;
+        const cell = resolveCell(liveStatus, i.slug, f.id, { connection });
+        if (cell.rollup !== "green") return false;
+        sawGreen = true;
+      }
+      return sawGreen;
+    });
+  }, [onlyGreen, features, integrations, liveStatus, connection]);
+
   const featuresByCategory = categories
     .map((cat) => ({
       ...cat,
-      features: features.filter((f) => f.category === cat.id),
+      features: greenVisible.filter((f) => f.category === cat.id),
     }))
     .filter((cat) => cat.features.length > 0);
 
+  const hasVisibleRows = featuresByCategory.length > 0;
+
   return (
-    <div className="p-8 max-w-[100vw]">
-      <header className="mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          <LiveIndicator status={connection} />
-        </div>
-        <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          {subtitle ? <>{subtitle} · </> : null}
-          {features.length} features × {integrations.length} integrations.
-        </p>
+    <div className="px-8 pt-4 pb-6 max-w-[100vw]">
+      <header className="mb-3 flex items-center gap-3">
+        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        <LiveIndicator status={connection} />
+        {subtitle && (
+          <span className="text-xs text-[var(--text-secondary)]">
+            {subtitle}
+          </span>
+        )}
       </header>
 
       {connection === "error" && <OfflineBanner />}
 
-      <div className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
-        <table className="border-collapse text-sm">
+      <div className="overflow-auto rounded-md border border-[var(--border)] bg-[var(--bg-surface)]">
+        <table className="border-collapse text-[12px]">
           <thead>
             <tr>
-              <th className="sticky left-0 top-0 z-30 bg-[var(--bg-muted)] px-4 py-3 text-left min-w-[260px] border-b border-[var(--border)]">
+              <th className="sticky left-0 top-0 z-30 bg-[var(--bg-muted)] px-3 py-2 text-left min-w-[220px] border-b border-[var(--border)]">
                 <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   Feature
                 </span>
@@ -239,42 +275,35 @@ export function FeatureGrid({
                 return (
                   <th
                     key={integration.slug}
-                    className="sticky top-0 z-20 bg-[var(--bg-muted)] px-3 py-3 text-left border-b border-l border-[var(--border)] font-normal"
+                    className="sticky top-0 z-20 bg-[var(--bg-muted)] px-2.5 py-2 text-left border-b border-l border-[var(--border)] font-normal"
                     style={{ minWidth: `${minColWidth}px` }}
                   >
-                    <div className="text-xs font-semibold text-[var(--text)]">
+                    <div className="text-[12px] font-semibold text-[var(--text)] leading-tight">
                       {integration.name}
                     </div>
-                    <div className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
-                      {integration.language}
-                    </div>
-                    <div
-                      className="mt-1 text-[10px] tabular-nums text-[var(--text-muted)]"
-                      title={tallyTitle}
-                    >
-                      {tally.unknown ? (
-                        <span className="text-[var(--text-muted)]">
-                          ? offline
-                        </span>
-                      ) : (
-                        <>
-                          <span className="text-[var(--ok)]">
-                            ✓ {tally.green}
-                          </span>
-                          <span className="mx-1 text-[var(--text-muted)]">
-                            ·
-                          </span>
-                          <span className="text-[var(--amber)]">
-                            ~ {tally.amber}
-                          </span>
-                          <span className="mx-1 text-[var(--text-muted)]">
-                            ·
-                          </span>
-                          <span className="text-[var(--danger)]">
-                            ✗ {tally.red}
-                          </span>
-                        </>
-                      )}
+                    <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+                      <span className="uppercase tracking-wider">
+                        {integration.language}
+                      </span>
+                      <span className="tabular-nums" title={tallyTitle}>
+                        {tally.unknown ? (
+                          "? offline"
+                        ) : (
+                          <>
+                            <span className="text-[var(--ok)]">
+                              {tally.green}
+                            </span>
+                            <span className="mx-0.5">/</span>
+                            <span className="text-[var(--amber)]">
+                              {tally.amber}
+                            </span>
+                            <span className="mx-0.5">/</span>
+                            <span className="text-[var(--danger)]">
+                              {tally.red}
+                            </span>
+                          </>
+                        )}
+                      </span>
                     </div>
                   </th>
                 );
@@ -282,12 +311,22 @@ export function FeatureGrid({
             </tr>
           </thead>
           <tbody>
+            {!hasVisibleRows && (
+              <tr>
+                <td
+                  colSpan={integrations.length + 1}
+                  className="px-6 py-10 text-center text-xs text-[var(--text-muted)]"
+                >
+                  No features match the current filters.
+                </td>
+              </tr>
+            )}
             {featuresByCategory.map((cat) => (
               <Fragment key={cat.id}>
                 <tr>
                   <td
                     colSpan={integrations.length + 1}
-                    className="sticky left-0 px-4 pt-5 pb-1.5 text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-surface)]"
+                    className="sticky left-0 px-3 pt-3 pb-1 text-[9.5px] font-medium uppercase tracking-wider text-[var(--text-muted)] bg-[var(--bg-surface)]"
                   >
                     {cat.name}
                   </td>
@@ -297,9 +336,9 @@ export function FeatureGrid({
                   return (
                     <tr
                       key={feature.id}
-                      className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
+                      className="odd:bg-[var(--bg-alt)] hover:bg-[var(--bg-hover)]"
                     >
-                      <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-2 border-r border-[var(--border)] align-top">
+                      <td className="sticky left-0 z-10 bg-inherit px-3 py-1.5 border-r border-t border-[var(--border)] align-top">
                         <div
                           className={
                             testing
@@ -323,7 +362,7 @@ export function FeatureGrid({
                         return (
                           <td
                             key={integration.slug}
-                            className="border-l border-[var(--border)] px-3 py-2 align-top text-left"
+                            className="border-l border-t border-[var(--border)] px-2.5 py-1.5 align-top text-left"
                           >
                             {demo ? (
                               renderCell({
@@ -339,10 +378,10 @@ export function FeatureGrid({
                               })
                             ) : (
                               <div
-                                className="text-center text-base text-[var(--danger)]"
-                                title="No demo"
+                                className="text-center text-sm text-[var(--text-faint)]"
+                                title="No demo for this feature"
                               >
-                                ✗
+                                —
                               </div>
                             )}
                           </td>

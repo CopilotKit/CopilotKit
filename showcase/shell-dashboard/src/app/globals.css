@@ -3,15 +3,19 @@
 :root {
   --bg: #ffffff;
   --bg-surface: #ffffff;
+  --bg-alt: #fafbfc;
   --bg-muted: #f7f8fa;
   --bg-hover: #f1f3f6;
+  --bg-danger: #fef2f2;
   --border: #e4e7ec;
   --border-strong: #d0d5dd;
   --text: #101828;
   --text-secondary: #475467;
   --text-muted: #98a2b3;
+  --text-faint: #d0d5dd;
   --accent: #2563eb;
   --accent-hover: #1d4ed8;
+  --accent-light: #eff6ff;
   --ok: #059669;
   --amber: #d97706;
   --danger: #dc2626;
