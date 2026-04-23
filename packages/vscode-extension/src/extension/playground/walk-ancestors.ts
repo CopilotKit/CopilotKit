@@ -1,5 +1,6 @@
 import type { ProviderChainEntry } from "./types";
 import { serializeJsxProps } from "./serialize-props";
+import { buildLineOffsets, offsetToLineColumn } from "./ast-utils";
 
 /**
  * Walks the JSX tree from the root of the AST and records the ancestor
@@ -35,8 +36,7 @@ export function walkSameFileAncestors(
       return;
     }
 
-    const nextStack =
-      node.type === "JSXElement" ? [...stack, node] : stack;
+    const nextStack = node.type === "JSXElement" ? [...stack, node] : stack;
 
     for (const key of Object.keys(node)) {
       if (key === "loc" || key === "range" || key === "parent") continue;
@@ -54,13 +54,17 @@ export function walkSameFileAncestors(
 
   walk(ast, []);
 
-  return ancestors.map((el) => toProviderEntry(el, sourceText, filePath));
+  const lineOffsets = buildLineOffsets(sourceText);
+  return ancestors.map((el) =>
+    toProviderEntry(el, sourceText, filePath, lineOffsets),
+  );
 }
 
 function toProviderEntry(
   jsxElement: any,
   sourceText: string,
   filePath: string,
+  lineOffsets: number[],
 ): ProviderChainEntry {
   const opening = jsxElement.openingElement;
   const name = opening?.name;
@@ -73,10 +77,17 @@ function toProviderEntry(
   const props = serializeJsxProps(opening, sourceText);
   const start = opening?.start ?? 0;
   const end = opening?.end ?? start;
+  const startLC = offsetToLineColumn(start, lineOffsets);
+  const endLC = offsetToLineColumn(end, lineOffsets);
   return {
     tagName,
     props,
-    loc: { line: 0, column: start, endLine: 0, endColumn: end },
+    loc: {
+      line: startLC.line,
+      column: startLC.column,
+      endLine: endLC.line,
+      endColumn: endLC.column,
+    },
     filePath,
   };
 }

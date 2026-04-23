@@ -1,4 +1,5 @@
 import { parseSync } from "oxc-parser";
+import { buildLineOffsets, offsetToLineColumn } from "./ast-utils";
 
 export interface CopilotKitNode {
   filePath: string;
@@ -13,28 +14,6 @@ const PREFILTER_STRING = "@copilotkit/react-core";
 
 function hasCopilotKitImport(source: string): boolean {
   return source.includes(PREFILTER_STRING);
-}
-
-function buildLineOffsets(source: string): number[] {
-  const offsets = [0];
-  for (let i = 0; i < source.length; i++) {
-    if (source.charCodeAt(i) === 10) offsets.push(i + 1);
-  }
-  return offsets;
-}
-
-function offsetToLineColumn(
-  offset: number,
-  lineOffsets: number[],
-): { line: number; column: number } {
-  let lo = 0;
-  let hi = lineOffsets.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >>> 1;
-    if (lineOffsets[mid]! <= offset) lo = mid;
-    else hi = mid - 1;
-  }
-  return { line: lo + 1, column: offset - lineOffsets[lo]! };
 }
 
 /**
