@@ -488,4 +488,62 @@ describe("aimock-wiring probe", () => {
     expect(r.signal.sealedPreview).toEqual([]);
     expect(r.signal.sealedCount).toBe(0);
   });
+
+  it("wired when OPENAI_BASE_URL has /v1 path suffix and aimockUrl does not", async () => {
+    // Most services set OPENAI_BASE_URL=<aimock>/v1 (OpenAI SDK convention)
+    // while AIMOCK_URL is just the bare origin. The probe must match by
+    // hostname so the /v1 path difference does not cause a false mismatch.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [
+          { name: "showcase-ag2" },
+          { name: "showcase-mastra" },
+        ],
+        getServiceEnv: async () => ({
+          OPENAI_BASE_URL: `${AIMOCK_URL}/v1`,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["showcase-ag2", "showcase-mastra"]);
+    expect(r.signal.wiredCount).toBe(2);
+    expect(r.signal.unwired).toEqual([]);
+  });
+
+  it("wired when GOOGLE_GEMINI_BASE_URL points at aimock", async () => {
+    // showcase-google-adk uses GOOGLE_GEMINI_BASE_URL in addition to
+    // OPENAI_BASE_URL. The probe must check all three candidate env vars.
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-google-adk" }],
+        getServiceEnv: async () => ({
+          GOOGLE_GEMINI_BASE_URL: AIMOCK_URL,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.wired).toEqual(["showcase-google-adk"]);
+    expect(r.signal.wiredCount).toBe(1);
+    expect(r.signal.unwired).toEqual([]);
+  });
+
+  it("GOOGLE_GEMINI_BASE_URL sealed → sealed bucket, not unwired", async () => {
+    const r = await aimockWiringProbe.run(
+      {
+        aimockUrl: AIMOCK_URL,
+        listServices: async () => [{ name: "showcase-google-adk" }],
+        getServiceEnv: async () => ({
+          GOOGLE_GEMINI_BASE_URL: SEALED_SENTINEL,
+        }),
+      },
+      ctx,
+    );
+    expect(r.state).toBe("green");
+    expect(r.signal.sealed).toEqual(["showcase-google-adk"]);
+    expect(r.signal.unwired).toEqual([]);
+  });
 });
