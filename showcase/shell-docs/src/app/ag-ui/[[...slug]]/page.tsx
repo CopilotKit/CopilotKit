@@ -416,7 +416,7 @@ export default async function AgUiDocPage({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
       {/* Sidebar */}
       <SidebarNav className="w-[220px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <Link

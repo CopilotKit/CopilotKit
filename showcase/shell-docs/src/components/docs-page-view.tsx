@@ -154,7 +154,7 @@ export async function DocsPageView({
   }
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
       <SidebarNav className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         {backLink && (
