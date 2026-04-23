@@ -67,52 +67,6 @@ export function Badge({
   );
 }
 
-export function HealthDot({
-  state,
-  href,
-  title,
-  onTooltipOpen,
-}: {
-  state: { label: string; tone: BadgeTone };
-  href?: string;
-  title?: string;
-  onTooltipOpen?: () => void;
-}) {
-  const openedRef = useRef(false);
-  const handleOpen = (): void => {
-    if (openedRef.current) return;
-    openedRef.current = true;
-    onTooltipOpen?.();
-  };
-  const inner = (
-    <span
-      className="inline-flex items-center gap-1 whitespace-nowrap"
-      title={title}
-      onMouseEnter={handleOpen}
-      onFocus={handleOpen}
-    >
-      <span
-        className={`inline-block w-2 h-2 rounded-full ${DOT_BG[state.tone]}`}
-      />
-      <span className={`tabular-nums ${TONE_CLASS[state.tone]}`}>
-        {state.label}
-      </span>
-    </span>
-  );
-  return href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="hover:underline"
-    >
-      {inner}
-    </a>
-  ) : (
-    inner
-  );
-}
-
 // Tiny square chip used in strip / grid views.
 export function ToneChip({
   tone,

@@ -1,6 +1,9 @@
 /**
  * Unit tests for the header `LiveIndicator` color-map (spec §5.7) and
  * `computeColumnTally` (§5.4 rollup + §5.3 offline handling).
+ *
+ * Phase 3: QA removed, smoke removed from per-cell tally. E2E uses
+ * e2e_smoke dimension. Tally now counts health (once) + e2e per feature.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
@@ -9,9 +12,6 @@ import type { Integration, Feature } from "@/lib/registry";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 
 describe("LiveIndicator", () => {
-  // Note: tone assertions use `data-tone` (stable) rather than the raw
-  // CSS-class selector (`bg-[var(--ok)]`) — class names are a Tailwind
-  // implementation detail and shift when themes move (C5 F23).
   it("renders live → green solid dot", () => {
     const { getByTestId } = render(<LiveIndicator status="live" />);
     const el = getByTestId("live-indicator");
@@ -74,42 +74,42 @@ describe("computeColumnTally", () => {
     { id: "f2", name: "f2", category: "c", description: "" },
   ];
 
-  it("splits green / amber / red distinctly — health counts once per integration", () => {
+  it("counts health once + e2e per feature", () => {
     const live: LiveStatusMap = new Map();
-    live.set("smoke:i1/f1", row("smoke:i1/f1", "smoke", "green"));
-    live.set("smoke:i1/f2", row("smoke:i1/f2", "smoke", "degraded"));
-    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
+    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "red"));
+    live.set("e2e_smoke:i1/f2", row("e2e_smoke:i1/f2", "e2e_smoke", "green"));
     live.set("health:i1", row("health:i1", "health", "green"));
     const t = computeColumnTally(integration, features, live);
-    // Spec §5.4: health is an integration-level dimension — counted ONCE
-    // per integration (not once per feature). Feature-level dimensions
-    // (smoke, e2e) are counted per feature.
-    //   health (integration): green → +1g
-    //   f1: smoke=green (+1g), e2e=red (+1r)
-    //   f2: smoke=amber (+1a), e2e=gray (skip)
-    // Total: 2 green, 1 amber, 1 red.
-    expect(t).toEqual({ green: 2, amber: 1, red: 1, unknown: false });
+    // health (integration): green → +1g
+    // f1: e2e=red (+1r)
+    // f2: e2e=green (+1g)
+    // Total: 2 green, 0 amber, 1 red.
+    expect(t).toEqual({ green: 2, amber: 0, red: 1, unknown: false });
   });
 
   it("health red contributes exactly one red to the column tally", () => {
     const live: LiveStatusMap = new Map();
     live.set("health:i1", row("health:i1", "health", "red"));
     const t = computeColumnTally(integration, features, live);
-    // No smoke/e2e rows → health is the only signal, and it counts once.
     expect(t).toEqual({ green: 0, amber: 0, red: 1, unknown: false });
   });
 
   it("missing health row contributes zero (does not count as red)", () => {
     const live: LiveStatusMap = new Map();
-    live.set("smoke:i1/f1", row("smoke:i1/f1", "smoke", "green"));
+    live.set(
+      "e2e_smoke:i1/f1",
+      row("e2e_smoke:i1/f1", "e2e_smoke", "green"),
+    );
     const t = computeColumnTally(integration, features, live);
-    // Only f1 smoke exists; no e2e, no health, no f2 smoke. One green.
     expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
   });
 
   it("returns unknown=true when connection is error", () => {
     const live: LiveStatusMap = new Map();
-    live.set("smoke:i1/f1", row("smoke:i1/f1", "smoke", "green"));
+    live.set(
+      "e2e_smoke:i1/f1",
+      row("e2e_smoke:i1/f1", "e2e_smoke", "green"),
+    );
     const t = computeColumnTally(integration, features, live, "error");
     expect(t.unknown).toBe(true);
     expect(t.green).toBe(0);

@@ -5,13 +5,14 @@
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
+import { PackagesSection } from "@/components/packages-section";
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
 
   // Informational demo (e.g. cli-start) — renders a copy-pasteable command
   // block in place of the Demo/Code links, but still shows the same docs
-  // row + E2E/Smoke/QA/health badges below so the matrix is consistent.
+  // row + E2E badge below so the matrix is consistent.
   if (ctx.demo.command) {
     return <CommandCell ctx={ctx} />;
   }
@@ -50,27 +51,51 @@ export default function Page() {
   return (
     <>
       <FeatureGrid title="Feature Matrix" renderCell={Cell} minColWidth={260} />
+      <PackagesSection />
       <Legend />
     </>
   );
 }
 
 function Legend() {
-  // Aging thresholds below (`<6h`, `<7d`, `<30d`) describe intent /
-  // spec §5.4 policy — the probe aging logic lives in the ops service
-  // (showcase/ops/src/writers/status-writer.ts) and the values shown
-  // here are informational copy, not live-derived. If the probes'
-  // "degraded" cutoff changes, update this Legend too (C5 F11).
   return (
     <div className="px-8 pb-8 mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-[var(--text-muted)]">
+      <div className="flex items-center gap-1.5">
+        <span className="font-semibold text-[var(--text-secondary)]">
+          L1-L4 Strip
+        </span>
+        per-integration health levels shown in column header
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--ok)]">Up</span>
+        L1 health endpoint reachable
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--ok)]">Wired</span>
+        L2 agent endpoint responds (non-404)
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--ok)]">Chats</span>
+        L3 chat round-trip via Playwright
+      </div>
+      <div className="flex items-center gap-1.5">
+        <span className="text-[var(--ok)]">Tools</span>
+        L4 tool rendering verified (n/a if no tool-rendering demo)
+      </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-secondary)]">testing</span>
         rows are muted &amp; hide docs (primary feature = has docs)
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="text-[var(--ok)]">docs-og ✓</span>/
+        <span className="text-[var(--ok)]">docs-og ✓</span>
+        {" / "}
+        <span className="text-[var(--text-muted)]">·</span>
+        {" / "}
         <span className="text-[var(--danger)]">docs-shell ✗</span>
-        doc link present / missing
+        {" / "}
+        <span className="text-[var(--amber)]">!</span>
+        {" "}
+        docs: ok / missing / 404 / probe error
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--accent)] font-medium">Demo ↗</span>/
@@ -79,28 +104,13 @@ function Legend() {
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--ok)]">E2E ✓</span>/
-        <span className="text-[var(--amber)]">amber</span>/
+        <span className="text-[var(--amber)]">~</span>/
         <span className="text-[var(--danger)]">✗</span>
-        end-to-end (green &lt;6h · amber older · red fail/none)
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="text-[var(--ok)]">Smoke ✓</span>
-        smoke test, same color rules
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="text-[var(--ok)]">QA 3d</span>
-        days since human QA (green &lt;7d · amber &lt;30d · red older/never)
-      </div>
-      <div className="flex items-center gap-1.5">
-        <span className="inline-flex items-center gap-1">
-          <span className="inline-block w-2 h-2 rounded-full bg-[var(--ok)]" />
-          Hosted
-        </span>
-        dot = live probe, click = open hosted URL
+        end-to-end smoke (green &lt;6h · amber stale · red fail)
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-muted)]">?</span>
-        live data not yet received (probe pending)
+        probe has not yet ticked since deploy
       </div>
       <div className="flex items-center gap-1.5">
         <span className="text-[var(--text-muted)]">—</span>
