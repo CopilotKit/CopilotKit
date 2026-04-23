@@ -63,7 +63,13 @@ export function scanPlayground(workspaceRoot: string): PlaygroundScanResult {
 
     for (const node of nodes) {
       const props = serializeJsxProps(node.openingElement, content);
-      providers.push({ filePath, loc: node.loc, props });
+      providers.push({
+        filePath,
+        loc: node.loc,
+        props,
+        importedName: node.importedName,
+        importSource: node.importSource,
+      });
     }
 
     // Only compute ancestor chain for the FIRST provider in the FIRST file.

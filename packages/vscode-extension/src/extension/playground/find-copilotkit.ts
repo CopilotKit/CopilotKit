@@ -8,6 +8,10 @@ export interface CopilotKitNode {
   /** The enclosing JSXElement node; ancestor walker uses this as the target. */
   jsxElement: any;
   loc: { line: number; column: number; endLine: number; endColumn: number };
+  /** The exported symbol the user imported — `CopilotKit` or `CopilotKitProvider`. */
+  importedName: "CopilotKit" | "CopilotKitProvider";
+  /** The module the user imported from. */
+  importSource: "@copilotkit/react-core" | "@copilotkit/react-core/v2";
 }
 
 const PREFILTER_STRING = "@copilotkit/react-core";
@@ -41,24 +45,43 @@ export function findCopilotKitNodes(
     return [];
   }
 
-  // Build alias map: local identifier → canonical export name.
-  const localToCanonical = new Map<string, string>();
+  // Build alias map: local identifier → { importedName, importSource }.
+  interface AliasInfo {
+    importedName: "CopilotKit" | "CopilotKitProvider";
+    importSource: "@copilotkit/react-core" | "@copilotkit/react-core/v2";
+  }
+
+  const localToAlias = new Map<string, AliasInfo>();
   for (const node of ast.body) {
     if (node.type !== "ImportDeclaration") continue;
     const src = typeof node.source?.value === "string" ? node.source.value : "";
-    if (src !== "@copilotkit/react-core") continue;
+    if (src !== "@copilotkit/react-core" && src !== "@copilotkit/react-core/v2") {
+      continue;
+    }
     for (const spec of node.specifiers ?? []) {
       if (spec.type !== "ImportSpecifier") continue;
       const imported =
         spec.imported?.type === "Identifier" ? spec.imported.name : null;
       const local = spec.local?.name ?? imported;
-      if (imported === "CopilotKit" && local) {
-        localToCanonical.set(local, "CopilotKit");
+      if (!imported || !local) continue;
+      if (imported === "CopilotKit") {
+        localToAlias.set(local, {
+          importedName: "CopilotKit",
+          importSource: src as "@copilotkit/react-core" | "@copilotkit/react-core/v2",
+        });
+      } else if (
+        imported === "CopilotKitProvider" &&
+        src === "@copilotkit/react-core/v2"
+      ) {
+        localToAlias.set(local, {
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+        });
       }
     }
   }
 
-  if (localToCanonical.size === 0) return [];
+  if (localToAlias.size === 0) return [];
 
   const lineOffsets = buildLineOffsets(content);
   const results: CopilotKitNode[] = [];
@@ -72,23 +95,27 @@ export function findCopilotKitNodes(
     if (
       node.type === "JSXElement" &&
       node.openingElement?.type === "JSXOpeningElement" &&
-      node.openingElement.name?.type === "JSXIdentifier" &&
-      localToCanonical.has(node.openingElement.name.name)
+      node.openingElement.name?.type === "JSXIdentifier"
     ) {
-      const opening = node.openingElement;
-      const start = offsetToLineColumn(opening.start ?? 0, lineOffsets);
-      const end = offsetToLineColumn(opening.end ?? 0, lineOffsets);
-      results.push({
-        filePath,
-        openingElement: opening,
-        jsxElement: node,
-        loc: {
-          line: start.line,
-          column: start.column,
-          endLine: end.line,
-          endColumn: end.column,
-        },
-      });
+      const alias = localToAlias.get(node.openingElement.name.name);
+      if (alias) {
+        const opening = node.openingElement;
+        const start = offsetToLineColumn(opening.start ?? 0, lineOffsets);
+        const end = offsetToLineColumn(opening.end ?? 0, lineOffsets);
+        results.push({
+          filePath,
+          openingElement: opening,
+          jsxElement: node,
+          loc: {
+            line: start.line,
+            column: start.column,
+            endLine: end.line,
+            endColumn: end.column,
+          },
+          importedName: alias.importedName,
+          importSource: alias.importSource,
+        });
+      }
     }
 
     for (const key of Object.keys(node)) {

@@ -32,4 +32,28 @@ describe("findCopilotKitNodes", () => {
     const nodes = findCopilotKitNodes(fx("aliased-provider.tsx"), src);
     expect(nodes).toHaveLength(1);
   });
+
+  it("detects v2 CopilotKitProvider from @copilotkit/react-core/v2", () => {
+    const src = read("v2-provider.tsx");
+    const nodes = findCopilotKitNodes(fx("v2-provider.tsx"), src);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].importedName).toBe("CopilotKitProvider");
+    expect(nodes[0].importSource).toBe("@copilotkit/react-core/v2");
+  });
+
+  it("detects backward-compat CopilotKit from @copilotkit/react-core/v2", () => {
+    const src = read("v2-backcompat-provider.tsx");
+    const nodes = findCopilotKitNodes(fx("v2-backcompat-provider.tsx"), src);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].importedName).toBe("CopilotKit");
+    expect(nodes[0].importSource).toBe("@copilotkit/react-core/v2");
+  });
+
+  it("records v1 importSource for the simple-provider fixture", () => {
+    const src = read("simple-provider.tsx");
+    const nodes = findCopilotKitNodes(fx("simple-provider.tsx"), src);
+    expect(nodes).toHaveLength(1);
+    expect(nodes[0].importedName).toBe("CopilotKit");
+    expect(nodes[0].importSource).toBe("@copilotkit/react-core");
+  });
 });

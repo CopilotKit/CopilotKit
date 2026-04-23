@@ -10,6 +10,8 @@ const result: PlaygroundScanResult = {
       filePath: "/workspace/src/app.tsx",
       loc: { line: 5, column: 4, endLine: 7, endColumn: 2 },
       props: { runtimeUrl: "/api/copilotkit", publicApiKey: "pk_test" },
+      importedName: "CopilotKit" as const,
+      importSource: "@copilotkit/react-core" as const,
     },
   ],
   ancestorChain: [

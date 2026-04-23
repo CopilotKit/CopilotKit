@@ -9,6 +9,10 @@ export interface CopilotKitProviderLocation {
   filePath: string;
   loc: { line: number; column: number; endLine: number; endColumn: number };
   props: CopilotKitProps;
+  /** Which component the user imported. */
+  importedName: "CopilotKit" | "CopilotKitProvider";
+  /** Which package the import came from. */
+  importSource: "@copilotkit/react-core" | "@copilotkit/react-core/v2";
 }
 
 /**

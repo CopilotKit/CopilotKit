@@ -22,7 +22,9 @@ describe("scanPlayground", () => {
     expect(result.providers[0].props.runtimeUrl).toBe("/api/copilotkit");
     expect(result.providers[0].props.publicApiKey).toBe("pk_test");
 
-    expect(result.ancestorChain?.map((p) => p.tagName)).toEqual(["AuthProvider"]);
+    expect(result.ancestorChain?.map((p) => p.tagName)).toEqual([
+      "AuthProvider",
+    ]);
 
     const compNames = result.componentsWithHooks
       .map((c) => c.componentName)

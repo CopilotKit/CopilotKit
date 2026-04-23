@@ -17,7 +17,9 @@ describe("mapHooksToComponents", () => {
       sites,
     );
     expect(components).toHaveLength(2);
-    const byName = Object.fromEntries(components.map((c) => [c.componentName, c]));
+    const byName = Object.fromEntries(
+      components.map((c) => [c.componentName, c]),
+    );
     expect(byName.MyPage.hooks).toHaveLength(2);
     expect(byName.Sidebar.hooks).toHaveLength(1);
     expect(warnings).toEqual([]);
