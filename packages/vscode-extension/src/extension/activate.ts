@@ -15,6 +15,8 @@ import { InspectorPanel } from "./inspector-panel";
 import { InspectorViewProvider } from "./inspector-view-provider";
 import { DebugStream } from "./debug-stream";
 import { activateHookExplorer } from "./hooks/activate-hook-explorer";
+import { PlaygroundViewProvider } from "./playground/view-provider";
+import { scanPlayground } from "./playground/scanner";
 
 export function activate(context: vscode.ExtensionContext): void {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -236,6 +238,45 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   context.subscriptions.push({ dispose: () => inspectorPanel.dispose() });
+
+  // ----- Playground (Chat Tab) -----
+  const playgroundProvider = new PlaygroundViewProvider(context.extensionUri, {
+    onRefresh: () => {
+      if (!workspaceRoot) return;
+      playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
+    },
+    onOpenSource: async (filePath, line) => {
+      const doc = await vscode.workspace.openTextDocument(
+        vscode.Uri.file(filePath),
+      );
+      const editor = await vscode.window.showTextDocument(doc);
+      if (line) {
+        const pos = new vscode.Position(Math.max(0, line - 1), 0);
+        editor.revealRange(
+          new vscode.Range(pos, pos),
+          vscode.TextEditorRevealType.InCenter,
+        );
+        editor.selection = new vscode.Selection(pos, pos);
+      }
+    },
+  });
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      PlaygroundViewProvider.viewType,
+      playgroundProvider,
+      { webviewOptions: { retainContextWhenHidden: true } },
+    ),
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("copilotkit.chat.refresh", () => {
+      if (!workspaceRoot) return;
+      playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
+    }),
+  );
+
+  if (workspaceRoot) {
+    playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
+  }
 
   // ----- Hook Explorer -----
   // All wiring (tree, panel, persistence, scan, 5 commands) lives in its own

@@ -89,6 +89,11 @@
           "id": "copilotkit.inspector",
           "type": "webview",
           "name": "AG-UI Inspector"
+        },
+        {
+          "id": "copilotkit.chat",
+          "type": "webview",
+          "name": "Chat"
         }
       ]
     },
@@ -135,6 +140,11 @@
       {
         "command": "copilotkit.hooks.focusPanel",
         "title": "CopilotKit: Preview Hook Render…"
+      },
+      {
+        "command": "copilotkit.chat.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -158,6 +168,11 @@
         {
           "command": "copilotkit.hooks.refresh",
           "when": "view == copilotkit.hooks",
+          "group": "navigation"
+        },
+        {
+          "command": "copilotkit.chat.refresh",
+          "when": "view == copilotkit.chat",
           "group": "navigation"
         }
       ],
