@@ -255,4 +255,16 @@ export default defineConfig([
     clean: false,
     plugins: [nodeResolveFallback()],
   },
+  // Playground (chat tab) webview — browser, ESM.
+  // Lightweight scanner-result diagnostic UI; no react-core dep.
+  {
+    entry: { playground: "src/webview/playground/index.tsx" },
+    outDir: "dist/webview",
+    format: ["esm"],
+    platform: "browser",
+    noExternal: [/.*/],
+    dts: false,
+    clean: false,
+    plugins: [nodeResolveFallback()],
+  },
 ]);
