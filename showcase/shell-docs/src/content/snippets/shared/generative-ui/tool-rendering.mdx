@@ -1,5 +1,5 @@
-import { IframeSwitcher } from "@/components/content";
-import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx";
+import { IframeSwitcher } from "@/components/content"
+import DefaultToolRendering from "@/snippets/shared/guides/default-tool-rendering.mdx"
 
 <IframeSwitcher
   id="backend-tools-example"
@@ -11,14 +11,7 @@ import DefaultToolRendering from "@/snippets/shared/guides/default-tool-renderin
 />
 
 <Callout>
-  This example demonstrates the implementation section applied in the{" "}
-  <a
-    href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat`}
-    target="_blank"
-  >
-    CopilotKit feature viewer
-  </a>
-  .
+  This example demonstrates the implementation section applied in the <a href={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/agentic_chat`} target="_blank">CopilotKit feature viewer</a>.
 </Callout>
 
 ## What is this?
@@ -56,14 +49,13 @@ const YourMainContent = () => {
       return (
         <p className="text-gray-500 mt-2">
           {status !== "complete" && "Calling weather API..."}
-          {status === "complete" &&
-            `Called the weather API for ${parameters.location}.`}
+          {status === "complete" && `Called the weather API for ${parameters.location}.`}
         </p>
       );
     },
   });
   // ...
-};
+}
 ```
 
 ## Default Tool Rendering

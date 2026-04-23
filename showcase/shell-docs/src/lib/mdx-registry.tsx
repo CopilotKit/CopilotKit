@@ -182,6 +182,15 @@ export const docsComponents = {
   Tip: ({ children }: { children: React.ReactNode }) => (
     <Callout type="info">{children}</Callout>
   ),
+  ThreadsEarlyAccess: ({ children }: { children: React.ReactNode }) => (
+    <>
+      <Callout type="info">
+        <strong>Early access:</strong> Threads and the Intelligence Platform are
+        in early access. APIs may change before general availability.
+      </Callout>
+      {children}
+    </>
+  ),
   Steps: DocsSteps,
   Step: DocsStep,
   CardGroup: Cards,
@@ -757,6 +766,9 @@ export const docsComponents = {
   Layers: () => <span>📚</span>,
   MessageCircle: () => <span>💬</span>,
   MessageSquare: () => <span>💬</span>,
+  MessageSquareMore: () => <span>💬</span>,
+  Network: () => <span>🕸️</span>,
+  Newspaper: () => <span>📰</span>,
   MonitorIcon: () => <span>🖥️</span>,
   Plane: () => <span>✈️</span>,
   Play: () => <span>▶️</span>,
