@@ -221,6 +221,14 @@ export interface E2eSmokeDriverDeps {
   timeoutMs?: number;
   /** Resolver for demos-by-slug. Defaults to reading /app/data/registry.json. */
   demosResolver?: DemosResolver;
+  /**
+   * After `waitForSelector` succeeds, poll `textContent` until non-empty
+   * for up to this many ms. CopilotKit renders the assistant-message
+   * container before tokens stream in (`""` initially); slower
+   * integrations (ms-agent-dotnet: extra network hop) need time for the
+   * first token to arrive. Defaults to `pageTimeoutMs`.
+   */
+  textPollTimeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
@@ -335,6 +343,7 @@ export function createE2eSmokeDriver(
   const launcher = deps.launcher ?? defaultLauncher;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
+  const textPollTimeoutMs = deps.textPollTimeoutMs ?? pageTimeoutMs;
   const demosResolver = deps.demosResolver ?? createDefaultDemosResolver();
 
   return {
@@ -475,6 +484,7 @@ export function createE2eSmokeDriver(
           message: "Hello, please respond with a brief greeting.",
           abortSignal: abort.signal,
           pageTimeoutMs,
+          textPollTimeoutMs,
           now: ctx.now,
           assertResponse: (text) => ({
             ok: text.length > 0,
@@ -509,6 +519,7 @@ export function createE2eSmokeDriver(
             message: "What's the weather in San Francisco?",
             abortSignal: abort.signal,
             pageTimeoutMs,
+            textPollTimeoutMs,
             now: ctx.now,
             assertResponse: (text) => {
               if (text.length === 0) {
@@ -635,6 +646,7 @@ async function runLevel(opts: {
   message: string;
   abortSignal: AbortSignal;
   pageTimeoutMs: number;
+  textPollTimeoutMs: number;
   now: () => Date;
   assertResponse: (text: string) => { ok: boolean; summary: string };
 }): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
@@ -647,6 +659,7 @@ async function runLevel(opts: {
     message,
     abortSignal,
     pageTimeoutMs,
+    textPollTimeoutMs,
     now,
     assertResponse,
   } = opts;
@@ -697,10 +710,20 @@ async function runLevel(opts: {
         state: "visible",
         timeout: pageTimeoutMs,
       });
-      const raw =
-        (await page.textContent(
-          '[data-testid="copilot-assistant-message"]:last-of-type',
-        )) ?? "";
+      // CopilotKit renders the assistant-message container before tokens
+      // stream in (starts as ""). Slower integrations (ms-agent-dotnet:
+      // extra network hop) need time for the first token to arrive. Poll
+      // for non-empty textContent instead of reading once.
+      let raw = "";
+      const pollEnd = Date.now() + textPollTimeoutMs;
+      while (Date.now() < pollEnd) {
+        raw =
+          (await page.textContent(
+            '[data-testid="copilot-assistant-message"]:last-of-type',
+          )) ?? "";
+        if (raw.trim().length > 0) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
       responseText = raw.trim();
     } catch {
       // Fallback: pull <body> text and slice off everything up to and
