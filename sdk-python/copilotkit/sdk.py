@@ -4,9 +4,9 @@ import warnings
 from importlib import metadata
 
 from pprint import pformat
-from typing import List, Callable, Union, Optional, Any, Coroutine
-from typing_extensions import TypedDict, Tuple, cast, Mapping
-from .agent import Agent, AgentDict
+from typing import List, Callable, Union, Optional, Any, Coroutine, Dict, Literal
+from typing_extensions import TypedDict, Tuple, cast, Mapping, NotRequired
+from .agent import Agent, RuntimeAgentDescriptionDict
 from .action import Action, ActionDict, ActionResultDict
 from .types import Message, MetaEvent
 from .exc import (
@@ -30,12 +30,14 @@ COPILOTKIT_SDK_VERSION = __version__
 logger = get_logger(__name__)
 
 class InfoDict(TypedDict):
-    """
-    Info dictionary
-    """
-    sdkVersion: str
-    actions: List[ActionDict]
-    agents: List[AgentDict]
+    """Runtime info dictionary for CopilotKit remote discovery."""
+    version: str
+    agents: Dict[str, RuntimeAgentDescriptionDict]
+    audioFileTranscriptionEnabled: bool
+    mode: Literal["sse"]
+    a2uiEnabled: bool
+    actions: NotRequired[List[ActionDict]]
+    sdkVersion: NotRequired[str]
 
 class CopilotKitContext(TypedDict):
     """
@@ -240,21 +242,29 @@ class CopilotKitRemoteEndpoint:
         agents = self.agents(context) if callable(self.agents) else self.agents
 
         actions_list = [action.dict_repr() for action in actions]
-        agents_list = [agent.dict_repr() for agent in agents]
+        agents_dict = {
+            agent.name: agent.runtime_info_repr()
+            for agent in agents
+        }
 
         self._log_request_info(
             title="Handling info request:",
             data=[
                 ("Context", context),
                 ("Actions", actions_list),
-                ("Agents", agents_list),
+                ("Agents", agents_dict),
             ]
         )
 
         return {
+            "version": COPILOTKIT_SDK_VERSION,
+            "agents": agents_dict,
+            "audioFileTranscriptionEnabled": False,
+            "mode": "sse",
+            "a2uiEnabled": False,
+            # Legacy keys kept temporarily for older Python integrations.
             "actions": actions_list,
-            "agents": agents_list,
-            "sdkVersion": COPILOTKIT_SDK_VERSION
+            "sdkVersion": COPILOTKIT_SDK_VERSION,
         }
 
     def _get_action(

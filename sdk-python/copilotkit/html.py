@@ -147,17 +147,20 @@ def generate_info_html(info: InfoDict) -> str:
     """
     Generate HTML for the info endpoint
     """
-    print(info, flush=True)
+    actions = info.get("actions", [])
     action_html = ""
-    for action in info["actions"]:
+    for action in actions:
         action_html += ACTION_TEMPLATE.format(
             name=action["name"],
             description=action["description"],
             arguments=json.dumps(action.get("parameters", []), indent=2),
         )
+
+    raw_agents = info["agents"]
+    agent_iterable = raw_agents.values() if isinstance(raw_agents, dict) else raw_agents
     agent_html = ""
-    for agent in info["agents"]:
-        agent_type = agent.get("type", "Unknown")
+    for agent in agent_iterable:
+        agent_type = agent.get("type") or agent.get("className", "Unknown")
         if agent_type == "langgraph":
             agent_type = "LangGraph"
         elif agent_type == "crewai":
@@ -170,7 +173,7 @@ def generate_info_html(info: InfoDict) -> str:
         )
     return INFO_TEMPLATE.format(
         head_html=HEAD_HTML,
-        version=info["sdkVersion"],
+        version=info.get("version", info.get("sdkVersion", "")),
         action_html=action_html or NO_ACTIONS_FOUND_HTML,
         agent_html=agent_html or NO_AGENTS_FOUND_HTML,
     )
