@@ -173,6 +173,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 </head>
 <body>
   <div id="root"></div>
+  <script nonce="${nonce}">window.__copilotkit_nonce = ${JSON.stringify(nonce)};</script>
   <script nonce="${nonce}" src="${scriptUri}"></script>
 </body>
 </html>`;

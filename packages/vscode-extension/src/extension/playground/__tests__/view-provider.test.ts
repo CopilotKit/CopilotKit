@@ -218,3 +218,20 @@ describe("PlaygroundViewProvider — bundling", () => {
     );
   });
 });
+
+describe("PlaygroundViewProvider — HTML bootstrap", () => {
+  it("injects a nonce bootstrap script so bundle-loader can discover it", () => {
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    // The test webview mock receives the HTML via `webview.html = ...`
+    const html = view.webview.html;
+    // The HTML must include a bootstrap script that writes the nonce.
+    expect(html).toMatch(/window\.__copilotkit_nonce\s*=/);
+    // It must include the bundle script with a nonce attribute.
+    expect(html).toMatch(/nonce="[^"]+"[^>]*src="/);
+  });
+});
