@@ -69,19 +69,3 @@ is customizable, from Tailwind classes on the message view to a full
 component swap for the header or toggle button. See
 [custom look and feel](/custom-look-and-feel/slots) for the full slot
 reference.
-
-```tsx title="page.tsx"
-<CopilotSidebar
-  agentId="my-agent"
-  defaultOpen={false}
-  labels={{
-    modalHeaderTitle: "Sidebar Assistant",
-    welcomeMessageText: "How can I help you today?",
-  }}
-  messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-    },
-  }}
-/>
-```
