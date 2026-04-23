@@ -11,7 +11,7 @@ By default, the agent performs a single generation step. Set `maxSteps` to allow
 
 ```typescript title="src/copilotkit.ts"
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket],
 });
@@ -25,7 +25,7 @@ Control how the agent selects tools:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   toolChoice: "auto",       // Let the model decide (default)
   // toolChoice: "required", // Force the model to call a tool
   // toolChoice: "none",     // Disable tool calling
@@ -39,7 +39,7 @@ Customize the agent's system prompt:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   prompt: "You are a customer support agent for Acme Corp. Be concise and helpful. Always check the knowledge base before answering.", // [!code highlight]
 });
 ```
@@ -50,7 +50,7 @@ Fine-tune the model's output:
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   temperature: 0.7,        // Creativity (0 = deterministic, 1+ = creative)
   topP: 0.9,               // Nucleus sampling
   topK: 40,                // Top-K sampling (provider-dependent)
@@ -97,7 +97,7 @@ Allow the frontend to override specific configuration at runtime. This is useful
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   temperature: 0.5,
   overridableProperties: ["model", "temperature", "prompt"], // [!code highlight]
 });
@@ -112,7 +112,7 @@ Control whether system and developer messages from the conversation are forwarde
 
 ```typescript
 const agent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   forwardSystemMessages: true,    // Forward system-role messages
   forwardDeveloperMessages: true, // Forward developer-role messages (as system messages)
 });
