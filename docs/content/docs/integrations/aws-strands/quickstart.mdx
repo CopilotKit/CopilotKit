@@ -173,6 +173,12 @@ Before you begin, you'll need the following:
                     system_prompt="You are a helpful AI assistant.",
                 )
 
+                # Patch the state object to add the _state attribute
+                # that ag-ui-strands expects
+                if not hasattr(agent.state, '_state'):
+                    agent.state._state = agent.state
+
+
                 # Wrap with AG-UI integration
                 agui_agent = StrandsAgent(
                     agent=agent,

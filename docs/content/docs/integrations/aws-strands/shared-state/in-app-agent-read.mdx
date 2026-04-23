@@ -67,6 +67,11 @@ state updates, you can reflect these updates natively in your application.
 
     config = StrandsAgentConfig(state_context_builder=language_prompt)
 
+    # Patch the state object to add the _state attribute
+    # that ag-ui-strands expects
+    if not hasattr(strands_agent.state, '_state'):
+      strands_agent.state._state = strands_agent.state
+
     # Wrap with AG-UI integration
     agui_agent = StrandsAgent(
         agent=strands_agent,

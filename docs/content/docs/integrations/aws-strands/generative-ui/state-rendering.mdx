@@ -41,6 +41,7 @@ is a situation where a user and an agent are working together to solve a problem
     ```python title="agent/main.py"
     import os
     import json
+    import os
     from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior, create_strands_app
     from strands import Agent, tool
     from strands.models.openai import OpenAIModel
@@ -87,6 +88,11 @@ is a situation where a user and an agent are working together to solve a problem
         system_prompt="You are a helpful assistant for storing searches. Use the add_search tool to add searches.",
         tools=[add_search],
     )
+
+    # Patch the state object to add the _state attribute
+    # that ag-ui-strands expects
+    if not hasattr(strands_agent.state, '_state'):
+      strands_agent.state._state = strands_agent.state
 
     agui_agent = StrandsAgent(
         agent=strands_agent,
