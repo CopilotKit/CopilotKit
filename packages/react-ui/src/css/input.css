@@ -145,11 +145,11 @@
   margin: 0 !important;
 }
 
-.dark,
-html.dark,
-body.dark,
-[data-theme="dark"],
-html[style*="color-scheme: dark"],
+.dark .poweredBy,
+html.dark .poweredBy,
+body.dark .poweredBy,
+[data-theme="dark"] .poweredBy,
+html[style*="color-scheme: dark"] .poweredBy,
 body[style*="color-scheme: dark"] .poweredBy {
   color: rgb(69, 69, 69) !important;
 }

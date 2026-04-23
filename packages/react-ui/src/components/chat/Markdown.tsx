@@ -59,7 +59,6 @@ const defaultComponents: Components = {
 
     return (
       <CodeBlock
-        key={Math.random()}
         language={(match && match[1]) || ""}
         value={String(children).replace(/\n$/, "")}
         {...props}
@@ -97,9 +96,9 @@ const defaultComponents: Components = {
     </h6>
   ),
   p: ({ children, ...props }) => (
-    <p className="copilotKitMarkdownElement" {...props}>
+    <div className="copilotKitMarkdownElement copilotKitParagraph" {...props}>
       {children}
-    </p>
+    </div>
   ),
   pre: ({ children, ...props }) => (
     <pre className="copilotKitMarkdownElement" {...props}>
@@ -123,32 +122,42 @@ const defaultComponents: Components = {
   ),
 };
 
-const MemoizedReactMarkdown: FC<Options> = memo(
-  ReactMarkdown,
-  (prevProps, nextProps) =>
-    prevProps.children === nextProps.children &&
-    prevProps.components === nextProps.components,
-);
+const MemoizedReactMarkdown: FC<Options> = memo(ReactMarkdown);
 
-type MarkdownProps = {
+type MarkdownProps = Omit<Options, "children"> & {
   content: string;
-  components?: Components;
 };
 
-export const Markdown = ({ content, components }: MarkdownProps) => {
+export const Markdown = ({
+  content,
+  components,
+  remarkPlugins,
+  rehypePlugins,
+  ...rest
+}: MarkdownProps) => {
   const mergedComponents = useMemo(
     () => ({ ...defaultComponents, ...components }),
     [components],
   );
+  const mergedRemarkPlugins = useMemo<Options["remarkPlugins"]>(
+    () => [
+      remarkGfm,
+      [remarkMath, { singleDollarTextMath: false }],
+      ...(remarkPlugins ?? []),
+    ],
+    [remarkPlugins],
+  );
+  const mergedRehypePlugins = useMemo<Options["rehypePlugins"]>(
+    () => [rehypeRaw, ...(rehypePlugins ?? [])],
+    [rehypePlugins],
+  );
   return (
     <div className="copilotKitMarkdown">
       <MemoizedReactMarkdown
+        {...rest}
         components={mergedComponents}
-        remarkPlugins={[
-          remarkGfm,
-          [remarkMath, { singleDollarTextMath: false }],
-        ]}
-        rehypePlugins={[rehypeRaw]}
+        remarkPlugins={mergedRemarkPlugins}
+        rehypePlugins={mergedRehypePlugins}
       >
         {content}
       </MemoizedReactMarkdown>

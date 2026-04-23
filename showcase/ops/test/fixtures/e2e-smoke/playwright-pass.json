@@ -1,0 +1,42 @@
+{
+  "config": {
+    "version": "1.59.1"
+  },
+  "stats": {
+    "startTime": "2026-04-21T00:00:00.000Z",
+    "duration": 1234,
+    "expected": 2,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0
+  },
+  "suites": [
+    {
+      "title": "l1-3",
+      "file": "smoke/l1-3.spec.ts",
+      "specs": [
+        {
+          "title": "dashboard loads",
+          "ok": true,
+          "tests": [
+            {
+              "expectedStatus": "passed",
+              "results": [{ "status": "passed", "duration": 512, "errors": [] }]
+            }
+          ]
+        },
+        {
+          "title": "dojo loads",
+          "ok": true,
+          "tests": [
+            {
+              "expectedStatus": "passed",
+              "results": [{ "status": "passed", "duration": 722, "errors": [] }]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

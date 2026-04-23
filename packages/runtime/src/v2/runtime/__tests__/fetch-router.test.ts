@@ -135,6 +135,11 @@ describe("fetch-router", () => {
       const result = matchRoute("/info", "/");
       expect(result).toEqual({ method: "info" });
     });
+
+    it("matches GET /cpk-debug-events", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events", basePath);
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
   });
 
   describe("without basePath (suffix matching)", () => {
@@ -203,6 +208,23 @@ describe("fetch-router", () => {
     it("works with deeply nested mount prefix", () => {
       const result = matchRoute("/api/v2/copilotkit/agent/a1/run");
       expect(result).toEqual({ method: "agent/run", agentId: "a1" });
+    });
+
+    it("matches /cpk-debug-events suffix", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+
+    it("matches bare /cpk-debug-events", () => {
+      const result = matchRoute("/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+  });
+
+  describe("cpk-debug-events route with basePath", () => {
+    it("matches /cpk-debug-events with /api basePath", () => {
+      const result = matchRoute("/api/cpk-debug-events", "/api");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 });

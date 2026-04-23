@@ -1,73 +1,39 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import React from "react";
 import {
-  DemoErrorBoundary,
-  SalesDashboard,
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-  RendererSelector,
-  useRenderMode,
-  ToolBasedDashboard,
-  A2UIDashboard,
-  HashBrownDashboard,
-  OpenGenUIDashboard,
-} from "@copilotkit/showcase-shared";
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
+// Outer layer — provider + layout chrome.
 export default function AgenticChatDemo() {
-  useEffect(() => {
-    console.log("[agentic-chat] Demo mounted");
-  }, []);
-
   return (
-    <DemoErrorBoundary demoName="Agentic Chat">
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="agentic_chat"
-        a2ui={{ catalog: demonstrationCatalog }}
-        onError={(error) => {
-          console.error("[agentic-chat] CopilotKit error:", error);
-        }}
-      >
-        <DemoContent />
-      </CopilotKit>
-    </DemoErrorBoundary>
-  );
-}
-
-function DemoContent() {
-  useShowcaseHooks();
-  useShowcaseSuggestions();
-
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center">
-      <DashboardWithRenderer agentId="agentic_chat" />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Sales Dashboard Assistant",
-        }}
-      />
-    </div>
-  );
-}
-
-function DashboardWithRenderer({ agentId }: { agentId: string }) {
-  const { mode, setMode } = useRenderMode();
-
-  return (
-    <div className="flex flex-col h-full">
-      <RendererSelector mode={mode} onModeChange={setMode} />
-      <div className="flex-1">
-        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
-        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
-        {mode === "hashbrown" && <HashBrownDashboard />}
-        {mode === "open-genui" && <OpenGenUIDashboard />}
-        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
+    // @region[provider-setup]
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+      <div className="flex justify-center items-center h-screen w-full">
+        <div className="h-full w-full max-w-4xl">
+          <Chat />
+        </div>
       </div>
-    </div>
+    </CopilotKit>
+    // @endregion[provider-setup]
   );
+}
+
+// The actual view — just the chat.
+function Chat() {
+  // @region[configure-suggestions]
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+    ],
+    available: "always",
+  });
+  // @endregion[configure-suggestions]
+
+  // @region[render-chat]
+  return <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />;
+  // @endregion[render-chat]
 }

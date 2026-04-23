@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - "showcase/**"
-      - "examples/integrations/**"
   workflow_dispatch:
     inputs:
       service:
@@ -33,17 +32,40 @@ on:
           - claude-sdk-typescript
           - ms-agent-dotnet
           - claude-sdk-python
-          - starter-langgraph-python
-          - starter-mastra
+          - starter-ag2
+          - starter-agno
+          - starter-claude-sdk-python
+          - starter-claude-sdk-typescript
           - starter-crewai-crews
           - starter-google-adk
+          - starter-langgraph-fastapi
+          - starter-langgraph-python
+          - starter-langgraph-typescript
+          - starter-langroid
+          - starter-llamaindex
+          - starter-mastra
+          - starter-ms-agent-dotnet
+          - starter-ms-agent-python
+          - starter-pydantic-ai
+          - starter-spring-ai
+          - starter-strands
           - aimock
-          - shell-dojolike
-          - test-integration-tmp
+          - shell-dojo
+          - shell-dashboard
+          - shell-docs
 
 concurrency:
-  group: showcase-deploy-${{ github.ref }}
-  cancel-in-progress: true
+  # Key on `event_name + ref` so push events and manual workflow_dispatch
+  # runs queue INDEPENDENTLY. A previous revision keyed on ref alone and
+  # let a push-to-main (cancel-in-progress: true) kill a 38-service
+  # `service=all` manual dispatch mid-run — operator intent was lost.
+  # Splitting the group means:
+  #   - push → push:     cancel-in-progress true (latest main wins)
+  #   - dispatch → push: coexist (different groups)
+  #   - dispatch → dispatch: queue (cancel-in-progress false — let the
+  #     prior fleet rebuild finish before the next one starts)
+  group: showcase-deploy-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 env:
   RAILWAY_ENV_ID: "b14919f4-6417-429f-848d-c6ae2201e04f"
@@ -51,10 +73,10 @@ env:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
       has_changes: ${{ steps.build-matrix.outputs.has_changes }}
-      test_integration_tmp: ${{ steps.changes.outputs.test_integration_tmp }}
     steps:
       - uses: actions/checkout@v4
 
@@ -62,82 +84,181 @@ jobs:
         uses: dorny/paths-filter@v3
         id: filter
         with:
+          # All filter values use list form for consistency. `shell`
+          # genuinely needs multiple paths; the others could collapse to
+          # single-line strings, but mixing styles (list vs. string)
+          # in the same filters block is easy to misread during review.
           filters: |
             shell:
               - 'showcase/shell/**'
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
-            test_integration_tmp:
-              - 'showcase/packages/test-integration-tmp/**'
-            langgraph: 'showcase/packages/langgraph-python/**'
-            mastra: 'showcase/packages/mastra/**'
-            crewai_crews: 'showcase/packages/crewai-crews/**'
-            pydantic_ai: 'showcase/packages/pydantic-ai/**'
-            google_adk: 'showcase/packages/google-adk/**'
-            ag2: 'showcase/packages/ag2/**'
-            agno: 'showcase/packages/agno/**'
-            llamaindex: 'showcase/packages/llamaindex/**'
-            langgraph_fastapi: 'showcase/packages/langgraph-fastapi/**'
-            langgraph_typescript: 'showcase/packages/langgraph-typescript/**'
-            langroid: 'showcase/packages/langroid/**'
-            spring_ai: 'showcase/packages/spring-ai/**'
-            strands: 'showcase/packages/strands/**'
-            ms_agent_python: 'showcase/packages/ms-agent-python/**'
-            claude_sdk_typescript: 'showcase/packages/claude-sdk-typescript/**'
-            ms_agent_dotnet: 'showcase/packages/ms-agent-dotnet/**'
-            claude_sdk_python: 'showcase/packages/claude-sdk-python/**'
-            starter_langgraph_python: 'examples/integrations/langgraph-python/**'
-            starter_mastra: 'examples/integrations/mastra/**'
-            starter_crewai_crews: 'examples/integrations/crewai-crews/**'
-            starter_google_adk: 'examples/integrations/adk/**'
-            aimock: 'showcase/aimock/**'
-            shell_dojolike: 'showcase/shell-dojolike/**'
+            langgraph_python:
+              - 'showcase/packages/langgraph-python/**'
+            mastra:
+              - 'showcase/packages/mastra/**'
+            crewai_crews:
+              - 'showcase/packages/crewai-crews/**'
+            pydantic_ai:
+              - 'showcase/packages/pydantic-ai/**'
+            google_adk:
+              - 'showcase/packages/google-adk/**'
+            ag2:
+              - 'showcase/packages/ag2/**'
+            agno:
+              - 'showcase/packages/agno/**'
+            llamaindex:
+              - 'showcase/packages/llamaindex/**'
+            langgraph_fastapi:
+              - 'showcase/packages/langgraph-fastapi/**'
+            langgraph_typescript:
+              - 'showcase/packages/langgraph-typescript/**'
+            langroid:
+              - 'showcase/packages/langroid/**'
+            spring_ai:
+              - 'showcase/packages/spring-ai/**'
+            strands:
+              - 'showcase/packages/strands/**'
+            ms_agent_python:
+              - 'showcase/packages/ms-agent-python/**'
+            claude_sdk_typescript:
+              - 'showcase/packages/claude-sdk-typescript/**'
+            ms_agent_dotnet:
+              - 'showcase/packages/ms-agent-dotnet/**'
+            claude_sdk_python:
+              - 'showcase/packages/claude-sdk-python/**'
+            starter_ag2:
+              - 'showcase/starters/ag2/**'
+            starter_agno:
+              - 'showcase/starters/agno/**'
+            starter_claude_sdk_python:
+              - 'showcase/starters/claude-sdk-python/**'
+            starter_claude_sdk_typescript:
+              - 'showcase/starters/claude-sdk-typescript/**'
+            starter_crewai_crews:
+              - 'showcase/starters/crewai-crews/**'
+            starter_google_adk:
+              - 'showcase/starters/google-adk/**'
+            starter_langgraph_fastapi:
+              - 'showcase/starters/langgraph-fastapi/**'
+            starter_langgraph_python:
+              - 'showcase/starters/langgraph-python/**'
+            starter_langgraph_typescript:
+              - 'showcase/starters/langgraph-typescript/**'
+            starter_langroid:
+              - 'showcase/starters/langroid/**'
+            starter_llamaindex:
+              - 'showcase/starters/llamaindex/**'
+            starter_mastra:
+              - 'showcase/starters/mastra/**'
+            starter_ms_agent_dotnet:
+              - 'showcase/starters/ms-agent-dotnet/**'
+            starter_ms_agent_python:
+              - 'showcase/starters/ms-agent-python/**'
+            starter_pydantic_ai:
+              - 'showcase/starters/pydantic-ai/**'
+            starter_spring_ai:
+              - 'showcase/starters/spring-ai/**'
+            starter_strands:
+              - 'showcase/starters/strands/**'
+            aimock:
+              - 'showcase/aimock/**'
+            shell_dojo:
+              - 'showcase/shell-dojo/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
+            shell_dashboard:
+              - 'showcase/shell-dashboard/**'
+            shell_docs:
+              - 'showcase/shell-docs/**'
 
       - name: Build service matrix
         id: build-matrix
         run: |
           # Full service config as JSON
-          # Fields: dispatch_name, filter_key, context, image, cache_scope, railway_id, timeout, lfs, build_args, dockerfile
+          # Fields: dispatch_name, filter_key, context, image, railway_id, timeout, lfs, build_args, build_args_sha, build_args_branch, dockerfile, health_path
+          # health_path: explicit endpoint the verify step probes. Required
+          # for every service — no fallback. An unscoped fallback could mask
+          # a broken endpoint when an unrelated catch-all/CDN/actuator happens
+          # to 200 at the other path. Misconfigured paths are a config bug to
+          # fix in the matrix, not runtime behavior to hide.
           ALL_SERVICES='[
-            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","cache_scope":"shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile"},
-            {"dispatch_name":"langgraph-python","filter_key":"langgraph","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","cache_scope":"langgraph","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/packages/mastra","image":"showcase-mastra","cache_scope":"mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/packages/crewai-crews","image":"showcase-crewai-crews","cache_scope":"crewai_crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/packages/pydantic-ai","image":"showcase-pydantic-ai","cache_scope":"pydantic_ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/packages/google-adk","image":"showcase-google-adk","cache_scope":"google_adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/packages/ag2","image":"showcase-ag2","cache_scope":"ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/packages/agno","image":"showcase-agno","cache_scope":"agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/packages/llamaindex","image":"showcase-llamaindex","cache_scope":"llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/packages/langgraph-fastapi","image":"showcase-langgraph-fastapi","cache_scope":"langgraph_fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/packages/langgraph-typescript","image":"showcase-langgraph-typescript","cache_scope":"langgraph_typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/packages/langroid","image":"showcase-langroid","cache_scope":"langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/packages/spring-ai","image":"showcase-spring-ai","cache_scope":"spring_ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/packages/strands","image":"showcase-strands","cache_scope":"strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/packages/ms-agent-python","image":"showcase-ms-agent-python","cache_scope":"ms_agent_python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/packages/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","cache_scope":"claude_sdk_typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/packages/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","cache_scope":"ms_agent_dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/packages/claude-sdk-python","image":"showcase-claude-sdk-python","cache_scope":"claude_sdk_python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"examples/integrations/langgraph-python","image":"showcase-starter-langgraph-python","cache_scope":"starter_langgraph_python","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"examples/integrations/mastra","image":"showcase-starter-mastra","cache_scope":"starter_mastra","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"examples/integrations/crewai-crews","image":"showcase-starter-crewai-crews","cache_scope":"starter_crewai_crews","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"starter-google-adk","filter_key":"starter_google_adk","context":"examples/integrations/adk","image":"showcase-starter-google-adk","cache_scope":"starter_google_adk","railway_id":"","timeout":15,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","cache_scope":"aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":""},
-            {"dispatch_name":"shell-dojolike","filter_key":"shell_dojolike","context":"showcase/shell-dojolike","image":"showcase-shell-dojolike","cache_scope":"shell_dojolike","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":""}
+            {"dispatch_name":"shell","filter_key":"shell","context":".","image":"showcase-shell","railway_id":"40eea0da-6071-4ea8-bdb9-39afb19225ec","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell/Dockerfile","health_path":"/"},
+            {"dispatch_name":"langgraph-python","filter_key":"langgraph_python","context":"showcase/packages/langgraph-python","image":"showcase-langgraph-python","railway_id":"90d03214-4569-41b0-b4c1-6438a8a7b203","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"mastra","filter_key":"mastra","context":"showcase/packages/mastra","image":"showcase-mastra","railway_id":"d7979eb7-2405-4aab-ad21-438f4a1b08af","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"crewai-crews","filter_key":"crewai_crews","context":"showcase/packages/crewai-crews","image":"showcase-crewai-crews","railway_id":"0e9c284d-8d87-4fcf-9f82-6b704d7e4bd4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"pydantic-ai","filter_key":"pydantic_ai","context":"showcase/packages/pydantic-ai","image":"showcase-pydantic-ai","railway_id":"0a106173-2282-4887-a994-0ca276a99d69","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"google-adk","filter_key":"google_adk","context":"showcase/packages/google-adk","image":"showcase-google-adk","railway_id":"87f60507-5a3d-4b8a-9e23-2b1de85d939c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ag2","filter_key":"ag2","context":"showcase/packages/ag2","image":"showcase-ag2","railway_id":"4a37481b-f264-4eb7-a9cd-0a9ebb9ac05c","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"agno","filter_key":"agno","context":"showcase/packages/agno","image":"showcase-agno","railway_id":"32cab80b-e329-45bd-9c73-c4e1ddc94305","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"llamaindex","filter_key":"llamaindex","context":"showcase/packages/llamaindex","image":"showcase-llamaindex","railway_id":"285386e8-492d-4cb8-b632-0a7d4607378f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-fastapi","filter_key":"langgraph_fastapi","context":"showcase/packages/langgraph-fastapi","image":"showcase-langgraph-fastapi","railway_id":"06cccb5c-59f4-46b5-8adc-7113e77011a4","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langgraph-typescript","filter_key":"langgraph_typescript","context":"showcase/packages/langgraph-typescript","image":"showcase-langgraph-typescript","railway_id":"66246d3b-a18e-46f0-be51-5f3ff7a36e5a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"langroid","filter_key":"langroid","context":"showcase/packages/langroid","image":"showcase-langroid","railway_id":"6dd9cb0a-66cc-46f1-972e-7cd74756157d","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"spring-ai","filter_key":"spring_ai","context":"showcase/packages/spring-ai","image":"showcase-spring-ai","railway_id":"eed5d041-91be-4282-b414-beea00843401","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"strands","filter_key":"strands","context":"showcase/packages/strands","image":"showcase-strands","railway_id":"92e1cfad-ad53-403f-ab2b-5ab380832232","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-python","filter_key":"ms_agent_python","context":"showcase/packages/ms-agent-python","image":"showcase-ms-agent-python","railway_id":"655db75a-af8d-427d-a4f9-441570ae5003","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-typescript","filter_key":"claude_sdk_typescript","context":"showcase/packages/claude-sdk-typescript","image":"showcase-claude-sdk-typescript","railway_id":"18a98727-5700-44aa-b497-b60795dbbd6a","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"ms-agent-dotnet","filter_key":"ms_agent_dotnet","context":"showcase/packages/ms-agent-dotnet","image":"showcase-ms-agent-dotnet","railway_id":"beeb2dd6-87a4-4599-aa07-0578f7bd6519","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"claude-sdk-python","filter_key":"claude_sdk_python","context":"showcase/packages/claude-sdk-python","image":"showcase-claude-sdk-python","railway_id":"b122ab65-9854-4cb2-a68e-b50ff13f7481","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-ag2","filter_key":"starter_ag2","context":"showcase/starters/ag2","image":"showcase-starter-ag2","railway_id":"0d7ce4ea-0ebe-4ba6-a408-503f7425c175","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-agno","filter_key":"starter_agno","context":"showcase/starters/agno","image":"showcase-starter-agno","railway_id":"baf9f0db-1f62-462e-a603-2e1448652473","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-claude-sdk-python","filter_key":"starter_claude_sdk_python","context":"showcase/starters/claude-sdk-python","image":"showcase-starter-claude-sdk-python","railway_id":"912b480d-ee38-4d8d-ab32-237bee146fed","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-claude-sdk-typescript","filter_key":"starter_claude_sdk_typescript","context":"showcase/starters/claude-sdk-typescript","image":"showcase-starter-claude-sdk-typescript","railway_id":"fa61aabc-aba7-4611-8269-25f5454901ad","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-crewai-crews","filter_key":"starter_crewai_crews","context":"showcase/starters/crewai-crews","image":"showcase-starter-crewai-crews","railway_id":"6c8f5514-2295-4d7c-8c95-2687b9e77558","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-google-adk","filter_key":"starter_google_adk","context":"showcase/starters/google-adk","image":"showcase-starter-google-adk","railway_id":"0ae6bb33-b653-41d3-93b4-53482f4e2c31","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-langgraph-fastapi","filter_key":"starter_langgraph_fastapi","context":"showcase/starters/langgraph-fastapi","image":"showcase-starter-langgraph-fastapi","railway_id":"dc2070ba-2edb-4def-b7bf-c4c67a5b721b","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-langgraph-python","filter_key":"starter_langgraph_python","context":"showcase/starters/langgraph-python","image":"showcase-starter-langgraph-python","railway_id":"58eaea00-00f9-4b66-bd1b-484b2679221b","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-langgraph-typescript","filter_key":"starter_langgraph_typescript","context":"showcase/starters/langgraph-typescript","image":"showcase-starter-langgraph-typescript","railway_id":"56b73322-1553-402c-9fca-5c710e9d9eb6","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-langroid","filter_key":"starter_langroid","context":"showcase/starters/langroid","image":"showcase-starter-langroid","railway_id":"d2da2be5-db1f-48bd-93f9-7fe770d6a863","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-llamaindex","filter_key":"starter_llamaindex","context":"showcase/starters/llamaindex","image":"showcase-starter-llamaindex","railway_id":"147341c5-12c0-4de1-985a-20af45abea17","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-mastra","filter_key":"starter_mastra","context":"showcase/starters/mastra","image":"showcase-starter-mastra","railway_id":"315270a7-7b0e-4a1d-b1ed-319515baf265","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-ms-agent-dotnet","filter_key":"starter_ms_agent_dotnet","context":"showcase/starters/ms-agent-dotnet","image":"showcase-starter-ms-agent-dotnet","railway_id":"986d55f6-4e01-4658-b7c9-cd33cb4df978","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-ms-agent-python","filter_key":"starter_ms_agent_python","context":"showcase/starters/ms-agent-python","image":"showcase-starter-ms-agent-python","railway_id":"bd8e9def-d92f-4c87-95c5-97761c1ea482","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-pydantic-ai","filter_key":"starter_pydantic_ai","context":"showcase/starters/pydantic-ai","image":"showcase-starter-pydantic-ai","railway_id":"f9e01966-ce8d-4e57-a336-315e41d92654","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-spring-ai","filter_key":"starter_spring_ai","context":"showcase/starters/spring-ai","image":"showcase-starter-spring-ai","railway_id":"3559ece3-7ba3-41ac-b24c-1f780133ec58","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"starter-strands","filter_key":"starter_strands","context":"showcase/starters/strands","image":"showcase-starter-strands","railway_id":"06db2bb8-e15d-4c6a-97ad-e14777c92d9f","timeout":15,"lfs":false,"build_args":"","dockerfile":"","health_path":"/api/health"},
+            {"dispatch_name":"aimock","filter_key":"aimock","context":"showcase/aimock","image":"showcase-aimock","railway_id":"0fa0435d-8a66-46f0-84fd-e4250b580013","timeout":5,"lfs":false,"build_args":"","dockerfile":"","health_path":"/health"},
+            {"dispatch_name":"shell-dojo","filter_key":"shell_dojo","context":".","image":"showcase-shell-dojo","railway_id":"7ad1ece7-2228-49cd-8a78-bddf30322907","timeout":10,"lfs":false,"build_args":"","dockerfile":"showcase/shell-dojo/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-dashboard","filter_key":"shell_dashboard","context":".","image":"showcase-shell-dashboard","railway_id":"4d5dfd74-be61-40b2-8564-b53b7dd4c15b","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-dashboard/Dockerfile","health_path":"/"},
+            {"dispatch_name":"shell-docs","filter_key":"shell_docs","context":".","image":"showcase-shell-docs","railway_id":"7badfb8d-4228-414c-9145-b4026803714f","timeout":10,"lfs":true,"build_args_sha":"${{ github.sha }}","build_args_branch":"${{ github.ref_name }}","dockerfile":"showcase/shell-docs/Dockerfile","health_path":"/"}
           ]'
 
           DISPATCH="${{ github.event.inputs.service }}"
           CHANGES='${{ steps.filter.outputs.changes }}'
           CHANGES="${CHANGES:-[]}"
 
-          # Filter services: on workflow_dispatch, include all (default) or specific service; on push, include only services whose paths changed
+          # Filter services based on three dispatch modes:
+          #   dispatch == "all": manual "deploy all" — include every service unconditionally.
+          #     This re-pulls :latest for every matrix slot (~38 services); intentional for
+          #     drift-rebuild runs and full-fleet restarts. Do NOT try to short-circuit
+          #     unchanged services here — operators invoke "all" precisely when they want
+          #     the fleet re-deployed regardless of git state (cache poisoning, base-image CVE).
+          #     (paths-filter is unreliable on workflow_dispatch because there is no 'before' SHA,
+          #      so we must NOT consult $changes here — doing so silently produces an empty matrix).
+          #   dispatch == <specific service>: narrow to that service only (skips paths-filter so
+          #     drift-rebuild and manual single-service dispatches work regardless of $changes).
+          #   dispatch == "": push event — include services whose filter_key appears in paths-filter CHANGES.
           MATRIX=$(echo "$ALL_SERVICES" | jq -c --arg dispatch "$DISPATCH" --argjson changes "$CHANGES" '
-            [.[] | select(
+            [.[] | (.filter_key as $fk | select(
               $dispatch == "all" or
-              $dispatch == .dispatch_name or
-              (.filter_key as $fk | $changes | index($fk) != null)
-            )]
+              ($dispatch != "" and $dispatch != "all" and $dispatch == .dispatch_name) or
+              ($dispatch == "" and ($changes | index($fk) != null))
+            ))]
           ')
+
+          # Fail loudly on typo'd workflow_dispatch inputs. If a user types a
+          # service name that doesn't exist in ALL_SERVICES, the jq filter
+          # silently produces [] and the run shows green with zero work
+          # done — a common "did my dispatch deploy?" footgun. The `all` and
+          # empty (push-event) modes legitimately produce [] when there are
+          # no changes and must still succeed.
+          if [ "$MATRIX" = "[]" ] && [ -n "$DISPATCH" ] && [ "$DISPATCH" != "all" ]; then
+            echo "::error::workflow_dispatch service='$DISPATCH' did not match any entry in ALL_SERVICES — check the dispatch_name spelling"
+            exit 1
+          fi
 
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
           if [ "$MATRIX" = "[]" ]; then
@@ -151,20 +272,41 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      # Omit `version:` so pnpm/action-setup inherits from the repo's
+      # `packageManager` field in package.json (enforced via corepack).
+      # Earlier revisions hard-pinned `version: 10.13.1` which silently
+      # drifted from package.json whenever the repo bumped pnpm —
+      # resulting in lockfile-vs-engine mismatches that only surfaced on
+      # the slow `--frozen-lockfile` path.
       - uses: pnpm/action-setup@v4
-        with:
-          version: "10.13.1"
       - uses: actions/setup-node@v4
         with:
           node-version: 22.x
       - run: pnpm install --frozen-lockfile --ignore-scripts
 
-  build:
-    needs: [detect-changes, check-lockfile]
+  verify-image-refs:
+    needs: [detect-changes]
     if: needs.detect-changes.outputs.has_changes == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+      - name: Verify Railway image refs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: npx tsx showcase/scripts/verify-railway-image-refs.ts
+
+  build:
+    needs: [detect-changes, check-lockfile, verify-image-refs]
+    if: needs.detect-changes.outputs.has_changes == 'true'
+    runs-on: depot-ubuntu-24.04-4
     timeout-minutes: ${{ fromJSON(matrix.service.timeout) }}
     permissions:
+      id-token: write
+      contents: read
       packages: write
     strategy:
       fail-fast: false
@@ -177,8 +319,8 @@ jobs:
         with:
           lfs: ${{ matrix.service.lfs }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Depot
+        uses: depot/setup-action@v1
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -202,98 +344,566 @@ jobs:
 
       - name: Copy shared modules into build context
         run: |
+          set -euo pipefail
           CONTEXT="${{ matrix.service.context }}"
+          # Starters are self-contained — skip shared module copies
+          if [[ "$CONTEXT" == showcase/starters/* ]]; then
+            echo "Starter build — skipping shared module copies"
+            exit 0
+          fi
+          # Idempotent copy: if a stale `shared_python`/`shared_typescript`
+          # already exists (previous failed run on the same runner, or a
+          # checkout artifact), remove it first. `cp -r src dst` into an
+          # existing directory nests source-inside-destination, which
+          # would silently produce a broken build context.
           if [ -d "showcase/shared/python" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_python"
             cp -r showcase/shared/python "$CONTEXT/shared_python"
           fi
-          if [ -d "showcase/shared/frontend/src" ] && [ -d "$CONTEXT" ]; then
-            mkdir -p "$CONTEXT/shared_frontend"
-            cp -r showcase/shared/frontend/src "$CONTEXT/shared_frontend/src"
-          fi
           if [ -d "showcase/shared/typescript/tools" ] && [ -d "$CONTEXT" ]; then
+            rm -rf "$CONTEXT/shared_typescript"
             mkdir -p "$CONTEXT/shared_typescript"
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: depot/build-push-action@v1
         with:
+          project: m2kw2wmmcp
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile != '' && matrix.service.dockerfile || format('{0}/Dockerfile', matrix.service.context) }}
+          # Pin amd64: Railway and GHCR serve x86 hosts. An arm64-only
+          # image crashes on pull with "does not have a linux/amd64
+          # variant available". Matches the platform required for all
+          # local showcase Docker builds (see
+          # showcase/starters/template/README.md).
+          platforms: linux/amd64
           push: true
           tags: |
             ghcr.io/copilotkit/${{ matrix.service.image }}:latest
             ghcr.io/copilotkit/${{ matrix.service.image }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service.cache_scope }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service.cache_scope }}
           build-args: ${{ steps.build-args.outputs.args }}
 
       - name: Deploy to Railway
+        id: deploy
         if: matrix.service.railway_id != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ matrix.service.railway_id }}
+          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
         run: |
+          # Capture the current deployment ID BEFORE redeploying so the verify
+          # step can distinguish the fresh deployment from the prior one.
+          # `--retry 2 --retry-all-errors --retry-delay 1` tolerates the
+          # occasional transient 5xx from Railway GraphQL without failing
+          # the deploy; `--fail-with-body` prints the HTML error body on
+          # hard failure so a reviewer can diagnose without re-running.
+          PRIOR_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id } } } }\"}" \
+            https://backboard.railway.com/graphql/v2 2>/dev/null)
+          # Fail fast on GraphQL errors — silent failure here would bypass the
+          # stale-deployment guard in the verify step.
+          PRIOR_ERRORS=$(echo "$PRIOR_RESULT" | jq -r '.errors[]?.message // empty')
+          if [ -n "$PRIOR_ERRORS" ]; then
+            echo "::error::Railway prior-deploy query failed: $PRIOR_ERRORS"
+            exit 1
+          fi
+          PRIOR_DEPLOY_ID=$(echo "$PRIOR_RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
+          echo "Prior deployment ID: ${PRIOR_DEPLOY_ID:-<none>}"
+          echo "prior_deploy_id=$PRIOR_DEPLOY_ID" >> "$GITHUB_OUTPUT"
+
+          # Record a cutoff AT the mutation time (no -5s subtraction).
+          # An earlier revision subtracted 5 seconds "for clock skew" — but
+          # that opened a 5s window where an externally-triggered concurrent
+          # redeploy could be mis-attributed as ours (its createdAt would
+          # legitimately exceed cutoff-5). Computing the cutoff immediately
+          # before the mutation (and after the mutation lands it's the
+          # NEW deploy's timestamp that matters) is tighter; Railway's
+          # createdAt monotonicity + serialized GraphQL ordering guarantees
+          # our fresh deployment's createdAt is >= this cutoff. Normalize
+          # to ms precision so the lex-compare in Verify handles Railway's
+          # ISO8601-with-ms format correctly.
+          REDEPLOY_CUTOFF_EPOCH=$(date -u +%s)
+          REDEPLOY_CUTOFF_ISO=$(date -u -d "@${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z" 2>/dev/null || date -u -r "${REDEPLOY_CUTOFF_EPOCH}" +"%Y-%m-%dT%H:%M:%S.000Z")
+          echo "Redeploy cutoff (ISO): $REDEPLOY_CUTOFF_ISO"
+          echo "redeploy_cutoff_iso=$REDEPLOY_CUTOFF_ISO" >> "$GITHUB_OUTPUT"
+          echo "redeploy_cutoff_epoch=$REDEPLOY_CUTOFF_EPOCH" >> "$GITHUB_OUTPUT"
+
           # All Railway services are configured to pull :latest from GHCR.
           # serviceInstanceRedeploy triggers a fresh pull of the configured image.
-          curl -sf -X POST "https://backboard.railway.com/graphql/v2" \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
+          # Check response body for GraphQL errors (HTTP 200 + errors is valid).
+          REDEPLOY_RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+            --fail-with-body \
+            -X POST "https://backboard.railway.com/graphql/v2" \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
             -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"${{ matrix.service.railway_id }}\", environmentId: \"${{ env.RAILWAY_ENV_ID }}\") }"}' \
-            && echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
+            -d "{\"query\":\"mutation { serviceInstanceRedeploy(serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\") }\"}")
+          REDEPLOY_ERRORS=$(echo "$REDEPLOY_RESULT" | jq -r '.errors[]?.message // empty')
+          if [ -n "$REDEPLOY_ERRORS" ]; then
+            echo "::error::Railway redeploy failed: $REDEPLOY_ERRORS"
+            exit 1
+          fi
+          REDEPLOY_OK=$(echo "$REDEPLOY_RESULT" | jq -r '.data.serviceInstanceRedeploy // false')
+          if [ "$REDEPLOY_OK" != "true" ]; then
+            echo "::error::Railway redeploy did not confirm success: $REDEPLOY_RESULT"
+            exit 1
+          fi
+          echo "Deploy triggered for ${{ matrix.service.dispatch_name }}"
 
-  notify:
-    needs: [detect-changes, check-lockfile, build]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    steps:
-      - name: Collect results and notify Slack
-        uses: slackapi/slack-github-action@v2.1.0
-        with:
-          webhook: ${{ secrets.SLACK_WEBHOOK_OSS_ALERTS }}
-          webhook-type: incoming-webhook
-          payload: |
-            {
-              "text": "${{ (needs.detect-changes.result == 'failure' || needs.check-lockfile.result == 'failure') && format(':x: *Showcase deploy*: FAILED (pre-build check)') || needs.build.result == 'success' && ':white_check_mark: *Showcase deploy*: all services deployed to Railway' || (needs.build.result == 'skipped' && needs.detect-changes.result == 'success') && ':white_check_mark: *Showcase deploy*: no changes detected, nothing to deploy' || format(':x: *Showcase deploy*: FAILED (result: {0})', needs.build.result) }} | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
-            }
-
-  build-test_integration_tmp:
-    name: Build & Push Test Integration
-    needs: [detect-changes, check-lockfile]
-    if: |
-      needs.detect-changes.outputs.test_integration_tmp == 'true' ||
-      github.event.inputs.service == 'test-integration-tmp' ||
-      github.event.inputs.service == 'all'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: showcase/packages/test-integration-tmp
-          push: true
-          tags: |
-            ghcr.io/copilotkit/showcase-test-integration-tmp:latest
-            ghcr.io/copilotkit/showcase-test-integration-tmp:${{ github.sha }}
-          cache-from: type=gha,scope=test_integration_tmp
-          cache-to: type=gha,scope=test_integration_tmp,mode=max
-
-      - name: Trigger Railway deploy
+      - name: Verify deploy health
+        if: matrix.service.railway_id != ''
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          SERVICE_ID: ${{ matrix.service.railway_id }}
+          ENV_ID: ${{ env.RAILWAY_ENV_ID }}
+          PRIOR_DEPLOY_ID: ${{ steps.deploy.outputs.prior_deploy_id }}
+          REDEPLOY_CUTOFF_ISO: ${{ steps.deploy.outputs.redeploy_cutoff_iso }}
+          REDEPLOY_CUTOFF_EPOCH: ${{ steps.deploy.outputs.redeploy_cutoff_epoch }}
         run: |
-          curl -sf -X POST https://backboard.railway.com/graphql/v2 \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{"query":"mutation { serviceInstanceRedeploy(serviceId: \"RAILWAY_SERVICE_ID\", environmentId: \"b14919f4-6417-429f-848d-c6ae2201e04f\") }"}' \
-            && echo "test-integration-tmp deploy triggered"
+          # Fail fast if RAILWAY_TOKEN is not set
+          if [ -z "$RAILWAY_TOKEN" ]; then
+            echo "::error::RAILWAY_TOKEN is not set"
+            exit 1
+          fi
+
+          echo "Verifying fresh deploy (prior ID: ${PRIOR_DEPLOY_ID:-<none>}, cutoff: ${REDEPLOY_CUTOFF_ISO:-<none>})..."
+          # Enforce a 600s wall-clock budget rather than a fixed iteration
+          # count. Previous revision counted 40 attempts * 15s sleep and
+          # *assumed* total ≈ 600s — but each iteration also spent up to
+          # 15s on the curl (--max-time 15) plus health probes, so the
+          # actual budget could stretch past 900s in practice.
+          # Tracking START and checking elapsed per-loop makes the budget
+          # real. Previous 360s was tight for JVM services (spring-ai's
+          # lazy bean init + first HTTP serve can exceed 5 min on a cold
+          # Railway container). 600s is still bounded.
+          # Require 2 consecutive healthy polls before declaring success —
+          # catches SUCCESS-then-crash (JVM lazy init failure, Python OOM
+          # on first request).
+          HEALTHY_STREAK=0
+          REQUIRED_STREAK=2
+          START=$(date +%s)
+          BUDGET=600
+          i=0
+          while [ $(($(date +%s) - START)) -lt "$BUDGET" ]; do
+            i=$((i + 1))
+            RESULT=$(curl -s --retry 2 --retry-all-errors --retry-delay 1 \
+              --fail-with-body \
+              -H "Authorization: Bearer $RAILWAY_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "{\"query\":\"query { deployments(first: 1, input: { serviceId: \\\"$SERVICE_ID\\\", environmentId: \\\"$ENV_ID\\\" }) { edges { node { id status staticUrl createdAt } } } }\"}" \
+              https://backboard.railway.com/graphql/v2 2>/dev/null)
+
+            # Surface GraphQL errors and fail fast
+            ERRORS=$(echo "$RESULT" | jq -r '.errors[]?.message // empty')
+            if [ -n "$ERRORS" ]; then
+              echo "::error::Railway API error: $ERRORS"
+              exit 1
+            fi
+
+            # `// empty` so a missing edge yields "" instead of the literal
+            # string "null". Matches the PRIOR_DEPLOY_ID extraction above —
+            # without it, the `$DEPLOY_ID = $PRIOR_DEPLOY_ID` comparison and
+            # the `$DOMAIN != "null"` guard break in inconsistent ways when
+            # Railway's edges array is transiently empty.
+            DEPLOY_ID=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.id // empty')
+            STATUS=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.status // empty')
+            DOMAIN=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.staticUrl // empty')
+            CREATED_AT=$(echo "$RESULT" | jq -r '.data.deployments.edges[0].node.createdAt // empty')
+            echo "Attempt $i: deploy=$DEPLOY_ID status=$STATUS domain=$DOMAIN createdAt=$CREATED_AT streak=$HEALTHY_STREAK"
+
+            # Skip stale deployments: if we see the prior deployment, the fresh
+            # one hasn't appeared yet — wait without declaring success or failure.
+            if [ -n "$PRIOR_DEPLOY_ID" ] && [ "$DEPLOY_ID" = "$PRIOR_DEPLOY_ID" ]; then
+              echo "  (prior deployment still latest — waiting for fresh one)"
+              HEALTHY_STREAK=0
+              sleep 15
+              continue
+            fi
+
+            # Secondary guard: close the race window between the prior-ID read
+            # and serviceInstanceRedeploy. If a concurrent external deploy
+            # landed a different new ID (neither PRIOR nor ours), its
+            # createdAt may predate the redeploy cutoff. Reject those so we
+            # don't mis-attribute someone else's deploy as our fresh one.
+            #
+            # Epoch-number compare (instead of lex string compare) sidesteps
+            # Railway's mixed-precision createdAt format: the API returns
+            # `2006-01-02T15:04:05.123Z` (ms precision) while a lex cutoff
+            # in `2006-01-02T15:04:05Z` (second precision) sorted the fresh
+            # deploy as OLDER because ASCII `.` < `Z`. Converting both
+            # sides to epoch seconds eliminates the format-sensitivity.
+            if [ -n "${REDEPLOY_CUTOFF_EPOCH:-}" ] && [ -n "$CREATED_AT" ]; then
+              # Strip fractional seconds + Z for cross-platform `date -d`.
+              CREATED_AT_SANE=$(printf '%s' "$CREATED_AT" | sed -E 's/\.[0-9]+Z$/Z/')
+              CREATED_EPOCH=$(date -u -d "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || date -u -jf "%Y-%m-%dT%H:%M:%SZ" "$CREATED_AT_SANE" +%s 2>/dev/null \
+                || echo 0)
+              if [ "$CREATED_EPOCH" -gt 0 ] && [ "$CREATED_EPOCH" -lt "$REDEPLOY_CUTOFF_EPOCH" ]; then
+                echo "  (latest deploy createdAt $CREATED_AT predates cutoff $REDEPLOY_CUTOFF_ISO — waiting for our deploy)"
+                HEALTHY_STREAK=0
+                sleep 15
+                continue
+              fi
+            fi
+
+            # Fail on any terminal failure status. Railway's DeploymentStatus enum
+            # has no CANCELLED value; the real terminal failures are below.
+            case "$STATUS" in
+              CRASHED|FAILED|REMOVED|SKIPPED)
+                echo "::error::Service ${{ matrix.service.dispatch_name }} deploy status: $STATUS"
+                exit 1
+                ;;
+            esac
+
+            # `DOMAIN` is empty string on missing edge (jq `// empty`), so a
+            # `-n` check is sufficient. The prior `!= "null"` guard was dead
+            # — jq `// empty` already resolves JSON null to "", never to the
+            # literal string "null".
+            if [ "$STATUS" = "SUCCESS" ] && [ -n "$DOMAIN" ]; then
+              # Probe the service-specific health_path. Hit a real endpoint
+              # rather than root: many services are API-only backends that 404
+              # at /, so a 404 at root can't distinguish "dead" from
+              # "alive-but-no-index-route".
+              # No fallback — an unscoped fallback could mask a broken endpoint
+              # when an unrelated catch-all/CDN/actuator happens to 200 at the
+              # other path. Misconfigured paths are a config bug to fix in the
+              # matrix, not runtime behavior to hide.
+              HEALTH_PATH="${{ matrix.service.health_path }}"
+              if [ -z "$HEALTH_PATH" ]; then
+                echo "::error::health_path not configured for service ${{ matrix.service.dispatch_name }} in ALL_SERVICES"
+                exit 1
+              fi
+              HEALTH_URL="https://${DOMAIN}${HEALTH_PATH}"
+              # Services like `shell` and `shell-dojo` probe `/` (a Next.js
+              # homepage), which can transiently 5xx or bounce through a 301
+              # chain during cold starts — a single bad response would reset
+              # HEALTHY_STREAK and throw away progress. Retry the probe up to
+              # 3 times within this iteration before treating it as a genuine
+              # non-200; legitimate failures still fail because all 3 tries
+              # must return non-200.
+              HTTP_CODE="000"
+              RETRY_AFTER=""
+              for probe_try in 1 2 3; do
+                RESP_HEADERS=$(mktemp)
+                HTTP_CODE=$(curl -s -o /dev/null -D "$RESP_HEADERS" -w "%{http_code}" --max-time 15 "$HEALTH_URL" 2>/dev/null || echo "000")
+                # Capture Retry-After so 429/503 waits respect the server hint
+                # instead of hammering every 2s. Header case-insensitive grep.
+                RETRY_AFTER=$(awk 'BEGIN{IGNORECASE=1} /^Retry-After:/ {sub(/\r$/,""); print $2; exit}' "$RESP_HEADERS" 2>/dev/null || echo "")
+                rm -f "$RESP_HEADERS"
+                if [ "$HTTP_CODE" = "200" ]; then
+                  break
+                fi
+                if [ "$probe_try" -lt 3 ]; then
+                  echo "HTTP check: $HEALTH_URL → $HTTP_CODE (retry $probe_try/3)"
+                  # Honor Retry-After. RFC 7231 allows either a
+                  # delta-seconds integer OR an HTTP-date. Railway's
+                  # upstreams have been observed emitting both, so we
+                  # parse both forms; unknown/unparseable falls through
+                  # to the 2s default.
+                  RETRY_SECONDS=""
+                  if [ -n "$RETRY_AFTER" ]; then
+                    if printf '%s' "$RETRY_AFTER" | grep -Eq '^[0-9]+$'; then
+                      RETRY_SECONDS="$RETRY_AFTER"
+                    else
+                      # HTTP-date form: `Wed, 21 Oct 2015 07:28:00 GMT`.
+                      # GNU date on the runner parses this directly; BSD
+                      # date (macOS CI fallback) has a different flag set
+                      # — `|| true` ensures neither path aborts the probe
+                      # loop if the header is garbled.
+                      HD_EPOCH=$(date -u -d "$RETRY_AFTER" +%s 2>/dev/null || echo "")
+                      if [ -n "$HD_EPOCH" ]; then
+                        NOW_EPOCH=$(date -u +%s)
+                        DELTA=$((HD_EPOCH - NOW_EPOCH))
+                        if [ "$DELTA" -gt 0 ]; then
+                          RETRY_SECONDS="$DELTA"
+                        fi
+                      fi
+                    fi
+                    # If the header was present but neither decimal-seconds
+                    # nor HTTP-date parsed, surface a warning so operators
+                    # can spot misformatted Retry-After headers instead of
+                    # silently burning retry budget at 2s/try.
+                    if [ -z "$RETRY_SECONDS" ]; then
+                      echo "::warning::Unparseable Retry-After header '$RETRY_AFTER' from $HEALTH_URL — falling back to 2s"
+                    fi
+                  fi
+                  # Clamp to [1, 30]: upper cap keeps a broken Retry-After from
+                  # blowing the 600s budget; lower clamp ensures `Retry-After: 0`
+                  # still yields at least one tick of backoff rather than a busy
+                  # loop of same-second retries.
+                  if [ -n "$RETRY_SECONDS" ]; then
+                    if [ "$RETRY_SECONDS" -lt 1 ]; then RETRY_SECONDS=1; fi
+                    if [ "$RETRY_SECONDS" -gt 30 ]; then RETRY_SECONDS=30; fi
+                    sleep "$RETRY_SECONDS"
+                  else
+                    sleep 2
+                  fi
+                fi
+              done
+              echo "HTTP check: $HEALTH_URL → $HTTP_CODE"
+              # Fail fast on permanent client errors. 404 (wrong health_path),
+              # 410 (endpoint decommissioned), 501 (method not implemented)
+              # will never recover — retrying for 10 min wastes the job budget
+              # and hides misconfiguration behind "did not become healthy".
+              case "$HTTP_CODE" in
+                404|410|501)
+                  echo "::error::Service ${{ matrix.service.dispatch_name }} health endpoint returned $HTTP_CODE at $HEALTH_URL — check health_path in ALL_SERVICES or confirm the service still serves that route"
+                  exit 1
+                  ;;
+              esac
+              if [ "$HTTP_CODE" = "200" ]; then
+                HEALTHY_STREAK=$((HEALTHY_STREAK + 1))
+                if [ "$HEALTHY_STREAK" -ge "$REQUIRED_STREAK" ]; then
+                  echo "Service healthy ($HEALTHY_STREAK consecutive 200s)"
+                  exit 0
+                fi
+              else
+                # Reset streak if we had a partial streak and then a non-200
+                HEALTHY_STREAK=0
+              fi
+              # SUCCESS but not yet responding — app process still booting
+            else
+              HEALTHY_STREAK=0
+            fi
+
+            sleep 15
+          done
+          echo "::error::Service ${{ matrix.service.dispatch_name }} did not become healthy within 600s"
+          # Fail the job so Slack alerts fire — silent deploy failures
+          # should never report green. Railway is on the Pro tier and does
+          # not sleep on idle, so a persistent timeout is a real failure.
+          exit 1
+
+  notify-ops:
+    needs: [detect-changes, check-lockfile, verify-image-refs, build]
+    if: always()
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-latest
+    # 3 attempts * (30s curl + up to 10s backoff) is ~130s in the worst case,
+    # plus payload assembly. 2 minutes leaves no headroom and truncated the
+    # final retry under load; bumping to 3 gives a clean budget.
+    timeout-minutes: 3
+    steps:
+      - name: Compute deploy-result payload
+        id: payload
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          LOCKFILE_RESULT: ${{ needs.check-lockfile.result }}
+          VERIFY_RESULT: ${{ needs.verify-image-refs.result }}
+          DETECT_RESULT: ${{ needs.detect-changes.result }}
+          DETECT_HAS_CHANGES: ${{ needs.detect-changes.outputs.has_changes }}
+          DETECT_MATRIX: ${{ needs.detect-changes.outputs.matrix }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Only short-circuit on the genuine "nothing to deploy" case: detect
+          # ran successfully AND reported no changed services. A detect-changes
+          # failure must fall through so the GATE_REASON="detect-changes-<result>"
+          # branch below can fire an alert — previously this was the explicit
+          # intent (see the comment on "upstream gate, also not our fault") but
+          # the compound guard swallowed the failure path entirely, making the
+          # detect-changes-failure branch unreachable dead code.
+          if [ "${DETECT_RESULT}" = "success" ] && [ "${DETECT_HAS_CHANGES}" != "true" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # DETECT_MATRIX is empty or malformed when detect-changes failed or
+          # was cancelled. Fall back to an empty array so `jq` doesn't error
+          # out and kill the whole notify-ops step — the gate-reason branch
+          # below still fires the alert with an empty services list.
+          SERVICES=$(echo "$DETECT_MATRIX" | jq -c '[.[].dispatch_name]' 2>/dev/null || echo '[]')
+          SERVICES=${SERVICES:-'[]'}
+          # Disambiguate skipped-because-gated from ran-and-failed-everything.
+          # `needs.build.result == "skipped"` can arise from THREE distinct
+          # causes — reporting every service as failed in any of them is a
+          # false positive and spams #oss-alerts with bogus "all services
+          # failed" messages. The previous single-condition check
+          # (LOCKFILE_RESULT != success) conflated:
+          #   - lockfile actually failed (gated intentionally)
+          #   - lockfile cancelled (external cancel, not our concern)
+          #   - detect-changes failed (upstream gate, also not our fault)
+          # Split into explicit branches so each case is identifiable.
+          GATE_SKIPPED=false
+          GATE_REASON=""
+          if [ "${BUILD_RESULT}" = "skipped" ]; then
+            if [ "${LOCKFILE_RESULT}" = "failure" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-failed"
+            elif [ "${LOCKFILE_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="lockfile-cancelled"
+            elif [ "${VERIFY_RESULT}" = "failure" ]; then
+              # Pre-build drift assertion fired — Railway image refs don't
+              # match expected shape. showcase-ops renders a distinct alert
+              # rather than a generic deploy failure. Check the run log for
+              # the per-service violation list.
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-failed"
+            elif [ "${VERIFY_RESULT}" = "cancelled" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="verify-image-refs-cancelled"
+            elif [ "${DETECT_RESULT}" != "success" ]; then
+              GATE_SKIPPED=true
+              GATE_REASON="detect-changes-${DETECT_RESULT}"
+            fi
+          fi
+          # HF13-E3: per-matrix-leg partition via `gh api`.
+          #
+          # The aggregate `needs.build.result` CANNOT be used to partition
+          # failed-vs-succeeded services when the build matrix has
+          # `fail-fast: false`. `needs.build.result == "failure"` means "at
+          # least one leg failed" — it does NOT mean "all legs failed".
+          # Previously we set `FAILED="$SERVICES"` on aggregate-failure,
+          # marking every successful leg as failed and rendering the
+          # signal.partial branch in deploy-result.yml unreachable. Query
+          # the per-job conclusions directly and partition by matching job
+          # name against each service's dispatch_name.
+          if [ "${BUILD_RESULT}" = "cancelled" ]; then
+            FAILED='[]'
+            SUCCEEDED='[]'
+            CANCELLED=true
+          elif [ "$GATE_SKIPPED" = "true" ]; then
+            # Build matrix never ran. Send an empty failed/succeeded pair plus
+            # a `gateSkipped: true` discriminator so showcase-ops can render
+            # a "blocked by lockfile gate" alert instead of a deploy failure.
+            FAILED='[]'
+            SUCCEEDED='[]'
+            CANCELLED=false
+          elif [ "${BUILD_RESULT}" = "success" ]; then
+            # Fast-path: aggregate success means every leg succeeded — no
+            # need to round-trip through the API just to re-derive the same
+            # answer. Keeps notify-ops within its retry budget on the happy
+            # path where most runs land.
+            FAILED='[]'
+            SUCCEEDED="$SERVICES"
+            CANCELLED=false
+          else
+            # Partial / all-failed / unknown aggregate: ask the Actions API
+            # for per-leg conclusions. `--paginate` handles large matrices
+            # (>30 jobs per page); filter to build-matrix legs by name
+            # prefix. GitHub renders matrix job names as
+            # "build (<dispatch_name>, <context>, <image>, ...)" — the
+            # dispatch_name is the first serialized matrix-object field.
+            # We match with a token-bounded prefix ("build (<svc>,") rather
+            # than substring contains() to avoid service/starter collisions
+            # (e.g. `agno` would otherwise match `build (starter-agno,...)`,
+            # same for `ag2`/`starter-ag2`, `mastra`/`starter-mastra`, and
+            # every langgraph-*/starter-langgraph-* pair).
+            JOBS_JSON=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}/jobs" --paginate 2>/dev/null \
+              | jq -cs '[.[].jobs[]?]' 2>/dev/null || echo '[]')
+            BUILD_JOBS=$(echo "$JOBS_JSON" | jq -c '[.[] | select((.name // "") | startswith("build"))]' 2>/dev/null || echo '[]')
+            FAILED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
+                | select(.conclusion == "failure")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo "$SERVICES")
+            # SUCCEEDED = services with at least one job whose conclusion
+            # is "success". Matrix legs that were cancelled/skipped by the
+            # platform land in neither bucket — surfaced implicitly as
+            # `totalCount - failedCount - succeededCount` on the receiver.
+            SUCCEEDED=$(echo "$SERVICES" | jq -c --argjson jobs "$BUILD_JOBS" '
+              [
+                .[] as $svc
+                | $jobs[]
+                | select((.name // "") as $n | ($n | startswith("build (" + $svc + ",")) or $n == ("build (" + $svc + ")"))
+                | select(.conclusion == "success")
+                | $svc
+              ] | unique
+            ' 2>/dev/null || echo '[]')
+            # Defensive fallback: if the API query failed and FAILED is an
+            # empty array while the aggregate says failure, fall back to
+            # marking all services failed rather than silently reporting
+            # "everything green on a failed run".
+            FAILED_LEN=$(echo "$FAILED" | jq 'length' 2>/dev/null || echo 0)
+            SUCCEEDED_LEN=$(echo "$SUCCEEDED" | jq 'length' 2>/dev/null || echo 0)
+            if [ "$FAILED_LEN" = "0" ] && [ "$SUCCEEDED_LEN" = "0" ]; then
+              echo "::warning::gh api job-partition query returned no matches; falling back to aggregate-failure"
+              FAILED="$SERVICES"
+              SUCCEEDED='[]'
+            fi
+            CANCELLED=false
+          fi
+          PAYLOAD=$(jq -cn \
+            --arg runId "$RUN_ID" \
+            --arg runUrl "$RUN_URL" \
+            --arg gateReason "$GATE_REASON" \
+            --argjson services "$SERVICES" \
+            --argjson failed "$FAILED" \
+            --argjson succeeded "$SUCCEEDED" \
+            --argjson cancelled "$CANCELLED" \
+            --argjson gateSkipped "$GATE_SKIPPED" \
+            '{runId:$runId,runUrl:$runUrl,services:$services,failed:$failed,succeeded:$succeeded,cancelled:$cancelled,gateSkipped:$gateSkipped,gateReason:$gateReason}')
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          {
+            echo "payload<<EOF_PAYLOAD"
+            echo "$PAYLOAD"
+            echo "EOF_PAYLOAD"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: POST deploy result to showcase-ops
+        if: steps.payload.outputs.skip != 'true'
+        env:
+          SHOWCASE_OPS_URL: ${{ secrets.SHOWCASE_OPS_URL }}
+          SHARED_SECRET: ${{ secrets.SHOWCASE_OPS_SHARED_SECRET }}
+          PAYLOAD: ${{ steps.payload.outputs.payload }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SHOWCASE_OPS_URL:-}" ] || [ -z "${SHARED_SECRET:-}" ]; then
+            echo "::warning::SHOWCASE_OPS_URL or SHOWCASE_OPS_SHARED_SECRET not set; skipping webhook"
+            exit 0
+          fi
+          TS=$(date +%s)
+          METHOD="POST"
+          WEBHOOK_PATH="/webhooks/deploy"
+          BODY_SHA=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hex | awk '{print $2}')
+          CANONICAL="${METHOD}|${WEBHOOK_PATH}|${TS}|${BODY_SHA}"
+          SIG=$(printf '%s' "$CANONICAL" | openssl dgst -sha256 -hmac "$SHARED_SECRET" -hex | awk '{print $2}')
+          # Bounded retry loop. curl's `--retry` alone is insufficient here:
+          # it only retries on transient transport failures, not on the 502/503/
+          # 504 responses Railway occasionally emits while a new showcase-ops
+          # deploy is coming up. We want retry on both transport + 5xx, with
+          # backoff, and a hard fail if the service is really down.
+          HTTP_CODE="000"
+          ATTEMPT=0
+          MAX_ATTEMPTS=3
+          while [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            # `--retry-all-errors` covers DNS/TLS/connect-reset failures that
+            # plain `--retry` skips (`--retry` only retries on 5xx + transient
+            # transport). 2 in-curl retries give us a short fast-path against
+            # a flapping resolver without blowing the 30s per-attempt budget;
+            # the outer loop still handles persistent 5xx.
+            HTTP_CODE=$(curl -sS -o /tmp/body -w '%{http_code}' \
+              --connect-timeout 10 --max-time 30 \
+              --retry 2 --retry-all-errors --retry-delay 1 \
+              -X POST "${SHOWCASE_OPS_URL%/}${WEBHOOK_PATH}" \
+              -H 'content-type: application/json' \
+              -H "X-Ops-Timestamp: ${TS}" \
+              -H "X-Ops-Signature: sha256=${SIG}" \
+              --data-raw "$PAYLOAD" || echo "000")
+            echo "webhook attempt ${ATTEMPT}/${MAX_ATTEMPTS}: ${HTTP_CODE}"
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "202" ]; then
+              cat /tmp/body || true
+              exit 0
+            fi
+            if [ "$ATTEMPT" -lt "$MAX_ATTEMPTS" ]; then
+              SLEEP=$((ATTEMPT * 5))
+              echo "  retrying in ${SLEEP}s..."
+              sleep "$SLEEP"
+            fi
+          done
+          echo "webhook response body (last attempt):"
+          cat /tmp/body || true
+          echo "::error::showcase-ops webhook returned ${HTTP_CODE} after ${MAX_ATTEMPTS} attempts"
+          exit 1

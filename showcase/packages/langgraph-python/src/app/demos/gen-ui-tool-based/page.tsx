@@ -2,69 +2,66 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar } from "@copilotkit/react-core/v2";
 import {
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-  RendererSelector,
-  useRenderMode,
-  ToolBasedDashboard,
-  A2UIDashboard,
-  HashBrownDashboard,
-  OpenGenUIDashboard,
-} from "@copilotkit/showcase-shared";
+  CopilotChat,
+  useComponent,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+import { BarChart, barChartPropsSchema } from "./bar-chart";
+import { PieChart, pieChartPropsSchema } from "./pie-chart";
 
-export default function GenUiToolBasedDemo() {
+export default function ControlledGenUiDemo() {
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="gen-ui-tool-based"
-        a2ui={{ catalog: demonstrationCatalog }}
-      >
-        <SidebarWithContent />
-      </CopilotKit>
-    </div>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+      <Chat />
+    </CopilotKit>
   );
 }
 
-function SidebarWithContent() {
-  useShowcaseHooks();
-  useShowcaseSuggestions();
+function Chat() {
+  // @region[bar-chart-renderer]
+  useComponent({
+    name: "render_bar_chart",
+    description: "Display a bar chart with labeled numeric values.",
+    parameters: barChartPropsSchema,
+    render: BarChart,
+  });
+  // @endregion[bar-chart-renderer]
+
+  // @region[pie-chart-renderer]
+  useComponent({
+    name: "render_pie_chart",
+    description: "Display a pie chart with labeled numeric values.",
+    parameters: pieChartPropsSchema,
+    render: PieChart,
+  });
+  // @endregion[pie-chart-renderer]
+
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sales bar chart",
+        message: "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
+      },
+      {
+        title: "Traffic pie chart",
+        message: "Show me a pie chart of website traffic by source.",
+      },
+      {
+        title: "Market share",
+        message: "Show a pie chart of smartphone market share by brand.",
+      },
+    ],
+    available: "always",
+  });
 
   return (
-    <div className="relative flex flex-col h-full w-full">
-      <DashboardWithRenderer agentId="gen-ui-tool-based" />
-      <CopilotSidebar
-        defaultOpen={true}
-        labels={{
-          modalHeaderTitle: "Chart Generator",
-        }}
-      />
-    </div>
-  );
-}
-
-function DashboardWithRenderer({ agentId }: { agentId: string }) {
-  const { mode, setMode } = useRenderMode();
-
-  return (
-    <div className="flex flex-col h-full">
-      <RendererSelector mode={mode} onModeChange={setMode} />
-      <div className="flex-1 flex items-center justify-center">
-        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
-        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
-        {mode === "hashbrown" && <HashBrownDashboard />}
-        {mode === "open-genui" && <OpenGenUIDashboard />}
-        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
+    <div className="flex justify-center items-center h-screen w-full">
+      <div className="h-full w-full max-w-4xl">
+        <CopilotChat
+          agentId="gen-ui-tool-based"
+          className="h-full rounded-2xl"
+        />
       </div>
     </div>
   );

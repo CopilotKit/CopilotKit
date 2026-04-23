@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/core",
-  "version": "1.55.3",
+  "version": "1.56.3",
   "description": "Core web utilities for CopilotKit2",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -31,6 +31,7 @@
   "dependencies": {
     "@ag-ui/client": "0.0.52",
     "@copilotkit/shared": "workspace:*",
+    "@tanstack/pacer": "^0.20.1",
     "phoenix": "^1.8.4",
     "rxjs": "7.8.1",
     "zod-to-json-schema": "^3.24.6"

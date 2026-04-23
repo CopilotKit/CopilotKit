@@ -1,0 +1,225 @@
+{
+  "Sprint Overview": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://project-board"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 16,
+              "children": [
+                "header",
+                "team-label",
+                "team",
+                "milestones-label",
+                "m1",
+                "m2",
+                "m3",
+                "tasks-label",
+                "t1",
+                "t2",
+                "t3",
+                "t4",
+                "t5",
+                "t6",
+                "t7",
+                "t8"
+              ]
+            },
+            {
+              "id": "header",
+              "component": "BoardHeader",
+              "title": "CopilotKit v3.0 Launch",
+              "description": "Sprint 14 \u2014 April 14\u201325, 2026",
+              "totalTasks": 24,
+              "completedTasks": 16
+            },
+
+            { "id": "team-label", "component": "Text", "text": "Team" },
+            {
+              "id": "team",
+              "component": "TeamMember",
+              "members": [
+                {
+                  "name": "Sarah Chen",
+                  "initials": "SC",
+                  "tasks": 6,
+                  "color": "#6366f1"
+                },
+                {
+                  "name": "Marcus Lee",
+                  "initials": "ML",
+                  "tasks": 5,
+                  "color": "#ec4899"
+                },
+                {
+                  "name": "Priya Patel",
+                  "initials": "PP",
+                  "tasks": 4,
+                  "color": "#14b8a6"
+                },
+                {
+                  "name": "Alex Kim",
+                  "initials": "AK",
+                  "tasks": 3,
+                  "color": "#f59e0b"
+                }
+              ]
+            },
+
+            {
+              "id": "milestones-label",
+              "component": "Text",
+              "text": "Milestones"
+            },
+            {
+              "id": "m1",
+              "component": "MilestoneBar",
+              "name": "API Freeze",
+              "dueDate": "Apr 18",
+              "progress": 100,
+              "status": "on-track"
+            },
+            {
+              "id": "m2",
+              "component": "MilestoneBar",
+              "name": "Beta Release",
+              "dueDate": "Apr 22",
+              "progress": 62,
+              "status": "at-risk"
+            },
+            {
+              "id": "m3",
+              "component": "MilestoneBar",
+              "name": "GA Launch",
+              "dueDate": "Apr 25",
+              "progress": 30,
+              "status": "behind"
+            },
+
+            {
+              "id": "tasks-label",
+              "component": "Text",
+              "text": "Current Tasks"
+            },
+            {
+              "id": "t1",
+              "component": "TaskCard",
+              "title": "Implement VS Code extension preview panel",
+              "assignee": "Sarah Chen",
+              "priority": "critical",
+              "labels": ["extension", "v3"],
+              "dueDate": "Apr 16"
+            },
+            {
+              "id": "t2",
+              "component": "TaskCard",
+              "title": "Add Tailwind CSS support for component preview",
+              "assignee": "Sarah Chen",
+              "priority": "high",
+              "labels": ["extension", "styling"],
+              "dueDate": "Apr 17"
+            },
+            {
+              "id": "t3",
+              "component": "TaskCard",
+              "title": "Fix hot-reload state preservation",
+              "assignee": "Marcus Lee",
+              "priority": "high",
+              "labels": ["bug", "dx"],
+              "dueDate": "Apr 16"
+            },
+            {
+              "id": "t4",
+              "component": "TaskCard",
+              "title": "Write migration guide for v2 \u2192 v3",
+              "assignee": "Priya Patel",
+              "priority": "medium",
+              "labels": ["docs"],
+              "dueDate": "Apr 20"
+            },
+            {
+              "id": "t5",
+              "component": "TaskCard",
+              "title": "Performance benchmark runtime bundling",
+              "assignee": "Alex Kim",
+              "priority": "medium",
+              "labels": ["perf"],
+              "dueDate": "Apr 18"
+            },
+            {
+              "id": "t6",
+              "component": "TaskCard",
+              "title": "Add fixture file validation diagnostics",
+              "assignee": "Marcus Lee",
+              "priority": "low",
+              "labels": ["extension", "dx"],
+              "dueDate": "Apr 22"
+            },
+            {
+              "id": "t7",
+              "component": "TaskCard",
+              "title": "Set up CI/CD for marketplace publishing",
+              "priority": "low",
+              "labels": ["infra"],
+              "dueDate": "Apr 24"
+            },
+            {
+              "id": "t8",
+              "component": "TaskCard",
+              "title": "Explore JetBrains plugin feasibility",
+              "priority": "low",
+              "labels": ["research"],
+              "dueDate": "Apr 25"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "Empty Board": {
+    "surfaceId": "preview",
+    "messages": [
+      {
+        "version": "v0.9",
+        "createSurface": {
+          "surfaceId": "preview",
+          "catalogId": "copilotkit://project-board"
+        }
+      },
+      {
+        "version": "v0.9",
+        "updateComponents": {
+          "surfaceId": "preview",
+          "components": [
+            {
+              "id": "root",
+              "component": "Column",
+              "gap": 12,
+              "children": ["header"]
+            },
+            {
+              "id": "header",
+              "component": "BoardHeader",
+              "title": "New Project",
+              "description": "No tasks yet \u2014 start by adding your first milestone",
+              "totalTasks": 0,
+              "completedTasks": 0
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

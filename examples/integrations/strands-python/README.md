@@ -8,23 +8,21 @@ This is a starter template for building AI agents using [strands](https://strand
 - Python 3.12+
 - OpenAI API Key (for the strands agent)
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -50,11 +48,11 @@ echo "OPENAI_API_KEY=your-openai-api-key-here" > agent/.env
 3. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev
@@ -70,12 +68,10 @@ This will start both the UI and agent servers concurrently.
 The following scripts can also be run using your preferred package manager:
 
 - `dev` - Starts both UI and agent servers in development mode
-- `dev:debug` - Starts development servers with debug logging enabled
 - `dev:ui` - Starts only the Next.js UI server
 - `dev:agent` - Starts only the strands agent server
 - `build` - Builds the Next.js application for production
 - `start` - Starts the production server
-- `lint` - Runs ESLint for code linting
 - `install:agent` - Installs Python dependencies for the agent
 
 ## 📚 Documentation

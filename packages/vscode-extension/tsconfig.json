@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig/base.json",
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "es2022",
+    "lib": ["es2022", "dom"],
+    "jsx": "react-jsx",
+    "types": ["vitest/globals"],
+    "outDir": "dist",
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "test-workspace/**/*"],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "src/extension/hooks/__tests__/fixtures/**"
+  ]
+}

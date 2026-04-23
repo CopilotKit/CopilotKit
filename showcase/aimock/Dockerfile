@@ -6,5 +6,6 @@ CMD ["--proxy-only", \
      "--provider-anthropic", "https://api.anthropic.com", \
      "--provider-gemini", "https://generativelanguage.googleapis.com", \
      "--fixtures", "/fixtures", \
+     "--validate-on-load", \
      "--host", "0.0.0.0", \
      "--port", "4010"]

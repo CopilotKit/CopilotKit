@@ -298,7 +298,9 @@ describe("handleRunAgent", () => {
         generateThreadNames?: boolean;
         identifyUser?: (
           request: Request,
-        ) => { id: string } | Promise<{ id: string }>;
+        ) =>
+          | { id: string; name: string }
+          | Promise<{ id: string; name: string }>;
       },
     ) => {
       const runner = Object.create(IntelligenceAgentRunner.prototype);
@@ -318,7 +320,8 @@ describe("handleRunAgent", () => {
         generateThreadNames: options?.generateThreadNames ?? false,
         intelligence: platform,
         identifyUser:
-          options?.identifyUser ?? vi.fn().mockResolvedValue({ id: "user-1" }),
+          options?.identifyUser ??
+          vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
       } as unknown as CopilotRuntime;
     };
 
@@ -395,7 +398,9 @@ describe("handleRunAgent", () => {
           .fn()
           .mockResolvedValue({ joinToken: "jt-123", joinCode: "jc-123" }),
       };
-      const identifyUser = vi.fn().mockResolvedValue({ id: "resolved-user" });
+      const identifyUser = vi
+        .fn()
+        .mockResolvedValue({ id: "resolved-user", name: "Resolved User" });
       const runtime = createIntelligenceRuntime(agent, platform, {
         identifyUser,
       });
@@ -870,7 +875,29 @@ describe("handleRunAgent", () => {
         ɵacquireThreadLock: vi.fn(),
       };
       const runtime = createIntelligenceRuntime(agent, platform, {
-        identifyUser: vi.fn().mockResolvedValue({ id: "" }),
+        identifyUser: vi.fn().mockResolvedValue({ id: "", name: "User" }),
+      });
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      expect(platform.getOrCreateThread).not.toHaveBeenCalled();
+      expect(platform.ɵacquireThreadLock).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 when identifyUser returns an invalid name", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn(),
+        getThreadMessages: vi.fn(),
+        ɵacquireThreadLock: vi.fn(),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform, {
+        identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "" }),
       });
 
       const response = await handleRunAgent({

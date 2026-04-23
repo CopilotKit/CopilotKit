@@ -1,0 +1,39 @@
+{
+  "name": "@copilotkit/showcase-ops",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:update-goldens": "UPDATE_GOLDENS=1 vitest run",
+    "dev": "tsx watch src/orchestrator.ts",
+    "start": "node dist/orchestrator.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.710.0",
+    "@hono/node-server": "^1.14.0",
+    "chokidar": "^4.0.3",
+    "croner": "^9.0.0",
+    "hono": "^4.6.0",
+    "js-yaml": "^4.1.0",
+    "mustache": "^4.2.0",
+    "playwright": "^1.59.1",
+    "ulid": "^2.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/mustache": "^4.2.5",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
+  }
+}

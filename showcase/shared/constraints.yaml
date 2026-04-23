@@ -5,63 +5,68 @@
 generative_ui:
   constrained-declarative:
     allowed:
+      - beautiful-chat
+      - cli-start
       - agentic-chat
+      - chat-customization-css
+      - tool-rendering-default-catchall
+      - tool-rendering-custom-catchall
+      - frontend-tools
+      - frontend-tools-async
       - gen-ui-tool-based
       - useComponent
       - multi-modal
       - suggestions
-      - shared-state-read
-      - shared-state-write
+      - shared-state-read-write
+      - readonly-state-agent-context
       - shared-state-streaming
-      - readables
       - subagents
       - voice
     excluded:
       - tool-rendering
-      - hitl
+      - hitl-in-chat
+      - hitl-in-app
       - gen-ui-interrupt
-      - open-gen-ui
 
   constrained-explicit:
     allowed:
+      - beautiful-chat
+      - cli-start
       - agentic-chat
+      - chat-customization-css
+      - tool-rendering-default-catchall
+      - tool-rendering-custom-catchall
+      - tool-rendering-reasoning-chain
+      - agentic-chat-reasoning
+      - reasoning-default-render
+      - prebuilt-sidebar
+      - prebuilt-popup
+      - chat-slots
+      - headless-simple
+      - headless-complete
+      - frontend-tools
+      - frontend-tools-async
       - gen-ui-tool-based
       - gen-ui-interrupt
+      - interrupt-headless
       - gen-ui-agent
-      - hitl
+      - hitl-in-chat
+      - hitl-in-app
+      - declarative-gen-ui
+      - a2ui-fixed-schema
+      - mcp-apps
       - tool-rendering
       - useComponent
       - multi-modal
       - suggestions
-      - shared-state-read
-      - shared-state-write
+      - shared-state-read-write
+      - readonly-state-agent-context
       - shared-state-streaming
-      - readables
       - subagents
       - voice
-
-  open:
-    allowed:
-      - open-gen-ui
-      - multi-modal
-      - suggestions
-      - shared-state-read
-      - shared-state-write
-      - shared-state-streaming
-      - readables
-      - subagents
-      - voice
-    excluded:
-      - tool-rendering
-      - hitl
-      - gen-ui-tool-based
-      - gen-ui-interrupt
-      - useComponent
-      - agentic-chat
 
 interaction_modalities:
   headless:
     excluded:
-      - open-gen-ui
       - voice
   # sidebar, embedded, popup, chat: no exclusions

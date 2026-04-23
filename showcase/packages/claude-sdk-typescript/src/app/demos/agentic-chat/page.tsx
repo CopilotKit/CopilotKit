@@ -1,54 +1,28 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   useFrontendTool,
   useRenderTool,
   useAgentContext,
+  useConfigureSuggestions,
   CopilotChat,
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
-import { DemoErrorBoundary } from "@copilotkit/showcase-shared";
-import {
-  WeatherCard,
-  useShowcaseHooks,
-  useShowcaseSuggestions,
-  demonstrationCatalog,
-  RendererSelector,
-  useRenderMode,
-  ToolBasedDashboard,
-  A2UIDashboard,
-  HashBrownDashboard,
-  OpenGenUIDashboard,
-} from "@copilotkit/showcase-shared";
 
 export default function AgenticChatDemo() {
-  useEffect(() => {
-    console.log("[agentic-chat] Demo mounted");
-  }, []);
-
   return (
-    <DemoErrorBoundary demoName="Agentic Chat">
-      <CopilotKit
-        runtimeUrl="/api/copilotkit"
-        agent="agentic_chat"
-        a2ui={{ catalog: demonstrationCatalog }}
-        onError={(error) => {
-          console.error("[agentic-chat] CopilotKit error:", error);
-        }}
-      >
-        <Chat />
-      </CopilotKit>
-    </DemoErrorBoundary>
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic_chat">
+      <Chat />
+    </CopilotKit>
   );
 }
 
 function Chat() {
-  const [background, setBackground] = useState<string>("#fafaf9");
-
-  useShowcaseHooks();
-  useShowcaseSuggestions();
+  const [background, setBackground] = useState<string>(
+    "var(--copilot-kit-background-color)",
+  );
 
   useAgentContext({
     description: "Name of the user",
@@ -58,11 +32,11 @@ function Chat() {
   useFrontendTool({
     name: "change_background",
     description:
-      "Change the background color of the chat. ONLY call this tool when the user explicitly asks to change the background. Never call it proactively or as part of another response. Can be anything that the CSS background attribute accepts. Prefer gradients.",
+      "Change the background color of the chat. Can be anything that the CSS background attribute accepts. Regular colors, linear or radial gradients etc.",
     parameters: z.object({
       background: z
         .string()
-        .describe("The CSS background value. Prefer gradients."),
+        .describe("The background. Prefer gradients. Only use when asked."),
     }),
     handler: async ({ background }: { background: string }) => {
       setBackground(background);
@@ -80,46 +54,42 @@ function Chat() {
     }),
     render: ({ args, result, status }: any) => {
       if (status !== "complete") {
-        return <WeatherCard location={args.location} loading />;
+        return <div data-testid="weather-info-loading">Loading weather...</div>;
       }
-
       return (
-        <WeatherCard
-          location={args.location}
-          temperature={result?.temperature}
-          conditions={result?.conditions}
-          humidity={result?.humidity}
-          windSpeed={result?.wind_speed}
-          feelsLike={result?.feels_like}
-          city={result?.city}
-        />
+        <div data-testid="weather-info">
+          <strong>Weather in {result?.city || args.location}</strong>
+          <div>Temperature: {result?.temperature}&deg;C</div>
+          <div>Humidity: {result?.humidity}%</div>
+          <div>Wind Speed: {result?.windSpeed ?? result?.wind_speed} mph</div>
+          <div>Conditions: {result?.conditions}</div>
+        </div>
       );
     },
   });
 
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Change background",
+        message: "Change the background to something new.",
+      },
+      {
+        title: "Generate sonnet",
+        message: "Write a short sonnet about AI.",
+      },
+    ],
+    available: "always",
+  });
+
   return (
     <div
-      className="flex flex-col h-full w-full transition-all duration-700"
+      className="flex justify-center items-center h-screen w-full"
       data-testid="background-container"
       style={{ background }}
     >
-      <DashboardWithRenderer agentId="agentic_chat" />
-    </div>
-  );
-}
-
-function DashboardWithRenderer({ agentId }: { agentId: string }) {
-  const { mode, setMode } = useRenderMode();
-
-  return (
-    <div className="flex flex-col h-full">
-      <RendererSelector mode={mode} onModeChange={setMode} />
-      <div className="flex-1">
-        {mode === "tool-based" && <ToolBasedDashboard agentId={agentId} />}
-        {mode === "a2ui" && <A2UIDashboard agentId={agentId} />}
-        {mode === "hashbrown" && <HashBrownDashboard />}
-        {mode === "open-genui" && <OpenGenUIDashboard />}
-        {mode === "json-render" && <ToolBasedDashboard agentId={agentId} />}
+      <div className="h-full w-full max-w-4xl">
+        <CopilotChat agentId="agentic_chat" className="h-full rounded-2xl" />
       </div>
     </div>
   );

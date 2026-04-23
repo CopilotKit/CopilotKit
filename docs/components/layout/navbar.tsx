@@ -49,7 +49,7 @@ export const LEFT_LINKS: NavbarLink[] = [
   },
   {
     icon: <CloudIcon />,
-    label: "Copilot Cloud",
+    label: "Free Developer Access",
     href: "https://cloud.copilotkit.ai",
     target: "_blank",
     showExternalLinkIcon: true,
@@ -61,7 +61,7 @@ const RIGHT_LINKS: NavbarLink[] = [
     icon: <CloudIcon />,
     href: "https://cloud.copilotkit.ai",
     target: "_blank",
-    label: "Copilot Cloud",
+    label: "Free Developer Access",
   },
   {
     icon: <GithubIcon />,
@@ -146,8 +146,8 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             <Logo className="pl-6" />
             <ul className="hidden gap-6 items-center h-full md:flex">
               {LEFT_LINKS.map((link) => {
-                // Hide only Copilot Cloud at narrow widths
-                const hideAtNarrow = link.label === "Copilot Cloud";
+                // Hide only Free Developer Access at narrow widths
+                const hideAtNarrow = link.label === "Free Developer Access";
                 // Hide icons for Documentation and API Reference at very narrow widths
                 const hideIconAtNarrow =
                   link.label === "Documentation" ||
@@ -240,8 +240,8 @@ const Navbar = ({ pageTree }: NavbarProps) => {
             style={{ backgroundColor: "var(--sidebar)" }}
           >
             {RIGHT_LINKS.map((link) => {
-              // Only show Copilot Cloud at narrow widths (between 768px and 1028px)
-              const isIconOnlyLink = link.label === "Copilot Cloud";
+              // Only show Free Developer Access at narrow widths (between 768px and 1028px)
+              const isIconOnlyLink = link.label === "Free Developer Access";
 
               return (
                 <Link

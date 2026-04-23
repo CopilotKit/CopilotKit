@@ -95,20 +95,31 @@ export class IntelligenceAgentRunner extends AgentRunner {
     request: AgentRunnerRunRequest,
     state: ThreadState,
   ): Record<string, unknown> {
-    const canonicalEvent = this.stampRunnerMetadata(event, state);
+    const canonicalEvent = this.stampRunnerMetadata(
+      this.stampCanonicalRunOwnership(event, request),
+      state,
+    );
     const payload = {
       ...(canonicalEvent as Record<string, unknown>),
     };
 
-    payload.thread_id ??= request.threadId;
-
-    const runId = payload.runId ?? payload.run_id ?? request.input.runId;
-
-    if (runId) {
-      payload.run_id = runId;
-    }
+    payload.threadId = request.threadId;
+    payload.runId = request.input.runId;
+    payload.thread_id = request.threadId;
+    payload.run_id = request.input.runId;
 
     return payload;
+  }
+
+  private stampCanonicalRunOwnership(
+    event: BaseEvent,
+    request: AgentRunnerRunRequest,
+  ): BaseEvent {
+    return {
+      ...(event as BaseEvent & Record<string, unknown>),
+      threadId: request.threadId,
+      runId: request.input.runId,
+    } as BaseEvent;
   }
 
   private stampRunnerMetadata(event: BaseEvent, state: ThreadState): BaseEvent {
@@ -327,7 +338,10 @@ export class IntelligenceAgentRunner extends AgentRunner {
   ): Observable<void> {
     const { currentEvents, channel } = state;
     const pushCanonicalEvent = (event: BaseEvent): void => {
-      const canonicalEvent = this.stampRunnerMetadata(event, state);
+      const canonicalEvent = this.stampRunnerMetadata(
+        this.stampCanonicalRunOwnership(event, request),
+        state,
+      );
       currentEvents.push(canonicalEvent);
 
       if (canonicalEvent.type === EventType.RUN_STARTED) {
@@ -355,8 +369,12 @@ export class IntelligenceAgentRunner extends AgentRunner {
           threadId: request.threadId,
           runId: request.input.runId,
         }),
+        threadId: request.threadId,
+        runId: request.input.runId,
         input: {
           ...baseInput,
+          threadId: request.threadId,
+          runId: request.input.runId,
           ...(persistedInputMessages !== undefined
             ? { messages: persistedInputMessages }
             : {}),
