@@ -1,0 +1,91 @@
+---
+title: "AG-UI Event Inspector"
+description: "Inspect AG-UI events in real time with the VSCode extension"
+icon: "lucide/Activity"
+---
+The AG-UI Event Inspector gives you a live view of every event flowing between your CopilotKit runtime and client. Instead of sprinkling `console.log` statements through your agent code, you can watch the full AG-UI event stream in a filterable, color-coded panel inside VS Code.
+
+Use it when:
+- An agent interaction isn't behaving as expected and you need to see which events the runtime is actually emitting
+- You want to understand the AG-UI event lifecycle (e.g., how `RUN_STARTED` flows through `TEXT_MESSAGE_CONTENT` chunks to `RUN_FINISHED`)
+- You need to inspect tool call arguments or state deltas for a specific interaction
+
+## Prerequisites
+
+- A CopilotKit runtime running locally in development mode (`NODE_ENV` is **not** `production`)
+- The [CopilotKit VS Code extension](/vs-code-extension) installed
+
+<Callout type="warning">
+  The `/cpk-debug-events` endpoint is disabled when `NODE_ENV=production`. This is intentional — it streams internal event data that should not be exposed in production environments.
+</Callout>
+
+## Connect and inspect
+
+<Steps>
+<Step>
+### Ensure your runtime is running in development mode
+
+The debug event endpoint is available at `GET /cpk-debug-events` on your CopilotKit runtime. It activates automatically when `NODE_ENV !== 'production'` — no extra configuration needed. If you're using the default dev setup, you're already good to go.
+</Step>
+
+<Step>
+### Open the AG-UI Inspector
+
+Open the VS Code command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`) and run:
+
+```
+CopilotKit: Open AG-UI Inspector
+```
+
+This opens a dedicated webview panel.
+</Step>
+
+<Step>
+### Enter your runtime URL and connect
+
+Type your runtime URL in the input field at the top of the panel (default: `http://localhost:4000`) and click **Connect**. The panel status indicator turns green when the SSE connection is established.
+</Step>
+
+<Step>
+### Trigger an agent interaction
+
+Go to your app and perform an action that triggers an agent run — send a chat message, invoke a tool, or interact with any CopilotKit-powered component. Events start streaming into the inspector immediately.
+</Step>
+
+<Step>
+### Read the event stream
+
+Each event row shows:
+- **Timestamp** — relative time since the first event (e.g., `+0.142s`)
+- **Event type badge** — color-coded by category (see table below)
+- **Summary** — key fields like message ID, tool name, or a text preview
+</Step>
+
+<Step>
+### Filter events
+
+Use the category filter buttons at the top of the panel to show or hide event categories. You can also search event payloads with the search field to find specific tool names, message IDs, or content.
+</Step>
+
+<Step>
+### Inspect event details
+
+Click any event row to expand the full JSON payload in the detail panel. This shows every field the runtime emitted for that event, including `agentId`, `threadId`, `runId`, and the complete event data.
+</Step>
+</Steps>
+
+## Event type reference
+
+| Category | Color | Event Types | Description |
+|---|---|---|---|
+| **Lifecycle** | Purple | `RUN_STARTED`, `RUN_FINISHED` | Marks the start and end of an agent run |
+| **Errors** | Red | `RUN_ERROR` | An error occurred during the agent run |
+| **Text Messages** | Blue | `TEXT_MESSAGE_START`, `TEXT_MESSAGE_CONTENT`, `TEXT_MESSAGE_END`, `TEXT_MESSAGE_CHUNK` | Text streamed from the agent to the client |
+| **Tool Calls** | Orange | `TOOL_CALL_START`, `TOOL_CALL_ARGS`, `TOOL_CALL_END`, `TOOL_CALL_CHUNK`, `TOOL_CALL_RESULT` | Tool invocation lifecycle — name, arguments, and result |
+| **Reasoning** | Green | `REASONING_START`, `REASONING_MESSAGE_START`, `REASONING_MESSAGE_CONTENT`, `REASONING_MESSAGE_END`, `REASONING_END` | Model reasoning/chain-of-thought events |
+| **State** | Teal | `STATE_SNAPSHOT`, `STATE_DELTA` | Agent state snapshots and incremental updates |
+| **Activity/UI** | Yellow | `ACTIVITY_SNAPSHOT`, `ACTIVITY_DELTA` | UI activity indicators and progress updates |
+
+<Callout type="info">
+  For console-level debug logging and programmatic error handling in your app, see [Error Debugging](/troubleshooting/error-debugging). If you're debugging a render prop rather than a runtime event stream, the [Hook Explorer](/troubleshooting/hook-explorer) is the offline, render-first complement to this tool.
+</Callout>

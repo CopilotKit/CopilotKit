@@ -78,6 +78,17 @@ export interface RailwayServiceInfo {
    * package: legacy `/smoke` + `/health` + `/demos/*`).
    */
   shape: ShowcaseServiceShape;
+  /**
+   * Digest of the image running in the latest deployment, sourced from
+   * Railway's `latestDeployment.meta.imageDigest`. Railway stores
+   * tag-only refs in `source.image` (e.g. `ghcr.io/org/name:latest`),
+   * so the `imageRef` field never contains a digest for tag-deployed
+   * services. The image-drift driver uses this field as the "currently
+   * deployed" digest instead of parsing from the (digest-less) imageRef.
+   *
+   * Empty string when no deployment exists or the field is absent.
+   */
+  deployedDigest: string;
 }
 
 /**
@@ -222,6 +233,18 @@ const ProjectServicesSchema = z.object({
                           .optional(),
                       })
                       .optional(),
+                    latestDeployment: z
+                      .object({
+                        // Railway's `DeploymentMeta` is a GraphQL scalar
+                        // (untyped JSON object) — not a typed object with
+                        // sub-fields. The query fetches `meta` without
+                        // sub-selection; we parse it as a record and
+                        // extract `imageDigest` in the service-building
+                        // loop below.
+                        meta: z.record(z.unknown()).nullable().optional(),
+                      })
+                      .nullable()
+                      .optional(),
                   }),
                 }),
               ),
@@ -293,6 +316,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
                   environmentId
                   source { image }
                   domains { serviceDomains { domain } }
+                  latestDeployment { meta }
                 } }
               }
             } }
@@ -342,6 +366,8 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         (e) => e.node.environmentId === environmentId,
       );
       const imageRef = instance?.node.source?.image ?? "";
+      const rawDigest = instance?.node.latestDeployment?.meta?.["imageDigest"];
+      const deployedDigest = typeof rawDigest === "string" ? rawDigest : "";
       const domain =
         instance?.node.domains?.serviceDomains?.[0]?.domain ?? null;
       const publicUrl = domain ? `https://${domain}` : "";
@@ -381,6 +407,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       out.push({
         name: svc.name,
         imageRef,
+        deployedDigest,
         publicUrl,
         env,
         shape: classifyShape(svc.name, { logger: ctx.logger }),

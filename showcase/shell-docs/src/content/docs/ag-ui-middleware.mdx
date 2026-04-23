@@ -4,12 +4,11 @@ icon: lucide/Layers
 description: Configure AG-UI middleware for your CopilotKit application.
 hideTOC: true
 ---
-
-AG-UI agents expose a middleware layer via `agent.use(middleware)` — a powerful hook for logging, guardrails, request transformation, and event rewriting. Because CopilotKit runs the middleware server-side inside the [Copilot Runtime](/backend/copilot-runtime), it executes in a trusted environment where the client cannot tamper with it.
+AG-UI agents expose a middleware layer via `agent.use(middleware)`, a powerful hook for logging, guardrails, request transformation, and event rewriting. Because CopilotKit runs the middleware server-side inside the [Copilot Runtime](/backend/copilot-runtime), it executes in a trusted environment where the client cannot tamper with it.
 
 ## Defining a Middleware
 
-A middleware extends the `Middleware` base class from `@ag-ui/client` and implements `run(input, next)`. It receives the incoming `RunAgentInput` and returns an `Observable<BaseEvent>` — typically by subscribing to `runNextWithState(input, next)` and transforming the stream:
+A middleware extends the `Middleware` base class from `@ag-ui/client` and implements `run(input, next)`. It receives the incoming `RunAgentInput` and returns an `Observable<BaseEvent>`, typically by subscribing to `runNextWithState(input, next)` and transforming the stream:
 
 ```ts title="my-middleware.ts"
 import {

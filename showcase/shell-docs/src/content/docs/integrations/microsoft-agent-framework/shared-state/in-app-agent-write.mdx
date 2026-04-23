@@ -3,9 +3,7 @@ title: Writing agent state
 icon: "lucide/ArrowRight"
 description: Write to agent's state from your application.
 ---
-
 {/* TODO: Swap these links for Microsoft Agent Framework links once Microsoft Agent Framework is officially added to the feature viewer */}
-
 <IframeSwitcher
   id="shared-state-example"
   exampleUrl="https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state?sidebar=false&chatDefaultOpen=false"
@@ -16,8 +14,7 @@ description: Write to agent's state from your application.
 />
 
 <Callout type="info">
-  This example demonstrates reading from shared state in the [CopilotKit Feature
-  Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
+  This example demonstrates reading from shared state in the [CopilotKit Feature Viewer](https://feature-viewer.copilotkit.ai/microsoft-agent-framework-dotnet/feature/shared_state).
 </Callout>
 
 ## What is this?
@@ -49,12 +46,25 @@ You can use this when you need to update agent state from your application — f
         ```
       </Tab>
       <Tab value="Python">
-        ```python title="agent/src/agent.py (excerpt)"
-        from typing import Annotated
-        from agent_framework import ChatAgent, ChatClientProtocol, ai_function
+        ```python title="main.py"
+        from __future__ import annotations
+        import os
+        import uvicorn
+        from agent_framework import Agent, tool, SupportsChatGetResponse
+        from agent_framework.openai import OpenAIChatClient
+        from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
         from agent_framework.ag_ui import AgentFrameworkAgent
-        from pydantic import Field
+        from dotenv import load_dotenv
+        from fastapi import FastAPI
+        from typing import Annotated
+        from pydantic import BaseModel, Field
 
+        load_dotenv()
+
+        class SearchItem(BaseModel):
+            query: str
+            done: bool
+            
         STATE_SCHEMA: dict[str, object] = {
             "language": {
                 "type": "string",
@@ -62,15 +72,11 @@ You can use this when you need to update agent state from your application — f
                 "description": "Preferred language.",
             }
         }
-
         PREDICT_STATE_CONFIG: dict[str, dict[str, str]] = {
             "language": {"tool": "update_language", "tool_argument": "language"}
         }
 
-        @ai_function(
-            name="update_language",
-            description="Update the preferred language (english or spanish).",
-        )
+        @tool
         def update_language(
             language: Annotated[str, Field(description="Preferred language: 'english' or 'spanish'")],
         ) -> str:
@@ -79,22 +85,51 @@ You can use this when you need to update agent state from your application — f
                 return "Language unchanged. Use 'english' or 'spanish'."
             return f"Language updated to {normalized}."
 
-        def create_agent(chat_client: ChatClientProtocol) -> AgentFrameworkAgent:
-            base_agent = ChatAgent(
-                name="sample_agent",
-                instructions="You are a helpful assistant.",
-                chat_client=chat_client,
-                tools=[update_language],   # [!code highlight:1]
+
+        def _build_chat_client():
+            if os.getenv("AZURE_OPENAI_ENDPOINT"):
+                return OpenAIChatClient(
+                    model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-4o-mini"),
+                    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+                )
+            if os.getenv("OPENAI_API_KEY"):
+                return OpenAIChatClient(
+                    model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                    api_key=os.getenv("OPENAI_API_KEY"),
+                )
+            raise RuntimeError(
+                "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
             )
 
+
+
+        def create_agent(chat_client: SupportsChatGetResponse) -> AgentFrameworkAgent:
+            base_agent = Agent(
+                name="sample_agent",
+                instructions="You are a helpful assistant.",
+                client=chat_client,
+                tools=[update_language],   
+            )
             return AgentFrameworkAgent(
                 agent=base_agent,
                 name="CopilotKitMicrosoftAgentFrameworkAgent",
                 description="Assistant that tracks a simple language state.",
-                state_schema=STATE_SCHEMA,               # [!code highlight:2]
-                predict_state_config=PREDICT_STATE_CONFIG, # [!code highlight:2]
+                state_schema=STATE_SCHEMA,               
+                predict_state_config=PREDICT_STATE_CONFIG, 
                 require_confirmation=False,
             )
+            
+
+        chat_client = _build_chat_client()
+
+        agent = create_agent(chat_client)
+
+        app = FastAPI(title="Microsoft Agent Framework - Quickstart")
+        add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+
+        if __name__ == "__main__":
+            uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
         ```
       </Tab>
     </Tabs>
@@ -104,7 +139,6 @@ You can use this when you need to update agent state from your application — f
       language: "english" | "spanish";
     }
     ```
-
   </Step>
   <Step>
     ### Call `agent.setState` from the `useAgent` hook
@@ -112,6 +146,7 @@ You can use this when you need to update agent state from your application — f
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
+    import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
 
     // Define the agent state type, should match the actual state of your agent
     type AgentState = {
@@ -144,7 +179,6 @@ You can use this when you need to update agent state from your application — f
       );
     }
     ```
-
   </Step>
   <Step>
     ### Give it a try!
@@ -168,6 +202,7 @@ If you want to re-run it manually, use `copilotkit.runAgent()`.
 The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 // ...
 
@@ -199,5 +234,4 @@ function YourMainContent() {
 ```
 
 ### Notes on state updates
-
 Depending on your agent implementation, you may choose to surface progress via tool responses or messages rather than frequent state snapshots. See [Generative UI](/microsoft-agent-framework/generative-ui/tool-rendering) for recommended patterns.

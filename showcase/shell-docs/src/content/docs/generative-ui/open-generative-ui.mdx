@@ -7,8 +7,8 @@ snippet_cell: open-gen-ui
 
 ## What is this?
 
-Open Generative UI lets the agent generate complete, sandboxed UI on the fly —
-HTML, CSS, and JavaScript — and stream it live into the chat. The user sees
+Open Generative UI lets the agent generate complete, sandboxed UI on the fly
+(HTML, CSS, and JavaScript) and stream it live into the chat. The user sees
 the interface build in real time: styles apply first, then HTML streams in
 progressively, and finally JavaScript expressions execute one by one.
 
@@ -25,10 +25,12 @@ Key benefits:
 ## Minimal setup
 
 Turning on Open Generative UI takes one flag in the runtime plus a plain
-`<CopilotChat />` on the frontend — the built-in activity renderer is
+`<CopilotChat />` on the frontend; the built-in activity renderer is
 auto-registered by `CopilotKitProvider`, so no extra wiring is needed.
 
 ### Enable it in the runtime
+
+Add `OpenGenerativeUIMiddleware` to your runtime configuration:
 
 <Snippet region="minimal-runtime-flag" />
 
@@ -38,6 +40,8 @@ which the built-in `OpenGenerativeUIActivityRenderer` mounts inside a
 sandboxed iframe.
 
 ### Drop `<CopilotChat />` into the page
+
+Wrap your app in `CopilotKitProvider` and render `<CopilotChat>` — no extra props needed:
 
 <Snippet region="minimal-provider-setup" />
 
@@ -55,7 +59,7 @@ iframe can't reach directly.
 
 ### Runtime is unchanged
 
-The server-side flag is identical to the minimal cell — the advanced
+The server-side flag is identical to the minimal cell; the advanced
 behaviour is a pure frontend addition.
 
 <Snippet region="advanced-runtime-config" cell="open-gen-ui-advanced" />
@@ -101,7 +105,7 @@ progressively.
 
 ## Using CDN libraries
 
-The sandboxed iframe can load external libraries from CDNs — just include
+The sandboxed iframe can load external libraries from CDNs; just include
 `<script>` or `<link>` tags in the generated HTML `<head>`. Chart.js, D3,
 Three.js, and any other CDN-hosted library work out of the box.
 
@@ -113,7 +117,5 @@ Three.js, and any other CDN-hosted library work out of the box.
   <canvas id="myChart"></canvas>
 </body>
 ```
-
-## Choose your AI backend
 
 <IntegrationGrid path="generative-ui/open-generative-ui" />

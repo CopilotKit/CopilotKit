@@ -9,6 +9,10 @@
     "...generative-ui",
     "---Agent Spec---",
     "langgraph",
-    "wayflow"
+    "wayflow",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
   ]
 }

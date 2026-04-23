@@ -40,6 +40,8 @@ The `name` you pass to `useComponent` is what the agent sees as the tool name. M
 
 ## Minimal example
 
+The following registers a display tool and wires it to a React component. When the agent emits that tool call, CopilotKit resolves the arguments against the Zod schema and passes them as typed props:
+
 ```tsx title="page.tsx"
 import { z } from "zod";
 import { useComponent } from "@copilotkit/react-core/v2";

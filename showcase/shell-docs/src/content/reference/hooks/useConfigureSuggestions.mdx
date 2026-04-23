@@ -12,6 +12,8 @@ The configuration is automatically registered on mount and removed on unmount. W
 ## Signature
 
 ```tsx
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
 function useConfigureSuggestions(
   config: SuggestionsConfigInput | null | undefined,
   deps?: ReadonlyArray<unknown>,

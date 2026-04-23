@@ -21,7 +21,10 @@ export const CopilotChatAttachmentQueue: React.FC<
   if (attachments.length === 0) return null;
 
   return (
-    <div className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}>
+    <div
+      data-testid="copilot-attachment-queue"
+      className={cn("cpk:flex cpk:flex-wrap cpk:gap-2 cpk:p-2", className)}
+    >
       {attachments.map((attachment) => {
         const isMedia =
           attachment.type === "image" || attachment.type === "video";
