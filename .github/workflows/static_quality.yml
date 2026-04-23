@@ -37,6 +37,7 @@ jobs:
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: ${{ github.event_name == 'pull_request' && 0 || 1 }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -53,17 +54,47 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Collect PR-changed files for formatting
+        if: github.event_name == 'pull_request'
+        id: changed
+        run: |
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          # Scope to files changed between the PR's merge-base and HEAD so
+          # advances on main don't drag unrelated files into this PR.
+          # Restrict to oxfmt-supported extensions so oxfmt never errors on
+          # an unknown target.
+          git diff --name-only --diff-filter=ACMR "$base_sha"...HEAD -- \
+            '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
+            '*.json' '*.jsonc' '*.json5' \
+            '*.md' '*.mdx' \
+            '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
+            > .pr-format-files.txt
+          : > .pr-format-files.existing.txt
+          while IFS= read -r f; do
+            [ -n "$f" ] && [ -f "$f" ] && printf '%s\n' "$f" >> .pr-format-files.existing.txt
+          done < .pr-format-files.txt
+          count=$(wc -l < .pr-format-files.existing.txt | tr -d ' ')
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "PR-changed format candidates: $count"
+          cat .pr-format-files.existing.txt
+
       - name: Run formatter (check on push, fix on PR)
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            if ! pnpm run format; then
+            if [ "${{ steps.changed.outputs.count }}" = "0" ]; then
+              echo "No formattable files changed in this PR — skipping oxfmt."
+              exit 0
+            fi
+            if ! xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --write; then
               echo "::warning::Formatter exited with error — auto-fix may be incomplete"
             fi
             if [ -n "$(git diff --name-only)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
+            xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --check
+          else
+            pnpm run check-format
           fi
-          pnpm run check-format
 
       - name: Commit formatting fixes
         if: >-
