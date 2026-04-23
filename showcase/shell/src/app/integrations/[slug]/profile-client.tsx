@@ -14,7 +14,8 @@ interface Demo {
   name: string;
   description: string;
   tags: string[];
-  route: string;
+  route?: string;
+  command?: string;
   animated_preview_url?: string | null;
 }
 
@@ -84,6 +85,10 @@ export function ProfileClient({
   );
   const [showAllFiles, setShowAllFiles] = useState(false);
   const [cloneCopied, setCloneCopied] = useState(false);
+  const [copiedCommandId, setCopiedCommandId] = useState<string | null>(null);
+
+  const liveDemos = integration.demos.filter((d) => d.route && !d.command);
+  const commandDemos = integration.demos.filter((d) => d.command);
 
   // Load starter content dynamically when the integration has a starter
   useEffect(() => {
@@ -111,6 +116,18 @@ export function ProfileClient({
   function openDemo(demo: Demo) {
     setActiveDemo(demo);
     setDrawerOpen(true);
+  }
+
+  function copyDemoCommand(demoId: string, command: string) {
+    navigator.clipboard
+      .writeText(command)
+      .then(() => {
+        setCopiedCommandId(demoId);
+        setTimeout(() => setCopiedCommandId(null), 2000);
+      })
+      .catch(() => {
+        window.prompt("Copy this command:", command);
+      });
   }
 
   function copyCloneCommand() {
@@ -419,38 +436,87 @@ export function ProfileClient({
       )}
 
       <div className="mx-auto max-w-5xl px-6 pb-12">
-        {/* Demos */}
-        <section className="mt-10">
-          <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">
-            Live Demos
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {integration.demos.map((demo) => (
-              <button
-                key={demo.id}
-                onClick={() => openDemo(demo)}
-                className="group text-left rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 hover:border-[var(--accent)] hover:-translate-y-0.5 transition-all"
-              >
-                <h3 className="text-sm font-semibold text-[var(--text)]">
-                  {demo.name}
-                </h3>
-                <p className="mt-1 text-xs text-[var(--text-secondary)]">
-                  {demo.description}
-                </p>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {demo.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] font-mono text-[var(--text-muted)]"
+        {/* Get Started — CLI / command-only entries */}
+        {commandDemos.length > 0 && (
+          <section className="mt-10">
+            <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">
+              Get Started
+            </h2>
+            <div className="space-y-3">
+              {commandDemos.map((demo) => (
+                <div
+                  key={demo.id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5"
+                >
+                  <h3 className="text-sm font-semibold text-[var(--text)]">
+                    {demo.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    {demo.description}
+                  </p>
+                  <div className="mt-3 flex items-start gap-2">
+                    <code className="flex-1 min-w-0 whitespace-pre-wrap break-all rounded-md border border-[var(--border)] bg-[var(--bg-elevated)] px-3 py-2 text-xs font-mono text-[var(--text)]">
+                      {demo.command}
+                    </code>
+                    <button
+                      onClick={() =>
+                        copyDemoCommand(demo.id, demo.command ?? "")
+                      }
+                      className="shrink-0 inline-flex items-center gap-1.5 rounded-md border border-[var(--border)] px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text)] hover:border-[var(--text-muted)] transition-colors"
                     >
-                      {tag}
-                    </span>
-                  ))}
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                      >
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                      </svg>
+                      {copiedCommandId === demo.id ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
                 </div>
-              </button>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Demos */}
+        {liveDemos.length > 0 && (
+          <section className="mt-10">
+            <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">
+              Live Demos
+            </h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {liveDemos.map((demo) => (
+                <button
+                  key={demo.id}
+                  onClick={() => openDemo(demo)}
+                  className="group text-left rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 hover:border-[var(--accent)] hover:-translate-y-0.5 transition-all"
+                >
+                  <h3 className="text-sm font-semibold text-[var(--text)]">
+                    {demo.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    {demo.description}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {demo.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-[var(--bg-elevated)] px-2 py-0.5 text-[10px] font-mono text-[var(--text-muted)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Full page viewer link */}
         {activeDemo && (
@@ -475,7 +541,7 @@ export function ProfileClient({
           demoId={activeDemo.id}
           demoName={activeDemo.name}
           backendUrl={integration.backend_url}
-          demoRoute={activeDemo.route}
+          demoRoute={activeDemo.route ?? ""}
           wide={
             activeDemo.id.includes("gen-ui") ||
             activeDemo.id.includes("shared-state") ||

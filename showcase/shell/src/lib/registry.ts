@@ -17,7 +17,8 @@ export interface Demo {
   name: string;
   description: string;
   tags: string[];
-  route: string;
+  route?: string;
+  command?: string;
   animated_preview_url?: string | null;
 }
 
