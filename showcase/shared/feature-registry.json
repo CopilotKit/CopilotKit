@@ -98,9 +98,7 @@
       "id": "chat-customization-css",
       "name": "Chat Customization (CSS)",
       "category": "chat-ui",
-      "description": "Customizing chat components via CSS",
-      "og_docs_url": "https://docs.copilotkit.ai/features/chat-customization-css",
-      "shell_docs_url": "/docs/features/chat-customization-css"
+      "description": "Customizing chat components via CSS"
     },
     {
       "id": "headless-simple",

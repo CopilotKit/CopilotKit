@@ -1,0 +1,91 @@
+# Probe: qa
+#
+# Per-feature QA checklist presence audit. For each `showcase-<slug>`
+# service the driver reads `showcase/packages/<slug>/manifest.yaml`,
+# enumerates the `demos[]` array, and file-stats
+# `showcase/packages/<slug>/qa/<featureId>.md` for each demo.
+#
+# Rows emitted per driver invocation:
+#   - Primary `qa:<slug>`                 ProbeResult carrying the
+#                                         aggregate { total, covered,
+#                                         missing[] } signal — green iff
+#                                         every demo has a matching QA
+#                                         file, red otherwise.
+#   - Side    `qa:<slug>/<featureId>`     One per demo. green ⇔ the
+#                                         matching qa/<featureId>.md
+#                                         exists on disk; red otherwise.
+#
+# The dashboard (`shell-dashboard/src/lib/live-status.ts#resolveCell`)
+# reads each per-cell row via `keyFor("qa", slug, featureId)` which
+# formats as `qa:<slug>/<featureId>`. QA is informational only — it does
+# NOT feed the overall rollup — but having its own closed-enum dimension
+# slot is required for rule YAMLs keyed on `qa` to validate at load time
+# (see `DIMENSIONS` in `src/types/index.ts`).
+#
+# Cadence: every 30 minutes. File-presence is cheap (no chromium, no
+# HTTP, just `fs.stat`/`fs.readFileSync` of a manifest + one `existsSync`
+# per demo). 30-minute cadence gives the dashboard a fresh QA snapshot
+# within one editor→save→refresh loop while keeping scheduler load
+# trivial — an entire tick runs in well under 100ms per service.
+#
+# timeout_ms (30s) is deliberately generous for what is pure local I/O —
+# each invocation reads one YAML and stats ~30 files. 30s lets the same
+# config work unmodified against a slow NFS mount or Windows Defender
+# scan without tripping the invoker's timeout-to-synthetic-error path.
+#
+# max_concurrency (4) matches the schema default. The probe is cheap
+# enough that higher concurrency wouldn't noticeably speed up a tick,
+# and keeping it modest leaves budget for the siblings (smoke, e2e)
+# sharing the scheduler pool.
+#
+# ── Wave 1 scope (initial rollout) ────────────────────────────────────
+#
+# For the first wave we intentionally restrict discovery to
+# `showcase-langgraph-python` only. Rationale:
+#   - Phase 2 of the QA rollout authored qa/<feature>.md for every demo
+#     declared in langgraph-python's manifest.
+#   - The other 16 showcase packages still need their manifests seeded
+#     and their QA files authored. Probing them now would flood the
+#     dashboard with an expected-red row per missing-file × per-demo ×
+#     per-service (~500+ red cells), drowning real signal.
+#
+# We achieve this by setting `namePrefix: "showcase-langgraph-python"` —
+# the prefix is unique enough to match exactly one Railway service
+# (`showcase-langgraph-fastapi` and `showcase-langgraph-typescript` do
+# NOT start with `showcase-langgraph-python`). No `nameExcludes` needed
+# at this scope.
+#
+# ── Widening scope in future waves ────────────────────────────────────
+#
+# When authoring QA checklists for the next package (e.g. `mastra`):
+#   1. Relax `namePrefix` to `"showcase-"`.
+#   2. Copy the infra exclude list from `smoke.yml` into `nameExcludes`
+#      (aimock / ops / pocketbase / shell*).
+#   3. Optionally add a temporary `nameExcludes` entry for every
+#      still-unwritten package's Railway service, so the dashboard
+#      surfaces only "truly-missing" reds while each package is
+#      progressively covered.
+# Once every `showcase-*` service has a populated `qa/` dir, the filter
+# is just `namePrefix: "showcase-"` + the infra exclude list — same
+# shape as `smoke.yml` today.
+kind: qa
+id: qa
+schedule: "*/30 * * * *"
+timeout_ms: 30000
+max_concurrency: 4
+discovery:
+  source: railway-services
+  filter:
+    # Wave 1 scope: matches only `showcase-langgraph-python`. Widen by
+    # relaxing to `"showcase-"` + adding the infra `nameExcludes` list
+    # from smoke.yml when subsequent packages' QA files are authored.
+    namePrefix: "showcase-langgraph-python"
+  # key_template uses the full Railway service name so the primary row
+  # keys as `qa:showcase-langgraph-python`. The driver internally
+  # derives a short slug (`langgraph-python`) by stripping the
+  # `showcase-` prefix, and emits per-feature side rows keyed
+  # `qa:langgraph-python/<featureId>` so the dashboard's `keyFor("qa",
+  # slug, featureId)` lookup matches. Carrying the full name on the
+  # primary key keeps alert rules that dedupe on `qa:*` consistent with
+  # the sibling `smoke:showcase-*` / `e2e-smoke:showcase-*` shapes.
+  key_template: "qa:${name}"

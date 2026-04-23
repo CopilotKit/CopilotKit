@@ -1,0 +1,156 @@
+# Probe: e2e-demos
+#
+# Per-demo structural E2E coverage across every showcase service on
+# Railway. Where `e2e-smoke` does two deep L3/L4 chat round-trips per
+# service (expensive, targeted), `e2e-demos` does a cheap goto + chat-
+# input-ready selector check against EVERY `/demos/<featureId>` route
+# declared in the service's registry entry. One chromium per tick fans
+# out serially across all demos of all in-scope services.
+#
+# Rows emitted per driver invocation (see e2e-demos.ts):
+#   - Primary `e2e-demos:<slug>`           ProbeResult carrying the
+#                                          aggregate { total, passed,
+#                                          failed[], shape, backendUrl }
+#                                          signal. Green iff every demo
+#                                          reached the ready selector;
+#                                          red if ANY demo flipped red.
+#   - Side    `e2e:<slug>/<featureId>`     One per demo. green ⇔ goto +
+#                                          one of the structural ready
+#                                          selectors resolved within the
+#                                          driver's per-page timeout
+#                                          (30s); red with `errorClass`
+#                                          ∈ { goto-error, selector-error,
+#                                          abort, driver-error } and a
+#                                          Slack-safe `errorDesc`.
+#
+# The shell-dashboard's per-cell E2E badge lookup
+# (`shell-dashboard/src/lib/live-status.ts#resolveCell`) reads each side
+# row via `keyFor("e2e", slug, featureId)` which formats as
+# `e2e:<slug>/<featureId>` — the driver's side-emit keys match.
+#
+# ── Cadence: every 6 hours ────────────────────────────────────────────
+#
+# Chromium cost scales as demos × services per tick. langgraph-python
+# alone declares ~32 demos — 32 fresh contexts + gotos per tick. With
+# `max_concurrency: 1` and a ~3-5s realistic goto+selector budget per
+# demo, one tick takes ~2-3 minutes of wall time even on the happy
+# path. Every 6 hours gives us:
+#   - 4 ticks/day: catches regressions within a half-deploy window
+#     while leaving ~95% of the scheduler's wall time to sibling
+#     probes.
+#   - Bounded LLM and bandwidth cost: the driver's ready-selector
+#     check does NOT issue a chat turn (unlike e2e-smoke) so there is
+#     no per-demo LLM spend, but each goto still pulls the Next.js
+#     bundle and chromium heap grows with page count.
+#
+# Speed up (e.g. */2h, */1h) ONLY after observing the per-tick memory
+# headroom + any downstream cost (LLM, bandwidth, Railway compute) on
+# the production orchestrator for a full cycle. The cadence is
+# deliberately conservative at Wave 1 to let the signal bed in.
+#
+# ── timeout_ms: 600_000 (10 min) ──────────────────────────────────────
+#
+# Outer driver-invocation cap. The driver subdivides internally with a
+# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — 32
+# demos * 30s worst-case = 960s > 600s, so the outer cap WILL fire on
+# a pathologically-slow service (every demo timing out). When that
+# happens the driver sets `timedOut = true` on the AbortController and
+# side-emits `errorClass: "abort"` / `errorDesc: "timeout after
+# 600000ms"` for every remaining demo — the dashboard keeps rendering
+# red dots rather than going gray, which is the right signal for
+# operator triage ("this whole service is wedged").
+#
+# ── max_concurrency: 1 ────────────────────────────────────────────────
+#
+# One chromium launch per tick. The driver itself is already serial
+# across demos within a single invocation (fresh context per demo,
+# awaited sequentially). The concurrency knob here governs how many
+# discovered SERVICES run in parallel. Keep at 1 for Wave 1:
+#   - Each chromium instance is ~300MB resident. Running two
+#     services in parallel doubles the footprint.
+#   - Wave 1 scope is a single service (langgraph-python) so >1 has
+#     no effect anyway; pinning to 1 makes the intent explicit for
+#     when we widen scope.
+# When widening to N services, raise to 2 to halve wall time while
+# staying under the orchestrator's Railway memory budget, following
+# the same pattern as `e2e-smoke.yml` (max_concurrency: 2).
+#
+# ── Wave 1 scope: langgraph-python ────────────────────────────────────
+#
+# Discovery narrows via `namePrefix: "showcase-langgraph-python"`.
+# Rationale mirrors `qa.yml`'s Wave 1 scoping:
+#   - Phase 3 of the E2E rollout authored per-feature `tests/e2e/
+#     <featureId>.spec.ts` files and the supporting route pages for
+#     every demo declared in langgraph-python's manifest.
+#   - Other showcase packages (mastra, vercel-ai, crewai, etc.) still
+#     have demos whose routes either don't exist or don't yet emit
+#     the `[data-testid="copilot-chat-input"]` structural marker. If
+#     we probed them now the dashboard would flood with expected-red
+#     per-cell rows per missing demo × per-service — drowning real
+#     signal, same failure mode `qa.yml` documents.
+#
+# The prefix `"showcase-langgraph-python"` matches exactly one Railway
+# service: `showcase-langgraph-typescript` / `-fastapi` do NOT start
+# with `-python`. No `nameExcludes` strictly needed at this scope.
+#
+# ── nameExcludes: future-proofing the widening path ───────────────────
+#
+# The infra exclude list is copied verbatim from `smoke.yml` /
+# `e2e-smoke.yml`. At Wave 1 scope these entries are no-ops — the
+# tighter `namePrefix` already filters them out — but carrying the
+# list means future scope expansions (step 1 below) don't silently
+# start probing the aimock mock-LLM, the orchestrator itself, or the
+# shell routing services. Keeping the list authored now surfaces
+# "obvious infra-ish service" concerns at review time rather than
+# after a bad widening drops a flood of false-red rows.
+#
+# ── Widening scope in future waves ────────────────────────────────────
+#
+# When a subsequent package completes its E2E Phase (routes + testids
+# wired up for every manifest demo):
+#   1. Relax `namePrefix` to `"showcase-"` (matching `e2e-smoke.yml`).
+#   2. Keep the `nameExcludes` list as-is — the infra excludes
+#      already drop the non-demo services from the fan-out.
+#   3. Optionally add a TEMPORARY `nameExcludes` entry for every
+#      still-unwritten package's Railway service so the dashboard
+#      surfaces only "truly-missing" reds while each package is
+#      progressively covered (same incremental-widening pattern
+#      `qa.yml` documents).
+# Once every `showcase-*` service has full demo coverage, the filter
+# is just `namePrefix: "showcase-"` + the infra exclude list — same
+# shape as `e2e-smoke.yml` today.
+kind: e2e_demos
+id: e2e-demos
+schedule: "0 */6 * * *"
+timeout_ms: 600000
+max_concurrency: 1
+discovery:
+  source: railway-services
+  filter:
+    # Wave 1 scope: matches only `showcase-langgraph-python`. The
+    # prefix is unique — `-typescript` / `-fastapi` siblings do NOT
+    # start with `-python`. Widen by relaxing to `"showcase-"` when
+    # additional packages' E2E routes land; the infra excludes below
+    # already drop the non-demo services from the fan-out. The driver
+    # strips the `showcase-` prefix internally to derive the slug
+    # used in side-emit keys (`e2e:langgraph-python/<featureId>`).
+    namePrefix: "showcase-langgraph-python"
+    # Infra exclude list — inert at Wave 1 scope (the tight prefix
+    # already drops them) but authored up-front so a future scope
+    # widening doesn't accidentally fan out to these non-demo
+    # services. Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a
+    # new infra service added there lands here too during review.
+    nameExcludes:
+      - showcase-aimock
+      - showcase-ops
+      - showcase-pocketbase
+      - showcase-shell
+      - showcase-shell-dashboard
+      - showcase-shell-docs
+      - showcase-shell-dojo
+  # Primary row key uses the Railway service name (not the stripped
+  # slug) to stay consistent with sibling `smoke:showcase-*` /
+  # `e2e-smoke:showcase-*` / `qa:showcase-*` keys. Alert rules that
+  # dedupe on `e2e-demos:*` or pattern-match `e2e-demos:showcase-*`
+  # work identically across driver families.
+  key_template: "e2e-demos:${name}"
