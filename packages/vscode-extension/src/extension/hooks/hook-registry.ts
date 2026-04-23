@@ -75,7 +75,7 @@ export const HOOK_REGISTRY = [
     category: "render",
     identityField: "name",
     renderProps: "render-tool",
-    importSource: "@copilotkit/react-core/v2",
+    importSource: "@copilotkit/react-core",
   },
   {
     name: "useRenderCustomMessages",
@@ -224,7 +224,7 @@ export const HOOK_REGISTRY = [
     category: "render",
     identityField: "name",
     renderProps: "action",
-    importSource: "@copilotkit/react-core/v2",
+    importSource: "@copilotkit/react-core",
   },
 ] as const satisfies ReadonlyArray<HookDef>;
 

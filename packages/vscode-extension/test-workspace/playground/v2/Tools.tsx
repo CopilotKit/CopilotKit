@@ -3,12 +3,14 @@ import {
   useRenderTool,
   useRenderToolCall,
   useDefaultRenderTool,
-  useLazyToolRenderer,
   useComponent,
-  useDefaultTool,
   useHumanInTheLoop,
   useInterrupt,
 } from "@copilotkit/react-core/v2";
+// useDefaultTool and useLazyToolRenderer are v1 APIs (registered in HOOK_REGISTRY
+// with importSource "@copilotkit/react-core"). They wrap `useCopilotAction` and
+// don't live in the v2 package.
+import { useDefaultTool, useLazyToolRenderer } from "@copilotkit/react-core";
 
 export function Tools() {
   // V2 render: frontend-callable tool that searches the web
