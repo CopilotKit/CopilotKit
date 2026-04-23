@@ -40,6 +40,7 @@ Before `preview_start`, make sure these are in order. If you skip them the serve
 ## Port conventions
 
 Most demos land on port 3000 (Next.js default). Dedicated ports:
+
 - Storybook → 6006 (both `example-react-storybook` and `example-angular-storybook` — run them one at a time)
 - `example-docs` → 4000 (Mintlify)
 - `example-angular-demo` → 4200 (Angular CLI default)
