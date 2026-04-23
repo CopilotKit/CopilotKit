@@ -18,7 +18,6 @@
     "shared-state",
     "threads",
     "---CrewAI Flows---",
-    "persistence",
     "advanced",
     "multi-agent-flows",
     "---Backend---",
