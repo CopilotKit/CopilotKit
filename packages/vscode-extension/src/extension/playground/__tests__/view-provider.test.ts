@@ -6,12 +6,40 @@ vi.mock("vscode", () => ({
   Uri: {
     joinPath: (_base: unknown, ...parts: string[]) => ({
       toString: () => parts.join("/"),
+      fsPath: parts.join("/"),
     }),
   },
 }));
 
 import { PlaygroundViewProvider } from "../view-provider";
+import type { PlaygroundDeps } from "../view-provider";
 import type { PlaygroundScanResult } from "../types";
+
+function makeDeps(overrides: Partial<PlaygroundDeps> = {}): PlaygroundDeps {
+  return {
+    writeSources: vi.fn(),
+    bundle: vi.fn(),
+    detectMode: vi.fn().mockReturnValue({ kind: "embed" }),
+    resolveLlmConfig: vi.fn().mockResolvedValue({
+      source: "explicit",
+      provider: "openai",
+      model: "gpt-4o-mini",
+      apiKey: "sk-test",
+    }),
+    startAimock: vi.fn().mockResolvedValue({
+      url: "http://127.0.0.1:11111",
+      provider: "openai",
+      getJournal: () => [],
+      stop: vi.fn().mockResolvedValue(undefined),
+    }),
+    spawnRuntime: vi.fn().mockResolvedValue({
+      url: "http://127.0.0.1:22222",
+      stop: vi.fn().mockResolvedValue(undefined),
+    }),
+    runtimeEntryScript: "/fake/subprocess-entry.cjs",
+    ...overrides,
+  };
+}
 
 function makeWebview() {
   const listeners: Array<(msg: unknown) => void> = [];
@@ -46,6 +74,7 @@ describe("PlaygroundViewProvider", () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh, onOpenSource },
+      makeDeps(),
     );
 
     provider.setScanResult(emptyResult);
@@ -68,6 +97,7 @@ describe("PlaygroundViewProvider", () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh, onOpenSource },
+      makeDeps(),
     );
 
     const view = makeWebview();
@@ -94,10 +124,14 @@ describe("PlaygroundViewProvider — bundling", () => {
 
     const onRefresh = vi.fn();
     const onOpenSource = vi.fn();
+    const deps = makeDeps({
+      bundle: bundleFn,
+      writeSources: codegenFn,
+    });
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh, onOpenSource },
-      { bundle: bundleFn, writeSources: codegenFn },
+      deps,
     );
 
     const result: PlaygroundScanResult = {
@@ -120,9 +154,11 @@ describe("PlaygroundViewProvider — bundling", () => {
     view.send({ type: "ready" });
 
     provider.setScanResult(result);
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 30));
 
-    expect(codegenFn).toHaveBeenCalledWith(result);
+    expect(codegenFn).toHaveBeenCalledWith(result, {
+      runtimeUrlOverride: "http://127.0.0.1:22222/api/copilotkit",
+    });
     expect(bundleFn).toHaveBeenCalledWith("/tmp/ignored/entry.tsx");
     expect(view.webview.postMessage).toHaveBeenCalledWith({
       type: "bundle-ready",
@@ -142,7 +178,7 @@ describe("PlaygroundViewProvider — bundling", () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh: vi.fn(), onOpenSource: vi.fn() },
-      { bundle: bundleFn, writeSources: codegenFn },
+      makeDeps({ bundle: bundleFn, writeSources: codegenFn }),
     );
 
     const view = makeWebview();
@@ -163,7 +199,7 @@ describe("PlaygroundViewProvider — bundling", () => {
       hookSites: [],
       warnings: [],
     });
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 30));
 
     expect(view.webview.postMessage).toHaveBeenCalledWith({
       type: "bundle-error",
@@ -184,7 +220,7 @@ describe("PlaygroundViewProvider — bundling", () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh: vi.fn(), onOpenSource: vi.fn() },
-      { bundle: bundleFn, writeSources: codegenFn },
+      makeDeps({ bundle: bundleFn, writeSources: codegenFn }),
     );
 
     // Scan arrives BEFORE the webview resolves.
@@ -202,7 +238,7 @@ describe("PlaygroundViewProvider — bundling", () => {
       hookSites: [],
       warnings: [],
     });
-    await new Promise((r) => setTimeout(r, 0));
+    await new Promise((r) => setTimeout(r, 30));
 
     // Now the webview resolves and signals ready.
     const view = makeWebview();
@@ -224,6 +260,7 @@ describe("PlaygroundViewProvider — HTML bootstrap", () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      makeDeps(),
     );
     const view = makeWebview();
     provider.resolveWebviewView(view as never, {} as never, {} as never);
@@ -233,5 +270,113 @@ describe("PlaygroundViewProvider — HTML bootstrap", () => {
     expect(html).toMatch(/window\.__copilotkit_nonce\s*=/);
     // It must include the bundle script with a nonce attribute.
     expect(html).toMatch(/nonce="[^"]+"[^>]*src="/);
+  });
+});
+
+describe("PlaygroundViewProvider — orchestration", () => {
+  it("posts mode-unsupported for absolute runtimeUrl", async () => {
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      makeDeps({
+        detectMode: vi.fn().mockReturnValue({
+          kind: "proxy-unsupported",
+          url: "https://api.example.com",
+        }),
+      }),
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    view.send({ type: "ready" });
+    provider.setScanResult({
+      providers: [
+        {
+          filePath: "/x/App.tsx",
+          loc: { line: 1, column: 0, endLine: 1, endColumn: 1 },
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+          props: { runtimeUrl: "https://api.example.com" },
+        },
+      ],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "mode-unsupported", kind: "proxy" }),
+    );
+  });
+
+  it("posts llm-config-missing when config is empty", async () => {
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      makeDeps({
+        resolveLlmConfig: vi.fn().mockResolvedValue({ source: "missing" }),
+      }),
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    view.send({ type: "ready" });
+    provider.setScanResult({
+      providers: [
+        {
+          filePath: "/x/App.tsx",
+          loc: { line: 1, column: 0, endLine: 1, endColumn: 1 },
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+          props: {},
+        },
+      ],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "llm-config-missing" }),
+    );
+  });
+
+  it("spawns aimock + runtime and passes runtime URL to codegen", async () => {
+    const writeSourcesFn = vi.fn().mockReturnValue({
+      outDir: "/tmp/ignored",
+      entryPath: "/tmp/ignored/entry.tsx",
+    });
+    const bundleFn = vi.fn().mockResolvedValue({
+      code: "var __copilotkit_playground = {};",
+      success: true,
+    });
+    const provider = new PlaygroundViewProvider(
+      { fsPath: "/fake", scheme: "file" } as never,
+      { onRefresh: vi.fn(), onOpenSource: vi.fn() },
+      makeDeps({ writeSources: writeSourcesFn, bundle: bundleFn }),
+    );
+    const view = makeWebview();
+    provider.resolveWebviewView(view as never, {} as never, {} as never);
+    view.send({ type: "ready" });
+    provider.setScanResult({
+      providers: [
+        {
+          filePath: "/x/App.tsx",
+          loc: { line: 1, column: 0, endLine: 1, endColumn: 1 },
+          importedName: "CopilotKitProvider",
+          importSource: "@copilotkit/react-core/v2",
+          props: {},
+        },
+      ],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    });
+    // Allow multiple microtask turns for the chained awaits in runBundle.
+    await new Promise((r) => setTimeout(r, 30));
+    expect(writeSourcesFn).toHaveBeenCalledWith(expect.anything(), {
+      runtimeUrlOverride: "http://127.0.0.1:22222/api/copilotkit",
+    });
+    expect(view.webview.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "bundle-ready" }),
+    );
   });
 });

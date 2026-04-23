@@ -14,12 +14,7 @@ export type RuntimeMode =
  *   classify; treat as proxy-unsupported-dynamic with the source preserved.
  */
 export function detectMode(
-  runtimeUrl:
-    | string
-    | null
-    | undefined
-    | UnserializableRef
-    | unknown,
+  runtimeUrl: string | null | undefined | UnserializableRef | unknown,
 ): RuntimeMode {
   if (runtimeUrl == null || runtimeUrl === "") return { kind: "embed" };
   if (typeof runtimeUrl === "object" && runtimeUrl !== null) {

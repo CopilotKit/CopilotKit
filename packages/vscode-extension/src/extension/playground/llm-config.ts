@@ -53,8 +53,9 @@ export async function resolveLlmConfig(
     const apiKey = await deps.readSecret(SECRET_KEY_FOR[settingProvider]);
     if (apiKey) {
       const model =
-        (deps.readSetting("copilotkit.playground.model") as string | undefined) ??
-        DEFAULT_MODELS[settingProvider];
+        (deps.readSetting("copilotkit.playground.model") as
+          | string
+          | undefined) ?? DEFAULT_MODELS[settingProvider];
       return { source: "explicit", provider: settingProvider, model, apiKey };
     }
   }

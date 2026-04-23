@@ -14,7 +14,9 @@ describe("resolveLlmConfig", () => {
   it("returns SecretStorage + settings when both are present", async () => {
     const deps = makeDeps({
       readSecret: vi.fn((k: string) =>
-        Promise.resolve(k === "copilotkit.openai.apiKey" ? "sk-xxx" : undefined),
+        Promise.resolve(
+          k === "copilotkit.openai.apiKey" ? "sk-xxx" : undefined,
+        ),
       ),
       readSetting: vi.fn((k: string) =>
         k === "copilotkit.playground.provider"

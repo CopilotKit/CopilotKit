@@ -15,7 +15,10 @@ import { InspectorPanel } from "./inspector-panel";
 import { InspectorViewProvider } from "./inspector-view-provider";
 import { DebugStream } from "./debug-stream";
 import { activateHookExplorer } from "./hooks/activate-hook-explorer";
-import { PlaygroundViewProvider } from "./playground/view-provider";
+import {
+  PlaygroundViewProvider,
+  createPlaygroundDeps,
+} from "./playground/view-provider";
 import { scanPlayground } from "./playground/scanner";
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -276,31 +279,35 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   };
 
-  const playgroundProvider = new PlaygroundViewProvider(context.extensionUri, {
-    onRefresh: runPlaygroundScan,
-    onOpenSource: async (filePath, line) => {
-      try {
-        const doc = await vscode.workspace.openTextDocument(
-          vscode.Uri.file(filePath),
-        );
-        const editor = await vscode.window.showTextDocument(doc);
-        if (line) {
-          const pos = new vscode.Position(Math.max(0, line - 1), 0);
-          editor.revealRange(
-            new vscode.Range(pos, pos),
-            vscode.TextEditorRevealType.InCenter,
+  const playgroundProvider = new PlaygroundViewProvider(
+    context.extensionUri,
+    {
+      onRefresh: runPlaygroundScan,
+      onOpenSource: async (filePath, line) => {
+        try {
+          const doc = await vscode.workspace.openTextDocument(
+            vscode.Uri.file(filePath),
           );
-          editor.selection = new vscode.Selection(pos, pos);
+          const editor = await vscode.window.showTextDocument(doc);
+          if (line) {
+            const pos = new vscode.Position(Math.max(0, line - 1), 0);
+            editor.revealRange(
+              new vscode.Range(pos, pos),
+              vscode.TextEditorRevealType.InCenter,
+            );
+            editor.selection = new vscode.Selection(pos, pos);
+          }
+        } catch (err) {
+          playgroundOutputChannel.appendLine(
+            `[playground] open-source ${filePath}:${line ?? "?"} failed: ${
+              err instanceof Error ? (err.stack ?? err.message) : String(err)
+            }`,
+          );
         }
-      } catch (err) {
-        playgroundOutputChannel.appendLine(
-          `[playground] open-source ${filePath}:${line ?? "?"} failed: ${
-            err instanceof Error ? (err.stack ?? err.message) : String(err)
-          }`,
-        );
-      }
+      },
     },
-  });
+    createPlaygroundDeps(context, workspaceRoot ?? null),
+  );
   context.subscriptions.push(
     vscode.window.registerWebviewViewProvider(
       PlaygroundViewProvider.viewType,
