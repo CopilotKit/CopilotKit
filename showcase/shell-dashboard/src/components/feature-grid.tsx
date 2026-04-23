@@ -16,6 +16,7 @@ import {
   type LiveStatusMap,
 } from "@/lib/live-status";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { LevelStrip } from "@/components/level-strip";
 
 export interface CellContext {
   integration: Integration;
@@ -24,7 +25,7 @@ export interface CellContext {
   /** Hosted URL for runnable demos; empty string for informational (command) demos. */
   hostedUrl: string;
   shellUrl: string;
-  /** Live-status map merged across {smoke, health, e2e, qa} dimensions. */
+  /** Live-status map merged across all subscribed dimensions. */
   liveStatus: LiveStatusMap;
   /** Aggregated SSE connection status — worst across dimensions. */
   connection: ConnectionStatus;
@@ -34,15 +35,13 @@ export type CellRenderer = (ctx: CellContext) => React.ReactNode;
 
 /**
  * Counts green / amber / red signals for a single integration column across
- * all features. QA does not contribute (informational only).
+ * all features.
  *
  * Signal scoping (spec §5.4):
- *   - Feature-level dimensions (`smoke`, `e2e`) are counted per feature.
+ *   - Feature-level dimensions (`e2e_smoke`) are counted per feature.
  *   - Integration-level dimensions (`health`) are counted EXACTLY ONCE
  *     per integration — the health row keyed `health:<slug>` is a single
- *     signal for the whole column, not one signal per feature. Double-
- *     counting health across N features would make a single red-health
- *     integration look N× worse than a single red-smoke feature.
+ *     signal for the whole column, not one signal per feature.
  *
  * When the SSE stream is down (`connection === "error"`) we return all-zero —
  * the column header falls back to an "unknown" rendering so stale counts
@@ -69,8 +68,7 @@ export function computeColumnTally(
   };
 
   // Integration-level health — count once, regardless of how many features
-  // the integration declares. Derived from the `health:<slug>` row directly
-  // so we don't rely on resolveCell's per-feature join.
+  // the integration declares.
   const healthRow = liveStatus.get(keyFor("health", integration.slug)) ?? null;
   if (healthRow) {
     switch (healthRow.state) {
@@ -86,7 +84,7 @@ export function computeColumnTally(
     }
   }
 
-  // Feature-level dimensions: smoke + e2e, one tally per feature-with-demo.
+  // Feature-level dimensions: e2e_smoke per feature-with-demo.
   for (const feature of features) {
     const demo = integration.demos.find((d) => d.id === feature.id);
     if (!demo) continue;
@@ -95,7 +93,6 @@ export function computeColumnTally(
       connection,
     });
 
-    tallyTone(cell.smoke.tone);
     tallyTone(cell.e2e.tone);
   }
 
@@ -164,18 +161,30 @@ export function FeatureGrid({
   // merge into a single keyed `LiveStatusMap` (spec §5.4).
   const smoke = useLiveStatus("smoke");
   const health = useLiveStatus("health");
-  const e2e = useLiveStatus("e2e");
-  const qa = useLiveStatus("qa");
+  const e2eSmoke = useLiveStatus("e2e_smoke");
+  const agent = useLiveStatus("agent");
+  const chat = useLiveStatus("chat");
+  const tools = useLiveStatus("tools");
 
   const liveStatus = useMemo(
-    () => mergeRowsToMap(smoke.rows, health.rows, e2e.rows, qa.rows),
-    [smoke.rows, health.rows, e2e.rows, qa.rows],
+    () =>
+      mergeRowsToMap(
+        smoke.rows,
+        health.rows,
+        e2eSmoke.rows,
+        agent.rows,
+        chat.rows,
+        tools.rows,
+      ),
+    [smoke.rows, health.rows, e2eSmoke.rows, agent.rows, chat.rows, tools.rows],
   );
   const connection = aggregateConnection(
     smoke.status,
     health.status,
-    e2e.status,
-    qa.status,
+    e2eSmoke.status,
+    agent.status,
+    chat.status,
+    tools.status,
   );
 
   // O(features × integrations) per render is avoidable — the inputs only
@@ -234,7 +243,7 @@ export function FeatureGrid({
                 const tallyTitle = tally.unknown
                   ? "dashboard offline — live signal unavailable (§5.3)"
                   : total
-                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (E2E + Smoke per feature; Health counted once per integration; QA not tallied — informational only)`
+                    ? `${tally.green} green · ${tally.amber} amber · ${tally.red} red of ${total} countable signals (E2E per feature; Health counted once per integration)`
                     : "no countable signals for this column";
                 return (
                   <th
@@ -247,6 +256,12 @@ export function FeatureGrid({
                     </div>
                     <div className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
                       {integration.language}
+                    </div>
+                    <div className="mt-1">
+                      <LevelStrip
+                        integration={integration}
+                        liveStatus={liveStatus}
+                      />
                     </div>
                     <div
                       className="mt-1 text-[10px] tabular-nums text-[var(--text-muted)]"

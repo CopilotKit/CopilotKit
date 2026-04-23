@@ -37,6 +37,7 @@ const OUTPUT_DIRS = [
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
 ];
+const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
 const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
 
@@ -263,10 +264,19 @@ function main() {
     return String(a.name).localeCompare(String(b.name));
   });
 
+  // Load packages list from shared/packages.json
+  let packages: Array<{ slug: string; name: string }> = [];
+  if (fs.existsSync(PACKAGES_JSON_PATH)) {
+    const packagesRaw = fs.readFileSync(PACKAGES_JSON_PATH, "utf-8");
+    packages = JSON.parse(packagesRaw);
+    console.log(`\nLoaded ${packages.length} packages from packages.json`);
+  }
+
   const registry = {
     generated_at: new Date().toISOString(),
     feature_registry: featureRegistry,
     integrations,
+    packages,
   };
 
   const registryJson = JSON.stringify(registry, null, 2) + "\n";
