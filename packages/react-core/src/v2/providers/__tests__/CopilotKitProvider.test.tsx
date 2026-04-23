@@ -1,4 +1,5 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
