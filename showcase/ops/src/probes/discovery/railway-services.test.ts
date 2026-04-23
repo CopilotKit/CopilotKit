@@ -453,6 +453,71 @@ describe("railwayServicesSource", () => {
     expect(out[0].env).toEqual({});
   });
 
+  // -----------------------------------------------------------------
+  // Regression: Railway's current schema does NOT accept the
+  // `environmentId` argument on `Service.serviceInstances`. Sending it
+  // raises a GraphQL validation error (observed in production:
+  //   "Unknown argument \"environmentId\" on field
+  //    \"Service.serviceInstances\"")
+  // which surfaces as a 400 and blocks every discovery tick. The source
+  // MUST filter instances by environment client-side instead of passing
+  // an argument to the field.
+  // -----------------------------------------------------------------
+  it("omits environmentId arg from Service.serviceInstances selection to match current Railway schema", async () => {
+    // Simulate Railway's actual behaviour: reject any query that passes
+    // `environmentId` as an argument to `serviceInstances`, accept the
+    // arg-less form. Under the pre-fix code this queue runs the 400
+    // branch and the source throws a backend error; under the fix it
+    // runs the 200 branch and returns the service list.
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      const raw = (init as RequestInit | undefined)?.body as string | undefined;
+      const parsed = raw
+        ? (JSON.parse(raw) as { query: string })
+        : { query: "" };
+      // Project-level query: validate shape against live Railway schema.
+      if (parsed.query.includes("query project")) {
+        if (/serviceInstances\s*\(/.test(parsed.query)) {
+          return new Response(
+            JSON.stringify({
+              errors: [
+                {
+                  message:
+                    'Unknown argument "environmentId" on field "Service.serviceInstances".',
+                  extensions: { code: "GRAPHQL_VALIDATION_FAILED" },
+                },
+              ],
+            }),
+            {
+              status: 400,
+              headers: { "content-type": "application/json" },
+            },
+          );
+        }
+        return new Response(
+          JSON.stringify(
+            railwayProjectResponse([
+              {
+                id: "s-1",
+                name: "showcase-a",
+                image: "ghcr.io/copilotkit/showcase-a:latest",
+                domain: "showcase-a.up.railway.app",
+              },
+            ]),
+          ),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      // Variables round-trip.
+      return new Response(JSON.stringify({ data: { variables: {} } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(1);
+    expect(out[0].name).toBe("showcase-a");
+  });
+
   it("throws DiscoverySourceBackendError on 200 envelope with graphql errors[]", async () => {
     // Railway can return HTTP 200 with { errors: [...] } for invalid
     // queries or permission errors. These must surface as a backend
