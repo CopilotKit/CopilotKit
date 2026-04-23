@@ -12,6 +12,8 @@ This hook is primarily used by chat UI components to display visual feedback for
 ## Signature
 
 ```tsx
+import { useRenderToolCall } from "@copilotkit/react-core/v2";
+
 function useRenderToolCall(): (
   props: UseRenderToolCallProps,
 ) => React.ReactElement | null;

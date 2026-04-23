@@ -5,7 +5,7 @@ description: "Customize how reasoning (thinking) tokens from models like o1, o3,
 snippet_cell: agentic-chat-reasoning
 ---
 
-Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens** — internal
+Some models (like OpenAI's o1, o3, and o4-mini) emit **reasoning tokens**: internal
 "thinking" traces that show the model's chain-of-thought before it produces a final
 answer. CopilotKit surfaces these tokens automatically with a collapsible
 **Reasoning Message** card.
@@ -24,10 +24,12 @@ built-in card that:
 - Includes a chevron toggle so users can re-expand and review the reasoning
   at any time.
 
-No extra configuration is needed — if your model emits reasoning tokens,
+No extra configuration is needed; if your model emits reasoning tokens,
 the card appears automatically.
 
 <InlineDemo demo="reasoning-default-render" />
+
+The only requirement is connecting your agent to CopilotKit; no extra props or configuration needed:
 
 <Snippet
   cell="reasoning-default-render"
@@ -160,12 +162,12 @@ slot props. Your component receives the same top-level props as the built-in one
 
 <InlineDemo demo="agentic-chat-reasoning" />
 
-<Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
-
 The showcase's `ReasoningBlock` renders the reasoning as an amber-tagged inline
-banner — intentionally louder than the default card so the thinking chain is
+banner, intentionally louder than the default card so the thinking chain is
 the focal UI of the demo. Swap in your own component to match your product's
-tone.
+tone:
+
+<Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
 
 ## Render-Prop Children
 

@@ -16,6 +16,7 @@ A provider component that exposes localized labels, agent and thread IDs, and op
 ### Signature
 
 ```tsx
+import { CopilotChatConfigurationProvider } from "@copilotkit/react-core/v2";
 
 <CopilotChatConfigurationProvider
   labels={...}
@@ -60,6 +61,8 @@ A provider component that exposes localized labels, agent and thread IDs, and op
 ### Signature
 
 ```tsx
+import { useCopilotChatConfiguration } from "@copilotkit/react-core/v2";
+
 function useCopilotChatConfiguration(): CopilotChatConfigurationValue | null;
 ```
 

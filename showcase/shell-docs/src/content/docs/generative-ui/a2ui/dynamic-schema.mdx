@@ -7,8 +7,8 @@ snippet_cell: declarative-gen-ui
 ---
 
 In the dynamic-schema approach, a secondary LLM generates the entire
-UI — schema, data, and layout — based on the conversation context.
-It's the most flexible A2UI flavor: the agent can render any UI for
+UI (schema, data, and layout) based on the conversation context.
+It's the most flexible A2UI flavor; the agent can render any UI for
 any request without pre-defined schemas.
 
 <InlineDemo demo="declarative-gen-ui" />
@@ -31,16 +31,16 @@ side-by-side under `frontend/src/app/a2ui/`:
 
 | File | What lives there |
 |---|---|
-| `definitions.ts` | Zod props schema + human-readable descriptions for each custom component — platform-agnostic so the runtime can serialise it to the LLM. |
+| `definitions.ts` | Zod props schema + human-readable descriptions for each custom component. Platform-agnostic, so the runtime can serialise it to the LLM. |
 | `renderers.tsx` | React implementations keyed by the same names. TypeScript enforces that every definition has a renderer. |
-| `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })` — merges your custom components with CopilotKit's built-in primitives. |
+| `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })`: merges your custom components with CopilotKit's built-in primitives. |
 
 <Steps>
 <Step>
 ### Declare your custom component definitions
 
 Each entry pairs a Zod prop schema with a description. The description
-is crucial — the LLM reads it to decide which component to emit. The
+is crucial; the LLM reads it to decide which component to emit. The
 showcase's `declarative-gen-ui` cell ships a small dashboard catalog
 (Card / StatusBadge / Metric / InfoRow / PrimaryButton):
 
@@ -70,7 +70,7 @@ can compose custom + basic components interchangeably:
 <Step>
 ### Pass the catalog to the provider
 
-A single prop (`a2ui={{ catalog }}`) is all the frontend needs — the
+A single prop (`a2ui={{ catalog }}`) is all the frontend needs; the
 provider registers the catalog and wires up the built-in A2UI
 activity-message renderer:
 
@@ -83,7 +83,7 @@ activity-message renderer:
 On the TypeScript runtime, `injectA2UITool: true` tells CopilotKit to
 add the `render_a2ui` tool to the agent's tool list *at request time*
 and serialise your client catalog into the agent's
-`copilotkit.context`. No backend code to write — the agent can be an
+`copilotkit.context`. No backend code to write; the agent can be an
 empty `create_agent(tools=[])`:
 
 ```typescript title="app/api/copilotkit/route.ts"
@@ -108,7 +108,7 @@ as `TOOL_CALL_ARGS` events. The A2UI middleware:
 3. Emits `surfaceUpdate` + `beginRendering` once the schema is
    complete.
 4. Extracts complete `items` objects progressively and emits a
-   `dataModelUpdate` for each — cards appear one by one as data
+   `dataModelUpdate` for each, so cards appear one by one as data
    streams in.
 
 A built-in progress indicator shows while the schema is still
@@ -116,16 +116,14 @@ generating and hides automatically once data items start arriving.
 
 ## When should I use dynamic schemas?
 
-- You don't know the UI shape ahead of time — the agent decides what
+- You don't know the UI shape ahead of time; the agent decides what
   to show based on the user's request.
 - You want to prototype A2UI without committing to a schema file yet.
 - You're building a conversational dashboard where the layout varies
   per turn.
 
 If the surface is well-known (e.g. a product card, a flight result),
-prefer a **[fixed schema](./fixed-schema)** — it's faster, cheaper,
+prefer a **[fixed schema](./fixed-schema)**; it's faster, cheaper,
 and the UI is deterministic.
-
-## Choose your AI backend
 
 <IntegrationGrid path="generative-ui/a2ui" />

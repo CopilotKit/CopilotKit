@@ -9,6 +9,10 @@
     "...generative-ui",
     "---App Control---",
     "frontend-tools",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium",
     "---Other---",
     "...(other)"
   ]

@@ -9,7 +9,7 @@ snippet_cell: headless-complete
 ## Full rendering control via hooks
 
 CopilotKit's headless hooks give you complete control over the chat
-experience — you compose messages, streaming, and tool-call surfaces
+experience: you compose messages, streaming, and tool-call surfaces
 yourself with zero UI opinions. Bring your own design system and render
 everything your way.
 
@@ -38,8 +38,8 @@ The bare minimum: three hooks do the heavy lifting.
 - `useAgent({ agentId })` exposes the current conversation (`messages`,
   `isRunning`) and the run-state object.
 - `useCopilotKit()` returns the runtime handle you call
-  `runAgent({ agent })` on — the same entry point `<CopilotChat />`
-  uses internally.
+  `runAgent({ agent })` on (the same entry point `<CopilotChat />`
+  uses internally).
 - `useComponent(...)` (sugar over `useFrontendTool`) lets you register a
   React component the agent can render by invoking a named tool call.
   `useRenderToolCall()` then returns a function that paints any tool
@@ -47,25 +47,25 @@ The bare minimum: three hooks do the heavy lifting.
 
 <Snippet region="use-agent-simple" cell="headless-simple" title="frontend/src/app/page.tsx — useAgent + useCopilotKit + useComponent" />
 
-The message list is a plain `.map()` over `agent.messages` — user
+The message list is a plain `.map()` over `agent.messages`: user
 messages render as right-aligned bubbles, assistant messages render any
 streamed text plus inline tool calls via `renderToolCall({ toolCall })`:
 
 <Snippet region="message-list-simple" cell="headless-simple" title="frontend/src/app/page.tsx — message list" />
 
-That's it — no `<CopilotChat />`, no `<CopilotChatMessageView>`, no
+That's it: no `<CopilotChat />`, no `<CopilotChatMessageView>`, no
 slots. The downside: you only get text + tool calls. Reasoning messages,
 activity messages (A2UI, MCP Apps), and custom before/after slots won't
-show up unless you wire them in yourself — which is exactly what the
+show up unless you wire them in yourself, which is exactly what the
 next section covers.
 
 ## Complete (`headless-complete`)
 
 This is the heart of the page. The `headless-complete` cell rebuilds
-the **full** generative-UI weave — text, tool calls
-(`useRenderTool` / `useDefaultRenderTool` / `useComponent` /
-`useFrontendTool`), reasoning cards, A2UI + MCP Apps activity messages,
-and custom before/after message slots — from the low-level hooks
+the **full** generative-UI weave (text, tool calls
+via `useRenderTool` / `useDefaultRenderTool` / `useComponent` /
+`useFrontendTool`, reasoning cards, A2UI + MCP Apps activity messages,
+and custom before/after message slots) from the low-level hooks
 directly, without importing `<CopilotChatMessageView>` or
 `<CopilotChatAssistantMessage>`.
 
@@ -74,7 +74,7 @@ directly, without importing `<CopilotChatMessageView>` or
 The cell's central piece is a hand-rolled `useRenderedMessages(messages,
 isRunning)` that returns the same flat list of messages, each augmented
 with a `renderedContent: ReactNode` field. This hook is a **manual
-recreation of what `<CopilotChatMessageView>` does** — compare it
+recreation of what `<CopilotChatMessageView>` does**; compare it
 line-for-line against the `renderMessageBlock` helper inside the
 canonical primitive:
 [`packages/react-core/src/v2/components/chat/CopilotChatMessageView.tsx:542-612`](https://github.com/CopilotKit/CopilotKit/blob/main/packages/react-core/src/v2/components/chat/CopilotChatMessageView.tsx#L542-L612).
@@ -95,7 +95,7 @@ Three low-level hooks feed it:
 ### Per-role dispatch
 
 Inside `renderMessageContent` the role-switch mirrors
-`CopilotChatMessageView`'s `renderMessageBlock` exactly — assistant
+`CopilotChatMessageView`'s `renderMessageBlock` exactly: assistant
 bodies get text + tool calls, user bodies get their text content,
 reasoning messages go through the `<CopilotChatReasoningMessage>` leaf
 component, and activity messages route through
@@ -113,12 +113,10 @@ For each `toolCall` on an assistant message, we look up the sibling
 
 ### Bubble chrome
 
-The `UserBubble` and `AssistantBubble` components are **pure chrome** —
+The `UserBubble` and `AssistantBubble` components are **pure chrome**:
 they receive the pre-rendered node from `useRenderedMessages` and drop
 it into a styled container. No chat primitives are imported here:
 
 <Snippet region="custom-bubbles" title="frontend/src/app/{user,assistant}-bubble.tsx — pure chrome" />
-
-## Get started by choosing your AI backend
 
 <IntegrationGrid path="headless" />

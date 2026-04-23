@@ -8,10 +8,10 @@ hideTOC: true
 ## What is this?
 
 [A2UI](https://a2ui.org) (Agent-to-UI) is a declarative Generative UI
-specification — led by Google with CopilotKit as a launch and design
+specification, led by Google with CopilotKit as a launch and design
 partner. It lets your agent render structured UI components through a
 JSON-based schema instead of plain text: cards, rows, columns, badges,
-price tags — all composed from a catalog of components you (or the
+and price tags, all composed from a catalog of components you (or the
 platform) define.
 
 You can design and preview A2UI schemas visually using the
@@ -62,8 +62,8 @@ a2ui.render(operations=[...])  # wraps and serializes for a tool result
 
 Enable A2UI in your CopilotRuntime by adding `a2ui: true`, or pass an
 object to customise. The middleware handles the wire protocol
-automatically — it intercepts tool results containing A2UI operations
-and renders them as rich surfaces in the chat:
+automatically, intercepting tool results containing A2UI operations
+and rendering them as rich surfaces in the chat:
 
 ```typescript title="app/api/copilotkit/route.ts"
 import { CopilotRuntime } from "@copilotkit/runtime";
@@ -102,7 +102,5 @@ not render — the operations will fall through as plain tool results.
     description="Pre-authored JSON schema, agent streams data. Fastest path to production-quality UI."
   />
 </Cards>
-
-## Choose your AI backend
 
 <IntegrationGrid path="generative-ui/a2ui" />

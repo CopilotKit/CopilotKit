@@ -23,23 +23,23 @@ and calls the agent back with the user's answer.
 ## When should I use this?
 
 Reach for `useInterrupt` when the pause is a **graph-enforced
-checkpoint** — the code path _must_ stop and wait for a human — rather
-than an LLM-initiated tool call. Typical cases:
+checkpoint** where the code path _must_ stop and wait for a human,
+not an LLM-initiated tool call. Typical cases:
 
 - A sensitive action (payments, irreversible writes) must be approved
 - A required piece of state isn't known and can only be collected from the user
 - The agent explicitly reaches an approval node in a longer workflow
 - You want the server-side contract to be `interrupt(...)` and resume with a payload
 
-For LLM-initiated pauses — where the model decides on the fly to ask
-the user — prefer [`useHumanInTheLoop`](../human-in-the-loop).
+For LLM-initiated pauses where the model decides on the fly to ask
+the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
 
 ## The backend: `interrupt()` inside a tool
 
 The showcase `gen-ui-interrupt` cell exposes a `schedule_meeting` tool.
 When the model calls it, the tool issues a `langgraph.interrupt(...)`
 with the meeting context. The run freezes here until the client
-resolves — the resolution becomes the return value of `interrupt()`,
+resolves; the resolution becomes the return value of `interrupt()`,
 which the tool then turns into a final string for the model:
 
 <Snippet region="backend-interrupt-tool" title="backend/agent.py — schedule_meeting interrupt tool" />
@@ -48,7 +48,7 @@ Two things to note:
 
 - The payload (`{"topic": topic, "attendee": attendee}`) is what the
   frontend receives as `event.value`. Keep it a plain, serializable
-  object — it's the "pause-time context" the UI needs to render.
+  object. It's the "pause-time context" the UI needs to render.
 - The return-side contract (`{chosen_label, chosen_time}` or
   `{cancelled: true}`) is entirely yours. The client can send anything
   as the resolve payload; the tool is the one that gives it meaning.

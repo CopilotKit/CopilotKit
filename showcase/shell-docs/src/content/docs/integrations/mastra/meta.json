@@ -11,6 +11,10 @@
     "frontend-tools",
     "shared-state",
     "agent-app-context",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium",
     "---Other---",
     "...(other)"
   ]

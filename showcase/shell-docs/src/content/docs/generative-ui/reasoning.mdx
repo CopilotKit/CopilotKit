@@ -9,13 +9,13 @@ snippet_cell: agentic-chat-reasoning
 ## What is this?
 
 Some models (OpenAI's `o1`, `o3`, and `o4-mini`, Anthropic's thinking
-variants) emit **reasoning tokens** — internal chain-of-thought traces that
+variants) emit **reasoning tokens**, internal chain-of-thought traces that
 explain how the model is working toward its answer. CopilotKit surfaces
 these as first-class messages: when a `REASONING_MESSAGE_*` event arrives
 from the agent, the chat renders it inline so the user can follow the
 agent's thinking.
 
-Reasoning isn't a custom-renderer plumb-in — it's a dedicated message type
+Reasoning isn't a custom-renderer plumb-in; it's a dedicated message type
 on the chat view. You can either accept the built-in rendering or override
 the `reasoningMessage` slot with your own component.
 
@@ -41,7 +41,7 @@ Out of the box, reasoning events render inside CopilotKit's built-in
   chevron to re-expand.
 - Reasoning text rendered as Markdown.
 
-No configuration is needed — if your model emits reasoning tokens, the card
+No configuration is needed; if your model emits reasoning tokens, the card
 appears automatically:
 
 <Snippet
@@ -50,6 +50,8 @@ appears automatically:
   title="frontend/src/app/page.tsx — default reasoning"
 />
 
+Here's what the built-in card looks like while the model thinks through a multi-step problem:
+
 <InlineDemo demo="reasoning-default-render" />
 
 ## Custom reasoning rendering
@@ -57,13 +59,13 @@ appears automatically:
 For full control over the reasoning card, pass a component to the
 `reasoningMessage` slot on `messageView`. Your component receives the
 `ReasoningMessage` object (`.content` holds the streaming text), the full
-`messages` list, and `isRunning` — enough to decide whether this block is
+`messages` list, and `isRunning`, enough to decide whether this block is
 still streaming and whether it's the active trailing message:
 
 <Snippet region="reasoning-block-render" title="frontend/src/app/page.tsx — custom reasoning slot" />
 
 The showcase's `ReasoningBlock` (imported above) renders the reasoning as
-an amber-tagged inline banner — intentionally louder than the default card
+an amber-tagged inline banner, intentionally louder than the default card
 so the thinking chain is the focal UI of the demo. Swap in your own
 component to match your product's tone.
 
@@ -74,8 +76,6 @@ component to match your product's tone.
   default card. See the reference docs for sub-slot props.
 </Callout>
 
-<FeatureIntegrations feature="reasoning" />
-
-## Choose your AI backend
+<FeatureIntegrations feature="agentic-chat-reasoning" />
 
 <IntegrationGrid path="generative-ui/reasoning" />
