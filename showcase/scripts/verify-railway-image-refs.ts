@@ -145,8 +145,7 @@ export function validateImage(
     };
   }
   const expected =
-    IMAGE_OVERRIDES[serviceName] ??
-    `ghcr.io/copilotkit/${serviceName}:latest`;
+    IMAGE_OVERRIDES[serviceName] ?? `ghcr.io/copilotkit/${serviceName}:latest`;
   if (image !== expected) {
     return {
       service: serviceName,
