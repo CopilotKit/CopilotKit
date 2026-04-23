@@ -32,12 +32,30 @@ const workspaceSourceAliases: Record<string, string> = {
   ),
 };
 
+// Source aliases specifically for the playground webview — resolves the
+// @copilotkit/react-core/v2 sub-path import to TS source so rolldown can
+// tree-shake individual components. The pre-built v2 dist is a monolithic
+// chunk; importing from it pulls the full 7MB chat + language-pack surface
+// even when only CopilotKitProvider / useFrontendTool are referenced.
+const playgroundSourceAliases: Record<string, string> = {
+  ...workspaceSourceAliases,
+  "@copilotkit/react-core/v2": path.resolve(
+    import.meta.dirname,
+    "../react-core/src/v2/index.ts",
+  ),
+};
+
 /**
  * Rolldown plugin that resolves bare specifiers using Node's module
  * resolution. Needed because pnpm's strict node_modules doesn't hoist
  * transitive dependencies (e.g., zod from @copilotkit/a2ui-renderer).
+ *
+ * @param aliases - optional extra alias map applied before Node resolution.
+ *   Defaults to `workspaceSourceAliases`.
  */
-function nodeResolveFallback() {
+function nodeResolveFallback(
+  aliases: Record<string, string> = workspaceSourceAliases,
+) {
   return {
     name: "node-resolve-fallback",
     enforce: "pre" as const,
@@ -53,8 +71,8 @@ function nodeResolveFallback() {
       }
 
       // Resolve workspace packages to TypeScript source
-      if (source in workspaceSourceAliases) {
-        return { id: workspaceSourceAliases[source], external: false };
+      if (source in aliases) {
+        return { id: aliases[source], external: false };
       }
 
       try {
@@ -120,6 +138,22 @@ const HOOK_PREVIEW_STUBBED_DEPS: Record<string, string[]> = {
   "parse-entities": ["parseEntities"],
 };
 
+// Additional stubs for the playground webview that imports
+// @copilotkit/react-core/v2. The v2 chat UI pulls in `streamdown` (a syntax-
+// highlighting renderer with ~6MB of language grammar chunks) and `katex`
+// (math rendering). Neither is needed by the playground shell — the shell
+// only needs CopilotKitProvider to connect to the runtime; actual chat
+// message rendering never runs in this context.
+//
+// Stubbing these packages keeps playground.js near the same ~1MB range as
+// hook-preview.js. If the playground ever gains a real chat panel (Plan #4),
+// remove the stubs and accept the larger bundle instead.
+const PLAYGROUND_EXTRA_STUBBED_DEPS: Record<string, string[]> = {
+  streamdown: ["Streamdown"],
+  katex: ["default"],
+  "katex/dist/katex.min.css": [],
+};
+
 // Browser-compatible shim for Node's `crypto`. Most transitive users we hit
 // (e.g. the `uuid` npm package via react-core's ThreadsProvider) call
 // `randomFillSync(buf)` or `randomUUID()`. The webview has WebCrypto on
@@ -145,7 +179,8 @@ const shim = { randomFillSync, randomBytes, randomUUID };
 export default shim;
 `;
 
-function stubNodeBuiltinsAndCss() {
+function stubNodeBuiltinsAndCss(extraStubs: Record<string, string[]> = {}) {
+  const allStubs = { ...HOOK_PREVIEW_STUBBED_DEPS, ...extraStubs };
   const EMPTY_MODULE_ID = "\0empty-module";
   const CRYPTO_SHIM_ID = "\0copilotkit-crypto-shim";
   const STUB_PREFIX = "\0stub:";
@@ -157,7 +192,7 @@ function stubNodeBuiltinsAndCss() {
       const bare = source.startsWith("node:") ? source.slice(5) : source;
       if (bare === "crypto") return CRYPTO_SHIM_ID;
       if (NODE_BUILTINS.has(bare)) return EMPTY_MODULE_ID;
-      if (source in HOOK_PREVIEW_STUBBED_DEPS) {
+      if (source in allStubs) {
         return STUB_PREFIX + source;
       }
       return null;
@@ -171,7 +206,7 @@ function stubNodeBuiltinsAndCss() {
       }
       if (id.startsWith(STUB_PREFIX)) {
         const spec = id.slice(STUB_PREFIX.length);
-        const names = HOOK_PREVIEW_STUBBED_DEPS[spec] ?? [];
+        const names = allStubs[spec] ?? [];
         const lines = names.map((n) => `export const ${n} = undefined;`);
         lines.push("export default {};");
         return lines.join("\n");
@@ -269,7 +304,12 @@ export default defineConfig([
     plugins: [nodeResolveFallback()],
   },
   // Playground (chat tab) webview — browser, ESM.
-  // Lightweight scanner-result diagnostic UI; no react-core dep.
+  // Imports @copilotkit/react-core/v2 (via forwarding-stubs) for real
+  // CopilotKitProvider / useFrontendTool. We resolve v2 to its TS source
+  // (playgroundSourceAliases) so rolldown can tree-shake individual
+  // components rather than bundling the monolithic pre-built chunk.
+  // The same stubNodeBuiltinsAndCss() plugin as hook-preview keeps the
+  // bundle browser-safe (no Node builtins or CSS bundling errors).
   {
     entry: { playground: "src/webview/playground/index.tsx" },
     outDir: "dist/webview",
@@ -278,6 +318,9 @@ export default defineConfig([
     noExternal: [/.*/],
     dts: false,
     clean: false,
-    plugins: [nodeResolveFallback()],
+    plugins: [
+      stubNodeBuiltinsAndCss(PLAYGROUND_EXTRA_STUBBED_DEPS),
+      nodeResolveFallback(playgroundSourceAliases),
+    ],
   },
 ]);

@@ -2,7 +2,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as ReactDOMClient from "react-dom/client";
 import * as JSXRuntime from "react/jsx-runtime";
-import { createCopilotkitStubs } from "../hook-preview/copilotkit-stubs";
+import { createForwardingStubs } from "./forwarding-stubs";
 
 declare global {
   interface Window {
@@ -32,7 +32,10 @@ function getScriptWindow(): Window & typeof globalThis {
   const maybeJsdom = (
     globalThis as unknown as { jsdom?: { window?: Window & typeof globalThis } }
   ).jsdom;
-  if (maybeJsdom?.window && maybeJsdom.window !== (globalThis as unknown as Window)) {
+  if (
+    maybeJsdom?.window &&
+    maybeJsdom.window !== (globalThis as unknown as Window)
+  ) {
     return maybeJsdom.window;
   }
   return window;
@@ -63,7 +66,7 @@ export function executePlaygroundBundle(
       ReactDOM,
       ReactDOMClient,
       JSXRuntime,
-      copilotkitStubs: createCopilotkitStubs(),
+      copilotkitStubs: createForwardingStubs(),
     };
 
     try {
