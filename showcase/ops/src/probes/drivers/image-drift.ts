@@ -42,6 +42,19 @@ const imageDriftInputSchema = z.object({
    * a channel tag like `stable` or `v1.2.3`.
    */
   expectedTag: z.string().optional(),
+  /**
+   * Digest of the image currently running on the deployment, sourced
+   * from Railway's `latestDeployment.meta.imageDigest`. Railway stores
+   * tag-only refs in `source.image` (e.g. `ghcr.io/org/name:latest`),
+   * so `parseImageRef(imageRef).digest` is always null for those refs.
+   * When present, `deployedDigest` is used as the deployed digest
+   * instead of the parsed value, fixing the false-red bug where every
+   * tag-only service unconditionally showed as drifted.
+   *
+   * When `imageRef` contains an `@sha256:…` digest, the parsed digest
+   * takes priority (backward compat for any future digest-pinned refs).
+   */
+  deployedDigest: z.string().optional(),
 });
 
 type ImageDriftDriverInput = z.infer<typeof imageDriftInputSchema>;
@@ -90,7 +103,13 @@ export const imageDriftDriver: ProbeDriver<
   async run(ctx, input): Promise<ProbeResult<ImageDriftDriverSignal>> {
     const observedAt = ctx.now().toISOString();
     const parsed = parseImageRef(input.imageRef);
-    const currentImage = parsed.digest ?? "";
+    // Prefer the digest embedded in imageRef (`@sha256:…`). When the
+    // ref is tag-only (Railway's common case), fall back to the
+    // deployment-metadata digest surfaced by the discovery layer. Only
+    // when neither is available does currentImage stay empty, which
+    // still flips the service red — same behaviour as before, but now
+    // the discovery layer fills the gap for the normal tag-only path.
+    const currentImage = parsed.digest ?? input.deployedDigest ?? "";
     const expectedTag = input.expectedTag ?? parsed.tag ?? "latest";
 
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch;
