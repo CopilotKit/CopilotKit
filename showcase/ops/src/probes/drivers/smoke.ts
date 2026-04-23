@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { deriveHealthUrl } from "../smoke.js";
+import {
+  resolveShape,
+  showcaseShapeSchema,
+  type ShowcaseServiceShape,
+} from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -60,29 +65,134 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
  */
 
 /**
- * Per-target input schema. Two cases: static (`{key, url}`) and discovery
- * (`{key, name, publicUrl, ...}`). `passthrough()` tolerates the extra
- * discovery fields (`imageRef`, `env`) without requiring the schema to
- * enumerate them — the driver only reads the subset it needs and lets the
- * discovery source own the authoritative shape.
+ * Per-target input schema, shaped as a discriminated union on `mode` so
+ * the two call paths (`static` / `discovery`) are type-level distinct.
+ * Each branch carries exactly the fields it needs; the non-null assertion
+ * previously used on `input.url` (static path) and ad-hoc `refine()`s
+ * that expressed `url XOR (name+publicUrl)` + `no shape with url` are
+ * replaced by the discriminator, which `tsc` can narrow directly.
+ *
+ * Both branches keep `mode` optional so existing callers (YAML,
+ * orchestrator, unit tests) that pre-date the discriminator still parse
+ * and run unchanged; `normaliseMode()` at the top of `run()` fills it
+ * in from field presence before any downstream narrowing. The discovery
+ * branch `.passthrough()`s so the orchestrator can spread a full
+ * `RailwayServiceInfo` (`{ name, publicUrl, imageRef, env, shape }`)
+ * into the input without pre-filtering fields.
+ */
+const staticSmokeInputSchema = z
+  .object({
+    mode: z.literal("static").optional(),
+    key: z.string().min(1),
+    /** Static mode: full `/smoke` URL. */
+    url: z.string().url(),
+  })
+  .strict();
+
+const discoverySmokeInputSchema = z
+  .object({
+    mode: z.literal("discovery").optional(),
+    key: z.string().min(1),
+    /** Discovery mode: Railway service name (`showcase-<slug>` or `showcase-starter-<slug>`). */
+    name: z.string().min(1),
+    /** Discovery mode: `https://<domain>` base URL. The driver appends `/smoke` or `/api/health` per shape. */
+    publicUrl: z.string().url(),
+    /**
+     * Deployment shape tag from the discovery source
+     * (`discovery/railway-services.ts`). Controls which URL contract the
+     * driver exercises:
+     *
+     *   - `package` → legacy `/smoke` + `/health` + `/api/copilotkit/`.
+     *   - `starter` → `/api/health` (primary + side-emit) +
+     *                 `/api/copilotkit/`. Starters have no `/smoke`
+     *                 route; using the legacy contract produces one
+     *                 false-red row per starter per endpoint.
+     *
+     * Optional — when absent the driver reclassifies from `name` at
+     * run() entry. When both are present and the classifier disagrees
+     * with the explicit value, the driver throws; silent drift between
+     * the classifier and caller-supplied shape is the exact failure
+     * mode this contract is meant to prevent.
+     */
+    shape: showcaseShapeSchema.optional(),
+  })
+  .passthrough();
+
+/**
+ * Raw schema produced by `smokeInputSchema.parse()` / `.safeParse()`.
+ * Both branches leave `mode` optional — `normaliseMode` at the top of
+ * `run()` fills in the discriminator from field presence (`url` ⇒
+ * static, `name+publicUrl` ⇒ discovery) and produces a
+ * `NormalisedSmokeInput` that the rest of the driver narrows against.
+ *
+ * The union contract is re-asserted at parse time via `.superRefine()`:
+ *   - Exactly one of `(url)` OR `(name + publicUrl)` must be present.
+ *     A caller passing all three gets rejected here, which matters
+ *     because the discovery arm's `.passthrough()` would otherwise let
+ *     the mixed payload through.
+ *   - `shape` is only valid alongside the discovery fields; setting
+ *     `shape` with `url` is a structural mistake (static mode predates
+ *     shape detection and is always package).
+ *
+ * Callers doing `smokeInputSchema.safeParse()` in isolation now see a
+ * unified rejection path for structural invariants regardless of which
+ * arm's strictness caught the bad field.
  */
 const smokeInputSchema = z
-  .object({
-    key: z.string().min(1),
-    /** Static mode: full `/smoke` URL. Optional in discovery mode — derived from `publicUrl`. */
-    url: z.string().url().optional(),
-    /** Discovery mode: Railway service name (`showcase-<slug>` or `showcase-starter-<slug>`). */
-    name: z.string().min(1).optional(),
-    /** Discovery mode: `https://<domain>` base URL. The driver appends `/smoke`. */
-    publicUrl: z.string().optional(),
-  })
-  .passthrough()
-  .refine((v) => v.url || (v.name && v.publicUrl), {
-    message:
-      "smoke driver requires either `url` (static) or `name`+`publicUrl` (discovery)",
+  .union([staticSmokeInputSchema, discoverySmokeInputSchema])
+  .superRefine((val, ctx) => {
+    const raw = val as {
+      url?: unknown;
+      name?: unknown;
+      publicUrl?: unknown;
+      shape?: unknown;
+    };
+    const hasUrl = typeof raw.url === "string";
+    const hasDiscovery =
+      typeof raw.name === "string" && typeof raw.publicUrl === "string";
+    if (hasUrl && hasDiscovery) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: pass either `url` (static) OR `name`+`publicUrl` (discovery), not both",
+      });
+    }
+    if (!hasUrl && !hasDiscovery) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: requires either `url` (static) or `name`+`publicUrl` (discovery)",
+      });
+    }
+    if (hasUrl && raw.shape !== undefined) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "smoke input: `shape` is only valid with discovery mode (`name`+`publicUrl`)",
+      });
+    }
   });
 
 type SmokeDriverInput = z.infer<typeof smokeInputSchema>;
+
+/**
+ * Internal, post-normalisation form. `mode` is required here so every
+ * downstream helper narrows by discriminator without a fallback branch.
+ * The discovery arm intentionally does NOT carry a `[k: string]: unknown`
+ * index signature: passthrough extras from the raw input are not read
+ * downstream, and keeping them off the type forces `input.url` in a
+ * `mode === "discovery"` branch to be a TS error rather than silently
+ * typechecking as `unknown`.
+ */
+type NormalisedSmokeInput =
+  | { mode: "static"; key: string; url: string }
+  | {
+      mode: "discovery";
+      key: string;
+      name: string;
+      publicUrl: string;
+      shape?: ShowcaseServiceShape;
+    };
 
 /**
  * Shared signal shape for the smoke, health, and agent ProbeResults.
@@ -105,29 +215,52 @@ export interface SmokeDriverSignal {
 export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
   kind: "smoke",
   inputSchema: smokeInputSchema,
-  async run(ctx, input) {
+  async run(ctx, rawInput) {
+    // Normalise mode at the boundary. Schema-parsed inputs (orchestrator
+    // path) carry `mode` via the union default; tests that hand a raw
+    // object to `driver.run()` omit it. Field presence is the runtime
+    // discriminator: `url` present ⇒ static, `name`+`publicUrl` ⇒
+    // discovery. After this cast the rest of the function narrows via
+    // `input.mode` alone.
+    const input = normaliseMode(rawInput);
     const fetchImpl = ctx.fetchImpl ?? globalThis.fetch.bind(globalThis);
     const timeoutMs = readTimeoutMs(ctx);
     const slug = deriveSlug(input);
-    const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input);
-    // Primary key for the smoke ProbeResult. In DISCOVERY mode (when
-    // `input.name` is set), `input.key` arrives as `smoke:showcase-ag2`
-    // because the `key_template` in YAML interpolates `${name}` and
-    // the template language has no string-munge function to strip the
-    // prefix. Rewrite to `smoke:<slug>` here so dashboards/alerts that
-    // match on `smoke:ag2` / `smoke:starter-ag2` stay intact under
-    // both static and discovery call paths. In STATIC mode, pass the
-    // YAML-authored key through verbatim so legacy callers keep their
-    // exact `input.key` in the primary result.
-    const primaryKey = input.name ? `smoke:${slug}` : input.key;
+    // Shape resolution delegates to the shared resolveShape helper in
+    // `discovery/railway-services.ts` — classifier wins on `name`, throws
+    // on explicit-vs-classifier disagreement, honours explicit `shape`
+    // otherwise. Thread `ctx.logger` so the classifier's audit-warn fires
+    // on the driver path too.
+    const shape = resolveShape(
+      input.mode === "discovery"
+        ? { name: input.name, shape: input.shape }
+        : {},
+      { logger: ctx.logger },
+    );
+    const { smokeUrl, healthUrl, agentUrl } = deriveUrls(input, shape);
+    // Primary key for the smoke ProbeResult. In DISCOVERY mode,
+    // `input.key` arrives as `smoke:showcase-ag2` because the
+    // `key_template` in YAML interpolates `${name}` and the template
+    // language has no string-munge function to strip the prefix.
+    // Rewrite to `smoke:<slug>` here so dashboards/alerts that match on
+    // `smoke:ag2` / `smoke:starter-ag2` stay intact. In STATIC mode,
+    // pass the YAML-authored key through verbatim so legacy callers
+    // keep their exact `input.key` in the primary result.
+    const primaryKey = input.mode === "discovery" ? `smoke:${slug}` : input.key;
 
-    // Issue the smoke + health + agent probes SEQUENTIALLY rather than
-    // in parallel. Parallel would cut wall-clock but would triple the
-    // inflight socket count per target; at max_concurrency=6 * 34
-    // services * 3 endpoints that's 612 simultaneous TCP connections to
-    // Railway, which has historically triggered edge-side rate
-    // limiting. Sequential keeps the bound at max_concurrency * 3 = 18 —
-    // still well under any edge threshold.
+    // Sequential issue of smoke + health + agent to keep inflight socket
+    // count bounded at max_concurrency × 3 — Railway's edge has
+    // historically rate-limited at higher parallelism, so we eat the
+    // wall-clock cost to stay well under any edge threshold.
+    //
+    // Starter shape hits the same endpoint (`/api/health`) for both the
+    // primary smoke tick and the health side-emit. We intentionally run
+    // TWO independent GETs rather than reusing the first result: the
+    // `smoke:<slug>` and `health:<slug>` rows feed separate alert
+    // dimensions (`dimension: smoke` vs `dimension: health`) that
+    // dashboards compare for correlation, and a single-GET-reuse would
+    // make the two rows byte-identical and defeat that signal. The extra
+    // round-trip is a cheap liveness check against the same endpoint.
     const smokeResult = await probeOne({
       fetchImpl,
       url: smokeUrl,
@@ -138,7 +271,9 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
       method: "GET",
     });
 
-    // Side-emit #1: health tick.
+    // Side-emit #1: health tick. Always a fresh GET — even when smokeUrl
+    // === healthUrl (starter shape), see the comment block above for why
+    // we do NOT reuse the smoke result.
     const healthKey = `health:${slug}`;
     const healthResult = await probeOne({
       fetchImpl,
@@ -169,6 +304,56 @@ export const smokeDriver: ProbeDriver<SmokeDriverInput, SmokeDriverSignal> = {
     return smokeResult;
   },
 };
+
+/**
+ * Normalise a driver input into the `SmokeDriverInput` discriminated
+ * union. Schema-parsed inputs already carry `mode` via the union
+ * default, but callers that hand a raw object straight to `driver.run()`
+ * (unit tests, ad-hoc integrations) omit it. We detect mode from field
+ * presence: `url` present ⇒ static; `name` + `publicUrl` present ⇒
+ * discovery. When neither matches, throw loud — the previous ad-hoc
+ * `.refine()` guards enforced the same invariant and the discriminated
+ * union needs to preserve that behaviour for unparsed-input callers.
+ */
+function normaliseMode(input: unknown): NormalisedSmokeInput {
+  const raw = input as Record<string, unknown> | null;
+  if (!raw || typeof raw !== "object") {
+    throw new Error("smoke driver: input must be an object");
+  }
+  // Field presence is the sole discriminator. A caller-supplied `raw.mode`
+  // ("static" / "discovery") is ignored here — a previous early-return
+  // arm trusted `raw.mode` verbatim and let malformed inputs like
+  // `{mode:"static", key:"k"}` (no `url`) slip through. Letting the
+  // field-presence branches classify instead means the two paths are
+  // consistent between schema-parsed and raw inputs, and a bad shape
+  // throws loud rather than coercing.
+  if (typeof raw.key !== "string" || raw.key.length === 0) {
+    throw new Error("smoke driver: input.key is required");
+  }
+  if (typeof raw.url === "string") {
+    return {
+      mode: "static",
+      key: raw.key,
+      url: raw.url,
+    };
+  }
+  if (typeof raw.name === "string" && typeof raw.publicUrl === "string") {
+    const shape =
+      typeof raw.shape === "string"
+        ? (raw.shape as ShowcaseServiceShape)
+        : undefined;
+    return {
+      mode: "discovery",
+      key: raw.key,
+      name: raw.name,
+      publicUrl: raw.publicUrl,
+      shape,
+    };
+  }
+  throw new Error(
+    "smoke driver: input requires either `url` (static) or `name`+`publicUrl` (discovery)",
+  );
+}
 
 /**
  * Write a side-emit ProbeResult through `ctx.writer`. Absent writer is a
@@ -305,9 +490,9 @@ async function probeOne(opts: {
  * This matches the acceptance contract of `checkAgentEndpoint` in
  * `showcase/tests/e2e/helpers.ts`: any non-404 response is proof-of-life.
  * We don't GET /info first like the helper does — the helper runs in
- * Playwright where it can afford two round-trips; the probe budget is
- * per-tick tight (3 endpoints × 34 services × sequential) so we keep it
- * to a single POST.
+ * Playwright where it can afford two round-trips; the probe budget per
+ * tick is tight (N services × sequential endpoints) so we keep the agent
+ * check to a single POST.
  */
 async function probeAgent(opts: {
   fetchImpl: typeof fetch;
@@ -327,6 +512,14 @@ async function probeAgent(opts: {
       headers: { "Content-Type": "application/json" },
       body: "{}",
       signal: controller.signal,
+      // Railway's Next.js edge serves a 308 for the trailing-slash
+      // variant of `/api/copilotkit/` → `/api/copilotkit`. Without
+      // following, the probe classifies the raw 308 as proof-of-life,
+      // which quietly masks regressions where the redirect target is a
+      // 404 (route actually unmounted). Following means we judge the
+      // FINAL response: a runtime-rejected `{}` payload (400) stays
+      // green, but an unmounted route (final 404) correctly flips red.
+      redirect: "follow",
     });
     const latencyMs = now().getTime() - started;
     const signal: SmokeDriverSignal = {
@@ -397,8 +590,8 @@ async function probeAgent(opts: {
  * a distinct `health:bare` / `agent:bare` side-tick rather than a
  * blank one.
  */
-function deriveSlug(input: SmokeDriverInput): string {
-  if (input.name) {
+function deriveSlug(input: NormalisedSmokeInput): string {
+  if (input.mode === "discovery") {
     const stripped = input.name.replace(/^showcase-/, "");
     if (stripped.length > 0) return stripped;
   }
@@ -434,18 +627,35 @@ interface DerivedUrls {
  * static-mode callers can pass an explicit agent URL in a future
  * schema extension if needed.
  */
-function deriveUrls(input: SmokeDriverInput): DerivedUrls {
-  if (input.publicUrl) {
+function deriveUrls(
+  input: NormalisedSmokeInput,
+  shape: ShowcaseServiceShape,
+): DerivedUrls {
+  if (input.mode === "discovery") {
     const base = input.publicUrl.replace(/\/$/, "");
+    if (shape === "starter") {
+      // Starters expose `/api/health` as the canonical liveness route
+      // (see any starter's `app/api/health/route.ts`). There is no
+      // `/smoke` and no separate `/health` route — both the primary
+      // smoke probe and the health side-emit target `/api/health`. The
+      // two calls are intentionally independent round-trips; see the
+      // run() comment block for why.
+      return {
+        smokeUrl: `${base}/api/health`,
+        healthUrl: `${base}/api/health`,
+        agentUrl: `${base}/api/copilotkit/`,
+      };
+    }
     return {
       smokeUrl: `${base}/smoke`,
       healthUrl: `${base}/health`,
       agentUrl: `${base}/api/copilotkit/`,
     };
   }
-  // Static fallback. `url` is guaranteed present by the refine() guard
-  // in `smokeInputSchema` when `publicUrl` is absent.
-  const smokeUrl = input.url!;
+  // Static mode. The discriminated union guarantees `url` is present
+  // here; static mode predates shape detection and always assumes
+  // package shape — the YAML author already picked concrete URLs.
+  const smokeUrl = input.url;
   const healthUrl = deriveHealthUrl(smokeUrl);
   const agentUrl = deriveAgentUrl(smokeUrl);
   return { smokeUrl, healthUrl, agentUrl };

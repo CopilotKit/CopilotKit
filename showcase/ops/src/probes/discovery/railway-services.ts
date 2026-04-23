@@ -39,11 +39,124 @@ import {
  * behaviour of the legacy adapter in `orchestrator.ts`.
  */
 
+/**
+ * Service shape — distinguishes the two deployment archetypes that share
+ * the `showcase-*` naming scheme on Railway but have wildly different URL
+ * surfaces. Drivers branch on this field to pick the right probe contract
+ * (see `drivers/smoke.ts` and `drivers/e2e-smoke.ts`).
+ *
+ *   - `package`  Shell-based showcases (`showcase-ag2`, `showcase-mastra`,
+ *                ...). They expose `/smoke`, `/health`, `/demos/*`, and
+ *                `/api/copilotkit/` as distinct routes.
+ *   - `starter`  Single-app integrations deployed from
+ *                `showcase/starters/*` (Railway service name pattern
+ *                `showcase-starter-*`). They mount the integration at
+ *                `/`, health at `/api/health`, and have NO `/smoke` or
+ *                `/demos/*` routing.
+ *
+ * Classification is derived from the Railway service name, so adding a
+ * new starter requires no YAML edit — the next tick picks it up with
+ * `shape: "starter"` automatically.
+ *
+ * Single-source tuple: the driver schemas import `showcaseShapeSchema`
+ * below so every consumer of `shape` shares the exact enum — adding a new
+ * archetype (e.g. `static`) is a one-line edit here plus a matching
+ * classifier branch, not a cross-file ripple.
+ */
+export const showcaseShapeSchema = z.enum(["package", "starter"]);
+export type ShowcaseServiceShape = z.infer<typeof showcaseShapeSchema>;
+
 export interface RailwayServiceInfo {
   name: string;
   imageRef: string;
   publicUrl: string;
   env: Record<string, string>;
+  /**
+   * Deployment archetype, classified from the service name. Drivers
+   * that probe per-service URLs branch on this field to pick the right
+   * contract (starter: `/api/health` + skip `/smoke` + skip `/demos/*`;
+   * package: legacy `/smoke` + `/health` + `/demos/*`).
+   */
+  shape: ShowcaseServiceShape;
+}
+
+/**
+ * Minimal logger surface used by shape helpers. A structural subset of
+ * the orchestrator's `Logger` — kept local so `classifyShape` /
+ * `resolveShape` can accept ad-hoc test loggers without importing the
+ * full `Logger` type tree.
+ */
+interface ShapeLogger {
+  warn?: (msg: string, meta?: Record<string, unknown>) => void;
+  debug?: (msg: string, meta?: Record<string, unknown>) => void;
+}
+
+/**
+ * Classify a Railway service name into a `ShowcaseServiceShape`. Exported
+ * so tests can exercise the classifier directly and downstream drivers
+ * can reclassify from a bare name when the discovery record wasn't
+ * threaded through (static-YAML callers). The rule set:
+ *   - `showcase-starter-<slug>` → `"starter"`.
+ *   - `showcase-<slug>` where `<slug>` is lowercase-alphanumeric plus
+ *     hyphens (multi-segment names like `showcase-langgraph-python`,
+ *     `showcase-claude-sdk-typescript`, `showcase-ms-agent-dotnet`) →
+ *     `"package"`. The earlier single-segment regex misclassified every
+ *     hyphen-bearing package as unknown and fired a warn per tick on
+ *     real production services.
+ *   - Any other name — typos like `showcase-strater-foo`, mixed case,
+ *     or unrelated workloads (`copilotkit-cloud`, `my-random-service`)
+ *     — still returns `"package"` as a safe default but emits an audit
+ *     warn via `opts.logger?.warn`. That preserves the fall-through
+ *     behaviour while alerting operators on drift (renamed service,
+ *     unrelated workload picked up by discovery) on the first tick.
+ */
+export function classifyShape(
+  name: string,
+  opts: { logger?: ShapeLogger } = {},
+): ShowcaseServiceShape {
+  if (/^showcase-starter-[a-z0-9-]+$/.test(name)) return "starter";
+  // Widened package regex: starts with `showcase-`, not followed by
+  // `starter-` (that path is the branch above), then lowercase-alnum
+  // plus hyphens. Accepts `showcase-ag2`, `showcase-langgraph-python`,
+  // `showcase-claude-sdk-typescript`, etc. without firing a warn.
+  if (/^showcase-(?!starter-)[a-z0-9][a-z0-9-]*$/.test(name)) return "package";
+  // Everything else — a `showcase-*` typo, a mixed-case variant, or a
+  // name that doesn't start with `showcase-` at all — gets a warn. The
+  // return value stays `"package"` so downstream drivers keep
+  // operating; the warn is the audit trail.
+  opts.logger?.warn?.("discovery.railway-services.name-shape-unknown", {
+    name,
+  });
+  return "package";
+}
+
+/**
+ * Resolve the deployment shape for a driver invocation. Classifier wins
+ * when `name` is present — silent defaulting at the driver boundary
+ * inverts the fix this contract exists to make, so we throw on any
+ * explicit-vs-classifier disagreement rather than pick one. When `name`
+ * is absent, honour the caller-supplied `shape` verbatim. When neither
+ * is present, fall back to `package` and log a debug entry so the
+ * assumption is greppable if it ever breaks.
+ */
+export function resolveShape(
+  input: { name?: string; shape?: ShowcaseServiceShape },
+  opts: { logger?: ShapeLogger } = {},
+): ShowcaseServiceShape {
+  if (input.name) {
+    const classified = classifyShape(input.name, { logger: opts.logger });
+    if (input.shape && input.shape !== classified) {
+      throw new Error(
+        `Shape mismatch: classifier="${classified}" input="${input.shape}" — check discovery wiring`,
+      );
+    }
+    return classified;
+  }
+  if (input.shape) return input.shape;
+  opts.logger?.debug?.("discovery.railway-services.resolve-shape-fallback", {
+    reason: "no-name-or-shape",
+  });
+  return "package";
 }
 
 const FilterSchema = z
@@ -245,7 +358,13 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         });
       }
 
-      out.push({ name: svc.name, imageRef, publicUrl, env });
+      out.push({
+        name: svc.name,
+        imageRef,
+        publicUrl,
+        env,
+        shape: classifyShape(svc.name, { logger: ctx.logger }),
+      });
     }
     return out;
   },

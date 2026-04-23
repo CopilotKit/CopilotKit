@@ -1,5 +1,9 @@
-import { describe, it, expect } from "vitest";
-import { railwayServicesSource } from "./railway-services.js";
+import { describe, it, expect, vi } from "vitest";
+import {
+  classifyShape,
+  railwayServicesSource,
+  resolveShape,
+} from "./railway-services.js";
 import {
   DiscoverySourceAuthError,
   DiscoverySourceBackendError,
@@ -485,12 +489,239 @@ describe("railwayServicesSource", () => {
     expect(out[0].imageRef).toBe("");
   });
 
-  it("threads ctx.abortSignal into every Railway GraphQL fetch (CR A1)", async () => {
-    // Regression guard: the source previously called the gql helper
-    // without plumbing an abortSignal, so a slow Railway endpoint kept
-    // its sockets open past the invoker's per-tick timeout. This test
-    // captures init.signal on every fetch and asserts the same signal
-    // ctx carries is forwarded.
+  // -----------------------------------------------------------------
+  // Shape classification: starter vs. package
+  //
+  // Each discovered service is tagged with `shape: "package" | "starter"`
+  // so downstream drivers (smoke, e2e-smoke) can branch on the URL
+  // surface without re-parsing the service name. Starters mount as a
+  // single-app integration at `/` with health at `/api/health`; packages
+  // are the shell-based showcases with `/smoke`, `/health`, and
+  // `/demos/*` routing. Without the field, probes hit `/smoke` on every
+  // starter and emit one false-red row per starter per probed endpoint.
+  // -----------------------------------------------------------------
+
+  it("tags services whose name starts with `showcase-starter-` as shape='starter'", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-starter-ag2",
+            image: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+            domain: "showcase-starter-ag2-production.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(1);
+    expect(out[0].shape).toBe("starter");
+  });
+
+  it("tags non-starter `showcase-*` services as shape='package'", async () => {
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+    expect(out).toHaveLength(1);
+    expect(out[0].shape).toBe("package");
+  });
+
+  it("classifies a mixed batch of starter + package services correctly without any warn", async () => {
+    // Regression guard: prior iteration silently produced warns on the
+    // hyphen-bearing package names below. The return-value check is not
+    // enough — we also assert the classifier logger was not invoked,
+    // otherwise the audit warn fires every tick in production.
+    const warn = vi.fn();
+    const ctxLogger = { ...logger, warn };
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-starter-ag2",
+            image: "ghcr.io/copilotkit/showcase-starter-ag2:latest",
+            domain: "showcase-starter-ag2-production.up.railway.app",
+          },
+          {
+            id: "s-3",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+          {
+            id: "s-4",
+            name: "showcase-starter-mastra",
+            image: "ghcr.io/copilotkit/showcase-starter-mastra:latest",
+            domain: "showcase-starter-mastra-production.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const out = await railwayServicesSource.enumerate(
+      { fetchImpl, logger: ctxLogger, env: BASE_ENV },
+      {},
+    );
+    expect(out).toHaveLength(4);
+    const byName = Object.fromEntries(out.map((s) => [s.name, s.shape]));
+    expect(byName["showcase-ag2"]).toBe("package");
+    expect(byName["showcase-starter-ag2"]).toBe("starter");
+    expect(byName["showcase-langgraph-python"]).toBe("package");
+    expect(byName["showcase-starter-mastra"]).toBe("starter");
+    // No name-shape-unknown warn should have fired — every name above
+    // matches either the starter or widened-package regex.
+    const shapeWarns = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.name-shape-unknown",
+    );
+    expect(shapeWarns).toHaveLength(0);
+  });
+
+  // -----------------------------------------------------------------
+  // Audit-warn branch on classifyShape: any `showcase-*` name that is
+  // neither a well-formed `showcase-starter-<slug>` nor a well-formed
+  // package root `showcase-<slug>` (lowercase-alnum-hyphen) falls to
+  // `package` but logs an audit warn. Covers typos like
+  // `showcase-strater-foo`, underscore forms, and future archetypes
+  // that would otherwise silently misclassify.
+  // -----------------------------------------------------------------
+
+  it("classifyShape warns on an underscore-form `showcase_starter_*` name but still returns 'package'", () => {
+    // Underscore forms fail both regexes because the package pattern
+    // only allows hyphens. The widened multi-segment package pattern
+    // can no longer distinguish typos that happen to be hyphen-shaped
+    // (`showcase-strater-foo` is now accepted as a valid package name
+    // — indistinguishable from legit multi-segment names like
+    // `showcase-langgraph-python`) so the warn-on-typo assertion
+    // migrates to a structurally-invalid form instead.
+    const warn = vi.fn();
+    const shape = classifyShape("showcase_starter_ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "showcase_starter_ag2" },
+    );
+  });
+
+  it("classifyShape does not warn on a well-formed package root", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape does not warn on a well-formed starter name", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-starter-ag2", { logger: { warn } });
+    expect(shape).toBe("starter");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Hyphen-bearing multi-segment package names. The prior single-segment
+  // regex (`^showcase-[a-z0-9]+$`) rejected these and fired a warn per
+  // tick for real production services. Widened pattern accepts them as
+  // `"package"` without warning.
+  it("classifyShape returns 'package' on `showcase-langgraph-python` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-langgraph-python", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape returns 'package' on `showcase-claude-sdk-typescript` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-claude-sdk-typescript", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("classifyShape returns 'package' on `showcase-ms-agent-dotnet` without warning", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("showcase-ms-agent-dotnet", {
+      logger: { warn },
+    });
+    expect(shape).toBe("package");
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // Non-`showcase-*` names also trip the warn. A Railway service renamed
+  // to drop the prefix, or an unrelated workload picked up by discovery,
+  // otherwise silently gets the package contract and floods /smoke 404s.
+  it("classifyShape warns on a non-`showcase-*` name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("my-random-service", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "my-random-service" },
+    );
+  });
+
+  it("classifyShape warns on a `copilotkit-*` workload name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("copilotkit-cloud", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "copilotkit-cloud" },
+    );
+  });
+
+  it("classifyShape warns on a mixed-case `showcase-*` name but still returns 'package'", () => {
+    const warn = vi.fn();
+    const shape = classifyShape("ShowCase-Ag2", { logger: { warn } });
+    expect(shape).toBe("package");
+    expect(warn).toHaveBeenCalledWith(
+      "discovery.railway-services.name-shape-unknown",
+      { name: "ShowCase-Ag2" },
+    );
+  });
+
+  it("resolveShape debug-logs when neither name nor shape is supplied", () => {
+    const debug = vi.fn();
+    const shape = resolveShape({}, { logger: { debug } });
+    expect(shape).toBe("package");
+    expect(debug).toHaveBeenCalledWith(
+      "discovery.railway-services.resolve-shape-fallback",
+      { reason: "no-name-or-shape" },
+    );
+  });
+
+  it("threads ctx.abortSignal into every Railway GraphQL fetch", async () => {
+    // Invariant: a slow Railway endpoint must not keep sockets open past
+    // the invoker's per-tick timeout. The source plumbs `ctx.abortSignal`
+    // into every GraphQL round-trip; this test captures `init.signal` on
+    // every fetch and asserts the controller signal ctx carries is the
+    // one the source forwards.
     const captured: Array<AbortSignal | undefined> = [];
     const fetchImpl: typeof fetch = async (_url, init) => {
       captured.push((init as RequestInit | undefined)?.signal ?? undefined);
