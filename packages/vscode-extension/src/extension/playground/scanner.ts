@@ -15,12 +15,21 @@ import type {
 
 export function scanPlayground(workspaceRoot: string): PlaygroundScanResult {
   if (!fs.existsSync(workspaceRoot)) {
-    return { providers: [], componentsWithHooks: [], hookSites: [], warnings: [] };
+    return {
+      providers: [],
+      componentsWithHooks: [],
+      hookSites: [],
+      warnings: [],
+    };
   }
 
   // Reuse the existing workspace walk — it handles .gitignore, size caps,
   // test-file exclusions, and oxc parsing. hookSites comes for free.
-  const { sites: hookSites, capped } = scanWorkspace(workspaceRoot);
+  const {
+    sites: hookSites,
+    capped,
+    visitedFiles,
+  } = scanWorkspace(workspaceRoot);
 
   const warnings: ScanWarning[] = [];
   if (capped) {
@@ -34,11 +43,13 @@ export function scanPlayground(workspaceRoot: string): PlaygroundScanResult {
   const providers: CopilotKitProviderLocation[] = [];
   let ancestorChain: ProviderChainEntry[] | undefined;
 
-  // Collect every file that might contain a <CopilotKit> provider:
-  // - Files that already surfaced hooks (they import @copilotkit/react-core).
-  // - Every other .ts/.tsx in the workspace (prefilter by string match).
-  const touchedFiles = new Set(hookSites.map((s) => s.filePath));
-  walkFilesForProvider(workspaceRoot, touchedFiles);
+  // scanWorkspace already visited every .ts/.tsx the scan cares about.
+  // Use its file list so gitignore, excludes, and the size cap apply
+  // uniformly across hook discovery and provider discovery.
+  const touchedFiles = new Set<string>(visitedFiles);
+  // Also include hookSite file paths defensively (in case a caller
+  // later injects sites from another source).
+  for (const s of hookSites) touchedFiles.add(s.filePath);
 
   for (const filePath of touchedFiles) {
     let content: string;
@@ -125,49 +136,4 @@ function groupBy<T, K>(items: T[], keyOf: (t: T) => K): Map<K, T[]> {
     else m.set(k, [item]);
   }
   return m;
-}
-
-/**
- * Augments the touched-files set with every .tsx/.ts file in the workspace
- * that might reference the CopilotKit package. Cheap to call — we let the
- * downstream `findCopilotKitNodes` prefilter do the final string match.
- */
-function walkFilesForProvider(root: string, acc: Set<string>): void {
-  const EXCLUDE = new Set([
-    "node_modules",
-    "dist",
-    ".git",
-    ".next",
-    "build",
-    ".turbo",
-    "out",
-    "__tests__",
-    "__fixtures__",
-    "__mocks__",
-  ]);
-  const walk = (dir: string): void => {
-    let entries: fs.Dirent[];
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const e of entries) {
-      const full = `${dir}/${e.name}`;
-      if (e.isDirectory()) {
-        if (EXCLUDE.has(e.name.toLowerCase())) continue;
-        walk(full);
-        continue;
-      }
-      if (!e.name.endsWith(".tsx") && !e.name.endsWith(".ts")) continue;
-      if (
-        e.name.includes(".test.") ||
-        e.name.includes(".spec.") ||
-        e.name.includes(".stories.")
-      )
-        continue;
-      acc.add(full);
-    }
-  };
-  walk(root);
 }

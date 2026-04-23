@@ -250,6 +250,8 @@ export interface ScanWorkspaceResult {
   capped: boolean;
   /** Number of .ts/.tsx files considered before the cap tripped. */
   filesScanned: number;
+  /** Every .ts/.tsx file the walk visited (pre-content-prefilter). */
+  visitedFiles: string[];
 }
 
 /**
@@ -266,6 +268,7 @@ export interface ScanWorkspaceResult {
  */
 export function scanWorkspace(workspaceDir: string): ScanWorkspaceResult {
   const results: HookCallSite[] = [];
+  const visited: string[] = [];
   let filesSeen = 0;
   let capped = false;
 
@@ -309,10 +312,16 @@ export function scanWorkspace(workspaceDir: string): ScanWorkspaceResult {
         capped = true;
         return;
       }
+      visited.push(full);
       results.push(...scanFile(full));
     }
   };
 
   walk(workspaceDir, []);
-  return { sites: results, capped, filesScanned: filesSeen };
+  return {
+    sites: results,
+    capped,
+    filesScanned: filesSeen,
+    visitedFiles: visited,
+  };
 }
