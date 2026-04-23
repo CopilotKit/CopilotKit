@@ -2,6 +2,44 @@ import type { ProviderChainEntry } from "./types";
 import { serializeJsxProps } from "./serialize-props";
 import { buildLineOffsets, offsetToLineColumn } from "./ast-utils";
 
+interface ImportInfo {
+  source: string;
+  imported: string;
+  isDefault: boolean;
+}
+
+/**
+ * Builds a map of local identifier → import origin by scanning the file's
+ * top-level ImportDeclarations. Used to resolve ancestor tag names back to
+ * their real import source so codegen can reconstruct the import statements.
+ */
+function buildImportMap(ast: any): Map<string, ImportInfo> {
+  const map = new Map<string, ImportInfo>();
+  for (const node of ast.body ?? []) {
+    if (node.type !== "ImportDeclaration") continue;
+    const source =
+      typeof node.source?.value === "string" ? node.source.value : null;
+    if (!source) continue;
+    for (const spec of node.specifiers ?? []) {
+      if (spec.type === "ImportSpecifier") {
+        const imported =
+          spec.imported?.type === "Identifier" ? spec.imported.name : null;
+        const local = spec.local?.name ?? imported;
+        if (imported && local) {
+          map.set(local, { source, imported, isDefault: false });
+        }
+      } else if (spec.type === "ImportDefaultSpecifier") {
+        const local = spec.local?.name;
+        if (local)
+          map.set(local, { source, imported: "default", isDefault: true });
+      }
+      // Skip ImportNamespaceSpecifier — ancestors used via <Namespace.Member>
+      // hit JSXMemberExpression which walk-ancestors already handles separately.
+    }
+  }
+  return map;
+}
+
 /**
  * Walks the JSX tree from the root of the AST and records the ancestor
  * JSXElements of `target`. Returns outermost-first.
@@ -55,8 +93,10 @@ export function walkSameFileAncestors(
   walk(ast, []);
 
   const lineOffsets = buildLineOffsets(sourceText);
+  const importMap = buildImportMap(ast);
+
   return ancestors.map((el) =>
-    toProviderEntry(el, sourceText, filePath, lineOffsets),
+    toProviderEntry(el, sourceText, filePath, lineOffsets, importMap),
   );
 }
 
@@ -65,6 +105,7 @@ function toProviderEntry(
   sourceText: string,
   filePath: string,
   lineOffsets: number[],
+  importMap: Map<string, ImportInfo>,
 ): ProviderChainEntry {
   const opening = jsxElement.openingElement;
   const name = opening?.name;
@@ -79,6 +120,13 @@ function toProviderEntry(
   const end = opening?.end ?? start;
   const startLC = offsetToLineColumn(start, lineOffsets);
   const endLC = offsetToLineColumn(end, lineOffsets);
+
+  // Resolve import origin. For JSXMemberExpression (e.g. <Theme.Provider>),
+  // the root identifier is what matters — look up "Theme" in the import map.
+  const rootIdentifier =
+    name?.type === "JSXIdentifier" ? name.name : rootNameOf(name);
+  const importInfo = rootIdentifier ? importMap.get(rootIdentifier) : undefined;
+
   return {
     tagName,
     props,
@@ -89,6 +137,9 @@ function toProviderEntry(
       endColumn: endLC.column,
     },
     filePath,
+    importSource: importInfo?.source ?? null,
+    importedName: importInfo?.imported ?? null,
+    isDefaultImport: importInfo?.isDefault ?? false,
   };
 }
 
@@ -98,4 +149,11 @@ function memberName(node: any): string {
     return `${memberName(node.object)}.${memberName(node.property)}`;
   }
   return "<anonymous>";
+}
+
+function rootNameOf(node: any): string | null {
+  if (!node) return null;
+  if (node.type === "JSXIdentifier") return node.name;
+  if (node.type === "JSXMemberExpression") return rootNameOf(node.object);
+  return null;
 }

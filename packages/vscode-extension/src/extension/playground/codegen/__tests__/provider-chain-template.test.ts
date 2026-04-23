@@ -30,25 +30,38 @@ const ancestors: ProviderChainEntry[] = [
     filePath: "/tmp/test/user/src/App.tsx",
     loc: { line: 7, column: 4, endLine: 20, endColumn: 2 },
     props: {},
+    importSource: "./providers/auth",
+    importedName: "AuthProvider",
+    isDefaultImport: false,
   },
   {
     tagName: "ThemeProvider",
     filePath: "/tmp/test/user/src/App.tsx",
     loc: { line: 8, column: 4, endLine: 19, endColumn: 2 },
     props: { mode: "dark" },
+    importSource: "./providers/theme",
+    importedName: "ThemeProvider",
+    isDefaultImport: false,
   },
 ];
 
 describe("renderEntry", () => {
-  it("imports ancestors from the same-file source", () => {
+  it("imports each ancestor from its real import source", () => {
     const code = renderEntry({
       provider,
       ancestors,
       aggregatorModule: "./aggregator",
       outDir: "/tmp/test/out",
     });
-    expect(code).toContain('import { AuthProvider, ThemeProvider } from "../user/src/App"');
-    expect(code).toContain('import { CopilotKitProvider } from "@copilotkit/react-core/v2"');
+    expect(code).toContain(
+      'import { AuthProvider } from "../user/src/providers/auth"',
+    );
+    expect(code).toContain(
+      'import { ThemeProvider } from "../user/src/providers/theme"',
+    );
+    expect(code).toContain(
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2"',
+    );
     expect(code).toContain('import { HooksAggregator } from "./aggregator"');
   });
 
@@ -91,7 +104,74 @@ describe("renderEntry", () => {
       aggregatorModule: "./aggregator",
       outDir: "/tmp/test/out",
     });
-    const res = parseSync("entry.tsx", code, { lang: "tsx", sourceType: "module" });
+    const res = parseSync("entry.tsx", code, {
+      lang: "tsx",
+      sourceType: "module",
+    });
     expect(res.errors).toEqual([]);
+  });
+
+  it("skips ancestors with null importSource and emits a comment", () => {
+    const localAncestor: ProviderChainEntry = {
+      tagName: "LocalHelper",
+      filePath: "/tmp/test/user/src/App.tsx",
+      loc: { line: 5, column: 0, endLine: 20, endColumn: 0 },
+      props: {},
+      importSource: null,
+      importedName: null,
+      isDefaultImport: false,
+    };
+    const code = renderEntry({
+      provider,
+      ancestors: [localAncestor],
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+    });
+    expect(code).toContain("skipped ancestor: LocalHelper");
+    // No import statement for LocalHelper — can't resolve it.
+    expect(code).not.toMatch(/import .* LocalHelper/);
+    // The JSX inside PlaygroundEntry does NOT wrap in <LocalHelper>.
+    expect(code).not.toMatch(/<LocalHelper/);
+  });
+
+  it("emits default import when isDefaultImport is true", () => {
+    const layoutAncestor: ProviderChainEntry = {
+      tagName: "Layout",
+      filePath: "/tmp/test/user/src/App.tsx",
+      loc: { line: 5, column: 0, endLine: 20, endColumn: 0 },
+      props: {},
+      importSource: "./layout",
+      importedName: "default",
+      isDefaultImport: true,
+    };
+    const code = renderEntry({
+      provider,
+      ancestors: [layoutAncestor],
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+    });
+    expect(code).toContain('import Layout from "../user/src/layout"');
+  });
+
+  it("reproduces the alias when importedName differs from tagName", () => {
+    const themeAncestor: ProviderChainEntry = {
+      tagName: "Theme",
+      filePath: "/tmp/test/user/src/App.tsx",
+      loc: { line: 5, column: 0, endLine: 20, endColumn: 0 },
+      props: { mode: "dark" },
+      importSource: "./providers/theme",
+      importedName: "ThemeProvider",
+      isDefaultImport: false,
+    };
+    const code = renderEntry({
+      provider,
+      ancestors: [themeAncestor],
+      aggregatorModule: "./aggregator",
+      outDir: "/tmp/test/out",
+    });
+    expect(code).toContain(
+      'import { ThemeProvider as Theme } from "../user/src/providers/theme"',
+    );
+    expect(code).toContain('<Theme mode="dark">');
   });
 });

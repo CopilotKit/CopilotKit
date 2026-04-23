@@ -54,6 +54,21 @@ export interface ProviderChainEntry {
   /** Source location of the opening JSX element. */
   loc: { line: number; column: number; endLine: number; endColumn: number };
   filePath: string;
+  /**
+   * Original import specifier as written by the user (`"./providers/AuthProvider"`,
+   * `"@mycorp/providers"`). Null if the ancestor is declared locally in `filePath`
+   * and isn't an imported symbol — in that case the codegen can't import it and
+   * will skip the wrapper with a warning.
+   */
+  importSource: string | null;
+  /**
+   * The original imported identifier. "default" for default imports. When the
+   * user wrote `import { Foo as Bar }`, tagName is "Bar" and importedName is "Foo".
+   * Null when the ancestor is locally declared.
+   */
+  importedName: string | null;
+  /** True if the ancestor came from a default import (`import X from "..."`). */
+  isDefaultImport: boolean;
 }
 
 /**

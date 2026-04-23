@@ -20,6 +20,9 @@ const result: PlaygroundScanResult = {
       props: {},
       loc: { line: 3, column: 0, endLine: 10, endColumn: 0 },
       filePath: "/workspace/src/app.tsx",
+      importSource: "./providers/AuthProvider",
+      importedName: "AuthProvider",
+      isDefaultImport: false,
     },
   ],
   componentsWithHooks: [

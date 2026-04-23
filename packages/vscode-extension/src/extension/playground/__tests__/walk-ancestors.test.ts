@@ -42,4 +42,54 @@ describe("walkSameFileAncestors", () => {
     ]);
     expect(chain[1].props.mode).toBe("dark");
   });
+
+  it("records import source for imported ancestors", () => {
+    const { ast, src } = parse("provider-with-imported-chain.tsx");
+    const [node] = findCopilotKitNodes(
+      fx("provider-with-imported-chain.tsx"),
+      src,
+    );
+    const chain = walkSameFileAncestors(
+      node.jsxElement,
+      ast,
+      src,
+      fx("provider-with-imported-chain.tsx"),
+    );
+    expect(chain).toHaveLength(3);
+    const [layout, auth, theme] = chain;
+
+    expect(layout.tagName).toBe("Layout");
+    expect(layout.importSource).toBe("./layout");
+    expect(layout.importedName).toBe("default");
+    expect(layout.isDefaultImport).toBe(true);
+
+    expect(auth.tagName).toBe("AuthProvider");
+    expect(auth.importSource).toBe("./providers/auth");
+    expect(auth.importedName).toBe("AuthProvider");
+    expect(auth.isDefaultImport).toBe(false);
+
+    // User wrote `import { ThemeProvider as Theme }`. tagName is the local
+    // alias; importedName is the exported symbol.
+    expect(theme.tagName).toBe("Theme");
+    expect(theme.importSource).toBe("./providers/theme");
+    expect(theme.importedName).toBe("ThemeProvider");
+    expect(theme.isDefaultImport).toBe(false);
+  });
+
+  it("records null importSource for locally-declared ancestors", () => {
+    const { ast, src } = parse("provider-with-chain.tsx");
+    const [node] = findCopilotKitNodes(fx("provider-with-chain.tsx"), src);
+    const chain = walkSameFileAncestors(
+      node.jsxElement,
+      ast,
+      src,
+      fx("provider-with-chain.tsx"),
+    );
+    // AuthProvider + ThemeProvider declared locally in the fixture → no import info.
+    for (const entry of chain) {
+      expect(entry.importSource).toBeNull();
+      expect(entry.importedName).toBeNull();
+      expect(entry.isDefaultImport).toBe(false);
+    }
+  });
 });

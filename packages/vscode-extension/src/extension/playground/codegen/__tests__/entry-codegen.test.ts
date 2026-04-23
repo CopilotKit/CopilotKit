@@ -20,6 +20,9 @@ const scan: PlaygroundScanResult = {
       filePath: "/tmp/test/user/src/App.tsx",
       loc: { line: 8, column: 4, endLine: 20, endColumn: 2 },
       props: {},
+      importSource: "./providers/auth",
+      importedName: "AuthProvider",
+      isDefaultImport: false,
     },
   ],
   componentsWithHooks: [
@@ -49,8 +52,12 @@ describe("writePlaygroundSources", () => {
     const result = writePlaygroundSources(scan);
     createdDir = result!.outDir;
 
-    expect(fs.existsSync(path.join(result!.outDir, "error-boundary.tsx"))).toBe(true);
-    expect(fs.existsSync(path.join(result!.outDir, "aggregator.tsx"))).toBe(true);
+    expect(fs.existsSync(path.join(result!.outDir, "error-boundary.tsx"))).toBe(
+      true,
+    );
+    expect(fs.existsSync(path.join(result!.outDir, "aggregator.tsx"))).toBe(
+      true,
+    );
     expect(fs.existsSync(result!.entryPath)).toBe(true);
 
     expect(path.basename(result!.entryPath)).toBe("entry.tsx");
@@ -58,8 +65,12 @@ describe("writePlaygroundSources", () => {
 
     // Entry imports aggregator + CopilotKitProvider.
     const entrySrc = fs.readFileSync(result!.entryPath, "utf-8");
-    expect(entrySrc).toContain('import { HooksAggregator } from "./aggregator"');
-    expect(entrySrc).toContain('import { CopilotKitProvider } from "@copilotkit/react-core/v2"');
+    expect(entrySrc).toContain(
+      'import { HooksAggregator } from "./aggregator"',
+    );
+    expect(entrySrc).toContain(
+      'import { CopilotKitProvider } from "@copilotkit/react-core/v2"',
+    );
   });
 
   it("returns null when no provider is present", () => {
