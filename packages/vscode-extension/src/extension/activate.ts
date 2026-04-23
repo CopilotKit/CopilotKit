@@ -240,23 +240,64 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push({ dispose: () => inspectorPanel.dispose() });
 
   // ----- Playground (Chat Tab) -----
-  const playgroundProvider = new PlaygroundViewProvider(context.extensionUri, {
-    onRefresh: () => {
-      if (!workspaceRoot) return;
-      playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
-    },
-    onOpenSource: async (filePath, line) => {
-      const doc = await vscode.workspace.openTextDocument(
-        vscode.Uri.file(filePath),
+  const playgroundOutputChannel = vscode.window.createOutputChannel(
+    "CopilotKit Playground",
+  );
+  context.subscriptions.push(playgroundOutputChannel);
+
+  const runPlaygroundScan = (): void => {
+    if (!workspaceRoot) {
+      playgroundOutputChannel.appendLine(
+        "[playground] skip scan — no workspace folder open",
       );
-      const editor = await vscode.window.showTextDocument(doc);
-      if (line) {
-        const pos = new vscode.Position(Math.max(0, line - 1), 0);
-        editor.revealRange(
-          new vscode.Range(pos, pos),
-          vscode.TextEditorRevealType.InCenter,
+      return;
+    }
+    try {
+      playgroundOutputChannel.appendLine(
+        `[playground] scanning ${workspaceRoot}`,
+      );
+      const result = scanPlayground(workspaceRoot);
+      playgroundOutputChannel.appendLine(
+        `[playground] scan done: ${result.providers.length} provider(s), ` +
+          `${result.componentsWithHooks.length} component(s), ` +
+          `${result.hookSites.length} hook site(s), ` +
+          `${result.warnings.length} warning(s)`,
+      );
+      playgroundProvider.setScanResult(result);
+    } catch (err) {
+      const detail =
+        err instanceof Error ? (err.stack ?? err.message) : String(err);
+      playgroundOutputChannel.appendLine(`[playground] scan failed: ${detail}`);
+      void vscode.window.showErrorMessage(
+        `CopilotKit playground scan failed: ${
+          err instanceof Error ? err.message : String(err)
+        } — see "CopilotKit Playground" output for details.`,
+      );
+    }
+  };
+
+  const playgroundProvider = new PlaygroundViewProvider(context.extensionUri, {
+    onRefresh: runPlaygroundScan,
+    onOpenSource: async (filePath, line) => {
+      try {
+        const doc = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(filePath),
         );
-        editor.selection = new vscode.Selection(pos, pos);
+        const editor = await vscode.window.showTextDocument(doc);
+        if (line) {
+          const pos = new vscode.Position(Math.max(0, line - 1), 0);
+          editor.revealRange(
+            new vscode.Range(pos, pos),
+            vscode.TextEditorRevealType.InCenter,
+          );
+          editor.selection = new vscode.Selection(pos, pos);
+        }
+      } catch (err) {
+        playgroundOutputChannel.appendLine(
+          `[playground] open-source ${filePath}:${line ?? "?"} failed: ${
+            err instanceof Error ? (err.stack ?? err.message) : String(err)
+          }`,
+        );
       }
     },
   });
@@ -268,15 +309,39 @@ export function activate(context: vscode.ExtensionContext): void {
     ),
   );
   context.subscriptions.push(
-    vscode.commands.registerCommand("copilotkit.chat.refresh", () => {
-      if (!workspaceRoot) return;
-      playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
+    vscode.commands.registerCommand(
+      "copilotkit.chat.refresh",
+      runPlaygroundScan,
+    ),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("copilotkit.chat.setApiKey", async () => {
+      const provider = await vscode.window.showQuickPick(
+        ["openai", "anthropic"],
+        {
+          title: "Playground LLM Provider",
+          placeHolder: "Select provider to set an API key for",
+        },
+      );
+      if (!provider) return;
+      const key = await vscode.window.showInputBox({
+        title: `${provider} API key`,
+        password: true,
+        ignoreFocusOut: true,
+        placeHolder: provider === "openai" ? "sk-..." : "sk-ant-...",
+      });
+      if (!key) return;
+      const secretKey = `copilotkit.${provider}.apiKey`;
+      await context.secrets.store(secretKey, key);
+      void vscode.window.showInformationMessage(
+        `Stored ${provider} API key in VSCode secret storage.`,
+      );
+      runPlaygroundScan();
     }),
   );
 
-  if (workspaceRoot) {
-    playgroundProvider.setScanResult(scanPlayground(workspaceRoot));
-  }
+  runPlaygroundScan();
 
   // ----- Hook Explorer -----
   // All wiring (tree, panel, persistence, scan, 5 commands) lives in its own

@@ -145,6 +145,10 @@
         "command": "copilotkit.chat.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "copilotkit.chat.setApiKey",
+        "title": "CopilotKit: Set Playground LLM API Key"
       }
     ],
     "menus": {
@@ -177,6 +181,22 @@
         }
       ],
       "view/item/context": []
+    },
+    "configuration": {
+      "title": "CopilotKit",
+      "properties": {
+        "copilotkit.playground.provider": {
+          "type": "string",
+          "enum": ["openai", "anthropic"],
+          "default": "openai",
+          "description": "LLM provider for the Chat tab playground runtime."
+        },
+        "copilotkit.playground.model": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Model name passed to the provider (e.g. gpt-4o-mini, claude-sonnet-4-6)."
+        }
+      }
     }
   },
   "activationEvents": [],
