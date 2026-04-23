@@ -35,6 +35,8 @@ import { imageDriftDriver } from "./probes/drivers/image-drift.js";
 import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
 import { e2eSmokeDriver } from "./probes/drivers/e2e-smoke.js";
+import { e2eDemosDriver } from "./probes/drivers/e2e-demos.js";
+import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
@@ -236,6 +238,8 @@ export async function boot(opts: BootOptions = {}): Promise<{
   probeRegistry.register(versionDriftDriver);
   probeRegistry.register(redirectDecommissionDriver);
   probeRegistry.register(e2eSmokeDriver);
+  probeRegistry.register(e2eDemosDriver);
+  probeRegistry.register(qaDriver);
   discoveryRegistry.register(railwayServicesSource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
