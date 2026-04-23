@@ -188,7 +188,7 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
   const tree = navTree;
 
   return (
-    <div className="flex" style={{ height: "calc(100vh - 52px)" }}>
+    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
       <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
         <SidebarFrameworkSelector />
         <Link
@@ -208,56 +208,62 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
         ))}
       </aside>
 
-      <main className="flex-1 max-w-3xl px-8 py-8 overflow-y-auto">
-        <div className="flex items-center gap-3 mb-6">
-          {integration.logo && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={integration.logo} alt="" className="w-10 h-10" />
-          )}
-          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight">
-            {integration.name}
-          </h1>
-        </div>
-
-        <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8">
-          {integration.description}
-        </p>
-
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 mb-6">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
-            You're viewing docs scoped to
+      {/* <main> is the full-width scroll container so the scrollbar
+       * lands at the viewport edge. Content width is capped by the
+       * inner wrapper. Previously `max-w-3xl` sat on <main> directly,
+       * which parked the scrollbar mid-page. */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl px-8 py-8">
+          <div className="flex items-center gap-3 mb-6">
+            {integration.logo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={integration.logo} alt="" className="w-10 h-10" />
+            )}
+            <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight">
+              {integration.name}
+            </h1>
           </div>
-          <div className="text-sm font-medium text-[var(--text)]">
-            {integration.name}
-          </div>
-          <p className="text-[13px] text-[var(--text-muted)] mt-2 leading-relaxed">
-            Every code snippet on these pages is pulled from the live{" "}
-            <code>{framework}</code> cells. Pick a topic from the sidebar to
-            start reading.
+
+          <p className="text-base text-[var(--text-secondary)] leading-relaxed mb-8">
+            {integration.description}
           </p>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <LandingCard
-            href={`/${framework}/agentic-chat-ui`}
-            title="Chat UI"
-            desc="Pre-built chat components wired to the agent"
-          />
-          <LandingCard
-            href={`/${framework}/generative-ui/tool-rendering`}
-            title="Tool Rendering"
-            desc="Render agent tool calls as UI components"
-          />
-          <LandingCard
-            href={`/${framework}/frontend-tools`}
-            title="Frontend Tools"
-            desc="Expose client-side actions to the agent"
-          />
-          <LandingCard
-            href={`/${framework}/human-in-the-loop`}
-            title="Human-in-the-Loop"
-            desc="Intercept tool calls for approval"
-          />
+          <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-4 mb-6">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[var(--text-faint)] mb-2">
+              You're viewing docs scoped to
+            </div>
+            <div className="text-sm font-medium text-[var(--text)]">
+              {integration.name}
+            </div>
+            <p className="text-[13px] text-[var(--text-muted)] mt-2 leading-relaxed">
+              Every code snippet on these pages is pulled from the live{" "}
+              <code>{framework}</code> cells. Pick a topic from the sidebar to
+              start reading.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <LandingCard
+              href={`/${framework}/agentic-chat-ui`}
+              title="Chat UI"
+              desc="Pre-built chat components wired to the agent"
+            />
+            <LandingCard
+              href={`/${framework}/generative-ui/tool-rendering`}
+              title="Tool Rendering"
+              desc="Render agent tool calls as UI components"
+            />
+            <LandingCard
+              href={`/${framework}/frontend-tools`}
+              title="Frontend Tools"
+              desc="Expose client-side actions to the agent"
+            />
+            <LandingCard
+              href={`/${framework}/human-in-the-loop`}
+              title="Human-in-the-Loop"
+              desc="Intercept tool calls for approval"
+            />
+          </div>
         </div>
       </main>
     </div>
