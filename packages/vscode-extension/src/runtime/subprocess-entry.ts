@@ -1,7 +1,9 @@
 import * as http from "node:http";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { BuiltInAgent, CopilotSseRuntime } from "@copilotkit/runtime/v2";
 import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+import type { LanguageModel } from "ai";
 
 interface SubprocessConfig {
   port: number;
@@ -21,23 +23,27 @@ function parseConfig(): SubprocessConfig {
   return JSON.parse(raw) as SubprocessConfig;
 }
 
+function buildModel(config: SubprocessConfig): LanguageModel {
+  switch (config.provider) {
+    case "openai": {
+      const provider = createOpenAI({ apiKey: config.apiKey, baseURL: config.llmBaseUrl });
+      return provider(config.model);
+    }
+    case "anthropic": {
+      const provider = createAnthropic({ apiKey: config.apiKey, baseURL: config.llmBaseUrl });
+      return provider(config.model);
+    }
+    default: {
+      const exhaustive: never = config.provider;
+      throw new Error(`Unsupported provider: ${String(exhaustive)}`);
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const config = parseConfig();
 
-  if (config.provider !== "openai") {
-    throw new Error(
-      `Plan #3 scope: provider "${config.provider}" not wired yet. Add an adapter case here.`,
-    );
-  }
-
-  // Build an @ai-sdk/openai provider with the mock base URL so all LLM
-  // traffic is intercepted by aimock instead of hitting OpenAI directly.
-  const openaiProvider = createOpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.llmBaseUrl,
-  });
-
-  const languageModel = openaiProvider(config.model);
+  const languageModel = buildModel(config);
 
   // BuiltInAgent with classic config — handles streamText, tools, and state.
   const agent = new BuiltInAgent({

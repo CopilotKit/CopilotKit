@@ -3,11 +3,7 @@ import * as path from "node:path";
 
 export type LlmProvider = "openai" | "anthropic";
 
-// Plan #3 scope: only OpenAI is wired end-to-end. Anthropic support lands
-// in Plan #4 (new adapter in subprocess-entry). Treat anthropic config as
-// missing here so the user sees the standard "configure your API key" banner
-// instead of a confusing runtime-error from the subprocess.
-const ENABLED_PROVIDERS: readonly LlmProvider[] = ["openai"];
+const ENABLED_PROVIDERS: readonly LlmProvider[] = ["openai", "anthropic"];
 
 export type LlmConfigResult =
   | {

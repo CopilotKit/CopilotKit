@@ -75,32 +75,32 @@ describe("resolveLlmConfig", () => {
     expect(result).toEqual({ source: "missing" });
   });
 
-  it("falls through to env when settings say anthropic (Plan #3 scope)", async () => {
+  it("resolves anthropic explicit config via SecretStorage + settings", async () => {
     const deps = makeDeps({
       readSecret: vi.fn((k: string) =>
-        Promise.resolve(
-          k === "copilotkit.anthropic.apiKey" ? "sk-ant" : undefined,
-        ),
+        Promise.resolve(k === "copilotkit.anthropic.apiKey" ? "sk-ant-xxx" : undefined),
       ),
       readSetting: vi.fn((k: string) =>
         k === "copilotkit.playground.provider" ? "anthropic" : undefined,
       ),
-      readEnvFile: vi.fn().mockReturnValue({ OPENAI_API_KEY: "sk-env-oa" }),
     });
     const result = await resolveLlmConfig("/fake/ws", deps);
-    // Anthropic is gated; expected to fall through to env scan and pick OpenAI.
-    expect(result.source).toBe("auto-detect");
-    if (result.source !== "missing") {
-      expect(result.provider).toBe("openai");
-      expect(result.apiKey).toBe("sk-env-oa");
-    }
+    expect(result).toMatchObject({
+      source: "explicit",
+      provider: "anthropic",
+      apiKey: "sk-ant-xxx",
+    });
   });
 
-  it("ignores ANTHROPIC_API_KEY in env during auto-detect (Plan #3 scope)", async () => {
+  it("auto-detects ANTHROPIC_API_KEY from env when no settings", async () => {
     const deps = makeDeps({
-      readEnvFile: vi.fn().mockReturnValue({ ANTHROPIC_API_KEY: "sk-ant" }),
+      readEnvFile: vi.fn().mockReturnValue({ ANTHROPIC_API_KEY: "sk-ant-env" }),
     });
     const result = await resolveLlmConfig("/fake/ws", deps);
-    expect(result).toEqual({ source: "missing" });
+    expect(result).toMatchObject({
+      source: "auto-detect",
+      provider: "anthropic",
+      apiKey: "sk-ant-env",
+    });
   });
 });
