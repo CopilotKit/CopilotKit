@@ -102,8 +102,7 @@ function DashboardInner() {
     // "where is this feature supported"). When an integration matches,
     // narrow columns but keep all features ("what's in this integration").
     const featureMatch = feats.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q),
+      (f) => f.name.toLowerCase().includes(q) || f.id.toLowerCase().includes(q),
     );
     const integrationMatch = ints.filter(
       (i) =>

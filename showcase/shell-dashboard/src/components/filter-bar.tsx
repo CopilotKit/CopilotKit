@@ -27,7 +27,12 @@ interface FilterBarProps {
   state: FilterState;
   actions: FilterActions;
   /** Counts after current filters for the result summary. */
-  summary: { visibleFeatures: number; totalFeatures: number; visibleIntegrations: number; totalIntegrations: number };
+  summary: {
+    visibleFeatures: number;
+    totalFeatures: number;
+    visibleIntegrations: number;
+    totalIntegrations: number;
+  };
 }
 
 export function FilterBar({
@@ -94,9 +99,7 @@ export function FilterBar({
           options={featureCategories.map((c) => c.id)}
           selected={state.featureCategories}
           onToggle={actions.toggleFeatureCategory}
-          labelFor={(v) =>
-            featureCategories.find((c) => c.id === v)?.name ?? v
-          }
+          labelFor={(v) => featureCategories.find((c) => c.id === v)?.name ?? v}
         />
 
         <label className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] select-none cursor-pointer">
@@ -111,7 +114,9 @@ export function FilterBar({
 
         <div className="ml-auto flex items-center gap-3 text-[11px] text-[var(--text-muted)] tabular-nums">
           <span>
-            {summary.visibleFeatures}/{summary.totalFeatures} features · {summary.visibleIntegrations}/{summary.totalIntegrations} integrations
+            {summary.visibleFeatures}/{summary.totalFeatures} features ·{" "}
+            {summary.visibleIntegrations}/{summary.totalIntegrations}{" "}
+            integrations
           </span>
           {hasAnyFilter && (
             <button

@@ -285,10 +285,7 @@ export function FeatureGrid({
                       <span className="uppercase tracking-wider">
                         {integration.language}
                       </span>
-                      <span
-                        className="tabular-nums"
-                        title={tallyTitle}
-                      >
+                      <span className="tabular-nums" title={tallyTitle}>
                         {tally.unknown ? (
                           "? offline"
                         ) : (

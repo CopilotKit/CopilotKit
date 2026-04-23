@@ -55,7 +55,11 @@ export function useFilterState(): FilterState & FilterActions {
   );
 
   const write = useCallback(
-    (next: Partial<Record<"q" | "lang" | "ic" | "fc" | "green", string | null>>) => {
+    (
+      next: Partial<
+        Record<"q" | "lang" | "ic" | "fc" | "green", string | null>
+      >,
+    ) => {
       const sp = new URLSearchParams(params.toString());
       for (const [k, v] of Object.entries(next)) {
         if (v === null || v === "" || v === undefined) sp.delete(k);
@@ -67,7 +71,10 @@ export function useFilterState(): FilterState & FilterActions {
     [params, router],
   );
 
-  const setSearch = useCallback((q: string) => write({ q: q || null }), [write]);
+  const setSearch = useCallback(
+    (q: string) => write({ q: q || null }),
+    [write],
+  );
 
   const toggleLanguage = useCallback(
     (lang: string) =>
