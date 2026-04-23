@@ -258,9 +258,11 @@ describe("handleConnectAgent", () => {
       const body = await response.json();
       expect(body).toEqual({
         threadId: "thread-1",
-        runId: "run-1",
         joinToken: "jt-connect-1",
-        intelligence: { wsUrl: "wss://runtime.example/client" },
+        realtime: {
+          clientUrl: "wss://runtime.example/client",
+          threadTopic: "thread:thread-1",
+        },
       });
       expect(platform.ɵconnectThread).toHaveBeenCalledWith({
         threadId: "thread-1",
@@ -288,9 +290,11 @@ describe("handleConnectAgent", () => {
       const body = await response.json();
       expect(body).toEqual({
         threadId: "thread-1",
-        runId: "run-1",
         joinToken: "jt-connect-1",
-        intelligence: { wsUrl: "wss://runtime.example/client" },
+        realtime: {
+          clientUrl: "wss://runtime.example/client",
+          threadTopic: "thread:thread-1",
+        },
       });
     });
 
@@ -334,6 +338,48 @@ describe("handleConnectAgent", () => {
       expect(response.status).toBe(404);
       const body = await response.json();
       expect(body.error).toBe("Connect plan not available");
+    });
+
+    it("preserves platform validation errors when connect fails validation", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 400"), {
+            status: 400,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(400);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request rejected");
+    });
+
+    it("preserves platform ownership conflicts when connect fails authorization", async () => {
+      const platform = {
+        ɵconnectThread: vi.fn().mockRejectedValue(
+          Object.assign(new Error("Intelligence platform error 403"), {
+            status: 403,
+          }),
+        ),
+      };
+      const runtime = createIntelligenceRuntime(platform);
+
+      const response = await handleConnectAgent({
+        runtime,
+        request: createConnectRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(403);
+      const body = await response.json();
+      expect(body.error).toBe("Connect request rejected");
     });
 
     it("does not forward replay cursors to the credentials-only intelligence platform connect", async () => {

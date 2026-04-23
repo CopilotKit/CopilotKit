@@ -1,14 +1,29 @@
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
-import { isPlatformNotFoundError } from "../shared/intelligence-utils";
+import {
+  getPlatformErrorStatus,
+  isPlatformNotFoundError,
+} from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+
+/**
+ * Builds browser-facing realtime connection metadata owned by the runtime.
+ */
+function buildRealtimeConnectionInfo(params: {
+  clientUrl: string;
+  threadId: string;
+}): { clientUrl: string; threadTopic: string } {
+  return {
+    clientUrl: params.clientUrl,
+    threadTopic: `thread:${params.threadId}`,
+  };
+}
 
 interface HandleIntelligenceConnectParams {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
   agentId: string;
   threadId: string;
-  runId: string;
 }
 
 export async function handleIntelligenceConnect({
@@ -16,7 +31,6 @@ export async function handleIntelligenceConnect({
   request,
   agentId,
   threadId,
-  runId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -49,9 +63,11 @@ export async function handleIntelligenceConnect({
     return Response.json(
       {
         threadId: result.threadId,
-        runId,
         joinToken: result.joinToken,
-        intelligence: { wsUrl: runtime.intelligence.ɵgetClientWsUrl() },
+        realtime: buildRealtimeConnectionInfo({
+          clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
+          threadId: result.threadId,
+        }),
       },
       {
         headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
@@ -62,6 +78,20 @@ export async function handleIntelligenceConnect({
       return new Response(null, {
         status: 204,
       });
+    }
+
+    const status = getPlatformErrorStatus(error);
+    if (status === 400 || status === 401 || status === 403 || status === 409) {
+      return Response.json(
+        {
+          error: "Connect request rejected",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Intelligence platform rejected the connect request",
+        },
+        { status },
+      );
     }
 
     console.error("Connect plan not available:", error);

@@ -389,7 +389,10 @@ describe("handleRunAgent", () => {
         threadId: "thread-1",
         runId: "run-1",
         joinToken: "jt-123",
-        intelligence: { wsUrl: "wss://runtime.example/client" },
+        realtime: {
+          clientUrl: "wss://runtime.example/client",
+          threadTopic: "thread:thread-1",
+        },
       });
       expect(platform.getOrCreateThread).toHaveBeenCalledWith({
         threadId: "thread-1",
@@ -491,7 +494,7 @@ describe("handleRunAgent", () => {
       );
     });
 
-    it("returns 502 when joinToken is missing", async () => {
+    it("cleans up the lock and returns 502 when joinToken is missing", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn().mockResolvedValue({
@@ -503,6 +506,7 @@ describe("handleRunAgent", () => {
           threadId: "thread-1",
           runId: "run-1",
         }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
       };
       const runtime = createIntelligenceRuntime(agent, platform);
 
@@ -515,6 +519,39 @@ describe("handleRunAgent", () => {
       expect(response.status).toBe(502);
       const body = await response.json();
       expect(body.error).toBe("Run connection credentials not available");
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        runId: "run-1",
+      });
+      expect(runtime.runner.run).not.toHaveBeenCalled();
+    });
+
+    it("uses the requested lock owner when malformed credentials omit canonical IDs", async () => {
+      const agent = createAgentForIntelligence();
+      const platform = {
+        getOrCreateThread: vi.fn().mockResolvedValue({
+          thread: { id: "thread-1", name: null },
+          created: false,
+        }),
+        getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
+        ɵacquireThreadLock: vi.fn().mockResolvedValue({
+          joinToken: "jt-123",
+        }),
+        ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+      };
+      const runtime = createIntelligenceRuntime(agent, platform);
+
+      const response = await handleRunAgent({
+        runtime,
+        request: createRunRequest(),
+        agentId: "my-agent",
+      });
+
+      expect(response.status).toBe(502);
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "thread-1",
+        runId: "run-1",
+      });
       expect(runtime.runner.run).not.toHaveBeenCalled();
     });
 
@@ -543,7 +580,7 @@ describe("handleRunAgent", () => {
       expect(body.error).toBe("Thread lock denied");
     });
 
-    it("cleans up the canonical lock when runner start fails", async () => {
+    it("cleans up the canonical lock and returns 502 when runner start fails immediately", async () => {
       const agent = createAgentForIntelligence();
       const platform = {
         getOrCreateThread: vi.fn().mockResolvedValue({
@@ -576,13 +613,16 @@ describe("handleRunAgent", () => {
         agentId: "my-agent",
       });
 
-      expect(response.status).toBe(200);
-      await vi.waitFor(() =>
-        expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
-          threadId: "canonical-thread",
-          runId: "canonical-run",
-        }),
-      );
+      expect(response.status).toBe(502);
+      const body = await response.json();
+      expect(body).toEqual({
+        error: "Failed to start runner",
+        message: "join failed",
+      });
+      expect(platform.ɵcleanupThreadLock).toHaveBeenCalledWith({
+        threadId: "canonical-thread",
+        runId: "canonical-run",
+      });
     });
 
     it("aborts the agent when lock renewal fails", async () => {

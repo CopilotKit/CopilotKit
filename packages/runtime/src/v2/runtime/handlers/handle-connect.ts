@@ -45,7 +45,6 @@ export async function handleConnectAgent({
         request,
         agentId,
         threadId: connectRequest.input.threadId,
-        runId: connectRequest.input.runId,
       });
     }
 

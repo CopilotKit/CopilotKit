@@ -12,6 +12,19 @@ import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
 
+/**
+ * Builds browser-facing realtime connection metadata owned by the runtime.
+ */
+function buildRealtimeConnectionInfo(params: {
+  clientUrl: string;
+  threadId: string;
+}): { clientUrl: string; threadTopic: string } {
+  return {
+    clientUrl: params.clientUrl,
+    threadTopic: `thread:${params.threadId}`,
+  };
+}
+
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
@@ -99,7 +112,21 @@ export async function handleIntelligenceRun({
     );
   }
 
+  const cleanupLock = (reason: string): Promise<void> =>
+    runtime.intelligence
+      .ɵcleanupThreadLock({
+        threadId: canonicalThreadId || input.threadId,
+        runId: canonicalRunId || input.runId,
+      })
+      .catch((cleanupError) => {
+        logger.error(
+          { err: cleanupError, reason },
+          "Failed to cleanup thread lock",
+        );
+      });
+
   if (!canonicalThreadId || !canonicalRunId || !joinToken) {
+    await cleanupLock("malformed-lock-response");
     return Response.json(
       {
         error: "Run connection credentials not available",
@@ -115,19 +142,6 @@ export async function handleIntelligenceRun({
     threadId: canonicalThreadId,
     runId: canonicalRunId,
   };
-
-  const cleanupLock = (reason: string): Promise<void> =>
-    runtime.intelligence
-      .ɵcleanupThreadLock({
-        threadId: canonicalThreadId,
-        runId: canonicalRunId,
-      })
-      .catch((cleanupError) => {
-        logger.error(
-          { err: cleanupError, reason },
-          "Failed to cleanup thread lock",
-        );
-      });
 
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
@@ -189,6 +203,8 @@ export async function handleIntelligenceRun({
   };
 
   const runStarted = { current: false };
+  let immediateStartupErrorMessage: string | undefined;
+  let immediateStartupCleanup: Promise<void> | undefined;
 
   try {
     runtime.runner
@@ -206,12 +222,23 @@ export async function handleIntelligenceRun({
             runStarted.current = true;
           }
           if (event.type === EventType.RUN_ERROR && !runStarted.current) {
-            cleanupLock("runner-start-failed");
+            clearHeartbeat();
+            immediateStartupErrorMessage =
+              "message" in event && typeof event.message === "string"
+                ? event.message
+                : "Runner failed before the run started";
+            immediateStartupCleanup = cleanupLock("runner-start-failed");
           }
         },
         error: (error) => {
           clearHeartbeat();
-          cleanupLock("runner-start-error");
+          if (!runStarted.current) {
+            immediateStartupErrorMessage =
+              error instanceof Error ? error.message : String(error);
+            immediateStartupCleanup = cleanupLock("runner-start-error");
+          } else {
+            cleanupLock("runner-error");
+          }
           telemetry.capture("oss.runtime.agent_execution_stream_errored", {
             error: error instanceof Error ? error.message : String(error),
           });
@@ -234,12 +261,29 @@ export async function handleIntelligenceRun({
     );
   }
 
+  if (immediateStartupErrorMessage) {
+    await immediateStartupCleanup;
+    return Response.json(
+      {
+        error: "Failed to start runner",
+        message: immediateStartupErrorMessage,
+      },
+      { status: 502 },
+    );
+  }
+
+  // The Phoenix runner join is callback-based, so this handler cannot provide
+  // a true synchronous join confirmation. It only catches immediate runner
+  // construction/subscription failures before returning credentials.
   return Response.json(
     {
       threadId: canonicalThreadId,
       runId: canonicalRunId,
       joinToken,
-      intelligence: { wsUrl: runtime.intelligence.ɵgetClientWsUrl() },
+      realtime: buildRealtimeConnectionInfo({
+        clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
+        threadId: canonicalThreadId,
+      }),
     },
     {
       headers: { "Cache-Control": "no-cache" },
