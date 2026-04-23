@@ -4,7 +4,9 @@ import {
   handleArchiveThread,
   handleClearThreads,
   handleDeleteThread,
+  handleGetThreadEvents,
   handleGetThreadMessages,
+  handleGetThreadState,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
@@ -632,6 +634,144 @@ describe("thread handlers", () => {
     expect(intelligence.listThreads).toHaveBeenCalledWith({
       userId: "user-1",
       agentId: "agent-1",
+    });
+  });
+
+  describe("handleGetThreadEvents", () => {
+    it("returns events from the in-memory runner for a known thread", async () => {
+      const runner = new InMemoryAgentRunner();
+      const fakeEvents = [
+        { type: "RUN_STARTED", runId: "r1", threadId: "thread-1" },
+        {
+          type: "TEXT_MESSAGE_START",
+          messageId: "m1",
+          role: "assistant",
+        },
+      ];
+      vi.spyOn(runner, "getThreadEvents").mockReturnValue(
+        fakeEvents as never,
+      );
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/events"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.events).toHaveLength(2);
+      expect(body.events[0]).toMatchObject({ type: "RUN_STARTED" });
+    });
+
+    it("returns empty events for an unknown threadId via the in-memory runner", async () => {
+      const runtime = new CopilotRuntime({ agents: {} });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request(
+          "https://example.com/threads/nonexistent/events",
+        ),
+        threadId: "nonexistent",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.events).toEqual([]);
+    });
+
+    it("returns 501 when intelligence is configured (not yet implemented)", async () => {
+      const intelligence = { listThreads: vi.fn() };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/events"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(501);
+    });
+
+    it("returns 500 when the runner throws", async () => {
+      const runner = new InMemoryAgentRunner();
+      vi.spyOn(runner, "getThreadEvents").mockImplementation(() => {
+        throw new Error("boom");
+      });
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadEvents({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/events"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(500);
+    });
+  });
+
+  describe("handleGetThreadState", () => {
+    it("returns the state from the in-memory runner", async () => {
+      const runner = new InMemoryAgentRunner();
+      const snapshot = { counter: 3, label: "alpha" };
+      vi.spyOn(runner, "getThreadState").mockReturnValue(snapshot as never);
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/state"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.state).toEqual(snapshot);
+    });
+
+    it("returns state:null when the runner has no snapshot for the thread", async () => {
+      const runtime = new CopilotRuntime({ agents: {} });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request(
+          "https://example.com/threads/nonexistent/state",
+        ),
+        threadId: "nonexistent",
+      });
+
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.state).toBeNull();
+    });
+
+    it("returns 501 when intelligence is configured (not yet implemented)", async () => {
+      const intelligence = { listThreads: vi.fn() };
+      const runtime = createIntelligenceRuntime({ intelligence });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/state"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(501);
+    });
+
+    it("returns 500 when the runner throws", async () => {
+      const runner = new InMemoryAgentRunner();
+      vi.spyOn(runner, "getThreadState").mockImplementation(() => {
+        throw new Error("boom");
+      });
+      const runtime = new CopilotRuntime({ agents: {}, runner });
+
+      const response = await handleGetThreadState({
+        runtime,
+        request: new Request("https://example.com/threads/thread-1/state"),
+        threadId: "thread-1",
+      });
+
+      expect(response.status).toBe(500);
     });
   });
 });

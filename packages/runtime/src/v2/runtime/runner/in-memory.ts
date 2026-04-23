@@ -410,6 +410,48 @@ export class InMemoryAgentRunner extends AgentRunner {
   }
 
   /**
+   * Returns all AG-UI events for a thread, compacted across historic runs.
+   *
+   * Powers the local-dev fallback for `GET /threads/:threadId/events` when the
+   * Intelligence platform is not configured. The compaction logic matches the
+   * SQLite runner and the connection-replay path in {@link connect}, so the
+   * stream a late-joining inspector sees matches what this method returns.
+   */
+  getThreadEvents(threadId: string): BaseEvent[] {
+    const store = GLOBAL_STORE.get(threadId);
+    if (!store || store.historicRuns.length === 0) return [];
+    const all: BaseEvent[] = [];
+    for (const run of store.historicRuns) all.push(...run.events);
+    return compactEvents(all);
+  }
+
+  /**
+   * Returns the agent state snapshot for a thread.
+   *
+   * Derived from the last `STATE_SNAPSHOT` in the compacted event stream. The
+   * AG-UI `compactEvents` helper consolidates STATE_DELTA events and produces
+   * a single trailing STATE_SNAPSHOT when state changes exist, so this is a
+   * faithful view of state at the end of the most recent run.
+   *
+   * Returns `null` when the thread has never emitted a STATE_SNAPSHOT.
+   */
+  getThreadState(threadId: string): Record<string, unknown> | null {
+    const events = this.getThreadEvents(threadId);
+    // Walk backwards — the last snapshot wins.
+    for (let i = events.length - 1; i >= 0; i--) {
+      const event = events[i]!;
+      if (event.type === EventType.STATE_SNAPSHOT) {
+        const snapshot = (event as { snapshot?: unknown }).snapshot;
+        if (snapshot && typeof snapshot === "object") {
+          return snapshot as Record<string, unknown>;
+        }
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
    * Clears all in-memory thread history.
    *
    * Called by the inspector when a new browser session starts (i.e. on page

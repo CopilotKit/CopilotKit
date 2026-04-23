@@ -55,6 +55,8 @@ import {
   handleArchiveThread,
   handleDeleteThread,
   handleGetThreadMessages,
+  handleGetThreadEvents,
+  handleGetThreadState,
 } from "../handlers/handle-threads";
 import {
   parseMethodCall,
@@ -343,6 +345,18 @@ function dispatchRoute(
         request,
         threadId: route.threadId,
       });
+    case "threads/events":
+      return handleGetThreadEvents({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
+    case "threads/state":
+      return handleGetThreadState({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
     case "cpk-debug-events":
       return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
@@ -420,6 +434,8 @@ function validateHttpMethod(
     case "info":
     case "threads/list":
     case "threads/messages":
+    case "threads/events":
+    case "threads/state":
     case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {

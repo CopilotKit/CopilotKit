@@ -5,7 +5,6 @@ import {
   inject,
   input,
   signal,
-  NgZone,
   OnDestroy,
   OnInit,
 } from "@angular/core";
@@ -24,7 +23,6 @@ import {
   WEB_INSPECTOR_TAG,
   type WebInspectorElement,
 } from "@copilotkit/web-inspector";
-import { defineInspectorElements } from "@copilotkit/web-inspector-angular";
 import { z } from "zod";
 
 @Component({
@@ -172,12 +170,8 @@ export class HeadlessChatComponent implements OnInit, OnDestroy {
     );
   }
 
-  private ngZone = inject(NgZone);
-
   ngOnInit(): void {
     if (typeof document === "undefined") return;
-
-    this.ngZone.runOutsideAngular(() => defineInspectorElements());
 
     const existing =
       document.querySelector<WebInspectorElement>(WEB_INSPECTOR_TAG);

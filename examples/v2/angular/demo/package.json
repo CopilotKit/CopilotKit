@@ -25,7 +25,6 @@
     "@angular/platform-browser-dynamic": "^19.0.0",
     "@copilotkit/angular": "link:../../../../packages/angular",
     "@copilotkit/web-inspector": "workspace:*",
-    "@copilotkit/web-inspector-angular": "workspace:*",
     "@copilotkitnext/angular": "workspace:*",
     "compare-versions": "^6.1.1",
     "fast-json-patch": "^3.1.1",

@@ -139,6 +139,28 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/messages", threadId };
   }
 
+  // /threads/:threadId/events (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "events"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/events", threadId };
+  }
+
+  // /threads/:threadId/state (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "state"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/state", threadId };
+  }
+
   // /threads/:threadId/archive (3 segments)
   if (
     len >= 3 &&

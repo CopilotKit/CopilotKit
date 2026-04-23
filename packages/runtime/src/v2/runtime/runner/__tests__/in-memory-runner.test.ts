@@ -593,4 +593,132 @@ describe("InMemoryAgentRunner — listThreads / getThreadMessages", () => {
       expect(messages).toHaveLength(4);
     });
   });
+
+  describe("getThreadEvents", () => {
+    it("returns stored events for a completed thread", () => {
+      const events = runner.getThreadEvents("list-threads-thread-1");
+      // The beforeEach runs a single turn. Stored events include RUN_STARTED
+      // and any content events. Terminal events (RUN_FINISHED/RUN_ERROR) are
+      // emitted to live subscribers but not persisted to historicRuns[].
+      expect(events.length).toBeGreaterThan(0);
+      const types = events.map((e) => e.type);
+      expect(types).toContain(EventType.RUN_STARTED);
+    });
+
+    it("returns an empty array for an unknown threadId", () => {
+      expect(runner.getThreadEvents("nonexistent-thread-xyz")).toEqual([]);
+    });
+
+    it("flattens events across multiple historic runs", async () => {
+      const followUp: Message = {
+        id: "u2",
+        role: "user",
+        content: "Follow up",
+      };
+      const agent2 = new MessagePopulatingTestAgent(
+        "test-agent",
+        [userMessage, assistantMessage, followUp],
+        [{ id: "a2", role: "assistant", content: "Sure!" }],
+      );
+      agent2.agentId = "test-agent";
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "list-threads-thread-1",
+            agent: agent2,
+            input: {
+              threadId: "list-threads-thread-1",
+              runId: "run-lt-turn-2",
+              messages: [userMessage, assistantMessage, followUp],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      const events = runner.getThreadEvents("list-threads-thread-1");
+      const runStartedCount = events.filter(
+        (e) => e.type === EventType.RUN_STARTED,
+      ).length;
+      // Two runs means two RUN_STARTED events survive compaction.
+      expect(runStartedCount).toBe(2);
+    });
+  });
+
+  describe("getThreadState", () => {
+    it("returns null when the thread has never emitted a state snapshot", () => {
+      // The beforeEach agent doesn't emit STATE_SNAPSHOT events.
+      expect(runner.getThreadState("list-threads-thread-1")).toBeNull();
+    });
+
+    it("returns null for an unknown threadId", () => {
+      expect(runner.getThreadState("nonexistent-thread-xyz")).toBeNull();
+    });
+
+    it("returns the last STATE_SNAPSHOT payload after a run", async () => {
+      const snapshot = { counter: 7, name: "alpha" };
+      const stateAgent = new TestAgent(
+        [
+          {
+            type: EventType.STATE_SNAPSHOT,
+            snapshot,
+          } as BaseEvent,
+        ],
+        true,
+      );
+      await firstValueFrom(
+        runner
+          .run({
+            threadId: "thread-with-state",
+            agent: stateAgent,
+            input: {
+              threadId: "thread-with-state",
+              runId: "run-state-1",
+              messages: [],
+              state: {},
+              tools: [],
+              context: [],
+            },
+          })
+          .pipe(toArray()),
+      );
+
+      expect(runner.getThreadState("thread-with-state")).toEqual(snapshot);
+    });
+
+    it("returns the most recent snapshot across multiple runs", async () => {
+      const first = { step: 1 };
+      const second = { step: 2 };
+
+      const run = async (threadId: string, runId: string, snapshot: object) => {
+        const agent = new TestAgent(
+          [{ type: EventType.STATE_SNAPSHOT, snapshot } as BaseEvent],
+          true,
+        );
+        await firstValueFrom(
+          runner
+            .run({
+              threadId,
+              agent,
+              input: {
+                threadId,
+                runId,
+                messages: [],
+                state: {},
+                tools: [],
+                context: [],
+              },
+            })
+            .pipe(toArray()),
+        );
+      };
+
+      await run("thread-multi-state", "run-a", first);
+      await run("thread-multi-state", "run-b", second);
+
+      expect(runner.getThreadState("thread-multi-state")).toEqual(second);
+    });
+  });
 });

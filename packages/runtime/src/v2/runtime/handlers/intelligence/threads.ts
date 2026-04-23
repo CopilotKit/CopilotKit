@@ -324,3 +324,61 @@ export async function handleGetThreadMessages({
     422,
   );
 }
+
+export async function handleGetThreadEvents({
+  runtime,
+  threadId,
+}: ThreadMutationParams): Promise<Response> {
+  // Intelligence platform path: no equivalent API yet. Return a clear 501 so
+  // consumers wiring the inspector against a platform-backed runtime see an
+  // explicit "not implemented" rather than silently empty data.
+  if (isIntelligenceRuntime(runtime)) {
+    return errorResponse(
+      "GET /threads/:threadId/events is not yet supported on the Intelligence platform runtime. Track progress in the CopilotKit issue tracker or run with the in-memory runner for local development.",
+      501,
+    );
+  }
+
+  // Local in-memory fallback
+  if (runtime.runner instanceof InMemoryAgentRunner) {
+    try {
+      const events = runtime.runner.getThreadEvents(threadId);
+      return Response.json({ events });
+    } catch (error) {
+      logger.error({ err: error, threadId }, "Error fetching thread events");
+      return errorResponse("Failed to fetch thread events", 500);
+    }
+  }
+
+  return errorResponse(
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    422,
+  );
+}
+
+export async function handleGetThreadState({
+  runtime,
+  threadId,
+}: ThreadMutationParams): Promise<Response> {
+  if (isIntelligenceRuntime(runtime)) {
+    return errorResponse(
+      "GET /threads/:threadId/state is not yet supported on the Intelligence platform runtime. Track progress in the CopilotKit issue tracker or run with the in-memory runner for local development.",
+      501,
+    );
+  }
+
+  if (runtime.runner instanceof InMemoryAgentRunner) {
+    try {
+      const state = runtime.runner.getThreadState(threadId);
+      return Response.json({ state });
+    } catch (error) {
+      logger.error({ err: error, threadId }, "Error fetching thread state");
+      return errorResponse("Failed to fetch thread state", 500);
+    }
+  }
+
+  return errorResponse(
+    "Missing CopilotKitIntelligence configuration. Thread operations require a CopilotKitIntelligence instance to be provided in CopilotRuntime options.",
+    422,
+  );
+}
