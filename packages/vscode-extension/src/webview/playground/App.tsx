@@ -15,7 +15,9 @@ export function App(): React.JSX.Element {
     hookSites: [],
     warnings: [],
   });
-  const [bundle, setBundle] = React.useState<PlaygroundBundleExports | null>(null);
+  const [bundle, setBundle] = React.useState<PlaygroundBundleExports | null>(
+    null,
+  );
   const [bundleError, setBundleError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -26,7 +28,10 @@ export function App(): React.JSX.Element {
         setBundleError(null);
         executePlaygroundBundle(msg.payload.code).then(
           (exports) => setBundle(exports),
-          (err) => setBundleError(err instanceof Error ? err.message : String(err)),
+          (err) => {
+            setBundle(null);
+            setBundleError(err instanceof Error ? err.message : String(err));
+          },
         );
       } else if (msg.type === "bundle-error") {
         setBundleError(msg.message);
@@ -38,7 +43,7 @@ export function App(): React.JSX.Element {
   }, []);
 
   return (
-    <div className="playground-root">
+    <div className="playground-layout">
       <ScannerView
         result={result}
         onRefresh={() => sendToExtension({ type: "refresh" })}
