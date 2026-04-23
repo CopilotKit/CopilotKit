@@ -1,0 +1,79 @@
+---
+title: Tool Rendering
+icon: "lucide/Server"
+description: Render the Built-in Agent's tool calls with custom UI — arguments, live status, branded result cards.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: tool-rendering
+---
+
+## What is this?
+
+Tools are how an LLM invokes predefined, typically-deterministic functions. **Tool rendering** lets you decide how each of those tool calls appears in the chat. Instead of showing raw JSON, you register a React component that draws a branded card for the call — arguments, live status, and the eventual result.
+
+This is the Generative UI variant CopilotKit calls **tool rendering** — distinct from [Display Components](./your-components/display-only) (no backend tool, just UI) and [Interactive Components](./your-components/interactive) (UI + `respond` callback).
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering" />
+
+## When should I use this?
+
+Render tool calls when you want to:
+
+- Show users exactly what tools the agent is invoking and with what arguments
+- Display live progress indicators while a tool executes
+- Render rich, polished results once a tool completes
+- Give tool-heavy agents a transparent, on-brand chat experience
+
+## Default tool rendering (zero-config)
+
+The simplest entry point: call `useDefaultRenderTool()` with no arguments. CopilotKit registers its built-in `DefaultToolCallRenderer` as the `*` wildcard — every tool call renders as a tidy status card (tool name, live **Running → Done** pill, collapsible arguments/result) without you writing any UI.
+
+Without this hook the runtime has no `*` renderer and tool calls are invisible — the user only sees the assistant's final text summary.
+
+<Snippet
+  cell="tool-rendering-default-catchall"
+  region="default-catchall-zero-config"
+  title="frontend/src/app/page.tsx — useDefaultRenderTool()"
+/>
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering-default-catchall" />
+
+## Custom catch-all
+
+Once you want on-brand chrome, pass a `render` function to `useDefaultRenderTool`. It's a convenience wrapper around `useRenderTool({ name: "*", ... })` — one wildcard renderer handles every tool call, named or not:
+
+<Snippet
+  cell="tool-rendering-custom-catchall"
+  region="use-default-render-tool-wildcard"
+  title="frontend/src/app/page.tsx — custom wildcard renderer"
+/>
+
+<InlineDemo integration="langgraph-python" demo="tool-rendering-custom-catchall" />
+
+## Per-tool renderers
+
+The most expressive path is one renderer per tool name. The primary `tool-rendering` cell wires two: `get_weather` draws a branded `WeatherCard`, `search_flights` draws a `FlightListCard`. Each renderer receives the tool's parsed arguments, a live `status`, and — once the agent returns — the `result`:
+
+<Snippet region="render-weather-tool" title="frontend/src/app/page.tsx — weather renderer" />
+
+<Snippet region="render-flight-tool" title="frontend/src/app/page.tsx — flight renderer" />
+
+<Callout type="info">
+The `name` you pass to `useRenderTool` must match the tool name the agent exposes — that's how the runtime routes the call to your component.
+</Callout>
+
+Per-tool renderers compose with a catch-all: named renderers claim the "interesting" tools and a wildcard handles everything else. In the primary cell, the same `CustomCatchallRenderer` from above catches `get_stock_price` and `roll_dice`:
+
+<Snippet region="catchall-renderer" title="frontend/src/app/page.tsx — per-tool + catch-all" />
+
+## The backend tool definition
+
+The frontend renderer only sees what the agent sends down. Here's the matching Python definition for `get_weather` — a standard LangChain tool, no CopilotKit-specific plumbing required:
+
+<Snippet region="weather-tool-backend" title="backend/agent.py — weather tool" />
+
+## Related
+
+- [Default Tool Rendering cell](http://localhost:3000/langgraph-python/demo/tool-rendering-default-catchall) — zero-config baseline.
+- [Custom Catch-all cell](http://localhost:3000/langgraph-python/demo/tool-rendering-custom-catchall) — a single branded wildcard.
+- [Primary Tool Rendering cell](http://localhost:3000/langgraph-python/demo/tool-rendering) — per-tool renderers + catch-all composition.

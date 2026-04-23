@@ -1,0 +1,138 @@
+---
+title: Declarative Gen-UI (A2UI)
+icon: "lucide/FileJson"
+description: Render declarative UI from the agent using the A2UI specification — schemas as JSON, a shared component catalog, and a middleware that maps tool results to surfaces.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: declarative-gen-ui
+---
+
+## What is this?
+
+A2UI (Agent-to-UI) is a declarative specification for generative UI. It lets agents render structured UI using a JSON schema and a shared component catalog, without requiring a custom React component for every interaction.
+
+There are two flavors:
+
+- **Dynamic schema** — a secondary LLM generates the full UI schema per turn. Flexible; slower first paint. Cell: `declarative-gen-ui`.
+- **Fixed schema** — the schema lives in a JSON file next to the agent; only *data* is LLM-generated. Deterministic, instant first paint. Cell: `a2ui-fixed-schema`.
+
+<InlineDemo integration="langgraph-python" demo="declarative-gen-ui" />
+
+## Dynamic schemas (live)
+
+In the dynamic-schema approach, a secondary LLM generates the entire UI — schema, data, and layout — based on the conversation context. It's the most flexible A2UI flavor: the agent can render any UI for any request without pre-defined schemas.
+
+### How it works
+
+1. The primary LLM decides to call `render_a2ui` (the tool the runtime auto-injects when `injectA2UITool: true`).
+2. The runtime serializes your client-side catalog (component names + Zod prop schemas) into the agent's `copilotkit.context` so the LLM knows which components it may emit.
+3. The tool call streams through as `TOOL_CALL_ARGS` events.
+4. The A2UI middleware intercepts the stream and renders cards progressively as data items arrive.
+
+### The 3-file split
+
+The canonical Bring-Your-Own-Catalog (BYOC) layout keeps three files side-by-side:
+
+| File | What lives there |
+|---|---|
+| `definitions.ts` | Zod props schema + human-readable descriptions for each custom component — platform-agnostic so the runtime can serialise it to the LLM. |
+| `renderers.tsx` | React implementations keyed by the same names. TypeScript enforces that every definition has a renderer. |
+| `catalog.ts` | `createCatalog(definitions, renderers, { includeBasicCatalog: true })` — merges your custom components with CopilotKit's built-in primitives. |
+
+<Steps>
+<Step>
+### Declare custom component definitions
+
+Each entry pairs a Zod prop schema with a description. The description is crucial — the LLM reads it to decide which component to emit.
+
+<Snippet region="definitions-zod" />
+</Step>
+
+<Step>
+### Implement the React renderers
+
+Every key in the definitions map must have a matching renderer. Props are statically typed against the Zod schema, so refactors stay safe:
+
+<Snippet region="renderers-react" />
+</Step>
+
+<Step>
+### Wire definitions × renderers into a catalog
+
+`createCatalog` is what you hand to the provider. Flip `includeBasicCatalog: true` to merge CopilotKit's built-ins (Column, Row, Text, Image, Card, Button, List, Tabs, …):
+
+<Snippet region="create-catalog" />
+</Step>
+
+<Step>
+### Pass the catalog to the provider
+
+A single prop (`a2ui={{ catalog }}`) is all the frontend needs — the provider registers the catalog and wires up the built-in A2UI activity-message renderer:
+
+<Snippet region="provider-a2ui-prop" />
+</Step>
+
+<Step>
+### Inject the render tool on the runtime
+
+On the TypeScript runtime, `injectA2UITool: true` tells CopilotKit to add the `render_a2ui` tool to the agent's tool list at request time, and serialise your client catalog into the agent's `copilotkit.context`:
+
+<Snippet region="runtime-inject-tool" />
+</Step>
+</Steps>
+
+## Fixed schemas
+
+<InlineDemo integration="langgraph-python" demo="a2ui-fixed-schema" />
+
+In the fixed-schema approach, you design the UI schema once (by hand, or using the [A2UI Composer](https://a2ui-composer.ag-ui.com/)) and save it as JSON next to your agent. The agent tool only provides the *data* — the surface appears instantly because nothing has to be generated at runtime.
+
+### Schemas as JSON: compositional trees
+
+The `a2ui-fixed-schema` cell ships a flight card assembled compositionally from small sub-components rather than one monolithic `FlightCard`:
+
+```
+Card
+ └─ Column
+     ├─ Title        ("Flight Details")
+     ├─ Row          (Airport → Arrow → Airport)
+     ├─ Row          (AirlineBadge · PriceTag)
+     └─ Button       (Book)
+```
+
+That tree lives in `backend/schemas/flight_schema.json`. Components without data bindings (like `Title` or `Arrow`) carry their value inline; components bound to the LLM's data (like `Airport`) reference fields via JSON Pointer paths such as `{ "path": "/origin" }`. The A2UI binder resolves those paths *before* the React renderer runs, so renderer props are typed as their resolved values.
+
+### Building the catalog
+
+Define the React components for each primitive type and assemble them into a catalog. The A2UI binder uses this catalog to resolve schema nodes to components at render time:
+
+<Snippet region="definitions-types" cell="a2ui-fixed-schema" />
+
+<Snippet region="renderers-tsx" cell="a2ui-fixed-schema" />
+
+<Snippet region="catalog-creation" cell="a2ui-fixed-schema" />
+
+### Wiring the schema + tool
+
+Load the schema file and register the tool that emits render operations. The agent calls this tool with structured data; A2UI resolves each field against the schema and passes typed props to your components:
+
+<Snippet region="backend-schema-json-load" cell="a2ui-fixed-schema" />
+
+<Snippet region="backend-render-operations" cell="a2ui-fixed-schema" />
+
+### Runtime
+
+On the TypeScript side, A2UI's middleware auto-detects the operations in any tool result — so even with a fixed schema, the minimum setup is `a2ui: {}`:
+
+```typescript title="app/api/copilotkit/route.ts"
+const runtime = new CopilotRuntime({
+  agents: { "a2ui-fixed-schema": agent },
+  a2ui: { injectA2UITool: true, agents: ["a2ui-fixed-schema"] },
+});
+```
+
+## When should I use A2UI?
+
+- **Dynamic** — you don't know the UI shape ahead of time; the agent decides what to show based on the user's request. Good for prototypes and conversational dashboards.
+- **Fixed** — the surface is well-known (flight cards, product tiles, order summaries) and you want deterministic, designer-controlled UI.
+- **Custom React** — if you need full control (animations, third-party libs, complex interaction), stay with [`useComponent`](./your-components/display-only) / [`useHumanInTheLoop`](./your-components/interactive) and let A2UI sit on the side.

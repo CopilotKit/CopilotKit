@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -60,10 +60,10 @@ jobs:
           while IFS= read -r file; do
             if [ -f "$file" ]; then
               case "$file" in
-                pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
+                pnpm-lock.yaml|*/pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
                 assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
                 .github/actions/*/dist/*) continue ;;
-                showcase/shell/src/data/*|showcase/shell-dojolike/src/data/demo-content.json) continue ;;
+                showcase/shell/src/data/*|showcase/shell-docs/src/data/*|showcase/shell-dojo/src/data/demo-content.json) continue ;;
               esac
               SIZE=$(wc -c < "$file" | tr -d ' ')
               if [ "$SIZE" -gt 1048576 ]; then

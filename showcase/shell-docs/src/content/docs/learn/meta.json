@@ -1,0 +1,23 @@
+{
+  "title": "Learn",
+  "root": true,
+  "pages": [
+    "---What's New---",
+    "...whats-new",
+    "---Agentic Protocols---",
+    "agentic-protocols",
+    "ag-ui-protocol",
+    "connect-mcp-servers",
+    "a2a-protocol",
+    "---Architecture---",
+    "architecture",
+    "---Intelligence Platform---",
+    "intelligence-platform",
+    "threads",
+    "---Tutorials---",
+    "[Tutorial: Multi-Conversation Chat](./tutorials/multi-conversation-chat)",
+    "[Tutorial: AI Todo App](../unselected/tutorials/ai-todo-app/overview)",
+    "[Tutorial: AI Travel App](../integrations/langgraph/tutorials/ai-travel-app)",
+    "[Video: Research Canvas](../integrations/langgraph/videos/research-canvas)"
+  ]
+}

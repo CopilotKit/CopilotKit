@@ -1,0 +1,40 @@
+---
+title: Frontend Actions
+icon: "lucide/Wrench"
+description: Create frontend actions and use them within your agent.
+hideTOC: true
+---
+
+## What is this?
+
+Frontend actions let your AI agents directly interact with and update your application's UI. They bridge the gap between your agent's decision-making and your frontend's interactive elements.
+
+<Tabs items={['page.tsx']}>
+  <Tab value="page.tsx">
+  ```tsx
+
+useFrontendTool({
+name: "setTheme",
+description: "Switch the app's color theme",
+parameters: z.object({
+theme: z.enum(["light", "dark"]),
+}),
+handler: async ({ theme }) => {
+document.documentElement.dataset.theme = theme;
+return `Theme set to ${theme}!`;
+},
+});
+
+```
+</Tab>
+</Tabs>
+
+## When should I use this?
+
+Use frontend actions when your agent needs to:
+- Dynamically update UI elements
+- Trigger frontend animations or transitions
+- Show alerts or notifications
+- Modify application state
+
+<IntegrationGrid path="frontend-actions"/>

@@ -311,7 +311,10 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       publicApiKey: publicApiKey,
       ...(cloud ? { cloud } : {}),
       chatApiEndpoint: chatApiEndpoint,
-      headers: props.headers || {},
+      headers:
+        typeof props.headers === "function"
+          ? props.headers()
+          : props.headers || {},
       properties: props.properties || {},
       transcribeAudioUrl: props.transcribeAudioUrl,
       textToSpeechUrl: props.textToSpeechUrl,
@@ -346,7 +349,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }, {});
 
     return {
-      ...(copilotApiConfig.headers || {}),
+      ...copilotApiConfig.headers,
       ...(copilotApiConfig.publicApiKey
         ? {
             [COPILOT_CLOUD_PUBLIC_API_KEY_HEADER]:
@@ -475,7 +478,11 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
     }
   }, [props.agent]);
 
-  const { threadId, setThreadId: setInternalThreadId } = useThreads();
+  const {
+    threadId,
+    setThreadId: setInternalThreadId,
+    isThreadIdExplicit,
+  } = useThreads();
 
   const setThreadId = useCallback(
     (value: SetStateAction<string>) => {
@@ -508,7 +515,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
         return {
           ...prev,
           [action.id]: {
-            ...(prev[action.id] ?? {}),
+            ...prev[action.id],
             ...action,
           } as LangGraphInterruptRender,
         };
@@ -754,6 +761,7 @@ export function CopilotKitInternal(cpkProps: CopilotKitProps) {
       // isModalDefaultOpen={isModalDefaultOpen}
       agentId={props.agent ?? "default"}
       threadId={threadId}
+      hasExplicitThreadId={isThreadIdExplicit}
     >
       <CopilotContext.Provider value={copilotContextValue}>
         <CopilotListeners />

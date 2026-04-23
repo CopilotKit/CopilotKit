@@ -9,23 +9,21 @@ This is a starter template for building AI agents using [LlamaIndex](https://lla
 - OpenAI API Key (for the LlamaIndex agent)
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 - Any of the following package managers:
-  - pnpm (recommended)
-  - npm
-  - yarn
-  - bun
-
-> **Note:** This repository ignores lock files (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb) to avoid conflicts between different package managers. Each developer should generate their own lock file using their preferred package manager. After that, make sure to delete it from the .gitignore.
+  - npm (default)
+  - [pnpm](https://pnpm.io/installation)
+  - [yarn](https://classic.yarnpkg.com/lang/en/docs/install/)
+  - [bun](https://bun.sh/)
 
 ## Getting Started
 
 1. Install dependencies using your preferred package manager:
 
 ```bash
-# Using pnpm (recommended)
-pnpm install
-
-# Using npm
+# Using npm (default)
 npm install
+
+# Using pnpm
+pnpm install
 
 # Using yarn
 yarn install
@@ -37,11 +35,11 @@ bun install
 2. Install Python dependencies for the LlamaIndex agent:
 
 ```bash
+# Using npm (default)
+npm run install:agent
+
 # Using pnpm
 pnpm install:agent
-
-# Using npm
-npm run install:agent
 
 # Using yarn
 yarn install:agent
@@ -59,11 +57,11 @@ export OPENAI_API_KEY="your-openai-api-key-here"
 4. Start the development server:
 
 ```bash
+# Using npm (default)
+npm run dev
+
 # Using pnpm
 pnpm dev
-
-# Using npm
-npm run dev
 
 # Using yarn
 yarn dev

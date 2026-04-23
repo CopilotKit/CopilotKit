@@ -45,6 +45,11 @@ export interface CopilotChatConfigurationValue {
   threadId: string;
   isModalOpen: boolean;
   setModalOpen: (open: boolean) => void;
+  // True when the current threadId was chosen by the caller rather than
+  // silently minted inside the provider chain. Consumers that only make
+  // sense against a real backend thread (e.g. /connect, suppressing the
+  // welcome screen on switch) gate on this instead of `!!threadId`.
+  hasExplicitThreadId: boolean;
 }
 
 // Create the configuration context
@@ -57,13 +62,26 @@ export interface CopilotChatConfigurationProviderProps {
   labels?: Partial<CopilotChatLabels>;
   agentId?: string;
   threadId?: string;
+  // Lets internal wrappers (e.g. the v1 CopilotKit bridge, which pipes a
+  // ThreadsProvider-minted UUID through as `threadId`) declare that the
+  // threadId they are supplying is NOT a caller choice. When omitted, the
+  // provider infers explicitness from whether the `threadId` prop itself
+  // was supplied.
+  hasExplicitThreadId?: boolean;
   isModalDefaultOpen?: boolean;
 }
 
 // Provider component
 export const CopilotChatConfigurationProvider: React.FC<
   CopilotChatConfigurationProviderProps
-> = ({ children, labels, agentId, threadId, isModalDefaultOpen }) => {
+> = ({
+  children,
+  labels,
+  agentId,
+  threadId,
+  hasExplicitThreadId,
+  isModalDefaultOpen,
+}) => {
   const parentConfig = useContext(CopilotChatConfiguration);
 
   // Stabilize labels references so that inline objects (new reference on every
@@ -74,8 +92,8 @@ export const CopilotChatConfigurationProvider: React.FC<
   const mergedLabels: CopilotChatLabels = useMemo(
     () => ({
       ...CopilotChatDefaultLabels,
-      ...(parentConfig?.labels ?? {}),
-      ...(stableLabels ?? {}),
+      ...parentConfig?.labels,
+      ...stableLabels,
     }),
     [stableLabels, parentConfig?.labels],
   );
@@ -91,6 +109,14 @@ export const CopilotChatConfigurationProvider: React.FC<
     }
     return randomUUID();
   }, [threadId, parentConfig?.threadId]);
+
+  // If a caller passed `hasExplicitThreadId`, trust it verbatim (lets the v1
+  // bridge mark an auto-minted UUID as non-explicit). Otherwise infer: a
+  // threadId supplied as a prop here is by definition a caller choice.
+  const ownHasExplicitThreadId =
+    hasExplicitThreadId !== undefined ? hasExplicitThreadId : !!threadId;
+  const resolvedHasExplicitThreadId =
+    ownHasExplicitThreadId || !!parentConfig?.hasExplicitThreadId;
 
   const resolvedDefaultOpen = isModalDefaultOpen ?? true;
 
@@ -141,6 +167,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       labels: mergedLabels,
       agentId: resolvedAgentId,
       threadId: resolvedThreadId,
+      hasExplicitThreadId: resolvedHasExplicitThreadId,
       isModalOpen: resolvedIsModalOpen,
       setModalOpen: resolvedSetModalOpen,
     }),
@@ -148,6 +175,7 @@ export const CopilotChatConfigurationProvider: React.FC<
       mergedLabels,
       resolvedAgentId,
       resolvedThreadId,
+      resolvedHasExplicitThreadId,
       resolvedIsModalOpen,
       resolvedSetModalOpen,
     ],

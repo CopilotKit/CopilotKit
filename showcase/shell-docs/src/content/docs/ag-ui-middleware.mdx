@@ -1,0 +1,70 @@
+---
+title: AG-UI Middleware
+icon: lucide/Layers
+description: Configure AG-UI middleware for your CopilotKit application.
+hideTOC: true
+---
+
+AG-UI agents expose a middleware layer via `agent.use(middleware)`, a powerful hook for logging, guardrails, request transformation, and event rewriting. Because CopilotKit runs the middleware server-side inside the [Copilot Runtime](/backend/copilot-runtime), it executes in a trusted environment where the client cannot tamper with it.
+
+## Defining a Middleware
+
+A middleware extends the `Middleware` base class from `@ag-ui/client` and implements `run(input, next)`. It receives the incoming `RunAgentInput` and returns an `Observable<BaseEvent>`, typically by subscribing to `runNextWithState(input, next)` and transforming the stream:
+
+```ts title="my-middleware.ts"
+import {
+  Middleware,
+  RunAgentInput,
+  AbstractAgent,
+  BaseEvent,
+} from "@ag-ui/client";
+import { Observable } from "rxjs";
+
+export class LoggingMiddleware extends Middleware {
+  run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent> {
+    return new Observable<BaseEvent>((subscriber) => {
+      const sub = this.runNextWithState(input, next).subscribe({
+        next: ({ event }) => {
+          console.log("[agent event]", event.type);
+          subscriber.next(event);
+        },
+        error: (err) => subscriber.error(err),
+        complete: () => subscriber.complete(),
+      });
+      return () => sub.unsubscribe();
+    });
+  }
+}
+```
+
+## Attaching Middleware to an Agent
+
+Call `.use(...)` on the agent before registering it with the runtime:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { LoggingMiddleware } from "./my-middleware";
+
+const agent = new LangGraphAgent({
+  deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL!,
+  graphId: "sample_agent",
+});
+agent.use(new LoggingMiddleware());
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+});
+```
+
+## Built-in Middleware
+
+The runtime ships first-class middleware options you can enable directly on `CopilotRuntime` without calling `.use()` on each agent:
+
+- **`a2ui`** — apply `A2UIMiddleware` to all (or a subset of) registered agents. See [Copilot Runtime → A2UI](/backend/copilot-runtime#a2ui).
+- **`mcpApps`** — configure MCP servers for all agents from a single place. See [Copilot Runtime → mcpApps](/backend/copilot-runtime#mcpapps).
+
+## Related
+
+- [Copilot Runtime](/backend/copilot-runtime) — the server-side layer that executes middleware.
+- [AG-UI Protocol](/backend/ag-ui) — the event stream the middleware operates on.

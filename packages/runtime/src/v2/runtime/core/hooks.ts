@@ -38,7 +38,13 @@ export type RouteInfo =
   | { method: "agent/connect"; agentId: string }
   | { method: "agent/stop"; agentId: string; threadId: string }
   | { method: "info" }
-  | { method: "transcribe" };
+  | { method: "transcribe" }
+  | { method: "threads/list" }
+  | { method: "threads/subscribe" }
+  | { method: "threads/update"; threadId: string }
+  | { method: "threads/archive"; threadId: string }
+  | { method: "threads/messages"; threadId: string }
+  | { method: "cpk-debug-events" };
 
 /* ------------------------------------------------------------------------------------------------
  * Hook contexts

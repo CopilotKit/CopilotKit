@@ -99,6 +99,19 @@ function convertJsonSchemaToParameter(
     baseParameter.required = false;
   }
 
+  // Handle null-union types like ["string", "null"] by picking the non-null type
+  if (Array.isArray(schema.type)) {
+    const types = schema.type as string[];
+    const hasNull = types.includes("null");
+    const nonNullTypes = types.filter((t: string) => t !== "null");
+    const resolvedType = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    return convertJsonSchemaToParameter(
+      name,
+      { ...schema, type: resolvedType } as JSONSchema,
+      hasNull ? false : isRequired,
+    );
+  }
+
   switch (schema.type) {
     case "string":
       return {
@@ -241,7 +254,88 @@ function convertAttribute(attribute: Parameter): JSONSchema {
 export function convertJsonSchemaToZodSchema(
   jsonSchema: any,
   required: boolean,
+  definitions?: Record<string, any>,
+  visitedRefs?: Set<string>,
 ): z.ZodSchema {
+  // Resolve $ref references
+  if (jsonSchema.$ref && definitions) {
+    const refPath = jsonSchema.$ref.replace(
+      /^#\/\$defs\/|^#\/definitions\//,
+      "",
+    );
+
+    // Detect circular $ref cycles
+    const refs = visitedRefs ?? new Set<string>();
+    if (refs.has(refPath)) {
+      console.warn(
+        `[CopilotKit] Circular $ref detected for "${refPath}" — falling back to z.any()`,
+      );
+      let schema = z.any();
+      if (jsonSchema.description) {
+        schema = schema.describe(jsonSchema.description);
+      }
+      return required ? schema : schema.optional();
+    }
+
+    const resolved = definitions[refPath];
+    if (resolved) {
+      // Clone the set so sibling branches don't see each other's visited refs
+      const nextRefs = new Set(refs);
+      nextRefs.add(refPath);
+      return convertJsonSchemaToZodSchema(
+        resolved,
+        required,
+        definitions,
+        nextRefs,
+      );
+    }
+  }
+
+  // Collect top-level definitions for $ref resolution
+  const defs = definitions ?? jsonSchema.$defs ?? jsonSchema.definitions;
+
+  // Handle null-union types like ["string", "null"]
+  if (Array.isArray(jsonSchema.type)) {
+    const types = jsonSchema.type as string[];
+    const hasNull = types.includes("null");
+    const nonNullTypes = types.filter((t: string) => t !== "null");
+    const resolvedType = nonNullTypes.length > 0 ? nonNullTypes[0] : "string";
+    const innerSchema = convertJsonSchemaToZodSchema(
+      { ...jsonSchema, type: resolvedType },
+      true,
+      defs,
+      visitedRefs,
+    );
+    let schema = hasNull ? z.union([innerSchema, z.null()]) : innerSchema;
+    if (jsonSchema.description) {
+      schema = schema.describe(jsonSchema.description);
+    }
+    return required ? schema : schema.optional();
+  }
+
+  // Handle anyOf / oneOf as z.union
+  const unionVariants = jsonSchema.anyOf ?? jsonSchema.oneOf;
+  if (Array.isArray(unionVariants) && unionVariants.length > 0) {
+    if (unionVariants.length === 1) {
+      return convertJsonSchemaToZodSchema(
+        unionVariants[0],
+        required,
+        defs,
+        visitedRefs,
+      );
+    }
+    const schemas = unionVariants.map((v: any) =>
+      convertJsonSchemaToZodSchema(v, true, defs, visitedRefs),
+    );
+    let schema = z.union(
+      schemas as [z.ZodSchema, z.ZodSchema, ...z.ZodSchema[]],
+    );
+    if (jsonSchema.description) {
+      schema = schema.describe(jsonSchema.description);
+    }
+    return required ? schema : schema.optional();
+  }
+
   if (jsonSchema.type === "object") {
     const spec: { [key: string]: z.ZodSchema } = {};
 
@@ -253,6 +347,8 @@ export function convertJsonSchemaToZodSchema(
       spec[key] = convertJsonSchemaToZodSchema(
         value,
         jsonSchema.required ? jsonSchema.required.includes(key) : false,
+        defs,
+        visitedRefs,
       );
     }
     let schema = z.object(spec).describe(jsonSchema.description);
@@ -266,18 +362,35 @@ export function convertJsonSchemaToZodSchema(
     }
     let schema = z.string().describe(jsonSchema.description);
     return required ? schema : schema.optional();
-  } else if (jsonSchema.type === "number") {
+  } else if (jsonSchema.type === "number" || jsonSchema.type === "integer") {
     let schema = z.number().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "boolean") {
     let schema = z.boolean().describe(jsonSchema.description);
     return required ? schema : schema.optional();
   } else if (jsonSchema.type === "array") {
-    let itemSchema = convertJsonSchemaToZodSchema(jsonSchema.items, true);
+    let itemSchema = convertJsonSchemaToZodSchema(
+      jsonSchema.items,
+      true,
+      defs,
+      visitedRefs,
+    );
     let schema = z.array(itemSchema).describe(jsonSchema.description);
     return required ? schema : schema.optional();
+  } else if (jsonSchema.type === "null") {
+    let schema = z.null().describe(jsonSchema.description);
+    return required ? schema : schema.optional();
   }
-  throw new Error("Invalid JSON schema");
+
+  // Fallback: accept any value rather than throwing
+  console.warn(
+    `[CopilotKit] Unsupported JSON schema type "${jsonSchema.type ?? "unknown"}" — falling back to z.any()`,
+  );
+  let schema = z.any();
+  if (jsonSchema.description) {
+    schema = schema.describe(jsonSchema.description);
+  }
+  return required ? schema : schema.optional();
 }
 
 export function getZodParameters<T extends [] | Parameter[] | undefined>(

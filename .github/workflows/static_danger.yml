@@ -6,6 +6,10 @@ on:
       - "sdk-python/copilotkit/langgraph_agent.py"
       - "packages/sdk-js/src/langgraph.ts"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NX_VERBOSE_LOGGING: true
   NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
@@ -14,20 +18,21 @@ env:
 jobs:
   danger:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
 
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v2
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 20.x
           cache: "pnpm"
           cache-dependency-path: "**/pnpm-lock.yaml"
 

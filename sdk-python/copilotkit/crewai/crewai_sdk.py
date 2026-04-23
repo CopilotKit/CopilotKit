@@ -16,13 +16,22 @@ from litellm.types.utils import (
 )
 from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
 from crewai.flow.flow import FlowState, Flow
-from crewai.utilities.events.flow_events import (
-    FlowEvent as CrewAIFlowEvent,
-    FlowStartedEvent,
-    MethodExecutionStartedEvent,
-    MethodExecutionFinishedEvent,
-    FlowFinishedEvent,
-)
+try:
+    from crewai.utilities.events.flow_events import (
+        FlowEvent as CrewAIFlowEvent,
+        FlowStartedEvent,
+        MethodExecutionStartedEvent,
+        MethodExecutionFinishedEvent,
+        FlowFinishedEvent,
+    )
+except ImportError:
+    from crewai.events.types.flow_events import (  # type: ignore[no-redef]
+        FlowEvent as CrewAIFlowEvent,
+        FlowStartedEvent,
+        MethodExecutionStartedEvent,
+        MethodExecutionFinishedEvent,
+        FlowFinishedEvent,
+    )
 from crewai.utilities.events import crewai_event_bus as _crewai_event_bus
 
 from copilotkit.types import Message
@@ -552,7 +561,13 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
         if "content" in message and message.get("role") == "assistant":
             if message.get("tool_calls"):
                 for tool_call in message["tool_calls"]:
-                    tool_call_names[tool_call["id"]] = tool_call["function"]["name"]
+                    tc_id = tool_call.get("id")
+                    if tc_id is None:
+                        continue
+                    if tool_call.get("function"):
+                        tool_call_names[tc_id] = tool_call["function"].get("name", "")
+                    else:
+                        tool_call_names[tc_id] = tool_call.get("name", "")
 
     for message in messages:
         message_id = message_ids[id(message)]
@@ -565,19 +580,30 @@ def crewai_flow_messages_to_copilotkit(messages: List[Dict]) -> List[Message]: #
                 "id": message_id,
             })
         elif message.get("tool_calls"):
+            # Always emit the assistant message, even with empty content.
+            # Tool call entries reference it via parentMessageId; omitting it
+            # orphans tool calls and breaks frontend thread reconstruction.
+            result.append({
+                "role": message["role"],
+                "content": message.get("content") if message.get("content") is not None else "",
+                "id": message_id,
+            })
             for tool_call in message["tool_calls"]:
+                tc_id = tool_call.get("id")
+                if tc_id is None:
+                    continue
                 if tool_call.get("function"):
                     result.append({
-                        "id": tool_call["id"],
-                        "name": tool_call["function"]["name"],
+                        "id": tc_id,
+                        "name": tool_call["function"].get("name", ""),
                         "arguments": json.loads(tool_call["function"]["arguments"]),
                         "parentMessageId": message_id,
                     })
                 else:
                     result.append({
-                        "id": tool_call["id"],
-                        "name": tool_call["name"],
-                        "arguments": tool_call["arguments"],
+                        "id": tc_id,
+                        "name": tool_call.get("name", ""),
+                        "arguments": tool_call.get("arguments", {}),
                         "parentMessageId": message_id,
                     })
         elif message.get("content"):

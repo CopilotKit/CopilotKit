@@ -45,7 +45,7 @@ export function useRenderCustomMessages() {
     const registryAgent = copilotkit.getAgent(agentId);
     const agent = getThreadClone(registryAgent, threadId) ?? registryAgent;
     if (!agent) {
-      throw new Error("Agent not found");
+      return null;
     }
 
     const messagesIdsInRun = resolvedRunId

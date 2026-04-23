@@ -118,6 +118,7 @@ export class ConfigManager {
     } catch (error) {
       throw new Error(
         `Failed to parse configuration file ${configPath}: ${error}`,
+        { cause: error },
       );
     }
   }

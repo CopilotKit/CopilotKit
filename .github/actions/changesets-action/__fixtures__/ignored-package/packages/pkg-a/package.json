@@ -1,7 +1,0 @@
-{
-  "name": "ignored-package-pkg-a",
-  "version": "1.0.0",
-  "dependencies": {
-    "ignored-package-pkg-b": "1.0.0"
-  }
-}

@@ -1,0 +1,30 @@
+{
+  "title": "Overview",
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "coding-agents",
+    "...unselected",
+    "---Basics---",
+    "prebuilt-components",
+    "custom-look-and-feel",
+    "programmatic-control",
+    "inspector",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "---Threads---",
+    "threads",
+    "---Backend---",
+    "...backend",
+    "---Premium Features---",
+    "...premium",
+    "---Troubleshooting---",
+    "...troubleshooting",
+    "---Other---",
+    "...(other)"
+  ]
+}

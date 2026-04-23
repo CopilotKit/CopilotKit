@@ -1,5 +1,5 @@
 """
-Claude Agent SDK (Python) — proverbs agent with weather, HITL, and generative UI.
+Claude Agent SDK (Python) -- sales assistant with weather, HITL, and generative UI.
 
 Implements the AG-UI protocol directly using the Anthropic Python SDK.
 All demo routes share this single agent instance served by agent_server.py.
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from collections.abc import AsyncIterator
 from textwrap import dedent
 from typing import Any
@@ -35,8 +36,35 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
+
+
+# Serve /health via middleware so it short-circuits BEFORE route resolution.
+# Any later catch-all mount at "/" (whether added here or by a downstream
+# adapter) would shadow a plain `@app.get("/health")` decorator. Middleware
+# runs above routing so the health endpoint stays reachable regardless.
+class HealthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.url.path == "/health" and request.method == "GET":
+            return JSONResponse({"status": "ok"})
+        return await call_next(request)
 
 load_dotenv()
+
+# Import shared tool implementations
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
+from tools import (
+    get_weather_impl,
+    query_data_impl,
+    manage_sales_todos_impl,
+    get_sales_todos_impl,
+    schedule_meeting_impl,
+    search_flights_impl,
+    build_a2ui_operations_from_tool_call,
+    RENDER_A2UI_TOOL_SCHEMA,
+)
+from tools.types import Flight
 
 # ============
 # Tool schemas
@@ -44,30 +72,9 @@ load_dotenv()
 
 TOOLS: list[dict[str, Any]] = [
     {
-        "name": "update_proverbs",
-        "description": (
-            "Replace the entire list of proverbs with the provided values. "
-            "Always include every proverb you want to keep."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "proverbs": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": (
-                        "The complete list of proverbs. "
-                        "Maintain ordering and include the full list on each call."
-                    ),
-                }
-            },
-            "required": ["proverbs"],
-        },
-    },
-    {
         "name": "get_weather",
         "description": (
-            "Share a quick weather update for a location. "
+            "Get current weather for a location. "
             "Use this to render the frontend weather card."
         ),
         "input_schema": {
@@ -75,30 +82,85 @@ TOOLS: list[dict[str, Any]] = [
             "properties": {
                 "location": {
                     "type": "string",
-                    "description": "The city or region to describe. Use fully spelled out names.",
-                },
-                "temperature": {
-                    "type": "number",
-                    "description": "Temperature in Celsius.",
-                },
-                "conditions": {
-                    "type": "string",
-                    "description": "Weather conditions (e.g. 'Clear skies', 'Partly cloudy').",
-                },
-                "humidity": {
-                    "type": "number",
-                    "description": "Relative humidity percentage.",
-                },
-                "wind_speed": {
-                    "type": "number",
-                    "description": "Wind speed in mph.",
-                },
-                "feels_like": {
-                    "type": "number",
-                    "description": "Feels-like temperature in Celsius.",
+                    "description": "The city or region to get weather for.",
                 },
             },
             "required": ["location"],
+        },
+    },
+    {
+        "name": "query_data",
+        "description": (
+            "Query the financial database for chart data. "
+            "Always call before showing a chart or graph."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Natural language query for financial data.",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "manage_sales_todos",
+        "description": (
+            "Replace the entire list of sales todos with the provided values. "
+            "Always include every todo you want to keep."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "todos": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "title": {"type": "string"},
+                            "stage": {
+                                "type": "string",
+                                "enum": ["prospect", "qualified", "proposal", "negotiation", "closed-won", "closed-lost"],
+                            },
+                            "value": {"type": "number"},
+                            "dueDate": {"type": "string"},
+                            "assignee": {"type": "string"},
+                            "completed": {"type": "boolean"},
+                        },
+                        "required": ["title", "stage", "value", "dueDate", "assignee", "completed"],
+                    },
+                    "description": "The complete list of sales todos.",
+                },
+            },
+            "required": ["todos"],
+        },
+    },
+    {
+        "name": "get_sales_todos",
+        "description": "Get the current sales pipeline todos.",
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "schedule_meeting",
+        "description": (
+            "Schedule a meeting with the user. Requires human approval. "
+            "Call this when the user wants to schedule or book a meeting."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Reason for the meeting.",
+                },
+            },
+            "required": ["reason"],
         },
     },
     {
@@ -131,49 +193,6 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "generate_haiku",
-        "description": (
-            "Generate a haiku card displayed in the UI. "
-            "Call this tool whenever the user asks for a haiku."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "japanese": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "3 lines of haiku in Japanese.",
-                },
-                "english": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "3 lines of haiku translated to English.",
-                },
-                "image_name": {
-                    "type": "string",
-                    "description": (
-                        "One relevant image name from: "
-                        "Osaka_Castle_Turret_Stone_Wall_Pine_Trees_Daytime.jpg, "
-                        "Tokyo_Skyline_Night_Tokyo_Tower_Mount_Fuji_View.jpg, "
-                        "Itsukushima_Shrine_Miyajima_Floating_Torii_Gate_Sunset_Long_Exposure.jpg, "
-                        "Takachiho_Gorge_Waterfall_River_Lush_Greenery_Japan.jpg, "
-                        "Bonsai_Tree_Potted_Japanese_Art_Green_Foliage.jpeg, "
-                        "Shirakawa-go_Gassho-zukuri_Thatched_Roof_Village_Aerial_View.jpg, "
-                        "Ginkaku-ji_Silver_Pavilion_Kyoto_Japanese_Garden_Pond_Reflection.jpg, "
-                        "Senso-ji_Temple_Asakusa_Cherry_Blossoms_Kimono_Umbrella.jpg, "
-                        "Cherry_Blossoms_Sakura_Night_View_City_Lights_Japan.jpg, "
-                        "Mount_Fuji_Lake_Reflection_Cherry_Blossoms_Sakura_Spring.jpg"
-                    ),
-                },
-                "gradient": {
-                    "type": "string",
-                    "description": "CSS gradient for the haiku card background.",
-                },
-            },
-            "required": ["japanese", "english"],
-        },
-    },
-    {
         "name": "change_background",
         "description": (
             "Change the background color or gradient of the chat UI. "
@@ -190,23 +209,84 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["background"],
         },
     },
+    {
+        "name": "search_flights",
+        "description": (
+            "Search for flights and display the results as rich A2UI cards. "
+            "Return exactly 2 flights. Each flight must have: airline, airlineLogo, "
+            "flightNumber, origin, destination, date, departureTime, arrivalTime, "
+            "duration, status, statusColor, price, currency. "
+            "For airlineLogo use: https://www.google.com/s2/favicons?domain={airline_domain}&sz=128"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "flights": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "airline": {"type": "string"},
+                            "airlineLogo": {"type": "string"},
+                            "flightNumber": {"type": "string"},
+                            "origin": {"type": "string"},
+                            "destination": {"type": "string"},
+                            "date": {"type": "string"},
+                            "departureTime": {"type": "string"},
+                            "arrivalTime": {"type": "string"},
+                            "duration": {"type": "string"},
+                            "status": {"type": "string"},
+                            "statusColor": {"type": "string"},
+                            "price": {"type": "string"},
+                            "currency": {"type": "string"},
+                        },
+                    },
+                    "description": "List of flight objects to display.",
+                },
+            },
+            "required": ["flights"],
+        },
+    },
+    {
+        "name": "generate_a2ui",
+        "description": (
+            "Generate dynamic A2UI components based on the conversation. "
+            "A secondary LLM designs the UI schema and data."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "Conversation context to generate UI for.",
+                },
+            },
+            "required": ["context"],
+        },
+    },
 ]
 
 SYSTEM_PROMPT = dedent("""
-    You are a helpful assistant that manages proverbs, discusses weather, and helps with planning.
+    You are a helpful sales assistant that manages a sales pipeline, discusses weather,
+    queries financial data, schedules meetings, and helps with planning.
 
-    Proverb management:
-    - The current list of proverbs is provided in the conversation context.
-    - When you add, remove, or reorder proverbs, call `update_proverbs` with the FULL list.
-    - CRITICAL: When asked to "add" a proverb, include ALL existing proverbs + the new one.
-    - When asked to "remove" a proverb, include everything EXCEPT the removed one.
+    Sales pipeline management:
+    - The current list of sales todos is provided in the conversation context.
+    - When you add, remove, or update todos, call `manage_sales_todos` with the FULL list.
+    - CRITICAL: When asked to "add" a todo, include ALL existing todos + the new one.
+    - When asked to "remove" a todo, include everything EXCEPT the removed one.
 
     Tool usage:
     - `get_weather`: only call when the user explicitly asks about weather.
+    - `query_data`: call when the user asks about financial data, charts, or graphs.
+    - `manage_sales_todos`: call to update the sales pipeline.
+    - `get_sales_todos`: call to retrieve current sales pipeline.
+    - `schedule_meeting`: call when the user wants to schedule a meeting.
     - `generate_task_steps`: call when the user asks you to plan something step-by-step.
       Wait for approval/rejection before continuing with the plan.
-    - `generate_haiku`: call whenever the user asks for a haiku.
     - `change_background`: only call when user explicitly asks to change the background.
+    - `search_flights`: call when the user asks about flights. Generate 2 realistic flights.
+    - `generate_a2ui`: call when the user asks for a dashboard or dynamic UI.
 
     After executing tools, provide a brief summary of what changed.
     Keep responses concise and friendly.
@@ -217,46 +297,68 @@ SYSTEM_PROMPT = dedent("""
 # AG-UI runner
 # ===========
 
-class ProverbsState(BaseModel):
-    proverbs: list[str] = []
+class AgentState(BaseModel):
+    todos: list[dict] = []
 
 
-def _execute_tool(name: str, tool_input: dict[str, Any], state: ProverbsState) -> tuple[str, ProverbsState | None]:
+def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conversation_messages: list[dict[str, Any]] | None = None) -> tuple[str, AgentState | None]:
     """Execute backend tools and return (result_text, new_state_or_None)."""
-    if name == "update_proverbs":
-        proverbs = tool_input.get("proverbs", [])
-        state.proverbs = proverbs
-        return f"Proverbs updated. Tracking {len(proverbs)} item(s).", state
-
     if name == "get_weather":
-        location = tool_input.get("location", "unknown")
-        temp = tool_input.get("temperature", 22)
-        conditions = tool_input.get("conditions", "Clear skies")
-        humidity = tool_input.get("humidity", 55)
-        wind = tool_input.get("wind_speed", 10)
-        feels = tool_input.get("feels_like", temp)
-        result = {
-            "city": location,
-            "temperature": temp,
-            "conditions": conditions,
-            "humidity": humidity,
-            "wind_speed": wind,
-            "feels_like": feels,
-        }
-        return json.dumps(result), None
+        return json.dumps(get_weather_impl(tool_input["location"])), None
+
+    if name == "query_data":
+        return json.dumps(query_data_impl(tool_input["query"])), None
+
+    if name == "manage_sales_todos":
+        result = manage_sales_todos_impl(tool_input["todos"])
+        state.todos = [dict(t) for t in result]
+        return json.dumps({"status": "updated", "count": len(result)}), state
+
+    if name == "get_sales_todos":
+        return json.dumps(get_sales_todos_impl(state.todos if state.todos else None)), None
+
+    if name == "schedule_meeting":
+        return json.dumps(schedule_meeting_impl(tool_input["reason"])), None
 
     if name == "generate_task_steps":
-        # Frontend HITL tool — backend just acknowledges; UI handles the interaction
+        # Frontend HITL tool -- backend just acknowledges; UI handles the interaction
         steps = tool_input.get("steps", [])
         return f"Presented {len(steps)} steps for review.", None
 
-    if name == "generate_haiku":
-        # Frontend gen-UI tool — backend just acknowledges
-        return "Haiku generated!", None
-
     if name == "change_background":
-        # Frontend tool — backend just acknowledges
+        # Frontend tool -- backend just acknowledges
         return f"Background change requested: {tool_input.get('background', '')}", None
+
+    if name == "search_flights":
+        flights_data = tool_input.get("flights", [])
+        typed_flights = [Flight(**f) for f in flights_data]
+        result = search_flights_impl(typed_flights)
+        return json.dumps(result), None
+
+    if name == "generate_a2ui":
+        context = tool_input.get("context", "")
+        import openai
+        client = openai.OpenAI()
+        llm_messages: list[dict[str, Any]] = [
+            {"role": "system", "content": context or "Generate a useful dashboard UI."},
+        ]
+        # Pass conversation messages to the secondary LLM for context
+        if conversation_messages:
+            llm_messages.extend(conversation_messages)
+        else:
+            llm_messages.append({"role": "user", "content": "Generate a dynamic A2UI dashboard based on the conversation."})
+        response = client.chat.completions.create(
+            model="gpt-4.1",
+            messages=llm_messages,
+            tools=[{"type": "function", "function": RENDER_A2UI_TOOL_SCHEMA}],
+            tool_choice={"type": "function", "function": {"name": "render_a2ui"}},
+        )
+        choice = response.choices[0]
+        if choice.message.tool_calls:
+            args = json.loads(choice.message.tool_calls[0].function.arguments)
+            a2ui_result = build_a2ui_operations_from_tool_call(args)
+            return json.dumps(a2ui_result), None
+        return json.dumps({"error": "LLM did not call render_a2ui"}), None
 
     return f"Unknown tool: {name}", None
 
@@ -267,9 +369,9 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
     # Extract state
-    state = ProverbsState()
+    state = AgentState()
     if input_data.state and isinstance(input_data.state, dict):
-        state = ProverbsState(**input_data.state)
+        state = AgentState(**input_data.state)
 
     # Convert AG-UI messages to Anthropic format
     messages: list[dict[str, Any]] = []
@@ -291,18 +393,18 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
             if content:
                 messages.append({"role": role, "content": content})
 
-    # Inject proverbs state into system prompt if state exists
+    # Inject sales pipeline state into system prompt if state exists
     system = SYSTEM_PROMPT
-    if state.proverbs:
-        proverbs_json = json.dumps(state.proverbs, indent=2)
-        system = f"{SYSTEM_PROMPT}\n\nCurrent proverbs list:\n{proverbs_json}"
+    if state.todos:
+        todos_json = json.dumps(state.todos, indent=2)
+        system = f"{SYSTEM_PROMPT}\n\nCurrent sales pipeline:\n{todos_json}"
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
 
     yield encoder.encode(RunStartedEvent(type=EventType.RUN_STARTED, thread_id=thread_id, run_id=run_id))
 
-    # Agentic loop — keep calling Claude until no more tool calls
+    # Agentic loop -- keep calling Claude until no more tool calls
     while True:
         response_text = ""
         tool_calls: list[dict[str, Any]] = []
@@ -385,7 +487,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
             message_id=msg_id,
         ))
 
-        # No tool calls — we're done
+        # No tool calls -- we're done
         if not tool_calls:
             break
 
@@ -405,7 +507,7 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
         # Execute tools and build tool-result turn
         tool_results: list[dict[str, Any]] = []
         for tc in tool_calls:
-            result_text, new_state = _execute_tool(tc["name"], tc["input"], state)
+            result_text, new_state = _execute_tool(tc["name"], tc["input"], state, conversation_messages=messages)
             if new_state is not None:
                 state = new_state
                 yield encoder.encode(StateSnapshotEvent(
@@ -431,6 +533,8 @@ def create_app() -> FastAPI:
     """Create the FastAPI app with AG-UI endpoint."""
     app = FastAPI(title="Claude Agent SDK (Python) Agent Server")
 
+    app.add_middleware(HealthMiddleware)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -455,9 +559,5 @@ def create_app() -> FastAPI:
                 "X-Accel-Buffering": "no",
             },
         )
-
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
 
     return app

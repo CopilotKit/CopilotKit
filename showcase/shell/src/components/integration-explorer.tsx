@@ -611,9 +611,12 @@ function DemoCard({
       {/* Animated preview — floating overlay on hover, no layout shift */}
       {hovered && previewUrl && (
         <div className="absolute bottom-full left-0 right-0 z-50 mb-2 pointer-events-none">
-          <img
+          <video
             src={previewUrl}
-            alt={`${demo.name} preview`}
+            autoPlay
+            muted
+            loop
+            playsInline
             className="w-full h-auto rounded-lg shadow-xl border border-[var(--border)]"
           />
         </div>

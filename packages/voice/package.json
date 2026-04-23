@@ -1,6 +1,6 @@
 {
   "name": "@copilotkit/voice",
-  "version": "1.55.2-next.0",
+  "version": "1.56.3",
   "description": "Voice services for CopilotKit (transcription, text-to-speech, etc.)",
   "type": "module",
   "main": "./dist/index.cjs",

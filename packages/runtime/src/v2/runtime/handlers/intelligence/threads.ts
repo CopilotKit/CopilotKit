@@ -231,3 +231,31 @@ export async function handleDeleteThread({
     return errorResponse("Failed to delete thread", 500);
   }
 }
+
+export async function handleGetThreadMessages({
+  runtime,
+  request,
+  threadId,
+}: ThreadMutationParams): Promise<Response> {
+  const intelligenceRuntime = requireIntelligenceRuntime(runtime);
+  if (isHandlerResponse(intelligenceRuntime)) {
+    return intelligenceRuntime;
+  }
+
+  try {
+    const user = await resolveIntelligenceUser({
+      runtime: intelligenceRuntime,
+      request,
+    });
+    if (isHandlerResponse(user)) return user;
+
+    const data = await intelligenceRuntime.intelligence.getThreadMessages({
+      threadId,
+    });
+
+    return Response.json(data);
+  } catch (error) {
+    logger.error({ err: error, threadId }, "Error getting thread messages");
+    return errorResponse("Failed to get thread messages", 500);
+  }
+}

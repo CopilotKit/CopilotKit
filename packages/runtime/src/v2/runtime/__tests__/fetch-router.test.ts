@@ -50,6 +50,57 @@ describe("fetch-router", () => {
       expect(result).toBeNull();
     });
 
+    it("matches GET /threads", () => {
+      const result = matchRoute("/api/copilotkit/threads", basePath);
+      expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches POST /threads/subscribe", () => {
+      const result = matchRoute("/api/copilotkit/threads/subscribe", basePath);
+      expect(result).toEqual({ method: "threads/subscribe" });
+    });
+
+    it("matches PATCH /threads/:threadId", () => {
+      const result = matchRoute("/api/copilotkit/threads/thread-abc", basePath);
+      expect(result).toEqual({
+        method: "threads/update",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches POST /threads/:threadId/archive", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/archive",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/archive",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("matches GET /threads/:threadId/messages", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread-abc/messages",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/messages",
+        threadId: "thread-abc",
+      });
+    });
+
+    it("handles URL-encoded threadId in thread routes", () => {
+      const result = matchRoute(
+        "/api/copilotkit/threads/thread%2F123",
+        basePath,
+      );
+      expect(result).toEqual({
+        method: "threads/update",
+        threadId: "thread/123",
+      });
+    });
+
     it("returns null when basePath is a prefix but not a segment boundary", () => {
       const result = matchRoute("/api/copilotkitextra/info", basePath);
       expect(result).toBeNull();
@@ -83,6 +134,11 @@ describe("fetch-router", () => {
     it("matches basePath with just root /", () => {
       const result = matchRoute("/info", "/");
       expect(result).toEqual({ method: "info" });
+    });
+
+    it("matches GET /cpk-debug-events", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events", basePath);
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 
@@ -124,9 +180,51 @@ describe("fetch-router", () => {
       expect(result).toBeNull();
     });
 
+    it("matches /threads suffix", () => {
+      const result = matchRoute("/anything/threads");
+      expect(result).toEqual({ method: "threads/list" });
+    });
+
+    it("matches /threads/subscribe suffix", () => {
+      const result = matchRoute("/anything/threads/subscribe");
+      expect(result).toEqual({ method: "threads/subscribe" });
+    });
+
+    it("matches /threads/:threadId suffix", () => {
+      const result = matchRoute("/anything/threads/t1");
+      expect(result).toEqual({ method: "threads/update", threadId: "t1" });
+    });
+
+    it("matches /threads/:threadId/archive suffix", () => {
+      const result = matchRoute("/anything/threads/t1/archive");
+      expect(result).toEqual({ method: "threads/archive", threadId: "t1" });
+    });
+
+    it("matches /threads/:threadId/messages suffix", () => {
+      const result = matchRoute("/anything/threads/t1/messages");
+      expect(result).toEqual({ method: "threads/messages", threadId: "t1" });
+    });
+
     it("works with deeply nested mount prefix", () => {
       const result = matchRoute("/api/v2/copilotkit/agent/a1/run");
       expect(result).toEqual({ method: "agent/run", agentId: "a1" });
+    });
+
+    it("matches /cpk-debug-events suffix", () => {
+      const result = matchRoute("/api/copilotkit/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+
+    it("matches bare /cpk-debug-events", () => {
+      const result = matchRoute("/cpk-debug-events");
+      expect(result).toEqual({ method: "cpk-debug-events" });
+    });
+  });
+
+  describe("cpk-debug-events route with basePath", () => {
+    it("matches /cpk-debug-events with /api basePath", () => {
+      const result = matchRoute("/api/cpk-debug-events", "/api");
+      expect(result).toEqual({ method: "cpk-debug-events" });
     });
   });
 });

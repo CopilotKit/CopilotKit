@@ -46,6 +46,15 @@ import { handleConnectAgent } from "../handlers/handle-connect";
 import { handleStopAgent } from "../handlers/handle-stop";
 import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
+import { handleDebugEvents } from "../handlers/handle-debug-events";
+import {
+  handleListThreads,
+  handleSubscribeToThreads,
+  handleUpdateThread,
+  handleArchiveThread,
+  handleDeleteThread,
+  handleGetThreadMessages,
+} from "../handlers/handle-threads";
 import {
   parseMethodCall,
   createJsonRequest,
@@ -306,6 +315,33 @@ function dispatchRoute(
       return handleGetRuntimeInfo({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
+    case "threads/list":
+      return handleListThreads({ runtime, request });
+    case "threads/subscribe":
+      return handleSubscribeToThreads({ runtime, request });
+    case "threads/update":
+      if (request.method.toUpperCase() === "DELETE") {
+        return handleDeleteThread({
+          runtime,
+          request,
+          threadId: route.threadId,
+        });
+      }
+      return handleUpdateThread({ runtime, request, threadId: route.threadId });
+    case "threads/archive":
+      return handleArchiveThread({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
+    case "threads/messages":
+      return handleGetThreadMessages({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
+    case "cpk-debug-events":
+      return Promise.resolve(handleDebugEvents({ runtime, request }));
   }
 }
 
@@ -376,10 +412,29 @@ function validateHttpMethod(
   route: RouteInfo,
 ): Response | null {
   const method = httpMethod.toUpperCase();
-  if (route.method === "info" && method === "GET") return null;
-  if (route.method !== "info" && method === "POST") return null;
-  const allowed = route.method === "info" ? "GET" : "POST";
-  return jsonResponse({ error: "Method not allowed" }, 405, { Allow: allowed });
+
+  switch (route.method) {
+    case "info":
+    case "threads/list":
+    case "threads/messages":
+    case "cpk-debug-events":
+      if (method === "GET") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "GET",
+      });
+
+    case "threads/update":
+      if (method === "PATCH" || method === "DELETE") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "PATCH, DELETE",
+      });
+
+    default:
+      if (method === "POST") return null;
+      return jsonResponse({ error: "Method not allowed" }, 405, {
+        Allow: "POST",
+      });
+  }
 }
 
 /* ------------------------------------------------------------------------------------------------

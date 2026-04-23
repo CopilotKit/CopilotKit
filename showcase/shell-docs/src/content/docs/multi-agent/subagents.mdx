@@ -1,0 +1,89 @@
+---
+title: Sub-Agents
+description: Decompose work across multiple specialized agents with a visible delegation log.
+icon: "lucide/Users"
+hideTOC: true
+snippet_cell: subagents
+---
+
+## What is this?
+
+Sub-agents are the canonical multi-agent pattern: a top-level
+**supervisor** LLM orchestrates one or more specialized **sub-agents**
+by exposing each of them as a tool. The supervisor decides what to
+delegate, the sub-agents do their narrow job, and their results flow
+back up to the supervisor's next step.
+
+This is fundamentally the same shape as tool-calling, but each "tool"
+is itself a full-blown agent with its own system prompt and (often) its
+own tools, memory, and model.
+
+<InlineDemo demo="subagents" />
+
+## When should I use this?
+
+Reach for sub-agents when a task has distinct specialized sub-tasks
+that each benefit from their own focus:
+
+- **Research → Write → Critique** pipelines, where each stage needs a
+  different system prompt and temperature.
+- **Router + specialists**, where one agent classifies the request and
+  dispatches to the right expert.
+- **Divide-and-conquer** — any problem that fits cleanly into parallel
+  or sequential sub-problems.
+
+The showcase cell uses the Research → Write → Critique shape as the
+canonical example.
+
+## Setting up sub-agents
+
+Each sub-agent is a full `create_agent(...)` call with its own model,
+its own system prompt, and (optionally) its own tools. They don't share
+memory or tools with the supervisor; the supervisor only ever sees
+what the sub-agent returns.
+
+<Snippet region="subagent-setup" title="backend/agent.py — three sub-agents" />
+
+Keep sub-agent system prompts narrow and focused. The point of this pattern
+is that each one does one thing well. If a sub-agent needs to know
+the whole user context to do its job, that's a signal the boundary is
+wrong.
+
+## Exposing sub-agents as tools
+
+The supervisor delegates by calling tools. Each tool is a thin wrapper
+around `sub_agent.invoke(...)` that:
+
+1. Runs the sub-agent synchronously on the supplied `task` string.
+2. Records the delegation into a `delegations` slot in shared agent
+   state (so the UI can render a live log).
+3. Returns the sub-agent's final message as a `ToolMessage`, which the
+   supervisor sees as a normal tool result on its next turn.
+
+<Snippet region="supervisor-delegation-tools" title="backend/agent.py — supervisor tools" />
+
+This is where CopilotKit's shared-state channel earns its keep: the
+supervisor's tool calls mutate `delegations` as they happen, and the
+frontend renders every new entry live.
+
+## Rendering a live delegation log
+
+On the frontend, the delegation log is just a reactive render of the
+`delegations` slot. Subscribe with `useAgent({ updates:
+[OnStateChanged, OnRunStatusChanged] })`, read `agent.state.delegations`,
+and render one card per entry.
+
+<Snippet region="delegation-log-frontend" title="frontend/src/app/delegation-log.tsx — live log component" />
+
+The result: as the supervisor fans work out to its sub-agents, the log
+grows in real time, giving the user visibility into a process that
+would otherwise be a long opaque spinner.
+
+## Related
+
+- **[Shared State](/shared-state)** — the channel that makes the
+  delegation log live.
+- **[State streaming](/shared-state/streaming)** — stream
+  *individual* sub-agent outputs token-by-token inside each log entry.
+
+<FeatureIntegrations feature="subagents" />

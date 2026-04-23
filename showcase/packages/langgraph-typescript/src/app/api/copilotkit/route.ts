@@ -28,6 +28,11 @@ const agentNames = [
   "human_in_the_loop",
   "tool-rendering",
   "gen-ui-tool-based",
+  "gen-ui-agent",
+  "shared-state-read",
+  "shared-state-write",
+  "shared-state-streaming",
+  "subagents",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};

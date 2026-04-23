@@ -51,6 +51,7 @@ interface ThreadRecord {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  lastRunAt?: string;
 }
 
 interface ThreadRuntimeContext {
@@ -185,10 +186,15 @@ const threadDomainEvents = createActionGroup("Thread Domain", {
   threadDeleted: props<{ sessionId: number; threadId: string }>(),
 });
 
-function sortThreadsByUpdatedAt(threads: ThreadRecord[]): ThreadRecord[] {
-  return [...threads].sort((left, right) =>
-    right.updatedAt.localeCompare(left.updatedAt),
-  );
+function sortThreadsByRecency(threads: ThreadRecord[]): ThreadRecord[] {
+  // Prefer lastRunAt so the order reflects actual agent activity and stays
+  // stable when a user performs metadata-only actions like archive or rename.
+  // Fall back to updatedAt (and then createdAt) for threads that have never run.
+  return [...threads].sort((left, right) => {
+    const leftKey = left.lastRunAt ?? left.updatedAt ?? left.createdAt;
+    const rightKey = right.lastRunAt ?? right.updatedAt ?? right.createdAt;
+    return rightKey.localeCompare(leftKey);
+  });
 }
 
 function upsertThread(
@@ -197,12 +203,12 @@ function upsertThread(
 ): ThreadRecord[] {
   const existingIndex = threads.findIndex((item) => item.id === thread.id);
   if (existingIndex === -1) {
-    return sortThreadsByUpdatedAt([...threads, thread]);
+    return sortThreadsByRecency([...threads, thread]);
   }
 
   const next = [...threads];
   next[existingIndex] = thread;
-  return sortThreadsByUpdatedAt(next);
+  return sortThreadsByRecency(next);
 }
 
 const threadReducer = createReducer<ThreadState>(
@@ -249,7 +255,7 @@ const threadReducer = createReducer<ThreadState>(
 
       return {
         ...state,
-        threads: sortThreadsByUpdatedAt(threads),
+        threads: sortThreadsByRecency(threads),
         isLoading: false,
         error: null,
         metadataJoinCode: joinCode,

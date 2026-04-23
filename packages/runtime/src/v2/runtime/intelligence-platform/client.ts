@@ -42,7 +42,6 @@ export class PlatformRequestError extends Error {
  *   apiUrl: "https://api.copilotkit.ai",
  *   wsUrl: "wss://api.copilotkit.ai",
  *   apiKey: process.env.COPILOTKIT_API_KEY!,
- *   organizationId: process.env.COPILOTKIT_ORGANIZATION_ID!,
  * });
  *
  * const runtime = new CopilotRuntime({
@@ -66,8 +65,6 @@ export interface CopilotKitIntelligenceConfig {
   wsUrl: string;
   /** API key for authenticating with the intelligence platform */
   apiKey: string;
-  /** Organization identifier used for self-hosted Intelligence instances */
-  organizationId: string;
   /**
    * Initial listener invoked after a thread is created.
    * Prefer {@link CopilotKitIntelligence.onThreadCreated} for multiple listeners.
@@ -248,7 +245,6 @@ export class CopilotKitIntelligence {
   #runnerWsUrl: string;
   #clientWsUrl: string;
   #apiKey: string;
-  #organizationId: string;
   #threadCreatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadUpdatedListeners = new Set<(thread: ThreadSummary) => void>();
   #threadDeletedListeners = new Set<(params: ThreadDeletedPayload) => void>();
@@ -260,7 +256,6 @@ export class CopilotKitIntelligence {
     this.#runnerWsUrl = deriveRunnerWsUrl(intelligenceWsUrl);
     this.#clientWsUrl = deriveClientWsUrl(intelligenceWsUrl);
     this.#apiKey = config.apiKey;
-    this.#organizationId = config.organizationId;
 
     if (config.onThreadCreated) {
       this.onThreadCreated(config.onThreadCreated);
@@ -345,10 +340,6 @@ export class CopilotKitIntelligence {
     return this.#clientWsUrl;
   }
 
-  ɵgetOrganizationId(): string {
-    return this.#organizationId;
-  }
-
   ɵgetRunnerAuthToken(): string {
     return this.#apiKey;
   }
@@ -359,7 +350,6 @@ export class CopilotKitIntelligence {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.#apiKey}`,
       "Content-Type": "application/json",
-      "X-Organization-Id": this.#organizationId,
     };
 
     const response = await fetch(url, {
@@ -400,7 +390,7 @@ export class CopilotKitIntelligence {
 
     for (const callback of listeners) {
       try {
-        void (callback as (p: typeof payload) => void)(payload);
+        (callback as (p: typeof payload) => void)(payload);
       } catch (error) {
         logger.error(
           { err: error, callbackName, payload },
@@ -663,12 +653,14 @@ export class CopilotKitIntelligence {
   async ɵconnectThread(params: {
     threadId: string;
     userId: string;
+    runId?: string;
     lastSeenEventId?: string | null;
   }): Promise<ConnectThreadResponse> {
     const result = await this.#request<
       ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
     >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
       userId: params.userId,
+      ...(params.runId !== undefined ? { runId: params.runId } : {}),
       ...(params.lastSeenEventId !== undefined
         ? { lastSeenEventId: params.lastSeenEventId }
         : {}),

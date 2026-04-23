@@ -1,0 +1,157 @@
+{
+  "generated_at": "2026-04-21T07:26:03.921Z",
+  "features": {
+    "beautiful-chat": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "cli-start": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "agentic-chat": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "prebuilt-sidebar": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "prebuilt-popup": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "chat-slots": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "chat-customization-css": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "headless-simple": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "headless-complete": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "gen-ui-tool-based": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "hitl-in-chat": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "gen-ui-interrupt": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "interrupt-headless": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "declarative-gen-ui": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "a2ui-fixed-schema": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "mcp-apps": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "open-gen-ui": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "open-gen-ui-advanced": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "tool-rendering-default-catchall": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "tool-rendering-custom-catchall": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "tool-rendering": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "tool-rendering-reasoning-chain": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "agentic-chat-reasoning": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "reasoning-default-render": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "gen-ui-agent": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "frontend-tools": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "frontend-tools-async": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "hitl-in-app": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "shared-state-read-write": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "shared-state-streaming": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "readonly-state-agent-context": {
+      "og": "missing",
+      "shell": "missing"
+    },
+    "subagents": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "auth": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "agent-config": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "voice": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "multimodal": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "byoc-hashbrown": {
+      "og": "notfound",
+      "shell": "notfound"
+    },
+    "byoc-json-render": {
+      "og": "notfound",
+      "shell": "notfound"
+    }
+  }
+}

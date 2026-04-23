@@ -1,5 +1,5 @@
 slug: test-invalid-genui
-generative_ui: [open]
+generative_ui: [unknown-profile]
 interaction_modalities: [chat]
 demos:
   - id: tool-rendering

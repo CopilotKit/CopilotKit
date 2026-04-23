@@ -35,6 +35,10 @@ __pycache__/
 
 docs/next-env.d.ts
 
+# Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
+showcase/packages/*/shared_python/
+showcase/packages/*/shared_typescript/
+
 # External repos (cloned for development)
 ext-apps/
 dist
@@ -52,6 +56,10 @@ lefthook-local.yml
 
 # Private agent instructions (not shared with the team)
 private-agents.md
+
+# Release artifacts
+release-notes.md
+release-notes-notion.json
 
 # Binary artifacts
 *.dSYM/

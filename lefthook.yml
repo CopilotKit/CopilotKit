@@ -13,41 +13,7 @@ pre-commit:
   commands:
     check-binaries:
       tags: binaries
-      run: |
-        VIOLATIONS=0
-        STAGED=$(git diff --cached --name-only --diff-filter=ACM)
-        [ -z "$STAGED" ] && exit 0
-
-        BINARIES=$(echo "$STAGED" | grep -iE '\.(exe|dll|so|dylib|o|obj|a|lib|wasm)$' || true)
-        if [ -n "$BINARIES" ]; then
-          echo "Binary files detected:" && echo "$BINARIES"
-          VIOLATIONS=1
-        fi
-
-        BUILD=$(echo "$STAGED" | grep -E '/build/' || true)
-        if [ -n "$BUILD" ]; then
-          echo "Files in build directories:" && echo "$BUILD"
-          VIOLATIONS=1
-        fi
-
-        DSYM=$(echo "$STAGED" | grep -E '\.dSYM/' || true)
-        if [ -n "$DSYM" ]; then
-          echo "dSYM directories:" && echo "$DSYM"
-          VIOLATIONS=1
-        fi
-
-        for f in $STAGED; do
-          [ ! -f "$f" ] && continue
-          case "$f" in pnpm-lock.yaml|*/package-lock.json) continue ;; esac
-          SIZE=$(wc -c < "$f" | tr -d ' ')
-          if [ "$SIZE" -gt 1048576 ]; then
-            echo "Oversized file: $f ($((SIZE / 1024)) KB)"
-            VIOLATIONS=1
-          fi
-        done
-
-        [ "$VIOLATIONS" -eq 1 ] && exit 1
-        exit 0
+      run: bash scripts/hooks/check-binaries.sh
     sync-lockfile:
       tags: lockfile
       glob: "**/package.json"
@@ -55,7 +21,26 @@ pre-commit:
       stage_fixed: true
     lint-fix:
       tags: lint
-      run: pnpm run lint && pnpm run format
+      # Scope oxlint and oxfmt to just the files staged for commit — running
+      # `--fix .` / `--write .` across the whole monorepo on every commit is
+      # both slow and blurs the hook's purpose (touch files that aren't part
+      # of this change). Guard against empty `{staged_files}` expansion: when
+      # a commit touches only non-matching files (markdown, YAML), lefthook
+      # still invokes this hook with an empty expansion, and oxlint/oxfmt
+      # would default to operating on the current directory, defeating the
+      # scoping entirely. stage_fixed re-stages whatever the hooks modify.
+      glob: "*.{js,jsx,ts,tsx,mjs,cjs}"
+      # Mirror the ignorePatterns in .oxlintrc.json / .oxfmtrc.json at the
+      # hook layer. Without this, a docs-only commit expands {staged_files}
+      # to a single docs/** path; oxlint silently processes 0 files, then
+      # oxfmt exits 2 with "Expected at least one target file" and blocks
+      # the commit.
+      exclude:
+        - "docs/**"
+      run: |
+        if [ -n "{staged_files}" ]; then
+          pnpm exec oxlint --fix {staged_files} && pnpm exec oxfmt --write {staged_files}
+        fi
       stage_fixed: true
     test-and-check-packages:
       tags: test-packages

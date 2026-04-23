@@ -1,0 +1,110 @@
+name: test / integration / runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - ".github/workflows/test_integration-runtime.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/runtime/**"
+      - ".github/workflows/test_integration-runtime.yml"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to run the workflow on"
+        required: true
+        default: "main"
+        type: string
+
+# Least-privilege by default. Individual jobs/steps can widen when needed.
+# id-token: write is required for Depot OIDC auth (runs-on: depot-ubuntu-*).
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    name: "runtime / node"
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-integration-node" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+
+      - name: Build runtime
+        run: pnpm nx run @copilotkit/runtime:build
+
+      - name: Run Node.js server integration tests
+        working-directory: packages/runtime
+        run: pnpm exec vitest run src/v2/runtime/__tests__/integration/node-servers.integration.test.ts
+
+  bun:
+    name: "runtime / bun"
+    runs-on: depot-ubuntu-24.04-4
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "10.13.1"
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.x"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Nx Cloud environment
+        run: |
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-integration-bun" >> $GITHUB_ENV
+          echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
+          echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
+          echo "NX_NO_CLOUD=true" >> $GITHUB_ENV
+
+      - name: Build runtime
+        run: pnpm nx run @copilotkit/runtime:build
+
+      - name: Run Bun server integration tests
+        working-directory: packages/runtime
+        run: bun test src/v2/runtime/__tests__/integration/bun/bun-servers.integration.test.ts

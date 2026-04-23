@@ -1,0 +1,71 @@
+---
+title: Display Components
+icon: "lucide/Eye"
+description: Register React components that your agent can render directly in the chat — no handler logic, no user interaction, just rich visuals.
+hideTOC: true
+snippet_framework: langgraph-python
+snippet_cell: gen-ui-tool-based
+---
+
+## What is this?
+
+Display-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props — no handler logic, no user interaction, no server-side execution. The agent decides when to show it, populates the data, and CopilotKit paints it.
+
+<InlineDemo integration="langgraph-python" demo="gen-ui-tool-based" />
+
+## When should I use this?
+
+Use display-only generative UI when you want to:
+
+- Display rich UI (cards, charts, tables) inline in the chat
+- Show structured data from agent responses
+- Render previews, status indicators, or visual feedback
+- Let the agent present information beyond plain text
+
+For components that need user interaction, see [Interactive Components](./interactive). For operational transparency around a real backend tool, see [Tool rendering](../tool-rendering).
+
+## How it works in code
+
+`useComponent` takes a name, a Zod schema for its props, and the component to render. The runtime registers it as a frontend tool so the agent can discover it, and Zod validates the LLM's arguments before they reach your component.
+
+<Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart component" />
+
+<Snippet region="pie-chart-renderer" title="frontend/src/app/page.tsx — pie chart component" />
+
+The component itself is ordinary React — it reads only its props and can stream in as the agent fills the payload. The showcase cell uses [Recharts](https://recharts.org) for the bar chart and a hand-rolled SVG donut for the pie chart; neither knows anything about CopilotKit.
+
+<Callout type="info">
+The `name` you pass to `useComponent` is what the agent sees as the tool name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM reliably picks it when the user asks for that visualization.
+</Callout>
+
+## Minimal example
+
+The following registers a display tool and wires it to a React component. When the agent emits that tool call, CopilotKit resolves the arguments against the Zod schema and passes them as typed props:
+
+```tsx title="page.tsx"
+import { z } from "zod";
+import { useComponent } from "@copilotkit/react-core/v2";
+
+const ChartProps = z.object({
+  title: z.string(),
+  data: z.array(z.object({ label: z.string(), value: z.number() })),
+});
+
+function Chart({ title, data }: z.infer<typeof ChartProps>) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      {/* Recharts or whatever you like */}
+    </div>
+  );
+}
+
+useComponent({
+  name: "showChart",
+  description: "Populate data and show the user a chart",
+  parameters: ChartProps,
+  render: Chart,
+});
+```
+
+That's the whole surface — no backend wiring, no tool handler. The agent calls `showChart({ title, data })`, Zod validates the payload, and your component renders in the message stream.

@@ -1,0 +1,109 @@
+---
+title: Headless interrupts
+icon: "lucide/SquareDashedBottomCode"
+description: Resolve LangGraph interrupts from any UI, without a useInterrupt render slot.
+hideTOC: true
+snippet_cell: interrupt-headless
+---
+
+## What is this?
+
+`useInterrupt`'s `render` callback is the 80% path: it keeps the UI
+glued to a `<CopilotChat>` transcript and handles "when to show the
+picker" logic for you. This page covers the escape hatch: a
+**render-less** interrupt resolver you assemble from the same
+primitives `useInterrupt` uses internally.
+
+The result is a pattern that lives anywhere in your React tree, takes
+any shape you like (plain button grid, form, modal, keyboard shortcut,
+anything), and resolves `langgraph.interrupt(...)` without
+mounting a chat at all.
+
+<InlineDemo demo="interrupt-headless" />
+
+## When should I use this?
+
+- **Testing / Playwright fixtures** — a deterministic, chat-less button
+  grid is easier to drive than a chat surface where the picker only
+  appears after an LLM call.
+- **Non-chat UIs** — dashboards, side panels, inspector surfaces, or
+  any place where you want the _agent's interrupt_ without the _chat
+  transcript_.
+- **Custom flow control** — when you need to know exactly when the
+  interrupt arrived (e.g. to gate other UI) and when it was resolved.
+- **Research / debugging** — when you want to observe the raw AG-UI
+  custom events without the abstraction layer.
+
+If you just want "a picker in chat", just use
+[`useInterrupt`](./useInterrupt).
+
+## The primitives
+
+Under the hood, `useInterrupt` composes two public APIs:
+
+1. **`agent.subscribe({ onCustomEvent, onRunStartedEvent, onRunFinalized, onRunFailed })`**
+   — every `AbstractAgent` exposes an AG-UI event subscription. LangGraph
+   sends the interrupt through as a custom event named `on_interrupt`
+   with the `interrupt(...)` payload as `event.value`.
+2. **`copilotkit.runAgent({ agent, forwardedProps: { command: { resume, interruptEvent } } })`**
+   — the same call `useInterrupt`'s `resolve()` makes to resume a paused
+   run. Pass your response as `resume` and the original interrupt event
+   as `interruptEvent`.
+
+Wrap those in your own hook and you get a render-less equivalent of
+`useInterrupt`:
+
+<Snippet region="headless-useinterrupt-primitives" title="frontend/src/app/page.tsx — useHeadlessInterrupt" />
+
+A few things this hook is careful about:
+
+- It stages the incoming custom event in a local ref and only commits
+  it to React state on `onRunFinalized`, mirroring `useInterrupt`,
+  which doesn't surface the interrupt until the run has actually paused
+  (not just when the event fires mid-stream).
+- `onRunStartedEvent` clears any stale pending state, so kicking off a
+  new turn always starts from a clean slate.
+- `onRunFailed` drops the staged event so a transport hiccup doesn't
+  leave the UI stuck showing a picker for a run that never paused.
+
+## Driving it from plain UI
+
+Once `useHeadlessInterrupt` returns `{ pending, resolve }`, the rest is
+just React. The showcase cell uses two buttons to kick off the agent
+and a button grid to resolve, with no `<CopilotChat>` and no render prop:
+
+```tsx
+function HeadlessInterruptPanel() {
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId: "interrupt-headless" });
+  const { pending, resolve } = useHeadlessInterrupt("interrupt-headless");
+
+  const kickOff = (prompt: string) => {
+    agent.addMessage({ id: crypto.randomUUID(), role: "user", content: prompt });
+    void copilotkit.runAgent({ agent });
+  };
+
+  if (pending) {
+    return (
+      <div>
+        <p>Pick a slot for {pending.value.topic ?? "a call"}:</p>
+        {SLOTS.map((s) => (
+          <button key={s.iso} onClick={() => resolve({ chosen_time: s.iso, chosen_label: s.label })}>
+            {s.label}
+          </button>
+        ))}
+        <button onClick={() => resolve({ cancelled: true })}>Cancel</button>
+      </div>
+    );
+  }
+
+  return <button onClick={() => kickOff("Book a call with sales.")}>Book call</button>;
+}
+```
+
+## Going further
+
+- [Tool-based HITL with `useHumanInTheLoop`](../human-in-the-loop) — for
+  LLM-initiated pauses that don't involve a LangGraph `interrupt()`.
+- [`useInterrupt`](./useInterrupt) — the render-prop version of this
+  page, with `enabled` gating and `handler` preprocessing.

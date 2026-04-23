@@ -1,0 +1,62 @@
+---
+title: Display components
+icon: "lucide/Eye"
+description: Register React components that your agent can render in the chat.
+hideTOC: true
+---
+
+## What is this?
+
+Render-only generative UI lets you register React components as tools your agent can invoke. When the agent calls the tool, CopilotKit renders your component directly in the chat with the tool's arguments as props; no handler logic or user interaction required.
+
+<Tabs items={['page.tsx', 'chart.tsx']}>
+  <Tab value="page.tsx">
+  ```tsx
+
+useComponent({
+name: "showChart",
+description: "Populate data and show the user a chart",
+parameters: ChartProps,
+render: Chart
+});
+
+````
+</Tab>
+<Tab value="chart.tsx">
+```tsx
+
+export const ChartProps = z.object({
+  title: z.string(),
+  data: z.array(z.object({ label: z.string(), value: z.number() })),
+});
+
+export function Chart({ title, data }: z.infer<typeof ChartProps>) {
+  return (
+    <div>
+      <h3>{title}</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data}>
+          <XAxis dataKey="label" /><YAxis /><Tooltip />
+          <Bar dataKey="value" fill="#6366f1" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+````
+
+  </Tab>
+</Tabs>
+
+## When should I use this?
+
+Use render-only generative UI when you want to:
+
+- Display rich UI (cards, charts, tables) inline in the chat
+- Show structured data from agent responses
+- Render previews, status indicators, or visual feedback
+- Let the agent present information beyond plain text
+
+## Choose your Integration
+
+<IntegrationGrid path="render-only" />

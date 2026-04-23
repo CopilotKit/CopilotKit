@@ -3,7 +3,9 @@ slug: agno
 category: emerging
 language: python
 logo: /logos/agno.svg
-description: CopilotKit integration with Agno
+description: >-
+  CopilotKit integration with Agno. Supports the full range of CopilotKit features
+  including generative UI, shared state, human-in-the-loop, sub-agents, and streaming.
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/agno
 copilotkit_version: 2.0.0
@@ -12,19 +14,28 @@ deployed: true
 sort_order: 90
 generative_ui:
   - constrained-explicit
+  - a2ui-fixed-schema
+  - a2ui-dynamic-schema
 interaction_modalities:
+  - sidebar
+  - embedded
   - chat
 starter:
-  path: examples/integrations/agno
-  name: Investment Analyst (Agno)
-  description: Investment analysis agent built with the Agno framework
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/examples/integrations/agno
-  demo_url: https://showcase-starter-agno-production.up.railway.app
+  path: showcase/starters/agno
+  name: Sales Dashboard
+  description: Full-featured sales pipeline with 4 GenUI rendering strategies
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/agno
+  demo_url: https://showcase-starter-agno-production-359f.up.railway.app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/agno my-copilotkit-app
 features:
   - agentic-chat
+  - hitl-in-chat
   - tool-rendering
-  - hitl
   - gen-ui-tool-based
+  - gen-ui-agent
+  - shared-state-read-write
+  - shared-state-streaming
+  - subagents
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -33,6 +44,13 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+  - id: hitl-in-chat
+    name: In-Chat Human in the Loop
+    description: User approves agent actions before execution
+    tags:
+      - interactivity
+    route: /demos/hitl
+    animated_preview_url:
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -40,19 +58,40 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
-  - id: hitl
-    name: Human in the Loop
-    description: User approves agent actions before execution
-    tags:
-      - interactivity
-    route: /demos/hitl
-    animated_preview_url:
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
     tags:
       - generative-ui
     route: /demos/gen-ui-tool-based
+    animated_preview_url:
+  - id: gen-ui-agent
+    name: Agentic Generative UI
+    description: Long-running agent tasks with generated UI
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-agent
+    animated_preview_url:
+  - id: shared-state-read-write
+    name: Shared State (Read + Write)
+    description: Bidirectional agent state — UI writes preferences, agent writes notes back
+    tags:
+      - agent-state
+    route: /demos/shared-state-read-write
+    animated_preview_url:
+  - id: shared-state-streaming
+    name: State Streaming
+    description: Per-token state delta streaming from agent to UI
+    tags:
+      - agent-state
+    route: /demos/shared-state-streaming
+    animated_preview_url:
+  - id: subagents
+    name: Sub-Agents
+    description: Multiple agents with visible task delegation
+    tags:
+      - multi-agent
+    route: /demos/subagents
     animated_preview_url:
 managed_platform:
   name: Agent OS

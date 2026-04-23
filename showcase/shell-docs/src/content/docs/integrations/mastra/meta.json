@@ -1,0 +1,21 @@
+{
+  "title": "Mastra",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "agent-app-context",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium",
+    "---Other---",
+    "...(other)"
+  ]
+}

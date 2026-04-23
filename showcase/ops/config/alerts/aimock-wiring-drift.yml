@@ -1,0 +1,51 @@
+id: aimock-wiring-drift
+name: "aimock-universal invariant drift (spec §6.4)"
+owner: "@oss"
+severity: error
+
+signal:
+  dimension: aimock_wiring
+
+# HF13-E5: set_errored wiring. Mirrors the image-drift.yml fix (R10 HF-D2)
+# — a pure-errored aimock-wiring tick emits state:"red" with an empty
+# `unwired` set and non-empty `errored` set (or `probeErrored=true` when
+# the probe itself couldn't run, per HF13-C1). Without `set_errored`
+# declared, neither `set_drifted` nor `red_to_green` matches and the alert
+# silently collapses — operators see nothing when e.g. AIMOCK_BASE_URL is
+# malformed or every service env-var read fails.
+#
+# `deriveSignalFlags` (alert-engine.ts) emits `set_errored: true` when
+# EITHER `signal.errored` is a non-empty array OR `signal.probeErrored`
+# is true — see HF13-C1 landing in src/alerts/alert-engine.ts.
+triggers:
+  - set_drifted
+  - set_errored
+  - red_to_green
+  # cron_only heartbeat on the same cadence as the aimock-wiring probe
+  # (see config/probes/aimock-wiring.yml). Pairing the probe schedule with
+  # a rule-level cron trigger means a long green-run still produces an
+  # engine tick — the engine's synthesized `resolvedState=green` outcome
+  # is available for any template that wants to render a periodic "still
+  # healthy" report. Keep the cron string identical to the probe's
+  # schedule; a mismatch would desynchronise the two signals and produce
+  # interleaved firings.
+  - cron_only: { schedule: "0 */6 * * *" }
+
+targets:
+  - kind: slack_webhook
+    webhook: oss_alerts
+
+template:
+  text: |
+    {{#trigger.set_drifted}}:warning: *aimock wiring drift — {{signal.unwiredCount}} {{signal.unwiredNoun}} bypassing showcase-aimock:*
+    {{#signal.unwired}}• `{{.}}`
+    {{/signal.unwired}}
+    Fix: set `OPENAI_BASE_URL` (or `ANTHROPIC_BASE_URL` for claude-sdk) on each service to the aimock production URL.
+    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.set_drifted}}
+    {{#trigger.set_errored}}:rotating_light: *aimock wiring probe errored — {{signal.erroredCount}} service(s) unreadable:*
+    {{#signal.erroredPreview}}• `{{.}}`
+    {{/signal.erroredPreview}}
+    {{#signal.probeErrorDesc}}Probe error: `{{.}}`
+    {{/signal.probeErrorDesc}}Investigate aimock probe config / network before trusting drift state.
+    <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.set_errored}}
+    {{#trigger.red_to_green}}:white_check_mark: *aimock wiring recovered* — all services route through showcase-aimock again. <{{{env.dashboardUrl}}}|Dashboard>{{#event.runUrl}} | <{{{event.runUrl}}}|Run>{{/event.runUrl}}{{/trigger.red_to_green}}

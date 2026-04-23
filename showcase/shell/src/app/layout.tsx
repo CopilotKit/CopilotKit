@@ -1,6 +1,21 @@
 import type { Metadata } from "next";
+import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
 import { BrandNav } from "@/components/brand-nav";
+import { FrameworkProvider } from "@/components/framework-provider";
+import { getIntegrations } from "@/lib/registry";
 import "./globals.css";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-prose",
+  display: "swap",
+});
+
+const splineSansMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "CopilotKit Docs",
@@ -12,11 +27,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // FrameworkProvider needs the set of known framework slugs so it can
+  // detect URL-scoped framework views. The framework *selector* now
+  // lives inside the docs sidebar, not in the top bar, so its own
+  // options are wired up in the docs page-level server components.
+  const knownFrameworks = getIntegrations().map((i) => i.slug);
+
   return (
-    <html lang="en">
+    <html
+      lang="en"
+      className={`${plusJakartaSans.variable} ${splineSansMono.variable}`}
+    >
       <body className="min-h-screen">
-        <BrandNav />
-        <main>{children}</main>
+        <FrameworkProvider knownFrameworks={knownFrameworks}>
+          <BrandNav />
+          <main>{children}</main>
+        </FrameworkProvider>
         <div
           style={{
             position: "fixed",

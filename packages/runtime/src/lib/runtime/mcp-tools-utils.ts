@@ -85,30 +85,65 @@ export function extractParametersFromSchema(
         }
       }
 
-      // Handle enums
+      // Handle enums — preserve as structured data for Zod conversion
+      let enumValues: string[] | undefined;
       if (paramDef.enum && Array.isArray(paramDef.enum)) {
-        const enumValues = paramDef.enum.join(" | ");
+        enumValues = paramDef.enum.map(String);
+        const enumDisplay = enumValues.join(" | ");
         description =
           description +
           (description ? " " : "") +
-          `Allowed values: ${enumValues}`;
+          `Allowed values: ${enumDisplay}`;
       }
 
-      // Handle objects with properties
+      // Handle objects with properties — recurse to preserve nested structure
+      let attributes: Parameter[] | undefined;
       if (type === "object" && paramDef.properties) {
         const objectProperties = Object.keys(paramDef.properties).join(", ");
         description =
           description +
           (description ? " " : "") +
           `Object with properties: ${objectProperties}`;
+        // Recursively extract nested parameters
+        attributes = extractParametersFromSchema({
+          parameters: {
+            properties: paramDef.properties,
+            required: paramDef.required || [],
+          },
+        });
       }
 
-      parameters.push({
+      // Handle object arrays — recurse into item schema
+      if (type === "array" && paramDef.items?.type === "object" && paramDef.items?.properties) {
+        attributes = extractParametersFromSchema({
+          parameters: {
+            properties: paramDef.items.properties,
+            required: paramDef.items.required || [],
+          },
+        });
+      }
+
+      const param: any = {
         name: paramName,
         type: type,
         description: description,
         required: requiredParams.has(paramName),
-      });
+      };
+
+      // Preserve enum values for string parameters
+      if (type === "string" && enumValues) {
+        param.enum = enumValues;
+      }
+
+      // Preserve nested attributes for object and object[] types
+      if (attributes && attributes.length > 0) {
+        param.attributes = attributes;
+        if (type === "array") {
+          param.type = "object[]";
+        }
+      }
+
+      parameters.push(param);
     }
   }
 
@@ -145,7 +180,7 @@ export function convertMCPToolsToActions(
         throw new Error(
           `Execution failed for MCP tool '${toolName}': ${
             error instanceof Error ? error.message : String(error)
-          }`,
+          }`, { cause: error },
         );
       }
     };

@@ -1,0 +1,18 @@
+{
+  "title": "ADK",
+  "root": true,
+  "pages": [
+    "---Getting Started---",
+    "index",
+    "quickstart",
+    "---Generative UI---",
+    "...generative-ui",
+    "---App Control---",
+    "frontend-tools",
+    "shared-state",
+    "---Threads---",
+    "threads",
+    "---Premium Features---",
+    "...premium"
+  ]
+}
