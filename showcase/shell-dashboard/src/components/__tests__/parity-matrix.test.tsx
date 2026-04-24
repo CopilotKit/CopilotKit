@@ -17,16 +17,28 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storageMap.set(key, value),
     removeItem: (key: string) => storageMap.delete(key),
     clear: () => storageMap.clear(),
-    get length() { return storageMap.size; },
+    get length() {
+      return storageMap.size;
+    },
     key: () => null,
   });
 });
 
-function row(key: string, dimension: string, state: StatusRow["state"]): StatusRow {
+function row(
+  key: string,
+  dimension: string,
+  state: StatusRow["state"],
+): StatusRow {
   return {
-    id: `id-${key}`, key, dimension, state, signal: {},
-    observed_at: "2026-04-20T00:00:00Z", transitioned_at: "2026-04-20T00:00:00Z",
-    fail_count: 0, first_failure_at: null,
+    id: `id-${key}`,
+    key,
+    dimension,
+    state,
+    signal: {},
+    observed_at: "2026-04-20T00:00:00Z",
+    transitioned_at: "2026-04-20T00:00:00Z",
+    fail_count: 0,
+    first_failure_at: null,
   };
 }
 
@@ -36,9 +48,7 @@ function mapOf(rows: StatusRow[]): LiveStatusMap {
   return m;
 }
 
-const categories: FeatureCategory[] = [
-  { id: "chat-ui", name: "Chat & UI" },
-];
+const categories: FeatureCategory[] = [{ id: "chat-ui", name: "Chat & UI" }];
 
 const integrations = [
   { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
@@ -50,8 +60,20 @@ const features = [
 ];
 
 const cells: CatalogCell[] = [
-  { id: "lgp/agentic-chat", integration: "lgp", feature: "agentic-chat", status: "wired", category: "chat-ui" },
-  { id: "crewai/agentic-chat", integration: "crewai", feature: "agentic-chat", status: "wired", category: "chat-ui" },
+  {
+    id: "lgp/agentic-chat",
+    integration: "lgp",
+    feature: "agentic-chat",
+    status: "wired",
+    category: "chat-ui",
+  },
+  {
+    id: "crewai/agentic-chat",
+    integration: "crewai",
+    feature: "agentic-chat",
+    status: "wired",
+    category: "chat-ui",
+  },
 ];
 
 describe("ParityMatrix", () => {

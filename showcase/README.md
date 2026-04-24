@@ -195,6 +195,6 @@ Key invariants:
 ### SOP 4: Reference migration (move the reference integration)
 
 1. No manual flag needed — the generator auto-detects the reference as the integration with the most wired features (ties broken alphabetically).
-2. If you want a *different* integration to be reference, wire more features on it until it leads the count.
+2. If you want a _different_ integration to be reference, wire more features on it until it leads the count.
 3. Run `pnpm generate-registry` — all parity tiers recompute automatically.
 4. Commit, PR, merge.

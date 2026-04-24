@@ -171,8 +171,7 @@ describe("Catalog Generator", () => {
     // intersection with reference = 8 >= 3 => partial
     const crewaiCells = catalog.cells.filter(
       (c: any) =>
-        c.integration === "crewai-crews" &&
-        c.manifestation === "integrated",
+        c.integration === "crewai-crews" && c.manifestation === "integrated",
     );
     const crewaiWired = crewaiCells.filter((c: any) => c.status === "wired");
     expect(crewaiWired.length).toBe(8);
@@ -207,7 +206,9 @@ describe("Catalog Generator", () => {
 
     const wired = catalog.cells.filter((c: any) => c.status === "wired");
     const stub = catalog.cells.filter((c: any) => c.status === "stub");
-    const unshipped = catalog.cells.filter((c: any) => c.status === "unshipped");
+    const unshipped = catalog.cells.filter(
+      (c: any) => c.status === "unshipped",
+    );
 
     for (const cell of wired) {
       expect(cell.max_depth).toBe(4);
@@ -308,10 +309,9 @@ describe("Catalog Generator", () => {
         typeof cell.integration_name,
         `${cell.id} missing integration_name`,
       ).toBe("string");
-      expect(
-        typeof cell.feature_name,
-        `${cell.id} missing feature_name`,
-      ).toBe("string");
+      expect(typeof cell.feature_name, `${cell.id} missing feature_name`).toBe(
+        "string",
+      );
       expect(
         typeof cell.category_name,
         `${cell.id} missing category_name`,

@@ -40,7 +40,9 @@ export function TabShell({ tabs, defaultTab }: TabShellProps) {
     readInitialTab(tabs, defaultTab),
   );
   // Track which tabs have been mounted at least once (keep in DOM).
-  const [mounted, setMounted] = useState<Set<string>>(() => new Set([activeTab]));
+  const [mounted, setMounted] = useState<Set<string>>(
+    () => new Set([activeTab]),
+  );
 
   const select = (id: string) => {
     setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));

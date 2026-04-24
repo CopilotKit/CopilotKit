@@ -18,16 +18,28 @@ beforeEach(() => {
     setItem: (key: string, value: string) => storageMap.set(key, value),
     removeItem: (key: string) => storageMap.delete(key),
     clear: () => storageMap.clear(),
-    get length() { return storageMap.size; },
+    get length() {
+      return storageMap.size;
+    },
     key: () => null,
   });
 });
 
-function row(key: string, dimension: string, state: StatusRow["state"]): StatusRow {
+function row(
+  key: string,
+  dimension: string,
+  state: StatusRow["state"],
+): StatusRow {
   return {
-    id: `id-${key}`, key, dimension, state, signal: {},
-    observed_at: "2026-04-20T00:00:00Z", transitioned_at: "2026-04-20T00:00:00Z",
-    fail_count: 0, first_failure_at: null,
+    id: `id-${key}`,
+    key,
+    dimension,
+    state,
+    signal: {},
+    observed_at: "2026-04-20T00:00:00Z",
+    transitioned_at: "2026-04-20T00:00:00Z",
+    fail_count: 0,
+    first_failure_at: null,
   };
 }
 
@@ -59,10 +71,34 @@ const features = [
 ];
 
 const cells: CatalogCell[] = [
-  { id: "lgp/agentic-chat", integration: "lgp", feature: "agentic-chat", status: "wired", category: "chat-ui" },
-  { id: "crewai/agentic-chat", integration: "crewai", feature: "agentic-chat", status: "unshipped", category: "chat-ui" },
-  { id: "lgp/auth", integration: "lgp", feature: "auth", status: "wired", category: "platform" },
-  { id: "crewai/auth", integration: "crewai", feature: "auth", status: "stub", category: "platform" },
+  {
+    id: "lgp/agentic-chat",
+    integration: "lgp",
+    feature: "agentic-chat",
+    status: "wired",
+    category: "chat-ui",
+  },
+  {
+    id: "crewai/agentic-chat",
+    integration: "crewai",
+    feature: "agentic-chat",
+    status: "unshipped",
+    category: "chat-ui",
+  },
+  {
+    id: "lgp/auth",
+    integration: "lgp",
+    feature: "auth",
+    status: "wired",
+    category: "platform",
+  },
+  {
+    id: "crewai/auth",
+    integration: "crewai",
+    feature: "auth",
+    status: "stub",
+    category: "platform",
+  },
 ];
 
 // Which categories should be open by default (derived from wired counts)
@@ -101,8 +137,12 @@ describe("CellMatrix", () => {
     );
     const headers = getAllByTestId(/^integration-header-/);
     // reference (lgp) should come first
-    expect(headers[0].getAttribute("data-testid")).toBe("integration-header-lgp");
-    expect(headers[1].getAttribute("data-testid")).toBe("integration-header-crewai");
+    expect(headers[0].getAttribute("data-testid")).toBe(
+      "integration-header-lgp",
+    );
+    expect(headers[1].getAttribute("data-testid")).toBe(
+      "integration-header-crewai",
+    );
   });
 
   it("renders depth chips for cells", () => {
@@ -186,6 +226,8 @@ describe("CellMatrix", () => {
     // Should only show lgp columns
     const headers = getAllByTestId(/^integration-header-/);
     expect(headers.length).toBe(1);
-    expect(headers[0].getAttribute("data-testid")).toBe("integration-header-lgp");
+    expect(headers[0].getAttribute("data-testid")).toBe(
+      "integration-header-lgp",
+    );
   });
 });

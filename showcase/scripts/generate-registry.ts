@@ -246,7 +246,10 @@ function determineCellStatus(
  * plus 17 starter cells. Parity tiers are auto-derived from manifest data.
  */
 function generateCatalog(
-  featureRegistry: { features: Array<{ id: string; name: string; category: string }>; categories: Array<{ id: string; name: string }> },
+  featureRegistry: {
+    features: Array<{ id: string; name: string; category: string }>;
+    categories: Array<{ id: string; name: string }>;
+  },
   integrations: Record<string, unknown>[],
 ): Catalog {
   // Build feature -> category lookup
@@ -294,7 +297,9 @@ function generateCatalog(
         feature: featureId,
         feature_name: featureNameMap.get(featureId) || null,
         category: categoryId,
-        category_name: categoryId ? (categoryNameMap.get(categoryId) || null) : null,
+        category_name: categoryId
+          ? categoryNameMap.get(categoryId) || null
+          : null,
         status,
         parity_tier: "not_wired", // placeholder, computed below
         max_depth: status === "unshipped" ? 0 : 4,
@@ -309,17 +314,26 @@ function generateCatalog(
   let referenceCount = -1;
   for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
     const count = wiredSet.size;
-    if (count > referenceCount || (count === referenceCount && slug < referenceSlug)) {
+    if (
+      count > referenceCount ||
+      (count === referenceCount && slug < referenceSlug)
+    ) {
       referenceSlug = slug;
       referenceCount = count;
     }
   }
 
-  const referenceWiredFeatures = wiredFeaturesPerIntegration.get(referenceSlug)!;
-  console.log(`\nCatalog: reference integration = ${referenceSlug} (${referenceCount} wired features)`);
+  const referenceWiredFeatures =
+    wiredFeaturesPerIntegration.get(referenceSlug)!;
+  console.log(
+    `\nCatalog: reference integration = ${referenceSlug} (${referenceCount} wired features)`,
+  );
 
   // Step 3: Compute parity tiers for each integration
-  const integrationTiers = new Map<string, "reference" | "at_parity" | "partial" | "minimal" | "not_wired">();
+  const integrationTiers = new Map<
+    string,
+    "reference" | "at_parity" | "partial" | "minimal" | "not_wired"
+  >();
 
   for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
     if (slug === referenceSlug) {
@@ -328,14 +342,18 @@ function generateCatalog(
     }
 
     // Check if this integration's wired features are a superset of the reference's
-    const isSuperset = [...referenceWiredFeatures].every((f) => wiredSet.has(f));
+    const isSuperset = [...referenceWiredFeatures].every((f) =>
+      wiredSet.has(f),
+    );
     if (isSuperset) {
       integrationTiers.set(slug, "at_parity");
       continue;
     }
 
     // Count intersection with reference's wired features
-    const intersectionSize = [...referenceWiredFeatures].filter((f) => wiredSet.has(f)).length;
+    const intersectionSize = [...referenceWiredFeatures].filter((f) =>
+      wiredSet.has(f),
+    ).length;
     if (intersectionSize >= 3) {
       integrationTiers.set(slug, "partial");
     } else if (intersectionSize >= 1) {
@@ -522,7 +540,9 @@ function main() {
   for (const dir of OUTPUT_DIRS) {
     const catalogPath = path.join(dir, "catalog.json");
     fs.writeFileSync(catalogPath, catalogJson);
-    console.log(`Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`);
+    console.log(
+      `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
+    );
   }
 }
 

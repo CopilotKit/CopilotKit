@@ -6,7 +6,11 @@
  */
 import { useMemo } from "react";
 import { ParityBadge, type ParityTier } from "./parity-badge";
-import { ParityMatrix, type IntegrationInfo, type FeatureInfo } from "./parity-matrix";
+import {
+  ParityMatrix,
+  type IntegrationInfo,
+  type FeatureInfo,
+} from "./parity-matrix";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
 import type { CatalogData } from "@/data/catalog-types";
@@ -33,7 +37,10 @@ function deriveCatalogViews(cells: CatalogData["cells"]) {
 
   for (const cell of cells) {
     if (cell.category !== null && !categoryMap.has(cell.category)) {
-      categoryMap.set(cell.category, { id: cell.category, name: cell.category_name ?? cell.category });
+      categoryMap.set(cell.category, {
+        id: cell.category,
+        name: cell.category_name ?? cell.category,
+      });
     }
     if (cell.feature !== null && !featureMap.has(cell.feature)) {
       featureMap.set(cell.feature, {

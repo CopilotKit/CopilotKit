@@ -84,10 +84,7 @@ export type LiveDimension =
   | "tools"
   | "e2e";
 
-function formatLabel(
-  dim: LiveDimension,
-  row: StatusRow | null,
-): string {
+function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (!row) return "?";
   if (dim === "health") {
     if (row.state === "green") return "up";

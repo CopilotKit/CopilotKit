@@ -93,7 +93,10 @@ export function ParityMatrix({
   }, [categories, features]);
 
   return (
-    <div data-testid="parity-matrix" className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+    <div
+      data-testid="parity-matrix"
+      className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]"
+    >
       <table className="border-collapse text-sm w-full">
         <thead>
           <tr>
@@ -132,8 +135,7 @@ export function ParityMatrix({
                 }).length
               );
             }, 0);
-            const totalInCat =
-              cat.features.length * sortedIntegrations.length;
+            const totalInCat = cat.features.length * sortedIntegrations.length;
 
             return (
               <tr key={cat.id}>
@@ -166,9 +168,7 @@ export function ParityMatrix({
                               </td>
                               <td className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center bg-purple-900/5">
                                 <DepthChip
-                                  depth={
-                                    refDepth.achieved as 0 | 1 | 2 | 3 | 4
-                                  }
+                                  depth={refDepth.achieved as 0 | 1 | 2 | 3 | 4}
                                   status={refStatus}
                                   regression={refDepth.isRegression}
                                 />
@@ -177,8 +177,7 @@ export function ParityMatrix({
                                 const cell = cellIndex.get(
                                   `${int.slug}/${feature.id}`,
                                 );
-                                const cellStatus =
-                                  cell?.status ?? "unshipped";
+                                const cellStatus = cell?.status ?? "unshipped";
                                 const depth = cell
                                   ? deriveDepth(cell, liveStatus)
                                   : { achieved: 0, isRegression: false };

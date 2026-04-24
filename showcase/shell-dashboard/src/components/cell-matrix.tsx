@@ -120,7 +120,10 @@ export function CellMatrix({
   };
 
   return (
-    <div data-testid="cell-matrix" className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+    <div
+      data-testid="cell-matrix"
+      className="overflow-auto rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]"
+    >
       <table className="border-collapse text-sm w-full">
         <thead>
           <tr>
@@ -203,9 +206,7 @@ export function CellMatrix({
                                   className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
                                 >
                                   <DepthChip
-                                    depth={
-                                      depth.achieved as 0 | 1 | 2 | 3 | 4
-                                    }
+                                    depth={depth.achieved as 0 | 1 | 2 | 3 | 4}
                                     status={cellStatus}
                                     regression={depth.isRegression}
                                   />

@@ -14,14 +14,11 @@ describe("ParityBadge", () => {
     { tier: "not_wired", label: "NOT WIRED", colorHint: "text-muted" },
   ];
 
-  it.each(tiers)(
-    "renders $label for tier=$tier",
-    ({ tier, label }) => {
-      const { getByTestId } = render(<ParityBadge tier={tier} />);
-      const badge = getByTestId("parity-badge");
-      expect(badge.textContent).toBe(label);
-    },
-  );
+  it.each(tiers)("renders $label for tier=$tier", ({ tier, label }) => {
+    const { getByTestId } = render(<ParityBadge tier={tier} />);
+    const badge = getByTestId("parity-badge");
+    expect(badge.textContent).toBe(label);
+  });
 
   it.each(tiers)(
     "uses correct color class for tier=$tier",

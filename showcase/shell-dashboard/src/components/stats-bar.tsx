@@ -22,7 +22,10 @@ function Stat({
   colorClass?: string;
 }) {
   return (
-    <div className="flex flex-col items-center" data-testid={`stat-${label.toLowerCase()}`}>
+    <div
+      className="flex flex-col items-center"
+      data-testid={`stat-${label.toLowerCase()}`}
+    >
       <span
         className={`text-2xl font-bold tabular-nums ${colorClass ?? "text-[var(--text)]"}`}
       >
@@ -43,18 +46,25 @@ export function StatsBar({
   regressions,
 }: StatsBarProps) {
   return (
-    <div
-      data-testid="stats-bar"
-      className="flex items-center gap-8 px-4 py-3"
-    >
+    <div data-testid="stats-bar" className="flex items-center gap-8 px-4 py-3">
       <Stat value={wired} label="Wired" colorClass="text-[var(--ok)]" />
       <Stat value={stub} label="Stub" colorClass="text-[var(--amber)]" />
-      <Stat value={unshipped} label="Unshipped" colorClass="text-[var(--text-muted)]" />
-      <Stat value={`D${maxDepth}`} label="Max Depth" colorClass="text-[var(--accent)]" />
+      <Stat
+        value={unshipped}
+        label="Unshipped"
+        colorClass="text-[var(--text-muted)]"
+      />
+      <Stat
+        value={`D${maxDepth}`}
+        label="Max Depth"
+        colorClass="text-[var(--accent)]"
+      />
       <Stat
         value={regressions}
         label="Regressions"
-        colorClass={regressions > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}
+        colorClass={
+          regressions > 0 ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
+        }
       />
     </div>
   );

@@ -5,7 +5,11 @@
  */
 import { useMemo } from "react";
 import { getPackages, type Package } from "@/lib/registry";
-import { keyFor, type ConnectionStatus, type LiveStatusMap } from "@/lib/live-status";
+import {
+  keyFor,
+  type ConnectionStatus,
+  type LiveStatusMap,
+} from "@/lib/live-status";
 import { LevelStrip } from "@/components/level-strip";
 import { DepthChip } from "@/components/depth-chip";
 
@@ -45,10 +49,7 @@ function derivePackageDepth(
 
   const chat = liveStatus.get(keyFor("chat", slug));
   const tools = liveStatus.get(keyFor("tools", slug));
-  if (
-    (chat && chat.state === "green") ||
-    (tools && tools.state === "green")
-  ) {
+  if ((chat && chat.state === "green") || (tools && tools.state === "green")) {
     return 4;
   }
 
@@ -62,7 +63,10 @@ export interface PackagesSectionProps {
   connection: ConnectionStatus;
 }
 
-export function PackagesSection({ liveStatus, connection }: PackagesSectionProps) {
+export function PackagesSection({
+  liveStatus,
+  connection,
+}: PackagesSectionProps) {
   const packages = useMemo(() => getPackages(), []);
 
   if (packages.length === 0) return null;

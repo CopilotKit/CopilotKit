@@ -43,7 +43,10 @@ function isGreen(live: LiveStatusMap, key: string): boolean {
  * The walk is contiguous: if D1 is not green, achieved = D0 regardless
  * of D2/D3/D4 status (short-circuit).
  */
-export function deriveDepth(cell: CatalogCell, live: LiveStatusMap): DepthResult {
+export function deriveDepth(
+  cell: CatalogCell,
+  live: LiveStatusMap,
+): DepthResult {
   // Unshipped cells never advance past D0.
   if (cell.status === "unshipped") {
     return { achieved: 0, isRegression: false };

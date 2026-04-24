@@ -32,7 +32,10 @@ export function FilterChips({ onChange, initial = "all" }: FilterChipsProps) {
   };
 
   return (
-    <div data-testid="filter-chips" className="flex items-center gap-2 flex-wrap">
+    <div
+      data-testid="filter-chips"
+      className="flex items-center gap-2 flex-wrap"
+    >
       {FILTERS.map((f) => (
         <button
           key={f.id}

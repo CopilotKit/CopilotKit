@@ -7,13 +7,16 @@ import { render } from "@testing-library/react";
 import { DepthChip } from "../depth-chip";
 
 describe("DepthChip", () => {
-  it.each([0, 1, 2, 3, 4])("renders D%i for depth=%i with wired status", (depth) => {
-    const { getByTestId } = render(
-      <DepthChip depth={depth as 0 | 1 | 2 | 3 | 4} status="wired" />,
-    );
-    const chip = getByTestId("depth-chip");
-    expect(chip.textContent).toBe(`D${depth}`);
-  });
+  it.each([0, 1, 2, 3, 4])(
+    "renders D%i for depth=%i with wired status",
+    (depth) => {
+      const { getByTestId } = render(
+        <DepthChip depth={depth as 0 | 1 | 2 | 3 | 4} status="wired" />,
+      );
+      const chip = getByTestId("depth-chip");
+      expect(chip.textContent).toBe(`D${depth}`);
+    },
+  );
 
   it("renders D0 with gray background class", () => {
     const { getByTestId } = render(<DepthChip depth={0} status="wired" />);

@@ -9,7 +9,11 @@ import { useMemo, useState } from "react";
 import { StatsBar } from "./stats-bar";
 import { CoverageBar } from "./coverage-bar";
 import { FilterChips, type FilterMode } from "./filter-chips";
-import { CellMatrix, type IntegrationInfo, type FeatureInfo } from "./cell-matrix";
+import {
+  CellMatrix,
+  type IntegrationInfo,
+  type FeatureInfo,
+} from "./cell-matrix";
 import { deriveDepth } from "./depth-utils";
 import type { LiveStatusMap, ConnectionStatus } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
@@ -29,7 +33,10 @@ function deriveCatalogViews(cells: CatalogData["cells"]) {
 
   for (const cell of cells) {
     if (cell.category !== null && !categoryMap.has(cell.category)) {
-      categoryMap.set(cell.category, { id: cell.category, name: cell.category_name ?? cell.category });
+      categoryMap.set(cell.category, {
+        id: cell.category,
+        name: cell.category_name ?? cell.category,
+      });
     }
     if (cell.feature !== null && !featureMap.has(cell.feature)) {
       featureMap.set(cell.feature, {
@@ -98,11 +105,7 @@ function computeDefaultOpenCategories(
   return result;
 }
 
-export function CellsView({
-  catalog,
-  liveStatus,
-  connection,
-}: CellsViewProps) {
+export function CellsView({ catalog, liveStatus, connection }: CellsViewProps) {
   const referenceSlug = catalog.metadata.reference;
   const { categories, features, integrations } = useMemo(
     () => deriveCatalogViews(catalog.cells),
@@ -113,7 +116,9 @@ export function CellsView({
   const stats = useMemo(() => {
     const wired = catalog.cells.filter((c) => c.status === "wired").length;
     const stub = catalog.cells.filter((c) => c.status === "stub").length;
-    const unshipped = catalog.cells.filter((c) => c.status === "unshipped").length;
+    const unshipped = catalog.cells.filter(
+      (c) => c.status === "unshipped",
+    ).length;
 
     // Max achieved depth across all cells
     let maxDepth = 0;

@@ -17,19 +17,14 @@ export type ParityTier =
   | "minimal"
   | "not_wired";
 
-const TIER_CONFIG: Record<
-  ParityTier,
-  { label: string; className: string }
-> = {
+const TIER_CONFIG: Record<ParityTier, { label: string; className: string }> = {
   reference: {
     label: "REF",
-    className:
-      "bg-purple-600/20 text-purple-400 border-purple-500/30",
+    className: "bg-purple-600/20 text-purple-400 border-purple-500/30",
   },
   at_parity: {
     label: "AT PARITY",
-    className:
-      "bg-[var(--ok)]/20 text-[var(--ok)] border-[var(--ok)]/30",
+    className: "bg-[var(--ok)]/20 text-[var(--ok)] border-[var(--ok)]/30",
   },
   partial: {
     label: "PARTIAL",
