@@ -3,7 +3,7 @@
  *
  * `createCopilotEndpointSingleRoute` is the legacy direct single-route entry
  * point, superseded by `createCopilotHonoHandler({ mode: "single-route" })`
- * but still exported. Its framework tag must be "hono-single".
+ * but still exported.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -20,16 +20,13 @@ function makeAgent(): AbstractAgent {
 
 describe("Hono single-route adapter — telemetry firing (integration)", () => {
   let captureSpy: ReturnType<typeof vi.spyOn>;
-  let setGlobalsSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-    setGlobalsSpy = vi.spyOn(telemetry, "setGlobalProperties");
   });
 
   afterEach(() => {
     captureSpy.mockRestore();
-    setGlobalsSpy.mockRestore();
   });
 
   it("fires instance_created on handler creation", async () => {
@@ -44,15 +41,6 @@ describe("Hono single-route adapter — telemetry firing (integration)", () => {
           "cloud.api_key_provided": false,
         }),
       );
-    });
-  });
-
-  it("tags events with framework=hono-single", () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
-    createCopilotEndpointSingleRoute({ runtime, basePath: "/api/copilotkit" });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "hono-single" },
     });
   });
 });

@@ -16,35 +16,18 @@ function makeRuntime(
 
 describe("fireInstanceCreatedTelemetry", () => {
   let captureSpy: ReturnType<typeof vi.spyOn>;
-  let setGlobalsSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-    setGlobalsSpy = vi.spyOn(telemetry, "setGlobalProperties");
   });
 
   afterEach(() => {
     captureSpy.mockRestore();
-    setGlobalsSpy.mockRestore();
-  });
-
-  it("sets runtime.framework as a global property before capture", async () => {
-    fireInstanceCreatedTelemetry({
-      runtime: makeRuntime({ a1: {}, a2: {} }),
-      framework: "hono",
-    });
-
-    await vi.waitFor(() => expect(captureSpy).toHaveBeenCalled());
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "hono" },
-    });
   });
 
   it("captures instance_created with agent count from static agents record", async () => {
     fireInstanceCreatedTelemetry({
       runtime: makeRuntime({ a1: {}, a2: {}, a3: {} }),
-      framework: "express",
     });
 
     await vi.waitFor(() => expect(captureSpy).toHaveBeenCalled());
@@ -61,7 +44,6 @@ describe("fireInstanceCreatedTelemetry", () => {
   it("awaits Promise-based agents before capturing", async () => {
     fireInstanceCreatedTelemetry({
       runtime: makeRuntime(Promise.resolve({ only: {} })),
-      framework: "hono-single",
     });
 
     await vi.waitFor(() => expect(captureSpy).toHaveBeenCalled());
@@ -73,7 +55,6 @@ describe("fireInstanceCreatedTelemetry", () => {
   it("reports agentsAmount: null when agents is a factory (cannot resolve without request)", async () => {
     fireInstanceCreatedTelemetry({
       runtime: makeRuntime(() => ({ x: {} })),
-      framework: "express-single",
     });
 
     await vi.waitFor(() => expect(captureSpy).toHaveBeenCalled());
@@ -85,7 +66,6 @@ describe("fireInstanceCreatedTelemetry", () => {
   it("does not hardcode cloud.api_key_provided — it is false at handler-creation time by design (key arrives per-request via header)", async () => {
     fireInstanceCreatedTelemetry({
       runtime: makeRuntime({ a1: {} }),
-      framework: "hono",
     });
 
     await vi.waitFor(() => expect(captureSpy).toHaveBeenCalled());
@@ -106,7 +86,6 @@ describe("fireInstanceCreatedTelemetry", () => {
     expect(() =>
       fireInstanceCreatedTelemetry({
         runtime: makeRuntime(rejectingAgents as any),
-        framework: "hono",
       }),
     ).not.toThrow();
 

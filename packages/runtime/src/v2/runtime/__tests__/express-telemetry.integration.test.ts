@@ -36,16 +36,13 @@ function makeRuntime() {
 
 describe("Express adapter — telemetry firing (integration)", () => {
   let captureSpy: ReturnType<typeof vi.spyOn>;
-  let setGlobalsSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-    setGlobalsSpy = vi.spyOn(telemetry, "setGlobalProperties");
   });
 
   afterEach(() => {
     captureSpy.mockRestore();
-    setGlobalsSpy.mockRestore();
   });
 
   it("fires instance_created on handler creation (multi-route)", async () => {
@@ -60,28 +57,6 @@ describe("Express adapter — telemetry firing (integration)", () => {
           "cloud.api_key_provided": false,
         }),
       );
-    });
-  });
-
-  it("tags events with framework=express for multi-route mode", () => {
-    const runtime = makeRuntime();
-    createCopilotExpressHandler({ runtime, basePath: "/" });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "express" },
-    });
-  });
-
-  it("tags events with framework=express-single when mode is single-route", () => {
-    const runtime = makeRuntime();
-    createCopilotExpressHandler({
-      runtime,
-      basePath: "/api/copilotkit",
-      mode: "single-route",
-    });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "express-single" },
     });
   });
 

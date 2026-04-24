@@ -65,7 +65,6 @@ export function createCopilotHonoHandler({
     mode,
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
-    framework: mode === "single-route" ? "hono-single" : "hono",
   });
 
   const app = new Hono();

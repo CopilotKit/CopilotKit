@@ -36,7 +36,6 @@ export function createCopilotEndpointSingleRoute({
     mode: "single-route",
     cors: corsConfig ? toFetchCorsConfig(corsConfig) : true,
     hooks,
-    framework: "hono-single",
   });
 
   const app = new Hono();

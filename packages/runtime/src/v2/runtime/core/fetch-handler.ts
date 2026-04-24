@@ -100,15 +100,6 @@ export interface CopilotRuntimeHandlerOptions {
    * Lifecycle hooks for request processing.
    */
   hooks?: CopilotRuntimeHooks;
-
-  /**
-   * Adapter/framework label (e.g. "hono", "express"). Adapters pass this so
-   * `oss.runtime.instance_created` telemetry and every subsequent event can
-   * be tagged with `runtime.framework`. Defaults to "unknown" when omitted,
-   * which preserves backward compatibility for any external caller invoking
-   * `createCopilotRuntimeHandler` directly.
-   */
-  framework?: string;
 }
 
 export type CopilotRuntimeFetchHandler = (
@@ -122,16 +113,9 @@ export type CopilotRuntimeFetchHandler = (
 export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
-  const {
-    runtime,
-    basePath,
-    mode = "multi-route",
-    cors,
-    hooks,
-    framework = "unknown",
-  } = options;
+  const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
 
-  fireInstanceCreatedTelemetry({ runtime, framework });
+  fireInstanceCreatedTelemetry({ runtime });
 
   const corsConfig = resolveCorsConfig(cors);
 

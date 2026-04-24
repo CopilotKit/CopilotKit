@@ -3,8 +3,7 @@
  *
  * Asserts both ends of the path-to-production chain that the v2 refactor
  * previously broke (2ac4a40b5, 2026-03-29):
- *   1. `oss.runtime.instance_created` fires once per handler factory with
- *      `runtime.framework` correctly set per mode ("hono" / "hono-single").
+ *   1. `oss.runtime.instance_created` fires once per handler factory.
  *   2. `oss.runtime.copilot_request_created` fires when a real HTTP request
  *      flows through the handler.
  *
@@ -27,16 +26,13 @@ function makeAgent(): AbstractAgent {
 
 describe("Hono adapter — telemetry firing (integration)", () => {
   let captureSpy: ReturnType<typeof vi.spyOn>;
-  let setGlobalsSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-    setGlobalsSpy = vi.spyOn(telemetry, "setGlobalProperties");
   });
 
   afterEach(() => {
     captureSpy.mockRestore();
-    setGlobalsSpy.mockRestore();
   });
 
   it("fires instance_created on handler creation (multi-route)", async () => {
@@ -53,28 +49,6 @@ describe("Hono adapter — telemetry firing (integration)", () => {
           "cloud.api_key_provided": false,
         }),
       );
-    });
-  });
-
-  it("tags subsequent events with framework=hono for multi-route mode", () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
-    createCopilotHonoHandler({ runtime, basePath: "/" });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "hono" },
-    });
-  });
-
-  it("tags events with framework=hono-single when mode is single-route", () => {
-    const runtime = new CopilotRuntime({ agents: { default: makeAgent() } });
-    createCopilotHonoHandler({
-      runtime,
-      basePath: "/api/copilotkit",
-      mode: "single-route",
-    });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "hono-single" },
     });
   });
 

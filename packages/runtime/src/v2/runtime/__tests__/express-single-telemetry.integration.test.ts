@@ -1,8 +1,7 @@
 /**
  * Integration test: Express single-route adapter (deprecated convenience
  * wrapper) + telemetry. This adapter delegates to createCopilotExpressHandler
- * with mode: "single-route" — the framework tag must still come through as
- * "express-single".
+ * with mode: "single-route".
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
@@ -37,16 +36,13 @@ function makeRuntime() {
 
 describe("Express single-route adapter — telemetry firing (integration)", () => {
   let captureSpy: ReturnType<typeof vi.spyOn>;
-  let setGlobalsSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     captureSpy = vi.spyOn(telemetry, "capture").mockResolvedValue(undefined);
-    setGlobalsSpy = vi.spyOn(telemetry, "setGlobalProperties");
   });
 
   afterEach(() => {
     captureSpy.mockRestore();
-    setGlobalsSpy.mockRestore();
   });
 
   it("fires instance_created on handler creation", async () => {
@@ -64,18 +60,6 @@ describe("Express single-route adapter — telemetry firing (integration)", () =
           "cloud.api_key_provided": false,
         }),
       );
-    });
-  });
-
-  it("tags events with framework=express-single", () => {
-    const runtime = makeRuntime();
-    createCopilotEndpointSingleRouteExpress({
-      runtime,
-      basePath: "/api/copilotkit",
-    });
-
-    expect(setGlobalsSpy).toHaveBeenCalledWith({
-      runtime: { framework: "express-single" },
     });
   });
 });

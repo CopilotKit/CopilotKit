@@ -1,5 +1,4 @@
 import { AnalyticsEvents } from "./events";
-import { flattenObject } from "./utils";
 import scarfClient from "./scarf-client";
 
 export function isTelemetryDisabled(): boolean {
@@ -15,7 +14,6 @@ export function isTelemetryDisabled(): boolean {
 }
 
 export class TelemetryClient {
-  globalProperties: Record<string, any> = {};
   private telemetryDisabled: boolean = false;
   private sampleRate: number = 0.05;
 
@@ -51,14 +49,6 @@ export class TelemetryClient {
     });
   }
 
-  setGlobalProperties(properties: Record<string, any>) {
-    const flattenedProperties = flattenObject(properties);
-    this.globalProperties = {
-      ...this.globalProperties,
-      ...flattenedProperties,
-    };
-  }
-
   private setSampleRate(sampleRate: number | undefined) {
     let _sampleRate: number;
 
@@ -73,11 +63,6 @@ export class TelemetryClient {
     }
 
     this.sampleRate = _sampleRate;
-    this.setGlobalProperties({
-      sampleRate: this.sampleRate,
-      sampleRateAdjustmentFactor: 1 - this.sampleRate,
-      sampleWeight: 1 / this.sampleRate,
-    });
   }
 }
 

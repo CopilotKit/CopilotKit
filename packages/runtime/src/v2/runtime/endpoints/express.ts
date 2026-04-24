@@ -103,7 +103,6 @@ export function createCopilotExpressHandler({
     mode,
     cors: false, // CORS is handled at the Express middleware layer
     hooks,
-    framework: mode === "single-route" ? "express-single" : "express",
   });
 
   const nodeHandler = createExpressNodeHandler(handler);
