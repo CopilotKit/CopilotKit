@@ -33,9 +33,7 @@ interface RunnerStartupBoundary {
 }
 
 interface RunnerWithStartupBoundary {
-  runWithStartupBoundary(
-    request: AgentRunnerRunRequest,
-  ): RunnerStartupBoundary;
+  runWithStartupBoundary(request: AgentRunnerRunRequest): RunnerStartupBoundary;
 }
 
 function hasRunnerStartupBoundary(
@@ -236,9 +234,7 @@ export async function handleIntelligenceRun({
     threadId: canonicalThreadId,
     agent,
     input: canonicalInput,
-    ...(persistedInputMessages !== undefined
-      ? { persistedInputMessages }
-      : {}),
+    ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
   };
 
   try {

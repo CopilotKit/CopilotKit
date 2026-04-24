@@ -631,7 +631,9 @@ describe("IntelligenceAgentRunner", () => {
         } as RunFinishedEvent,
       ]);
 
-      const eventsPromise = collectEvents(runner.run({ threadId, agent, input }));
+      const eventsPromise = collectEvents(
+        runner.run({ threadId, agent, input }),
+      );
       const ch = mockChannels[0];
       expect(ch.topic).toBe("ingestion:r-jc");
       expect(ch.params).toEqual({ thread_id: threadId, run_id: "r-jc" });
