@@ -13,8 +13,16 @@ try {
   const reactPkgPath = localRequire.resolve("react/package.json");
   const reactPkg = JSON.parse(readFileSync(reactPkgPath, "utf8"));
   reactHasNoExportsField = !reactPkg.exports;
-} catch {
-  // ignore — fall through with default (no alias)
+} catch (err) {
+  // Don't silently skip — if React isn't resolvable or is corrupt, downstream
+  // errors ("Cannot find module 'react/jsx-runtime'", missing polyfills) are
+  // cryptic. Surface the root cause so the R17 leg fails loudly on a broken
+  // install instead of appearing to "just not be R17".
+  console.warn(
+    "[vitest.config] Could not detect React version; R17-only aliases and",
+    "polyfills will be skipped.",
+    err,
+  );
 }
 
 export default defineConfig({
