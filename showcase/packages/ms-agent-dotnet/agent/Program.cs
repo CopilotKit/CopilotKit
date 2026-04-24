@@ -30,15 +30,12 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 
-// Additional demo agents mounted at dedicated paths. Each factory is a thin
-// wrapper around `ChatClientAgent` with its own system prompt — kept
-// separate from `SalesAgentFactory` so their prompts / tool sets can evolve
-// independently without risking the shared sales pipeline behavior.
-var mcpAppsFactory = new McpAppsAgentFactory(builder.Configuration, loggerFactory);
-app.MapAGUI("/mcp-apps", mcpAppsFactory.CreateMcpAppsAgent());
-
-var hitlInAppFactory = new HitlInAppAgentFactory(builder.Configuration, loggerFactory);
-app.MapAGUI("/hitl-in-app", hitlInAppFactory.CreateHitlInAppAgent());
+// Interrupt-adapted agent: mounted on its own path so the Next.js runtime
+// can proxy the `gen-ui-interrupt` and `interrupt-headless` demo names to
+// it. The two demos share this single backend — the differentiation happens
+// on the frontend (in-chat picker vs. headless/app-surface picker).
+var interruptAgentFactory = new InterruptAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/interrupt-adapted", interruptAgentFactory.CreateInterruptAgent());
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
