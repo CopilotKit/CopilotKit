@@ -29,10 +29,8 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
-// Dedicated endpoint for the /demos/agent-config cell. The agent reads the
-// forwarded config (tone / expertise / responseLength) from the shared-state
-// payload and builds a system prompt per turn. See AgentConfigAgent.cs.
-app.MapAGUI("/agent-config", agentFactory.CreateAgentConfigAgent());
+app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
+app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
@@ -356,28 +354,21 @@ public class SalesAgentFactory
         return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions, _loggerFactory.CreateLogger<SharedStateAgent>());
     }
 
-    /// <summary>
-    /// Creates the agent backing the /demos/agent-config cell. This agent
-    /// carries no tools — its defining characteristic is that it reads the
-    /// forwarded <c>tone</c> / <c>expertise</c> / <c>responseLength</c> config
-    /// triple from shared state and dynamically rewrites its system prompt
-    /// per turn. See <see cref="AgentConfigAgent"/>.
-    /// </summary>
-    public AIAgent CreateAgentConfigAgent()
+    // Factory method for the Multimodal demo's vision-capable agent. Reuses
+    // the shared OpenAIClient so we don't re-resolve credentials for each
+    // mount. No tools — the chat model consumes attachments natively.
+    public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
+
+    // Factory method for the Beautiful Chat flagship demo. Holds its own
+    // per-factory tool surface + in-memory todo store so it doesn't
+    // interfere with the sales pipeline state owned by the main agent.
+    public AIAgent CreateBeautifulChatAgent()
     {
-        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-
-        var innerAgent = new ChatClientAgent(
-            chatClient,
-            name: "AgentConfigAgent",
-            // The inner agent's description is intentionally generic. The
-            // real, per-request system prompt is prepended by AgentConfigAgent
-            // using the forwarded config — this description is only a
-            // fallback for edge cases (e.g. the inner agent being driven
-            // outside the AG-UI pipeline).
-            description: "A helpful assistant whose tone, expertise level, and response length are configured at runtime from the frontend.");
-
-        return new AgentConfigAgent(innerAgent, _loggerFactory.CreateLogger<AgentConfigAgent>());
+        var factory = new BeautifulChatAgentFactory(
+            _openAiClient,
+            _jsonSerializerOptions,
+            _loggerFactory.CreateLogger<BeautifulChatAgentFactory>());
+        return factory.Create();
     }
 
     // =================
