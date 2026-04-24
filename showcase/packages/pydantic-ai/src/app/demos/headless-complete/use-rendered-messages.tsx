@@ -21,7 +21,6 @@ import {
 // reasoning support (or the core version is bumped), re-introduce it
 // around the user/activity branches in `renderMessageContent`.
 
-
 /**
  * Manual per-message composition for the TRULY headless chat cell.
  *
