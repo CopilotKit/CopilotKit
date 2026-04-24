@@ -39,8 +39,9 @@ Canonical list: 36 demos (excluding `cli-start`).
 - declarative-gen-ui (A2UI dynamic schema — reuses agent's `generate_a2ui` tool)
 - auth (dedicated `/api/copilotkit-auth` route with `onRequest` hook)
 - headless-complete (frontend-only, reuses unified runtime)
-- agent-config (frontend + dedicated route; Langroid backend does not yet
-  consume forwarded `properties` — see "Known limitations" below)
+- agent-config (frontend + dedicated route + backend wired end-to-end;
+  `forwardedProps.config.configurable.properties` steers the agent's
+  system prompt per run)
 
 ## Skipped — Langroid lacks the framework primitive
 
@@ -86,10 +87,6 @@ pick them up without re-litigating scope.
 
 ## Known limitations
 
-- **agent-config**: the frontend + runtime route are in place. The Langroid
-  backend (`src/agents/agui_adapter.py`) does not currently read
-  `RunAgentInput.forwarded_props` and pass them into the ChatAgent's system
-  prompt, so changing tone / expertise / response length in the config card
-  does not yet change agent behavior. Wiring this requires extending the
-  adapter to read forwarded props and the agent's system-prompt builder to
-  consume them — tracked as follow-up work.
+(none currently tracked — previous agent-config backend gap was closed by
+propagating upstream PR #4271's forwardedProps repack + backend system-
+prompt wiring.)
