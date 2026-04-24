@@ -40,6 +40,19 @@ const agentNames = [
   "tool-rendering-default-catchall",
   "tool-rendering-custom-catchall",
   "tool-rendering-reasoning-chain",
+  // Slot demos that reuse the default SalesAgent backend (mounted at `/` on
+  // the .NET side). Differentiation happens entirely on the frontend.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  // NOTE: `frontend_tools` uses an underscore to match the demo's expected
+  // agent name (the demo page passes `agent="frontend_tools"`).
+  "frontend_tools",
+  "frontend-tools-async",
+  "readonly-state-agent-context",
 ];
 
 // Interrupt-adapted demo agent names — these route to the separate .NET
