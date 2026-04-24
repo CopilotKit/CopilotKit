@@ -92,7 +92,7 @@ Canonical polished starter — ~9 files including charts, hooks, and a dedicated
 ### `tool-rendering-reasoning-chain` — architectural skip
 
 Requires a dedicated agent that emits sequential tool calls with **AG-UI
-REASONING_MESSAGE_\*** events interleaved. The `@ag-ui/mastra` adapter (see
+REASONING*MESSAGE*\*** events interleaved. The `@ag-ui/mastra` adapter (see
 `node_modules/@ag-ui/mastra`) does not currently emit any
 `REASONING_MESSAGE_START | CONTENT | END` events — a repository grep for
 those constants returns zero matches. Until the Mastra AG-UI bridge grows
@@ -112,7 +112,7 @@ MCP route. Deferred — the `headless-simple` port already exercises the core
   reasoning demos (`agentic-chat-reasoning`, `reasoning-default-render`)
   ship the slot-override wiring so the UI shape is correct, but the
   `@ag-ui/mastra` adapter does not emit AG-UI `REASONING_MESSAGE_START |
-  CONTENT | END` events — the slot will therefore never receive tokens in
+CONTENT | END` events — the slot will therefore never receive tokens in
   practice. These demos are kept in-tree for shape/compile coverage and so
   the slot-override pattern is visible to showcase readers, but operators
   should treat them as **cosmetic** until the Mastra AG-UI bridge grows
