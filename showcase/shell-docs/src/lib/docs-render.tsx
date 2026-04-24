@@ -334,9 +334,7 @@ export function buildFrameworkOverridesNav(folder: string): NavNode[] {
           return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
         })
         .map((c) =>
-          c.type === "page"
-            ? { ...c, slug: c.slug.replace(prefix, "") }
-            : c,
+          c.type === "page" ? { ...c, slug: c.slug.replace(prefix, "") } : c,
         );
       if (children.length > 0) {
         filtered.push({ ...node, children });

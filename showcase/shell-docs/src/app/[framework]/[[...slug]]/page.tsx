@@ -471,8 +471,8 @@ function NotAvailableForFrameworkPage({
               Available in other integrations
             </div>
             <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-3">
-              <code>{slugPath}</code> is a topic specific to other
-              integrations. Pick one to continue reading:
+              <code>{slugPath}</code> is a topic specific to other integrations.
+              Pick one to continue reading:
             </p>
             <ul className="space-y-2">
               {availableIn.map((slug) => {

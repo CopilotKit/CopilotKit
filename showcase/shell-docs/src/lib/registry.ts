@@ -96,7 +96,7 @@ const DOCS_FOLDER_OVERRIDES: Record<string, string> = {
   "langgraph-typescript": "langgraph",
   "langgraph-fastapi": "langgraph",
   "google-adk": "adk",
-  "strands": "aws-strands",
+  strands: "aws-strands",
   "ms-agent-dotnet": "microsoft-agent-framework",
   "ms-agent-python": "microsoft-agent-framework",
 };
