@@ -115,6 +115,10 @@ jobs:
       - name: Verify installed React version matches matrix
         env:
           EXPECTED_REACT_VERSION: ${{ matrix.react }}
+        # Resolve from packages/react-core (which has react as a peerDep and
+        # therefore a node_modules/react symlink). The repo root doesn't
+        # declare react as a direct dep, so require('react') fails there.
+        working-directory: packages/react-core
         run: |
           INSTALLED=$(node -e "console.log(require('react/package.json').version)")
           # matrix.react is an exact version ("17.0.2" etc.) — exact match is correct.
