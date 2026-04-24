@@ -476,11 +476,6 @@ const config = {
         permanent: false,
       },
       {
-        source: '/ag-ui/:path*',
-        destination: 'https://docs.ag-ui.com/:path*',
-        permanent: false,
-      },
-      {
         source: '/connect-mcp-servers',
         destination: '/learn/connect-mcp-servers',
         permanent: true,
