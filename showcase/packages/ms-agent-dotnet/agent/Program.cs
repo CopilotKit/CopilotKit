@@ -29,6 +29,14 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// Interrupt-adapted agent: mounted on its own path so the Next.js runtime
+// can proxy the `gen-ui-interrupt` and `interrupt-headless` demo names to
+// it. The two demos share this single backend — the differentiation happens
+// on the frontend (in-chat picker vs. headless/app-surface picker).
+var interruptAgentFactory = new InterruptAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/interrupt-adapted", interruptAgentFactory.CreateInterruptAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();

@@ -17,6 +17,14 @@ function createAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/` });
 }
 
+// Interrupt-adapted backend — see agent/InterruptAgent.cs. This is a
+// SEPARATE .NET agent mounted at /interrupt-adapted so the `gen-ui-interrupt`
+// and `interrupt-headless` demos get tool-based approval-mode semantics
+// without polluting the sales agent's tool list.
+function createInterruptAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/interrupt-adapted` });
+}
+
 // Register the same agent under all names used by demo pages.
 // The .NET backend exposes a single ProverbsAgent mapped at "/".
 const agentNames = [
@@ -31,9 +39,16 @@ const agentNames = [
   "subagents",
 ];
 
+// Interrupt-adapted demo agent names — these route to the separate .NET
+// InterruptAgent backend instead of the sales agent.
+const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
+
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
+}
+for (const name of interruptAgentNames) {
+  agents[name] = createInterruptAgent();
 }
 agents["default"] = createAgent();
 
