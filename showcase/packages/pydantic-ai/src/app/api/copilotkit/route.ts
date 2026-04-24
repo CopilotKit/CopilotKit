@@ -28,6 +28,28 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Prebuilt chat UI demos
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  "beautiful-chat",
+  // Frontend tool demos
+  "frontend-tools",
+  "frontend-tools-async",
+  "hitl-in-app",
+  // Generative UI demos
+  "declarative-gen-ui",
+  "a2ui-fixed-schema",
+  "open-gen-ui",
+  "open-gen-ui-advanced",
+  // Tool rendering variants
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  // Readonly state
+  "readonly-state-agent-context",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
