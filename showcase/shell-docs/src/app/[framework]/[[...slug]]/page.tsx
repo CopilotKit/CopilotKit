@@ -22,6 +22,7 @@ import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selecto
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
+  buildFrameworkOverridesNav,
   buildNavTree,
   findFrameworksWithCell,
   loadDoc,
@@ -53,6 +54,58 @@ const demos: Record<string, DemoRecord> = (
  */
 function frameworkHasCellFor(framework: string, cell: string): boolean {
   return Boolean(demos[`${framework}::${cell}`]);
+}
+
+/**
+ * Merge per-framework overrides into the root nav tree. The override
+ * block is inserted as a labeled section right after "App Control" in
+ * the root ordering — this mirrors upstream's `integrations/built-in-agent/
+ * meta.json`, which puts BIA-specific topics immediately after App
+ * Control (before Backend / Premium / Troubleshooting). Implementation:
+ * locate the "App Control" section and insert at the next section
+ * boundary. Fallbacks in order: insert before "Threads", "Backend", or
+ * append at the end.
+ */
+function mergeFrameworkNav(
+  rootNav: NavNode[],
+  overrideNav: NavNode[],
+  frameworkName: string,
+): NavNode[] {
+  if (overrideNav.length === 0) return rootNav;
+  const sectionHeader: NavNode = {
+    type: "section",
+    title: frameworkName,
+  };
+  const isSection = (n: NavNode, title: string) =>
+    n.type === "section" && n.title.toLowerCase() === title.toLowerCase();
+  const appControlIdx = rootNav.findIndex((n) => isSection(n, "app control"));
+  let insertAt = -1;
+  if (appControlIdx !== -1) {
+    // Find the next section after App Control; insert right before it
+    // so the override block lands between App Control's pages and
+    // whatever comes next.
+    for (let i = appControlIdx + 1; i < rootNav.length; i++) {
+      if (rootNav[i].type === "section") {
+        insertAt = i;
+        break;
+      }
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = rootNav.findIndex((n) => isSection(n, "threads"));
+  }
+  if (insertAt === -1) {
+    insertAt = rootNav.findIndex((n) => isSection(n, "backend"));
+  }
+  if (insertAt === -1) {
+    return [...rootNav, sectionHeader, ...overrideNav];
+  }
+  return [
+    ...rootNav.slice(0, insertAt),
+    sectionHeader,
+    ...overrideNav,
+    ...rootNav.slice(insertAt),
+  ];
 }
 
 export default async function FrameworkScopedDocsPage({
@@ -99,12 +152,43 @@ export default async function FrameworkScopedDocsPage({
     redirect(`/${framework}/${slugPath.slice("unselected/".length)}`);
   }
 
-  // When the page doesn't exist at all, 404.
-  const doc = loadDoc(slugPath);
+  // Load content:
+  //   1. Try root MDX — framework-agnostic page rendered with this
+  //      framework's override (Model 1, the primary path).
+  //   2. Fall back to a per-framework override at
+  //      `integrations/<framework>/<slug>.mdx` — used only for topics
+  //      that are genuinely framework-specific (e.g. Built-in Agent's
+  //      `copilot-runtime`, `server-tools`, etc.) and have no root
+  //      equivalent.
+  //   3. Otherwise 404.
+  // Try root MDX first (Model 1 default). If missing, fall back to a
+  // per-framework override at `integrations/<framework>/<slug>.mdx`
+  // and record its content path so DocsPageView loads from there.
+  let contentSlugPath: string = slugPath;
+  let doc = loadDoc(slugPath);
+  if (!doc) {
+    const fallbackPath = `integrations/${framework}/${slugPath}`;
+    doc = loadDoc(fallbackPath);
+    if (doc) contentSlugPath = fallbackPath;
+  }
   if (!doc) notFound();
 
   const backLink = { label: "\u2190 All docs", href: "/" };
-  const navTree = buildNavTree(CONTENT_DIR);
+
+  // Sidebar nav = root nav + per-framework overrides inserted as a
+  // dedicated section named after the framework. The overrides are
+  // topics that only exist in `integrations/<framework>/*` (not at
+  // root) \u2014 e.g. Built-in Agent's copilot-runtime, server-tools, etc.
+  // Position: after "App Control" / before "Backend", mirroring
+  // upstream's integrations/built-in-agent/meta.json ordering. If
+  // neither anchor section is present we fall back to appending.
+  const rootNav = buildNavTree(CONTENT_DIR);
+  const overrideNav = buildFrameworkOverridesNav(framework);
+  const navTree: NavNode[] = mergeFrameworkNav(
+    rootNav,
+    overrideNav,
+    integration.name,
+  );
 
   // Detect whether this page's default cell (the feature) has any
   // snippets tagged for the current framework. When it doesn't, show
@@ -165,6 +249,7 @@ export default async function FrameworkScopedDocsPage({
   return (
     <DocsPageView
       slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
       slugHrefPrefix={`/${framework}`}
       frameworkOverride={framework}
       sidebarTitle="CopilotKit Docs"
@@ -184,8 +269,10 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
   const integration = getIntegration(framework);
   if (!integration) notFound();
 
-  const navTree = buildNavTree(CONTENT_DIR);
-  const tree = navTree;
+  // Same nav merge as the scoped-page route.
+  const rootNav = buildNavTree(CONTENT_DIR);
+  const overrideNav = buildFrameworkOverridesNav(framework);
+  const tree = mergeFrameworkNav(rootNav, overrideNav, integration.name);
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 53px)" }}>

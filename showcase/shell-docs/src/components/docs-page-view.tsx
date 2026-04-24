@@ -33,6 +33,14 @@ export interface DocsPageViewProps {
   /** Slug path relative to `CONTENT_DIR` (no leading slash). */
   slugPath: string;
   /**
+   * Optional content path to load the MDX from, when it differs from
+   * `slugPath`. Used by the framework-scoped router when falling back
+   * from a missing root page to a per-framework override (e.g. BIA
+   * serves `integrations/built-in-agent/server-tools.mdx` at the URL
+   * `/built-in-agent/server-tools`). Defaults to `slugPath`.
+   */
+  contentSlugPath?: string;
+  /**
    * Prefix used to build sidebar + breadcrumb hrefs.
    * - `/docs` for the classic docs route
    * - `/<framework>` for framework-scoped pages
@@ -61,6 +69,7 @@ export interface DocsPageViewProps {
 
 export async function DocsPageView({
   slugPath,
+  contentSlugPath,
   slugHrefPrefix,
   frameworkOverride,
   sidebarTitle = "CopilotKit Docs",
@@ -70,7 +79,7 @@ export async function DocsPageView({
   hideBody = false,
   ContentWrapper,
 }: DocsPageViewProps) {
-  const doc = loadDoc(slugPath);
+  const doc = loadDoc(contentSlugPath ?? slugPath);
   if (!doc) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-16 text-center">

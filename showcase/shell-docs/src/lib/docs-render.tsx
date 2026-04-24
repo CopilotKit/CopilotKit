@@ -288,6 +288,73 @@ export function buildNavTreeFromFilesystem(
   return nodes;
 }
 
+/**
+ * Walk `content/docs/integrations/<framework>/` and return NavNodes for
+ * pages that have NO root equivalent. These are framework-specific topics
+ * (e.g. Built-in Agent's `copilot-runtime`, `server-tools`) that live
+ * only in the per-framework tree and need their own sidebar entries.
+ * Pages that duplicate root files are skipped — root wins, and the
+ * framework view already renders the root MDX with a framework override.
+ */
+export function buildFrameworkOverridesNav(framework: string): NavNode[] {
+  const frameworkDir = path.join(
+    CONTENT_DIR,
+    "integrations",
+    framework,
+  );
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(
+    frameworkDir,
+    `integrations/${framework}`,
+  );
+
+  // Drop entries whose equivalent root file exists. Root wins when
+  // both are present — the per-framework tree is only an escape hatch
+  // for framework-specific topics, not an alternative rendering.
+  const filtered: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.type === "page") {
+      // node.slug looks like `integrations/<framework>/<topic>`.
+      // Strip the prefix to check the root-level equivalent.
+      const rootSlug = node.slug.replace(
+        `integrations/${framework}/`,
+        "",
+      );
+      const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+      const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+      if (fs.existsSync(rootMdx) || fs.existsSync(rootIndex)) continue;
+      // Rewrite the slug so the link points at /<framework>/<topic>,
+      // which the router resolves via its fallback to the same MDX.
+      filtered.push({ ...node, slug: rootSlug });
+    } else if (node.type === "group") {
+      // Recursively filter children of a group.
+      const children = node.children.filter((c) => {
+        if (c.type !== "page") return true;
+        const rootSlug = c.slug.replace(
+          `integrations/${framework}/`,
+          "",
+        );
+        const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+        const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+        return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
+      }).map((c) =>
+        c.type === "page"
+          ? {
+              ...c,
+              slug: c.slug.replace(`integrations/${framework}/`, ""),
+            }
+          : c,
+      );
+      if (children.length > 0) {
+        filtered.push({ ...node, children });
+      }
+    } else {
+      filtered.push(node);
+    }
+  }
+  return filtered;
+}
+
 // ---------------------------------------------------------------------------
 // Snippet inlining (same rules as the docs page)
 // ---------------------------------------------------------------------------
