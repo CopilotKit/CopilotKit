@@ -29,7 +29,12 @@ import {
   loadDoc,
   type NavNode,
 } from "@/lib/docs-render";
-import { getIntegration, getIntegrations, type Integration } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getIntegration,
+  getIntegrations,
+  type Integration,
+} from "@/lib/registry";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
 
@@ -166,10 +171,18 @@ export default async function FrameworkScopedDocsPage({
   //      render a "not available for <framework>" fallback inside the
   //      docs shell (handled below, after the nav is built).
   //   4. Otherwise 404.
+  // Most registry slugs map 1:1 to a folder under `integrations/`, but
+  // language/runtime variants share a single docs folder:
+  // langgraph-python/typescript/fastapi → `langgraph/`, ms-agent-dotnet/
+  // python → `microsoft-agent-framework/`, plus legacy renames for
+  // google-adk → `adk/` and strands → `aws-strands/`. Resolve the URL
+  // slug to its docs folder before touching disk.
+  const docsFolder = getDocsFolder(framework);
+
   let contentSlugPath: string = slugPath;
   let doc = loadDoc(slugPath);
   if (!doc) {
-    const fallbackPath = `integrations/${framework}/${slugPath}`;
+    const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
     doc = loadDoc(fallbackPath);
     if (doc) contentSlugPath = fallbackPath;
   }
@@ -177,7 +190,7 @@ export default async function FrameworkScopedDocsPage({
   // Sidebar nav needs to render on both the happy path and the
   // "not available" fallback, so build it before branching.
   const rootNav = buildNavTree(CONTENT_DIR);
-  const overrideNav = buildFrameworkOverridesNav(framework);
+  const overrideNav = buildFrameworkOverridesNav(docsFolder);
   const navTree: NavNode[] = mergeFrameworkNav(
     rootNav,
     overrideNav,
@@ -192,7 +205,11 @@ export default async function FrameworkScopedDocsPage({
     // user keeps their framework context and gets a clear path
     // forward. Only 404 when the slug is unknown everywhere.
     const allFrameworkSlugs = getIntegrations().map((i) => i.slug);
-    const availableIn = findFrameworksWithPage(slugPath, allFrameworkSlugs);
+    const availableIn = findFrameworksWithPage(
+      slugPath,
+      allFrameworkSlugs,
+      getDocsFolder,
+    );
     if (availableIn.length > 0) {
       return (
         <NotAvailableForFrameworkPage
@@ -287,9 +304,10 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
   const integration = getIntegration(framework);
   if (!integration) notFound();
 
-  // Same nav merge as the scoped-page route.
+  // Same nav merge as the scoped-page route. Resolve the URL slug to
+  // its docs folder — see comment in FrameworkScopedDocsPage above.
   const rootNav = buildNavTree(CONTENT_DIR);
-  const overrideNav = buildFrameworkOverridesNav(framework);
+  const overrideNav = buildFrameworkOverridesNav(getDocsFolder(framework));
   const tree = mergeFrameworkNav(rootNav, overrideNav, integration.name);
 
   return (

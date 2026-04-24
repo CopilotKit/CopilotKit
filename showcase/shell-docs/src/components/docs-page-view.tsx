@@ -17,7 +17,9 @@ import { SidebarLink } from "@/components/sidebar-link";
 import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selector";
 import { Snippet } from "@/components/snippet";
 import { DocsToc } from "@/components/docs-toc";
+import { Tabs as DocsTabs } from "@/components/docs-tabs";
 import { docsComponents } from "@/lib/mdx-registry";
+import { getTabDefault } from "@/lib/registry";
 import {
   NavNode,
   buildBreadcrumbs,
@@ -235,6 +237,37 @@ export async function DocsPageView({
                           defaultCell={defaultCell}
                         />
                       ),
+                      // MDX pages author in-page variant selectors as
+                      // `<Tabs groupId="language_langgraph_agent" default="Python">`.
+                      // When the URL scope is a specific variant (e.g.
+                      // `/langgraph-typescript/*`), pre-select the
+                      // matching tab instead of the author's hardcoded
+                      // default so the code visible on arrival matches
+                      // the URL the user followed. Slugs without a
+                      // mapping (or tabs whose groupId isn't listed in
+                      // TAB_DEFAULTS_BY_SLUG) fall through to the MDX
+                      // `default` and the component's first-label
+                      // fallback unchanged.
+                      Tabs: (props: {
+                        groupId?: string;
+                        default?: string;
+                        items?: string[];
+                        children?: React.ReactNode;
+                        persist?: boolean;
+                      }) => {
+                        const urlDefault = getTabDefault(
+                          frameworkOverride ?? null,
+                          props.groupId,
+                        );
+                        return (
+                          <DocsTabs
+                            {...props}
+                            default={urlDefault ?? props.default}
+                          >
+                            {props.children}
+                          </DocsTabs>
+                        );
+                      },
                       InlineDemo: (props: Record<string, unknown>) => {
                         const InlineDemoComp = docsComponents.InlineDemo;
                         return (

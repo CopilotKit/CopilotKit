@@ -17,7 +17,26 @@ import React, { useState, useMemo, Children, isValidElement } from "react";
 
 interface TabsProps {
   items?: string[];
+  /**
+   * Initial active tab label. MDX authors write `default="Python"`
+   * (fumadocs convention); we also accept `defaultValue` for
+   * programmatic callers. Either name resolves the same initial tab.
+   */
+  default?: string;
   defaultValue?: string;
+  /**
+   * Author-supplied tab-group identifier used to key tab state across
+   * pages (e.g. "language_langgraph_agent"). Accepted for MDX source
+   * compatibility; the per-page `<Tabs>` override injected by
+   * DocsPageView reads it to compute URL-variant-driven defaults.
+   * Currently no persistence implemented.
+   */
+  groupId?: string;
+  /**
+   * Accepted for MDX source compatibility — fumadocs' persistent-tab
+   * feature. Not yet implemented here.
+   */
+  persist?: boolean;
   children: React.ReactNode;
 }
 
@@ -27,7 +46,12 @@ interface TabProps {
   children?: React.ReactNode;
 }
 
-export function Tabs({ items, defaultValue, children }: TabsProps) {
+export function Tabs({
+  items,
+  default: defaultProp,
+  defaultValue,
+  children,
+}: TabsProps) {
   // Discover tab labels from children when `items` isn't provided.
   const kids = useMemo(() => {
     const list: { label: string; content: React.ReactNode }[] = [];
@@ -42,7 +66,7 @@ export function Tabs({ items, defaultValue, children }: TabsProps) {
 
   const labels = items ?? kids.map((k) => k.label);
   const [active, setActive] = useState<string>(
-    defaultValue ?? labels[0] ?? "Tab",
+    defaultValue ?? defaultProp ?? labels[0] ?? "Tab",
   );
 
   return (
