@@ -22,6 +22,8 @@ const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",
@@ -33,6 +35,11 @@ const agentNames = [
   "chat-slots",
   "chat-customization-css",
   "headless-simple",
+  "frontend-tools",
+  "frontend-tools-async",
+  "hitl-in-app",
+  "readonly-state-agent-context",
+  "headless-complete",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
