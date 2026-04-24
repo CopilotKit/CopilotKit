@@ -357,11 +357,16 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
       expect(screen.getByTestId(`first-${messageId}`)).toBeDefined();
     });
 
-    // Only first renderer should execute since it returns a result. React 17
-    // may invoke it on extra renders (no automatic batching), so assert that
-    // `first` ran at least once and `second` never did.
-    expect(executionOrder).toContain("first");
-    expect(executionOrder).not.toContain("second");
+    // Only first renderer should execute since it returns a result.
+    const reactMajor = parseInt(React.version.split(".")[0], 10);
+    if (reactMajor >= 18) {
+      expect(executionOrder).toEqual(["first"]);
+    } else {
+      // React 17 may invoke the renderer on extra renders because automatic
+      // batching is absent. Assert the intent: `first` ran, `second` never did.
+      expect(executionOrder).toContain("first");
+      expect(executionOrder).not.toContain("second");
+    }
     expect(screen.queryByTestId(`second-${messageId}`)).toBeNull();
   });
 
@@ -688,12 +693,17 @@ describe("CopilotKitProvider custom message renderers E2E", () => {
     agent.emit(runFinishedEvent());
 
     await waitFor(() => {
-      // Under React 17 the renderer for the third turn can observe the turn=2
-      // state snapshot frozen in closure because effect batching differs. The
-      // renderer still runs across all turns, which is what this test is
-      // asserting; accept turn text in {2,3} for this specific assertion.
       const text = screen.getByTestId(`turn-${msg3}`).textContent;
-      expect(text).toMatch(/^Turn: (2|3)$/);
+      const reactMajor = parseInt(React.version.split(".")[0], 10);
+      if (reactMajor >= 18) {
+        expect(text).toBe("Turn: 3");
+      } else {
+        // Under React 17 the renderer for the third turn can observe the
+        // turn=2 state snapshot frozen in closure because effect batching
+        // differs. The renderer still runs across all turns, which is what
+        // this test is asserting; accept turn text in {2,3} only for R17.
+        expect(text).toMatch(/^Turn: (2|3)$/);
+      }
     });
 
     // Verify the renderer works across multiple turns
