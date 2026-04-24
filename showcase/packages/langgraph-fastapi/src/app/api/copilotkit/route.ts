@@ -21,7 +21,6 @@ function createAgent(graphId: string = "sample_agent") {
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
-  "tool-rendering",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",
@@ -34,6 +33,17 @@ const agents: Record<string, LangGraphAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+
+// Dedicated-graph agents for tool-rendering + reasoning demos.
+agents["tool-rendering"] = createAgent("tool_rendering");
+agents["tool-rendering-default-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-custom-catchall"] = createAgent("tool_rendering");
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "tool_rendering_reasoning_chain",
+);
+agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
+agents["reasoning-default-render"] = createAgent("reasoning_agent");
+
 agents["default"] = createAgent();
 
 console.log(
