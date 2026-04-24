@@ -31,6 +31,8 @@ from agents.open_gen_ui_agent import agent as open_gen_ui_agent
 from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
 from agents.a2ui_dynamic import EmptyState as A2UIDynamicState
 from agents.a2ui_dynamic import agent as a2ui_dynamic_agent
+from agents.a2ui_fixed import EmptyState as A2UIFixedState
+from agents.a2ui_fixed import agent as a2ui_fixed_agent
 
 load_dotenv()
 
@@ -67,6 +69,10 @@ app.mount("/open_gen_ui_advanced", open_gen_ui_advanced_agent.to_ag_ui())
 app.mount(
     "/a2ui_dynamic",
     a2ui_dynamic_agent.to_ag_ui(deps=StateDeps(A2UIDynamicState())),
+)
+app.mount(
+    "/a2ui_fixed",
+    a2ui_fixed_agent.to_ag_ui(deps=StateDeps(A2UIFixedState())),
 )
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────

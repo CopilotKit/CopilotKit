@@ -49,6 +49,7 @@ features:
   - open-gen-ui
   - open-gen-ui-advanced
   - declarative-gen-ui
+  - a2ui-fixed-schema
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -309,3 +310,18 @@ demos:
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
       - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
       - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: a2ui-fixed-schema
+    name: A2UI — Fixed Schema
+    description: Backend-authored JSON schema + frontend catalog renderers; agent streams only data
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_fixed.py
+      - src/agents/a2ui_schemas/flight_schema.json
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
