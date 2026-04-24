@@ -938,4 +938,66 @@ describe("handleRunAgent", () => {
       }
     });
   });
+
+  describe("telemetry", () => {
+    it("captures oss.runtime.copilot_request_created on every invocation", async () => {
+      // Dynamic import so we spy on the module singleton the handler uses.
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        await handleRunAgent({
+          runtime,
+          request: createMockRequest(),
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            requestType: "run",
+            "cloud.api_key_provided": false,
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+
+    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        const request = new Request("https://example.com/agent/test/run", {
+          method: "POST",
+          headers: {
+            "x-copilotcloud-public-api-key": "ck_pub_run_test",
+          },
+        });
+
+        await handleRunAgent({
+          runtime,
+          request,
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            "cloud.api_key_provided": true,
+            "cloud.public_api_key": "ck_pub_run_test",
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+  });
 });
