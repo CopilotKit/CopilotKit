@@ -9,12 +9,8 @@ export interface StandardSerializableSchema<Input, Output = Input> {
     ) => { value: Output } | { issues: ReadonlyArray<{ message: string }> };
     readonly types?: { readonly input: Input; readonly output: Output };
     readonly jsonSchema: {
-      readonly input: (options: {
-        target: string;
-      }) => Record<string, unknown>;
-      readonly output: (options: {
-        target: string;
-      }) => Record<string, unknown>;
+      readonly input: (options: { target: string }) => Record<string, unknown>;
+      readonly output: (options: { target: string }) => Record<string, unknown>;
     };
   };
 }
