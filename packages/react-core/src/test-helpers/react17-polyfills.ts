@@ -8,6 +8,26 @@
  *
  * This file is loaded as a vitest `setupFiles` entry only when the installed
  * React has no package `exports` field (i.e. React 17).
+ *
+ * ─── Removal criteria ────────────────────────────────────────────────────
+ * When CopilotKit drops React 17 support:
+ *   1. Delete this file.
+ *   2. Remove the `reactHasNoExportsField` conditionals in both
+ *      packages/react-core/vitest.config.mjs and
+ *      packages/a2ui-renderer/vitest.config.mjs (including the
+ *      setupFiles entry, the deps.inline: true branch, and the
+ *      react/jsx-runtime aliases).
+ *   3. Drop the react-version matrix axis in .github/workflows/test_unit.yml.
+ *   4. Remove the `use-sync-external-store/shim` usages in:
+ *        react-core/src/v2/hooks/{use-render-tool-call,use-threads}.tsx
+ *        a2ui-renderer/src/react-renderer/a2ui-react/{adapter,A2uiSurface}.tsx
+ *      and their package.json `use-sync-external-store` deps.
+ *   5. Revert the version-gated assertions in
+ *        src/v2/hooks/__tests__/use-human-in-the-loop.e2e.test.tsx
+ *        src/v2/providers/__tests__/CopilotKitProvider.renderCustomMessages.e2e.test.tsx
+ *   6. Drop src/test-helpers/render-hook.ts (tests can re-import
+ *      renderHook from @testing-library/react v13+) and
+ *      src/test-helpers/stub-window-location.ts (inline back to beforeEach).
  */
 import * as React from "react";
 
@@ -26,6 +46,13 @@ type ReactWithMissingApis = typeof React & {
 const ReactAny = React as ReactWithMissingApis;
 
 if (typeof ReactAny.useId !== "function") {
+  // NOTE: this polyfill is NOT semantically equivalent to React 18's useId.
+  // - The module-scoped counter is never reset between tests, so ids are
+  //   stable per mount but not reproducible across runs. Tests must not
+  //   assert on specific generated id values when running under R17.
+  // - React 18's useId is tree-position-based and SSR-safe; this counter is
+  //   mount-order-based and would produce hydration mismatches in SSR. Do
+  //   not copy this polyfill into library source.
   let counter = 0;
   ReactAny.useId = function useIdPolyfill() {
     const [id] = React.useState(() => `:r${(++counter).toString(36)}:`);

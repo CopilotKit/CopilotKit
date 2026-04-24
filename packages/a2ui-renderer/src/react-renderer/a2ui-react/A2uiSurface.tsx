@@ -15,6 +15,8 @@
  */
 
 import React, { memo, useMemo, useCallback } from "react";
+// Shim for React 17 compat (no native useSyncExternalStore on R17); do not
+// replace with react's built-in export.
 import { useSyncExternalStore } from "use-sync-external-store/shim";
 import {
   type SurfaceModel,
