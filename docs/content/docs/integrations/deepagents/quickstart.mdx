@@ -399,7 +399,7 @@ Before you begin, you'll need the following:
     <Step>
         ### Start your agent
 
-        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
+        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI', 'LangGraph with custom route']}>
             <Tab value="Deep Agent">
                 ```bash
                 npx @langchain/langgraph-cli dev --port 8123 --no-browser
@@ -408,6 +408,11 @@ Before you begin, you'll need the following:
             <Tab value="FastAPI">
                 ```bash
                 uv run main.py
+                ```
+            </Tab>
+            <Tab value="LangGraph with custom route">
+                ```bash
+                npx @langchain/langgraph-cli dev --port 8123 --no-browser
                 ```
             </Tab>
         </Tabs>
