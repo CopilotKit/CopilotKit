@@ -37,6 +37,9 @@ app.MapAGUI("/", agentFactory.CreateSalesAgent());
 var mcpAppsFactory = new McpAppsAgentFactory(builder.Configuration, loggerFactory);
 app.MapAGUI("/mcp-apps", mcpAppsFactory.CreateMcpAppsAgent());
 
+var hitlInAppFactory = new HitlInAppAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/hitl-in-app", hitlInAppFactory.CreateHitlInAppAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
