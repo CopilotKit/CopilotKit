@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.byoc_hashbrown_agent import create_byoc_hashbrown_agent
 
 load_dotenv()
 
@@ -65,6 +66,16 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# BYOC demos: mount BEFORE the root catch-all so their paths aren't shadowed.
+# `add_agent_framework_fastapi_endpoint(..., path="/")` installs a catch-all
+# at the root that would otherwise swallow `/byoc-hashbrown`.
+byoc_hashbrown_agent = create_byoc_hashbrown_agent(chat_client)
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=byoc_hashbrown_agent,
+    path="/byoc-hashbrown",
 )
 
 add_agent_framework_fastapi_endpoint(
