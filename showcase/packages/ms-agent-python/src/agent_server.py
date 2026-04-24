@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.interrupt_agent import create_interrupt_agent
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ def _build_chat_client() -> BaseChatClient:
 
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
+interrupt_agent = create_interrupt_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -65,6 +67,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Mount the interrupt-adapted scheduling agent BEFORE the root catch-all so
+# `/interrupt-adapted` resolves to it instead of being shadowed.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=interrupt_agent,
+    path="/interrupt-adapted",
 )
 
 add_agent_framework_fastapi_endpoint(
