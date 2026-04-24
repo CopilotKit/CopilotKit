@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.reasoning_agent import create_reasoning_agent
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ def _build_chat_client() -> BaseChatClient:
 
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
+reasoning_agent = create_reasoning_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -65,6 +67,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Register the reasoning agent FIRST at `/reasoning`. The root mount below is
+# a catch-all and would otherwise shadow any later-registered sub-path.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=reasoning_agent,
+    path="/reasoning",
 )
 
 add_agent_framework_fastapi_endpoint(
