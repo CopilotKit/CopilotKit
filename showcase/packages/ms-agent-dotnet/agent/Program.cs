@@ -29,8 +29,28 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
-app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
-app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
+
+// Reasoning agent — shared backend for the agentic-chat-reasoning and
+// reasoning-default-render demos. Uses the same GitHub-token-backed OpenAI
+// client as the sales agent but with a dedicated ChatClientAgent whose
+// system prompt forces <reasoning>...</reasoning> bracketed output, which
+// the ReasoningAgent wrapper reroutes into AG-UI reasoning events.
+{
+    var reasoningGithubToken = builder.Configuration["GitHubToken"]
+        ?? throw new InvalidOperationException(
+            "GitHubToken not found in configuration. " +
+            "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
+            "or get it using: gh auth token");
+    var reasoningEndpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL")
+        ?? "https://models.inference.ai.azure.com";
+    var reasoningOpenAiClient = new OpenAIClient(
+        new ApiKeyCredential(reasoningGithubToken),
+        new OpenAIClientOptions { Endpoint = new Uri(reasoningEndpoint) });
+    var reasoningChatClient = reasoningOpenAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+    var reasoningAgent = ReasoningAgentFactory.Create(reasoningChatClient, loggerFactory);
+    app.MapAGUI("/reasoning", reasoningAgent);
+}
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
