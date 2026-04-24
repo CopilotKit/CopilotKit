@@ -68,6 +68,12 @@ function makePage(script: PageScript = {}): E2ePage {
       }
       return "";
     },
+    async evaluate<R>(fn: () => R): Promise<R> {
+      // The evaluate() call in the driver reads the last assistant
+      // message's textContent via querySelectorAll. In the fake we
+      // return the same assistantText the old textContent path used.
+      return (script.assistantText ?? "") as unknown as R;
+    },
     async close() {
       /* no-op */
     },
@@ -211,23 +217,23 @@ describe("e2eSmokeDriver L3 (chat)", () => {
   it("polls for non-empty textContent when initial read is empty (streaming race)", async () => {
     // Simulates the race condition where CopilotKit renders the
     // assistant-message container before tokens stream in. The first
-    // two textContent reads return "" (container visible but empty);
+    // two evaluate() reads return "" (container visible but empty);
     // the third returns real text. The driver must poll and eventually
     // read the text rather than reporting "empty assistant response".
-    let textContentCalls = 0;
+    let evaluateCalls = 0;
     const delayedPage: E2ePage = {
       async goto() {},
       async type() {},
       async press() {},
       async waitForSelector() {},
-      async textContent(sel) {
-        if (sel === '[data-testid="copilot-assistant-message"]:last-of-type') {
-          textContentCalls++;
-          // First two calls return empty (tokens not yet streamed).
-          if (textContentCalls <= 2) return "";
-          return "Hello! Nice to meet you.";
-        }
+      async textContent() {
         return "";
+      },
+      async evaluate<R>(): Promise<R> {
+        evaluateCalls++;
+        // First two calls return empty (tokens not yet streamed).
+        if (evaluateCalls <= 2) return "" as unknown as R;
+        return "Hello! Nice to meet you." as unknown as R;
       },
       async close() {},
     };
@@ -257,7 +263,7 @@ describe("e2eSmokeDriver L3 (chat)", () => {
     const chatSig = chat?.signal as E2eSmokeLevelSignal;
     expect(chatSig.responseText).toBe("Hello! Nice to meet you.");
     // Must have polled more than once.
-    expect(textContentCalls).toBeGreaterThan(1);
+    expect(evaluateCalls).toBeGreaterThan(1);
   });
 
   it("falls back to body scraping when the assistant selector never resolves", async () => {
@@ -596,6 +602,9 @@ describe("e2eSmokeDriver starter shape", () => {
               async waitForSelector() {},
               async textContent() {
                 return "";
+              },
+              async evaluate<R>(): Promise<R> {
+                return "" as unknown as R;
               },
               async close() {},
             };
