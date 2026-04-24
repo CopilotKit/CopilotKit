@@ -1,16 +1,21 @@
 # LlamaIndex Parity Notes
 
-This package aligns with `showcase/packages/langgraph-python` in terms of demo coverage. The LlamaIndex package uses **AG-UI workflow routers** (`get_ag_ui_workflow_router`) as its backend primitive. The default router at `/` hosts the shared-tool agent that powers most demos; specialized routers (reasoning, A2UI dynamic/fixed, BYOC json-render, BYOC hashbrown, open-gen-ui, multimodal, voice, agent-config, beautiful-chat, auth, mcp-apps, tool-rendering-reasoning-chain) live at dedicated subpaths. Per-demo `agent.py` files in the demo directories are thin stubs pointing to the relevant backend module.
+This package aligns with `showcase/packages/langgraph-python` in terms of demo coverage. The LlamaIndex package uses **AG-UI workflow routers** (`get_ag_ui_workflow_router`) as its backend primitive. The default router at `/` hosts the shared-tool agent that powers most demos; specialized routers (reasoning, A2UI dynamic/fixed, BYOC json-render, BYOC hashbrown, open-gen-ui, multimodal, voice, agent-config, auth, mcp-apps, tool-rendering-reasoning-chain) live at dedicated subpaths. Per-demo `agent.py` files in the demo directories are thin stubs pointing to the relevant backend module.
 
 ## Skipped Demos
 
-The following demos are intentionally skipped because they depend on LangGraph-specific primitives for which LlamaIndex has no analogue.
+The following demos are intentionally skipped because they depend on LangGraph-specific primitives for which LlamaIndex has no analogue, or (for `beautiful-chat`) because the port requires significant design-system duplication best deferred to a dedicated follow-up.
 
-| Demo                 | Missing primitive                                                                                                  |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `cli-start`          | CLI template only — nothing to port in the dojo.                                                                   |
-| `gen-ui-interrupt`   | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive. |
-| `interrupt-headless` | Same `interrupt()` primitive dependency.                                                                           |
+| Demo | Missing primitive / reason |
+| --- | --- |
+| `cli-start` | CLI template only — nothing to port in the dojo. |
+| `gen-ui-interrupt` | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive. |
+| `interrupt-headless` | Same `interrupt()` primitive dependency as `gen-ui-interrupt`. |
+| `beautiful-chat` | Deferred: requires a large polished design-system (example-layout, example-canvas, generative-ui charts, suggestion hooks) that mirrors the landing starter; better landed as a dedicated follow-up to keep this PR focused on feature parity rather than UI duplication. |
+
+## Partial Ports
+
+- `agent-config`: The LangGraph graph reads `RunnableConfig.configurable.properties` to recompose the system prompt per turn. `get_ag_ui_workflow_router` does not yet expose the same hook surface, so the LlamaIndex port applies the default profile at startup and surfaces the provider wiring (`<CopilotKitProvider properties={...}>`) for parity of the client-side API. Dynamic per-turn recomposition is tracked as a follow-up.
 
 ## Ported Demos
 

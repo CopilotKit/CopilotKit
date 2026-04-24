@@ -19,8 +19,13 @@ from starlette.responses import JSONResponse
 from agents.agent import agent_router
 from agents.a2ui_dynamic import a2ui_dynamic_router
 from agents.a2ui_fixed import a2ui_fixed_router
+from agents.agent_config_agent import agent_config_router
 from agents.byoc_hashbrown_agent import byoc_hashbrown_router
 from agents.byoc_json_render_agent import byoc_json_render_router
+from agents.mcp_apps_agent import mcp_apps_router
+from agents.multimodal_agent import multimodal_router
+from agents.open_gen_ui_advanced_agent import open_gen_ui_advanced_router
+from agents.open_gen_ui_agent import open_gen_ui_router
 from agents.reasoning_agent import reasoning_router
 from agents.tool_rendering_reasoning_chain_agent import (
     tool_rendering_reasoning_chain_router,
@@ -65,6 +70,13 @@ app.include_router(a2ui_dynamic_router, prefix="/a2ui-dynamic")
 app.include_router(a2ui_fixed_router, prefix="/a2ui-fixed")
 app.include_router(byoc_json_render_router, prefix="/byoc-json-render")
 app.include_router(byoc_hashbrown_router, prefix="/byoc-hashbrown")
+app.include_router(agent_config_router, prefix="/agent-config")
+app.include_router(multimodal_router, prefix="/multimodal")
+app.include_router(open_gen_ui_router, prefix="/open-gen-ui")
+app.include_router(
+    open_gen_ui_advanced_router, prefix="/open-gen-ui-advanced"
+)
+app.include_router(mcp_apps_router, prefix="/mcp-apps")
 
 
 def main():
