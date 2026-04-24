@@ -27,9 +27,9 @@ function MainContent() {
       <p className="text-gray-600 max-w-xl">
         This page showcases the pre-built <code>&lt;CopilotSidebar /&gt;</code>{" "}
         component wired to a Mastra-backed agent. The sidebar is rendered
-        alongside this main content and can be toggled via its launcher
-        button. It opens by default to make the difference from the full-page
-        chat demo obvious.
+        alongside this main content and can be toggled via its launcher button.
+        It opens by default to make the difference from the full-page chat demo
+        obvious.
       </p>
     </main>
   );

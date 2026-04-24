@@ -113,7 +113,7 @@ MCP route. Deferred — the `headless-simple` port already exercises the core
   cross-contaminate. Full per-demo agent specialization is a follow-up.
 
 - **Reasoning tokens:** The Mastra weather agent is not guaranteed to emit
-  AG-UI REASONING_MESSAGE_* events. The two reasoning demos exercise the
+  AG-UI REASONING*MESSAGE*\* events. The two reasoning demos exercise the
   slot-override path but will not show reasoning content unless the
   underlying LLM produces reasoning output.
 

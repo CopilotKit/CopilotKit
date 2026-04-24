@@ -13,4 +13,4 @@
 
 ## Known Limitation
 
-The Mastra weather agent is not guaranteed to emit REASONING_MESSAGE_* AG-UI events by default. This demo exists primarily to exercise the slot-override path; on models without reasoning output the ReasoningBlock will simply not render and the chat falls back to normal assistant messages.
+The Mastra weather agent is not guaranteed to emit REASONING*MESSAGE*\* AG-UI events by default. This demo exists primarily to exercise the slot-override path; on models without reasoning output the ReasoningBlock will simply not render and the chat falls back to normal assistant messages.
