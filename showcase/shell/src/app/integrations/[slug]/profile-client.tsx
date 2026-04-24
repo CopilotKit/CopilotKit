@@ -8,45 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeRaw from "rehype-raw";
 import { DemoDrawer } from "@/components/demo-drawer";
-
-interface Demo {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  route?: string;
-  command?: string;
-  animated_preview_url?: string | null;
-}
-
-interface Integration {
-  name: string;
-  slug: string;
-  category: string;
-  language: string;
-  logo?: string;
-  description: string;
-  partner_docs: string | null;
-  repo: string;
-  copilotkit_version?: string;
-  backend_url: string;
-  deployed: boolean;
-  generative_ui?: string[];
-  interaction_modalities?: string[];
-  sort_order?: number;
-  managed_platform?: { name: string; url: string };
-  animated_preview_url?: string | null;
-  starter?: {
-    path: string;
-    name: string;
-    description?: string;
-    github_url?: string;
-    demo_url?: string;
-    clone_command?: string;
-  };
-  features: string[];
-  demos: Demo[];
-}
+import type { Demo, Integration } from "@/lib/registry";
 
 interface StarterFile {
   filename: string;
@@ -125,7 +87,15 @@ export function ProfileClient({
         setCopiedCommandId(demoId);
         setTimeout(() => setCopiedCommandId(null), 2000);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
+        // navigator.clipboard requires HTTPS — fall back to window.prompt so
+        // the user can still copy manually. Log the original failure so
+        // missing-clipboard-and-blocked-prompt double failures are
+        // diagnosable via devtools.
+        console.warn(
+          "[profile] clipboard write failed, falling back to prompt:",
+          err,
+        );
         window.prompt("Copy this command:", command);
       });
   }
@@ -490,7 +460,7 @@ export function ProfileClient({
           </section>
         )}
 
-        {/* Demos */}
+        {/* Live Demos */}
         {liveDemos.length > 0 && (
           <section className="mt-10">
             <h2 className="mb-4 text-xs font-mono uppercase tracking-widest text-[var(--text-muted)]">

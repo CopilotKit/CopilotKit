@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
+import type { Demo, Integration } from "@/lib/registry";
 
 type Tab = "preview" | "code" | "docs";
 
@@ -25,28 +26,29 @@ interface DemoContent {
 export default function DemoViewerPage() {
   const params = useParams<{ slug: string; demo: string }>();
   const [activeTab, setActiveTab] = useState<Tab>("preview");
-  const [integration, setIntegration] = useState<any>(null);
-  const [demo, setDemo] = useState<any>(null);
+  const [integration, setIntegration] = useState<Integration | null>(null);
+  const [demo, setDemo] = useState<Demo | null>(null);
   const [demoContent, setDemoContent] = useState<DemoContent | null>(null);
   const [activeFile, setActiveFile] = useState<number>(0);
 
   useEffect(() => {
     import("@/data/registry.json").then((mod) => {
-      const registry = mod.default as any;
-      const integ = registry.integrations.find(
-        (i: any) => i.slug === params.slug,
-      );
+      const registry = mod.default as { integrations: Integration[] };
+      const integ = registry.integrations.find((i) => i.slug === params.slug);
       if (integ) {
         setIntegration(integ);
-        setDemo(integ.demos.find((d: any) => d.id === params.demo));
+        setDemo(integ.demos.find((d) => d.id === params.demo) ?? null);
       }
     });
 
     import("@/data/demo-content.json").then((mod) => {
-      const content = mod.default as any;
+      const content = mod.default as {
+        demos: Record<string, DemoContent | undefined>;
+      };
       const key = `${params.slug}::${params.demo}`;
-      if (content.demos[key]) {
-        setDemoContent(content.demos[key]);
+      const entry = content.demos[key];
+      if (entry) {
+        setDemoContent(entry);
       }
     });
   }, [params.slug, params.demo]);
@@ -59,7 +61,12 @@ export default function DemoViewerPage() {
     );
   }
 
-  const iframeSrc = `${integration.backend_url}${demo.route}`;
+  // Command-only demos (e.g. `langgraph-python::cli-start`) have no
+  // `route`, so there's no iframe URL to build. Surface that explicitly
+  // rather than rendering `${backend_url}undefined`.
+  const iframeSrc = demo.route
+    ? `${integration.backend_url}${demo.route}`
+    : null;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "preview", label: "Preview" },
@@ -102,15 +109,37 @@ export default function DemoViewerPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-hidden rounded-xl border border-[var(--border)]">
-        {activeTab === "preview" && (
-          <iframe
-            src={iframeSrc}
-            className="h-full w-full border-0 rounded-xl"
-            title={`${demo.name} demo`}
-            allow="clipboard-read; clipboard-write"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          />
-        )}
+        {activeTab === "preview" &&
+          (iframeSrc ? (
+            <iframe
+              src={iframeSrc}
+              className="h-full w-full border-0 rounded-xl"
+              title={`${demo.name} demo`}
+              allow="clipboard-read; clipboard-write"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            />
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-[var(--text-muted)]">
+              <p className="text-sm font-semibold text-[var(--text)]">
+                No live preview for this demo
+              </p>
+              <p className="text-xs">
+                {demo.name} is a CLI-only demo. See the Docs tab or
+                {demo.command ? (
+                  <>
+                    {" "}
+                    run{" "}
+                    <code className="rounded bg-[var(--bg-elevated)] px-1.5 py-0.5 font-mono text-[var(--accent)]">
+                      {demo.command}
+                    </code>{" "}
+                    to get started.
+                  </>
+                ) : (
+                  " the integration page for instructions."
+                )}
+              </p>
+            </div>
+          ))}
 
         {activeTab === "code" && (
           <div className="flex h-full">
