@@ -3,7 +3,8 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "starterAgent": "./graph.ts:graph"
+    "starterAgent": "./graph.ts:graph",
+    "beautiful_chat": "./beautiful-chat.ts:graph"
   },
   "env": "../../.env"
 }
