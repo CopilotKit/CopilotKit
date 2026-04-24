@@ -18,8 +18,8 @@ test.describe("Reasoning (Default Render)", () => {
 
     // The built-in CopilotChatReasoningMessage primitive renders a card
     // with "Thought" (post-completion) or "Thinking" (while streaming) text.
-    await expect(
-      page.getByText(/thought|thinking/i).first(),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.getByText(/thought|thinking/i).first()).toBeVisible({
+      timeout: 60000,
+    });
   });
 });

@@ -32,8 +32,8 @@ test.describe("Authentication", () => {
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(
-      page.locator('[data-testid="auth-demo-error"]'),
-    ).toBeVisible({ timeout: 45000 });
+    await expect(page.locator('[data-testid="auth-demo-error"]')).toBeVisible({
+      timeout: 45000,
+    });
   });
 });

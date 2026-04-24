@@ -79,7 +79,9 @@ function Chat() {
         const parsed = parseJsonResult<WeatherResult>(result);
         const location =
           (props as { parameters?: { location?: string } }).parameters
-            ?.location ?? parsed.city ?? "";
+            ?.location ??
+          parsed.city ??
+          "";
         return (
           <WeatherCard
             loading={loading}
@@ -107,9 +109,8 @@ function Chat() {
       render: (props) => {
         const { status } = props;
         const loading = status !== "complete";
-        const flights = ((
-          props as { parameters?: { flights?: Flight[] } }
-        ).parameters?.flights ?? []) as Flight[];
+        const flights = ((props as { parameters?: { flights?: Flight[] } })
+          .parameters?.flights ?? []) as Flight[];
         return <FlightListCard loading={loading} flights={flights} />;
       },
     },

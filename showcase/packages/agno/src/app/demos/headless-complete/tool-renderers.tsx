@@ -44,7 +44,9 @@ export function useHeadlessCompleteToolRenderers() {
         }>(result);
         const location =
           (props as { parameters?: { location?: string } }).parameters
-            ?.location ?? parsed.city ?? "";
+            ?.location ??
+          parsed.city ??
+          "";
         return (
           <WeatherCard
             loading={loading}

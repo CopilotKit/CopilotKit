@@ -32,7 +32,9 @@ test.describe("Tool Rendering (Reasoning Chain)", () => {
 
     await expect(
       page
-        .locator('[data-testid="custom-catchall-card"][data-tool-name="roll_dice"]')
+        .locator(
+          '[data-testid="custom-catchall-card"][data-tool-name="roll_dice"]',
+        )
         .first(),
     ).toBeVisible({ timeout: 60000 });
   });
