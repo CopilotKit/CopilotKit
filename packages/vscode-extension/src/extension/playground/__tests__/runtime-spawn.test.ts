@@ -30,7 +30,10 @@ describe("spawnRuntime", () => {
     } finally {
       await handle.stop();
     }
-  }, 20_000);
+    // Windows cold-start of the subprocess (Node + @copilotkit/runtime +
+    // @ai-sdk/*) measured ~15s under load (full test suite running in
+    // parallel). 45s gives comfortable headroom.
+  }, 45_000);
 
   it("rejects when the subprocess fails to start within the timeout", async () => {
     await expect(

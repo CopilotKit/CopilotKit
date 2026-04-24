@@ -308,7 +308,9 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     },
-    createPlaygroundDeps(context, workspaceRoot ?? null),
+    createPlaygroundDeps(context, workspaceRoot ?? null, (line) =>
+      playgroundOutputChannel.appendLine(line),
+    ),
   );
   activePlaygroundProvider = playgroundProvider;
   context.subscriptions.push(

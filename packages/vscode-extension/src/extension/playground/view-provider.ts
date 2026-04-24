@@ -387,6 +387,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 export function createPlaygroundDeps(
   context: vscode.ExtensionContext,
   workspaceRoot: string | null,
+  log: (line: string) => void = () => {},
 ): PlaygroundDeps {
   return {
     writeSources: writePlaygroundSources,
@@ -399,7 +400,7 @@ export function createPlaygroundDeps(
         readEnvFile: parseEnvFile,
       }),
     startAimock,
-    spawnRuntime,
+    spawnRuntime: (opts) => spawnRuntime({ ...opts, logger: log }),
     runtimeEntryScript: vscode.Uri.joinPath(
       context.extensionUri,
       "dist",

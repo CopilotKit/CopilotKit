@@ -13,8 +13,23 @@ export interface RuntimeSpawnOptions {
   /** Absolute path to dist/runtime/subprocess-entry.cjs. */
   entryScript: string;
   config: RuntimeSpawnConfig;
-  /** Max milliseconds to wait for the ready line. Default: 5000. */
+  /**
+   * Max milliseconds to wait for the ready line. Default: 30000.
+   *
+   * Node cold-start on Windows loading `@copilotkit/runtime/v2` +
+   * `@ai-sdk/openai` + `@ai-sdk/anthropic` measured ~15s end-to-end (the
+   * dominant cost is the pnpm-resolved transitive require tree being fs-
+   * stat'd at startup, plus Windows stdout pipe buffering adding ~10s on
+   * top of the 2-3s actual require cost). 30s gives a comfortable margin.
+   */
   timeoutMs?: number;
+  /**
+   * Optional sink for stderr and diagnostic events. Without it, the child's
+   * stderr is silently dropped and the only feedback on failure is the
+   * terse "didn't ready in Nms" message, which hides real crashes (bad
+   * config JSON, module resolution failures, port bind errors, etc.).
+   */
+  logger?: (line: string) => void;
 }
 
 export interface RuntimeHandle {
@@ -37,10 +52,13 @@ export interface RuntimeHandle {
 export function spawnRuntime(
   options: RuntimeSpawnOptions,
 ): Promise<RuntimeHandle> {
-  const timeoutMs = options.timeoutMs ?? 5000;
+  const timeoutMs = options.timeoutMs ?? 30000;
+  const log = options.logger ?? (() => {});
   return new Promise((resolve, reject) => {
     let child: ChildProcess;
+    const startedAt = Date.now();
     try {
+      log(`[runtime-spawn] forking ${options.entryScript}`);
       child = spawn(process.execPath, [options.entryScript], {
         stdio: ["ignore", "pipe", "pipe"],
         env: {
@@ -54,6 +72,7 @@ export function spawnRuntime(
     }
 
     let stdoutBuf = "";
+    let stderrBuf = "";
     let settled = false;
 
     const settleError = (err: Error) => {
@@ -94,24 +113,51 @@ export function spawnRuntime(
     };
 
     const timer = setTimeout(() => {
+      const elapsed = Date.now() - startedAt;
+      const tail = stderrBuf.trim().slice(-500);
       settleError(
-        new Error(`Runtime subprocess didn't ready in ${timeoutMs}ms`),
+        new Error(
+          `Runtime subprocess didn't ready in ${timeoutMs}ms (elapsed=${elapsed}ms)` +
+            (tail ? `\nstderr tail: ${tail}` : ""),
+        ),
       );
     }, timeoutMs);
 
     child.stdout?.on("data", (chunk: Buffer) => {
       stdoutBuf += chunk.toString();
-      const newlineIdx = stdoutBuf.indexOf("\n");
-      if (newlineIdx < 0) return;
-      const firstLine = stdoutBuf.slice(0, newlineIdx).trim();
-      try {
-        const msg = JSON.parse(firstLine) as { ready?: boolean; port?: number };
-        if (msg.ready === true && typeof msg.port === "number") {
-          clearTimeout(timer);
-          settleOk(`http://127.0.0.1:${msg.port}`);
+      // Scan ALL complete lines — not just the first. Earlier versions only
+      // examined the first line, so if the child ever printed a non-ready
+      // line before ready (debug output, warnings), the actual ready line
+      // was missed forever. Consume lines and advance the buffer.
+      let newlineIdx: number;
+      while ((newlineIdx = stdoutBuf.indexOf("\n")) >= 0) {
+        const line = stdoutBuf.slice(0, newlineIdx).trim();
+        stdoutBuf = stdoutBuf.slice(newlineIdx + 1);
+        if (!line) continue;
+        try {
+          const msg = JSON.parse(line) as { ready?: boolean; port?: number };
+          if (msg.ready === true && typeof msg.port === "number") {
+            clearTimeout(timer);
+            log(
+              `[runtime-spawn] ready on port ${msg.port} after ${
+                Date.now() - startedAt
+              }ms`,
+            );
+            settleOk(`http://127.0.0.1:${msg.port}`);
+            return;
+          }
+        } catch {
+          log(`[runtime-spawn stdout] ${line}`);
         }
-      } catch {
-        /* not the ready line — keep buffering */
+      }
+    });
+
+    child.stderr?.on("data", (chunk: Buffer) => {
+      const text = chunk.toString();
+      stderrBuf += text;
+      for (const line of text.split("\n")) {
+        const trimmed = line.trim();
+        if (trimmed) log(`[runtime-spawn stderr] ${trimmed}`);
       }
     });
 
@@ -123,9 +169,11 @@ export function spawnRuntime(
     child.on("exit", (code, signal) => {
       clearTimeout(timer);
       if (!settled) {
+        const tail = stderrBuf.trim().slice(-500);
         settleError(
           new Error(
-            `Runtime subprocess exited before ready (code=${code}, signal=${signal})`,
+            `Runtime subprocess exited before ready (code=${code}, signal=${signal})` +
+              (tail ? `\nstderr tail: ${tail}` : ""),
           ),
         );
       }
