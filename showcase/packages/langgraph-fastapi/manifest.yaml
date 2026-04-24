@@ -40,6 +40,7 @@ features:
   - frontend-tools
   - frontend-tools-async
   - hitl-in-app
+  - readonly-state-agent-context
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -131,4 +132,15 @@ demos:
       - src/agents/src/hitl_in_app.py
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: readonly-state-agent-context
+    name: Readonly State (Agent Context)
+    description: Frontend provides read-only context to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/readonly-state-agent-context
+    animated_preview_url:
+    highlight:
+      - src/agents/src/readonly_state_agent_context.py
+      - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts

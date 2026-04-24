@@ -40,6 +40,9 @@ for (const name of agentNames) {
 agents["frontend_tools"] = createAgent("frontend_tools");
 agents["frontend-tools-async"] = createAgent("frontend_tools_async");
 agents["hitl-in-app"] = createAgent("hitl_in_app");
+agents["readonly-state-agent-context"] = createAgent(
+  "readonly_state_agent_context",
+);
 
 agents["default"] = createAgent();
 
