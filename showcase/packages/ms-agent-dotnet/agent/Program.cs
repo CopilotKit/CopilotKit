@@ -29,6 +29,15 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// Open-Ended Generative UI (minimal). The factory builds a ChatClientAgent
+// with an LLM-shaping system prompt; the agent exposes NO backend tools —
+// the `generateSandboxedUi` frontend tool is auto-registered by the
+// CopilotKit runtime's OGUI middleware and merged in via the normal AG-UI
+// flow. See OpenGenUiAgent.cs for details.
+var openGenUiFactory = new OpenGenUiAgentFactory(builder.Configuration);
+app.MapAGUI("/open-gen-ui", openGenUiFactory.CreateAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
