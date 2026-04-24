@@ -47,8 +47,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-The agent in the live showcase exposes a mock `get_weather` tool. This is the
-definition straight from the `tool-rendering` cell's Python backend:
+The agent in the live demo above exposes a mock `get_weather` tool. This is
+the definition straight from the Python backend:
 
 <Snippet region="weather-tool-backend" />
 
@@ -65,9 +65,9 @@ the UI.
   tool.
 </Callout>
 
-The showcase's `tool-rendering` cell uses a branded `<WeatherCard />`
-component to render the call — same pattern as the minimal example above,
-just wired to a richer UI:
+The example below uses a branded `<WeatherCard />` component to render
+the call — same pattern as the minimal example above, just wired to a
+richer UI:
 
 <Snippet region="render-weather-tool" />
 
@@ -76,9 +76,9 @@ just wired to a richer UI:
 ### Add a catch-all renderer (optional)
 
 For every other tool the agent calls, a single `useDefaultRenderTool`
-hook can provide a uniform fallback UI — this is exactly how the showcase
-handles `get_stock_price`, `roll_dice`, and any tool the agent might add
-later without a dedicated renderer:
+hook can provide a uniform fallback UI — this is exactly how the demo
+above handles `get_stock_price`, `roll_dice`, and any tool the agent might
+add later without a dedicated renderer:
 
 <Snippet region="catchall-renderer" />
 

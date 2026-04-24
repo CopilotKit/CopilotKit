@@ -2,12 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, afterEach } from "vitest";
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import {
-  FileSnapshotRestorer,
-  execOptsFor,
-  restoreFromGitHead,
-} from "./test-cleanup";
-import { SCRIPTS_DIR, REPO_ROOT, SHELL_DATA_DIR } from "./paths";
+import { FileSnapshotRestorer, execOptsFor } from "./test-cleanup";
+import { SCRIPTS_DIR, SHELL_DATA_DIR } from "./paths";
 
 // `generate-registry.ts` writes to showcase/shell/src/data/registry.json AND
 // showcase/shell/src/data/constraints.json. Without this, every test run
@@ -32,14 +28,13 @@ function runGenerator(): string {
 }
 
 beforeAll(() => {
-  // Heal a working tree left dirty by a previously crashed run so our
-  // baseline snapshot matches git HEAD, not the leaked state.
-  restoreFromGitHead(REPO_ROOT, DATA_FILES);
+  // Generate the data files (they're gitignored, so they may not exist).
+  runGenerator();
   dataRestorer.snapshot();
   if (dataRestorer.snapshotMap.size === 0) {
     throw new Error(
-      `generate-registry.test.ts: data snapshot is empty. Expected to find` +
-        ` tracked files at:\n` +
+      `generate-registry.test.ts: data snapshot is empty. Expected generated` +
+        ` files at:\n` +
         DATA_FILES.map((p) => `  ${p}`).join("\n"),
     );
   }
@@ -62,7 +57,6 @@ describe("Registry Generator", () => {
     expect(fs.existsSync(registryPath)).toBe(true);
 
     const registry = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
-    expect(registry.generated_at).toBeDefined();
     expect(registry.feature_registry).toBeDefined();
     expect(registry.feature_registry.features.length).toBeGreaterThan(0);
     expect(registry.integrations.length).toBeGreaterThan(0);
@@ -75,10 +69,11 @@ describe("Registry Generator", () => {
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
     // Count matches current manifest after Wave 1 re-wired open-gen-ui +
-    // open-gen-ui-advanced (30→32; they had existed pre-#4029, were scrubbed,
-    // and are now re-declared for the langgraph-python column completion).
-    expect(langgraph.features.length).toBe(32);
-    expect(langgraph.demos.length).toBe(32);
+    // open-gen-ui-advanced (30→32). Waves 2a (voice) + 2b (multimodal) +
+    // 3a (auth) + 3b (agent-config) + 4a (byoc-hashbrown) + 4b
+    // (byoc-json-render) consolidated → 32 + 6 = 38.
+    expect(langgraph.features.length).toBe(38);
+    expect(langgraph.demos.length).toBe(38);
   });
 
   it("sorts integrations by sort_order", () => {

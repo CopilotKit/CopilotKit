@@ -128,6 +128,30 @@
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
       "shell_docs_path": "/multi-agent-flows"
+    },
+    "voice": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/voice",
+      "shell_docs_path": null
+    },
+    "multimodal": {
+      "og_docs_url": null,
+      "shell_docs_path": null
+    },
+    "auth": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/authentication",
+      "shell_docs_path": "/authentication"
+    },
+    "agent-config": {
+      "og_docs_url": null,
+      "shell_docs_path": null
+    },
+    "byoc-hashbrown": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/byoc-hashbrown",
+      "shell_docs_path": "/byoc-hashbrown"
+    },
+    "byoc-json-render": {
+      "og_docs_url": null,
+      "shell_docs_path": null
     }
   }
 }

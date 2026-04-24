@@ -1,11 +1,21 @@
 "use client";
-// Feature matrix: one row per feature × integration. Each feature's
+// Feature matrix: one row per feature x integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
+import { useMemo } from "react";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
 import { PackagesSection } from "@/components/packages-section";
+import { TabShell, type TabDef } from "@/components/tab-shell";
+import { CellsView } from "@/components/cells-view";
+import { ParityView } from "@/components/parity-view";
+import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { mergeRowsToMap } from "@/lib/live-status";
+import catalog from "@/data/catalog.json";
+import type { CatalogData } from "@/data/catalog-types";
+
+const catalogData = catalog as unknown as CatalogData;
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
@@ -48,13 +58,72 @@ function Cell(ctx: CellContext) {
 }
 
 export default function Page() {
-  return (
-    <>
-      <FeatureGrid title="Feature Matrix" renderCell={Cell} minColWidth={260} />
-      <PackagesSection />
-      <Legend />
-    </>
+  // Single subscription for ALL dimensions — no filter. Avoids the 7-way
+  // SSE race that caused PB subscribe 400s when 7 hooks competed for the
+  // single PB SDK realtime connection during hydration.
+  const allStatus = useLiveStatus();
+
+  const liveStatus = useMemo(
+    () => mergeRowsToMap(allStatus.rows),
+    [allStatus.rows],
   );
+
+  const connection = allStatus.status;
+
+  const tabs: TabDef[] = useMemo(
+    () => [
+      {
+        id: "coverage",
+        label: "Coverage",
+        content: (
+          <>
+            <FeatureGrid
+              title="Feature Matrix"
+              renderCell={Cell}
+              minColWidth={260}
+              liveStatus={liveStatus}
+              connection={connection}
+            />
+            <PackagesSection liveStatus={liveStatus} connection={connection} />
+            <Legend />
+          </>
+        ),
+      },
+      {
+        id: "cells",
+        label: "Cells",
+        count: String(catalogData.metadata.total_cells),
+        content: (
+          <CellsView
+            catalog={catalogData}
+            liveStatus={liveStatus}
+            connection={connection}
+          />
+        ),
+      },
+      {
+        id: "parity",
+        label: "Parity",
+        content: (
+          <ParityView
+            catalog={catalogData}
+            liveStatus={liveStatus}
+            connection={connection}
+          />
+        ),
+      },
+      {
+        id: "packages",
+        label: "Packages",
+        content: (
+          <PackagesSection liveStatus={liveStatus} connection={connection} />
+        ),
+      },
+    ],
+    [liveStatus, connection],
+  );
+
+  return <TabShell tabs={tabs} defaultTab="coverage" />;
 }
 
 function Legend() {
