@@ -1,76 +1,33 @@
-import { BaseEvent, EventType, RunStartedEvent } from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
-import type {
-  ConnectThreadBootstrapResponse,
-  ConnectThreadLiveResponse,
-} from "../../intelligence-platform/client";
-import { isPlatformNotFoundError } from "../shared/intelligence-utils";
+import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+
+/**
+ * Builds browser-facing realtime connection metadata owned by the runtime.
+ */
+function buildRealtimeConnectionInfo(params: {
+  clientUrl: string;
+  threadId: string;
+}): { clientUrl: string; topic: string } {
+  return {
+    clientUrl: params.clientUrl,
+    topic: `thread:${params.threadId}`,
+  };
+}
 
 interface HandleIntelligenceConnectParams {
   runtime: CopilotIntelligenceRuntimeLike;
   request: Request;
+  agentId: string;
   threadId: string;
-  runId: string;
-  lastSeenEventId: string | null;
-}
-
-function stampCanonicalConnectEvent(
-  event: BaseEvent,
-  threadId: string,
-  runId: string,
-): BaseEvent {
-  const {
-    thread_id: _threadId,
-    run_id: _runId,
-    ...eventRecord
-  } = event as BaseEvent & {
-    thread_id?: unknown;
-    run_id?: unknown;
-  };
-
-  if (event.type === EventType.RUN_STARTED) {
-    const runStarted = eventRecord as RunStartedEvent;
-
-    return {
-      ...runStarted,
-      threadId,
-      runId,
-      input: {
-        ...(runStarted.input ?? {}),
-        threadId,
-        runId,
-      },
-    } as RunStartedEvent;
-  }
-
-  return {
-    ...eventRecord,
-    threadId,
-    runId,
-  } as BaseEvent;
-}
-
-function stampCanonicalConnectPlan(
-  result: ConnectThreadBootstrapResponse | ConnectThreadLiveResponse,
-  threadId: string,
-  runId: string,
-) {
-  return {
-    ...result,
-    events: result.events.map((event) =>
-      stampCanonicalConnectEvent(event, threadId, runId),
-    ),
-  };
 }
 
 export async function handleIntelligenceConnect({
   runtime,
   request,
+  agentId,
   threadId,
-  runId,
-  lastSeenEventId,
 }: HandleIntelligenceConnectParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -91,8 +48,7 @@ export async function handleIntelligenceConnect({
     const result = await runtime.intelligence.ɵconnectThread({
       threadId,
       userId: user.id,
-      runId,
-      lastSeenEventId,
+      agentId,
     });
 
     if (result === null) {
@@ -101,14 +57,38 @@ export async function handleIntelligenceConnect({
       });
     }
 
-    return Response.json(stampCanonicalConnectPlan(result, threadId, runId), {
-      headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
-    });
+    return Response.json(
+      {
+        threadId: result.threadId,
+        joinToken: result.joinToken,
+        realtime: buildRealtimeConnectionInfo({
+          clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
+          threadId: result.threadId,
+        }),
+      },
+      {
+        headers: { "Cache-Control": "no-cache", Connection: "keep-alive" },
+      },
+    );
   } catch (error) {
-    if (isPlatformNotFoundError(error)) {
-      return new Response(null, {
-        status: 204,
-      });
+    const status = getPlatformErrorStatus(error);
+    if (
+      status === 400 ||
+      status === 401 ||
+      status === 403 ||
+      status === 404 ||
+      status === 409
+    ) {
+      return Response.json(
+        {
+          error: "Connect request rejected",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Intelligence platform rejected the connect request",
+        },
+        { status },
+      );
     }
 
     console.error("Connect plan not available:", error);

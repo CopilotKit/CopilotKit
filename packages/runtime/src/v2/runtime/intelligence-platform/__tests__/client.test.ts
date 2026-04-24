@@ -385,24 +385,34 @@ describe("CopilotKitIntelligence", () => {
   });
 
   describe("acquireThreadLock", () => {
-    it("sends POST to lock endpoint and returns thread connection credentials", async () => {
+    it("sends POST to lock endpoint and returns canonical run credentials", async () => {
       fetchMock.mockReturnValue(
-        jsonResponse({ joinToken: "jt-lock", joinCode: "jc-lock" }),
+        jsonResponse({
+          threadId: "t-1",
+          runId: "r-1",
+          joinToken: "jt-lock",
+        }),
       );
 
       const result = await client.ɵacquireThreadLock({
         threadId: "t-1",
         runId: "r-1",
         userId: "user-1",
+        agentId: "agent-1",
       });
 
-      expect(result).toEqual({ joinToken: "jt-lock", joinCode: "jc-lock" });
+      expect(result).toEqual({
+        threadId: "t-1",
+        runId: "r-1",
+        joinToken: "jt-lock",
+      });
       const [url, opts] = fetchMock.mock.calls[0];
       expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         runId: "r-1",
         userId: "user-1",
+        agentId: "agent-1",
       });
     });
 
@@ -413,8 +423,23 @@ describe("CopilotKitIntelligence", () => {
           threadId: "t-1",
           runId: "r-1",
           userId: "user-1",
+          agentId: "agent-1",
         }),
       ).rejects.toThrow(/409/);
+    });
+
+    it("sends compare-delete cleanup to the lock endpoint", async () => {
+      fetchMock.mockReturnValue(emptyResponse());
+
+      await client.ɵcleanupThreadLock({
+        threadId: "t-1",
+        runId: "r-1",
+      });
+
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(url).toBe("https://api.example.com/api/threads/t-1/lock");
+      expect(opts.method).toBe("DELETE");
+      expect(JSON.parse(opts.body)).toEqual({ runId: "r-1" });
     });
   });
 
@@ -544,8 +569,7 @@ describe("CopilotKitIntelligence", () => {
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: "event-1",
+        agentId: "agent-1",
       });
 
       expect(result).toBeNull();
@@ -554,51 +578,21 @@ describe("CopilotKitIntelligence", () => {
       expect(opts.method).toBe("POST");
       expect(JSON.parse(opts.body)).toEqual({
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: "event-1",
+        agentId: "agent-1",
       });
     });
 
-    it("returns a bootstrap connect plan", async () => {
+    it("returns credentials-only connect response", async () => {
       const payload = {
-        mode: "bootstrap",
-        latestEventId: "event-2",
-        events: [
-          {
-            type: "RUN_STARTED",
-            threadId: "t-1",
-            run_id: "backend-run-1",
-            input: { messages: [] },
-          },
-          { type: "RUN_FINISHED" },
-        ],
+        threadId: "t-1",
+        joinToken: "jt-connect",
       };
       fetchMock.mockReturnValue(jsonResponse(payload));
 
       const result = await client.ɵconnectThread({
         threadId: "t-1",
         userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: "event-1",
-      });
-
-      expect(result).toEqual(payload);
-    });
-
-    it("returns a live connect plan", async () => {
-      const payload = {
-        mode: "live",
-        joinToken: "jt-live",
-        joinFromEventId: "event-2",
-        events: [],
-      };
-      fetchMock.mockReturnValue(jsonResponse(payload));
-
-      const result = await client.ɵconnectThread({
-        threadId: "t-1",
-        userId: "user-1",
-        runId: "run-1",
-        lastSeenEventId: "event-2",
+        agentId: "agent-1",
       });
 
       expect(result).toEqual(payload);

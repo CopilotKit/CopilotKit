@@ -11,7 +11,7 @@
  * same event names — kept separate so a regression in one file fails only
  * its own test.
  */
-import { AbstractAgent, BaseEvent } from "@ag-ui/client";
+import type { AbstractAgent, BaseEvent } from "@ag-ui/client";
 import { Observable } from "rxjs";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
@@ -60,9 +60,13 @@ function makeIntelligenceRuntime(
       created: false,
     }),
     getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
-    ɵacquireThreadLock: vi
-      .fn()
-      .mockResolvedValue({ joinToken: "jt-1", joinCode: "jc-1" }),
+    ɵacquireThreadLock: vi.fn().mockResolvedValue({
+      threadId: "thread-1",
+      runId: "run-1",
+      joinToken: "jt-1",
+    }),
+    ɵcleanupThreadLock: vi.fn().mockResolvedValue(undefined),
+    ɵgetClientWsUrl: vi.fn(() => "wss://runtime.example/client"),
     ɵrenewThreadLock: vi.fn().mockResolvedValue(undefined),
     ...extraPlatform,
   };

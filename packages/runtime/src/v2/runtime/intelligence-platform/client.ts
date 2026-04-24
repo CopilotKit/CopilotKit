@@ -1,5 +1,4 @@
 import { logger } from "@copilotkit/shared";
-import type { BaseEvent } from "@ag-ui/client";
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -150,10 +149,12 @@ export interface CreateThreadRequest {
 
 /** Credentials returned when locking or joining a thread's realtime channel. */
 export interface ThreadConnectionResponse {
+  /** Canonical platform thread identifier for the run or connection. */
+  threadId: string;
+  /** Canonical platform run identifier for an active run lock. */
+  runId?: string;
   /** Short-lived token for authenticating the Phoenix channel join. */
   joinToken: string;
-  /** Optional join code that can be shared with other clients to join the same channel. */
-  joinCode?: string;
   /** Lock metadata echoed back by the platform. */
   lock?: ThreadLockInfo;
 }
@@ -166,23 +167,12 @@ export interface SubscribeToThreadsResponse {
   joinToken: string;
 }
 
-export interface ConnectThreadBootstrapResponse {
-  mode: "bootstrap";
-  latestEventId: string | null;
-  events: BaseEvent[];
-}
+export type ConnectThreadResponse = ThreadConnectionResponse | null;
 
-export interface ConnectThreadLiveResponse {
-  mode: "live";
-  joinToken: string;
-  joinFromEventId: string | null;
-  events: BaseEvent[];
+export interface AcquireThreadLockResponse extends ThreadConnectionResponse {
+  /** Canonical platform run identifier for the acquired lock. */
+  runId: string;
 }
-
-export type ConnectThreadResponse =
-  | ConnectThreadBootstrapResponse
-  | ConnectThreadLiveResponse
-  | null;
 
 /** A single message within a thread's persisted history. */
 export interface ThreadMessage {
@@ -212,6 +202,7 @@ export interface AcquireThreadLockRequest {
   threadId: string;
   runId: string;
   userId: string;
+  agentId: string;
   /** Custom Redis key prefix for the lock (default: "thread"). */
   lockKeyPrefix?: string;
   /** Lock TTL in seconds. When set, the lock auto-expires after this duration. */
@@ -225,6 +216,11 @@ export interface RenewThreadLockRequest {
   ttlSeconds: number;
   /** Must match the prefix used when acquiring. */
   lockKeyPrefix?: string;
+}
+
+export interface CleanupThreadLockRequest {
+  threadId: string;
+  runId: string;
 }
 
 export interface RenewThreadLockResponse {
@@ -606,19 +602,30 @@ export class CopilotKitIntelligence {
 
   async ɵacquireThreadLock(
     params: AcquireThreadLockRequest,
-  ): Promise<ThreadConnectionResponse> {
-    return this.#request<ThreadConnectionResponse>(
+  ): Promise<AcquireThreadLockResponse> {
+    return this.#request<AcquireThreadLockResponse>(
       "POST",
       `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
       {
         runId: params.runId,
         userId: params.userId,
+        agentId: params.agentId,
         ...(params.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: params.lockKeyPrefix }
           : {}),
         ...(params.ttlSeconds !== undefined
           ? { ttlSeconds: params.ttlSeconds }
           : {}),
+      },
+    );
+  }
+
+  async ɵcleanupThreadLock(params: CleanupThreadLockRequest): Promise<void> {
+    return this.#request<void>(
+      "DELETE",
+      `/api/threads/${encodeURIComponent(params.threadId)}/lock`,
+      {
+        runId: params.runId,
       },
     );
   }
@@ -653,18 +660,16 @@ export class CopilotKitIntelligence {
   async ɵconnectThread(params: {
     threadId: string;
     userId: string;
-    runId?: string;
-    lastSeenEventId?: string | null;
+    agentId: string;
   }): Promise<ConnectThreadResponse> {
-    const result = await this.#request<
-      ConnectThreadBootstrapResponse | ConnectThreadLiveResponse
-    >("POST", `/api/threads/${encodeURIComponent(params.threadId)}/connect`, {
-      userId: params.userId,
-      ...(params.runId !== undefined ? { runId: params.runId } : {}),
-      ...(params.lastSeenEventId !== undefined
-        ? { lastSeenEventId: params.lastSeenEventId }
-        : {}),
-    });
+    const result = await this.#request<ThreadConnectionResponse>(
+      "POST",
+      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
+      {
+        userId: params.userId,
+        agentId: params.agentId,
+      },
+    );
 
     // request() returns undefined for empty/204 responses
     return result ?? null;

@@ -1,10 +1,53 @@
-import { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import {
+  AbstractAgent,
+  BaseEvent,
+  EventType,
+  Message,
+  RunAgentInput,
+} from "@ag-ui/client";
 import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { generateThreadNameForNewThread } from "./thread-names";
 import { logger } from "@copilotkit/shared";
 import { telemetry } from "../../telemetry";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+import { AgentRunnerRunRequest } from "../../runner/agent-runner";
+import { Observable } from "rxjs";
+
+/**
+ * Builds browser-facing realtime connection metadata owned by the runtime.
+ */
+function buildRealtimeConnectionInfo(params: {
+  clientUrl: string;
+  threadId: string;
+}): { clientUrl: string; topic: string } {
+  return {
+    clientUrl: params.clientUrl,
+    topic: `thread:${params.threadId}`,
+  };
+}
+
+interface RunnerStartupBoundary {
+  events: Observable<BaseEvent>;
+  startup: Promise<void>;
+}
+
+interface RunnerWithStartupBoundary {
+  runWithStartupBoundary(request: AgentRunnerRunRequest): RunnerStartupBoundary;
+}
+
+function hasRunnerStartupBoundary(
+  runner: CopilotIntelligenceRuntimeLike["runner"],
+): runner is CopilotIntelligenceRuntimeLike["runner"] &
+  RunnerWithStartupBoundary {
+  const candidate = runner as { runWithStartupBoundary?: unknown };
+
+  return (
+    typeof candidate.runWithStartupBoundary === "function" &&
+    (Object.prototype.hasOwnProperty.call(runner, "runWithStartupBoundary") ||
+      Object.prototype.hasOwnProperty.call(runner, "threads"))
+  );
+}
 
 interface HandleIntelligenceRunParams {
   runtime: CopilotIntelligenceRuntimeLike;
@@ -66,20 +109,23 @@ export async function handleIntelligenceRun({
     );
   }
 
-  let joinCode: string | undefined;
+  let canonicalThreadId = input.threadId;
+  let canonicalRunId = input.runId;
   let joinToken: string | undefined;
   try {
     const lockResult = await runtime.intelligence.ɵacquireThreadLock({
       threadId: input.threadId,
       runId: input.runId,
       userId,
+      agentId,
       ...(runtime.lockKeyPrefix !== undefined
         ? { lockKeyPrefix: runtime.lockKeyPrefix }
         : {}),
       ttlSeconds: runtime.lockTtlSeconds,
     });
+    canonicalThreadId = lockResult.threadId;
+    canonicalRunId = lockResult.runId;
     joinToken = lockResult.joinToken;
-    joinCode = lockResult.joinCode;
   } catch (error) {
     logger.error("Thread lock denied:", error);
     return Response.json(
@@ -90,21 +136,42 @@ export async function handleIntelligenceRun({
     );
   }
 
-  if (!joinToken) {
+  const cleanupLock = (reason: string): Promise<void> =>
+    runtime.intelligence
+      .ɵcleanupThreadLock({
+        threadId: canonicalThreadId || input.threadId,
+        runId: canonicalRunId || input.runId,
+      })
+      .catch((cleanupError) => {
+        logger.error(
+          { err: cleanupError, reason },
+          "Failed to cleanup thread lock",
+        );
+      });
+
+  if (!canonicalThreadId || !canonicalRunId || !joinToken) {
+    await cleanupLock("malformed-lock-response");
     return Response.json(
       {
-        error: "Join token not available",
-        message: "Intelligence platform did not return a join token",
+        error: "Run connection credentials not available",
+        message:
+          "Intelligence platform did not return canonical threadId, runId, and joinToken",
       },
       { status: 502 },
     );
   }
 
+  const canonicalInput: RunAgentInput = {
+    ...input,
+    threadId: canonicalThreadId,
+    runId: canonicalRunId,
+  };
+
   let persistedInputMessages: Message[] | undefined;
   if (Array.isArray(input.messages)) {
     try {
       const history = await runtime.intelligence.getThreadMessages({
-        threadId: input.threadId,
+        threadId: canonicalThreadId,
       });
       const historicMessageIds = new Set(
         history.messages.map((message) => message.id),
@@ -114,6 +181,7 @@ export async function handleIntelligenceRun({
       );
     } catch (error) {
       logger.error("Thread history lookup failed:", error);
+      await cleanupLock("thread-history-lookup-failed");
       return Response.json(
         {
           error: "Thread history lookup failed",
@@ -130,8 +198,8 @@ export async function handleIntelligenceRun({
   heartbeatTimer = setInterval(() => {
     runtime.intelligence
       .ɵrenewThreadLock({
-        threadId: input.threadId,
-        runId: input.runId,
+        threadId: canonicalThreadId,
+        runId: canonicalRunId,
         ttlSeconds: runtime.lockTtlSeconds,
         ...(runtime.lockKeyPrefix !== undefined
           ? { lockKeyPrefix: runtime.lockKeyPrefix }
@@ -139,6 +207,15 @@ export async function handleIntelligenceRun({
       })
       .catch((err) => {
         logger.error("Failed to renew thread lock:", err);
+        clearHeartbeat();
+        try {
+          agent.abortRun();
+        } catch (abortError) {
+          logger.error(
+            "Failed to abort agent after lock renewal failure:",
+            abortError,
+          );
+        }
       });
   }, runtime.lockHeartbeatIntervalSeconds * 1_000);
 
@@ -149,19 +226,48 @@ export async function handleIntelligenceRun({
     }
   };
 
-  runtime.runner
-    .run({
-      threadId: input.threadId,
-      agent,
-      input,
-      ...(persistedInputMessages !== undefined
-        ? { persistedInputMessages }
-        : {}),
-      ...(joinCode ? { joinCode } : {}),
-    })
-    .subscribe({
+  const runStarted = { current: false };
+  let immediateStartupErrorMessage: string | undefined;
+  let immediateStartupCleanup: Promise<void> | undefined;
+
+  const runRequest: AgentRunnerRunRequest = {
+    threadId: canonicalThreadId,
+    agent,
+    input: canonicalInput,
+    ...(persistedInputMessages !== undefined ? { persistedInputMessages } : {}),
+  };
+
+  try {
+    const runStart = hasRunnerStartupBoundary(runtime.runner)
+      ? runtime.runner.runWithStartupBoundary(runRequest)
+      : {
+          events: runtime.runner.run(runRequest),
+          startup: Promise.resolve(),
+        };
+
+    runStart.events.subscribe({
+      next: (event: BaseEvent) => {
+        if (event.type === EventType.RUN_STARTED) {
+          runStarted.current = true;
+        }
+        if (event.type === EventType.RUN_ERROR && !runStarted.current) {
+          clearHeartbeat();
+          immediateStartupErrorMessage =
+            "message" in event && typeof event.message === "string"
+              ? event.message
+              : "Runner failed before the run started";
+          immediateStartupCleanup = cleanupLock("runner-start-failed");
+        }
+      },
       error: (error) => {
         clearHeartbeat();
+        if (!runStarted.current) {
+          immediateStartupErrorMessage =
+            error instanceof Error ? error.message : String(error);
+          immediateStartupCleanup = cleanupLock("runner-start-error");
+        } else {
+          cleanupLock("runner-error");
+        }
         telemetry.capture("oss.runtime.agent_execution_stream_errored", {
           error: error instanceof Error ? error.message : String(error),
         });
@@ -173,8 +279,43 @@ export async function handleIntelligenceRun({
       },
     });
 
+    await runStart.startup;
+  } catch (error) {
+    clearHeartbeat();
+    await (immediateStartupCleanup ?? cleanupLock("runner-start-threw"));
+    logger.error("Error starting agent runner:", error);
+    return Response.json(
+      {
+        error: "Failed to start runner",
+        message: error instanceof Error ? error.message : String(error),
+      },
+      { status: 502 },
+    );
+  }
+
+  if (immediateStartupErrorMessage) {
+    await immediateStartupCleanup;
+    return Response.json(
+      {
+        error: "Failed to start runner",
+        message: immediateStartupErrorMessage,
+      },
+      { status: 502 },
+    );
+  }
+
+  // IntelligenceAgentRunner resolves this boundary after Phoenix channel join.
+  // Other runner implementations fall back to construction/subscription errors.
   return Response.json(
-    { joinToken },
+    {
+      threadId: canonicalThreadId,
+      runId: canonicalRunId,
+      joinToken,
+      realtime: buildRealtimeConnectionInfo({
+        clientUrl: runtime.intelligence.ɵgetClientWsUrl(),
+        threadId: canonicalThreadId,
+      }),
+    },
     {
       headers: { "Cache-Control": "no-cache" },
     },

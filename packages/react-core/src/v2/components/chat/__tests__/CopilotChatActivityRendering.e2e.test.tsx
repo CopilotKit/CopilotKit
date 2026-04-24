@@ -1,6 +1,7 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { z } from "zod";
+import { EventType } from "@ag-ui/client";
 import {
   MockReconnectableAgent,
   MockStepwiseAgent,
@@ -10,33 +11,148 @@ import {
   runStartedEvent,
   testId,
 } from "../../../__tests__/utils/test-helpers";
-import { ReactActivityMessageRenderer } from "../../../types";
+import type { ReactActivityMessageRenderer } from "../../../types";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
   useCopilotKit,
 } from "../../../providers";
-import { AbstractAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
 import { IntelligenceAgent } from "@copilotkit/core";
 import { getThreadClone } from "../../../hooks/use-agent";
 import { createA2UIMessageRenderer } from "../../../a2ui/A2UIMessageRenderer";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 import { CopilotChat } from "..";
 
-const { mockWebsandboxCreate, mockWebsandboxDestroy } = vi.hoisted(() => {
+const {
+  mockWebsandboxCreate,
+  mockWebsandboxDestroy,
+  mockPhoenixSockets,
+  MockPhoenixSocket,
+} = vi.hoisted(() => {
   const mockDestroy = vi.fn();
-  const mockCreate = vi.fn(() => ({
+  const mockCreate = vi.fn((..._args: unknown[]) => ({
     iframe: document.createElement("iframe"),
     promise: Promise.resolve(),
     run: vi.fn().mockResolvedValue(undefined),
     destroy: mockDestroy,
   }));
+  const mockSockets: MockPhoenixSocket[] = [];
+
+  class MockPhoenixPush {
+    private callbacks = new Map<string, (response?: unknown) => void>();
+
+    receive(
+      status: string,
+      callback: (response?: unknown) => void,
+    ): MockPhoenixPush {
+      this.callbacks.set(status, callback);
+      return this;
+    }
+
+    trigger(status: string, response?: unknown): void {
+      this.callbacks.get(status)?.(response);
+    }
+  }
+
+  class MockPhoenixChannel {
+    public topic: string;
+    public params: Record<string, unknown>;
+    public left = false;
+
+    private handlers = new Map<
+      string,
+      Array<{ ref: number; callback: (payload: unknown) => void }>
+    >();
+    private joinPush = new MockPhoenixPush();
+    private nextRef = 1;
+
+    constructor(topic: string, params: Record<string, unknown>) {
+      this.topic = topic;
+      this.params = params;
+    }
+
+    on(event: string, callback: (payload: unknown) => void): number {
+      if (!this.handlers.has(event)) {
+        this.handlers.set(event, []);
+      }
+      const ref = this.nextRef;
+      this.nextRef += 1;
+      this.handlers.get(event)?.push({ ref, callback });
+      return ref;
+    }
+
+    off(event: string, ref?: number): void {
+      if (ref === undefined) {
+        this.handlers.delete(event);
+        return;
+      }
+      this.handlers.set(
+        event,
+        (this.handlers.get(event) ?? []).filter(
+          (handler) => handler.ref !== ref,
+        ),
+      );
+    }
+
+    join(): MockPhoenixPush {
+      return this.joinPush;
+    }
+
+    leave(): void {
+      this.left = true;
+    }
+
+    triggerJoin(status: string, response?: unknown): void {
+      this.joinPush.trigger(status, response);
+    }
+
+    serverPush(event: string, payload: unknown): void {
+      for (const { callback } of this.handlers.get(event) ?? []) {
+        callback(payload);
+      }
+    }
+  }
+
+  class MockPhoenixSocket {
+    public channels: MockPhoenixChannel[] = [];
+
+    constructor(
+      public url: string,
+      public opts: Record<string, unknown>,
+    ) {
+      mockSockets.push(this);
+    }
+
+    connect(): void {}
+
+    disconnect(): void {}
+
+    onOpen(): void {}
+
+    onError(): void {}
+
+    channel(
+      topic: string,
+      params: Record<string, unknown>,
+    ): MockPhoenixChannel {
+      const channel = new MockPhoenixChannel(topic, params);
+      this.channels.push(channel);
+      return channel;
+    }
+  }
 
   return {
     mockWebsandboxCreate: mockCreate,
     mockWebsandboxDestroy: mockDestroy,
+    mockPhoenixSockets: mockSockets,
+    MockPhoenixSocket,
   };
 });
+
+vi.mock("phoenix", () => ({
+  Socket: MockPhoenixSocket,
+}));
 
 vi.mock("@jetbrains/websandbox", () => ({
   default: {
@@ -329,66 +445,22 @@ describe("CopilotChat activity message rendering", () => {
     });
   });
 
-  it("restores a completed A2UI surface from an IntelligenceAgent /connect bootstrap plan", async () => {
+  it("restores a completed A2UI surface from IntelligenceAgent /connect gateway replay", async () => {
     const threadId = testId("intelligence-connect-thread");
     const surfaceId = testId("intelligence-connect-surface");
     const fetchMock = vi.fn().mockResolvedValueOnce(
       jsonResponse({
-        mode: "bootstrap",
-        latestEventId: "event-3",
-        events: [
-          {
-            type: "RUN_STARTED",
-            threadId,
-            run_id: "backend-run-1",
-            input: {
-              messages: [
-                {
-                  id: testId("connect-user-message"),
-                  role: "user",
-                  content: "show me the restored ui",
-                },
-              ],
-            },
-          },
-          {
-            type: "ACTIVITY_SNAPSHOT",
-            messageId: testId("connect-a2ui-activity"),
-            activityType: "a2ui-surface",
-            content: {
-              a2ui_operations: [
-                {
-                  version: "v0.9",
-                  createSurface: {
-                    surfaceId,
-                    catalogId:
-                      "https://a2ui.org/specification/v0_9/basic_catalog.json",
-                  },
-                },
-                {
-                  version: "v0.9",
-                  updateComponents: {
-                    surfaceId,
-                    components: [
-                      {
-                        id: "root",
-                        component: "Text",
-                        text: "Restored dashboard",
-                        variant: "body",
-                      },
-                    ],
-                  },
-                },
-              ],
-            },
-          },
-          {
-            type: "RUN_FINISHED",
-          },
-        ],
+        threadId,
+        runId: null,
+        joinToken: "join-token-1",
+        realtime: {
+          clientUrl: "ws://localhost:4000/client",
+          topic: `thread:${threadId}`,
+        },
       }),
     );
     vi.stubGlobal("fetch", fetchMock);
+    mockPhoenixSockets.length = 0;
 
     const agent = new IntelligenceAgent({
       url: "ws://localhost:4000/client",
@@ -409,6 +481,70 @@ describe("CopilotChat activity message rendering", () => {
       await waitFor(() => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
       });
+
+      await waitFor(() => {
+        expect(mockPhoenixSockets).toHaveLength(1);
+        expect(mockPhoenixSockets[0]?.channels).toHaveLength(1);
+      });
+
+      const channel = mockPhoenixSockets[0]!.channels[0]!;
+      expect(channel.topic).toBe(`thread:${threadId}`);
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId,
+        run_id: "backend-run-1",
+        input: {
+          messages: [
+            {
+              id: testId("connect-user-message"),
+              role: "user",
+              content: "show me the restored ui",
+            },
+          ],
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: testId("connect-a2ui-activity"),
+        activityType: "a2ui-surface",
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId,
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId,
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Restored dashboard",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+      });
+      channel.serverPush("stream_idle", { latestEventId: "event-3" });
+
       await waitFor(() => {
         expect(screen.getByText("show me the restored ui")).toBeDefined();
       });
