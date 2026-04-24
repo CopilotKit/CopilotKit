@@ -54,6 +54,15 @@ agents["reasoning-default-render"] = createAgent("reasoning_agent");
 agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
 agents["interrupt-headless"] = createAgent("interrupt_agent");
 
+// Dedicated-graph agents — each cell has its own LangGraph graph with a
+// tailored system prompt (tools=[], CopilotKitMiddleware attached).
+agents["frontend_tools"] = createAgent("frontend_tools");
+agents["frontend-tools-async"] = createAgent("frontend_tools_async");
+agents["hitl-in-app"] = createAgent("hitl_in_app");
+agents["readonly-state-agent-context"] = createAgent(
+  "readonly_state_agent_context",
+);
+
 agents["default"] = createAgent();
 
 console.log(
