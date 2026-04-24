@@ -6,13 +6,21 @@
 // <DEMO_TOKEN>` header; mismatch throws 401 before the request reaches the
 // agent.
 //
-// Implementation note: the V1 Next.js adapter
-// (`copilotRuntimeNextJSAppRouterEndpoint`) does NOT forward the `hooks`
-// option to the V2 fetch handler. To get `onRequest` wired, this route uses
-// `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly — the
-// framework-agnostic fetch handler that returns a plain
-// `(Request) => Promise<Response>`, which composes cleanly with a Next.js
-// App Router route export.
+// Implementation note: this route uses `createCopilotRuntimeHandler` from
+// `@copilotkit/runtime/v2` directly (not the V1 Next.js adapter) because the
+// V1 adapter's `copilotRuntimeNextJSAppRouterEndpoint` does NOT forward the
+// `hooks` option to the V2 fetch handler. Using the framework-agnostic fetch
+// handler lets us wire `onRequest` in cleanly.
+//
+// Routing note: the handler runs in default `multi-route` mode, where the
+// V2 client hits subpaths like `/info`, `/agent/:agentId/run`, and
+// `/agent/:agentId/connect` under the base path. To make Next.js forward
+// every one of those subpaths to this handler, the route file lives under a
+// catch-all segment (`[[...slug]]`). Without the catch-all, Next.js only
+// matches the exact `/api/copilotkit-auth` URL and every subpath (including
+// `/info`) returns a framework-level 404 before this handler ever runs —
+// which is what caused the original "Runtime info request failed with status
+// 404" and "Agent execution failed: HTTP 404" errors.
 //
 // References:
 // - packages/runtime/src/v2/runtime/core/hooks.ts (onRequest semantics)
@@ -40,9 +48,11 @@ const authDemoAgent = new LangGraphAgent({
 
 const runtime = new CopilotRuntime({
   agents: {
+    // The page's <CopilotKit agent="auth-demo"> and <CopilotChat
+    // agentId="auth-demo"> resolve to this entry.
     "auth-demo": authDemoAgent,
     // Fallback: useAgent() with no args resolves "default" — alias to the
-    // same agent so hooks in the demo page resolve cleanly.
+    // same agent so hooks inside the demo page resolve cleanly.
     default: authDemoAgent,
   },
 });
@@ -77,6 +87,8 @@ const handler = createCopilotRuntimeHandler({
 
 // Next.js App Router bindings. The handler is framework-agnostic — it takes
 // a web Request and returns a web Response — so it drops straight into the
-// POST/GET exports without any adapter shim.
+// POST/GET exports without any adapter shim. The catch-all segment
+// `[[...slug]]` ensures Next.js forwards every subpath (e.g. `/info`,
+// `/agent/:agentId/run`, `/agent/:agentId/connect`) to this handler.
 export const POST = (req: NextRequest) => handler(req);
 export const GET = (req: NextRequest) => handler(req);
