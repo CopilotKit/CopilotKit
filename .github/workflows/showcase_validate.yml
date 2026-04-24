@@ -121,6 +121,19 @@ jobs:
             [ -d "$pkg_dir" ] || continue
             found=$((found + 1))
             pkg=$(basename "$pkg_dir")
+            # Skip stub packages — those registered in the integration
+            # registry for docs-side references but without a showcase
+            # implementation yet. `deployed: false` in manifest.yaml is the
+            # semantic marker for that state (validated as a boolean by
+            # showcase/scripts/lib/manifest.ts). These packages legitimately
+            # have no demos / specs / e2e tests to enforce a baseline on;
+            # validate-parity still emits a SHOULD warning for them so the
+            # gap stays visible without gating CI.
+            manifest="${pkg_dir}manifest.yaml"
+            if [ -f "$manifest" ] && grep -qiE '^deployed:[[:space:]]*false[[:space:]]*$' "$manifest"; then
+              echo "skip: $pkg (deployed: false — stub package)"
+              continue
+            fi
             e2e_dir="${pkg_dir}tests/e2e/"
             if [ ! -d "$e2e_dir" ]; then
               echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"
