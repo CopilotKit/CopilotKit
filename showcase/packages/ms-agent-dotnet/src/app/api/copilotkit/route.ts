@@ -17,6 +17,14 @@ function createAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/` });
 }
 
+// Interrupt-adapted backend — see agent/InterruptAgent.cs. This is a
+// SEPARATE .NET agent mounted at /interrupt-adapted so the `gen-ui-interrupt`
+// and `interrupt-headless` demos get tool-based approval-mode semantics
+// without polluting the sales agent's tool list.
+function createInterruptAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/interrupt-adapted` });
+}
+
 // Register the same agent under all names used by demo pages.
 // The .NET backend exposes a single ProverbsAgent mapped at "/".
 const agentNames = [
@@ -29,13 +37,31 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
 ];
+
+// Interrupt-adapted demo agent names — these route to the separate .NET
+// InterruptAgent backend instead of the sales agent.
+const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+for (const name of interruptAgentNames) {
+  agents[name] = createInterruptAgent();
+}
 agents["default"] = createAgent();
+
+// hitl-in-app is mounted at a dedicated path on the .NET backend
+// (`/hitl-in-app`, see `agent/HitlInAppAgent.cs` + `agent/Program.cs`) so
+// it can run with its own support-ops system prompt rather than the sales
+// pipeline prompt exposed at `/`. The frontend tool `request_user_approval`
+// is registered client-side via `useFrontendTool` and resolves via a modal
+// rendered OUTSIDE the chat surface.
+agents["hitl-in-app"] = new HttpAgent({ url: `${AGENT_URL}/hitl-in-app` });
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
