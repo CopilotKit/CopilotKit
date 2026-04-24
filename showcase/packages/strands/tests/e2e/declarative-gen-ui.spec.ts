@@ -17,5 +17,8 @@ test("declarative-gen-ui loads without errors", async ({ page }) => {
   // Wait for React to hydrate by waiting for the body to be attached.
   await page.waitForLoadState("domcontentloaded");
 
-  expect(errors, `page errors on /demos/declarative-gen-ui: ${errors.join(" | ")}`).toEqual([]);
+  expect(
+    errors,
+    `page errors on /demos/declarative-gen-ui: ${errors.join(" | ")}`,
+  ).toEqual([]);
 });

@@ -8,7 +8,9 @@ import { test, expect } from "@playwright/test";
 // interaction flow). This spec asserts the page mounts and the CopilotKit
 // provider initializes without throwing.
 
-test("tool-rendering-reasoning-chain loads without errors", async ({ page }) => {
+test("tool-rendering-reasoning-chain loads without errors", async ({
+  page,
+}) => {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
 
@@ -17,5 +19,8 @@ test("tool-rendering-reasoning-chain loads without errors", async ({ page }) => 
   // Wait for React to hydrate by waiting for the body to be attached.
   await page.waitForLoadState("domcontentloaded");
 
-  expect(errors, `page errors on /demos/tool-rendering-reasoning-chain: ${errors.join(" | ")}`).toEqual([]);
+  expect(
+    errors,
+    `page errors on /demos/tool-rendering-reasoning-chain: ${errors.join(" | ")}`,
+  ).toEqual([]);
 });

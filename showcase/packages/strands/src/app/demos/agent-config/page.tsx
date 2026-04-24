@@ -36,8 +36,7 @@ export default function AgentConfigDemoPage() {
             Forwarded props let the frontend tell the agent how to behave. This
             demo passes <code>tone</code>, <code>expertise</code>, and
             <code> responseLength</code> through the provider; the agent reads
-            them from the run config and builds its system prompt per
-            turn.
+            them from the run config and builds its system prompt per turn.
           </p>
         </header>
         <ConfigCard
