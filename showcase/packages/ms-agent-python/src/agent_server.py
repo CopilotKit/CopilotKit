@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.agent_config_agent import create_agent_config_agent
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ def _build_chat_client() -> BaseChatClient:
 
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
+agent_config_agent = create_agent_config_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -71,6 +73,15 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=my_agent,
     path="/",
+)
+
+# Dedicated endpoint for the Agent Config Object demo. Scoped to its own path
+# so the dynamic-system-prompt behaviour does not leak into other demos that
+# share the main shared agent.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=agent_config_agent,
+    path="/agent-config",
 )
 
 
