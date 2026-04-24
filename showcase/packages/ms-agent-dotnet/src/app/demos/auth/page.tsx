@@ -6,17 +6,88 @@
 // `Authorization: Bearer <demo-token>` header on every request. The runtime
 // route (/api/copilotkit-auth) rejects any request without the header.
 //
+// Default UX: the page loads authenticated so the initial `/info` handshake
+// succeeds and the chat is immediately usable. Clicking "Sign out" flips to
+// the unauthenticated state — the next chat submission (and any re-fetch of
+// `/info`) will 401, which we surface via the page-level error banner. This
+// inverts the historical unauth-first flow, which crashed the page on load
+// when `/info` returned 401 before `onError` handlers could attach.
+//
 // Error surfacing: <CopilotChat /> surfaces transport errors inconsistently
 // across states, so this page additionally captures errors via the
 // <CopilotKit onError> prop and renders a persistent error banner below the
-// chat. This guarantees the 401 failure path is always visible to the user
-// and gives the Playwright E2E a stable assertion target.
+// chat. A local ErrorBoundary guards against any uncaught render-time error
+// from chat internals in the unauthenticated state so the page never white-
+// screens — instead, the user sees a clear in-page message.
 
-import { useCallback, useMemo, useState } from "react";
+import { Component, useCallback, useMemo, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+
+interface ChatErrorBoundaryProps {
+  authenticated: boolean;
+  children: ReactNode;
+}
+
+interface ChatErrorBoundaryState {
+  error: Error | null;
+}
+
+/**
+ * Guards <CopilotChat /> against uncaught render-time errors. If the chat
+ * internals throw (most commonly while the app is in the unauthenticated
+ * state and a transient response payload is missing), we render a clear
+ * in-page message instead of white-screening the entire route. The boundary
+ * resets whenever `authenticated` flips, so signing back in restores the
+ * live chat without requiring a full page reload.
+ */
+class ChatErrorBoundary extends Component<
+  ChatErrorBoundaryProps,
+  ChatErrorBoundaryState
+> {
+  state: ChatErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ChatErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidUpdate(prevProps: ChatErrorBoundaryProps): void {
+    if (
+      prevProps.authenticated !== this.props.authenticated &&
+      this.state.error
+    ) {
+      this.setState({ error: null });
+    }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error("[auth-demo] chat error boundary caught:", error, info);
+  }
+
+  render(): ReactNode {
+    if (this.state.error) {
+      return (
+        <div
+          data-testid="auth-demo-chat-boundary"
+          className="flex h-full items-center justify-center p-6 text-center text-sm text-neutral-600"
+        >
+          <div>
+            <p className="font-medium text-neutral-800">
+              Chat unavailable while signed out
+            </p>
+            <p className="mt-1 text-xs text-neutral-500">
+              Click Sign in above to restore the conversation.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function AuthDemoPage() {
   const auth = useDemoAuth();
@@ -55,7 +126,7 @@ export default function AuthDemoPage() {
         err?.status ?? err?.statusCode ?? errorEvent?.context?.response?.status;
       if (status === 401 || /401|unauthor/i.test(message)) {
         setLastError(
-          "401 Unauthorized — click Authenticate above to send messages.",
+          "401 Unauthorized — click Sign in above to restore access.",
         );
       } else {
         setLastError(message);
@@ -84,12 +155,14 @@ export default function AuthDemoPage() {
             <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs">
               onRequest
             </code>{" "}
-            hook. Try sending a message while unauthenticated, then click
-            Authenticate.
+            hook. You start signed in — click Sign out above to exercise the
+            401 path, then Sign in to restore access.
           </p>
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <CopilotChat agentId="auth-demo" className="h-full" />
+          <ChatErrorBoundary authenticated={auth.authenticated}>
+            <CopilotChat agentId="auth-demo" className="h-full" />
+          </ChatErrorBoundary>
         </div>
         {lastError && (
           <div
