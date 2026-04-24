@@ -2092,7 +2092,11 @@ export class WebInspectorElement extends LitElement {
   } | null = null;
 
   private _threadsUnlocked = false;
+  private _threadsUnlocking = false;
   private _threadsGateError: string | null = null;
+  private _threadsGateCodeInvalid = false;
+  private _threadsGateInvalidTimer: ReturnType<typeof setTimeout> | null = null;
+  private _threadsUnlockingTimer: ReturnType<typeof setTimeout> | null = null;
 
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
@@ -5225,106 +5229,254 @@ ${argsString}</pre
         <div style="position:absolute;width:570px;height:570px;border-radius:50%;bottom:-100px;right:-80px;opacity:0.2;background:#FFAC4D;filter:blur(120px);pointer-events:none;"></div>
         <div style="position:absolute;width:400px;height:400px;border-radius:50%;bottom:20px;left:-60px;opacity:0.15;background:#FFAC4D;filter:blur(100px);pointer-events:none;"></div>
 
-        <div style="
+        ${
+          this._threadsUnlocking
+            ? this._renderUnlockingCard()
+            : this._renderEarlyAccessCard()
+        }
+      </div>
+    `;
+  }
+
+  /** Hosted invite-form URL — used by the "Request early access" CTA. */
+  private static readonly THREADS_REQUEST_URL =
+    "https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ";
+
+  private _renderEarlyAccessCard() {
+    const invalid = this._threadsGateCodeInvalid;
+    return html`
+      <div
+        style="
           position:relative;
           z-index:1;
-          background:white;
-          border-radius:16px;
-          padding:32px 28px;
-          max-width:320px;
-          width:100%;
-          box-shadow:0 4px 24px rgba(99,102,241,0.12),0 1px 4px rgba(0,0,0,0.06);
-          border:1px solid #EEE6FE;
-        ">
-          <!-- Lock icon -->
-          <div style="
-            width:52px;height:52px;
-            background:#EEE6FE;
-            border-radius:14px;
-            display:flex;align-items:center;justify-content:center;
-            margin:0 auto 16px;
-          ">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-          </div>
-
-          <!-- Badge -->
-          <div style="
-            display:inline-block;
-            background:#EEE6FE;
-            color:#6366f1;
-            font-size:10px;
-            font-weight:700;
-            letter-spacing:0.08em;
-            text-transform:uppercase;
-            padding:3px 10px;
-            border-radius:20px;
-            margin-bottom:12px;
-          ">Early Access</div>
-
-          <div style="font-size:16px;font-weight:700;color:#181c1f;margin-bottom:8px;line-height:1.3;">
-            Threads is coming soon
-          </div>
-          <div style="font-size:12px;color:#57575B;line-height:1.7;margin-bottom:20px;">
-            See inside your persistent agent conversations with CopilotKit Threads.
-          </div>
-
-          <a
-            href="https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ"
-            target="_blank"
+          background:#ffffff;
+          border:1px solid #E5E5EA;
+          border-radius:20px;
+          box-shadow:0 16px 48px rgba(1,5,7,0.12),0 2px 6px rgba(1,5,7,0.05);
+          padding:28px;
+          width:400px;
+          max-width:100%;
+          display:flex;
+          flex-direction:column;
+          gap:18px;
+          text-align:left;
+          font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+        "
+      >
+        <!-- Kicker pill -->
+        <div>
+          <span
             style="
-              display:block;
-              background:#757CF2;
-              color:white;
-              text-decoration:none;
-              font-size:13px;
-              font-weight:600;
-              padding:10px 16px;
-              border-radius:8px;
-              margin-bottom:16px;
+              display:inline-flex;
+              align-items:center;
+              gap:4px;
+              padding:4px 10px;
+              border-radius:999px;
+              background:#F3F3FC;
+              color:#757CF2;
+              font-family:'Spline Sans Mono', ui-monospace, monospace;
+              font-size:10px;
+              font-weight:500;
+              letter-spacing:0.08em;
+              text-transform:uppercase;
             "
-          >Request early access →</a>
+            >Early Access</span
+          >
+        </div>
 
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
-            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
-            <span style="font-size:11px;color:#838389;">have a code?</span>
-            <div style="flex:1;height:1px;background:#EBEBF0;"></div>
-          </div>
+        <!-- Title + description -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <h2
+            style="
+              font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+              font-size:24px;
+              font-weight:700;
+              color:#010507;
+              line-height:1.2;
+              letter-spacing:-0.015em;
+              margin:0;
+            "
+          >
+            <span
+              style="
+                background:linear-gradient(90deg, #757CF2 0%, #5AE4BB 100%);
+                -webkit-background-clip:text;
+                background-clip:text;
+                color:transparent;
+                -webkit-text-fill-color:transparent;
+              "
+              >Threads</span
+            >
+            are in private beta
+          </h2>
+          <p
+            style="
+              font-size:14px;
+              font-weight:500;
+              color:#5C5C66;
+              line-height:1.55;
+              margin:0;
+            "
+          >
+            Spin up separate conversations with your agent, one per task, bug,
+            or feature, and jump back into any of them without losing context.
+          </p>
+        </div>
 
-          <div style="display:flex;gap:6px;">
-            <input
-              id="cpk-gate-input"
-              type="text"
-              placeholder="Enter access code"
+        <!-- Bullets -->
+        <div
+          style="display:flex;flex-direction:column;gap:8px;padding:4px 0;"
+        >
+          ${[
+            "One agent, many conversations",
+            "Persistent history across sessions",
+            "Jump between threads in a click",
+          ].map(
+            (label) => html`
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#010507"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="flex-shrink:0;"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span style="font-size:13px;font-weight:500;color:#010507;"
+                  >${label}</span
+                >
+              </div>
+            `,
+          )}
+        </div>
+
+        <!-- Primary CTA: dark MonoPillButton with adjacent arrow circle -->
+        <div>
+          <a
+            href=${WebInspectorElement.THREADS_REQUEST_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style="
+              display:inline-flex;
+              align-items:center;
+              gap:8px;
+              text-decoration:none;
+              cursor:pointer;
+            "
+          >
+            <span
+              style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                background:#010507;
+                color:#ffffff;
+                font-family:'Spline Sans Mono', ui-monospace, monospace;
+                font-size:13px;
+                font-weight:500;
+                letter-spacing:0.06em;
+                text-transform:uppercase;
+                padding:14px 22px;
+                border-radius:999px;
+                box-shadow:0 4px 12px rgba(1,5,7,0.18);
+              "
+              >Request Early Access</span
+            >
+            <span
+              style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                width:36px;
+                height:36px;
+                border-radius:999px;
+                background:#010507;
+                color:#ffffff;
+                box-shadow:0 4px 12px rgba(1,5,7,0.18);
+              "
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </span>
+          </a>
+        </div>
+
+        <!-- Divider + invite-code section -->
+        <div
+          style="
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+            padding-top:14px;
+            border-top:1px dashed #E5E5EA;
+          "
+        >
+          <span style="font-size:12px;font-weight:500;color:#8A8A94;"
+            >Have an invite code?</span
+          >
+          <div style="display:flex;gap:8px;">
+            <div
               style="
                 flex:1;
-                border:1px solid #DBDBE5;
-                border-radius:8px;
-                padding:8px 12px;
-                font-size:12px;
-                outline:none;
-                color:#181c1f;
-                background:#FAFAFA;
+                background:#ffffff;
+                border:1px solid ${invalid ? "#FA5F67" : "#E5E5EA"};
+                border-radius:10px;
+                padding:2px 4px 2px 12px;
+                transition:border-color 150ms ease;
               "
-              @keydown=${(e: KeyboardEvent) => {
-                if (e.key === "Enter") {
-                  this._submitThreadsCode(
-                    (e.currentTarget as HTMLInputElement).value,
-                  );
-                }
-              }}
-            />
+            >
+              <input
+                id="cpk-gate-input"
+                type="text"
+                placeholder="Enter access code"
+                style="
+                  width:100%;
+                  padding:10px 0;
+                  font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+                  font-size:13px;
+                  font-weight:500;
+                  color:#010507;
+                  background:transparent;
+                  border:none;
+                  outline:none;
+                "
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === "Enter") {
+                    this._submitThreadsCode(
+                      (e.currentTarget as HTMLInputElement).value,
+                    );
+                  }
+                }}
+              />
+            </div>
             <button
               style="
-                background:#181c1f;
-                color:white;
+                background:#010507;
+                color:#ffffff;
                 border:none;
-                border-radius:8px;
-                padding:8px 14px;
-                font-size:12px;
+                border-radius:10px;
+                padding:0 16px;
+                font-family:'Spline Sans Mono', ui-monospace, monospace;
+                font-size:11px;
                 font-weight:500;
+                letter-spacing:0.06em;
+                text-transform:uppercase;
                 cursor:pointer;
                 white-space:nowrap;
               "
@@ -5339,10 +5491,12 @@ ${argsString}</pre
             </button>
           </div>
           ${
-            this._threadsGateError
-              ? html`<div style="font-size:11px;color:#ef4444;margin-top:10px;">
-                  ${this._threadsGateError}
-                </div>`
+            invalid
+              ? html`
+                  <div style="font-size: 11px; font-weight: 500; color: #fa5f67">
+                    That code isn't valid. Double-check your invite email.
+                  </div>
+                `
               : nothing
           }
         </div>
@@ -5350,19 +5504,95 @@ ${argsString}</pre
     `;
   }
 
+  private _renderUnlockingCard() {
+    return html`
+      <div
+        style="
+          position: relative;
+          z-index: 1;
+          background: #ffffff;
+          border: 1px solid #e5e5ea;
+          border-radius: 20px;
+          box-shadow:
+            0 16px 48px rgba(1, 5, 7, 0.12),
+            0 2px 6px rgba(1, 5, 7, 0.05);
+          padding: 32px;
+          width: 340px;
+          max-width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          text-align: center;
+          font-family: &quot;Plus Jakarta Sans&quot;, system-ui, sans-serif;
+        "
+      >
+        <div
+          style="
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #bec2ff 0%, #85ecce 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#010507"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div style="font-size: 18px; font-weight: 700; color: #010507">
+          Welcome to Threads
+        </div>
+        <div style="font-size: 13px; color: #5c5c66; line-height: 1.5">
+          Loading your conversations…
+        </div>
+      </div>
+    `;
+  }
+
   private _submitThreadsCode(value: string): void {
     if (value.trim().toLowerCase() === "earlyaccess") {
+      // Persist the unlock so subsequent loads bypass the gate, then show
+      // the brief "Welcome to Threads" confirmation before swapping to the
+      // real Threads UI ~2s later.
       document.cookie =
         "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
-      this._threadsUnlocked = true;
       this._threadsGateError = null;
-      window.open(
-        "https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ",
-        "_blank",
-      );
+      this._threadsGateCodeInvalid = false;
+      this._threadsUnlocking = true;
+      if (this._threadsUnlockingTimer !== null) {
+        clearTimeout(this._threadsUnlockingTimer);
+      }
+      this._threadsUnlockingTimer = setTimeout(() => {
+        this._threadsUnlocking = false;
+        this._threadsUnlocked = true;
+        this._threadsUnlockingTimer = null;
+        this.requestUpdate();
+      }, 2000);
     } else {
-      this._threadsGateError =
-        "Incorrect code. Sign up at copilotkit.ai/threads-early-access to get yours.";
+      // Invalid: flash the input border + error copy, auto-clear after
+      // 1600ms (matches the design's invalid-code window).
+      this._threadsGateCodeInvalid = true;
+      this._threadsGateError = null;
+      if (this._threadsGateInvalidTimer !== null) {
+        clearTimeout(this._threadsGateInvalidTimer);
+      }
+      this._threadsGateInvalidTimer = setTimeout(() => {
+        this._threadsGateCodeInvalid = false;
+        this._threadsGateInvalidTimer = null;
+        this.requestUpdate();
+      }, 1600);
     }
     this.requestUpdate();
   }
