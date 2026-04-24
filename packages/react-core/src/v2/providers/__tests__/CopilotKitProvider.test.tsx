@@ -1,5 +1,6 @@
 import { render, waitFor } from "@testing-library/react";
 import { renderHook } from "../../../test-helpers/render-hook";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -428,29 +429,15 @@ describe("CopilotKitProvider", () => {
 
   describe("a2ui prop", () => {
     const originalFetch = global.fetch;
-    const originalWindow = (globalThis as { window?: unknown }).window;
+    let restoreLocation: () => void = () => {};
 
     beforeEach(() => {
-      // Leave the jsdom window intact (React 17's renderer touches
-      // window.HTMLIFrameElement and window.addEventListener during commit)
-      // and only shadow location so CopilotKitProvider's localhost
-      // auto-open-inspector heuristic skips.
-      if (originalWindow && typeof originalWindow === "object") {
-        Object.defineProperty(originalWindow, "location", {
-          value: undefined,
-          configurable: true,
-          writable: true,
-        });
-      }
+      restoreLocation = stubWindowLocation();
     });
 
     afterEach(() => {
       global.fetch = originalFetch;
-      if (originalWindow === undefined) {
-        delete (globalThis as { window?: unknown }).window;
-      } else {
-        (globalThis as { window?: unknown }).window = originalWindow;
-      }
+      restoreLocation();
     });
 
     it("does not register an a2ui-surface renderer by default", () => {

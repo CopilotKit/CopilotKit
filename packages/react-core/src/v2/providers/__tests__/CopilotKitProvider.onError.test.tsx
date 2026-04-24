@@ -3,34 +3,20 @@ import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitProvider } from "../CopilotKitProvider";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 describe("CopilotKitProvider onError", () => {
   const originalFetch = global.fetch;
-  const originalWindow = (globalThis as { window?: unknown }).window;
+  let restoreLocation: () => void = () => {};
 
   beforeEach(() => {
-    // Leave the jsdom window intact (needed by React 17's scheduler/renderer
-    // event binding) but shadow location so CopilotKitProvider's localhost
-    // auto-open-inspector heuristic skips. The previous `window = {}` broke
-    // React 17 which calls `window.addEventListener` and
-    // `instanceof window.HTMLIFrameElement` during commit.
-    if (originalWindow && typeof originalWindow === "object") {
-      Object.defineProperty(originalWindow, "location", {
-        value: undefined,
-        configurable: true,
-        writable: true,
-      });
-    }
+    restoreLocation = stubWindowLocation();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     global.fetch = originalFetch;
-    if (originalWindow === undefined) {
-      delete (globalThis as { window?: unknown }).window;
-    } else {
-      (globalThis as { window?: unknown }).window = originalWindow;
-    }
+    restoreLocation();
   });
 
   it("onError fires when runtime info fetch fails (no publicApiKey required)", async () => {
