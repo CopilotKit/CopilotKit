@@ -1,11 +1,11 @@
 ---
 name: previewing-demos
-description: Use when working on any demo in examples/integrations/* or examples/v2/* and you need to boot a live preview in the browser. Routes you to the right launch.json entry and pre-flight checks.
+description: Use when working on any demo in examples/integrations/*, examples/v2/*, or showcase/* (shells and starters) and you need to boot a live preview in the browser. Routes you to the right launch.json entry and pre-flight checks.
 ---
 
 # Previewing CopilotKit demos
 
-The repo has **Claude Preview MCP** (`mcp__Claude_Preview__preview_*`) wired up for every UI-rendering demo under `examples/integrations/*` and `examples/v2/*`. Entries live in `.claude/launch.json`.
+The repo has **Claude Preview MCP** (`mcp__Claude_Preview__preview_*`) wired up for every UI-rendering demo under `examples/integrations/*`, `examples/v2/*`, and `showcase/*` (shells and starters). Entries live in `.claude/launch.json`.
 
 ## When to use this
 
@@ -13,7 +13,11 @@ If you're touching a demo's code and want to see the change in a browser (verify
 
 ## The workflow
 
-1. **Pick the entry.** Names follow the convention `example-<slug>` where `<slug>` identifies the demo (e.g. `example-langgraph-python`, `example-mastra`, `example-react-demo`, `example-docs`). Run `preview_list` or read `.claude/launch.json` to see all names.
+1. **Pick the entry.** Names use two namespaces to avoid collisions (several agent names repeat across roots):
+   - `example-<slug>` → `examples/integrations/*` and `examples/v2/*` (e.g. `example-langgraph-python`, `example-mastra`, `example-react-demo`, `example-docs`)
+   - `showcase-<slug>` → `showcase/shell*` and `showcase/starters/*` (e.g. `showcase-shell`, `showcase-shell-dashboard`, `showcase-langgraph-python`, `showcase-mastra`)
+
+   Run `preview_list` or read `.claude/launch.json` to see all names.
 2. **Pre-flight check** (see the section below) — env vars, `npm install`.
 3. **Start:** `preview_start({ name: "<entry>" })`. It reuses the server if already running.
 4. **Interact:** `preview_click`, `preview_fill`, `preview_snapshot`, `preview_screenshot`, `preview_eval`, `preview_console_logs`.
@@ -37,10 +41,22 @@ Before `preview_start`, make sure these are in order. If you skip them the serve
 - **`example-react-demo` / `example-angular-demo`** consume workspace packages. If packages were rebuilt recently, the demo already picks them up; you don't need to restart preview for package edits unless the demo config caches aggressively.
 - **`example-docs`** is a Mintlify docs site — no agent, no env needed.
 
+### Showcase shells (under `showcase/shell*`)
+
+- **Not in the pnpm workspace** — each shell has its own `package-lock.json`. Run `cd showcase/<shell> && npm install` first.
+- **`showcase-shell`** is the main content shell. `showcase-shell-dashboard`, `showcase-shell-docs`, and `showcase-shell-dojo` are the other UIs that live alongside it.
+- The shells' dev scripts bundle demo content from sibling folders. If `showcase/scripts` or `showcase/shared` isn't installed, the bundler step will fail — run `pnpm install` at the repo root too.
+
+### Showcase starters (under `showcase/starters/*`)
+
+- **Standalone projects** — each starter has its own `package.json` and typically a Python (or .NET / JVM) agent sidecar. Run `cd showcase/starters/<starter> && npm install` first. For Python-agent starters you also need `pip install` in the agent folder before the agent process can boot; check the starter's README for exact steps.
+- All starters expose the UI on port 3000 and the agent on port 8123.
+- `showcase-mastra`, `showcase-spring-ai`, `showcase-ms-agent-dotnet` need their respective toolchains (mastra CLI, Java/Maven, .NET SDK) on PATH.
+
 ## Port conventions
 
 Most demos land on port 3000 (Next.js default). Dedicated ports:
-
+- `showcase-shell-dojo` → 3001, `showcase-shell-dashboard` → 3002, `showcase-shell-docs` → 3003 (so you can run multiple shells side-by-side)
 - Storybook → 6006 (both `example-react-storybook` and `example-angular-storybook` — run them one at a time)
 - `example-docs` → 4000 (Mintlify)
 - `example-angular-demo` → 4200 (Angular CLI default)
@@ -50,10 +66,10 @@ Port collisions don't matter across configs — `preview_start` only runs one at
 
 ## Adding a new demo
 
-When you create a new demo under `examples/integrations/<new>` or `examples/v2/<new>`:
+When you create a new demo under `examples/integrations/<new>`, `examples/v2/<new>`, or `showcase/starters/<new>`:
 
 1. Open `.claude/launch.json`.
-2. Add a configuration object:
+2. Add a configuration object. Pick the namespace based on where the demo lives:
    ```json
    {
      "name": "example-<new>",
@@ -63,7 +79,17 @@ When you create a new demo under `examples/integrations/<new>` or `examples/v2/<
      "port": 3000
    }
    ```
-3. Use `npm` for integrations (they have their own lockfile) and `pnpm` for v2 demos (workspace).
+   or for showcase:
+   ```json
+   {
+     "name": "showcase-<new>",
+     "cwd": "showcase/starters/<new>",
+     "runtimeExecutable": "npm",
+     "runtimeArgs": ["run", "dev"],
+     "port": 3000
+   }
+   ```
+3. Use `npm` for integrations, showcase shells, and showcase starters (they all have their own lockfiles). Use `pnpm` for v2 demos (they're in the workspace).
 4. Set `port` to whatever the dev script binds to.
 5. Commit the launch.json entry alongside the demo.
 
@@ -71,10 +97,14 @@ When you create a new demo under `examples/integrations/<new>` or `examples/v2/<
 
 - `examples/v2/runtime/*`, `examples/v2/node`, `examples/v2/node-express` — backend-only, no UI surface to preview.
 - `examples/v2/next-pages-router` — uses `example-dev` (not standalone dev).
-- `examples/v1/*`, `examples/canvas/*`, `examples/showcases/*`, `showcase/starters/*`, `community/*` — out of scope for this skill. If you need to preview one, add it to `.claude/launch.json` following the same pattern.
+- `showcase/aimock` — Dockerized mock proxy, not a UI.
+- `showcase/packages`, `showcase/scripts`, `showcase/ops`, `showcase/pocketbase`, `showcase/shared`, `showcase/tests` — infrastructure, not previewable apps.
+- `showcase/starters/template` — meta-template, not a runnable demo.
+- `examples/v1/*`, `examples/canvas/*`, `examples/showcases/*`, `community/*` — out of scope. If you need to preview one, add it to `.claude/launch.json` following the same pattern.
 
 ## Troubleshooting
 
 - **Port says "not listening":** the underlying dev script failed. Use `preview_logs({ serverId })` to see the output.
 - **Hangs forever:** agent-backed demos take 30–60s for the first start as the Python/.NET agent compiles. Check `preview_logs` before killing.
 - **"EADDRINUSE 3000":** another demo is already on that port — stop it via `preview_list` + `preview_stop`.
+- **"concurrently: command not found" or similar:** the demo folder hasn't been installed. Run `npm install` in that specific folder.

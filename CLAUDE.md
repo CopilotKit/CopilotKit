@@ -23,7 +23,7 @@ AI agent framework with three layers: **Frontend** (React/Angular/Vanilla) → *
 - **Flat package structure** — all packages live directly under `packages/` (no `v1/` or `v2/` subdirectories). Every package uses the `@copilotkit/` scope.
 - **Simplicity** — prefer the simplest correct solution. For non-trivial changes, consider if there's a cleaner approach before committing.
 - **Worktrees** — always work in a git worktree for isolation. See [Git & PRs](.claude/docs/git.md) for the full workflow.
-- **Demo previews** — every UI demo in `examples/integrations/*` and `examples/v2/*` is registered in [.claude/launch.json](.claude/launch.json) for Claude Preview MCP. Use the `previewing-demos` skill to boot one.
+- **Demo previews** — every UI demo in `examples/integrations/*`, `examples/v2/*`, and `showcase/*` (shells + starters) is registered in [.claude/launch.json](.claude/launch.json) for Claude Preview MCP. Use the `previewing-demos` skill to boot one.
 
 ## Reference (read when relevant to your task)
 

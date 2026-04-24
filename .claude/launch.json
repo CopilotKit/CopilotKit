@@ -182,6 +182,153 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "showcase-shell",
+      "cwd": "showcase/shell",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-shell-dojo",
+      "cwd": "showcase/shell-dojo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "showcase-shell-dashboard",
+      "cwd": "showcase/shell-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "showcase-shell-docs",
+      "cwd": "showcase/shell-docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3003
+    },
+    {
+      "name": "showcase-ag2",
+      "cwd": "showcase/starters/ag2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-agno",
+      "cwd": "showcase/starters/agno",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-claude-sdk-python",
+      "cwd": "showcase/starters/claude-sdk-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-claude-sdk-typescript",
+      "cwd": "showcase/starters/claude-sdk-typescript",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-crewai-crews",
+      "cwd": "showcase/starters/crewai-crews",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-google-adk",
+      "cwd": "showcase/starters/google-adk",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-fastapi",
+      "cwd": "showcase/starters/langgraph-fastapi",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-python",
+      "cwd": "showcase/starters/langgraph-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-typescript",
+      "cwd": "showcase/starters/langgraph-typescript",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langroid",
+      "cwd": "showcase/starters/langroid",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-llamaindex",
+      "cwd": "showcase/starters/llamaindex",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-mastra",
+      "cwd": "showcase/starters/mastra",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-ms-agent-dotnet",
+      "cwd": "showcase/starters/ms-agent-dotnet",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-ms-agent-python",
+      "cwd": "showcase/starters/ms-agent-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-pydantic-ai",
+      "cwd": "showcase/starters/pydantic-ai",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-spring-ai",
+      "cwd": "showcase/starters/spring-ai",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-strands",
+      "cwd": "showcase/starters/strands",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
     }
   ]
 }
