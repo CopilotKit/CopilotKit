@@ -16,6 +16,10 @@ ported to Mastra.
 - `readonly-state-agent-context` — `useAgentContext` read-only context
 - `agent-config` — config-object forwarding (adapted to `useAgentContext`)
 - `cli-start` — manifest-only `npx degit` entry for the Mastra starter
+- `declarative-gen-ui` — A2UI dynamic-schema catalog via the existing
+  `generate_a2ui` tool on the shared Mastra agent
+- `a2ui-fixed-schema` — A2UI fixed-schema flight card catalog via the
+  same `generate_a2ui` tool
 
 ## Skipped / Deferred
 
@@ -50,18 +54,6 @@ hashbrown schema alignment. Deferred pending a dedicated pass.
 
 BYOC demo using `@json-render/react`. Large surface area (~10 files).
 Deferred pending a dedicated pass.
-
-### `declarative-gen-ui` (A2UI dynamic)
-
-The `generateA2uiTool` is already wired on the shared Mastra agent, but
-bringing the full declarative A2UI catalog + renderers + page + suggestion
-set across requires copying ~6 files and porting the A2UI catalog to match
-the Mastra runtime. Deferred.
-
-### `a2ui-fixed-schema`
-
-Same reason as `declarative-gen-ui` — A2UI catalog + fixed schemas + page
-are a substantial port.
 
 ### `open-gen-ui`, `open-gen-ui-advanced`
 

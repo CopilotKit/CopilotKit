@@ -79,6 +79,8 @@ type _DemoAgentNameIsLiteralUnion = Assert<
     | "reasoning-default-render"
     | "readonly-state-agent-context"
     | "agent-config"
+    | "declarative-gen-ui"
+    | "a2ui-fixed-schema"
   >
 >;
 
@@ -122,6 +124,8 @@ const _badKey: BuiltAgents = {
   "reasoning-default-render": {} as _AgentValue,
   "readonly-state-agent-context": {} as _AgentValue,
   "agent-config": {} as _AgentValue,
+  "declarative-gen-ui": {} as _AgentValue,
+  "a2ui-fixed-schema": {} as _AgentValue,
 };
 
 describe("BuiltAgents type narrowing", () => {

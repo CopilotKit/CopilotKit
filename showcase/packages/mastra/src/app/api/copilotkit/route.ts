@@ -66,6 +66,8 @@ export const demoAgentNames = [
   "reasoning-default-render",
   "readonly-state-agent-context",
   "agent-config",
+  "declarative-gen-ui",
+  "a2ui-fixed-schema",
 ] as const;
 
 export type DemoAgentName = (typeof demoAgentNames)[number];
