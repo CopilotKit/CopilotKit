@@ -8,46 +8,48 @@
 
 ## Test Steps
 
-### 1. Initial unauthenticated state
+### 1. Initial authenticated state
 
 - [ ] Navigate to /demos/auth
-- [ ] Verify the banner is visible with an amber/warning appearance (data-testid="auth-banner", data-authenticated="false")
-- [ ] Verify auth-status text reads "⚠ Not authenticated — the agent will reject your messages."
-- [ ] Verify the "Authenticate" button is visible and enabled (data-testid="auth-authenticate-button")
-- [ ] Verify the "Sign out" button is NOT present
+- [ ] Verify the banner is visible with a green/success appearance (data-testid="auth-banner", data-authenticated="true")
+- [ ] Verify auth-status text reads "✓ Signed in as demo user"
+- [ ] Verify the "Sign out" button is visible and enabled (data-testid="auth-sign-out-button")
+- [ ] Verify the "Sign in" button is NOT present
 - [ ] Verify <CopilotChat /> is mounted below the banner
-- [ ] Verify no auth-demo-error surface is shown yet (data-testid="auth-demo-error" absent)
+- [ ] Verify no auth-demo-error surface is shown (data-testid="auth-demo-error" absent)
+- [ ] Verify no console errors on page load (the `/info` handshake should succeed)
 
-### 2. Unauthenticated send → 401
+### 2. Authenticated send → assistant response
 
 - [ ] Type "Hello" and click send
-- [ ] Within 15 seconds, the page-level error surface appears:
-  - `data-testid="auth-demo-error"` visible with text containing "401" and/or "Unauthorized"
-- [ ] Verify no assistant response appears in the transcript
+- [ ] Within 30 seconds, an assistant response is rendered in the transcript
+- [ ] No auth-demo-error surface appears
 
-### 3. Authenticate flips the banner and enables sends
-
-- [ ] Click "Authenticate"
-- [ ] Within 1 second, the banner flips to green/success appearance (data-authenticated="true")
-- [ ] Verify auth-status text reads "✓ Authenticated as demo user"
-- [ ] Verify the "Sign out" button is visible (data-testid="auth-sign-out-button")
-- [ ] Verify the "Authenticate" button is no longer present
-- [ ] Verify the auth-demo-error surface is cleared on authenticate
-- [ ] Type "Hello" and click send
-- [ ] Within 15 seconds, an assistant response is rendered in the transcript
-
-### 4. Sign out reverts behavior
+### 3. Sign out flips the banner and surfaces 401 without crashing
 
 - [ ] Click "Sign out"
-- [ ] Banner flips back to amber within 1 second
-- [ ] Previous transcript (assistant replies from authenticated state) remains visible
-- [ ] Type "Hello again" and send
-- [ ] Within 15 seconds, the auth-demo-error surface reappears for the new send
+- [ ] Within 1 second, the banner flips to amber/warning appearance (data-authenticated="false")
+- [ ] Verify auth-status text reads "⚠ Signed out — the agent will reject your messages until you sign in."
+- [ ] Verify the "Sign in" button is visible (data-testid="auth-authenticate-button")
+- [ ] Verify the "Sign out" button is no longer present
+- [ ] Type "Hello again" and click send
+- [ ] Within 15 seconds, the page-level error surface appears:
+  - `data-testid="auth-demo-error"` visible with text containing "401" and/or "Unauthorized"
+- [ ] Verify the banner is STILL visible — the page must not white-screen
+- [ ] Verify no assistant response appears for the unauthenticated send
 
-### 5. Refresh resets state
+### 4. Sign in clears the error and restores sends
+
+- [ ] Click "Sign in"
+- [ ] Within 1 second, the banner flips back to green (data-authenticated="true")
+- [ ] Verify the auth-demo-error surface is cleared
+- [ ] Type "Hello" and click send
+- [ ] Within 30 seconds, an assistant response is rendered
+
+### 5. Refresh resets state to authenticated
 
 - [ ] Hard-reload the page
-- [ ] Banner is amber on first render (state does NOT persist)
+- [ ] Banner is green on first render (default state is authenticated; state does NOT persist)
 - [ ] No error surface on first render
 
 ### 6. Error Handling
@@ -58,8 +60,9 @@
 
 ## Expected Results
 
-- Banner state flips within 1s of Authenticate / Sign out clicks
-- Unauthenticated sends produce a visible 401 error within 15s via auth-demo-error
-- Authenticated sends produce an assistant response within 15s
-- No console errors during successful flows
-- Refresh fully resets auth state
+- Page loads authenticated by default — no 401 crash on initial `/info` fetch
+- Banner state flips within 1s of Sign out / Sign in clicks
+- Post-sign-out sends produce a visible 401 error within 15s via auth-demo-error
+- Page never white-screens after sign out — banner and composer remain mounted
+- Authenticated sends produce an assistant response within 30s
+- Refresh fully resets auth state (back to authenticated)
