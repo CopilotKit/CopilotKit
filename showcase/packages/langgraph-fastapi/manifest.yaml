@@ -39,6 +39,7 @@ features:
   - subagents
   - byoc-hashbrown
   - byoc-json-render
+  - open-gen-ui
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -128,3 +129,14 @@ demos:
       - src/app/demos/byoc-json-render/metric-card.tsx
       - src/app/demos/byoc-json-render/charts/bar-chart.tsx
       - src/app/demos/byoc-json-render/charts/pie-chart.tsx
+  - id: open-gen-ui
+    name: Fully Open-Ended Generative UI
+    description: Agent generates UI from an arbitrary component library
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/src/open_gen_ui_agent.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
