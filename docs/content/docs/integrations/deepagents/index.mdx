@@ -7,6 +7,7 @@ hideHeader: true
 import DeepAgentsIcon from "@/components/ui/icons/deepagents";
 import { FrameworkOverview } from "@/components/content/landing-pages/framework-overview";
 
+{/* TODO: swap feature-viewer URLs back to /deepagents/ once the dojo supports that route */}
 <FrameworkOverview
   frameworkName="Deep Agents"
   frameworkIcon={<DeepAgentsIcon className="h-14 w-14" />}
@@ -15,13 +16,13 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
   bannerVideo="https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/overview.mp4"
   guideLink="/deepagents/quickstart"
   initCommand="npx copilotkit@latest init"
-  featuresLink="https://feature-viewer.copilotkit.ai/deepagents/feature/agentic_chat"
+  featuresLink="https://feature-viewer.copilotkit.ai/langgraph/feature/agentic_chat"
   supportedFeatures={[
     {
       title: "Generative UI",
       description: "Render your agent's state, progress, outputs, and tool calls with custom UI components in real-time. Bridges the gap between AI agents and user interfaces.",
       documentationLink: "/deepagents/generative-ui",
-      demoLink: "https://feature-viewer.copilotkit.ai/deepagents/feature/tool_based_generative_ui",
+      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/tool_based_generative_ui",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/haiku.mp4"
     },
     {
@@ -35,7 +36,7 @@ import { FrameworkOverview } from "@/components/content/landing-pages/framework-
       title: "Shared State",
       description: "Keep your agent and your app in sync. Your agent can see everything in your app, and your app can react to your agent in real-time.",
       documentationLink: "/deepagents/shared-state",
-      demoLink: "https://feature-viewer.copilotkit.ai/deepagents/feature/shared_state",
+      demoLink: "https://feature-viewer.copilotkit.ai/langgraph/feature/shared_state",
       videoUrl: "https://cdn.copilotkit.ai/docs/copilotkit/videos/coagents/shared-state.mp4"
     }
   ]}
