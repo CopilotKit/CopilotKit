@@ -29,6 +29,14 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// Declarative Generative UI (A2UI — Dynamic Schema): dedicated agent whose
+// sole tool is `generate_a2ui` (secondary-LLM A2UI component generation).
+// Mounted at a dedicated path so the Next.js runtime route
+// (`/api/copilotkit-declarative-gen-ui`) can proxy directly to it.
+var declarativeGenUi = new DeclarativeGenUiAgent(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/declarative-gen-ui", declarativeGenUi.Create());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
