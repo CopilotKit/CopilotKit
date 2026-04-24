@@ -34,22 +34,48 @@ expose at this time:
   `useConfigureMcpClient` wiring) is LangGraph-specific in our current
   runtime glue. Not portable without new Strands-side integration work.
 
-Additional demos that require dedicated backend runtimes are deferred for a
-follow-up blitz — they are not blocked by Strands primitives per se, but
-porting them well requires building out parallel `/api/copilotkit-*` endpoints
-with agent-owned tool behaviors (OGUI, BYOC renderers). These are:
+Wave-2 port status for the previously deferred demos:
 
-- **beautiful-chat** — requires its own runtime enabling `openGenerativeUI` +
-  `a2ui` + `mcpApps` simultaneously; dedicated backend graph. Deferred.
-- **byoc-hashbrown** — Hashbrown renderer pipeline on a dedicated runtime.
-  Deferred; the Strands agent exposes the same `query_data` tool but the
-  frontend wiring + schema catalog is substantial.
-- **byoc-json-render** — json-render renderer on a dedicated runtime.
-  Deferred for the same reason as `byoc-hashbrown`.
-- **open-gen-ui** — dedicated runtime with OGUI-specific agent plumbing.
-  Deferred.
-- **open-gen-ui-advanced** — same as `open-gen-ui` plus sandbox
-  function-calling plumbing. Deferred.
+- **byoc-hashbrown** — **shipped**. Dedicated `/api/copilotkit-byoc-hashbrown`
+  route, hashbrown renderer + catalog, MetricCard/PieChart/BarChart/DealCard
+  components. The strict hashbrown JSON envelope prompt lives in
+  `src/agents/byoc_hashbrown.py` and is injected into the shared Strands
+  agent as `useAgentContext`. Incorporates PR #4271 fix from the start
+  (JSON envelope — NOT XML).
+- **byoc-json-render** — **shipped**. Dedicated `/api/copilotkit-byoc-json-render`
+  route, `@json-render/react` renderer with `<JSONUIProvider>` wrap (PR #4271
+  fix). Registry forwards `children` through the MetricCard wrapper so
+  nested dashboards render. Output prompt lives in
+  `src/agents/byoc_json_render.py` and is mirrored on the frontend via
+  `useAgentContext`.
+- **open-gen-ui** — **shipped**. Dedicated `/api/copilotkit-ogui` route with
+  `openGenerativeUI: { agents: ["open-gen-ui", "open-gen-ui-advanced"] }`.
+  Minimal variant uses `openGenerativeUI.designSkill` to steer the LLM
+  toward intricate, educational visualisations.
+- **open-gen-ui-advanced** — **shipped**. Same route as open-gen-ui; adds
+  `openGenerativeUI.sandboxFunctions` (evaluateExpression, notifyHost) so
+  the agent-authored iframe can invoke host functions via
+  `Websandbox.connection.remote.<name>(...)`.
+- **beautiful-chat** — **skipped** (truthfully). Porting fully requires
+  dozens of starter-level sub-components (UI primitives, todo board,
+  meeting-time picker, headless chat, theme toggle, a2ui catalog, etc.)
+  AND a dedicated runtime that enables `openGenerativeUI` + `a2ui` +
+  `mcpApps` simultaneously. That is more work than all four other wave-2
+  demos combined and deserves its own blitz. See the LangGraph-Python
+  reference in `showcase/packages/langgraph-python/src/app/demos/beautiful-chat/`
+  for the full surface area.
+
+### Per-demo prompt specialization caveat
+
+The Strands showcase uses one shared Strands Agent backend
+(`agent_server.py`). Wave-2's BYOC demos specialize the LLM's output shape
+(hashbrown envelope / json-render spec) by injecting the canonical system
+prompt via `useAgentContext` on the frontend, rather than by spinning up
+dedicated Strands Agent instances per demo. The canonical prompts live in
+`src/agents/byoc_hashbrown.py` and `src/agents/byoc_json_render.py` as the
+single source of truth; the frontend strings mirror them. This keeps the
+Strands backend topology simple while letting each demo specialize its
+output contract.
 
 All other LangGraph-Python demos are ported below.
 

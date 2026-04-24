@@ -9,53 +9,55 @@
  *
  * Architecture:
  * - Dedicated runtime route at `/api/copilotkit-multimodal` (see
- *   ../api/copilotkit-multimodal/route.ts). The vision-capable model
- *   (gpt-4o) is scoped to just this demo, so other cells keep their
- *   cheaper text-only models.
- * - Dedicated LangGraph agent at `src/agents/multimodal_agent.py` under
- *   the slug `multimodal-demo`. The agent is registered in langgraph.json
- *   under the graph id `multimodal`. Images are forwarded to the model
- *   natively; PDFs are flattened to text on the Python side via `pypdf`
- *   for provider-agnostic behavior.
+ *   ../api/copilotkit-multimodal/route.ts).
+ * - Dedicated agent name (`multimodal-demo`) proxied through the shared
+ *   Strands backend (`agent_server.py`). The shared Strands agent already
+ *   has vision capable models configured.
  * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
  *   (see `public/demo-files/`). The sample-buttons component fetches them
  *   client-side, wraps the blob in a File, and drives the same hidden
- *   `<input type="file">` the paperclip path uses (DataTransfer + dispatch
- *   `change`). This keeps the sample and real-upload paths on a single
- *   code path — whatever works for one works for both.
+ *   `<input type="file">` the paperclip path uses.
+ *
+ * Legacy-shape rewrite:
+ * - Defensively rewrite outgoing user messages in `onRunInitialized` so
+ *   image/document/audio/video modern parts round-trip through the legacy
+ *   `{ type: "binary", mimeType, data | url }` shape most AG-UI adapters
+ *   preserve. Idempotent: already-legacy parts are a no-op. This matches
+ *   the shape historically consumed by ag_ui_strands / strands model
+ *   adapters; plain-text parts and already-legacy binary parts pass
+ *   through untouched.
  */
 
-import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { useCallback, useEffect, useMemo } from "react";
+import { CopilotKit, CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
 
 /**
+ * Minimal structural shape of an AG-UI message. We only need the `user`
+ * branch for the rewrite; every other role passes through untouched.
+ */
+type AgentMessage = {
+  id?: string;
+  role: string;
+  content?: unknown;
+};
+
+/**
  * `onUpload` must resolve to an `AttachmentUploadResult` (data or url). We
  * always return the `data` variant — the demo inlines base64 instead of
- * uploading to external storage, matching the Wave 2b spec.
+ * uploading to external storage.
  */
 type DataUploadResult = Extract<AttachmentUploadResult, { type: "data" }>;
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPT_MIME = "image/*,application/pdf";
-/**
- * Selector used by <SampleAttachmentButtons /> to locate CopilotChat's
- * hidden file input. Kept as a constant so the wrapper element and the
- * sample buttons cannot drift.
- */
 const CHAT_ROOT_SELECTOR = "[data-multimodal-demo-chat-root]";
 
 /**
  * Convert a File into the `AttachmentsConfig.onUpload` result shape —
- * inline base64 with the browser-provided mime type. We do this in the
- * browser rather than uploading to external storage because Wave 2b is a
- * self-contained demo; `maxSize: 10 MB` (set below) caps bloat.
- *
- * `FileReader` produces a `data:<mime>;base64,<payload>` URL; we strip the
- * prefix so the runtime forwards the raw base64 value (what the agent
- * expects in `source.value`).
+ * inline base64 with the browser-provided mime type.
  */
 function fileToDataAttachment(file: File): Promise<DataUploadResult> {
   return new Promise((resolve, reject) => {
@@ -68,7 +70,6 @@ function fileToDataAttachment(file: File): Promise<DataUploadResult> {
         reject(new Error(`Unexpected FileReader result type for ${file.name}`));
         return;
       }
-      // result looks like "data:image/png;base64,iVBORw0K..." — strip the prefix.
       const commaIdx = result.indexOf(",");
       const base64 = commaIdx >= 0 ? result.slice(commaIdx + 1) : result;
       resolve({
@@ -85,16 +86,123 @@ function fileToDataAttachment(file: File): Promise<DataUploadResult> {
   });
 }
 
+/**
+ * Rewrites a single modern multimodal `InputContent` part (image/document/
+ * audio/video with `source.{type,value,mimeType}`) to the legacy binary
+ * shape (`type: "binary"`, `mimeType`, `data` | `url`). Idempotent for
+ * already-legacy parts. Text parts pass through.
+ */
+function rewriteMultimodalPart(part: unknown): unknown {
+  if (!part || typeof part !== "object") return part;
+  const candidate = part as {
+    type?: string;
+    text?: string;
+    source?: {
+      type?: string;
+      value?: string;
+      mimeType?: string;
+    };
+  };
+  const type = candidate.type;
+  if (
+    type !== "image" &&
+    type !== "document" &&
+    type !== "audio" &&
+    type !== "video"
+  ) {
+    return part;
+  }
+  const source = candidate.source;
+  if (!source || typeof source.value !== "string") {
+    return part;
+  }
+  const mimeType = source.mimeType ?? "application/octet-stream";
+  if (source.type === "data") {
+    return {
+      type: "binary",
+      mimeType,
+      data: source.value,
+    };
+  }
+  if (source.type === "url") {
+    return {
+      type: "binary",
+      mimeType,
+      url: source.value,
+    };
+  }
+  return part;
+}
+
+/**
+ * Walks a message list and rewrites user-message multimodal content parts
+ * to the legacy `binary` shape. Non-user and plain-string messages pass
+ * through untouched. Returns the same reference if nothing changed so the
+ * subscriber can skip unnecessary state writes.
+ */
+function rewriteMessagesForLegacyConverter(
+  messages: ReadonlyArray<Readonly<AgentMessage>>,
+): AgentMessage[] | null {
+  let mutated = false;
+  const next = messages.map((message) => {
+    if (message.role !== "user") return message as AgentMessage;
+    const content = message.content;
+    if (!Array.isArray(content)) return message as AgentMessage;
+    let partMutated = false;
+    const rewrittenParts = content.map((part) => {
+      const rewritten = rewriteMultimodalPart(part);
+      if (rewritten !== part) partMutated = true;
+      return rewritten;
+    });
+    if (!partMutated) return message as AgentMessage;
+    mutated = true;
+    return {
+      ...(message as object),
+      content: rewrittenParts,
+    } as AgentMessage;
+  });
+  return mutated ? next : null;
+}
+
+/**
+ * Installs the `onRunInitialized` subscriber on the active agent so the
+ * rewrite runs on the same agent instance CopilotChat dispatches through.
+ */
+function LegacyConverterShim() {
+  const { agent } = useAgent({ agentId: "multimodal-demo" });
+
+  const subscriber = useMemo(
+    () => ({
+      onRunInitialized: ({
+        messages,
+      }: {
+        messages: ReadonlyArray<Readonly<AgentMessage>>;
+      }) => {
+        const rewritten = rewriteMessagesForLegacyConverter(messages);
+        if (!rewritten) return;
+        return { messages: rewritten };
+      },
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    if (!agent) return;
+    const handle = agent.subscribe(
+      subscriber as unknown as Parameters<typeof agent.subscribe>[0],
+    );
+    return () => handle.unsubscribe();
+  }, [agent, subscriber]);
+
+  return null;
+}
+
 export default function MultimodalDemoPage() {
-  // `onUpload` is passed into CopilotChat's `AttachmentsConfig`. Both the
-  // paperclip button and the sample-injection path route files through
-  // this same function (sample buttons drive CopilotChat's hidden file
-  // input, which calls this internally via `useAttachments`). No
-  // duplicated upload code lives in the sample-button component.
   const onUpload = useCallback(fileToDataAttachment, []);
 
   return (
     <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+      <LegacyConverterShim />
       <div
         data-testid="multimodal-demo-root"
         className="mx-auto flex h-screen max-w-4xl flex-col gap-3 p-4 sm:p-6"
@@ -123,8 +231,6 @@ export default function MultimodalDemoPage() {
               maxSize: MAX_FILE_SIZE_BYTES,
               onUpload,
               onUploadFailed: (err) => {
-                // Log without disrupting the default UI — CopilotChat already
-                // shows a toast-style indicator on validation failure.
                 console.warn("[multimodal-demo] attachment rejected", err);
               },
             }}

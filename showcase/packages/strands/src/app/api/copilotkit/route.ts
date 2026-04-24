@@ -65,6 +65,12 @@ const agentNames = [
   // Misc
   "auth",
   "agent-config",
+  // BYOC renderers (wave 2)
+  "byoc-hashbrown-demo",
+  "byoc_json_render",
+  // Open Generative UI (wave 2)
+  "open-gen-ui",
+  "open-gen-ui-advanced",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

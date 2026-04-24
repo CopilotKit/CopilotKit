@@ -59,6 +59,10 @@ features:
   - voice
   - auth
   - agent-config
+  - byoc-hashbrown
+  - byoc-json-render
+  - open-gen-ui
+  - open-gen-ui-advanced
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -382,3 +386,51 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/demos/agent-config/config-types.ts
       - src/app/api/copilotkit-agent-config/route.ts
+  - id: byoc-hashbrown
+    name: "BYOC: Hashbrown"
+    description: Streaming structured output rendered via @hashbrownai/react's useUiKit + useJsonParser
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown.py
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+  - id: byoc-json-render
+    name: "BYOC: json-render"
+    description: JSON spec rendered via @json-render/react against a Zod catalog
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render.py
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/api/copilotkit-byoc-json-render/route.ts
+  - id: open-gen-ui
+    name: Open Generative UI (Minimal)
+    description: Agent-authored HTML/CSS/SVG in a sandboxed iframe, minimal variant
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: Open Generative UI (Advanced)
+    description: Sandboxed iframe that invokes host-registered sandbox functions via Websandbox.connection.remote
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/api/copilotkit-ogui/route.ts
