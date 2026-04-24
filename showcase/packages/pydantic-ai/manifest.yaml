@@ -51,6 +51,7 @@ features:
   - declarative-gen-ui
   - a2ui-fixed-schema
   - headless-complete
+  - beautiful-chat
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -340,3 +341,22 @@ demos:
       - src/app/demos/headless-complete/use-rendered-messages.tsx
       - src/app/demos/headless-complete/tool-renderers.tsx
       - src/app/api/copilotkit/route.ts
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Flagship showcase combining A2UI (fixed + dynamic), Open Generative UI, shared todos state, and HITL in a single polished cell
+    tags:
+      - generative-ui
+      - agent-state
+      - multi-agent
+    route: /demos/beautiful-chat
+    animated_preview_url:
+    highlight:
+      - src/agents/beautiful_chat.py
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/definitions.ts
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts

@@ -35,6 +35,8 @@ from agents.a2ui_fixed import EmptyState as A2UIFixedState
 from agents.a2ui_fixed import agent as a2ui_fixed_agent
 from agents.headless_complete import EmptyState as HeadlessCompleteState
 from agents.headless_complete import agent as headless_complete_agent
+from agents.beautiful_chat import BeautifulChatState
+from agents.beautiful_chat import agent as beautiful_chat_agent
 
 load_dotenv()
 
@@ -79,6 +81,10 @@ app.mount(
 app.mount(
     "/headless_complete",
     headless_complete_agent.to_ag_ui(deps=StateDeps(HeadlessCompleteState())),
+)
+app.mount(
+    "/beautiful_chat",
+    beautiful_chat_agent.to_ag_ui(deps=StateDeps(BeautifulChatState())),
 )
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────
