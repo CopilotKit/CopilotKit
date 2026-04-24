@@ -47,6 +47,25 @@ export const demoAgentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Parity-with-langgraph-python demos — all currently map to the same
+  // underlying weatherAgent. Each gets a unique resourceId so working-memory
+  // buckets don't cross-contaminate. A future refactor can split these into
+  // dedicated Mastra agents when per-demo behavior diverges from weatherAgent.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "frontend_tools",
+  "frontend-tools-async",
+  "hitl-in-chat",
+  "hitl-in-app",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  "readonly-state-agent-context",
+  "agent-config",
 ] as const;
 
 export type DemoAgentName = (typeof demoAgentNames)[number];

@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("HITL In-Chat (useHumanInTheLoop)", () => {
+test.describe("Tool Rendering (Default Catch-all)", () => {
   test("chat input is visible", async ({ page }) => {
-    await page.goto("/demos/hitl-in-chat");
+    await page.goto("/demos/tool-rendering-default-catchall");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 });
