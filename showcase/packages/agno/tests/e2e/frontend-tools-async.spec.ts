@@ -19,10 +19,12 @@ test.describe("Frontend Tools (Async)", () => {
     await expect(pill).toBeVisible({ timeout: 15000 });
     await pill.click();
 
-    await expect(page.locator('[data-testid="notes-card"]').first()).toBeVisible(
-      { timeout: 45000 },
-    );
+    await expect(
+      page.locator('[data-testid="notes-card"]').first(),
+    ).toBeVisible({ timeout: 45000 });
 
-    await expect(page.locator('[data-testid="notes-keyword"]').first()).toBeVisible();
+    await expect(
+      page.locator('[data-testid="notes-keyword"]').first(),
+    ).toBeVisible();
   });
 });

@@ -10,9 +10,7 @@ test.describe("Headless Simple", () => {
       page.getByRole("heading", { name: "Headless Chat (Simple)" }),
     ).toBeVisible();
 
-    await expect(
-      page.getByPlaceholder(/Type a message/),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder(/Type a message/)).toBeVisible();
   });
 
   test("send button is disabled on empty input, enabled when typing", async ({
