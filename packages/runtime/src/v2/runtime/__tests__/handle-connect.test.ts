@@ -475,4 +475,68 @@ describe("handleConnectAgent", () => {
       }
     });
   });
+
+  describe("telemetry", () => {
+    it("captures oss.runtime.copilot_request_created on every invocation", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+        });
+        await handleConnectAgent({
+          runtime,
+          request,
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            requestType: "connect",
+            "cloud.api_key_provided": false,
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+
+    it("includes cloud.public_api_key when x-copilotcloud-public-api-key header is set", async () => {
+      const { telemetry } = await import("../telemetry");
+      const captureSpy = vi
+        .spyOn(telemetry, "capture")
+        .mockResolvedValue(undefined);
+
+      try {
+        const runtime = createMockRuntime({});
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+          headers: {
+            "x-copilotcloud-public-api-key": "ck_pub_connect_test",
+          },
+        });
+
+        await handleConnectAgent({
+          runtime,
+          request,
+          agentId: "nonexistent-agent",
+        });
+
+        expect(captureSpy).toHaveBeenCalledWith(
+          "oss.runtime.copilot_request_created",
+          expect.objectContaining({
+            "cloud.api_key_provided": true,
+            "cloud.public_api_key": "ck_pub_connect_test",
+          }),
+        );
+      } finally {
+        captureSpy.mockRestore();
+      }
+    });
+  });
 });
