@@ -74,8 +74,18 @@ function rowTone(row: StatusRow | null): BadgeTone {
   }
 }
 
+/** Dimension identifiers for formatLabel / formatTooltip. */
+export type LiveDimension =
+  | "e2e_smoke"
+  | "smoke"
+  | "health"
+  | "agent"
+  | "chat"
+  | "tools"
+  | "e2e";
+
 function formatLabel(
-  dim: "e2e_smoke" | "smoke" | "health" | "agent" | "chat" | "tools",
+  dim: LiveDimension,
   row: StatusRow | null,
 ): string {
   if (!row) return "?";
@@ -95,7 +105,7 @@ function formatLabel(
 }
 
 function formatTooltip(
-  dim: "e2e_smoke" | "smoke" | "health" | "agent" | "chat" | "tools",
+  dim: LiveDimension,
   row: StatusRow | null,
   connection: ConnectionStatus,
 ): string {
