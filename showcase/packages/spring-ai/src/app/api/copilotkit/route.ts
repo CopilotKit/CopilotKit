@@ -45,9 +45,15 @@ const agentNames = [
   "prebuilt-popup",
   "chat-slots",
   "headless-simple",
+  "headless-complete",
   "readonly-state-agent-context",
   "auth",
   "open-gen-ui",
+  "beautiful-chat",
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  "tool-rendering-reasoning-chain",
+  "mcp-apps",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

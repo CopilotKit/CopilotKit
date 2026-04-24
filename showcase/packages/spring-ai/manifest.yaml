@@ -26,6 +26,9 @@ interaction_modalities:
   - chat
 features:
   - agentic-chat
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
   - chat-customization-css
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
@@ -36,13 +39,23 @@ features:
   - hitl-in-app
   - gen-ui-tool-based
   - gen-ui-agent
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - declarative-gen-ui
+  - a2ui-fixed-schema
   - shared-state-read-write
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
   - headless-simple
+  - headless-complete
+  - beautiful-chat
   - readonly-state-agent-context
   - auth
+  - voice
+  - multimodal
+  - agent-config
+  - mcp-apps
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -240,6 +253,161 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/route.ts
+  - id: open-gen-ui
+    name: Open Generative UI (Minimal)
+    description: Agent streams HTML + CSS into a sandboxed iframe via the built-in OpenGenerativeUIActivityRenderer
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: Open Generative UI (Advanced)
+    description: Sandboxed UI can call host-side functions (evaluateExpression, notifyHost) via the provider's sandboxFunctions registration
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: voice
+    name: Voice
+    description: CopilotChat mic button via a runtime mounted with TranscriptionServiceOpenAI; transcribed text is forwarded to the Spring AI backend
+    tags:
+      - interactivity
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: Frontend forwards typed config (tone, expertise, responseLength) to Spring, which rebuilds the system prompt per request
+    tags:
+      - agent-capabilities
+    route: /demos/agent-config
+    animated_preview_url:
+    highlight:
+      - src/main/java/com/copilotkit/showcase/springai/AgentConfigController.java
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/use-agent-config.ts
+      - src/app/demos/agent-config/config-types.ts
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: a2ui-fixed-schema
+    name: A2UI Fixed Schema
+    description: Dedicated Spring tool emits a fixed flight-card component tree plus a data model; frontend catalog renders each component
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+    highlight:
+      - src/main/java/com/copilotkit/showcase/springai/A2uiFixedSchemaController.java
+      - src/main/java/com/copilotkit/showcase/springai/tools/DisplayFlightTool.java
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: Full chat built from scratch on useAgent plus low-level render hooks (useRenderToolCall, useRenderActivityMessage, useRenderCustomMessages)
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Polished brand-themed chat surface over the Spring AI agent with seeded suggestion pills
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
+    animated_preview_url:
+    highlight:
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agentic-chat-reasoning
+    name: Agentic Chat (Reasoning)
+    description: Custom reasoningMessage slot renders the agent's thinking chain as a tagged amber banner (renders when the adapter emits REASONING_MESSAGE_* events)
+    tags:
+      - agent-capabilities
+    route: /demos/agentic-chat-reasoning
+    animated_preview_url:
+    highlight:
+      - src/app/demos/agentic-chat-reasoning/page.tsx
+      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default-render
+    name: Reasoning (Default Render)
+    description: Zero-config reasoning — CopilotChatReasoningMessage renders the built-in collapsible card when REASONING_MESSAGE_* events are emitted
+    tags:
+      - agent-capabilities
+    route: /demos/reasoning-default-render
+    animated_preview_url:
+    highlight:
+      - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: Tool Rendering (Reasoning Chain)
+    description: Per-tool renderers (WeatherCard, FlightListCard) plus custom reasoningMessage slot composed in a single chat
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI
+    description: A2UI dynamic-schema against a branded catalog; backend owns the `generate_a2ui` tool
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/main/java/com/copilotkit/showcase/springai/tools/GenerateA2uiTool.java
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: multimodal
+    name: Multimodal Attachments
+    description: CopilotChat AttachmentsConfig for images + PDFs; sample files inject through the same pipeline as the paperclip upload
+    tags:
+      - interactivity
+    route: /demos/multimodal
+    animated_preview_url:
+    highlight:
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: mcp-apps
+    name: MCP Apps
+    description: Runtime mounts the MCP Apps middleware (Excalidraw MCP server); agent-invoked MCP tools render as sandboxed iframes via the built-in activity renderer
+    tags:
+      - generative-ui
+    route: /demos/mcp-apps
+    animated_preview_url:
+    highlight:
+      - src/app/demos/mcp-apps/page.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts
 starter:
   path: showcase/starters/spring-ai
   name: Sales Dashboard

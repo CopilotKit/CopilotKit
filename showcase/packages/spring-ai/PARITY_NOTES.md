@@ -1,81 +1,92 @@
 # Spring AI Showcase — Parity Notes
 
-This document tracks demos from the canonical `langgraph-python` showcase manifest that
-are **not ported** to the Spring AI showcase, along with the reason. Spring AI is a
-Java framework with a narrower primitive set than LangGraph — several of the canonical
-demos require primitives that Spring AI or the `ag-ui` Spring AI integration
-(`com.ag-ui.community:spring-ai`) does not currently expose.
+This document tracks demos from the canonical `langgraph-python` showcase
+manifest that are **not ported** to the Spring AI showcase, along with the
+specific Spring AI / `ag-ui:spring-ai` primitive that is missing.
+
+Spring AI is a Java framework with a narrower primitive set than LangGraph
+for a handful of specific use-cases — especially streaming structured
+output, multi-agent orchestration, and graph-level interrupts. The demos
+below are the ones where those primitives are genuinely unavailable.
 
 ## Skipped demos
 
-- **gen-ui-interrupt** — Spring AI has no `interrupt` primitive. The `SpringAIAgent`
-  runs to completion on each HTTP request; there is no way to pause a graph and
-  resume it from client-supplied data. LangGraph-specific.
+### LangGraph graph-control primitives (no Spring AI equivalent)
 
-- **interrupt-headless** — Same reason as `gen-ui-interrupt`. No interrupt
-  primitive in Spring AI; this demo is LangGraph-specific.
+- **gen-ui-interrupt** — Spring AI has no `interrupt` primitive. The
+  `SpringAIAgent` runs a single `ChatClient` call to completion on each
+  HTTP request; there is no graph-level pause/resume API to carry client
+  input across suspensions. LangGraph-specific.
 
-- **mcp-apps** — The `ag-ui` Spring AI integration does not currently expose an
-  MCP client surface for the runtime to render MCP-driven activities. Spring AI
-  itself ships `spring-ai-mcp` but wiring it through `SpringAIAgent` + AG-UI
-  events is out of scope for this blitz.
+- **interrupt-headless** — Same missing primitive as `gen-ui-interrupt`.
+  No way to pause a `SpringAIAgent` run and resume it from client-supplied
+  state.
 
 - **subagents** — No multi-agent orchestration primitive in the current
-  `SpringAIAgent` builder. Sub-agent delegation would require a custom runner
-  plus AG-UI step-state events; the existing `SpringAIAgent` wraps a single
-  `ChatClient` call. Left as a stub page.
+  `SpringAIAgent` builder. The bean wraps a single `ChatClient`; there is
+  no nested-agent / graph-as-node construct equivalent to LangGraph's
+  `Send` / subgraph-as-node pattern. A tool-composition approximation would
+  not match the canonical demo's semantics (step-state events + per-agent
+  interrupt points), so the existing stub is left in place.
 
-- **shared-state-streaming** — Spring AI's `ChatClient` streams tokens but does
-  not expose a per-token state-delta emission API comparable to LangGraph's
-  `copilotkit_emit_state`. The `ag-ui` Spring adapter forwards text chunks, not
-  structured state patches.
+### `ag-ui:spring-ai` adapter gaps
 
-- **tool-rendering-reasoning-chain**, **agentic-chat-reasoning**,
-  **reasoning-default-render** — Spring AI's OpenAI client does not surface
-  reasoning / thinking tokens as a distinct stream channel in the `ag-ui`
-  integration. The chat model emits content and tool calls only.
+- **shared-state-streaming** — Spring AI's `ChatClient.stream()` emits
+  token deltas, but the `ag-ui:spring-ai` adapter does not expose a
+  mid-stream state-delta emission API comparable to LangGraph's
+  `copilotkit_emit_state`. Per-token state patches cannot be forwarded
+  through the AG-UI channel with the current integration.
 
-- **byoc-hashbrown**, **byoc-json-render** — Both BYOC renderers rely on a
-  streaming structured-output primitive (LangGraph's `with_structured_output` +
-  incremental JSON streaming) that the `SpringAIAgent` builder does not
-  currently expose. Spring AI has a `BeanOutputConverter` but it operates on
-  the final response, not on a streaming partial.
+- **byoc-json-render** — Relies on a streaming structured-output primitive
+  (LangGraph's `with_structured_output` + incremental JSON streaming that
+  yields partial objects matching a Zod schema across the stream). Spring
+  AI has `BeanOutputConverter` / `ParameterizedTypeReference` structured
+  output, but it resolves on the FINAL response only — it does not emit
+  partial schema-conformant objects during the stream. The BYOC renderer
+  needs per-token JSON to progressively paint the UI.
 
-- **voice** — No voice / speech-to-text primitive in Spring AI. OpenAI Whisper
-  could be called directly but that is a new Spring integration, out of scope.
+- **byoc-hashbrown** — Same missing primitive as `byoc-json-render`.
+  Hashbrown's catalog-driven renderer expects per-token JSON deltas
+  shaped against a strict schema.
 
-- **multimodal** — The current `SpringAIAgent` setup uses `gpt-4.1` which is
-  vision-capable, but the `ag-ui` Spring adapter does not forward multipart
-  attachments from `CopilotChat` into Spring AI's `UserMessage.media` list.
-  Plumbing this requires a new `AgUiService` override; out of scope for this
-  blitz.
+### Command-only
 
-- **open-gen-ui-advanced** — Requires the sandbox-frontend-function-calling
-  mechanism proven in the Python package; skipped in favor of the simpler
-  `open-gen-ui` variant.
+- **cli-start** — Not a runnable demo cell; it's a command-line starter
+  snippet (`npx degit …`). Not applicable here.
 
-- **agent-config** — Requires a dynamic system prompt rebuilt per request
-  based on a typed config object forwarded from the frontend. The current
-  `SpringAIAgent` bean is built once at startup with a fixed system prompt.
-  Left as a stub.
+## Notes on ported-but-adapter-limited demos
 
-- **cli-start** — Not a runnable demo; command-only.
+A few ported demos depend on AG-UI events that the current `ag-ui:spring-ai`
+adapter does not always emit:
 
-- **a2ui-fixed-schema** — The current `generate_a2ui` tool produces dynamic
-  A2UI via a secondary LLM call; it does not constrain output against a
-  fixed client-supplied schema. Left unported rather than shipping a
-  half-working variant.
+- **agentic-chat-reasoning**, **reasoning-default-render**,
+  **tool-rendering-reasoning-chain** — the frontend code is wired for
+  `REASONING_MESSAGE_*` events; when the adapter begins forwarding OpenAI
+  reasoning content (and/or a reasoning-capable model is wired through),
+  the reasoning UI lights up automatically. Until then the chat behaves
+  as a regular chat. Shipped as frontend code so the pattern is documented
+  end-to-end.
 
-- **headless-complete** — The full headless experience (with `use-rendered-
-messages`, custom markdown rendering, interrupt handling) tracks features
-  skipped above; we ship `headless-simple` instead.
+- **multimodal** — the frontend sends image + PDF attachments through
+  CopilotChat's `AttachmentsConfig`. Whether the adapter forwards them
+  into Spring AI's `UserMessage.media()` surface is
+  integration-dependent; the Spring-AI model (`gpt-4.1`) is vision-capable
+  on the provider side.
 
-- **beautiful-chat** — Polished starter chat with generative-UI chart cards
-  and elaborate suggestion chips. Depends on the same structured-streaming
-  primitives used by the BYOC demos and is skipped together with them.
+- **mcp-apps** — the runtime wires the MCP Apps middleware with the public
+  Excalidraw MCP server. The middleware injects MCP tools into the AG-UI
+  request so the Spring-AI ChatClient sees them, and intercepts tool calls
+  to emit activity events. Whether the `ag-ui:spring-ai` adapter forwards
+  runtime-injected tools into Spring AI's tool-calling surface is
+  integration-dependent; the demo wiring is in place so the cell lights up
+  when the adapter supports it.
 
 ## Ported demos
 
-The following demos are implemented in this package. See `manifest.yaml` for
-the full list and `highlight` paths for each demo's Java and TypeScript
-entry points.
+The full ported list lives in `manifest.yaml`. Highlights include:
+agentic-chat, tool-rendering (default + custom + catchall), frontend-tools
+(+ async), hitl-in-chat, hitl-in-app, prebuilt-sidebar / popup, chat-slots,
+chat-customization-css, headless-simple, headless-complete, beautiful-chat,
+auth, readonly-state-agent-context, open-gen-ui (+ advanced), voice,
+agent-config, a2ui-fixed-schema, declarative-gen-ui, multimodal, and the
+three reasoning variants.
