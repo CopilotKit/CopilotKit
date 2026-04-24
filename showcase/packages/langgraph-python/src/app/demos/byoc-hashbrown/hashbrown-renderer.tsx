@@ -30,7 +30,10 @@
  * when hashbrown drives the LLM directly (e.g. `useUiChat`). Because this
  * demo drives the LLM via langgraph, the backend agent
  * (`src/agents/byoc_hashbrown_agent.py`) is responsible for emitting the JSON
- * shape shown above.
+ * shape shown above. That agent pins OpenAI JSON mode
+ * (`response_format: { type: "json_object" }`) so the wire is always a single
+ * parseable object — without JSON mode, gpt-4o-mini routinely wraps output in
+ * code fences or prose and `useJsonParser` never resolves a value.
  *
  * Consume the renderer like this in a page:
  *
@@ -117,10 +120,17 @@ interface LocalAssistantMessage {
 interface LocalChatMessage {
   role: string;
   content?: string;
+  id?: string;
 }
 
 interface LocalRenderMessageProps {
   message: LocalChatMessage;
+  // CopilotChatMessageView passes these to every slotted assistantMessage.
+  // We use `messages` + this message's id to tell whether *this* message is
+  // the currently-streaming one so we can show a placeholder instead of a
+  // silent `null`.
+  messages?: LocalChatMessage[];
+  isRunning?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,13 +279,51 @@ export function useSalesDashboardKit() {
 const AssistantMessageRenderer = memo(function AssistantMessageRenderer({
   message,
   kit,
+  isStreaming,
 }: {
   message: LocalAssistantMessage;
   kit: ReturnType<typeof useSalesDashboardKit>;
+  isStreaming: boolean;
 }) {
-  const { value } = useJsonParser(message.content ?? "", kit.schema);
+  const content = message.content ?? "";
+  const { value } = useJsonParser(content, kit.schema);
 
-  if (!value) return null;
+  // During streaming, `value` remains undefined until the JSON object has
+  // advanced far enough for the schema to resolve at least the outer `ui`
+  // array. Show a subtle placeholder rather than rendering nothing — the
+  // previous silent-null path was indistinguishable from a broken runtime.
+  if (!value) {
+    if (isStreaming) {
+      return (
+        <div
+          data-testid="hashbrown-stream-placeholder"
+          className="mt-2 flex w-full justify-start"
+        >
+          <div className="w-full rounded-md border border-dashed border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-sm text-[var(--muted-foreground)]">
+            Generating dashboard…
+          </div>
+        </div>
+      );
+    }
+    // Stream is done but `useJsonParser` never produced a value. Almost
+    // always means the model ignored the JSON-envelope instructions (e.g.
+    // emitted prose or code-fenced JSON). Surface the raw content instead
+    // of rendering an invisible message so the user sees *something* and we
+    // can diagnose prompt drift from the UI.
+    if (content.trim().length > 0) {
+      return (
+        <div
+          data-testid="hashbrown-fallback-content"
+          className="mt-2 flex w-full justify-start"
+        >
+          <pre className="w-full overflow-x-auto whitespace-pre-wrap rounded-md border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs text-[var(--muted-foreground)]">
+            {content}
+          </pre>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div className="mt-2 flex w-full justify-start">
@@ -332,17 +380,29 @@ export function HashBrownDashboard({ children }: HashBrownDashboardProps) {
  * Stable message renderer component that consumes the kit from context.
  * Defined at module level to avoid unstable function identity.
  */
-function HashBrownRenderMessage({ message }: LocalRenderMessageProps) {
+function HashBrownRenderMessage({
+  message,
+  messages,
+  isRunning,
+}: LocalRenderMessageProps) {
   const kit = useHashBrownKit();
-  if (message.role === "assistant") {
-    return (
-      <AssistantMessageRenderer
-        message={message as LocalAssistantMessage}
-        kit={kit}
-      />
-    );
-  }
-  return null;
+  if (message.role !== "assistant") return null;
+
+  // Only the tail assistant message is considered "streaming"; older
+  // assistant messages in history are complete even while a new run is in
+  // progress.
+  const lastMessage = messages?.[messages.length - 1];
+  const isStreaming = Boolean(
+    isRunning && lastMessage && lastMessage.id === message.id,
+  );
+
+  return (
+    <AssistantMessageRenderer
+      message={message as LocalAssistantMessage}
+      kit={kit}
+      isStreaming={isStreaming}
+    />
+  );
 }
 
 /**

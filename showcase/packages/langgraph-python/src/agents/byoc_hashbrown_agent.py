@@ -87,8 +87,17 @@ Example response (sales dashboard):
 {"ui":[{"Markdown":{"props":{"children":"## Q4 Sales Summary"}}},{"metric":{"props":{"label":"Total Revenue","value":"$1.2M"}}},{"metric":{"props":{"label":"New Customers","value":"248"}}},{"pieChart":{"props":{"title":"Revenue by Segment","data":"[{\\"label\\":\\"Enterprise\\",\\"value\\":600000},{\\"label\\":\\"SMB\\",\\"value\\":400000},{\\"label\\":\\"Startup\\",\\"value\\":200000}]"}}},{"barChart":{"props":{"title":"Monthly Revenue","data":"[{\\"label\\":\\"Oct\\",\\"value\\":350000},{\\"label\\":\\"Nov\\",\\"value\\":400000},{\\"label\\":\\"Dec\\",\\"value\\":450000}]"}}}]}
 """
 
+# `response_format={"type": "json_object"}` forces OpenAI to emit a single
+# valid JSON object — no preface, no code fences, no trailing prose. Without
+# it, gpt-4o-mini occasionally wraps the payload in ```json ... ``` or prepends
+# a sentence, which makes `useJsonParser` on the frontend return
+# `{ value: undefined }` and the HashBrown renderer bails to `null` (blank chat).
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini"),
+    model=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    ),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=BYOC_HASHBROWN_SYSTEM_PROMPT,
