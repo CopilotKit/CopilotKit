@@ -4,13 +4,16 @@
  *
  * The reference integration's depth appears as a frozen first column
  * labeled "Ref Depth" regardless of alphabetical position. Each cell
- * shows a DepthChip colored by parity tier. Same CollapsibleCategory
+ * shows a DepthChip colored by parity tier. Same collapsible category
  * grouping as CellMatrix.
+ *
+ * Uses a single flat <table> — category headers and feature rows are
+ * sibling <tr> elements sharing the same column structure.
  */
 import { useMemo } from "react";
 import { DepthChip } from "./depth-chip";
 import { IntegrationHeader } from "./integration-header";
-import { CollapsibleCategory } from "./collapsible-category";
+import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
 import { deriveDepth, type CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { LiveStatusMap } from "@/lib/live-status";
@@ -54,6 +57,113 @@ function sortIntegrations(integrations: IntegrationInfo[]): IntegrationInfo[] {
     return a.name.localeCompare(b.name);
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  CategorySection — one collapsible group of feature rows            */
+/* ------------------------------------------------------------------ */
+
+interface ParityCategorySectionProps {
+  cat: FeatureCategory & { features: FeatureInfo[] };
+  nonRefIntegrations: IntegrationInfo[];
+  sortedIntegrations: IntegrationInfo[];
+  cellIndex: Map<string, CatalogCell>;
+  liveStatus: LiveStatusMap;
+  defaultOpen: boolean;
+  referenceSlug: string;
+}
+
+function ParityCategorySection({
+  cat,
+  nonRefIntegrations,
+  sortedIntegrations,
+  cellIndex,
+  liveStatus,
+  defaultOpen,
+  referenceSlug,
+}: ParityCategorySectionProps) {
+  const { isOpen, toggle } = useCollapsible({
+    name: cat.name,
+    defaultOpen,
+  });
+
+  const wiredInCat = cat.features.reduce((acc, f) => {
+    return (
+      acc +
+      sortedIntegrations.filter((int) => {
+        const cell = cellIndex.get(`${int.slug}/${f.id}`);
+        return cell?.status === "wired";
+      }).length
+    );
+  }, 0);
+  const totalInCat = cat.features.length * sortedIntegrations.length;
+
+  // colSpan = Feature col + Ref Depth col + non-ref integration cols
+  const colSpan = nonRefIntegrations.length + 2;
+
+  return (
+    <>
+      <CategoryHeaderRow
+        name={cat.name}
+        count={`${wiredInCat}/${totalInCat}`}
+        colSpan={colSpan}
+        isOpen={isOpen}
+        onToggle={toggle}
+      />
+      {isOpen &&
+        cat.features.map((feature) => {
+          const refCell = cellIndex.get(`${referenceSlug}/${feature.id}`);
+          const refStatus = refCell?.status ?? "unshipped";
+          const refDepth = refCell
+            ? deriveDepth(refCell, liveStatus)
+            : { achieved: 0, isRegression: false };
+
+          return (
+            <tr
+              key={feature.id}
+              className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
+            >
+              <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-1.5 border-r border-[var(--border)] align-middle min-w-[200px]">
+                <span className="text-xs text-[var(--text)]">
+                  {feature.name}
+                </span>
+              </td>
+              <td className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center bg-purple-900/5">
+                <DepthChip
+                  depth={refDepth.achieved as 0 | 1 | 2 | 3 | 4}
+                  status={refStatus}
+                  regression={refDepth.isRegression}
+                />
+              </td>
+              {nonRefIntegrations.map((int) => {
+                const cell = cellIndex.get(`${int.slug}/${feature.id}`);
+                const cellStatus = cell?.status ?? "unshipped";
+                const depth = cell
+                  ? deriveDepth(cell, liveStatus)
+                  : { achieved: 0, isRegression: false };
+
+                return (
+                  <td
+                    key={int.slug}
+                    className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
+                  >
+                    <DepthChip
+                      depth={depth.achieved as 0 | 1 | 2 | 3 | 4}
+                      status={cellStatus}
+                      regression={depth.isRegression}
+                    />
+                  </td>
+                );
+              })}
+            </tr>
+          );
+        })}
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  ParityMatrix                                                       */
+/* ------------------------------------------------------------------ */
 
 export function ParityMatrix({
   cells,
@@ -125,88 +235,18 @@ export function ParityMatrix({
           </tr>
         </thead>
         <tbody>
-          {featuresByCategory.map((cat) => {
-            const wiredInCat = cat.features.reduce((acc, f) => {
-              return (
-                acc +
-                sortedIntegrations.filter((int) => {
-                  const cell = cellIndex.get(`${int.slug}/${f.id}`);
-                  return cell?.status === "wired";
-                }).length
-              );
-            }, 0);
-            const totalInCat = cat.features.length * sortedIntegrations.length;
-
-            return (
-              <tr key={cat.id}>
-                <td colSpan={nonRefIntegrations.length + 2} className="p-0">
-                  <CollapsibleCategory
-                    name={cat.name}
-                    count={`${wiredInCat}/${totalInCat}`}
-                    defaultOpen={defaultOpenCategories.has(cat.id)}
-                  >
-                    <table className="border-collapse text-sm w-full">
-                      <tbody>
-                        {cat.features.map((feature) => {
-                          const refCell = cellIndex.get(
-                            `${referenceSlug}/${feature.id}`,
-                          );
-                          const refStatus = refCell?.status ?? "unshipped";
-                          const refDepth = refCell
-                            ? deriveDepth(refCell, liveStatus)
-                            : { achieved: 0, isRegression: false };
-
-                          return (
-                            <tr
-                              key={feature.id}
-                              className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
-                            >
-                              <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-1.5 border-r border-[var(--border)] align-middle min-w-[200px]">
-                                <span className="text-xs text-[var(--text)]">
-                                  {feature.name}
-                                </span>
-                              </td>
-                              <td className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center bg-purple-900/5">
-                                <DepthChip
-                                  depth={refDepth.achieved as 0 | 1 | 2 | 3 | 4}
-                                  status={refStatus}
-                                  regression={refDepth.isRegression}
-                                />
-                              </td>
-                              {nonRefIntegrations.map((int) => {
-                                const cell = cellIndex.get(
-                                  `${int.slug}/${feature.id}`,
-                                );
-                                const cellStatus = cell?.status ?? "unshipped";
-                                const depth = cell
-                                  ? deriveDepth(cell, liveStatus)
-                                  : { achieved: 0, isRegression: false };
-
-                                return (
-                                  <td
-                                    key={int.slug}
-                                    className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
-                                  >
-                                    <DepthChip
-                                      depth={
-                                        depth.achieved as 0 | 1 | 2 | 3 | 4
-                                      }
-                                      status={cellStatus}
-                                      regression={depth.isRegression}
-                                    />
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </CollapsibleCategory>
-                </td>
-              </tr>
-            );
-          })}
+          {featuresByCategory.map((cat) => (
+            <ParityCategorySection
+              key={cat.id}
+              cat={cat}
+              nonRefIntegrations={nonRefIntegrations}
+              sortedIntegrations={sortedIntegrations}
+              cellIndex={cellIndex}
+              liveStatus={liveStatus}
+              defaultOpen={defaultOpenCategories.has(cat.id)}
+              referenceSlug={referenceSlug}
+            />
+          ))}
         </tbody>
       </table>
     </div>
