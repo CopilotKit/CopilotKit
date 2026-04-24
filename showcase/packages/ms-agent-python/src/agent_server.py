@@ -21,15 +21,17 @@ from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
 from agents.agent_config_agent import create_agent_config_agent
+from agents.beautiful_chat import create_beautiful_chat_agent
+from agents.multimodal_agent import create_multimodal_agent
 
 load_dotenv()
 
 
-def _build_chat_client() -> BaseChatClient:
+def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
     try:
         if bool(os.getenv("OPENAI_API_KEY")):
             return OpenAIChatClient(
-                model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
+                model=model_override or os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-4o-mini"),
                 api_key=os.getenv("OPENAI_API_KEY"),
             )
 
@@ -44,6 +46,15 @@ def _build_chat_client() -> BaseChatClient:
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 agent_config_agent = create_agent_config_agent(chat_client)
+
+# Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
+# Scoped to its own endpoint so other demos don't silently upgrade to vision.
+multimodal_chat_client = _build_chat_client("gpt-4o-mini")
+multimodal_agent = create_multimodal_agent(multimodal_chat_client)
+
+# Beautiful Chat: flagship polished sales dashboard demo. Combines A2UI
+# (fixed + dynamic), Open Generative UI, shared-state todos, and HITL.
+beautiful_chat_agent = create_beautiful_chat_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -69,10 +80,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# IMPORTANT: mount specific-path agents BEFORE the catch-all `/` agent.
+# `add_agent_framework_fastapi_endpoint(..., path="/")` installs a catch-all
+# at the root that shadows any route registered AFTER it. FastAPI resolves
+# routes in registration order, so specific paths must come first.
+
+# Dedicated endpoint for the Multimodal Attachments demo (vision-capable).
 add_agent_framework_fastapi_endpoint(
     app=app,
-    agent=my_agent,
-    path="/",
+    agent=multimodal_agent,
+    path="/multimodal",
+)
+
+# Dedicated endpoint for the Beautiful Chat flagship showcase.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=beautiful_chat_agent,
+    path="/beautiful-chat",
 )
 
 # Dedicated endpoint for the Agent Config Object demo. Scoped to its own path
@@ -82,6 +106,13 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=agent_config_agent,
     path="/agent-config",
+)
+
+# Shared agent for the rest of the demos (must be last: `/` is a catch-all).
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=my_agent,
+    path="/",
 )
 
 
