@@ -63,9 +63,9 @@ test.describe("BYOC json-render", () => {
     await input.fill("Break down revenue by category as a pie chart");
     await input.press("Enter");
 
-    await expect(
-      page.locator('[data-testid="pie-chart"]').first(),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="pie-chart"]').first()).toBeVisible(
+      { timeout: 60000 },
+    );
   });
 
   test("expense-trend request renders a bar chart", async ({ page }) => {
@@ -73,8 +73,8 @@ test.describe("BYOC json-render", () => {
     await input.fill("Show me monthly expenses as a bar chart");
     await input.press("Enter");
 
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: 60000 },
+    );
   });
 });

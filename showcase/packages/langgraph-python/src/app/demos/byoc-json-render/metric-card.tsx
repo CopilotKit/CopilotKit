@@ -51,9 +51,7 @@ export function MetricCard({
   );
 }
 
-function inferTrendDirection(
-  trend: string | null,
-): MetricCardTrendDirection {
+function inferTrendDirection(trend: string | null): MetricCardTrendDirection {
   if (!trend) return "neutral";
   const normalized = trend.trim();
   if (normalized.startsWith("+")) return "up";

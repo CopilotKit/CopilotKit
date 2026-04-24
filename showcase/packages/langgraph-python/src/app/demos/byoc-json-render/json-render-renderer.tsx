@@ -68,9 +68,7 @@ export function JsonRenderAssistantMessage(
     <div data-testid="json-render-root" className="w-full">
       <Renderer
         spec={
-          parseResult.spec as unknown as Parameters<
-            typeof Renderer
-          >[0]["spec"]
+          parseResult.spec as unknown as Parameters<typeof Renderer>[0]["spec"]
         }
         registry={registry}
       />

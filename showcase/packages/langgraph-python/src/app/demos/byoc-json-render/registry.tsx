@@ -21,11 +21,7 @@ import { PieChart } from "./charts/pie-chart";
 export const { registry } = defineRegistry(catalog, {
   components: {
     MetricCard: ({ props }) => (
-      <MetricCard
-        label={props.label}
-        value={props.value}
-        trend={props.trend}
-      />
+      <MetricCard label={props.label} value={props.value} trend={props.trend} />
     ),
     BarChart: ({ props }) => (
       <BarChart
