@@ -33,6 +33,55 @@ import { MetricCard } from "./metric-card";
 import type { SalesStage } from "./types";
 
 /**
+ * The underlying PieChart / BarChart components take `data` as a real
+ * array, but hashbrown's build-time validator (0.5.0-beta.4) rejects
+ * example prompts whose JSX attribute values don't match the schema
+ * type — i.e. `data='[{"label":"A","value":1}]'` (string) doesn't pass
+ * an `s.streaming.array(...)` schema. And since the LLM streams JSON as
+ * text anyway, modeling `data` as a string prop and parsing inside the
+ * component is the path the example syntax naturally supports.
+ *
+ * These wrappers accept `data: string`, JSON-parse it, and render the
+ * real chart. Defensive — silently render nothing if parse fails mid-
+ * stream (hashbrown feeds partial tokens while streaming).
+ */
+type ChartSlice = { label: string; value: number };
+
+function parseChartData(data: string): ChartSlice[] | null {
+  try {
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) return null;
+    return parsed as ChartSlice[];
+  } catch {
+    return null;
+  }
+}
+
+function PieChartWithStringData({
+  title,
+  data,
+}: {
+  title: string;
+  data: string;
+}) {
+  const parsed = parseChartData(data);
+  if (!parsed) return null;
+  return <PieChart title={title} description="" data={parsed} />;
+}
+
+function BarChartWithStringData({
+  title,
+  data,
+}: {
+  title: string;
+  data: string;
+}) {
+  const parsed = parseChartData(data);
+  if (!parsed) return null;
+  return <BarChart title={title} description="" data={parsed} />;
+}
+
+/**
  * Minimal local types for the CopilotChat RenderMessage slot + AG-UI
  * assistant message shape. These mirror `RenderMessageProps` from
  * `@copilotkit/react-ui` and `AssistantMessage` from `@ag-ui/core`, inlined
@@ -126,15 +175,16 @@ export function useSalesDashboardKit() {
       # Mixing components and Markdown:
       <ui>
         <Markdown children="## Q4 Sales Summary" />
-        <metric label="Total Revenue" value="$1.2M" trend="+12% vs Q3" />
+        <metric label="Total Revenue" value="$1.2M" />
         <Markdown children="Revenue breakdown by segment:" />
         <pieChart title="Revenue by Segment" data='[{"label":"Enterprise","value":600000},{"label":"SMB","value":400000},{"label":"Startup","value":200000}]' />
         <barChart title="Monthly Trend" data='[{"label":"Oct","value":350000},{"label":"Nov","value":400000},{"label":"Dec","value":450000}]' />
-        <dealCard title="Acme Corp Renewal" stage="negotiation" value="250000" assignee="Jane" dueDate="2024-12-31" />
+        <dealCard title="Acme Corp Renewal" stage="negotiation" value="250000" />
       </ui>
 
       Hint: use Markdown for explanatory text between visual components.
-      Hint: always include title and data for charts.
+      Hint: always include title and data for charts. Data is a JSON-encoded
+      array of {label, value} objects as a string.
     `,
     components: [
       exposeMarkdown(),
@@ -151,32 +201,26 @@ export function useSalesDashboardKit() {
           value: s.string("The metric value (formatted)"),
         },
       }),
-      exposeComponent(PieChart, {
+      exposeComponent(PieChartWithStringData, {
         name: "pieChart",
-        description: "A donut/pie chart with title and data segments",
+        description:
+          "A donut/pie chart. `data` is a JSON-encoded string of an " +
+          "array of {label, value} segments, e.g. " +
+          '\'[{"label":"A","value":1}]\'.',
         props: {
           title: s.string("Chart title"),
-          data: s.streaming.array(
-            "Ordered slices making up the pie",
-            s.object("A single pie-chart segment", {
-              label: s.string("Segment label"),
-              value: s.number("Segment value"),
-            }),
-          ),
+          data: s.string("JSON array of {label, value} segments"),
         },
       }),
-      exposeComponent(BarChart, {
+      exposeComponent(BarChartWithStringData, {
         name: "barChart",
-        description: "A vertical bar chart with title and data bars",
+        description:
+          "A vertical bar chart. `data` is a JSON-encoded string of an " +
+          "array of {label, value} bars, e.g. " +
+          '\'[{"label":"A","value":1}]\'.',
         props: {
           title: s.string("Chart title"),
-          data: s.streaming.array(
-            "Ordered bars making up the chart",
-            s.object("A single bar-chart entry", {
-              label: s.string("Bar label"),
-              value: s.number("Bar value"),
-            }),
-          ),
+          data: s.string("JSON array of {label, value} bars"),
         },
       }),
       exposeComponent(DealCardComponent, {
