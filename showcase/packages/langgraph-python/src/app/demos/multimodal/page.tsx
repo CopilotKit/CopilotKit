@@ -57,9 +57,7 @@ const CHAT_ROOT_SELECTOR = "[data-multimodal-demo-chat-root]";
  * prefix so the runtime forwards the raw base64 value (what the agent
  * expects in `source.value`).
  */
-function fileToDataAttachment(
-  file: File,
-): Promise<DataUploadResult> {
+function fileToDataAttachment(file: File): Promise<DataUploadResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () =>
