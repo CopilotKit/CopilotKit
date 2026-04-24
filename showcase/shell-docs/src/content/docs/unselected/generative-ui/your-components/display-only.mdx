@@ -32,7 +32,7 @@ For components that need user interaction, see [Interactive Components](./intera
 
 <Snippet region="pie-chart-renderer" title="frontend/src/app/page.tsx — pie chart component" />
 
-The component itself is ordinary React — it reads only its props and can stream in as the agent fills the payload. The showcase cell uses [Recharts](https://recharts.org) for the bar chart and a hand-rolled SVG donut for the pie chart; neither knows anything about CopilotKit.
+The component itself is ordinary React — it reads only its props and can stream in as the agent fills the payload. The example above uses [Recharts](https://recharts.org) for the bar chart and a hand-rolled SVG donut for the pie chart; neither knows anything about CopilotKit.
 
 <Callout type="info">
 The `name` you pass to `useComponent` is what the agent sees as the tool name. Make it a verb like `render_bar_chart` or `show_weather` so the LLM reliably picks it when the user asks for that visualization.

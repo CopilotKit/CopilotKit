@@ -7,7 +7,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { getPackages } from "./registry";
-import registryData from "../../../shell/src/data/registry.json";
+import registryData from "@/data/registry.json";
 
 interface RegistryShape {
   integrations: Array<{ slug: string }>;

@@ -182,6 +182,13 @@ export interface E2ePage {
     opts?: { timeout?: number; state?: "visible" },
   ): Promise<unknown>;
   textContent(selector: string): Promise<string | null>;
+  /**
+   * Run a function in the browser page context. Used for DOM reads that
+   * must NOT auto-wait (Playwright's `page.textContent(selector)` waits
+   * up to 30 s for the selector to match; `evaluate` returns immediately
+   * with whatever the DOM currently holds).
+   */
+  evaluate<R>(fn: () => R): Promise<R>;
   close(): Promise<void>;
 }
 
@@ -285,6 +292,7 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
             press: (sel, key, opts) => page.press(sel, key, opts),
             waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
             textContent: (sel) => page.textContent(sel),
+            evaluate: <R>(fn: () => R) => page.evaluate(fn),
             close: () => page.close(),
           };
         },
@@ -714,13 +722,56 @@ async function runLevel(opts: {
       // stream in (starts as ""). Slower integrations (ms-agent-dotnet:
       // extra network hop) need time for the first token to arrive. Poll
       // for non-empty textContent instead of reading once.
+      //
+      // IMPORTANT: we use `page.evaluate()` instead of
+      // `page.textContent(selector)` for two reasons:
+      //
+      //   1. CSS `:last-of-type` is unreliable here. CopilotKit often
+      //      renders a trailing <div> (streaming indicator, input area)
+      //      after the assistant-message <div>. `:last-of-type` selects
+      //      the last element of a given TAG TYPE among siblings, so it
+      //      matches the trailing <div> — not the assistant message.
+      //      The compound selector
+      //      `[data-testid="copilot-assistant-message"]:last-of-type`
+      //      then matches ZERO elements.
+      //
+      //   2. Playwright's `page.textContent(selector)` auto-waits up to
+      //      30 s for the selector to match. When the selector matches
+      //      nothing (see #1), each poll iteration blocks for 30 s and
+      //      then throws — making the 500 ms poll interval meaningless.
+      //      Two failed polls exhaust the entire textPollTimeoutMs
+      //      budget, and the outer catch swallows the timeout, returning
+      //      empty text → false-red.
+      //
+      // `page.evaluate()` runs synchronously in the browser context,
+      // returns immediately with whatever the DOM currently holds, and
+      // uses `querySelectorAll` to find the last matching element by
+      // index rather than by CSS pseudo-selector.
       let raw = "";
       const pollEnd = Date.now() + textPollTimeoutMs;
       while (Date.now() < pollEnd) {
+        // The callback executes in the browser where `document` exists.
+        // TypeScript's Node-only `lib` doesn't include DOM types, so we
+        // access `document` via `globalThis` to avoid a compile error
+        // without polluting the project-wide tsconfig with `"dom"`.
         raw =
-          (await page.textContent(
-            '[data-testid="copilot-assistant-message"]:last-of-type',
-          )) ?? "";
+          (await page.evaluate(() => {
+            // `document` lives in the browser context where this callback
+            // runs. The server-side tsconfig intentionally excludes DOM
+            // types, so we reach it via a type-erased indirection.
+            const win = globalThis as unknown as {
+              document: {
+                querySelectorAll(
+                  sel: string,
+                ): ArrayLike<{ textContent: string | null }>;
+              };
+            };
+            const msgs = win.document.querySelectorAll(
+              '[data-testid="copilot-assistant-message"]',
+            );
+            if (msgs.length === 0) return "";
+            return msgs[msgs.length - 1]!.textContent ?? "";
+          })) ?? "";
         if (raw.trim().length > 0) break;
         await new Promise((r) => setTimeout(r, 500));
       }

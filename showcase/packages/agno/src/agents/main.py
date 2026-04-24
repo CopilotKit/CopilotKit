@@ -173,7 +173,11 @@ def generate_a2ui(context: str):
 
 
 agent = Agent(
-    model=OpenAIChat(id="gpt-4o"),
+    # Raise the HTTP timeout so requests routed through aimock don't time out
+    # under normal load.  The default httpx timeout is too short when aimock
+    # is proxying to the upstream LLM — observed "Request timed out" errors
+    # that crash the agent run and trigger watchdog restarts.
+    model=OpenAIChat(id="gpt-4o", timeout=120),
     tools=[
         get_weather,
         query_data,
@@ -184,6 +188,8 @@ agent = Agent(
         search_flights,
         generate_a2ui,
     ],
+    # Prevent runaway tool-call loops — same guard as the ag2 package.
+    tool_call_limit=15,
     description="You are a helpful sales assistant for the CopilotKit showcase demos.",
     instructions="""
         SALES PIPELINE:
