@@ -32,6 +32,7 @@ const agentNames = [
   "prebuilt-popup",
   "chat-slots",
   "chat-customization-css",
+  "headless-simple",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
