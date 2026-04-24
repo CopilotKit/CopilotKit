@@ -3,7 +3,6 @@ title: State Rendering
 icon: "lucide/Bot"
 description: Render your agent's state with custom UI components in real-time.
 ---
-import { Tabs, Tab } from "fumadocs-ui/components/tabs"
 import RunAndConnect from "@/snippets/integrations/deepagents/run-and-connect.mdx"
 import { IframeSwitcher } from "@/components/content"
 
@@ -40,27 +39,35 @@ Use state rendering when you want to:
 
     Add properties to your agent state that you want to render in the UI.
 
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
-        <Tab value="Python">
-          ```python title="agent.py"
-          from copilotkit import CopilotKitState
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
+      <Tab value="Python">
+        ```python title="agent.py"
+        from copilotkit import CopilotKitState
 
-          class AgentState(CopilotKitState):
-              searches: list[dict]
-          ```
-        </Tab>
-        <Tab value="TypeScript">
-          ```typescript title="agent-js/src/agent.ts"
-          import { Annotation } from "@langchain/langgraph";
-          import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        class AgentState(CopilotKitState):
+            searches: list[dict]
+        ```
+      </Tab>
+      <Tab value="TypeScript">
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
 
-          export const AgentStateAnnotation = Annotation.Root({
-            searches: Annotation<{ query: string; done: boolean }[]>,
-            ...CopilotKitStateAnnotation.spec,
-          });
-          export type AgentState = typeof AgentStateAnnotation.State;
-          ```
-        </Tab>
+        export const searchesStateMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                searches: z.array(z.object({
+                    query: z.string(),
+                    done: z.boolean(),
+                })).default([]),
+            }),
+        });
+
+        // Compose with copilotkitMiddleware when constructing the agent:
+        // createDeepAgent({ middleware: [searchesStateMiddleware, copilotkitMiddleware], ... })
+        ```
+      </Tab>
     </Tabs>
   </Step>
   <Step>
@@ -68,7 +75,7 @@ Use state rendering when you want to:
 
     Use `copilotkit_emit_state` to push intermediate state to the frontend before a node finishes.
 
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
         ```python title="agent.py"
         import asyncio
@@ -95,28 +102,23 @@ Use state rendering when you want to:
         ```
       </Tab>
       <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
+        ```ts title="agent.ts"
         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          state.searches = [
-            { query: "Initial research", done: false },
-            { query: "Retrieving sources", done: false },
-            { query: "Forming an answer", done: false },
-          ];
-          await copilotkitEmitState(config, state); // [!code highlight]
-
-          for (const search of state.searches) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            search.done = true;
+        // Inside a custom tool or middleware hook where you have config/state:
+        async function emitResearchProgress(state: any, config: any) {
+            state.searches = [
+                { query: "Initial research", done: false },
+                { query: "Retrieving sources", done: false },
+                { query: "Forming an answer", done: false },
+            ];
             await copilotkitEmitState(config, state); // [!code highlight]
-          }
 
-          const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
-            [new SystemMessage("You are a helpful assistant."), ...state.messages],
-            config,
-          );
-          return { ...state, messages: response };
+            for (const search of state.searches) {
+                await new Promise((resolve) => setTimeout(resolve, 1000));
+                search.done = true;
+                await copilotkitEmitState(config, state); // [!code highlight]
+            }
         }
         ```
       </Tab>

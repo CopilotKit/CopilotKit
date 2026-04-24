@@ -77,12 +77,14 @@ For components that need user interaction, see [Interactive](/deepagents/generat
     <InstallSDKSnippet components={props.components}/>
   </Step>
   <Step>
-    ### Inherit from CopilotKitState
+    ### Wire CopilotKit state into your agent
 
-    To access the frontend tools provided by CopilotKit, inherit from `CopilotKitState` in your agent's state definition:
+    To access the frontend tools provided by CopilotKit, register the CopilotKit state in your agent.
 
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
       <Tab value="Python">
+        In Python, inherit from `CopilotKitState` in your agent's state definition:
+
         ```python title="agent.py"
         from copilotkit import CopilotKitState # [!code highlight]
 
@@ -91,14 +93,13 @@ For components that need user interaction, see [Interactive](/deepagents/generat
         ```
       </Tab>
       <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        In TypeScript, attach `copilotkitMiddleware` to your agent — this registers the `copilotkit` state keys.
 
-        export const AgentStateAnnotation = Annotation.Root({
-          ...CopilotKitStateAnnotation.spec, // [!code highlight]
-        });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        ```ts title="agent.ts"
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+        // Pass it when constructing the agent:
+        // createDeepAgent({ middleware: [copilotkitMiddleware], ... })
         ```
       </Tab>
     </Tabs>

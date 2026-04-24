@@ -81,12 +81,14 @@ Use frontend tools when you need your agent to interact with client-side primiti
         <InstallSDKSnippet components={props.components}/>
     </Step>
     <Step>
-        ### Inheriting from CopilotKitState
+        ### Wire CopilotKit state into your agent
 
-        To access the frontend tools provided by CopilotKit, you can inherit from CopilotKitState in your agent's state definition:
+        To access the frontend tools provided by CopilotKit, register the CopilotKit state alongside any custom state your agent needs.
 
-        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+        <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
             <Tab value="Python">
+                In Python, inherit from `CopilotKitState` in your agent's state definition:
+
                 ```python title="agent.py"
                 from copilotkit import CopilotKitState # [!code highlight]
 
@@ -95,15 +97,22 @@ Use frontend tools when you need your agent to interact with client-side primiti
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```typescript title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                In TypeScript, define your custom state as a middleware via `createMiddleware` and compose it with `copilotkitMiddleware`:
 
-                export const YourAgentStateAnnotation = Annotation.Root({
-                    yourAdditionalProperty: Annotation<string>,
-                    ...CopilotKitStateAnnotation.spec, // [!code highlight]
+                ```ts title="agent.ts"
+                import { createMiddleware } from "langchain";
+                import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { z } from "zod";
+
+                export const yourStateMiddleware = createMiddleware({
+                    name: "YourAgentState",
+                    stateSchema: z.object({
+                        yourAdditionalProperty: z.string().optional(),
+                    }),
                 });
-                export type YourAgentState = typeof YourAgentStateAnnotation.State;
+
+                // Pass both middlewares when constructing the agent:
+                // createDeepAgent({ middleware: [yourStateMiddleware, copilotkitMiddleware], ... })
                 ```
             </Tab>
         </Tabs>

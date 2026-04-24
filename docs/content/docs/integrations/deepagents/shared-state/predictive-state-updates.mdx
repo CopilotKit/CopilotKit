@@ -65,7 +65,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         ### Define the state
         We'll be defining a `observed_steps` field in the state, which will be updated as the agent writes different sections of the report.
 
-        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+        <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
             <Tab value="Python">
                 ```python title="agent.py"
                 from copilotkit import CopilotKitState
@@ -76,15 +76,19 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```ts title="agent-js/src/agent.ts"
-                import { Annotation } from "@langchain/langgraph";
-                import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+                ```ts title="agent.ts"
+                import { createMiddleware } from "langchain";
+                import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                import { z } from "zod";
 
-                export const AgentStateAnnotation = Annotation.Root({
-                    observed_steps: Annotation<string[]>,  // Array of completed steps
-                    ...CopilotKitStateAnnotation.spec,
+                export const observedStepsMiddleware = createMiddleware({
+                    name: "AgentState",
+                    stateSchema: z.object({
+                        observed_steps: z.array(z.string()).default([]), // Array of completed steps
+                    }),
                 });
-                export type AgentState = typeof AgentStateAnnotation.State;
+
+                // createDeepAgent({ middleware: [observedStepsMiddleware, copilotkitMiddleware], ... })
                 ```
             </Tab>
         </Tabs>
@@ -109,7 +113,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 icon={<FaArrowUp />}
             >
                 For long-running tasks, you can emit state updates progressively as predictions of the final state. In this example, we simulate a long-running task by executing a series of steps with a one second delay between each update.
-                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
                     <Tab value="Python">
                         ```python title="agent.py"
                         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
@@ -134,24 +138,22 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         ```
                     </Tab>
                     <Tab value="TypeScript">
-                        ```ts title="agent-js/src/agent.ts"
+                        ```ts title="agent.ts"
                         import { copilotkitEmitState } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
-                        // ...
-                        async function chat_node(state: AgentState, config: RunnableConfig) {
-                            // ...
 
-                            // Simulate executing steps one by one
+                        // Inside your custom graph node or a middleware hook that has access to state and config:
+                        async function chatNode(state: any, config: any) {
                             const steps = [
                                 "Analyzing input data...",
                                 "Identifying key patterns...",
                                 "Generating recommendations...",
-                                "Formatting final output..."
+                                "Formatting final output...",
                             ];
 
                             for (const step of steps) {
                                 state.observed_steps = [...(state.observed_steps ?? []), step];
-                                copilotkitEmitState(config, state);
-                                await new Promise(resolve => setTimeout(resolve, 1000));
+                                await copilotkitEmitState(config, state); // [!code highlight]
+                                await new Promise((resolve) => setTimeout(resolve, 1000));
                             }
                         }
                         ```
@@ -166,7 +168,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 icon={<FaWrench />}
             >
                 For long-running tasks, you can configure CopilotKit to automatically predict state updates when specific tool calls are made. In this example, we'll configure CopilotKit to predict state updates whenever the LLM calls the step progress tool.
-                <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+                <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
                     <Tab value="Python">
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config
@@ -229,46 +231,59 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                         ```
                     </Tab>
                     <Tab value="TypeScript">
-                        ```typescript
-                        import { copilotkitCustomizeConfig } from '@copilotkit/sdk-js/langgraph';
+                        ```ts
+                        import { copilotkitCustomizeConfig } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+                        import { tool } from "langchain";
+                        import { ChatOpenAI } from "@langchain/openai";
+                        import { SystemMessage } from "@langchain/core/messages";
+                        import { Command } from "@langchain/langgraph";
+                        import { z } from "zod";
 
-                        async function frontendActionsNode(state: AgentState, config: RunnableConfig): Promise<AgentState> {
+                        const stepProgressTool = tool(
+                            async (args) => args,
+                            {
+                                name: "step_progress_tool",
+                                description: "Reports the current steps being executed",
+                                schema: z.object({ steps: z.array(z.string()) }),
+                            }
+                        );
+
+                        async function frontendActionsNode(state: any, config: any) {
+                            // Configure CopilotKit to treat step_progress_tool calls as predictive of the final state
                             const modifiedConfig = copilotkitCustomizeConfig(config, {
                                 emitIntermediateState: [
-                                {
-                                    stateKey: "observed_steps",
-                                    tool: "StepProgressTool",
-                                    toolArgument: "steps",
-                                },
+                                    {
+                                        stateKey: "observed_steps",
+                                        tool: "step_progress_tool",
+                                        toolArgument: "steps",
+                                    },
                                 ],
                             });
 
-                            const stepProgress = tool(
-                                async (args) => args,
-                                {
-                                    name: "StepProgressTool",
-                                    description: "Records progress by updating the steps array",
-                                    schema: z.object({
-                                        steps: z.array(z.string()),
-                                    }),
-                                }
+                            const model = new ChatOpenAI({ model: "gpt-4" }).bindTools([
+                                ...(state.copilotkit?.actions ?? []),
+                                stepProgressTool,
+                            ]);
+
+                            const response = await model.invoke(
+                                [
+                                    new SystemMessage("You are a task performer. Pretend doing tasks you are given, report the steps using step_progress_tool."),
+                                    ...state.messages,
+                                ],
+                                modifiedConfig,
                             );
 
-                            const model = new ChatOpenAI({
-                                model: "gpt-5.4",
-                            }).bindTools([stepProgress]);
+                            if (response.tool_calls?.[0]?.name === "step_progress_tool") {
+                                return new Command({
+                                    goto: "__end__",
+                                    update: {
+                                        messages: response,
+                                        observed_steps: response.tool_calls[0].args.steps,
+                                    },
+                                });
+                            }
 
-                            const system_message = new SystemMessage("You are a task performer. Pretend doing tasks you are given, report the steps using StepProgressTool.")
-                            const response = await model.invoke([system_message, ...state.messages], modifiedConfig);
-
-
-                            if (response.tool_calls?.length) {
-                                return {
-                                    messages: response;
-                                    observed_steps: response.tool_calls[0].args.steps,
-                                }
-
-                            return { messages: response };
+                            return new Command({ goto: "__end__", update: { messages: response } });
                         }
                         ```
                     </Tab>
@@ -332,7 +347,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         ### Define the state schema
         We'll define an `observed_steps` field in the state, which will be updated as the agent reports progress.
 
-        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+        <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
             from copilotkit import CopilotKitState
@@ -342,15 +357,17 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             ```
           </Tab>
           <Tab value="TypeScript">
-            ```ts title="agent-js/src/agent.ts"
-            import { Annotation } from "@langchain/langgraph";
-            import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+            ```ts title="agent.ts"
+            import { createMiddleware } from "langchain";
+            import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+            import { z } from "zod";
 
-            export const AgentStateAnnotation = Annotation.Root({
-                observed_steps: Annotation<string[]>,
-                ...CopilotKitStateAnnotation.spec,
+            export const observedStepsMiddleware = createMiddleware({
+                name: "AgentState",
+                stateSchema: z.object({
+                    observed_steps: z.array(z.string()).default([]),
+                }),
             });
-            export type AgentState = typeof AgentStateAnnotation.State;
             ```
           </Tab>
         </Tabs>
@@ -360,7 +377,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         Instead of manually calling emit functions or configuring the `RunnableConfig`, pass `StateStreamingMiddleware` as middleware to your prebuilt agent.
         Each `StateItem` maps a tool argument to a state key — the same mapping concept as the tool-based approach in custom graphs.
 
-        <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+        <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
             from copilotkit import CopilotKitMiddleware, CopilotKitState, StateStreamingMiddleware, StateItem  # [!code highlight]
@@ -386,11 +403,11 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             ```
           </Tab>
           <Tab value="TypeScript">
-            ```ts title="agent-js/src/agent.ts"
-            import { createAgent } from "langchain";
+            ```ts title="agent.ts"
+            import { createDeepAgent } from "deepagents";
             import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph";
-            import { stateStreamingMiddleware, stateItem } from "@copilotkit/sdk-js/langgraph-middlewares";  // [!code highlight]
-            import { tool } from "@langchain/core/tools";
+            import { stateStreamingMiddleware, stateItem } from "@copilotkit/sdk-js/langgraph-middlewares"; // [!code highlight]
+            import { tool } from "langchain";
             import { z } from "zod";
 
             const stepProgressTool = tool(
@@ -402,16 +419,16 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                 }
             );
 
-            export const graph = createAgent({
+            export const agent = createDeepAgent({
                 model: "openai:gpt-5.4",
                 tools: [stepProgressTool],
                 middleware: [
+                    observedStepsMiddleware,
                     copilotkitMiddleware,
                     stateStreamingMiddleware(  // [!code highlight]
                         stateItem({ stateKey: "observed_steps", tool: "step_progress_tool", toolArgument: "steps" })  // [!code highlight]
                     ),  // [!code highlight]
                 ],
-                stateSchema: AgentStateAnnotation,
                 systemPrompt: "You are a task performer. Report your steps using step_progress_tool.",
             });
             ```

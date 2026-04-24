@@ -41,7 +41,7 @@ state updates, you can reflect these updates natively in your application.
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+    <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
         ```python title="agent.py"
         from copilotkit import CopilotKitState
@@ -65,32 +65,21 @@ state updates, you can reflect these updates natively in your application.
         ```
       </Tab>
       <Tab value="TypeScript">
-        <Callout type="warn" title="Annotation is the legacy TypeScript API">
-          LangGraph now recommends [`StateSchema`](https://langchain-ai.github.io/langgraphjs/) over `Annotation` for new TypeScript projects. Full `StateSchema` support in `@copilotkit/sdk-js` is tracked in a follow-up issue. The example below uses the current API.
-        </Callout>
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
 
-        ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
+        // Define the state as a middleware. The default flows through automatically.
+        export const languageStateMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                language: z.enum(["english", "spanish"]).default("english"),
+            }),
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
 
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          // If language is not defined, use a default value.
-          const language = state.language ?? 'english'
-
-          // ... add the rest of the node implementation and use the language variable
-
-          return {
-            // ... add the rest of state to return
-            // return the language to make it available for the next nodes & frontend to read
-            language
-          }
-        }
+        // Compose with copilotkitMiddleware when constructing the agent:
+        // createDeepAgent({ middleware: [languageStateMiddleware, copilotkitMiddleware], ... })
         ```
       </Tab>
     </Tabs>

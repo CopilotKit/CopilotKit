@@ -40,7 +40,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
     LangGraph is stateful. As you transition between nodes, that state is updated and passed to the next node. For this example,
     let's assume that our agent state looks something like this.
 
-    <Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]} persist>
+    <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
       <Tab value="Python">
         ```python title="agent.py"
         from copilotkit import CopilotKitState
@@ -51,15 +51,20 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         ```
       </Tab>
       <Tab value="TypeScript">
-        ```ts title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
 
-        export const AgentStateAnnotation = Annotation.Root({
-            language: Annotation<"english" | "spanish">,
-            ...CopilotKitStateAnnotation.spec,
+        export const languageStateMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                language: z.enum(["english", "spanish"]).default("english"),
+            }),
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+
+        // Compose with copilotkitMiddleware when constructing the agent:
+        // createDeepAgent({ middleware: [languageStateMiddleware, copilotkitMiddleware], ... })
         ```
       </Tab>
     </Tabs>

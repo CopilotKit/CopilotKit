@@ -12,7 +12,6 @@ import RunAndConnectAgentSnippet from "@/snippets/coagents/run-and-connect-agent
 import { MessageCircle, PanelsTopLeft } from "lucide-react";
 import { IframeSwitcher } from "@/components/content"
 import RunAndConnect from "@/snippets/integrations/deepagents/run-and-connect.mdx"
-import { Tabs, Tab } from "fumadocs-ui/components/tabs";
 
 <IframeSwitcher
   id="human-in-the-loop-example"
@@ -57,7 +56,7 @@ interaction, however [CopilotKit's SDKs provide helpers to alleviate this](#make
 ### Set up your agent state
 We're going to have the agent ask us to name it, so we'll need a state property to store the name.
 
-<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+<Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
     <Tab value="Python">
         ```python title="agent.py"
         # ...
@@ -71,19 +70,20 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        // ...
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-        // ...
+        ```ts title="agent.ts"
+        import { createMiddleware } from "langchain";
+        import { copilotkitMiddleware } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { z } from "zod";
 
-        // This is the state of the agent.
-        // It inherits from the CopilotKitState properties from CopilotKit.
-        export const AgentStateAnnotation = Annotation.Root({
-          agentName: Annotation<string>,
-          ...CopilotKitStateAnnotation.spec,
+        // Define the agent's custom state as a middleware.
+        export const agentNameMiddleware = createMiddleware({
+            name: "AgentState",
+            stateSchema: z.object({
+                agentName: z.string().optional(),
+            }),
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+
+        // createDeepAgent({ middleware: [agentNameMiddleware, copilotkitMiddleware], ... })
         ```
     </Tab>
 </Tabs>
@@ -99,7 +99,7 @@ We're going to have the agent ask us to name it, so we'll need a state property 
         If you want this behavior, see the [section on it below](#make-your-agent-aware-of-interruptions).
     </Callout>
 
-    <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+    <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
         <Tab value="Python">
             ```python title="agent.py"
             from langgraph.types import interrupt # [!code highlight]
@@ -133,38 +133,26 @@ We're going to have the agent ask us to name it, so we'll need a state property 
             ```
         </Tab>
         <Tab value="TypeScript">
-            ```typescript title="agent-js/src/agent.ts"
+            In Deep Agents TypeScript, wire the interrupt into a middleware hook rather than a custom node. The hook below runs before the model call and asks the user for a name the first time.
+
+            ```ts title="agent.ts"
+            import { createMiddleware } from "langchain";
             import { interrupt } from "@langchain/langgraph"; // [!code highlight]
-            import { SystemMessage } from "@langchain/core/messages";
-            import { ChatOpenAI } from "@langchain/openai";
+            import { z } from "zod";
 
-            // add the agent state definition from the previous step
-            export const AgentStateAnnotation = Annotation.Root({
-                agentName: Annotation<string>,
-                ...CopilotKitStateAnnotation.spec,
+            export const agentNameMiddleware = createMiddleware({
+                name: "AgentState",
+                stateSchema: z.object({
+                    agentName: z.string().optional(),
+                }),
+                beforeModel: async (state) => {
+                    if (!state.agentName) {
+                        // Interrupt and wait for the user to respond with a name
+                        const name = await interrupt("Before we start, what would you like to call me?"); // [!code highlight]
+                        return { agentName: name };
+                    }
+                },
             });
-            export type AgentState = typeof AgentStateAnnotation.State;
-
-            async function chat_node(state: AgentState, config: RunnableConfig) {
-                const agentName = state.agentName
-                ?? interrupt("Before we start, what would you like to call me?"); // [!code highlight]
-
-                // Tell the agent its name
-                const systemMessage = new SystemMessage({
-                    content: `You are a helpful assistant named ${agentName}...`,
-                });
-
-                const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
-                    [systemMessage, ...state.messages],
-                    config
-                );
-
-                return {
-                    ...state,
-                    agentName,
-                    messages: response,
-                };
-            }
             ```
         </Tab>
     </Tabs>
@@ -223,7 +211,7 @@ For this reason, the hook can take an `enabled` argument which will apply it con
     <Step>
         ### Define multiple interrupts
         First, let's define two different interrupts. We will include a "type" property to differentiate them.
-        <Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+        <Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
             <Tab value="Python">
                 ```python title="agent.py"
                 from langgraph.types import interrupt # [!code highlight]
@@ -257,35 +245,28 @@ For this reason, the hook can take an `enabled` argument which will apply it con
                 ```
             </Tab>
             <Tab value="TypeScript">
-                ```typescript title="agent-js/src/agent.ts"
+                ```ts title="agent.ts"
+                import { createMiddleware } from "langchain";
                 import { interrupt } from "@langchain/langgraph"; // [!code highlight]
-                import { SystemMessage } from "@langchain/core/messages";
-                import { ChatOpenAI } from "@langchain/openai";
+                import { z } from "zod";
 
-                // ... your full state definition
+                export const approvalAndNameMiddleware = createMiddleware({
+                    name: "AgentState",
+                    stateSchema: z.object({
+                        agentName: z.string().optional(),
+                        approval: z.unknown().optional(),
+                    }),
+                    beforeModel: async (state) => {
+                        const approval = await interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
+                        const updates: Record<string, unknown> = { approval };
 
-                async function chat_node(state: AgentState, config: RunnableConfig) {
-                  state.approval = await interrupt({ type: "approval", content: "please approve" }); // [!code highlight]
+                        if (!state.agentName) {
+                            updates.agentName = await interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
+                        }
 
-                  if (!state.agentName) {
-                    state.agentName = await interrupt({ type: "ask", content: "Before we start, what would you like to call me?" }); // [!code highlight]
-                  }
-
-                  // Tell the agent its name
-                  const systemMessage = new SystemMessage({
-                    content: `You are a helpful assistant...`,
-                  });
-
-                  const response = await new ChatOpenAI({ model: "gpt-5.4" }).invoke(
-                    [systemMessage, ...state.messages],
-                    config
-                  );
-
-                  return {
-                    ...state,
-                    messages: response,
-                  };
-                }
+                        return updates;
+                    },
+                });
                 ```
             </Tab>
         </Tabs>
