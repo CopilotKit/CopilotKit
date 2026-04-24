@@ -58,8 +58,9 @@ Before you begin, you'll need the following:
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
-                    checkpointer=MemorySaver()
                 )
+
+                graph = agent
                 ```
 
                 Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
@@ -92,6 +93,8 @@ Before you begin, you'll need the following:
 
                 ```python title="main.py"
                 import os
+                from fastapi import FastAPI 
+                import uvicorn
 
                 # [!code highlight:2]
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
@@ -111,6 +114,8 @@ Before you begin, you'll need the following:
                     checkpointer=MemorySaver()
                 )
 
+                app = FastAPI()
+
                 # [!code highlight:9]
                 add_langgraph_fastapi_endpoint(
                     app=app,
@@ -127,7 +132,7 @@ Before you begin, you'll need the following:
                     uvicorn.run(
                         "main:app",
                         host="0.0.0.0",
-                        port="8123",
+                        port=8123,
                         reload=True,
                     )
 

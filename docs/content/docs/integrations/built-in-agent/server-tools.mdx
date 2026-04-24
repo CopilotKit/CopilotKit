@@ -22,19 +22,20 @@ import { z } from "zod";
 
 const getWeather = defineTool({
   name: "getWeather",
-  description: "Get the current weather for a city",
+  description: "Get the current weather for a location",
   parameters: z.object({
-    city: z.string().describe("The city name"),
+    location: z.string().describe("The location's name"),
   }),
-  execute: async ({ city }) => {
+  execute: async ({ location }) => {
     // Your implementation here
-    return { temperature: 72, condition: "sunny", city };
+    return { temperature: 72, condition: "sunny", location };
   },
 });
 
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   tools: [getWeather],
+  maxSteps: 2                   //Important for tool calls
 });
 ```
 
@@ -76,6 +77,7 @@ const createTicket = defineTool({
 const builtInAgent = new BuiltInAgent({
   model: "openai:gpt-5.4-mini",
   tools: [searchDocs, createTicket], // [!code highlight]
+  maxSteps: 2                        
 });
 ```
 
