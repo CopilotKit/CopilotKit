@@ -20,8 +20,7 @@ export default function App() {
 ```
 
 <Callout type="warning">
-  Avoid showing the dev console in production as it exposes internal error
-  details to end users.
+  Avoid showing the dev console in production as it exposes internal error details to end users.
 </Callout>
 
 ## When to Use Development Debugging
@@ -52,7 +51,7 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   }}
 >
   <App />
-</CopilotKitProvider>;
+</CopilotKitProvider>
 ```
 
 ### Chat-Level Error Handling
@@ -67,20 +66,28 @@ import { CopilotChat } from "@copilotkit/react-core/v2";
   onError={(event) => {
     showToast(`Agent error: ${event.error.message}`);
   }}
-/>;
+/>
 ```
 
 ### Error Codes
 
-| Code                         | Description                                  |
-| ---------------------------- | -------------------------------------------- |
-| `runtime_info_fetch_failed`  | Could not reach the runtime `/info` endpoint |
-| `agent_connect_failed`       | Agent connection (thread setup) failed       |
-| `agent_run_failed`           | Agent run rejected (e.g. network error)      |
-| `agent_run_failed_event`     | Agent's `onRunFailed` subscriber fired       |
-| `agent_run_error_event`      | Agent sent a `RUN_ERROR` event               |
-| `tool_argument_parse_failed` | Tool call arguments were not valid JSON      |
-| `tool_handler_failed`        | A frontend tool handler threw an error       |
+| Code | Description |
+|------|-------------|
+| `runtime_info_fetch_failed` | Could not reach the runtime `/info` endpoint |
+| `agent_connect_failed` | Agent connection (thread setup) failed |
+| `agent_run_failed` | Agent run rejected (e.g. network error) |
+| `agent_run_failed_event` | Agent's `onRunFailed` subscriber fired |
+| `agent_run_error_event` | Agent sent a `RUN_ERROR` event |
+| `tool_argument_parse_failed` | Tool call arguments were not valid JSON |
+| `tool_handler_failed` | A frontend tool handler threw an error |
+
+<Callout type="info">
+  Need to see the raw AG-UI events flowing between runtime and client? Use the [AG-UI Event Inspector](/troubleshooting/event-inspector) in VS Code for a live, filterable event stream.
+</Callout>
+
+<Callout type="info">
+  Need to see the full event pipeline — what events your agent emits, whether they reach the client, and where they're dropped? See [Debug Mode](/troubleshooting/debug-mode) for detailed AG-UI event logging.
+</Callout>
 
 ## Troubleshooting
 

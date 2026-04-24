@@ -267,14 +267,22 @@ export function Snippet({
     );
   }
 
-  if (!resolvedFramework || !resolvedCell) {
+  if (!resolvedFramework) {
+    return (
+      <div className="my-4 rounded-md border border-[var(--border)] px-4 py-3 text-sm text-[var(--text-muted)] bg-[var(--bg-elevated)]">
+        Select an AI backend above to see this code example.
+      </div>
+    );
+  }
+
+  if (!resolvedCell) {
     return (
       <WarningBox>
         <code>{`<Snippet ${region ? `region="${region}"` : `file="${file}"`} />`}</code>{" "}
-        was rendered without a framework + cell (resolved framework:{" "}
-        <code>{resolvedFramework ?? "—"}</code>, cell:{" "}
-        <code>{resolvedCell ?? "—"}</code>). Pass them explicitly or configure a
-        page default.
+        was rendered without a cell (resolved framework:{" "}
+        <code>{resolvedFramework}</code>, cell: <code>—</code>). Pass{" "}
+        <code>cell="..."</code> explicitly or set <code>snippet_cell</code> in
+        the page frontmatter.
       </WarningBox>
     );
   }

@@ -22,7 +22,7 @@ The SSE (Server-Sent Events) transport is the most common option:
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpServers: [
     {
       type: "sse", // [!code highlight]
@@ -38,7 +38,7 @@ Pass custom headers for authentication:
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpServers: [
     {
       type: "sse",
@@ -57,7 +57,7 @@ The HTTP (Streamable HTTP) transport uses standard HTTP requests:
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpServers: [
     {
       type: "http", // [!code highlight]
@@ -75,7 +75,7 @@ Connect multiple MCP servers — tools from all servers are available to the age
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpServers: [
     {
       type: "sse",
@@ -112,7 +112,7 @@ const customTool = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   tools: [customTool], // Your custom tools
   mcpServers: [        // Plus tools from MCP servers
     { type: "sse", url: "https://search-mcp.example.com/sse" },
@@ -136,7 +136,7 @@ const transport = new StreamableHTTPClientTransport(
 const client = await createMCPClient({ transport });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpClients: [client], // [!code highlight]
 });
 ```
@@ -162,7 +162,7 @@ const provider = {
 };
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpClients: [provider], // [!code highlight]
 });
 ```
@@ -187,7 +187,7 @@ const provider = {
 };
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpClients: [provider],
 });
 ```
@@ -200,7 +200,7 @@ You only pay the reconnection cost when the token actually expires, not on every
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.4",
+  model: "openai:gpt-5.4-mini",
   mcpClients: [persistentClient],  // User-managed, persistent
   mcpServers: [                     // Agent-managed, per-request
     { type: "sse", url: "https://other-mcp.example.com/sse" },

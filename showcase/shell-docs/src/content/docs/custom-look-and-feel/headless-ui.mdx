@@ -8,13 +8,13 @@ snippet_cell: headless-complete
 
 ## What is this?
 
-A headless UI gives you **full control** over the chat experience — you bring your own components, layout, and styling while CopilotKit handles agent communication, message management, tool-call rendering, and streaming. No `<CopilotChat>`, no slot overrides, just your components composed on top of the low-level hooks.
+A headless UI gives you **full control** over the chat experience. You bring your own components, layout, and styling while CopilotKit handles agent communication, message management, tool-call rendering, and streaming. No `<CopilotChat>`, no slot overrides, just your components composed on top of the low-level hooks.
 
 ## When should I use this?
 
 Use headless UI when:
 
-- The [slot system](/custom-look-and-feel/slots) isn't enough — you need a completely different layout.
+- The [slot system](/custom-look-and-feel/slots) isn't enough: you need a completely different layout.
 - You're embedding chat into an existing UI with its own patterns.
 - You're building a **non-chat surface** that still talks to an agent (a dashboard, a canvas, an inspector) and want `useRenderToolCall` / `useRenderActivityMessage` on their own.
 - You want to render generative UI primitives outside of a chat entirely.
@@ -23,7 +23,7 @@ Use headless UI when:
 
 ## The core hooks
 
-Three hooks do the heavy lifting — they're the same primitives `<CopilotChat>` uses internally.
+Three hooks power it, and they're the same ones `<CopilotChat>` uses internally.
 
 - `useAgent({ agentId })` — exposes the current conversation (`messages`, `isRunning`) and the run-state object.
 - `useCopilotKit()` — returns the runtime handle you call `runAgent({ agent })` on.
@@ -31,19 +31,19 @@ Three hooks do the heavy lifting — they're the same primitives `<CopilotChat>`
 
 ## Minimal example
 
-Start small — a hand-rolled message list and composer built from `useAgent` + `useCopilotKit`:
+Start with a hand-rolled message list and composer built from `useAgent` + `useCopilotKit`:
 
 <Snippet cell="headless-simple" region="use-agent-simple" title="frontend/src/app/page.tsx — useAgent + useCopilotKit" />
 
-The message list is a plain `.map()` over `agent.messages` — user messages render as right-aligned bubbles, assistant messages render streamed text plus inline tool calls via `renderToolCall({ toolCall })`:
+The message list is a plain `.map()` over `agent.messages`: user messages render as right-aligned bubbles, assistant messages render streamed text plus inline tool calls via `renderToolCall({ toolCall })`:
 
 <Snippet cell="headless-simple" region="message-list-simple" title="frontend/src/app/page.tsx — message list" />
 
-No `<CopilotChat />`, no slots. The trade-off: you only get text + tool calls. Reasoning messages, activity messages, and custom before/after slots won't show up unless you wire them in yourself — which is exactly what the complete example covers.
+No `<CopilotChat />`, no slots. The trade-off: you only get text and tool calls. Reasoning messages, activity messages, and custom before/after slots won't show up unless you wire them in yourself, which is exactly what the complete example covers.
 
 ## Complete example
 
-The `headless-complete` cell rebuilds the **full** generative-UI composition — text, tool calls, reasoning cards, A2UI + MCP Apps activity messages, custom before/after message slots — from the low-level hooks directly, without importing `<CopilotChatMessageView>`.
+The `headless-complete` cell rebuilds the **full** generative-UI composition from the low-level hooks directly, without importing `<CopilotChatMessageView>`: text, tool calls, reasoning cards, A2UI + MCP Apps activity messages, and custom before/after message slots.
 
 ### The `useRenderedMessages` hook
 
@@ -59,7 +59,7 @@ Three low-level hooks feed it:
 
 ### Per-role dispatch
 
-The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock` exactly — assistant bodies get text + tool calls, user bodies get their text content, reasoning messages go through the `<CopilotChatReasoningMessage>` leaf, and activity messages route through `renderActivityMessage`:
+The role-switch mirrors `CopilotChatMessageView`'s `renderMessageBlock` exactly: assistant bodies get text and tool calls, user bodies get their text content, reasoning messages go through the `<CopilotChatReasoningMessage>` leaf, and activity messages route through `renderActivityMessage`:
 
 <Snippet region="manual-activity-message-rendering" title="frontend/src/app/use-rendered-messages.tsx — per-role dispatch" />
 
@@ -71,7 +71,7 @@ For each `toolCall` on an assistant message, we look up the sibling `tool`-role 
 
 ### Bubble chrome
 
-The `UserBubble` and `AssistantBubble` components are **pure chrome** — they receive the pre-rendered node from `useRenderedMessages` and drop it into a styled container. No chat primitives are imported here:
+The `UserBubble` and `AssistantBubble` components are **pure chrome**: they receive the pre-rendered node from `useRenderedMessages` and drop it into a styled container. No chat primitives are imported here:
 
 <Snippet region="custom-bubbles" title="frontend/src/app/{user,assistant}-bubble.tsx — pure chrome" />
 

@@ -3,40 +3,9 @@ title: Inspector
 icon: "lucide/SearchCheck"
 description: Inspector for debugging actions, readables, agent status, messages, and context.
 ---
+<Inspector />
 
-<video
-  src="https://cdn.copilotkit.ai/docs/copilotkit/videos/inspector.mp4"
-  className="rounded-lg shadow-xl"
-  loop
-  playsInline
-  controls
-  autoPlay
-  muted
-/>
-
-## What it shows
-
-The CopilotKit Inspector is a built-in debugging tool that overlays on your app, giving you full visibility into what's happening between your frontend and your agents in real time.
-
-| Feature | Description |
-| --- | --- |
-| **AG-UI Events** | View the raw AG-UI event stream between your frontend and agent in real time. |
-| **Available Agents** | See which agents are connected and available to your app. |
-| **Agent State** | Inspect your agent's current state as it updates. |
-| **Frontend Tools** | See what tools you've defined on the frontend and their parameter schemas. |
-| **Context** | View the context you've provided to the agent, including readables and document context. |
-
-## Disabling the Inspector
-
-The Inspector is enabled by default. To disable it, set `enableInspector` to `false`:
-
-```tsx
-<CopilotKit
-  publicLicenseKey={process.env.NEXT_PUBLIC_COPILOTKIT_LICENSE_KEY}
-  enableInspector={false}
->
-  {children}
-</CopilotKit>
-```
-
-No matter what, **the inspector automatically disables when you create a production build.**
+<Callout type="info">
+  Want to preview A2UI catalog components directly in your editor? See the [VS Code Extension](/vs-code-extension)
+  for live preview with hot-reload.
+</Callout>

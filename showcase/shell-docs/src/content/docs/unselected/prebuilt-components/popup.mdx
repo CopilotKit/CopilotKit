@@ -28,6 +28,8 @@ chat pane, use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
 <InlineDemo integration="langgraph-python" demo="prebuilt-popup" />
 
+The gif below shows the popup launcher toggling open over page content:
+
 <img
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/popup-example.gif"
   alt="CopilotPopup example"
@@ -38,7 +40,7 @@ chat pane, use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
 Wrap your app in `<CopilotKit>` once — the provider wires the runtime,
 session, and agent registry — then render `<CopilotPopup>` as a sibling of
-your main content. The showcase cell opens the popup by default and
+your main content. The example below opens the popup by default and
 customizes the input placeholder via `labels`:
 
 <Snippet region="popup-basic-setup" title="frontend/src/app/page.tsx — CopilotPopup wired up" />
@@ -63,15 +65,3 @@ is customizable — from Tailwind classes on the message view to a full
 component swap for the header or toggle button. See
 [custom look and feel](/custom-look-and-feel/slots) for the full slot
 reference.
-
-```tsx title="page.tsx"
-<CopilotPopup
-  agentId="my-agent"
-  defaultOpen={false}
-  labels={{
-    modalHeaderTitle: "Popup Assistant",
-    welcomeMessageText: "Need any help?",
-    chatInputPlaceholder: "Ask the popup anything...",
-  }}
-/>
-```

@@ -62,6 +62,7 @@ import {
   type MethodCall,
 } from "../endpoints/single-route-helpers";
 import { logger } from "@copilotkit/shared";
+import { fireInstanceCreatedTelemetry } from "../telemetry/instance-created";
 
 /* ------------------------------------------------------------------------------------------------
  * Public types
@@ -113,6 +114,8 @@ export function createCopilotRuntimeHandler(
   options: CopilotRuntimeHandlerOptions,
 ): CopilotRuntimeFetchHandler {
   const { runtime, basePath, mode = "multi-route", cors, hooks } = options;
+
+  fireInstanceCreatedTelemetry({ runtime });
 
   const corsConfig = resolveCorsConfig(cors);
 

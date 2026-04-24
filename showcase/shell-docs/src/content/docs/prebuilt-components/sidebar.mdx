@@ -9,9 +9,7 @@ snippet_cell: prebuilt-sidebar
 ## What is this?
 
 `<CopilotSidebar>` is a prebuilt chat surface that docks to the side of your
-app. It wraps your main content so the chat can slide out on demand — great
-for in-app copilots that need to stay accessible without taking over the
-entire viewport.
+app. It wraps your main content so the chat can slide out on demand, making it a good fit for in-app copilots that need to stay accessible without taking over the entire viewport.
 
 ## When should I use this?
 
@@ -25,7 +23,11 @@ For a floating bubble that overlays content, see
 [CopilotPopup](/prebuilt-components/popup). For a fully embedded chat pane,
 use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
+Here's the sidebar in action. Click the panel icon to toggle it open:
+
 <InlineDemo demo="prebuilt-sidebar" />
+
+The gif below shows the sidebar sliding out alongside page content:
 
 <img
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/sidebar-example.gif"
@@ -35,9 +37,9 @@ use [`<CopilotChat>`](/prebuilt-components/chat) directly.
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once — it wires the runtime, session, and
-agent registry — then drop `<CopilotSidebar>` alongside your main content.
-The sidebar is rendered as a sibling, so it can slide out without reflowing
+Wrap your app in `<CopilotKit>` once (it wires the runtime, session, and
+agent registry) and drop `<CopilotSidebar>` alongside your main content.
+The sidebar renders as a sibling so it can slide out without reflowing
 your page:
 
 <Snippet region="sidebar-basic-setup" title="frontend/src/app/page.tsx — CopilotSidebar wired up" />
@@ -45,7 +47,7 @@ your page:
 ## Configuring the sidebar
 
 `<CopilotSidebar>` accepts the same props as `<CopilotChat>` plus a few of
-its own. The showcase cell opens the sidebar by default and targets a named
+its own. The example below opens the sidebar by default and targets a named
 agent:
 
 <Snippet region="sidebar-configuration" title="frontend/src/app/page.tsx — defaultOpen + agentId" />
@@ -63,23 +65,7 @@ Common sidebar-specific props:
 ## Styling
 
 `CopilotSidebar` participates in the slot system, so every piece of its UI
-is customizable — from Tailwind classes on the message view to a full
+is customizable, from Tailwind classes on the message view to a full
 component swap for the header or toggle button. See
 [custom look and feel](/custom-look-and-feel/slots) for the full slot
 reference.
-
-```tsx title="page.tsx"
-<CopilotSidebar
-  agentId="my-agent"
-  defaultOpen={false}
-  labels={{
-    modalHeaderTitle: "Sidebar Assistant",
-    welcomeMessageText: "How can I help you today?",
-  }}
-  messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-    },
-  }}
-/>
-```

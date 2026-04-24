@@ -8,15 +8,15 @@ snippet_cell: interrupt-headless
 
 ## What is this?
 
-`useInterrupt`'s `render` callback is the 80% path — it keeps the UI
+`useInterrupt`'s `render` callback is the 80% path: it keeps the UI
 glued to a `<CopilotChat>` transcript and handles "when to show the
 picker" logic for you. This page covers the escape hatch: a
 **render-less** interrupt resolver you assemble from the same
 primitives `useInterrupt` uses internally.
 
 The result is a pattern that lives anywhere in your React tree, takes
-any shape you like (plain button grid, form, modal, keyboard shortcut
-— it's all yours), and resolves `langgraph.interrupt(...)` without
+any shape you like (plain button grid, form, modal, keyboard shortcut,
+anything), and resolves `langgraph.interrupt(...)` without
 mounting a chat at all.
 
 <InlineDemo demo="interrupt-headless" />
@@ -34,7 +34,7 @@ mounting a chat at all.
 - **Research / debugging** — when you want to observe the raw AG-UI
   custom events without the abstraction layer.
 
-If you just want "a picker in chat" — don't bother, use
+If you just want "a picker in chat", just use
 [`useInterrupt`](./useInterrupt).
 
 ## The primitives
@@ -58,7 +58,7 @@ Wrap those in your own hook and you get a render-less equivalent of
 A few things this hook is careful about:
 
 - It stages the incoming custom event in a local ref and only commits
-  it to React state on `onRunFinalized` — that mirrors `useInterrupt`,
+  it to React state on `onRunFinalized`, mirroring `useInterrupt`,
   which doesn't surface the interrupt until the run has actually paused
   (not just when the event fires mid-stream).
 - `onRunStartedEvent` clears any stale pending state, so kicking off a
@@ -69,8 +69,8 @@ A few things this hook is careful about:
 ## Driving it from plain UI
 
 Once `useHeadlessInterrupt` returns `{ pending, resolve }`, the rest is
-just React. The showcase cell uses two buttons to kick off the agent
-and a button grid to resolve — no `<CopilotChat>`, no render prop:
+just React. The example below uses two buttons to kick off the agent
+and a button grid to resolve, with no `<CopilotChat>` and no render prop:
 
 ```tsx
 function HeadlessInterruptPanel() {
