@@ -68,6 +68,7 @@ generative_ui:
       - subagents
       - voice
       - auth
+      - byoc-hashbrown
       - open-gen-ui
       - open-gen-ui-advanced
 

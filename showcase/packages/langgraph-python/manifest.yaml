@@ -65,6 +65,7 @@ features:
   - subagents
   - multimodal
   - auth
+  - byoc-hashbrown
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -454,6 +455,23 @@ demos:
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/route.ts
+  - id: byoc-hashbrown
+    name: BYOC Hashbrown
+    description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown_agent.py
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/byoc-hashbrown/metric-card.tsx
+      - src/app/demos/byoc-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/byoc-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/byoc-hashbrown/types.ts
+      - src/app/demos/byoc-hashbrown/suggestions.ts
+      - src/app/api/copilotkit-byoc-hashbrown/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library

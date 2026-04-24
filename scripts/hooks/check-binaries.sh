@@ -43,6 +43,9 @@ while IFS= read -r f; do
     showcase/shell-docs/src/data/demo-content.json) continue ;;
     showcase/shell/src/data/search-index.json) continue ;;
     showcase/shell/src/data/starter-content.json) continue ;;
+    # shell-docs and shell-dojo mirror the same generated demo-content
+    # bundle as shell/ -- they're produced by the same
+    # `scripts/bundle-demo-content.ts` run and legitimately exceed 1 MB.
     showcase/shell-docs/src/data/demo-content.json) continue ;;
     showcase/shell-docs/src/data/search-index.json) continue ;;
     showcase/shell-docs/src/data/starter-content.json) continue ;;

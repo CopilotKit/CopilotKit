@@ -144,6 +144,10 @@
     "agent-config": {
       "og_docs_url": null,
       "shell_docs_path": null
+    },
+    "byoc-hashbrown": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/byoc-hashbrown",
+      "shell_docs_path": "/byoc-hashbrown"
     }
   }
 }
