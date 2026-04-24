@@ -41,6 +41,12 @@ features:
   - subagents
   - open-gen-ui
   - open-gen-ui-advanced
+  - byoc-json-render
+  - byoc-hashbrown
+  - multimodal
+  - voice
+  - agent-config
+  - auth
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -288,6 +294,85 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
+  - id: byoc-json-render
+    name: "BYOC: json-render"
+    description: Bring-your-own-catalog generative UI via @json-render/react
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/agent/byoc-json-render-prompt.ts
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/demos/byoc-json-render/registry.tsx
+      - src/app/api/copilotkit-byoc-json-render/route.ts
+  - id: byoc-hashbrown
+    name: "BYOC: hashbrown"
+    description: Bring-your-own-catalog streaming UI via @hashbrownai/react useJsonParser
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/agent/byoc-hashbrown-prompt.ts
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+  - id: multimodal
+    name: Multimodal Attachments
+    description: Image and PDF attachments forwarded to Claude's vision-capable model
+    tags:
+      - interactivity
+    route: /demos/multimodal
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: voice
+    name: Voice Input
+    description: Mic + sample audio transcription via a guarded OpenAI Whisper service
+    tags:
+      - interactivity
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: forwardedProps route provider-configured tone/expertise/length into the Claude system prompt per turn
+    tags:
+      - agent-capabilities
+    route: /demos/agent-config
+    animated_preview_url:
+    highlight:
+      - src/agent_server.ts
+      - src/agent/agent-config-prompt.ts
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/use-agent-config.ts
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via the V2 runtime onRequest hook with typed 401 surface
+    tags:
+      - agent-capabilities
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts
 starter:
   path: showcase/starters/claude-sdk-typescript
   name: Sales Dashboard

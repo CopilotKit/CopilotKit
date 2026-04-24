@@ -55,6 +55,15 @@ const agentNames = [
   "open-gen-ui",
   "open-gen-ui-advanced",
   "mcp-apps",
+  // post-#4271 demos — each lives on a dedicated runtime, but we register
+  // their agent ids here so probes against the shared runtime resolve
+  // without 404s.
+  "byoc_json_render",
+  "byoc-hashbrown-demo",
+  "multimodal-demo",
+  "voice-demo",
+  "agent-config-demo",
+  "auth-demo",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
