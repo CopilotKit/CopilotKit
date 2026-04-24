@@ -13,8 +13,8 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+function createAgent(path = "/") {
+  return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
 // Register the same agent under all names used by demo pages.
@@ -35,6 +35,20 @@ for (const name of agentNames) {
   agents[name] = createAgent();
 }
 agents["default"] = createAgent();
+
+// Tool-rendering demos — share the dedicated reasoning-chain agent
+// mounted at /tool-rendering-reasoning-chain on the Python backend. All
+// three cells call the same agent; they differ only in how the frontend
+// renders tool calls.
+agents["tool-rendering-default-catchall"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
+agents["tool-rendering-custom-catchall"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

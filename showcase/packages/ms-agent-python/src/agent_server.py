@@ -20,6 +20,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.tool_rendering_reasoning_chain_agent import (
+    create_tool_rendering_reasoning_chain_agent,
+)
 
 load_dotenv()
 
@@ -42,6 +45,9 @@ def _build_chat_client() -> BaseChatClient:
 
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
+tool_rendering_reasoning_chain_agent = create_tool_rendering_reasoning_chain_agent(
+    chat_client
+)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -65,6 +71,19 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Mount specific sub-paths BEFORE the root catch-all. The root endpoint
+# registers a wildcard that shadows any later routes, so dedicated
+# demo-specific agents have to be added first to take effect.
+#
+# The three tool-rendering demos (default-catchall, custom-catchall,
+# reasoning-chain) all share this agent — they differ only in how the
+# frontend renders the tool calls it emits.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=tool_rendering_reasoning_chain_agent,
+    path="/tool-rendering-reasoning-chain",
 )
 
 add_agent_framework_fastapi_endpoint(
