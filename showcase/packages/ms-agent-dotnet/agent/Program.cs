@@ -37,6 +37,9 @@ app.MapAGUI("/", agentFactory.CreateSalesAgent());
 var byocHashbrownFactory = new ByocHashbrownAgentFactory(builder.Configuration, loggerFactory);
 app.MapAGUI("/byoc-hashbrown", byocHashbrownFactory.CreateAgent());
 
+var byocJsonRenderFactory = new ByocJsonRenderAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-json-render", byocJsonRenderFactory.CreateAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
