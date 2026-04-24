@@ -16,6 +16,10 @@
     "frontend_tools": "./src/agents/src/frontend_tools.py:graph",
     "frontend_tools_async": "./src/agents/src/frontend_tools_async.py:graph",
     "hitl_in_app": "./src/agents/src/hitl_in_app.py:graph",
-    "readonly_state_agent_context": "./src/agents/src/readonly_state_agent_context.py:graph"
+    "readonly_state_agent_context": "./src/agents/src/readonly_state_agent_context.py:graph",
+    "byoc_hashbrown": "./src/agents/src/byoc_hashbrown_agent.py:graph",
+    "byoc_json_render": "./src/agents/src/byoc_json_render_agent.py:graph",
+    "open_gen_ui": "./src/agents/src/open_gen_ui_agent.py:graph",
+    "open_gen_ui_advanced": "./src/agents/src/open_gen_ui_advanced_agent.py:graph"
   }
 }
