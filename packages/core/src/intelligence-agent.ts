@@ -282,6 +282,7 @@ export class IntelligenceAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
+    this.clearReconnectCursor(input.threadId);
 
     return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
       switchMap((credentials) => {
@@ -682,6 +683,10 @@ export class IntelligenceAgent extends AbstractAgent {
 
   private getReconnectCursor(input: RunAgentInput): string | null {
     return this.getLastSeenEventId(input.threadId);
+  }
+
+  private clearReconnectCursor(threadId: string): void {
+    this.sharedState.lastSeenEventIds.delete(threadId);
   }
 
   private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
