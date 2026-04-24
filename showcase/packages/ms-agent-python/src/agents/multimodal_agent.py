@@ -7,17 +7,24 @@ Other demos continue to use their own (cheaper, text-only) models via
 `agents/agent.py` -- this keeps vision cost isolated to the one demo that
 exercises it.
 
-Inputs the runtime may forward:
-- `{"type": "text", "text": "..."}`
-- `{"type": "image", "source": {"type": "data", "value": "<base64>",
-    "mimeType": "image/png"}}`
-- `{"type": "document", "source": {"type": "data", "value": "<base64>",
-    "mimeType": "application/pdf"}}`
+Wire format the agent sees
+==========================
+Attachments arrive here after travelling through:
 
-OpenAI's gpt-4o-mini handles `image` content parts natively. PDF handling is
-less uniform across frameworks, so we pre-process `document` parts on the
-Python side: extract text with `pypdf` and replace the document part with a
-text part prefixed by `[Attached document]`. Images are passed through as-is.
+    CopilotChat  ->  AG-UI message content parts  ->  agent_framework_ag_ui
+                                                       (AG-UI -> AF adapter)
+                ->  this agent
+
+The deployed AG-UI adapter recognizes the legacy
+``{ type: "binary", mimeType, data | url }`` AG-UI part shape. The page at
+``src/app/demos/multimodal/page.tsx`` installs an ``onRunInitialized`` shim
+that rewrites the modern ``{ type: "image" | "document", source: {...} }``
+shape CopilotChat emits to the legacy ``binary`` shape before it hits the
+runtime. We therefore route on ``mimeType``, not the part ``type``:
+
+- ``image/*`` parts are forwarded to GPT-4o-mini unchanged (vision-native).
+- ``application/pdf`` parts are flattened to inline text via ``pypdf`` so
+  the model can read them without needing file-part support.
 
 Reference:
 - showcase/packages/langgraph-python/src/agents/multimodal_agent.py
@@ -44,6 +51,22 @@ SYSTEM_PROMPT = dedent(
 ).strip()
 
 
+def _extract_data_url_parts(url: str) -> tuple[str, str]:
+    """Split a ``data:<mime>;base64,<payload>`` URL into (mime, base64-payload).
+
+    Returns ("", url) if the input is not a data URL -- callers can fall
+    back to treating the url as a fetchable reference.
+    """
+    if not url.startswith("data:"):
+        return "", url
+    header, _, payload = url.partition(",")
+    if ":" not in header:
+        return "", payload
+    meta = header.split(":", 1)[1]
+    mime = meta.split(";", 1)[0] if ";" in meta else meta
+    return mime, payload
+
+
 def _extract_pdf_text(b64: str) -> str:
     """Decode an inline-base64 PDF and extract its text.
 
@@ -52,9 +75,6 @@ def _extract_pdf_text(b64: str) -> str:
     and swallowed so one malformed attachment does not tank the whole
     user turn.
     """
-    # Strip a potential data URL prefix ("data:application/pdf;base64,...").
-    if b64.startswith("data:"):
-        _, _, b64 = b64.partition(",")
     try:
         raw = base64.b64decode(b64, validate=False)
     except Exception as exc:  # pragma: no cover - defensive
@@ -81,24 +101,90 @@ def _extract_pdf_text(b64: str) -> str:
         return ""
 
 
-def _preprocess_part(part: Any) -> Any:
-    """Replace a `document` (PDF) part with an inline text block.
+def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
+    """Inspect a content part and return (kind, mime, base64_payload).
 
-    Non-document parts are returned unchanged. Images pass through so
-    gpt-4o can consume them natively.
+    ``kind`` is one of ``"image"``, ``"pdf"``, ``"other"``. Returns ``None``
+    if the part is not an attachment we recognize.
+
+    Handles the shapes the MS-AF AG-UI adapter may surface:
+
+    - ``{"type": "image_url", "image_url": {"url": "data:..."}}``
+      (post-adapter, from the legacy-binary rewrite on the page).
+    - ``{"type": "image_url", "image_url": "data:..."}`` (older shape).
+    - ``{"type": "binary", "mimeType": "...", "data": "<base64>"}``
+      (direct legacy binary).
+    - ``{"type": "document", "source": {"type": "data",
+      "value": "<base64>", "mimeType": "application/pdf"}}`` (modern AG-UI).
+    - ``{"type": "image", "source": {...}}`` (modern AG-UI, for completeness).
     """
     if not isinstance(part, dict):
+        return None
+    part_type = part.get("type")
+
+    if part_type == "image_url":
+        image_url = part.get("image_url")
+        url: str | None = None
+        if isinstance(image_url, str):
+            url = image_url
+        elif isinstance(image_url, dict):
+            raw_url = image_url.get("url")
+            if isinstance(raw_url, str):
+                url = raw_url
+        if not url:
+            return None
+        mime, payload = _extract_data_url_parts(url)
+        if not payload or not mime:
+            return None
+        if mime.startswith("image/"):
+            return ("image", mime, payload)
+        if "pdf" in mime.lower():
+            return ("pdf", mime, payload)
+        return ("other", mime, payload)
+
+    if part_type == "binary":
+        mime = part.get("mimeType", "")
+        data = part.get("data")
+        if not isinstance(mime, str) or not isinstance(data, str):
+            return None
+        if mime.startswith("image/"):
+            return ("image", mime, data)
+        if "pdf" in mime.lower():
+            return ("pdf", mime, data)
+        return ("other", mime, data)
+
+    if part_type in ("document", "image"):
+        source = part.get("source")
+        if not isinstance(source, dict) or source.get("type") != "data":
+            return None
+        value = source.get("value")
+        mime = source.get("mimeType", "")
+        if not isinstance(value, str) or not isinstance(mime, str):
+            return None
+        if mime.startswith("image/"):
+            return ("image", mime, value)
+        if "pdf" in mime.lower():
+            return ("pdf", mime, value)
+        return ("other", mime, value)
+
+    return None
+
+
+def _preprocess_part(part: Any) -> Any:
+    """Flatten PDF attachments to text; pass everything else through.
+
+    Images stay as-is so gpt-4o consumes them natively. PDFs become a text
+    part prefixed with ``[Attached document]``. If extraction fails we emit
+    a structured placeholder so the model can tell the user the document
+    was unreadable rather than pretending no attachment was sent.
+    """
+    classified = _classify_attachment_part(part)
+    if classified is None:
         return part
-    if part.get("type") != "document":
+    kind, _mime, payload = classified
+    if kind != "pdf":
         return part
-    source = part.get("source") or {}
-    if source.get("type") != "data":
-        return part
-    mime_type = source.get("mimeType", "")
-    if "pdf" not in mime_type.lower():
-        return part
-    value = source.get("value", "")
-    text = _extract_pdf_text(value) if isinstance(value, str) else ""
+    text = _extract_pdf_text(payload)
     if not text:
         return {
             "type": "text",

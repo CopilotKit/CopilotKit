@@ -20,6 +20,14 @@ using OpenAI;
 //    cannot be read, the model will tell the user — matching the "[Attached
 //    document: PDF could not be read.]" graceful degradation in Python.
 //
+// Wire format: the page at `src/app/demos/multimodal/page.tsx` installs an
+// `onRunInitialized` shim that rewrites the modern
+// `{ type: "image" | "document", source: {...} }` content parts CopilotChat
+// emits to the legacy `{ type: "binary", mimeType, data | url }` shape the
+// deployed AG-UI converter recognizes. Once that rewrite has happened, the
+// attachments flow into this agent as DataContent parts the chat client
+// forwards to the OpenAI image/file adapters unchanged.
+//
 // Mount point: `/multimodal` (see Program.cs). The Next.js runtime's
 // `src/app/api/copilotkit-multimodal/route.ts` proxies to this endpoint via
 // AG-UI over HTTP.
