@@ -26,6 +26,7 @@
     "beautiful_chat": "./src/agents/beautiful_chat.py:graph",
     "multimodal": "./src/agents/multimodal_agent.py:graph",
     "agent_config_agent": "./src/agents/agent_config_agent.py:graph",
-    "byoc_hashbrown": "./src/agents/byoc_hashbrown_agent.py:graph"
+    "byoc_hashbrown": "./src/agents/byoc_hashbrown_agent.py:graph",
+    "byoc_json_render": "./src/agents/byoc_json_render_agent.py:graph"
   }
 }

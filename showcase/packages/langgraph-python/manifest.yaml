@@ -66,6 +66,7 @@ features:
   - multimodal
   - auth
   - byoc-hashbrown
+  - byoc-json-render
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -413,6 +414,25 @@ demos:
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
       - src/app/api/copilotkit/route.ts
+  - id: byoc-json-render
+    name: BYOC json-render
+    description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render_agent.py
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/registry.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/demos/byoc-json-render/metric-card.tsx
+      - src/app/demos/byoc-json-render/charts/bar-chart.tsx
+      - src/app/demos/byoc-json-render/charts/pie-chart.tsx
+      - src/app/demos/byoc-json-render/types.ts
+      - src/app/demos/byoc-json-render/suggestions.ts
+      - src/app/api/copilotkit-byoc-json-render/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
     description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills

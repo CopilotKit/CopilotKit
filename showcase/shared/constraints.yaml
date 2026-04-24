@@ -69,6 +69,7 @@ generative_ui:
       - voice
       - auth
       - byoc-hashbrown
+      - byoc-json-render
       - open-gen-ui
       - open-gen-ui-advanced
 
