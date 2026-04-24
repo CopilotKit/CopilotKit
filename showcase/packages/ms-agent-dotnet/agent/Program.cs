@@ -30,26 +30,23 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 
-// Reasoning agent — shared backend for the agentic-chat-reasoning and
-// reasoning-default-render demos. Uses the same GitHub-token-backed OpenAI
-// client as the sales agent but with a dedicated ChatClientAgent whose
-// system prompt forces <reasoning>...</reasoning> bracketed output, which
-// the ReasoningAgent wrapper reroutes into AG-UI reasoning events.
-{
-    var reasoningGithubToken = builder.Configuration["GitHubToken"]
-        ?? throw new InvalidOperationException(
-            "GitHubToken not found in configuration. " +
-            "Please set it using: dotnet user-secrets set GitHubToken \"<your-token>\" " +
-            "or get it using: gh auth token");
-    var reasoningEndpoint = Environment.GetEnvironmentVariable("OPENAI_BASE_URL")
-        ?? "https://models.inference.ai.azure.com";
-    var reasoningOpenAiClient = new OpenAIClient(
-        new ApiKeyCredential(reasoningGithubToken),
-        new OpenAIClientOptions { Endpoint = new Uri(reasoningEndpoint) });
-    var reasoningChatClient = reasoningOpenAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
-    var reasoningAgent = ReasoningAgentFactory.Create(reasoningChatClient, loggerFactory);
-    app.MapAGUI("/reasoning", reasoningAgent);
-}
+// Open-Ended Generative UI (minimal). The factory builds a ChatClientAgent
+// with an LLM-shaping system prompt; the agent exposes NO backend tools —
+// the `generateSandboxedUi` frontend tool is auto-registered by the
+// CopilotKit runtime's OGUI middleware and merged in via the normal AG-UI
+// flow. See OpenGenUiAgent.cs for details.
+var openGenUiFactory = new OpenGenUiAgentFactory(builder.Configuration);
+app.MapAGUI("/open-gen-ui", openGenUiFactory.CreateAgent());
+
+// Open-Ended Generative UI (advanced). Same OGUI pipeline, but the
+// agent-authored iframe can invoke frontend-registered sandbox functions
+// via `Websandbox.connection.remote.<name>(args)`. The sandbox functions
+// themselves live on the frontend (see
+// `src/app/demos/open-gen-ui-advanced/sandbox-functions.ts`) and are
+// wired by the CopilotKit provider; this agent's only job is to know the
+// calling contract and emit HTML/JS that uses it.
+var openGenUiAdvancedFactory = new OpenGenUiAdvancedAgentFactory(builder.Configuration);
+app.MapAGUI("/open-gen-ui-advanced", openGenUiAdvancedFactory.CreateAgent());
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
