@@ -125,13 +125,13 @@ mounted at a distinct path on the FastAPI agent server
 on `/` untouched. The Next.js side uses per-demo runtime routes with
 `HttpAgent` URLs pointing at the dedicated backend paths.
 
-| Demo                | Kind          | Crew module                         | Backend path         |
-| ------------------- | ------------- | ----------------------------------- | -------------------- |
-| declarative-gen-ui  | A2UI Dynamic  | `agents/declarative_gen_ui.py`      | `/declarative-gen-ui` |
-| a2ui-fixed-schema   | A2UI Fixed    | `agents/a2ui_fixed.py`              | `/a2ui-fixed-schema` |
-| byoc-hashbrown      | BYOC JSON     | `agents/byoc_hashbrown_agent.py`    | `/byoc-hashbrown`    |
-| byoc-json-render    | BYOC JSON     | `agents/byoc_json_render_agent.py`  | `/byoc-json-render`  |
-| beautiful-chat      | Flagship      | `agents/beautiful_chat.py`          | `/beautiful-chat`    |
+| Demo               | Kind         | Crew module                        | Backend path          |
+| ------------------ | ------------ | ---------------------------------- | --------------------- |
+| declarative-gen-ui | A2UI Dynamic | `agents/declarative_gen_ui.py`     | `/declarative-gen-ui` |
+| a2ui-fixed-schema  | A2UI Fixed   | `agents/a2ui_fixed.py`             | `/a2ui-fixed-schema`  |
+| byoc-hashbrown     | BYOC JSON    | `agents/byoc_hashbrown_agent.py`   | `/byoc-hashbrown`     |
+| byoc-json-render   | BYOC JSON    | `agents/byoc_json_render_agent.py` | `/byoc-json-render`   |
+| beautiful-chat     | Flagship     | `agents/beautiful_chat.py`         | `/beautiful-chat`     |
 
 ### Wave 3 implementation notes
 
