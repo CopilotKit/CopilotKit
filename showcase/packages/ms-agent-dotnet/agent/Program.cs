@@ -29,6 +29,7 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
@@ -351,6 +352,11 @@ public class SalesAgentFactory
 
         return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions, _loggerFactory.CreateLogger<SharedStateAgent>());
     }
+
+    // Factory method for the Multimodal demo's vision-capable agent. Reuses
+    // the shared OpenAIClient so we don't re-resolve credentials for each
+    // mount. No tools — the chat model consumes attachments natively.
+    public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
 
     // =================
     // Tools
