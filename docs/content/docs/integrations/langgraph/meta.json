@@ -15,6 +15,7 @@
     "...generative-ui",
     "---App Control---",
     "frontend-tools",
+    "emit-apis-and-react-hooks",
     "shared-state",
     "threads",
     "agent-app-context",
