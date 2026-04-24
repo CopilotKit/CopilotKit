@@ -20,8 +20,8 @@ export function AuthBanner({
     ? "border-emerald-300 bg-emerald-50 text-emerald-900"
     : "border-amber-300 bg-amber-50 text-amber-900";
   const statusText = authenticated
-    ? "✓ Authenticated as demo user"
-    : "⚠ Not authenticated — the agent will reject your messages.";
+    ? "✓ Signed in as demo user"
+    : "⚠ Signed out — the agent will reject your messages until you sign in.";
 
   return (
     <div
@@ -48,7 +48,7 @@ export function AuthBanner({
           onClick={onAuthenticate}
           className="rounded border border-amber-400 bg-white px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
         >
-          Authenticate
+          Sign in
         </button>
       )}
     </div>
