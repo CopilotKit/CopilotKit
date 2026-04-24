@@ -6,3 +6,4 @@ langgraph>=1.1.0
 langgraph-cli[inmem]>=0.4.11
 langgraph-api>=0.7.70
 pypdf>=4.0.0
+deepagents>=0.5.3,<0.6.0
