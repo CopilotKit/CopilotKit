@@ -59,6 +59,7 @@ features:
   - voice
   - multimodal
   - declarative-gen-ui
+  - a2ui-fixed-schema
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -269,4 +270,11 @@ demos:
     tags:
       - generative-ui
     route: /demos/declarative-gen-ui
+    animated_preview_url:
+  - id: a2ui-fixed-schema
+    name: A2UI Fixed-Schema
+    description: Pre-authored component tree; the agent streams only data into the data model
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
     animated_preview_url:
