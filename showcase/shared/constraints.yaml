@@ -65,6 +65,8 @@ generative_ui:
       - subagents
       - voice
       - byoc-hashbrown
+      - open-gen-ui
+      - open-gen-ui-advanced
 
 interaction_modalities:
   headless:

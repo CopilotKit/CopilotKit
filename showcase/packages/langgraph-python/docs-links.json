@@ -61,9 +61,13 @@
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interactive",
       "shell_docs_path": "/generative-ui/your-components/interactive"
     },
+    "hitl-in-app": {
+      "og_docs_url": "https://docs.copilotkit.ai/langgraph/frontend-tools",
+      "shell_docs_path": "/frontend-tools"
+    },
     "gen-ui-interrupt": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/generative-ui/your-components/interrupt-based",
-      "shell_docs_path": null
+      "shell_docs_path": "/human-in-the-loop/interrupt-flow"
     },
     "interrupt-headless": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/human-in-the-loop/interrupt-flow",
@@ -111,19 +115,19 @@
     },
     "shared-state-read-write": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/in-app-agent-write",
-      "shell_docs_path": "/shared-state"
+      "shell_docs_path": "/shared-state/in-app-agent-write"
     },
     "shared-state-streaming": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/shared-state/predictive-state-updates",
-      "shell_docs_path": "/shared-state"
+      "shell_docs_path": "/shared-state/predictive-state-updates"
     },
     "readonly-state-agent-context": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/agent-app-context",
-      "shell_docs_path": null
+      "shell_docs_path": "/agent-app-context"
     },
     "subagents": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/multi-agent-flows",
-      "shell_docs_path": "/multi-agent/subagents"
+      "shell_docs_path": "/multi-agent-flows"
     },
     "byoc-hashbrown": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/byoc-hashbrown",

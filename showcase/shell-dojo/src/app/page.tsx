@@ -27,7 +27,6 @@ interface DemoContent {
 }
 
 const demoContent = demoContentData as {
-  generated_at: string;
   demos: Record<string, DemoContent>;
 };
 

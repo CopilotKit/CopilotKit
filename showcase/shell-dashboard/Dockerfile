@@ -19,26 +19,25 @@ RUN cd scripts && npm ci \
 COPY showcase/shared/ ./shared/
 COPY showcase/packages/ ./packages/
 COPY showcase/scripts/ ./scripts/
-# shell-dashboard imports generated JSON from ../../../shell/src/data/ at
-# build time (registry.json, docs-status.json). Copy the shell package so
-# those imports resolve; the generators below refresh them.
-# (Live status is fetched at runtime from PocketBase — no status.json.)
-COPY showcase/shell/ ./shell/
+# probe-docs.ts checks for MDX files in shell-docs/src/content/docs/ to
+# determine docs reachability status. Only the content directory is needed.
+COPY showcase/shell-docs/src/content/ ./shell-docs/src/content/
 COPY showcase/shell-dashboard/ ./shell-dashboard/
 
 # Bake commit info into Next.js build (NEXT_PUBLIC_* are compiled in).
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-# Shell URL is inlined by Next.js at build time (NEXT_PUBLIC_*). Must be
-# provided as a build arg — a runtime env var on Railway is too late.
+# NEXT_PUBLIC_* vars are inlined by Next.js at build time. Must be
+# provided as Docker build args — runtime env vars on Railway are too late.
 ARG NEXT_PUBLIC_SHELL_URL
 ENV NEXT_PUBLIC_SHELL_URL=${NEXT_PUBLIC_SHELL_URL}
+ARG NEXT_PUBLIC_POCKETBASE_URL
+ENV NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL}
 
-# Generate registry + docs status + demo content, then build Next.js
+# Generate registry + docs status, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs probe-docs.ts \
-    && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
     && cd ../shell-dashboard && npx next build
 
 # Prod-deps-only stage: re-install shell-dashboard deps with --omit=dev so
