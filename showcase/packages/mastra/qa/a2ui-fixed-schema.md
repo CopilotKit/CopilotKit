@@ -5,7 +5,7 @@
 - [ ] Navigate to `/demos/a2ui-fixed-schema`
 - [ ] Verify the CopilotChat surface renders with "Find SFO → JFK" suggestion
 - [ ] Click the suggestion; verify the agent calls `generate_a2ui` and a
-  flight Card renders with:
+      flight Card renders with:
   - Title "Flight found"
   - Airport codes SFO → JFK (with Arrow component between)
   - AirlineBadge pill showing "UNITED"
