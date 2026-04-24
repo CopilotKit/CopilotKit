@@ -12,19 +12,15 @@ ported to Mastra.
 - `frontend-tools`, `frontend-tools-async` — `useFrontendTool` sync/async
 - `hitl-in-chat`, `hitl-in-app` — both human-in-the-loop patterns
 - `tool-rendering-default-catchall`, `tool-rendering-custom-catchall` — catch-all tool rendering variants
-- `agentic-chat-reasoning`, `reasoning-default-render` — reasoning slot customization
+- `agentic-chat-reasoning`, `reasoning-default-render` — reasoning slot customization (see reasoning caveat under "Architectural limitations")
 - `readonly-state-agent-context` — `useAgentContext` read-only context
 - `agent-config` — config-object forwarding (adapted to `useAgentContext`)
+- `cli-start` — manifest-only `npx degit` entry for the Mastra starter
 
 ## Skipped / Deferred
 
 Each entry below documents one LangGraph-Python demo that was not ported in
 this PR and the reason.
-
-### `cli-start`
-
-No UI/page component; it's a copy-paste `npx` command entry in the manifest.
-Mastra has its own CLI path. Not worth a stub demo.
 
 ### `gen-ui-interrupt`
 
@@ -93,11 +89,16 @@ sample-audio asset. Deferred.
 Canonical polished starter — ~9 files including charts, hooks, and a dedicated
 `/api/copilotkit-beautiful-chat` route. Deferred pending a dedicated pass.
 
-### `tool-rendering-reasoning-chain`
+### `tool-rendering-reasoning-chain` — architectural skip
 
-Requires a dedicated agent that emits sequential tool calls with reasoning
-tokens interleaved. Mastra's current agent config doesn't reliably produce
-this shape. Deferred.
+Requires a dedicated agent that emits sequential tool calls with **AG-UI
+REASONING_MESSAGE_\*** events interleaved. The `@ag-ui/mastra` adapter (see
+`node_modules/@ag-ui/mastra`) does not currently emit any
+`REASONING_MESSAGE_START | CONTENT | END` events — a repository grep for
+those constants returns zero matches. Until the Mastra AG-UI bridge grows
+reasoning-event support, this demo cannot be ported without a cosmetic
+facade that fabricates reasoning tokens. Skipped as a truthful
+architectural limitation rather than a cosmetic stub.
 
 ### `headless-complete`
 
@@ -105,17 +106,25 @@ Full chat-from-scratch including message list + rendered-messages hook +
 MCP route. Deferred — the `headless-simple` port already exercises the core
 `useAgent` path.
 
+## Architectural limitations
+
+- **Reasoning events are not emitted by `@ag-ui/mastra`.** The two
+  reasoning demos (`agentic-chat-reasoning`, `reasoning-default-render`)
+  ship the slot-override wiring so the UI shape is correct, but the
+  `@ag-ui/mastra` adapter does not emit AG-UI `REASONING_MESSAGE_START |
+  CONTENT | END` events — the slot will therefore never receive tokens in
+  practice. These demos are kept in-tree for shape/compile coverage and so
+  the slot-override pattern is visible to showcase readers, but operators
+  should treat them as **cosmetic** until the Mastra AG-UI bridge grows
+  reasoning support. `tool-rendering-reasoning-chain` is fully skipped for
+  the same reason (see "Skipped / Deferred" above).
+
 ## Compatibility notes
 
 - **Agent aliasing:** All ported demos currently route to the shared
   `weatherAgent` via the demo-alias list in `src/app/api/copilotkit/route.ts`.
   Each alias gets a dedicated `resourceId` so working-memory buckets don't
   cross-contaminate. Full per-demo agent specialization is a follow-up.
-
-- **Reasoning tokens:** The Mastra weather agent is not guaranteed to emit
-  AG-UI REASONING*MESSAGE*\* events. The two reasoning demos exercise the
-  slot-override path but will not show reasoning content unless the
-  underlying LLM produces reasoning output.
 
 - **Agent config forwarding:** The LangGraph reference uses provider
   `properties` passed to a dedicated route that rebuilds the system prompt

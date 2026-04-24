@@ -32,6 +32,7 @@ starter:
   demo_url: https://showcase-starter-mastra-production-3a00.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app
 features:
+  - cli-start
   - agentic-chat
   - hitl-in-chat
   - hitl-in-app
@@ -55,6 +56,12 @@ features:
   - reasoning-default-render
   - agent-config
 demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to scaffold the canonical Mastra starter
+    tags:
+      - chat-ui
+    command: "npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
