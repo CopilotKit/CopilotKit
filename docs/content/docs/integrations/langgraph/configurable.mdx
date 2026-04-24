@@ -107,17 +107,18 @@ Now you can simply pull the values from the provided config argument in any agen
         </Tab>
         <Tab value="TypeScript">
             ```typescript
-            import { Annotation } from "@langchain/langgraph";
+            import { StateSchema } from "@langchain/langgraph";
+            import { z } from "zod";
 
             // define which properties will be allowed in the configuration
-            export const ConfigSchemaAnnotation = Annotation.Root({
-              authToken: Annotation<string>
+            export const ConfigSchema = new StateSchema({
+              authToken: z.string()
             })
 
             // ...add all necessary graph nodes
 
             // when defining the state graph, apply the config schema
-            const workflow = new StateGraph(AgentStateAnnotation, ConfigSchemaAnnotation)
+            const workflow = new StateGraph(AgentStateSchema, ConfigSchema)
             ```
         </Tab>
     </Tabs>

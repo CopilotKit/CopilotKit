@@ -92,13 +92,13 @@ For components that need user interaction, see [Interactive](/langgraph/generati
       </Tab>
       <Tab value="TypeScript">
         ```typescript title="agent-js/src/agent.ts"
-        import { Annotation } from "@langchain/langgraph";
-        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+        import { StateSchema } from "@langchain/langgraph";
+        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
 
-        export const AgentStateAnnotation = Annotation.Root({
-          ...CopilotKitStateAnnotation.spec, // [!code highlight]
+        export const AgentStateSchema = new StateSchema({
+          ...CopilotKitStateSchema.fields, // [!code highlight]
         });
-        export type AgentState = typeof AgentStateAnnotation.State;
+        export type AgentState = typeof AgentStateSchema.State;
         ```
       </Tab>
     </Tabs>

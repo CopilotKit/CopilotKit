@@ -84,17 +84,17 @@ This context can then be shared with your LangChain agent.
                     <Tab value="TypeScript">
                         ```typescript title="agent-js/src/agent.ts"
                         // ...
-                        import { Annotation } from "@langchain/langgraph";
-                        import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+                        import { StateSchema } from "@langchain/langgraph";
+                        import { CopilotKitStateSchema } from "@copilotkit/sdk-js/langgraph";
                         // ...
 
                         // This is the state of the agent.
                         // It inherits from the CopilotKitState properties from CopilotKit.
-                        export const AgentStateAnnotation = Annotation.Root({
+                        export const AgentStateSchema = new StateSchema({
                           // ... Your defined state properties
-                          ...CopilotKitStateAnnotation.spec,
+                          ...CopilotKitStateSchema.fields,
                         });
-                        export type AgentState = typeof AgentStateAnnotation.State;
+                        export type AgentState = typeof AgentStateSchema.State;
                         ```
                     </Tab>
                 </Tabs>
@@ -148,11 +148,11 @@ This context can then be shared with your LangChain agent.
                         import { ChatOpenAI } from "@langchain/openai";
 
                         // add the agent state definition from the previous step
-                        export const AgentStateAnnotation = Annotation.Root({
+                        export const AgentStateSchema = new StateSchema({
                           // ... Your defined state properties
-                          ...CopilotKitStateAnnotation.spec,
+                          ...CopilotKitStateSchema.fields,
                         });
-                        export type AgentState = typeof AgentStateAnnotation.State;
+                        export type AgentState = typeof AgentStateSchema.State;
 
                         async function chat_node(state: AgentState, config: RunnableConfig) {
                           // Extract the colleagues from CopilotKit context
