@@ -12,11 +12,9 @@
  */
 
 import React, { useMemo } from "react";
-import {
-  CopilotChatAssistantMessage,
-  type CopilotChatAssistantMessageProps,
-} from "@copilotkit/react-core/v2";
-import { Renderer } from "@json-render/react";
+import { CopilotChatAssistantMessage } from "@copilotkit/react-core/v2";
+import type { CopilotChatAssistantMessageProps } from "@copilotkit/react-core/v2";
+import { JSONUIProvider, Renderer } from "@json-render/react";
 import { registry } from "./registry";
 import type { JsonRenderSpec } from "./types";
 
@@ -34,14 +32,24 @@ export function JsonRenderAssistantMessage(
     return <CopilotChatAssistantMessage {...props} />;
   }
 
+  // Valid spec — render via json-render. `<Renderer />` alone does not
+  // set up the StateProvider / VisibilityProvider / ActionProvider /
+  // ValidationProvider contexts its `ElementRenderer` requires (it would
+  // crash with `useVisibility must be used within a VisibilityProvider`).
+  // `JSONUIProvider` wires all four in one; we don't use actions or
+  // state here, so defaults are fine.
   return (
     <div data-testid="json-render-root" className="w-full">
-      <Renderer
-        spec={
-          parseResult.spec as unknown as Parameters<typeof Renderer>[0]["spec"]
-        }
-        registry={registry}
-      />
+      <JSONUIProvider registry={registry}>
+        <Renderer
+          spec={
+            parseResult.spec as unknown as Parameters<
+              typeof Renderer
+            >[0]["spec"]
+          }
+          registry={registry}
+        />
+      </JSONUIProvider>
     </div>
   );
 }
