@@ -43,6 +43,11 @@ const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+// In-App HITL -- async frontend-tool + app-level modal (outside chat).
+// Points at the dedicated hitl-in-app agent mounted at /hitl-in-app on the
+// FastAPI backend; the agent has tools=[] and a system prompt tailored to
+// the frontend-provided `request_user_approval` tool.
+agents["hitl-in-app"] = new HttpAgent({ url: `${AGENT_URL}/hitl-in-app/` });
 agents["default"] = createAgent();
 
 // Tool-rendering demos — share the dedicated reasoning-chain agent
