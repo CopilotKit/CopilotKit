@@ -1,6 +1,7 @@
 # QA: Frontend Tools (Async) — Langroid
 
 ## Test Steps
+
 - [ ] Navigate to /demos/frontend-tools-async
 - [ ] Ask "Find my notes about project planning."
 - [ ] Verify the notes-card renders with matching keyword

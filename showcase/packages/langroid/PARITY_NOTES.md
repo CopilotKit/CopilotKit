@@ -8,6 +8,7 @@ Canonical list: 36 demos (excluding `cli-start`).
 ## Ported in this pass (batch B4)
 
 ### Pre-existing
+
 - agentic-chat
 - hitl-in-chat (route: `/demos/hitl`)
 - tool-rendering
@@ -18,6 +19,7 @@ Canonical list: 36 demos (excluding `cli-start`).
 - subagents
 
 ### Added in this pass
+
 - chat-customization-css
 - prebuilt-sidebar
 - prebuilt-popup

@@ -1,6 +1,7 @@
 # QA: Headless Chat (Simple) — Langroid
 
 ## Test Steps
+
 - [ ] Navigate to /demos/headless-simple
 - [ ] Verify heading "Headless Chat (Simple)" visible
 - [ ] Verify empty-state message "No messages yet"

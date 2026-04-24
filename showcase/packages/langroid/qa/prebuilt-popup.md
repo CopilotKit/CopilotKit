@@ -1,6 +1,7 @@
 # QA: Prebuilt Popup — Langroid
 
 ## Test Steps
+
 - [ ] Navigate to /demos/prebuilt-popup
 - [ ] Verify the floating launcher bubble renders
 - [ ] Verify the popup opens by default showing "Ask the popup anything..." placeholder

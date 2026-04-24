@@ -7,6 +7,7 @@ will show reasoning automatically once the adapter forwards thinking
 events.
 
 ## Test Steps
+
 - [ ] Navigate to /demos/reasoning-default-render
 - [ ] Verify chat input is visible
 - [ ] Send "hello"; verify the agent replies
