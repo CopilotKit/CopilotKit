@@ -53,21 +53,13 @@ export const { registry } = defineRegistry(catalog, {
     BarChart: ({ props }) => {
       const p = props as BarChartProps;
       return (
-        <BarChart
-          title={p.title}
-          description={p.description}
-          data={p.data}
-        />
+        <BarChart title={p.title} description={p.description} data={p.data} />
       );
     },
     PieChart: ({ props }) => {
       const p = props as PieChartProps;
       return (
-        <PieChart
-          title={p.title}
-          description={p.description}
-          data={p.data}
-        />
+        <PieChart title={p.title} description={p.description} data={p.data} />
       );
     },
   },

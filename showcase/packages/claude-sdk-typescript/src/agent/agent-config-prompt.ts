@@ -84,5 +84,6 @@ export function buildAgentConfigSystemPrompt(
   ].join("\n");
 }
 
-export const AGENT_CONFIG_DEFAULT_SYSTEM_PROMPT =
-  buildAgentConfigSystemPrompt({});
+export const AGENT_CONFIG_DEFAULT_SYSTEM_PROMPT = buildAgentConfigSystemPrompt(
+  {},
+);

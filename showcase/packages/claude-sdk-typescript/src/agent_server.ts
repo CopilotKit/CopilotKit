@@ -74,7 +74,8 @@ function binaryPartToAnthropic(part: {
 }): Anthropic.ContentBlockParam | null {
   const mime = part.mimeType || "";
   const isImage = mime.startsWith("image/");
-  const isPdf = mime === "application/pdf" || mime.toLowerCase().includes("pdf");
+  const isPdf =
+    mime === "application/pdf" || mime.toLowerCase().includes("pdf");
 
   if (!isImage && !isPdf) return null;
 
