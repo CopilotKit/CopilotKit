@@ -45,15 +45,15 @@ test.describe("BYOC Hashbrown", () => {
     page,
   }) => {
     await page.getByText("Revenue by category").first().click();
-    await expect(
-      page.locator('[data-testid="pie-chart"]').first(),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="pie-chart"]').first()).toBeVisible(
+      { timeout: 60000 },
+    );
   });
 
   test("expense-trend suggestion renders a bar chart", async ({ page }) => {
     await page.getByText("Expense trend").first().click();
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: 60000 },
+    );
   });
 });

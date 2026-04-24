@@ -44,10 +44,9 @@ export default function ByocHashbrownDemoPage() {
           <header>
             <h1 className="text-lg font-semibold">BYOC: Hashbrown</h1>
             <p className="text-sm text-[var(--muted-foreground)]">
-              Streaming structured output via{" "}
-              <code>@hashbrownai/react</code>. The agent emits a catalog-
-              constrained UI envelope that renders progressively as data
-              streams.
+              Streaming structured output via <code>@hashbrownai/react</code>.
+              The agent emits a catalog- constrained UI envelope that renders
+              progressively as data streams.
             </p>
           </header>
           <div className="flex-1 overflow-hidden rounded-md border border-[var(--border)]">

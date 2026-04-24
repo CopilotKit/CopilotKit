@@ -65,5 +65,5 @@
 - Suggestion pills produce a hashbrown render within 45 seconds
 - Streaming renders assemble progressively as JSON chunks arrive
 - No uncaught errors; no `useHashBrownKit must be used within
-  HashBrownDashboard` errors
+HashBrownDashboard` errors
 - Multi-turn works without clearing prior renders
