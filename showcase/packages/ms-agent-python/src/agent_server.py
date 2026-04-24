@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.mcp_apps_agent import create_mcp_apps_agent
 
 load_dotenv()
 
@@ -42,6 +43,7 @@ def _build_chat_client() -> BaseChatClient:
 
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
+mcp_apps_agent = create_mcp_apps_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -65,6 +67,14 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Mount dedicated agents BEFORE the root catch-all below -- the `/` path
+# installs a wildcard route that would otherwise shadow any subsequent mounts.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=mcp_apps_agent,
+    path="/mcp-apps",
 )
 
 add_agent_framework_fastapi_endpoint(
