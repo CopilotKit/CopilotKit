@@ -28,6 +28,7 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "headless-simple",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
