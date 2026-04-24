@@ -148,6 +148,12 @@ agent = ConversableAgent(
     ),
     llm_config=LLMConfig({"model": "gpt-4o-mini", "stream": True}),
     human_input_mode="NEVER",
+    # Guard against infinite tool-call loops: AG2's ConversableAgent with
+    # human_input_mode="NEVER" will keep executing tool calls indefinitely
+    # if the LLM keeps requesting them.  Without this limit the agent floods
+    # Railway's log stream (500 logs/sec rate-limit), becomes unresponsive
+    # to health probes, and gets killed by the watchdog.
+    max_consecutive_auto_reply=15,
     functions=[
         get_weather,
         query_data,
