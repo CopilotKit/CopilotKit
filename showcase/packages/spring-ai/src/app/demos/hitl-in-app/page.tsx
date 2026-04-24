@@ -8,7 +8,8 @@ import {
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
-import { ApprovalDialog, PendingApproval } from "./approval-dialog";
+import type { PendingApproval } from "./approval-dialog";
+import { ApprovalDialog } from "./approval-dialog";
 
 const SUPPORT_TICKETS = [
   {
@@ -80,7 +81,9 @@ function Layout() {
       context: z
         .string()
         .optional()
-        .describe("Optional extra context — e.g. the ticket ID or policy rule."),
+        .describe(
+          "Optional extra context — e.g. the ticket ID or policy rule.",
+        ),
     }),
     handler: async ({
       message,

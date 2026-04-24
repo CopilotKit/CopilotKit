@@ -67,7 +67,7 @@ demos require primitives that Spring AI or the `ag-ui` Spring AI integration
   half-working variant.
 
 - **headless-complete** — The full headless experience (with `use-rendered-
-  messages`, custom markdown rendering, interrupt handling) tracks features
+messages`, custom markdown rendering, interrupt handling) tracks features
   skipped above; we ship `headless-simple` instead.
 
 - **beautiful-chat** — Polished starter chat with generative-UI chart cards
