@@ -348,9 +348,13 @@ export function buildFrameworkOverridesNav(framework: string): NavNode[] {
       if (children.length > 0) {
         filtered.push({ ...node, children });
       }
-    } else {
-      filtered.push(node);
     }
+    // Intentionally drop section nodes. Per-framework meta.json files
+    // tend to mirror the root tree's sections ("Getting Started",
+    // "Basics", etc.) and flowing them through here would (a) collide
+    // with root sections of the same name on React keys and (b) double
+    // up the visual hierarchy — the override block is already wrapped
+    // in a single `{frameworkName}` section by mergeFrameworkNav.
   }
   return filtered;
 }
