@@ -907,10 +907,9 @@ describe("generate-starters", () => {
         );
         if (!fs.existsSync(healthRoute)) continue;
         const content = fs.readFileSync(healthRoute, "utf-8");
-        expect(
-          content,
-          `${slug} health route must use /ok`,
-        ).toContain("${AGENT_URL}/ok");
+        expect(content, `${slug} health route must use /ok`).toContain(
+          "${AGENT_URL}/ok",
+        );
         expect(
           content,
           `${slug} health route must NOT use /health for agent probe`,
@@ -934,10 +933,9 @@ describe("generate-starters", () => {
         );
         if (!fs.existsSync(healthRoute)) continue;
         const content = fs.readFileSync(healthRoute, "utf-8");
-        expect(
-          content,
-          `${slug} health route must use /health`,
-        ).toContain("${AGENT_URL}/health");
+        expect(content, `${slug} health route must use /health`).toContain(
+          "${AGENT_URL}/health",
+        );
       }
     });
   });
