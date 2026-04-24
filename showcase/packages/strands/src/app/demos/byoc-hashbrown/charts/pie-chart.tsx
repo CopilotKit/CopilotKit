@@ -128,10 +128,7 @@ export function PieChart({ title, description, data }: PieChartPropsType) {
             const val = Number(item.value) || 0;
             const pct = total > 0 ? ((val / total) * 100).toFixed(0) : 0;
             return (
-              <div
-                key={index}
-                className="flex items-center gap-3 text-sm"
-              >
+              <div key={index} className="flex items-center gap-3 text-sm">
                 <span
                   className="inline-block h-3 w-3 rounded-full shrink-0"
                   style={{
