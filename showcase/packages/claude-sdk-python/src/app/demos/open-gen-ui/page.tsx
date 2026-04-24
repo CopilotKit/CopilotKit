@@ -76,12 +76,12 @@ const minimalSuggestions = [
   {
     title: "How a neural network works",
     message:
-      'Animate how a simple feed-forward neural network processes an input. Show 3 layers (input 4 nodes, hidden 5 nodes, output 2 nodes) with connections whose thickness encodes weight magnitude. Animate activations pulsing forward in a loop. Use indigo for active signal, slate for quiescent.',
+      "Animate how a simple feed-forward neural network processes an input. Show 3 layers (input 4 nodes, hidden 5 nodes, output 2 nodes) with connections whose thickness encodes weight magnitude. Animate activations pulsing forward in a loop. Use indigo for active signal, slate for quiescent.",
   },
   {
     title: "Quicksort visualization",
     message:
-      'Visualize quicksort on an array of ~10 bars of varying heights. At each step highlight the pivot in amber, elements being compared in indigo, and swapped elements in emerald; fade sorted elements to slate.',
+      "Visualize quicksort on an array of ~10 bars of varying heights. At each step highlight the pivot in amber, elements being compared in indigo, and swapped elements in emerald; fade sorted elements to slate.",
   },
 ];
 

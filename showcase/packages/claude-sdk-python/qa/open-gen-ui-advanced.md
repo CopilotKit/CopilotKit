@@ -16,7 +16,7 @@
 
 ### 2. Sandbox-Function Round-Trip
 
-- [ ] In the calculator, enter "12 * (3 + 4.5)" and press "="
+- [ ] In the calculator, enter "12 \* (3 + 4.5)" and press "="
 - [ ] Verify the display updates with the host-evaluated result
 - [ ] Open devtools console — verify `[open-gen-ui/advanced] evaluateExpression` log appears
 
