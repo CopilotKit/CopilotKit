@@ -288,6 +288,109 @@ export function buildNavTreeFromFilesystem(
   return nodes;
 }
 
+/**
+ * Walk `content/docs/integrations/<folder>/` and return NavNodes for
+ * pages that have NO root equivalent. These are framework-specific
+ * topics (e.g. Built-in Agent's `copilot-runtime`, LangGraph's `auth`
+ * and `subgraphs`) that live only in the per-framework tree and need
+ * their own sidebar entries. Pages that duplicate root files are
+ * skipped — root wins, and the framework view already renders the
+ * root MDX with a framework override.
+ *
+ * Takes the resolved folder name (not the URL slug). Callers should
+ * use `getDocsFolder(slug)` from lib/registry to map language/runtime
+ * variants to their shared folder (e.g. langgraph-python / typescript
+ * / fastapi → `langgraph/`).
+ */
+export function buildFrameworkOverridesNav(folder: string): NavNode[] {
+  const frameworkDir = path.join(CONTENT_DIR, "integrations", folder);
+  if (!fs.existsSync(frameworkDir)) return [];
+  const nodes = buildNavTree(frameworkDir, `integrations/${folder}`);
+
+  // Drop entries whose equivalent root file exists. Root wins when
+  // both are present — the per-framework tree is only an escape hatch
+  // for framework-specific topics, not an alternative rendering.
+  const prefix = `integrations/${folder}/`;
+  const filtered: NavNode[] = [];
+  for (const node of nodes) {
+    if (node.type === "page") {
+      // node.slug looks like `integrations/<folder>/<topic>`. Strip
+      // the prefix to check the root-level equivalent.
+      const rootSlug = node.slug.replace(prefix, "");
+      const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+      const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+      if (fs.existsSync(rootMdx) || fs.existsSync(rootIndex)) continue;
+      // Rewrite the slug so the link points at /<framework>/<topic>,
+      // which the router resolves via its fallback to the same MDX.
+      filtered.push({ ...node, slug: rootSlug });
+    } else if (node.type === "group") {
+      // Recursively filter children of a group.
+      const children = node.children
+        .filter((c) => {
+          if (c.type !== "page") return true;
+          const rootSlug = c.slug.replace(prefix, "");
+          const rootMdx = path.join(CONTENT_DIR, `${rootSlug}.mdx`);
+          const rootIndex = path.join(CONTENT_DIR, rootSlug, "index.mdx");
+          return !fs.existsSync(rootMdx) && !fs.existsSync(rootIndex);
+        })
+        .map((c) =>
+          c.type === "page" ? { ...c, slug: c.slug.replace(prefix, "") } : c,
+        );
+      if (children.length > 0) {
+        filtered.push({ ...node, children });
+      }
+    }
+    // Intentionally drop section nodes. Per-framework meta.json files
+    // tend to mirror the root tree's sections ("Getting Started",
+    // "Basics", etc.) and flowing them through here would (a) collide
+    // with root sections of the same name on React keys and (b) double
+    // up the visual hierarchy — the override block is already wrapped
+    // in a single `{frameworkName}` section by mergeFrameworkNav.
+  }
+  return filtered;
+}
+
+/**
+ * Return the list of framework slugs whose `integrations/<folder>/`
+ * tree contains an MDX file for `slugPath`. Matches either
+ * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
+ * router to detect that a topic is available in *some* framework but
+ * not the one the user is currently viewing, so we can render a
+ * helpful "not available for <X>" page instead of a bare 404.
+ *
+ * Most slugs map 1:1 to their folder, but language/runtime variants
+ * share one folder (langgraph-python/typescript/fastapi → `langgraph/`,
+ * ms-agent-dotnet/python → `microsoft-agent-framework/`) and two
+ * legacy slugs were renamed after the folder existed (google-adk →
+ * `adk/`, strands → `aws-strands/`). The caller supplies the
+ * slug→folder resolver so this module stays registry-free.
+ */
+export function findFrameworksWithPage(
+  slugPath: string,
+  integrationSlugs: readonly string[],
+  slugToFolder: (slug: string) => string,
+): string[] {
+  const matches: string[] = [];
+  for (const slug of integrationSlugs) {
+    const folder = slugToFolder(slug);
+    const mdx = path.join(
+      CONTENT_DIR,
+      "integrations",
+      folder,
+      `${slugPath}.mdx`,
+    );
+    const indexMdx = path.join(
+      CONTENT_DIR,
+      "integrations",
+      folder,
+      slugPath,
+      "index.mdx",
+    );
+    if (fs.existsSync(mdx) || fs.existsSync(indexMdx)) matches.push(slug);
+  }
+  return matches;
+}
+
 // ---------------------------------------------------------------------------
 // Snippet inlining (same rules as the docs page)
 // ---------------------------------------------------------------------------

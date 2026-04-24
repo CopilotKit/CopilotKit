@@ -39,6 +39,26 @@ const LANGCHAIN_EXCLUSIONS = [
   "langchain_core",
 ];
 
+/**
+ * Path patterns that should never be synced from upstream into shell-docs,
+ * applied to relative paths (e.g. `docs/content/docs/integrations/mastra/(other)/...`).
+ *
+ * Each per-framework `integrations/<fw>/(other)/` subtree in upstream ships
+ * byte-duplicate `contributing/` + `telemetry/` content across every
+ * framework. Shell-docs owns the canonical copy at root `(other)/`; the
+ * per-framework copies are stale sync artifacts that cluttered the
+ * merged sidebar nav with a duplicate "Other" section. They were deleted
+ * from shell-docs and must stay deleted — this filter stops future sync
+ * runs from resurrecting them when upstream edits any file in the tree.
+ */
+const PATH_EXCLUSIONS: RegExp[] = [
+  /^docs\/content\/docs\/integrations\/[^/]+\/\(other\)\//,
+];
+
+function isExcludedPath(relPath: string): boolean {
+  return PATH_EXCLUSIONS.some((re) => re.test(relPath));
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -317,7 +337,9 @@ function getChangedFiles(sinceSha: string): string[] {
     ],
     { encoding: "utf-8", cwd: ROOT, stdio: ["ignore", "pipe", "pipe"] },
   );
-  return output.split("\n").filter((f) => f.trim() && f.endsWith(".mdx"));
+  return output
+    .split("\n")
+    .filter((f) => f.trim() && f.endsWith(".mdx") && !isExcludedPath(f));
 }
 
 function getAllFiles(): string[] {
@@ -329,7 +351,8 @@ function getAllFiles(): string[] {
       if (entry.isDirectory()) {
         walk(full);
       } else if (entry.name.endsWith(".mdx")) {
-        files.push(path.relative(ROOT, full));
+        const rel = path.relative(ROOT, full);
+        if (!isExcludedPath(rel)) files.push(rel);
       }
     }
   }

@@ -173,11 +173,7 @@ function DocsOverview() {
                       <Link
                         key={i.slug}
                         href={`/${i.slug}`}
-                        className={`group relative flex items-center gap-2 p-3 rounded-lg border transition-all ${
-                          i.deployed
-                            ? "border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm"
-                            : "border-[var(--border-dim)] bg-[var(--bg-elevated)] opacity-70"
-                        }`}
+                        className="group relative flex items-center gap-2 p-3 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] hover:border-[var(--accent)] hover:shadow-sm transition-all"
                       >
                         {i.logo ? (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -192,11 +188,6 @@ function DocsOverview() {
                         <span className="flex-1 min-w-0 truncate text-sm font-medium text-[var(--text)] group-hover:text-[var(--accent)]">
                           {i.name}
                         </span>
-                        {!i.deployed && (
-                          <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                            soon
-                          </span>
-                        )}
                         {/* Marks the framework currently stored in
                           localStorage so repeat visitors can spot "their"
                           choice at a glance without an auto-redirect. */}

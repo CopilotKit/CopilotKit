@@ -321,11 +321,6 @@ export function FrameworkSelector({
                       <span className="flex-1 text-left truncate">
                         {opt.name}
                       </span>
-                      {!opt.deployed && (
-                        <span className="text-[9px] font-mono uppercase tracking-widest text-[var(--text-faint)]">
-                          soon
-                        </span>
-                      )}
                     </button>
                   );
                 })}

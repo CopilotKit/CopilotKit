@@ -26,6 +26,7 @@
     "category": {
       "type": "string",
       "enum": [
+        "built-in",
         "popular",
         "agent-framework",
         "enterprise-platform",

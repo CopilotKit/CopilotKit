@@ -14,6 +14,10 @@ import {
 import { Callout as DocsCallout } from "@/components/docs-callout";
 import { Steps as DocsSteps, Step as DocsStep } from "@/components/docs-steps";
 import { Tabs as DocsTabs, Tab as DocsTab } from "@/components/docs-tabs";
+import {
+  TailoredContent as RealTailoredContent,
+  TailoredContentOption as RealTailoredContentOption,
+} from "@/components/react/tailored-content";
 import { FrameworkTabs } from "@/components/framework-tabs";
 import { PropertyReference } from "@/components/property-reference";
 import { IntegrationGrid } from "@/components/integration-grid";
@@ -279,12 +283,8 @@ export const docsComponents = {
   Caution: ({ children }: { children: React.ReactNode }) => (
     <Callout type="warn">{children}</Callout>
   ),
-  TailoredContent: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TailoredContentOption: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
+  TailoredContent: RealTailoredContent,
+  TailoredContentOption: RealTailoredContentOption,
   SharedContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),

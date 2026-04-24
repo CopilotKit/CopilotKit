@@ -1,0 +1,17 @@
+name: Built-in Agent
+slug: built-in-agent
+category: popular
+language: typescript
+logo: /logos/built-in-agent.svg
+description: >-
+  CopilotKit's simplest agent option — what you get built-in. Connects directly
+  to an LLM (OpenAI, Anthropic, Google, or any AI-SDK model) with full support
+  for tools, generative UI, and shared state, without requiring an external
+  agent framework process.
+copilotkit_version: 2.0.0
+backend_url: "https://copilotkit.ai"
+deployed: false
+sort_order: 0
+features:
+  - agentic-chat
+demos: []
