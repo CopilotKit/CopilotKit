@@ -708,7 +708,9 @@ class CpkThreadDetails extends LitElement {
 
     /* ── Tab bar header ──────────────────────────────────────────────── */
     .cpk-td__tabs-header {
-      padding: 6px 12px 0;
+      /* No top/right padding so tabs and toggle sit flush against the
+         top and right edges of the inspector. */
+      padding: 0 0 0 12px;
       border-bottom: 1px solid #dbdbe5;
       flex-shrink: 0;
       display: flex;
@@ -719,6 +721,12 @@ class CpkThreadDetails extends LitElement {
       display: flex;
       gap: 0;
       margin-bottom: -1px;
+      /* Allow the tab list to shrink rather than pushing the panel-toggle
+         button past the right edge of the inspector when horizontal space
+         gets tight (the drawer being open eats noticeably into width). */
+      min-width: 0;
+      flex-shrink: 1;
+      overflow: hidden;
     }
 
     .cpk-td__tab {
@@ -746,36 +754,37 @@ class CpkThreadDetails extends LitElement {
       border-bottom-color: #bec2ff;
     }
 
+    /* Toggle is a separate control, not a tab — so it does NOT use the
+       tabs' bottom-border active indicator. Instead, a subtle filled
+       state communicates "the drawer is open," and a vertical separator
+       on the left visually divorces it from the tab group. */
     .cpk-td__panel-toggle {
       margin-left: auto;
-      margin-right: 8px;
-      margin-bottom: 6px;
-      align-self: center;
+      align-self: stretch;
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 30px;
-      border: 1px solid #dbdbe5;
-      border-radius: 5px;
+      padding: 0 12px;
+      border: none;
+      border-left: 1px solid #dbdbe5;
       background: transparent;
       color: #838389;
       cursor: pointer;
       flex-shrink: 0;
       transition:
-        background 0.12s,
         color 0.12s,
-        border-color 0.12s;
+        background 0.12s;
     }
     .cpk-td__panel-toggle:hover {
-      background: #bec2ff1a;
-      border-color: #bec2ff;
-      color: #57575b;
+      color: #010507;
+      background: #f4f4f9;
     }
     .cpk-td__panel-toggle--active {
-      background: #bec2ff1a;
-      border-color: #bec2ff;
-      color: #57575b;
+      color: #5558b2;
+      background: #eee6fe;
+    }
+    .cpk-td__panel-toggle--active:hover {
+      background: #e4d8fc;
     }
 
     /* ── Scrollable content ──────────────────────────────────────────── */
@@ -1098,14 +1107,18 @@ class CpkThreadDetails extends LitElement {
     }
 
     /* ── Resize divider ──────────────────────────────────────────────── */
+    /* Floats over the drawer's left edge so the toggle and the drawer
+       touch directly without a 4px flex-gap between them. The hit zone
+       is wider than its visual hint to make it easy to grab. */
     .cpk-td__detail-divider {
-      width: 4px;
-      flex-shrink: 0;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -3px;
+      width: 7px;
       cursor: col-resize;
       background: transparent;
-      border-left: 1px solid #dbdbe5;
-      position: relative;
-      z-index: 1;
+      z-index: 5;
     }
 
     .cpk-td__detail-divider:hover {
@@ -1115,12 +1128,24 @@ class CpkThreadDetails extends LitElement {
     /* ── Right detail panel ──────────────────────────────────────────── */
     .cpk-td__detail {
       flex-shrink: 0;
-      overflow-y: auto;
+      overflow: hidden;
       background: #f7f7f9;
-      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 0;
+      padding: 0;
+      box-sizing: border-box;
+      position: relative;
+      /* Slide open/closed via width + padding transition. When closed,
+         width and padding are 0 so the drawer fully collapses. */
+      transition:
+        width 220ms cubic-bezier(0.4, 0, 0.2, 1),
+        padding 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .cpk-td__detail[data-open="true"] {
+      overflow-y: auto;
+      padding: 16px;
     }
 
     .cpk-tdp__section-title {
@@ -1544,30 +1569,7 @@ class CpkThreadDetails extends LitElement {
                 `,
               )}
             </div>
-            <button
-              class="cpk-td__panel-toggle ${
-                this._showDetailPanel ? "cpk-td__panel-toggle--active" : ""
-              }"
-              @click=${() => {
-                this._showDetailPanel = !this._showDetailPanel;
-              }}
-              title="Toggle thread details"
-              type="button"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="15" y1="3" x2="15" y2="21" />
-              </svg>
-            </button>
+            ${this.renderPanelToggle()}
           </div>
 
           <!-- Scrollable content -->
@@ -1582,28 +1584,33 @@ class CpkThreadDetails extends LitElement {
           </div>
         </div>
 
-        ${
-          this._showDetailPanel
-            ? html`
-              <!-- Resize divider -->
-              <div
-                class="cpk-td__detail-divider"
-                @pointerdown=${this.onDetailDividerDown}
-                @pointermove=${this.onDetailDividerMove}
-                @pointerup=${this.onDetailDividerUp}
-                @pointercancel=${this.onDetailDividerUp}
-              ></div>
-
-              <!-- Right metadata panel -->
-              <div
-                class="cpk-td__detail"
-                style="width:${this._detailPanelWidth}px"
-              >
-                ${this.renderDetailPanel()}
-              </div>
-            `
-            : nothing
-        }
+        <!--
+          Drawer always rendered so width animates between 0 and its
+          target. Divider lives INSIDE the drawer and is absolutely
+          positioned over its left edge so the toggle (rightmost of the
+          tab row) and the drawer touch with no flex-gap between them.
+        -->
+        <div
+          class="cpk-td__detail"
+          data-open=${this._showDetailPanel ? "true" : "false"}
+          style="width:${this._showDetailPanel ? this._detailPanelWidth : 0}px"
+          aria-hidden=${this._showDetailPanel ? "false" : "true"}
+        >
+          ${
+            this._showDetailPanel
+              ? html`
+                <div
+                  class="cpk-td__detail-divider"
+                  @pointerdown=${this.onDetailDividerDown}
+                  @pointermove=${this.onDetailDividerMove}
+                  @pointerup=${this.onDetailDividerUp}
+                  @pointercancel=${this.onDetailDividerUp}
+                ></div>
+              `
+              : nothing
+          }
+          ${this.renderDetailPanel()}
+        </div>
       </div>
     `;
   }
@@ -1914,6 +1921,35 @@ ${unsafeHTML(highlightedJson(event.payload))}</pre
         </div>
       `;
     })}`;
+  }
+
+  private renderPanelToggle() {
+    return html`
+      <button
+        class="cpk-td__panel-toggle ${
+          this._showDetailPanel ? "cpk-td__panel-toggle--active" : ""
+        }"
+        @click=${() => {
+          this._showDetailPanel = !this._showDetailPanel;
+        }}
+        title="Toggle thread details"
+        type="button"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+    `;
   }
 
   private renderDetailPanel() {
