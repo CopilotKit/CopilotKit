@@ -106,7 +106,6 @@ interface DemoContent {
 }
 
 interface BundledContent {
-  generated_at: string;
   demos: Record<string, DemoContent>; // key: "integration-slug::demo-id"
 }
 
@@ -353,7 +352,6 @@ function main() {
   console.log("Bundling demo content...\n");
 
   const bundle: BundledContent = {
-    generated_at: new Date().toISOString(),
     demos: {},
   };
 

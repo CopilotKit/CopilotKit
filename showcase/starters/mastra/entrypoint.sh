@@ -58,7 +58,7 @@ fi
 # per-framework ceiling) before the strike counter is armed. See
 # getWatchdogGraceSeconds() for the mapping.
 (
-  GRACE=180
+  GRACE=30
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"
   ELAPSED=0
   while [ $ELAPSED -lt $GRACE ]; do
@@ -66,7 +66,7 @@ fi
       # Agent died during startup — wait -n in the main shell will handle it.
       exit 0
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8123/api > /dev/null 2>&1; then
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/health > /dev/null 2>&1; then
       echo "[watchdog] Agent healthy after ${ELAPSED}s — arming strike counter"
       break
     fi
@@ -82,7 +82,7 @@ fi
       # Agent already dead — wait -n in the main shell will handle it.
       break
     fi
-    if curl -fsS --max-time 5 http://127.0.0.1:8123/api > /dev/null 2>&1; then
+    if curl -fsS --max-time 5 http://127.0.0.1:8123/health > /dev/null 2>&1; then
       FAILS=0
     else
       FAILS=$((FAILS + 1))
@@ -96,7 +96,7 @@ fi
   done
 ) &
 WATCHDOG_PID=$!
-echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/api, startup grace 180s)"
+echo "[entrypoint] Watchdog started (PID: $WATCHDOG_PID, probing http://127.0.0.1:8123/health, startup grace 30s)"
 
 echo "========================================="
 echo "[entrypoint] Starting Next.js frontend on port ${PORT:-10000}..."

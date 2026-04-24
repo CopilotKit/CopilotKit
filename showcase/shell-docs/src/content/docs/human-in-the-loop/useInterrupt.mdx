@@ -36,8 +36,8 @@ the user, prefer [`useHumanInTheLoop`](../human-in-the-loop).
 
 ## The backend: `interrupt()` inside a tool
 
-The showcase `gen-ui-interrupt` cell exposes a `schedule_meeting` tool.
-When the model calls it, the tool issues a `langgraph.interrupt(...)`
+The example agent exposes a `schedule_meeting` tool. When the model
+calls it, the tool issues a `langgraph.interrupt(...)`
 with the meeting context. The run freezes here until the client
 resolves; the resolution becomes the return value of `interrupt()`,
 which the tool then turns into a final string for the model:

@@ -69,6 +69,10 @@ jobs:
         run: npm ci
         working-directory: showcase/tests
 
+      - name: Generate registry data
+        run: |
+          cd showcase/scripts && npm ci && node node_modules/tsx/dist/cli.mjs generate-registry.ts
+
       - name: Install Playwright
         working-directory: showcase/tests
         run: npx playwright install chromium --with-deps

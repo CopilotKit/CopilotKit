@@ -38,7 +38,6 @@ interface StarterContent {
 }
 
 interface BundledStarters {
-  generated_at: string;
   starters: Record<string, StarterContent>;
 }
 
@@ -310,7 +309,6 @@ function main() {
   const integrations = registry.integrations as RegistryIntegration[];
 
   const bundle: BundledStarters = {
-    generated_at: new Date().toISOString(),
     starters: {},
   };
 

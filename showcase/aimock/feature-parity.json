@@ -320,6 +320,116 @@
           }
         ]
       }
+    },
+    {
+      "match": {
+        "userMessage": "Describe this image"
+      },
+      "response": {
+        "content": "This appears to be the CopilotKit logo. The mark combines clean geometric shapes typical of the CopilotKit brand identity."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Summarize this document"
+      },
+      "response": {
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "blue gradient"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "change_background",
+            "arguments": "{\"background\":\"linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "short joke"
+      },
+      "response": {
+        "content": "Why did the developer go broke? Because they used up all their cache."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Search my notes for 'auth'"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"auth\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "xyzzy-nonsense-keyword"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "query_notes",
+            "arguments": "{\"keyword\":\"xyzzy-nonsense-keyword\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_pie_chart",
+            "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "bar chart of monthly expenses"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "render_bar_chart",
+            "arguments": "{\"title\":\"Monthly Expenses\",\"description\":\"Expense breakdown by month\",\"data\":[{\"label\":\"Jan\",\"value\":12000},{\"label\":\"Feb\",\"value\":14500},{\"label\":\"Mar\",\"value\":13200},{\"label\":\"Apr\",\"value\":15800}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "What is my name?"
+      },
+      "response": {
+        "content": "Based on the context you provided, your name is Jamie."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Roll a 20-sided die"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "name": "roll_dice",
+            "arguments": "{\"sides\":20}"
+          }
+        ]
+      }
     }
   ]
 }
