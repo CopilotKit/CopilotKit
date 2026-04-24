@@ -3,7 +3,11 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "starterAgent": "./graph.ts:graph"
+    "starterAgent": "./graph.ts:graph",
+    "interrupt_agent": "./interrupt-agent.ts:graph",
+    "a2ui_dynamic": "./a2ui-dynamic.ts:graph",
+    "a2ui_fixed": "./a2ui-fixed.ts:graph",
+    "mcp_apps": "./mcp-apps.ts:graph"
   },
   "env": "../../.env"
 }

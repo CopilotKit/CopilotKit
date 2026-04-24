@@ -15,14 +15,14 @@ const AGENT_URL =
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
+function createAgent(graphId: string = "starterAgent") {
   return new LangGraphAgent({
     deploymentUrl: `${AGENT_URL}/`,
-    graphId: "starterAgent",
+    graphId,
   });
 }
 
-// Register the same agent under all names used by demo pages.
+// Register the starterAgent under all names used by demo pages.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
@@ -41,6 +41,12 @@ for (const name of agentNames) {
 }
 agents["default"] = createAgent();
 agents["starterAgent"] = createAgent();
+
+// gen-ui-interrupt + interrupt-headless share the dedicated interrupt_agent
+// graph, which uses langgraph's interrupt() primitive inside its
+// schedule_meeting tool.
+agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
+agents["interrupt-headless"] = createAgent("interrupt_agent");
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
