@@ -11,8 +11,9 @@ import type { Probe, ProbeContext, ProbeResult } from "../types/index.js";
  *
  * The orchestrator (Cluster 1) owns the adapter side: its `getServiceEnv`
  * implementation must substitute this sentinel for any variable Railway
- * returns masked. From the probe's perspective, any `OPENAI_BASE_URL` or
- * `ANTHROPIC_BASE_URL` equal to this sentinel is treated as unknown.
+ * returns masked. From the probe's perspective, any `OPENAI_BASE_URL`,
+ * `ANTHROPIC_BASE_URL`, or `GOOGLE_GEMINI_BASE_URL` equal to this sentinel
+ * is treated as unknown.
  */
 export const SEALED_SENTINEL = "__SEALED__";
 
@@ -56,6 +57,7 @@ const EXCLUDE_SERVICES: ReadonlySet<string> = new Set([
   "showcase-shell",
   "showcase-shell-dashboard",
   "showcase-shell-docs",
+  "showcase-shell-dojo",
   "showcase-pocketbase",
   "showcase-ops",
 ]);
@@ -153,51 +155,35 @@ function isExcluded(name: string): boolean {
 }
 
 /**
- * Normalize a URL for equality compare: lowercase hostname, strip trailing
- * slash on the path, drop query string and fragment, normalize default ports
- * (:80 for http, :443 for https). Returns null if parsing fails — callers
- * should treat unparseable URLs as "not aimock".
- *
- * Query/fragment are dropped so `https://aimock/v1?env=prod` still compares
- * equal to `https://aimock/v1`. Ports collapse to the default when explicit
- * (`https://host:443/v1` == `https://host/v1`).
- *
- * NOTE: Pathname case is preserved (NOT lowercased). URL paths are
- * case-sensitive per RFC 3986 §6.2.2.1, so `/v1` and `/V1` are different
- * resources. If operators configure `OPENAI_BASE_URL=…/V1` but aimock runs
- * at `…/v1`, the probe will correctly flag the service as unwired.
+ * Extract the lowercased hostname from a URL string. Returns null if the
+ * URL is unparseable. Used by `pointsAtAimock` for hostname-based matching
+ * so path differences (`/v1` suffix on `OPENAI_BASE_URL` vs bare origin on
+ * `AIMOCK_URL`) don't cause false mismatches.
  */
-function normalizeUrl(raw: string | undefined): string | null {
+function extractHostname(raw: string | undefined): string | null {
   if (!raw) return null;
   try {
-    const u = new URL(raw);
-    u.hostname = u.hostname.toLowerCase();
-    // Drop query string and fragment — these never affect routing to the
-    // aimock upstream and an accidental `?env=prod` must not surface as drift.
-    u.search = "";
-    u.hash = "";
-    // Normalize default ports so `:80` / `:443` collapse to the implicit form.
-    if (
-      (u.protocol === "http:" && u.port === "80") ||
-      (u.protocol === "https:" && u.port === "443")
-    ) {
-      u.port = "";
-    }
-    // Strip a single trailing slash on the pathname (but not the root '/' itself).
-    if (u.pathname.length > 1 && u.pathname.endsWith("/")) {
-      u.pathname = u.pathname.replace(/\/+$/, "");
-    }
-    // Drop any trailing slash on the stringified URL to normalize
-    // `https://host/` vs `https://host`.
-    let out = u.toString();
-    if (out.endsWith("/") && u.pathname === "/") {
-      out = out.slice(0, -1);
-    }
-    return out;
+    return new URL(raw).hostname.toLowerCase();
   } catch {
     return null;
   }
 }
+
+/**
+ * Candidate env var names that may point a service at aimock. A service is
+ * "wired" if ANY of these resolves to the aimock hostname.
+ *
+ *   - `OPENAI_BASE_URL`: used by the vast majority of services (OpenAI SDK
+ *     convention, typically set to `<aimock>/v1`).
+ *   - `ANTHROPIC_BASE_URL`: used by claude-sdk services (set to the bare
+ *     aimock origin, no `/v1`).
+ *   - `GOOGLE_GEMINI_BASE_URL`: used by google-adk services (bare origin).
+ */
+const CANDIDATE_ENV_VARS = [
+  "OPENAI_BASE_URL",
+  "ANTHROPIC_BASE_URL",
+  "GOOGLE_GEMINI_BASE_URL",
+] as const;
 
 /**
  * Tri-state match against the aimock base URL.
@@ -208,6 +194,13 @@ function normalizeUrl(raw: string | undefined): string | null {
  *     so the service goes to the `sealed` bucket rather than being flagged
  *     as drift.
  *
+ * Matching is **hostname-based**: a candidate value matches aimock if its
+ * parsed hostname equals the aimock URL's hostname (case-insensitive). This
+ * tolerates the `/v1` path suffix that `OPENAI_BASE_URL` carries by
+ * convention — the path is irrelevant for determining whether traffic routes
+ * through the aimock proxy. Query strings, fragments, and default ports are
+ * also ignored since hostname extraction discards them.
+ *
  * Ordering rationale: a confirmed match on ANY candidate env var wins, even
  * if another candidate is sealed. This mirrors the original "OR" semantics —
  * a service that exposes `ANTHROPIC_BASE_URL=aimock` and has a sealed
@@ -217,29 +210,29 @@ function pointsAtAimock(
   env: Record<string, string | undefined>,
   aimockUrl: string,
 ): "match" | "mismatch" | "sealed" {
-  const target = normalizeUrl(aimockUrl);
+  const targetHost = extractHostname(aimockUrl);
   // Defense-in-depth: the probe's `run` has already validated `aimockUrl`
-  // with `new URL` and short-circuited on failure, so `target` should never
-  // be null here. If it somehow is (e.g. a future caller invokes
+  // with `new URL` and short-circuited on failure, so `targetHost` should
+  // never be null here. If it somehow is (e.g. a future caller invokes
   // `pointsAtAimock` directly), return "mismatch" rather than silently
   // matching — but this path is unreachable via the probe pipeline today.
-  if (target === null) return "mismatch";
-  const candidates = [env.OPENAI_BASE_URL, env.ANTHROPIC_BASE_URL];
+  if (targetHost === null) return "mismatch";
   let anySealed = false;
-  for (const raw of candidates) {
+  for (const varName of CANDIDATE_ENV_VARS) {
+    const raw = env[varName];
     if (raw === SEALED_SENTINEL) {
       anySealed = true;
       continue;
     }
-    if (normalizeUrl(raw) === target) return "match";
+    if (extractHostname(raw) === targetHost) return "match";
   }
   return anySealed ? "sealed" : "mismatch";
 }
 
 /**
  * Spec §6.4: every LLM-calling showcase service MUST have its traffic
- * routed through showcase-aimock via OPENAI_BASE_URL (or
- * ANTHROPIC_BASE_URL for the claude-sdk pattern). Fires on drift.
+ * routed through showcase-aimock via OPENAI_BASE_URL,
+ * ANTHROPIC_BASE_URL, or GOOGLE_GEMINI_BASE_URL. Fires on drift.
  *
  * Signal contract (sorted output is part of the contract — templates rely
  * on stable ordering for diff comparisons):
@@ -259,18 +252,18 @@ export const aimockWiringProbe: Probe<AimockWiringInput, AimockWiringSignal> = {
     input: AimockWiringInput,
     ctx: ProbeContext,
   ): Promise<ProbeResult<AimockWiringSignal>> {
-    // HF13-C1: parse the config URL ONCE at probe start. If it fails, every
-    // downstream `normalizeUrl` call against per-service env vars would also
-    // return null → `pointsAtAimock` returns "mismatch" → every service
-    // lands in `unwired` → probe goes red with "all services drifted". That
-    // paged operators when the actual failure was a config typo in
-    // AIMOCK_BASE_URL. Short-circuit here with a dedicated probeErrored
-    // signal and skip per-service iteration so Slack renders the errored
-    // branch, not the drift branch.
+    // HF13-C1: parse the config URL ONCE at probe start. If it fails,
+    // `extractHostname` returns null → `pointsAtAimock` returns "mismatch"
+    // → every service lands in `unwired` → probe goes red with "all
+    // services drifted". That paged operators when the actual failure was
+    // a config typo in AIMOCK_BASE_URL. Short-circuit here with a
+    // dedicated probeErrored signal and skip per-service iteration so
+    // Slack renders the errored branch, not the drift branch.
     //
-    // We do NOT rely on `normalizeUrl` alone because its null-return is also
-    // a legitimate value for per-service env vars (a service without the
-    // var set). Parse+throw via `new URL` gives us a clean boot-time guard.
+    // We validate with `new URL` rather than relying on `extractHostname`
+    // alone because a null return from hostname extraction is also a
+    // legitimate value for per-service env vars (a service without the
+    // var set). Parse+throw gives us a clean boot-time guard.
     let aimockUrlValid = true;
     try {
       // eslint-disable-next-line no-new

@@ -14,8 +14,8 @@ agent as a tool. When the agent calls the tool, CopilotKit renders your
 component inline in the chat, passing the tool's arguments straight through
 as typed props.
 
-Unlike [tool rendering](/generative-ui/tool-rendering) — which wraps a
-real backend tool in a custom UI — tool-based GenUI is the component. There
+Unlike [tool rendering](/generative-ui/tool-rendering), which wraps a
+real backend tool in a custom UI, tool-based GenUI is the component. There
 is no handler, no user interaction, no server-side execution. The agent
 decides when to show it, populates the data, and CopilotKit paints it.
 
@@ -43,12 +43,10 @@ component.
 
 <Snippet region="bar-chart-renderer" title="frontend/src/app/page.tsx — bar chart component" />
 
-<Snippet region="pie-chart-renderer" title="frontend/src/app/page.tsx — pie chart component" />
-
-The component itself is ordinary React — it reads only its props and can
-stream in as the agent fills the payload. The showcase cell uses
-[Recharts](https://recharts.org) for the bar chart and a hand-rolled SVG
-donut for the pie chart; neither knows anything about CopilotKit.
+The component itself is ordinary React: it reads only its props and can
+stream in as the agent fills the payload. The example above uses
+[Recharts](https://recharts.org) for the bar chart; it doesn't know
+anything about CopilotKit.
 
 <Callout type="info">
   The `name` you pass to `useComponent` is what the agent sees as the tool
@@ -56,8 +54,6 @@ donut for the pie chart; neither knows anything about CopilotKit.
   reliably picks it when the user asks for that visualization.
 </Callout>
 
-<FeatureIntegrations feature="generative-ui-tool-based" />
-
-## Choose your AI backend
+<FeatureIntegrations feature="gen-ui-tool-based" />
 
 <IntegrationGrid path="generative-ui/tool-based" />

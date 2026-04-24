@@ -8,7 +8,7 @@ snippet_cell: agentic-chat
 
 ## What is this?
 
-`<CopilotChat>` is the base prebuilt chat surface — drop it in wherever you
+`<CopilotChat>` is the base prebuilt chat surface. Drop it in wherever you
 want the chat to render and size it to fit your layout. `<CopilotSidebar>`
 and `<CopilotPopup>` are both thin wrappers over the same primitives; if you
 need a dedicated chat page or an inline pane alongside other content, this
@@ -28,6 +28,8 @@ For a floating bubble that overlays content, use [CopilotPopup](/prebuilt-compon
 
 <InlineDemo demo="agentic-chat" />
 
+The gif below shows a typical session with streaming responses and starter suggestions:
+
 <img
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilotchat-example.gif"
   alt="CopilotChat example"
@@ -36,33 +38,21 @@ For a floating bubble that overlays content, use [CopilotPopup](/prebuilt-compon
 
 ## Basic setup
 
-Wrap your app in `<CopilotKit>` once — the provider wires the runtime, session,
-and agent registry — then render `<CopilotChat>` inside the layout of your
+Wrap your app in `<CopilotKit>` once (the provider wires the runtime, session,
+and agent registry) and render `<CopilotChat>` inside the layout of your
 choosing:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
 
 ## Code example
 
-```tsx title="page.tsx"
-// [!code word:CopilotChat]
-import { CopilotChat } from "@copilotkit/react-core/v2";
+A self-contained component that renders the chat and wires in starter suggestions:
 
-export default function YourComponent() {
-  return (
-    <CopilotChat
-      labels={{
-        modalHeaderTitle: "Your Assistant",
-        welcomeMessageText: "Hi! How can I assist you today?",
-      }}
-    />
-  );
-}
-```
+<Snippet region="chat-component" title="frontend/src/app/page.tsx — the Chat component" />
 
 ## Common props
 
-`<CopilotChat>` is the root primitive — `<CopilotSidebar>` and `<CopilotPopup>`
+`<CopilotChat>` is the root primitive. `<CopilotSidebar>` and `<CopilotPopup>`
 accept the same slots and labels, plus a few wrapper-specific props.
 
 | Prop | Description |
@@ -82,18 +72,3 @@ accept the same slots and labels, plus a few wrapper-specific props.
 - **CSS variables / class overrides** — see [CSS customization](/custom-look-and-feel/css)
 - **Slots (subcomponents)** — see [slots](/custom-look-and-feel/slots)
 - **Fully headless** — see [headless UI](/custom-look-and-feel/headless-ui)
-
-```tsx title="page.tsx"
-<CopilotChat
-  agentId="my-agent"
-  labels={{
-    modalHeaderTitle: "Your Assistant",
-    welcomeMessageText: "Hi! How can I assist you today?",
-  }}
-  messageView={{
-    assistantMessage: {
-      className: "bg-gray-50 rounded-xl p-4",
-    },
-  }}
-/>
-```

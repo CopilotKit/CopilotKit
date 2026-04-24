@@ -7,6 +7,7 @@ generative_ui:
     allowed:
       - beautiful-chat
       - cli-start
+      - agent-config
       - agentic-chat
       - chat-customization-css
       - tool-rendering-default-catchall
@@ -15,13 +16,14 @@ generative_ui:
       - frontend-tools-async
       - gen-ui-tool-based
       - useComponent
-      - multi-modal
+      - multimodal
       - suggestions
       - shared-state-read-write
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents
       - voice
+      - auth
     excluded:
       - tool-rendering
       - hitl-in-chat
@@ -32,6 +34,7 @@ generative_ui:
     allowed:
       - beautiful-chat
       - cli-start
+      - agent-config
       - agentic-chat
       - chat-customization-css
       - tool-rendering-default-catchall
@@ -57,13 +60,18 @@ generative_ui:
       - mcp-apps
       - tool-rendering
       - useComponent
-      - multi-modal
+      - multimodal
       - suggestions
       - shared-state-read-write
       - readonly-state-agent-context
       - shared-state-streaming
       - subagents
       - voice
+      - auth
+      - byoc-hashbrown
+      - byoc-json-render
+      - open-gen-ui
+      - open-gen-ui-advanced
 
 interaction_modalities:
   headless:

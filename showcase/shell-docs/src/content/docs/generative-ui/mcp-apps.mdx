@@ -9,7 +9,7 @@ snippet_cell: mcp-apps
 
 MCP Apps are MCP servers that expose tools with associated UI resources. When
 the agent calls one of these tools, CopilotKit automatically fetches the
-resource and renders the UI component in the chat — no additional frontend
+resource and renders the UI component in the chat; no additional frontend
 code required.
 
 Key benefits:
@@ -33,7 +33,7 @@ resource and emits an `activity` event that the built-in
 
 <Callout type="info" title="Always pin a serverId">
   In production, always provide a stable `serverId`. Without it, CopilotKit
-  hashes the server URL — and a URL change (for example between environments)
+  hashes the server URL, and a URL change (for example between environments)
   silently breaks restoration of MCP Apps persisted in earlier conversation
   threads.
 </Callout>
@@ -41,7 +41,7 @@ resource and emits an `activity` event that the built-in
 ## No frontend renderer needed
 
 Unlike custom activity types, the MCP Apps renderer is already registered by
-`CopilotKitProvider` out of the box. A plain `<CopilotChat />` is enough —
+`CopilotKitProvider` out of the box. A plain `<CopilotChat />` is enough;
 no `renderActivityMessages` prop, no manual
 `useRenderActivityMessage` wiring.
 
@@ -53,6 +53,8 @@ The middleware supports two transport types:
 
 ### HTTP
 
+Use this format to connect to an MCP server that accepts standard HTTP requests:
+
 ```typescript
 {
   type: "http",
@@ -62,6 +64,8 @@ The middleware supports two transport types:
 ```
 
 ### SSE
+
+Use this format to connect to an MCP server that streams events over a persistent connection:
 
 ```typescript
 {
@@ -80,7 +84,5 @@ Try these open-source MCP Apps servers to get started:
 
 - [Excalidraw](https://mcp.excalidraw.com) — collaborative whiteboard rendered in-chat
 - [modelcontextprotocol/ext-apps](https://github.com/modelcontextprotocol/ext-apps) — canonical reference implementations
-
-## Choose your AI backend
 
 <IntegrationGrid path="generative-ui/mcp-apps" />

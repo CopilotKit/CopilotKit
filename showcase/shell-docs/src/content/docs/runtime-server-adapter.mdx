@@ -1,0 +1,1003 @@
+---
+title: Runtime Server Adapter
+icon: "lucide/Server"
+description: Deploy the CopilotKit runtime on any backend framework — Node.js, Express, Hono, Bun, Deno, Cloudflare Workers, and more.
+---
+
+The CopilotKit runtime is **framework-agnostic**. At its core, it's a pure Fetch handler — a function that takes a `Request` and returns a `Response`. This means it runs natively on any platform that supports the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API), and thin adapters are provided for Node.js-based frameworks like Express and Hono.
+
+## Quick Overview
+
+| Runtime | Import Path | Key Function |
+|---------|------------|--------------|
+| **Fetch-native** (Bun, Deno, CF Workers, Next.js App Router) | `@copilotkit/runtime/v2` | `createCopilotRuntimeHandler` |
+| **Node.js HTTP** | `@copilotkit/runtime/v2/node` | `createCopilotNodeHandler` / `createCopilotNodeListener` |
+| **Express** | `@copilotkit/runtime/v2/express` | `createCopilotExpressHandler` |
+| **Hono** | `@copilotkit/runtime/v2/hono` | `createCopilotHonoHandler` |
+
+## Multi-Route vs Single-Route
+
+The runtime supports two endpoint modes:
+
+- **Multi-route** (default) — exposes individual URL endpoints:
+  - `GET  {basePath}/info`
+  - `POST {basePath}/agent/:agentId/run`
+  - `POST {basePath}/agent/:agentId/connect`
+  - `POST {basePath}/agent/:agentId/stop/:threadId`
+  - `POST {basePath}/transcribe`
+
+- **Single-route** — a single `POST {basePath}` endpoint that accepts a JSON envelope:
+  ```json
+  { "method": "agent/run", "params": { "agentId": "default" }, "body": { ... } }
+  ```
+
+Single-route mode is useful when your platform only allows a single route handler (e.g. a single serverless function), or when you prefer a simpler URL structure.
+
+## Fetch-Native Runtimes
+
+If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly — no adapter needed.
+
+```ts
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+// 1. Create the runtime with your agent(s)
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// 2. Create a Fetch handler — takes Request, returns Response
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+// 3. Serve it (Bun example — works the same with Deno.serve, CF Workers, etc.)
+Bun.serve({ fetch: handler, port: 4000 });
+```
+
+For framework-specific examples, see the sections below.
+
+## Bun
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+// Configure the runtime with your agent(s)
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Create a Fetch handler with multi-route endpoints (GET /info, POST /agent/:id/run, etc.)
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+// Bun natively supports Fetch handlers
+Bun.serve({ fetch: handler, port: 4000 });
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route mode: one POST endpoint that dispatches via JSON envelope
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+
+Bun.serve({ fetch: handler, port: 4000 });
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const copilotHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+Bun.serve({
+  port: 4000,
+  fetch(request) {
+    const url = new URL(request.url);
+
+    // Route CopilotKit requests to the handler
+    if (url.pathname.startsWith("/api/copilotkit")) {
+      return copilotHandler(request);
+    }
+
+    // Your other routes
+    if (url.pathname === "/health") {
+      return Response.json({ status: "healthy" });
+    }
+
+    return Response.json({ status: "ok" });
+  },
+});
+```
+</Tab>
+</Tabs>
+
+## Deno
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+// Deno.serve natively accepts a Fetch handler
+Deno.serve({ port: 4000 }, handler);
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route mode: one POST endpoint that dispatches via JSON envelope
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+
+Deno.serve({ port: 4000 }, handler);
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const copilotHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+Deno.serve({ port: 4000 }, (request) => {
+  const url = new URL(request.url);
+
+  // Route CopilotKit requests to the handler
+  if (url.pathname.startsWith("/api/copilotkit")) {
+    return copilotHandler(request);
+  }
+
+  // Your other routes
+  if (url.pathname === "/health") {
+    return Response.json({ status: "healthy" });
+  }
+
+  return Response.json({ status: "ok" });
+});
+```
+</Tab>
+</Tabs>
+
+## Cloudflare Workers
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing worker"]}>
+<Tab value="Multi-route">
+```ts title="src/index.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+export interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+      },
+    });
+
+    // Workers use the Fetch API natively — handler plugs in directly
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      cors: true,
+    });
+
+    return handler(request);
+  },
+};
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="src/index.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+export interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const runtime = new CopilotRuntime({
+      agents: {
+        default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+      },
+    });
+
+    // Single-route: one POST endpoint with JSON envelope dispatch
+    const handler = createCopilotRuntimeHandler({
+      runtime,
+      basePath: "/api/copilotkit",
+      mode: "single-route",
+      cors: true,
+    });
+
+    return handler(request);
+  },
+};
+```
+</Tab>
+<Tab value="Existing worker">
+```ts title="src/index.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+export interface Env {
+  OPENAI_API_KEY: string;
+}
+
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    const url = new URL(request.url);
+
+    // Route CopilotKit requests to the handler
+    if (url.pathname.startsWith("/api/copilotkit")) {
+      const runtime = new CopilotRuntime({
+        agents: {
+          default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+        },
+      });
+
+      const handler = createCopilotRuntimeHandler({
+        runtime,
+        basePath: "/api/copilotkit",
+        cors: true,
+      });
+
+      return handler(request);
+    }
+
+    // Your other routes
+    if (url.pathname === "/health") {
+      return Response.json({ status: "healthy" });
+    }
+
+    return Response.json({ status: "ok" });
+  },
+};
+```
+</Tab>
+</Tabs>
+
+## Next.js App Router
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
+<Tab value="Multi-route">
+```ts title="app/api/copilotkit/[...path]/route.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+// Export as both GET and POST to handle all CopilotKit routes
+export { handler as GET, handler as POST };
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route: only POST needed, no catch-all [...path] required
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+export { handler as POST };
+```
+
+<Callout type="info">
+In single-route mode, no `[...path]` catch-all is needed — everything goes through a single `POST /api/copilotkit`.
+</Callout>
+</Tab>
+</Tabs>
+
+<Callout type="info">
+No `cors: true` needed for Next.js — same-origin requests don't require CORS headers.
+</Callout>
+
+## React Router (Framework Mode)
+
+React Router v7 in framework mode uses file-based routing with Fetch API handlers — the CopilotKit handler works directly as a resource route.
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
+<Tab value="Multi-route">
+```ts title="app/routes/api.copilotkit.$.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+import type { Route } from "./+types/api.copilotkit.$";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+// loader handles GET requests (e.g. /info)
+export function loader({ request }: Route.LoaderArgs) {
+  return handler(request);
+}
+
+// action handles POST requests (e.g. /agent/:id/run)
+export function action({ request }: Route.ActionArgs) {
+  return handler(request);
+}
+```
+
+<Callout type="info">
+The `$` splat segment in the filename (`api.copilotkit.$.ts`) captures all subpaths under `/api/copilotkit/`, allowing the CopilotKit router to handle `/info`, `/agent/:id/run`, etc.
+</Callout>
+</Tab>
+<Tab value="Single-route">
+```ts title="app/routes/api.copilotkit.ts"
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+import type { Route } from "./+types/api.copilotkit";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route: only action (POST) needed, no splat segment required
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+export function action({ request }: Route.ActionArgs) {
+  return handler(request);
+}
+```
+
+<Callout type="info">
+In single-route mode, no `$` splat is needed — the filename is just `api.copilotkit.ts` and all dispatch happens via the JSON envelope.
+</Callout>
+</Tab>
+</Tabs>
+
+## TanStack Start
+
+TanStack Start uses API routes that receive standard `Request` objects and return `Response` objects.
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route"]}>
+<Tab value="Multi-route">
+```ts title="app/routes/api/copilotkit/$.ts"
+import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+// The $ splat matches all subpaths — GET for /info, POST for /agent/:id/run, etc.
+export const APIRoute = createAPIFileRoute("/api/copilotkit/$")({
+  GET: ({ request }) => handler(request),
+  POST: ({ request }) => handler(request),
+});
+```
+
+<Callout type="info">
+The `$` in the filename is TanStack Start's splat parameter, matching all subpaths under `/api/copilotkit/`.
+</Callout>
+</Tab>
+<Tab value="Single-route">
+```ts title="app/routes/api/copilotkit.ts"
+import { createAPIFileRoute } from "@tanstack/react-start/api";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route: only POST needed, no $ splat required
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+export const APIRoute = createAPIFileRoute("/api/copilotkit")({
+  POST: ({ request }) => handler(request),
+});
+```
+
+<Callout type="info">
+In single-route mode, no `$` splat is needed — the file is `copilotkit.ts` (not `$.ts`) and only `POST` is required.
+</Callout>
+</Tab>
+</Tabs>
+
+## Node.js HTTP
+
+For vanilla Node.js HTTP servers, use the `/node` subpath which bridges Fetch to Node's `IncomingMessage`/`ServerResponse`.
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import { createServer } from "node:http";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// createCopilotNodeListener returns a Node request listener (req, res) => void
+// that bridges to the Fetch handler internally
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+createServer(listener).listen(4000, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import { createServer } from "node:http";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+
+createServer(listener).listen(4000, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import { createServer } from "node:http";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotNodeHandler } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// 1. Create the Fetch handler
+const copilotHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+// 2. Wrap it as a Node (req, res) handler
+const copilotNodeHandler = createCopilotNodeHandler(copilotHandler);
+
+// 3. Use it in your existing server with manual routing
+const server = createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+
+  // Route CopilotKit requests to the handler
+  if (url.pathname.startsWith("/api/copilotkit")) {
+    return copilotNodeHandler(req, res);
+  }
+
+  // Your other routes
+  if (url.pathname === "/health") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "healthy" }));
+    return;
+  }
+
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({ status: "ok" }));
+});
+
+server.listen(4000, () => {
+  console.log("Listening at http://localhost:4000");
+});
+```
+</Tab>
+</Tabs>
+
+## Express
+
+The Express adapter returns an Express `Router` that you mount with `app.use()`.
+
+```
+npm install express cors
+```
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import express from "express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = express();
+
+// Mount the CopilotKit router — creates Express routes under /api/copilotkit
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
+);
+
+app.listen(4000, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import express from "express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = express();
+
+// Single-route: one POST endpoint that dispatches via JSON envelope
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    mode: "single-route",
+    cors: true,
+  }),
+);
+
+app.listen(4000, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import express from "express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = express();
+
+// Your existing routes
+app.get("/", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy" });
+});
+
+// Mount CopilotKit alongside your existing routes
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true,
+  }),
+);
+
+app.listen(4000, () => {
+  console.log("Listening at http://localhost:4000");
+});
+```
+</Tab>
+</Tabs>
+
+### Express Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `runtime` | `CopilotRuntime` | *required* | The runtime instance |
+| `basePath` | `string` | *required* | URL path prefix (e.g. `"/api/copilotkit"`) |
+| `mode` | `"multi-route"` \| `"single-route"` | `"multi-route"` | Multi-route exposes individual endpoints; single-route uses a JSON envelope |
+| `cors` | `boolean` \| `CorsOptions` | `false` | CORS configuration. `true` for permissive defaults, or pass a `cors` options object |
+| `hooks` | `CopilotRuntimeHooks` | — | [Lifecycle hooks](#lifecycle-hooks) |
+
+<Callout type="info">
+The Express adapter is compatible with `express.json()` body parsing. If you have `app.use(express.json())` before the CopilotKit router, the adapter will detect the pre-parsed body and handle it correctly.
+</Callout>
+
+## Hono
+
+The Hono adapter returns a Hono app that you mount with `app.route()`.
+
+```
+npm install hono
+```
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import { serve } from "@hono/node-server";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Returns a Hono app with CopilotKit routes mounted at basePath
+const endpoint = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+
+// Serve the Hono app directly
+serve({ fetch: endpoint.fetch, port: 4000 }, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import { serve } from "@hono/node-server";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route: one POST endpoint that dispatches via JSON envelope
+const endpoint = createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+
+serve({ fetch: endpoint.fetch, port: 4000 }, () => {
+  console.log("Listening at http://localhost:4000/api/copilotkit");
+});
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = new Hono();
+
+// Your existing routes
+app.get("/", (c) => c.json({ status: "ok" }));
+app.get("/health", (c) => c.json({ status: "healthy" }));
+
+// Mount CopilotKit as a sub-app via app.route()
+app.route("/", createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }));
+
+serve({ fetch: app.fetch, port: 4000 }, () => {
+  console.log("Listening at http://localhost:4000");
+});
+```
+</Tab>
+</Tabs>
+
+## Elysia (Bun)
+
+Elysia runs on Bun and supports the Fetch API natively, so you use `createCopilotRuntimeHandler` directly.
+
+```
+bun add elysia
+```
+
+<Tabs groupId="runtime-mode" items={["Multi-route", "Single-route", "Existing server"]}>
+<Tab value="Multi-route">
+```ts title="server.ts"
+import { Elysia } from "elysia";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Create a Fetch handler — Elysia passes the raw Request through
+const handler = createCopilotRuntimeHandler({ runtime, cors: true });
+
+new Elysia()
+  .all("/api/copilotkit/*", ({ request }) => handler(request))
+  .listen(4000);
+```
+</Tab>
+<Tab value="Single-route">
+```ts title="server.ts"
+import { Elysia } from "elysia";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+// Single-route: one POST endpoint, no wildcard needed
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+
+new Elysia()
+  .post("/api/copilotkit", ({ request }) => handler(request))
+  .listen(4000);
+```
+</Tab>
+<Tab value="Existing server">
+```ts title="server.ts"
+import { Elysia } from "elysia";
+import { CopilotRuntime, createCopilotRuntimeHandler, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const handler = createCopilotRuntimeHandler({ runtime, cors: true });
+
+new Elysia()
+  // Your existing routes
+  .get("/", () => ({ status: "ok" }))
+  .get("/health", () => ({ status: "healthy" }))
+  // Mount CopilotKit
+  .all("/api/copilotkit/*", ({ request }) => handler(request))
+  .listen(4000);
+```
+</Tab>
+</Tabs>
+
+## Lifecycle Hooks
+
+All adapters support lifecycle hooks for cross-cutting concerns like authentication, logging, and response modification.
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    // Before routing — auth, correlation IDs
+    onRequest: async ({ request, path, runtime }) => {
+      const token = request.headers.get("authorization");
+      if (!token) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+
+    // After routing — route-specific authorization
+    onBeforeHandler: async ({ request, route }) => {
+      console.log(`Handling ${route.method} for agent ${route.agentId}`);
+    },
+
+    // After handler — modify response headers
+    onResponse: async ({ response, request }) => {
+      const headers = new Headers(response.headers);
+      headers.set("x-request-id", crypto.randomUUID());
+      return new Response(response.body, {
+        status: response.status,
+        headers,
+      });
+    },
+
+    // On error — custom error responses
+    onError: async ({ error, request }) => {
+      console.error("Handler error:", error);
+    },
+  },
+});
+```
+
+| Hook | When | Can modify |
+|------|------|------------|
+| `onRequest` | Before routing | Throw `Response` to short-circuit |
+| `onBeforeHandler` | After routing, before handler | Access `route` info (method, agentId, threadId) |
+| `onResponse` | After handler | Return a new `Response` to replace it |
+| `onError` | On unhandled error | Log or produce a custom error response |
+
+## CORS Configuration
+
+### Fetch-native runtimes
+
+Pass `cors: true` for permissive defaults (`Access-Control-Allow-Origin: *`), or provide a config object:
+
+```ts
+const handler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://myapp.com",
+    credentials: true,
+  },
+});
+```
+
+### Express
+
+Pass `cors: true` for permissive defaults, or pass a [cors](https://www.npmjs.com/package/cors) options object:
+
+```ts
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://myapp.com",
+    credentials: true,
+  },
+});
+```
+
+### Hono
+
+Pass a `cors` config with explicit origin:
+
+```ts
+createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://myapp.com",
+    credentials: true,
+  },
+});
+```
+
+<Callout type="warn">
+When using `credentials: true`, you must specify an explicit origin — wildcard (`*`) is not allowed by the CORS spec.
+</Callout>
+
+## Connecting Your Frontend
+
+Once your runtime is running, point your frontend at it:
+
+```tsx
+<CopilotKit runtimeUrl="http://localhost:4000/api/copilotkit">
+  <YourApp />
+</CopilotKit>
+```
+
+For same-origin deployments (e.g. Next.js, React Router, TanStack Start), use a relative path:
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit">
+  <YourApp />
+</CopilotKit>
+```
