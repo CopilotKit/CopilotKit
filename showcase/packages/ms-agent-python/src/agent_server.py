@@ -24,6 +24,9 @@ from agents.agent_config_agent import create_agent_config_agent
 from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.multimodal_agent import create_multimodal_agent
 from agents.reasoning_agent import create_reasoning_agent
+from agents.tool_rendering_reasoning_chain_agent import (
+    create_tool_rendering_reasoning_chain_agent,
+)
 
 load_dotenv()
 
@@ -48,6 +51,9 @@ chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 agent_config_agent = create_agent_config_agent(chat_client)
 reasoning_agent = create_reasoning_agent(chat_client)
+tool_rendering_reasoning_chain_agent = create_tool_rendering_reasoning_chain_agent(
+    chat_client
+)
 
 # Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
@@ -113,6 +119,14 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=reasoning_agent,
     path="/reasoning",
+)
+
+# Shared by the three tool-rendering variant demos (default-catchall,
+# custom-catchall, reasoning-chain). They differ only on the frontend.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=tool_rendering_reasoning_chain_agent,
+    path="/tool-rendering-reasoning-chain",
 )
 
 # Shared agent for the rest of the demos (must be last: `/` is a catch-all).
