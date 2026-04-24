@@ -14,7 +14,7 @@ description: "React hook for accessing AG-UI agent instances"
 ```tsx
 import { useAgent } from "@copilotkit/react-core/v2";
 
-function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
+function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
 ```
 
 ## Parameters
@@ -22,9 +22,10 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
 <PropertyReference name="options" type="UseAgentProps">
   Configuration object for the hook.
 
-  <PropertyReference name="agentId" type="string" default='"default"'>
-    ID of the agent to retrieve. Must match an agent configured in `CopilotKitProvider`.
-  </PropertyReference>
+<PropertyReference name="agentId" type="string" default='"default"'>
+  ID of the agent to retrieve. Must match an agent configured in
+  `CopilotKitProvider`.
+</PropertyReference>
 
   <PropertyReference name="updates" type="UseAgentUpdate[]" default="[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]">
     Controls which agent changes trigger component re-renders. Options:
@@ -33,6 +34,7 @@ function useAgent(options?: UseAgentProps): { agent: AbstractAgent }
     - `UseAgentUpdate.OnRunStatusChanged` - Re-render when execution status changes
 
     Pass an empty array `[]` to prevent automatic re-renders.
+
   </PropertyReference>
 
   <PropertyReference name="throttleMs" type="number" default="0">
@@ -193,6 +195,43 @@ function StateController() {
 }
 ```
 
+### Initialize State Before the First Run
+
+Use this pattern when your backend tools rely on state keys (for example
+`mem0_user_id`) and you want those values available in the first run.
+
+```tsx
+import { useEffect, useRef } from "react";
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+
+function BootstrapAgentState() {
+  const { agent } = useAgent({ agentId: "memory-agent" });
+  const { copilotkit } = useCopilotKit();
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
+    agent.setState({
+      ...agent.state,
+      mem0_user_id: "user_123",
+      todos: [],
+    });
+
+    void copilotkit.runAgent({ agent });
+  }, [agent, copilotkit]);
+
+  return null;
+}
+```
+
+<Callout type="info">
+  If a tool runtime is missing custom keys, make sure those keys are part of
+  your LangGraph input state schema and that you set them before running the
+  agent.
+</Callout>
+
 ### Event Subscription
 
 ```tsx
@@ -241,7 +280,7 @@ import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
 // Only re-render when messages change
 function MessageCount() {
   const { agent } = useAgent({
-    updates: [UseAgentUpdate.OnMessagesChanged]
+    updates: [UseAgentUpdate.OnMessagesChanged],
   });
 
   return <div>Messages: {agent.messages.length}</div>;

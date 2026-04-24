@@ -49,6 +49,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
         ```
         </Tab>
     </Tabs>
+
   </Step>
   <Step>
     ### Divide state to Input and Output
@@ -188,6 +189,7 @@ In addition, some state properties contain a lot of information. Syncing them ba
             ```
           </Tab>
       </Tabs>
+
   </Step>
   <Step>
     ### Give it a try!
@@ -207,5 +209,76 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
     console.log(answer) // You can expect seeing "answer" change, while the others are not returned from the agent
     ```
+
   </Step>
 </Steps>
+
+## Common Pitfall: Missing Keys in `runtime.state`
+
+If your tool runtime does not include a custom key (for example
+`mem0_user_id`), the key is usually not part of the graph's input schema or was
+not set before the run started.
+
+### 1. Include the key in your input state schema
+
+```python title="agent.py"
+from typing import List
+from copilotkit import CopilotKitState
+
+class InputState(CopilotKitState):
+  question: str
+  mem0_user_id: str
+
+class OutputState(CopilotKitState):
+  answer: str
+
+class OverallState(InputState, OutputState):
+  resources: List[str]
+```
+
+### 2. Set the key on the frontend before running the agent
+
+```tsx title="ui/app/page.tsx"
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
+import { randomUUID } from "@copilotkit/shared/v2";
+
+function AskWithMemory() {
+  const { agent } = useAgent({ agentId: "sample_agent" });
+  const { copilotkit } = useCopilotKit();
+
+  const ask = async (question: string, userId: string) => {
+    agent.setState({
+      ...agent.state,
+      mem0_user_id: userId,
+    });
+
+    agent.addMessage({
+      id: randomUUID(),
+      role: "user",
+      content: question,
+    });
+
+    await copilotkit.runAgent({ agent });
+  };
+
+  return (
+    <button onClick={() => ask("What should I do today?", "user_123")}>
+      Ask
+    </button>
+  );
+}
+```
+
+### 3. Read it in your tool runtime
+
+```python title="tools.py"
+from langchain_core.tools import tool
+from langgraph.prebuilt import ToolRuntime
+
+@tool
+def add_memory(content: str, runtime: ToolRuntime) -> str:
+  state = runtime.state or {}
+  user_id = state.get("mem0_user_id", "default")
+  # your memory write implementation here
+  return f"Saved memory for {user_id}"
+```
