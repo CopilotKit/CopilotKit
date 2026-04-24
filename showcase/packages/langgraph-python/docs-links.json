@@ -140,6 +140,10 @@
     "auth": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/authentication",
       "shell_docs_path": "/authentication"
+    },
+    "agent-config": {
+      "og_docs_url": null,
+      "shell_docs_path": null
     }
   }
 }
