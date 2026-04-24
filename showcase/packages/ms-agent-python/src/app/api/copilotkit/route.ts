@@ -17,6 +17,10 @@ function createAgent(path = "/") {
   return new HttpAgent({ url: `${AGENT_URL}${path}` });
 }
 
+function createInterruptAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/interrupt-adapted` });
+}
+
 // Register the same agent under all names used by demo pages.
 const agentNames = [
   "agentic_chat",
@@ -38,6 +42,12 @@ const agentNames = [
   "frontend-tools-async",
   "readonly-state-agent-context",
 ];
+
+// Agent names routed to the interrupt-adapted scheduling backend. Both
+// gen-ui-interrupt and interrupt-headless share the same MS Agent Framework
+// scheduling agent; only the frontend UX differs (inline in chat vs. external
+// popup driven from a button grid).
+const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
