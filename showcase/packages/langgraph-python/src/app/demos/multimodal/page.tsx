@@ -17,12 +17,14 @@
  *   under the graph id `multimodal`. Images are forwarded to the model
  *   natively; PDFs are flattened to text on the Python side via `pypdf`
  *   for provider-agnostic behavior.
- * - Sample files live at `/demo-files/sample.png` and `/demo-files/sample.pdf`
- *   (see `public/demo-files/`). The sample-buttons component fetches them
- *   client-side, wraps the blob in a File, and drives the same hidden
- *   `<input type="file">` the paperclip path uses (DataTransfer + dispatch
- *   `change`). This keeps the sample and real-upload paths on a single
- *   code path — whatever works for one works for both.
+ * - Sample bytes are inlined as base64 constants in
+ *   `./sample-assets` (see that file's header for why we stopped fetching
+ *   from `public/demo-files/` — Railway deploys don't materialize LFS
+ *   blobs, so `public/` served pointer stubs). The sample-buttons
+ *   component decodes the inlined bytes into a File and drives the same
+ *   hidden `<input type="file">` the paperclip path uses (DataTransfer +
+ *   dispatch `change`). This keeps the sample and real-upload paths on a
+ *   single code path — whatever works for one works for both.
  *
  * Legacy-shape rewrite:
  * - The published `@ag-ui/langgraph` converter (0.0.x) only understands

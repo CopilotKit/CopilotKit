@@ -16,32 +16,42 @@
  * `querySelector` to that root so multiple CopilotChat instances on the
  * page (there aren't any today, but the pattern should be safe) don't
  * collide.
+ *
+ * Asset delivery: the sample bytes are inlined as base64 constants in
+ * `./sample-assets` and bundled into the client JS at build time. We used
+ * to fetch them from `/demo-files/sample.{png,pdf}` in `public/`, but on
+ * Railway deploys the LFS blobs are not materialized during the build, so
+ * the `public/` tree served a short LFS-pointer text stub instead of the
+ * real binary. Bundling the bytes removes that failure mode entirely —
+ * the sample buttons now work offline, pre-deploy, and in any environment
+ * that can run the app at all.
  */
 
 import { useCallback, useState } from "react";
 
+import {
+  type InlineSampleAsset,
+  SAMPLE_IMAGE,
+  SAMPLE_PDF,
+  inlineSampleToFile,
+} from "./sample-assets";
+
 interface SampleSpec {
   readonly buttonLabel: string;
-  readonly filename: string;
-  readonly mimeType: string;
   readonly testId: string;
-  readonly fetchUrl: string;
+  readonly asset: InlineSampleAsset;
 }
 
 const SAMPLES: readonly SampleSpec[] = [
   {
     buttonLabel: "Try with sample image",
-    filename: "sample.png",
-    mimeType: "image/png",
     testId: "multimodal-sample-image-button",
-    fetchUrl: "/demo-files/sample.png",
+    asset: SAMPLE_IMAGE,
   },
   {
     buttonLabel: "Try with sample PDF",
-    filename: "sample.pdf",
-    mimeType: "application/pdf",
     testId: "multimodal-sample-pdf-button",
-    fetchUrl: "/demo-files/sample.pdf",
+    asset: SAMPLE_PDF,
   },
 ];
 
@@ -65,68 +75,6 @@ function findChatFileInput(rootSelector: string): HTMLInputElement | null {
   return root.querySelector<HTMLInputElement>('input[type="file"]');
 }
 
-/**
- * Magic-byte prefixes used to validate fetched sample files. We check
- * these because Next.js will happily serve a Git LFS *pointer* file (a
- * short plain-text stub starting with `version https://git-lfs...`) with
- * a `Content-Type: image/png` header if LFS wasn't pulled at build time.
- * Without this guard, the broken pointer bytes get base64-encoded,
- * fed into CopilotChat as a valid-looking PNG, and rendered as a broken
- * <img>. Fail loudly with an actionable error instead.
- */
-const MAGIC_BYTES: Record<string, number[]> = {
-  "image/png": [0x89, 0x50, 0x4e, 0x47], // ‰PNG
-  "application/pdf": [0x25, 0x50, 0x44, 0x46], // %PDF
-};
-
-const LFS_POINTER_PREFIX = "version https://git-lfs";
-
-function bytesStartWith(bytes: Uint8Array, prefix: number[]): boolean {
-  if (bytes.length < prefix.length) return false;
-  for (let i = 0; i < prefix.length; i++) {
-    if (bytes[i] !== prefix[i]) return false;
-  }
-  return true;
-}
-
-async function fetchAsFile(spec: SampleSpec): Promise<File> {
-  const res = await fetch(spec.fetchUrl);
-  if (!res.ok) {
-    throw new Error(
-      `Could not fetch sample "${spec.filename}" — HTTP ${res.status}. ` +
-        `Is the file bundled under public${spec.fetchUrl}?`,
-    );
-  }
-  const buffer = await res.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-
-  // Detect Git LFS pointer stub — the file on disk hasn't been materialized.
-  const asciiHead = new TextDecoder("utf-8", { fatal: false }).decode(
-    bytes.slice(0, Math.min(bytes.length, 64)),
-  );
-  if (asciiHead.startsWith(LFS_POINTER_PREFIX)) {
-    throw new Error(
-      `Sample "${spec.filename}" is a Git LFS pointer, not the real asset. ` +
-        "The deploy environment needs to run `git lfs pull` (or set " +
-        "`GIT_LFS_ENABLED=1`) so the binary is checked out before the Next.js " +
-        "app serves it.",
-    );
-  }
-
-  const expectedMagic = MAGIC_BYTES[spec.mimeType];
-  if (expectedMagic && !bytesStartWith(bytes, expectedMagic)) {
-    throw new Error(
-      `Sample "${spec.filename}" does not have a valid ${spec.mimeType} ` +
-        "signature. The file may be corrupted or a wrong asset was committed.",
-    );
-  }
-
-  // Re-wrap the bytes into a blob/File with the explicit MIME type rather than
-  // trusting whatever Content-Type the dev server returned.
-  const blob = new Blob([buffer], { type: spec.mimeType });
-  return new File([blob], spec.filename, { type: spec.mimeType });
-}
-
 export function SampleAttachmentButtons({
   rootSelector,
 }: SampleAttachmentButtonsProps) {
@@ -145,7 +93,9 @@ export function SampleAttachmentButtons({
               "Is <CopilotChat /> mounted with `attachments.enabled: true`?",
           );
         }
-        const file = await fetchAsFile(spec);
+        // Decode the inlined base64 bytes into a File. No fetch, no
+        // reliance on `public/` asset serving, no LFS materialization.
+        const file = inlineSampleToFile(spec.asset);
 
         // Populate the file input's `.files` list via a fresh DataTransfer.
         // This is the only way to programmatically set `HTMLInputElement.files`
