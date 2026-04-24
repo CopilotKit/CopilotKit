@@ -29,6 +29,14 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// BYOC demos: each gets its own dedicated AG-UI endpoint so the frontend
+// can point `<CopilotKit runtimeUrl>` at a demo-specific runtime route
+// without bleed between agents. The backing factories are isolated from
+// SalesAgentFactory — they each own an OpenAIClient instance.
+var byocHashbrownFactory = new ByocHashbrownAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-hashbrown", byocHashbrownFactory.CreateAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
