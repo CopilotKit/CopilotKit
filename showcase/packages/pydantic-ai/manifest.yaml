@@ -48,6 +48,7 @@ features:
   - subagents
   - open-gen-ui
   - open-gen-ui-advanced
+  - declarative-gen-ui
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -294,3 +295,17 @@ demos:
       - src/app/demos/open-gen-ui-advanced/page.tsx
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/api/copilotkit-ogui/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI (A2UI Dynamic)
+    description: Agent generates dynamic A2UI surfaces from a frontend-registered component catalog
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_dynamic.py
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts

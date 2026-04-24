@@ -29,6 +29,8 @@ from dotenv import load_dotenv
 from agents.agent import SalesTodosState, StateDeps, agent
 from agents.open_gen_ui_agent import agent as open_gen_ui_agent
 from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
+from agents.a2ui_dynamic import EmptyState as A2UIDynamicState
+from agents.a2ui_dynamic import agent as a2ui_dynamic_agent
 
 load_dotenv()
 
@@ -62,6 +64,10 @@ app.add_middleware(
 # HttpAgent URL in the corresponding TS route points to that sub-path.
 app.mount("/open_gen_ui", open_gen_ui_agent.to_ag_ui())
 app.mount("/open_gen_ui_advanced", open_gen_ui_advanced_agent.to_ag_ui())
+app.mount(
+    "/a2ui_dynamic",
+    a2ui_dynamic_agent.to_ag_ui(deps=StateDeps(A2UIDynamicState())),
+)
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────
 # Mounted LAST so the sub-path mounts above win for their specific paths.
