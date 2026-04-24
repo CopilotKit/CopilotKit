@@ -30,23 +30,15 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 
-// Open-Ended Generative UI (minimal). The factory builds a ChatClientAgent
-// with an LLM-shaping system prompt; the agent exposes NO backend tools —
-// the `generateSandboxedUi` frontend tool is auto-registered by the
-// CopilotKit runtime's OGUI middleware and merged in via the normal AG-UI
-// flow. See OpenGenUiAgent.cs for details.
-var openGenUiFactory = new OpenGenUiAgentFactory(builder.Configuration);
-app.MapAGUI("/open-gen-ui", openGenUiFactory.CreateAgent());
+// BYOC demos: each gets its own dedicated AG-UI endpoint so the frontend
+// can point `<CopilotKit runtimeUrl>` at a demo-specific runtime route
+// without bleed between agents. The backing factories are isolated from
+// SalesAgentFactory — they each own an OpenAIClient instance.
+var byocHashbrownFactory = new ByocHashbrownAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-hashbrown", byocHashbrownFactory.CreateAgent());
 
-// Open-Ended Generative UI (advanced). Same OGUI pipeline, but the
-// agent-authored iframe can invoke frontend-registered sandbox functions
-// via `Websandbox.connection.remote.<name>(args)`. The sandbox functions
-// themselves live on the frontend (see
-// `src/app/demos/open-gen-ui-advanced/sandbox-functions.ts`) and are
-// wired by the CopilotKit provider; this agent's only job is to know the
-// calling contract and emit HTML/JS that uses it.
-var openGenUiAdvancedFactory = new OpenGenUiAdvancedAgentFactory(builder.Configuration);
-app.MapAGUI("/open-gen-ui-advanced", openGenUiAdvancedFactory.CreateAgent());
+var byocJsonRenderFactory = new ByocJsonRenderAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-json-render", byocJsonRenderFactory.CreateAgent());
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 

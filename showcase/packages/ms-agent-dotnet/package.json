@@ -18,6 +18,8 @@
     "@hashbrownai/core": "0.5.0-beta.4",
     "openai": "^5.9.0",
     "@hashbrownai/react": "0.5.0-beta.4",
+    "@json-render/core": "0.18.0",
+    "@json-render/react": "0.18.0",
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
