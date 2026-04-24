@@ -21,6 +21,8 @@ from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
 from agents.agent_config_agent import create_agent_config_agent
+from agents.a2ui_dynamic import create_agent as create_a2ui_dynamic_agent
+from agents.a2ui_fixed import create_agent as create_a2ui_fixed_agent
 from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.multimodal_agent import create_multimodal_agent
 from agents.reasoning_agent import create_reasoning_agent
@@ -54,6 +56,8 @@ reasoning_agent = create_reasoning_agent(chat_client)
 tool_rendering_reasoning_chain_agent = create_tool_rendering_reasoning_chain_agent(
     chat_client
 )
+a2ui_dynamic_agent = create_a2ui_dynamic_agent(chat_client)
+a2ui_fixed_agent = create_a2ui_fixed_agent(chat_client)
 
 # Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
@@ -93,48 +97,18 @@ app.add_middleware(
 # at the root that shadows any route registered AFTER it. FastAPI resolves
 # routes in registration order, so specific paths must come first.
 
-# Dedicated endpoint for the Multimodal Attachments demo (vision-capable).
+add_agent_framework_fastapi_endpoint(app=app, agent=multimodal_agent, path="/multimodal")
+add_agent_framework_fastapi_endpoint(app=app, agent=beautiful_chat_agent, path="/beautiful-chat")
+add_agent_framework_fastapi_endpoint(app=app, agent=agent_config_agent, path="/agent-config")
+add_agent_framework_fastapi_endpoint(app=app, agent=reasoning_agent, path="/reasoning")
 add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=multimodal_agent,
-    path="/multimodal",
+    app=app, agent=tool_rendering_reasoning_chain_agent, path="/tool-rendering-reasoning-chain"
 )
-
-# Dedicated endpoint for the Beautiful Chat flagship showcase.
-add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=beautiful_chat_agent,
-    path="/beautiful-chat",
-)
-
-# Dedicated endpoint for the Agent Config Object demo.
-add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=agent_config_agent,
-    path="/agent-config",
-)
-
-# Dedicated endpoint for the Reasoning demos (agentic-chat-reasoning + reasoning-default-render).
-add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=reasoning_agent,
-    path="/reasoning",
-)
-
-# Shared by the three tool-rendering variant demos (default-catchall,
-# custom-catchall, reasoning-chain). They differ only on the frontend.
-add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=tool_rendering_reasoning_chain_agent,
-    path="/tool-rendering-reasoning-chain",
-)
+add_agent_framework_fastapi_endpoint(app=app, agent=a2ui_dynamic_agent, path="/a2ui_dynamic")
+add_agent_framework_fastapi_endpoint(app=app, agent=a2ui_fixed_agent, path="/a2ui_fixed")
 
 # Shared agent for the rest of the demos (must be last: `/` is a catch-all).
-add_agent_framework_fastapi_endpoint(
-    app=app,
-    agent=my_agent,
-    path="/",
-)
+add_agent_framework_fastapi_endpoint(app=app, agent=my_agent, path="/")
 
 
 def main():
