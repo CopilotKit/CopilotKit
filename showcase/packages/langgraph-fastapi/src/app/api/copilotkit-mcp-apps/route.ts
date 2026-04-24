@@ -1,13 +1,14 @@
-// CopilotKit runtime for the headless-complete cell (shares endpoint name
-// with the langgraph-python mcp-apps route since the demo frontend wires
-// `runtimeUrl="/api/copilotkit-mcp-apps"`).
+// CopilotKit runtime for the MCP Apps cell — shared by two demos:
+//   - headless-complete (frontend wires runtimeUrl="/api/copilotkit-mcp-apps"
+//     and renders activity events via a hand-rolled useRenderActivityMessage
+//     in use-rendered-messages.tsx)
+//   - mcp-apps (frontend relies on CopilotKit's built-in MCPAppsActivityRenderer)
 //
 // The runtime's `mcpApps` config auto-applies the MCP Apps middleware to the
 // agent: when the agent calls a tool backed by an MCP UI resource, the
 // middleware fetches the resource and emits the activity event that the
 // built-in `MCPAppsActivityRenderer` (registered by CopilotKit internally)
-// renders in the chat as a sandboxed iframe. headless-complete exercises this
-// via a hand-rolled `useRenderActivityMessage` in `use-rendered-messages.tsx`.
+// renders in the chat as a sandboxed iframe.
 //
 // Reference:
 // https://docs.copilotkit.ai/integrations/langgraph/generative-ui/mcp-apps
@@ -27,10 +28,22 @@ const headlessCompleteAgent = new LangGraphAgent({
   graphId: "headless_complete",
 });
 
+const mcpAppsAgent = new LangGraphAgent({
+  deploymentUrl: `${AGENT_URL}/`,
+  graphId: "mcp_apps",
+});
+
+// @region[runtime-mcpapps-config]
+// The `mcpApps.servers` config is all you need server-side. The runtime
+// auto-applies the MCP Apps middleware to every registered agent: on each
+// MCP tool call it fetches the associated UI resource and emits an
+// `activity` event that the built-in `MCPAppsActivityRenderer` renders
+// inline in the chat.
 const runtime = new CopilotRuntime({
   // @ts-ignore
   agents: {
     "headless-complete": headlessCompleteAgent,
+    "mcp-apps": mcpAppsAgent,
   },
   mcpApps: {
     servers: [
@@ -45,6 +58,7 @@ const runtime = new CopilotRuntime({
     ],
   },
 });
+// @endregion[runtime-mcpapps-config]
 
 export const POST = async (req: NextRequest) => {
   try {

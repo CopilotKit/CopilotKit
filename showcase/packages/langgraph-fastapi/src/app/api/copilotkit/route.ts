@@ -49,6 +49,11 @@ agents["tool-rendering-reasoning-chain"] = createAgent(
 agents["agentic-chat-reasoning"] = createAgent("reasoning_agent");
 agents["reasoning-default-render"] = createAgent("reasoning_agent");
 
+// Interrupt variants — share the dedicated `interrupt_agent` graph that uses
+// langgraph's `interrupt()` primitive inside `schedule_meeting`.
+agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
+agents["interrupt-headless"] = createAgent("interrupt_agent");
+
 agents["default"] = createAgent();
 
 console.log(

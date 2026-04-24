@@ -8,6 +8,10 @@
     "agent_config_agent": "./src/agents/src/agent_config_agent.py:graph",
     "reasoning_agent": "./src/agents/src/reasoning_agent.py:graph",
     "tool_rendering": "./src/agents/src/tool_rendering_agent.py:graph",
-    "tool_rendering_reasoning_chain": "./src/agents/src/tool_rendering_reasoning_chain_agent.py:graph"
+    "tool_rendering_reasoning_chain": "./src/agents/src/tool_rendering_reasoning_chain_agent.py:graph",
+    "interrupt_agent": "./src/agents/src/interrupt_agent.py:graph",
+    "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph",
+    "a2ui_fixed": "./src/agents/src/a2ui_fixed.py:graph",
+    "mcp_apps": "./src/agents/src/mcp_apps_agent.py:graph"
   }
 }
