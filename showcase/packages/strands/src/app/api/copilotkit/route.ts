@@ -18,7 +18,12 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// Strands runs a single shared backend agent; per-demo differentiation
+// happens on the frontend (useFrontendTool / useRenderTool / useHumanInTheLoop
+// / useAgentContext / A2UI catalogs). Every demo page's `agent=` prop must
+// resolve to a name in this list.
 const agentNames = [
+  // Original blitz set
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
@@ -28,6 +33,38 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Chat UI / chrome demos
+  "chat-customization-css",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "headless-simple",
+  "headless-complete",
+  // Reasoning
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  // Frontend tools
+  "frontend_tools",
+  "frontend-tools-async",
+  // HITL
+  "hitl-in-chat",
+  "hitl-in-app",
+  // Tool rendering variants
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
+  // State / context
+  "readonly-state-agent-context",
+  "shared-state-read-write",
+  // A2UI
+  "declarative-gen-ui",
+  "a2ui-fixed-schema",
+  // Modalities
+  "multimodal",
+  "voice",
+  // Misc
+  "auth",
+  "agent-config",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
