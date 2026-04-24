@@ -15,11 +15,13 @@ export interface DemoAuthHandle {
 
 /**
  * In-memory auth state for the /demos/auth showcase cell. No persistence —
- * refreshing the page resets to unauth, which is intentional for demo
- * resetability.
+ * refreshing the page resets to the default authenticated state, which keeps
+ * the demo immediately usable and avoids the 401 crash on initial `/info`
+ * fetch that happens when starting unauthenticated. Users can click "Sign
+ * out" to exercise the unauthenticated / 401 path on demand.
  */
 export function useDemoAuth(): DemoAuthHandle {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [authenticated, setAuthenticated] = useState(true);
 
   const authenticate = useCallback(() => {
     setAuthenticated(true);

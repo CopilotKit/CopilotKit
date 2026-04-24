@@ -11,10 +11,9 @@
  *      "mimeType": "application/pdf"}}`
  *
  * gpt-4o consumes `image` parts natively. For `document` parts (PDFs) we
- * substitute a short text marker — Node-side PDF text extraction is not
- * wired in this graph, so the model is told a PDF was attached but cannot
- * read its contents directly. Wire `pdf-parse` or similar here later if
- * deeper PDF understanding is needed.
+ * extract text server-side via `pdf-parse` and inline it as a text part
+ * with a clear delimiter — matching the Python reference's `pypdf`-backed
+ * extraction so the TS multimodal demo reaches feature parity.
  */
 
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -32,6 +31,7 @@ import {
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
+import pdfParse from "pdf-parse";
 
 const SYSTEM_PROMPT =
   "You are a helpful assistant. The user may attach images or documents " +
@@ -55,11 +55,10 @@ interface ContentPart {
 /**
  * Rewrite a multimodal content part into a shape the OpenAI chat API
  * understands. Images are converted to OpenAI's `image_url` data-URL parts.
- * `document` parts (PDFs) are replaced with a short text marker since
- * we don't run server-side PDF text extraction in this TypeScript port.
- * Plain text passes through unchanged.
+ * PDF `document` parts have their text extracted server-side via `pdf-parse`
+ * and inlined. Plain text passes through unchanged.
  */
-function rewritePart(part: unknown): unknown {
+async function rewritePart(part: unknown): Promise<unknown> {
   if (!part || typeof part !== "object") return part;
   const p = part as ContentPart;
   if (p.type === "image" && p.source?.type === "data") {
@@ -73,8 +72,35 @@ function rewritePart(part: unknown): unknown {
       image_url: { url: dataUrl },
     };
   }
-  if (p.type === "document") {
-    const mime = p.source?.mimeType ?? "";
+  if (p.type === "document" && p.source?.type === "data") {
+    const mime = p.source.mimeType ?? "";
+    const value = p.source.value ?? "";
+    if (mime === "application/pdf" && value) {
+      try {
+        // Strip data: prefix if present, then base64-decode.
+        const base64 = value.startsWith("data:")
+          ? value.slice(value.indexOf(",") + 1)
+          : value;
+        const buffer = Buffer.from(base64, "base64");
+        const parsed = await pdfParse(buffer);
+        const text = parsed.text.trim();
+        if (text) {
+          return {
+            type: "text",
+            text:
+              `[Attached PDF (${parsed.numpages} page${parsed.numpages === 1 ? "" : "s"}) — extracted text follows]\n\n` +
+              text,
+          };
+        }
+      } catch (err) {
+        // Fall through to the generic marker below on extraction failure.
+        const message = err instanceof Error ? err.message : String(err);
+        return {
+          type: "text",
+          text: `[Attached PDF — server-side extraction failed: ${message}]`,
+        };
+      }
+    }
     return {
       type: "text",
       text: `[Attached document${mime ? ` (${mime})` : ""}: contents not extracted server-side; describe what you can infer from the filename/type if asked.]`,
@@ -83,23 +109,27 @@ function rewritePart(part: unknown): unknown {
   return part;
 }
 
-function rewriteMessages(messages: BaseMessage[]): BaseMessage[] {
-  return messages.map((message) => {
-    if (!(message instanceof HumanMessage)) return message;
-    const content = message.content;
-    if (!Array.isArray(content)) return message;
-    const rewritten = content.map(rewritePart);
-    if (
-      rewritten.length === content.length &&
-      rewritten.every((part, i) => part === content[i])
-    ) {
-      return message;
-    }
-    return new HumanMessage({
-      content: rewritten as never,
-      id: message.id,
-    });
-  });
+async function rewriteMessages(
+  messages: BaseMessage[],
+): Promise<BaseMessage[]> {
+  return Promise.all(
+    messages.map(async (message) => {
+      if (!(message instanceof HumanMessage)) return message;
+      const content = message.content;
+      if (!Array.isArray(content)) return message;
+      const rewritten = await Promise.all(content.map(rewritePart));
+      if (
+        rewritten.length === content.length &&
+        rewritten.every((part, i) => part === content[i])
+      ) {
+        return message;
+      }
+      return new HumanMessage({
+        content: rewritten as never,
+        id: message.id,
+      });
+    }),
+  );
 }
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
@@ -107,7 +137,7 @@ async function chatNode(state: AgentState, config: RunnableConfig) {
   // deterministic image-Q&A behavior.
   const model = new ChatOpenAI({ model: "gpt-4o", temperature: 0.2 });
 
-  const messages = rewriteMessages(state.messages);
+  const messages = await rewriteMessages(state.messages);
 
   const response = (await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...messages],

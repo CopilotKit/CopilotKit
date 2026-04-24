@@ -111,7 +111,17 @@ const rollDice = tool(
   },
 );
 
-const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0 });
+// Route through a reasoning-capable model via the Responses API so the
+// chain of thought streams as AG-UI `ReasoningMessage` events alongside
+// the tool calls. Falls back to gpt-4o-mini (no reasoning stream) if
+// `OPENAI_REASONING_MODEL` is unset.
+const REASONING_MODEL = process.env.OPENAI_REASONING_MODEL ?? "gpt-5-mini";
+
+const model = new ChatOpenAI({
+  model: REASONING_MODEL,
+  useResponsesApi: true,
+  reasoning: { effort: "low", summary: "auto" },
+});
 
 export const graph = createReactAgent({
   llm: model,
