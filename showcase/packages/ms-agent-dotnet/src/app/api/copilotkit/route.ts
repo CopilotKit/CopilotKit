@@ -29,6 +29,9 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
