@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.open_gen_ui_agent import create_open_gen_ui_agent
 
 load_dotenv()
 
@@ -65,6 +66,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Open Generative UI demo agents. These MUST be registered BEFORE the root
+# catch-all below, because `add_agent_framework_fastapi_endpoint(..., path="/")`
+# installs a wildcard that would otherwise shadow these sub-paths.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=create_open_gen_ui_agent(chat_client),
+    path="/open-gen-ui",
 )
 
 add_agent_framework_fastapi_endpoint(
