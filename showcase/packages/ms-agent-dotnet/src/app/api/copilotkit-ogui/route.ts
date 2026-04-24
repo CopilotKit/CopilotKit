@@ -23,9 +23,13 @@ console.log("[copilotkit-ogui/route] Initializing OGUI CopilotKit runtime");
 console.log(`[copilotkit-ogui/route] AGENT_URL: ${AGENT_URL}`);
 
 const openGenUiAgent = new HttpAgent({ url: `${AGENT_URL}/open-gen-ui` });
+const openGenUiAdvancedAgent = new HttpAgent({
+  url: `${AGENT_URL}/open-gen-ui-advanced`,
+});
 
 const agents: Record<string, AbstractAgent> = {
   "open-gen-ui": openGenUiAgent,
+  "open-gen-ui-advanced": openGenUiAdvancedAgent,
 };
 
 export const POST = async (req: NextRequest) => {
@@ -44,7 +48,7 @@ export const POST = async (req: NextRequest) => {
         // @ts-ignore -- Published CopilotRuntime agents type wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in source, pending release
         agents,
         openGenerativeUI: {
-          agents: ["open-gen-ui"],
+          agents: ["open-gen-ui", "open-gen-ui-advanced"],
         },
       }),
     });
