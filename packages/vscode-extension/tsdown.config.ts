@@ -31,6 +31,17 @@ const workspaceSourceAliases: Record<string, string> = {
     import.meta.dirname,
     "../runtime-client-gql/src/index.ts",
   ),
+  // Same CJS/TDZ pattern surfaces in the playground webview once CopilotChat
+  // is bundled — @copilotkit/core's dist wraps its src as a __commonJSMin
+  // module and rolldown emits `init_src` AFTER callers that need it
+  // (shared/package.json region calls `init_errors$1` → `init_src` at line
+  // 52687, but `var init_src = __esmMin(...)` isn't assigned until
+  // line 107745 → "init_src is not a function"). Aliasing to TS source
+  // side-steps the CJS wrapper and rolldown's init-ordering works again.
+  "@copilotkit/core": path.resolve(
+    import.meta.dirname,
+    "../core/src/index.ts",
+  ),
 };
 
 // Source aliases specifically for the playground webview — resolves the
