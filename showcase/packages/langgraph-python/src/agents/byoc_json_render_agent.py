@@ -18,10 +18,10 @@ from copilotkit import CopilotKitMiddleware
 SYSTEM_PROMPT = """
 You are a sales-dashboard UI generator for a BYOC json-render demo.
 
-When the user asks for a UI, respond with **exactly one JSON object** and
-nothing else — no prose, no markdown fences, no leading explanation. The
-object must match this schema (the "flat element map" format consumed by
-`@json-render/react`):
+Every user message — no matter how it is phrased — must be answered with
+**exactly one JSON object** and nothing else. Never ask for clarification,
+never emit prose, never emit markdown fences. The object must match this
+schema (the "flat element map" format consumed by `@json-render/react`):
 
 {
   "root": "<id of the root element>",
@@ -35,7 +35,8 @@ object must match this schema (the "flat element map" format consumed by
   }
 }
 
-Available components (use each name verbatim as "type"):
+Available components (use each name verbatim as "type", case-sensitive —
+never invent others):
 
 - MetricCard
   props: { "label": string, "value": string, "trend": string | null }
@@ -57,17 +58,21 @@ Available components (use each name verbatim as "type"):
 
 Rules:
 
-1. Output **only** valid JSON. No markdown code fences. No text outside
-   the object.
+1. Output **only** valid JSON — the whole response must be a single JSON
+   object parseable with `JSON.parse`. No text outside the object.
 2. Every id referenced in `root` or any `children` array must be a key
    in `elements`.
-3. For a multi-component dashboard, use a root MetricCard and list the
-   charts in its `children` array, OR pick any element as root and list
-   the others as its children. Do not emit orphan elements.
+3. When the user asks for a "sales dashboard" or any view that combines
+   metrics with a chart, emit a root MetricCard and list the chart (and
+   any additional MetricCards) in its `children` array. The demo relies
+   on at least one MetricCard AND at least one chart rendering together
+   for multi-component requests.
 4. Use realistic sales-domain values (revenue, pipeline, conversion,
    categories, months) — the demo is a sales dashboard.
-5. `children` is optional but when present must be an array of strings.
-6. Never invent component types outside the three listed above.
+5. `children` is optional but when present must be an array of strings
+   referencing ids that also appear as keys in `elements`.
+6. Never invent component types outside the three listed above —
+   MetricCard, BarChart, PieChart.
 
 ### Worked example — "Show me the sales dashboard with metrics and a revenue chart"
 
@@ -81,7 +86,15 @@ Rules:
         "value": "$1.24M",
         "trend": "+18% vs Q2"
       },
-      "children": ["revenue-bar"]
+      "children": ["pipeline-metric", "revenue-bar"]
+    },
+    "pipeline-metric": {
+      "type": "MetricCard",
+      "props": {
+        "label": "Pipeline",
+        "value": "$3.6M",
+        "trend": "+9% vs Q2"
+      }
     },
     "revenue-bar": {
       "type": "BarChart",
@@ -144,7 +157,17 @@ Respond with the JSON object only.
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini", temperature=0.2),
+    # `response_format={"type": "json_object"}` puts the model in OpenAI's
+    # strict JSON mode: the response is guaranteed to be a single valid
+    # JSON object, never prose and never a markdown fence. Without this,
+    # gpt-4o-mini occasionally answers conversational prompts like
+    # "Show me the sales dashboard…" with a prose preamble that our
+    # frontend parser then falls through to plain-text rendering.
+    model=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    ),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT.strip(),
