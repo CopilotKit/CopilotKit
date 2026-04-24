@@ -16,6 +16,8 @@ Server tools are functions that run on your backend that the Built-in Agent can 
 
 ## Defining a tool
 
+Use `defineTool` to declare a server-side tool with a name, description, typed parameters, and an `execute` handler:
+
 ```typescript title="src/copilotkit.ts"
 const getWeather = defineTool({
   name: "getWeather",
@@ -30,7 +32,7 @@ const getWeather = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4-mini",
   tools: [getWeather],
 });
 ```
@@ -71,7 +73,7 @@ const createTicket = defineTool({
 });
 
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4-mini",
   tools: [searchDocs, createTicket], // [!code highlight]
 });
 ```
@@ -134,7 +136,7 @@ By default, the agent performs a single step. If your agent needs to chain tool 
 
 ```typescript
 const builtInAgent = new BuiltInAgent({
-  model: "openai:gpt-5.2",
+  model: "openai:gpt-5.4-mini",
   maxSteps: 5, // [!code highlight]
   tools: [searchDocs, createTicket, getUser],
 });

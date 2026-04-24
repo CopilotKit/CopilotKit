@@ -143,7 +143,7 @@ export function SearchModal({ onClose }: { onClose: () => void }) {
             type: "feature",
             title: f.name,
             subtitle: f.description,
-            href: "/matrix",
+            href: "/",
           });
         }
       }

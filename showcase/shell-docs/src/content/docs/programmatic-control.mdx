@@ -9,7 +9,7 @@ snippet_cell: headless-complete
 ## What is this?
 
 Programmatic control is what you reach for when you want to drive an
-agent run from code rather than from a chat composer — a button, a
+agent run from code rather than from a chat composer: a button, a
 form, a cron job, a keyboard shortcut, a graph callback. CopilotKit
 exposes three primitives that cover every triggering pattern:
 
@@ -38,7 +38,7 @@ The message-send path in `headless-complete` is the canonical pattern:
 append a user message with `agent.addMessage`, then call
 `copilotkit.runAgent({ agent })`. The same `handleStop` calls
 `copilotkit.stopAgent({ agent })` to cancel mid-run. Note the
-`connectAgent` effect at the top — it opens the backend session on
+`connectAgent` effect at the top, which opens the backend session on
 mount so the very first `runAgent` doesn't race the handshake.
 
 <Snippet region="page-send-message" title="frontend/src/app/page.tsx — connect, send, stop" />
@@ -48,16 +48,15 @@ mount so the very first `runAgent` doesn't race the handshake.
 Both methods trigger the agent, but they operate at different levels:
 
 - **`copilotkit.runAgent({ agent })`** — the recommended default. Orchestrates the full lifecycle: executes frontend tools, handles follow-up runs, and routes errors through the subscriber system.
-- **`agent.runAgent(options)`** — low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control — the canonical example is resuming from an interrupt with `forwardedProps.command`.
+- **`agent.runAgent(options)`** — low-level method on the agent instance. Sends the request to the runtime but does **not** execute frontend tools or chain follow-ups. Reach for this only when you need direct control; the canonical example is resuming from an interrupt with `forwardedProps.command`.
 
 ## Subscribing to agent events
 
 `agent.subscribe(subscriber)` returns `{ unsubscribe }`. The subscriber
-object accepts every AG-UI lifecycle callback — `onCustomEvent`,
+object accepts every AG-UI lifecycle callback: `onCustomEvent`,
 `onRunStartedEvent`, `onRunFinalized`, `onRunFailed`, and the streaming
 deltas. Use it to drive custom progress UI, forward events to
-analytics, or — the pattern below — catch LangGraph `interrupt(...)`
-events and resume with a payload.
+analytics, or catch LangGraph `interrupt(...)` events and resume with a payload (the pattern below).
 
 ## Resolving a LangGraph interrupt from a button
 
@@ -71,7 +70,7 @@ the graph:
 
 <Snippet region="headless-useinterrupt-primitives" cell="interrupt-headless" title="frontend/src/app/page.tsx — subscribe + resume" />
 
-The resulting `{ pending, resolve }` tuple is pure data — any UI can
+The resulting `{ pending, resolve }` tuple is pure data; any UI can
 drive it. The cell itself renders a simple button grid, but the same
 hook would power a modal, a toast, a sidebar form, or a voice UI.
 
@@ -82,7 +81,5 @@ hook would power a modal, a toast, a sidebar form, or a voice UI.
 - [Human-in-the-Loop](./human-in-the-loop) — the `useHumanInTheLoop` and
   `useInterrupt` hooks with their render-prop contracts, for the
   "paused mid-chat" pattern this page's headless variant replaces.
-
-## Get started by choosing your AI backend
 
 <IntegrationGrid path="programmatic-control" />

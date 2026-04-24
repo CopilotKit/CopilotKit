@@ -12,6 +12,8 @@ This hook is built on top of `useFrontendTool` with an internally managed handle
 ## Signature
 
 ```tsx
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+
 function useHumanInTheLoop<T extends Record<string, unknown>>(
   tool: ReactHumanInTheLoop<T>,
   deps?: ReadonlyArray<unknown>,

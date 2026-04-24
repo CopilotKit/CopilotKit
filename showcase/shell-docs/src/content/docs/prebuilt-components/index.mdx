@@ -8,7 +8,7 @@ snippet_cell: agentic-chat
 
 ## Pre-built components for agentic chat
 
-CopilotKit ships three prebuilt chat surfaces — [**CopilotChat**](/prebuilt-components/chat), [**CopilotSidebar**](/prebuilt-components/sidebar), and [**CopilotPopup**](/prebuilt-components/popup) — that connect directly to your agent. Each is a wrapper around the same primitives with a different layout; pick the one that fits your app and you're done. They all handle streaming, generative UI, and deep customization out of the box.
+CopilotKit ships three prebuilt chat surfaces that connect directly to your agent: [**CopilotChat**](/prebuilt-components/chat), [**CopilotSidebar**](/prebuilt-components/sidebar), and [**CopilotPopup**](/prebuilt-components/popup). Each is a wrapper around the same primitives with a different layout; pick the one that fits your app and you're done. They all handle streaming, generative UI, and deep customization out of the box.
 
 <video
   src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4"
@@ -32,7 +32,7 @@ One of CopilotKit's design principles is that **you should never have to throw t
     <div className="text-[var(--text)] font-semibold mb-2">Drop in as-is</div>
     <div className="text-sm text-[var(--text-secondary)]">
       Render `<CopilotChat>`, `<CopilotSidebar>`, or `<CopilotPopup>` and ship.
-      Streaming, tool calls, generative UI, suggestions — all wired.
+      Streaming, tool calls, generative UI, and suggestions, all wired up.
     </div>
   </a>
 
@@ -50,7 +50,7 @@ One of CopilotKit's design principles is that **you should never have to throw t
     <div className="text-[var(--text)] font-semibold mb-2">Customize via slots (subcomponents)</div>
     <div className="text-sm text-[var(--text-secondary)]">
       Swap the welcome screen, message bubble, composer, disclaimer, header,
-      or toggle button with your own React component. Recursive — drill down
+      or toggle button with your own React component. Recursive; drill down
       as deep as you want.
     </div>
   </a>
@@ -66,32 +66,30 @@ One of CopilotKit's design principles is that **you should never have to throw t
   </a>
 </div>
 
-Everything below Level 1 is incremental — you can freely mix CSS variables, a custom welcome slot, and headless tool-call renderers in the same app. Nothing forces you to throw work away as your needs grow.
+Everything below Level 1 is incremental: you can freely mix CSS variables, a custom welcome slot, and headless tool-call renderers in the same app. Nothing forces you to throw work away as your needs grow.
 
 ## Drop-in chat in a few lines
 
 Wrap your app in `<CopilotKit>` and drop `<CopilotChat>` where the
 chat should live. The provider wires the runtime, the session, and
-the agent registry — everything else is optional configuration:
+the agent registry. Everything else is optional configuration:
 
 <Snippet region="provider-setup" title="frontend/src/app/page.tsx — provider + chat" />
 
 ## Starter suggestions
 
 `useConfigureSuggestions` lets you seed the chat with contextual
-prompts the moment a user arrives. The showcase cell uses a single
+prompts the moment a user arrives. The example below uses a single
 "Write a sonnet" suggestion:
 
 <Snippet region="configure-suggestions" title="frontend/src/app/page.tsx — suggestions" />
 
 ## Pick a surface
 
-Each surface is a drop-in component with the same underlying primitives — they differ only in layout.
+Each surface is a drop-in component with the same underlying primitives, differing only in layout.
 
 - [`<CopilotChat>`](/prebuilt-components/chat) — inline chat pane you can place anywhere and size to fit.
 - [`<CopilotSidebar>`](/prebuilt-components/sidebar) — collapsible sidebar docked to the edge of your app.
 - [`<CopilotPopup>`](/prebuilt-components/popup) — floating bubble that overlays your page content.
-
-## Get started by choosing your AI backend
 
 <IntegrationGrid path="prebuilt-components" />

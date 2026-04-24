@@ -1,4 +1,4 @@
-import registryData from "../../../shell/src/data/registry.json";
+import registryData from "@/data/registry.json";
 import { sortOrder } from "./sort-order";
 
 export type FeatureKind = "primary" | "testing";
@@ -63,14 +63,19 @@ export interface Integration {
   };
 }
 
+export interface Package {
+  slug: string;
+  name: string;
+}
+
 export interface Registry {
-  generated_at: string;
   feature_registry: {
     version: string;
     categories: FeatureCategory[];
     features: Feature[];
   };
   integrations: Integration[];
+  packages?: Package[];
 }
 
 const registry = registryData as unknown as Registry;
@@ -89,4 +94,8 @@ export function getFeatures(): Feature[] {
 
 export function getFeatureCategories(): FeatureCategory[] {
   return registry.feature_registry.categories;
+}
+
+export function getPackages(): Package[] {
+  return registry.packages ?? [];
 }

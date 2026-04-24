@@ -23,9 +23,7 @@ Use the `useAgent` hook to access the agent's current state:
 ```tsx title="app/page.tsx"
 function TaskBoard() {
   // [!code highlight:3]
-  const { agent } = useAgent({
-    agentId: "assistant",
-  });
+  const { agent } = useAgent();
 
   // Read state set by the agent // [!code highlight]
   const tasks = (agent.state.tasks as any[]) ?? [];
@@ -56,9 +54,7 @@ You can also push state from the frontend to the agent:
 
 ```tsx title="app/page.tsx"
 function SettingsPanel() {
-  const { agent } = useAgent({
-    agentId: "assistant",
-  });
+  const { agent } = useAgent();
 
   const handleThemeChange = (theme: string) => {
     agent.setState({
@@ -93,9 +89,7 @@ Here's a complete example where the agent can add and manage tasks:
 
 ```tsx title="app/page.tsx"
 function TodoApp() {
-  const { agent } = useAgent({
-    agentId: "assistant",
-  });
+  const { agent } = useAgent();
 
   const todos = (agent.state.todos as any[]) ?? [];
 

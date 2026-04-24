@@ -4,7 +4,7 @@ icon: "lucide/Zap"
 description: How CopilotKit uses the AG-UI protocol to connect your frontend to your AI agents.
 ---
 
-CopilotKit is built on the [AG-UI protocol](https://ag-ui.com) — a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
+CopilotKit is built on the [AG-UI protocol](https://ag-ui.com), a lightweight, event-based standard that defines how AI agents communicate with user-facing applications over Server-Sent Events (SSE).
 
 Everything in CopilotKit — messages, state updates, tool calls, and more — flows through AG-UI events. Understanding this layer helps you debug, extend, and build on top of CopilotKit more effectively.
 
@@ -116,7 +116,7 @@ This indirection is what enables the runtime to provide authentication, middlewa
 
 On the server side, the `CopilotRuntime` accepts a map of AG-UI `AbstractAgent` instances. Each agent framework provides its own implementation, but they all extend the same base type.
 
-Here's a real example from the `langgraph-python` showcase integration — registering a `LangGraphAgent` (which is an `AbstractAgent`) under multiple agent IDs that all share the same backend graph:
+Here's a real example from the `langgraph-python` integration — registering a `LangGraphAgent` (which is an `AbstractAgent`) under multiple agent IDs that all share the same backend graph:
 
 ```ts title="app/api/copilotkit/route.ts"
 import {

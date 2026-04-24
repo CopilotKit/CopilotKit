@@ -602,17 +602,20 @@ fi`;
  *     google-adk, langroid, llamaindex, ms-agent-python, pydantic-ai, strands)
  *     -> /health (served via middleware short-circuit in agent_server.py)
  *   * langgraph-python, langgraph-fastapi, langgraph-typescript
- *     -> /ok (exposed by langgraph_cli dev)
+ *     -> /ok (exposed by langgraph_cli dev; langgraph-api does NOT serve
+ *       /health — /ok is the only built-in health endpoint. Verified
+ *       2026-04-23 against langgraph_cli Python + @langchain/langgraph-cli
+ *       TS, plus the TS liveness.mjs shim that binds /ok on HEALTH_PORT.
+ *       See also: generate-starters.test.ts health-path verification.)
  *   * claude-sdk-typescript -> /health (express app.get("/health"))
  *   * ms-agent-dotnet -> /health (app.MapGet("/health", ...))
  *   * spring-ai -> /health (custom @GetMapping in AgentController)
- *   * mastra -> /api (mastra dev serves its REST surface at /api; no
- *                      dedicated health endpoint, but /api returns 200 once
- *                      the dev server is ready)
+ *   * mastra -> /health (Mastra pre-built server exposes GET /health
+ *                        returning {"success":true} with HTTP 200)
  */
 function getAgentHealthPath(fw: FrameworkDef): string {
   if (fw.slug.startsWith("langgraph-")) return "/ok";
-  if (fw.slug === "mastra") return "/api";
+  if (fw.slug === "mastra") return "/health";
   return "/health";
 }
 
@@ -647,9 +650,8 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  * 58bbebe8-7a94-4f99-b6e4-ffcbb4eb78b9. 180s is the observed upper bound
  * across cold-start samples plus a safety margin.
  *
- * `mastra` starters spawn `mastra dev`, which runs a tsx-based build +
- * Mastra server boot on first request and was observed restart-looping
- * on Railway starting 04-20 18:18 UTC — same kill-loop shape as langgraph.
+ * `mastra` starters use the pre-built Mastra server, which starts in ~2s
+ * locally. 30s grace is generous margin for Railway cold containers.
  *
  * `claude-sdk-typescript` starters spawn `tsx agent/index.ts` which
  * performs a full tsx type-strip + @anthropic-ai/claude-agent-sdk init;
@@ -663,7 +665,7 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  */
 function getWatchdogGraceSeconds(fw: FrameworkDef): number {
   if (fw.slug.startsWith("langgraph-")) return 180;
-  if (fw.slug === "mastra") return 180;
+  if (fw.slug === "mastra") return 30;
   if (fw.slug === "claude-sdk-typescript") return 180;
   return 0;
 }

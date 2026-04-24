@@ -27,6 +27,8 @@ Fully Headless UI is an **Early Access** Premium feature. Grab a free `publicLic
 <Step>
 ### Create a new application
 
+Scaffold a new CopilotKit project using the CLI:
+
 ```bash
 npx copilotkit@latest create
 ```
@@ -34,6 +36,8 @@ npx copilotkit@latest create
 
 <Step>
 ### Wire your CopilotKit provider with a license key
+
+Wrap your root layout with `CopilotKitProvider` and pass in your public license key:
 
 ```tsx title="src/app/layout.tsx"
 <CopilotKitProvider publicLicenseKey="your-free-public-license-key">
@@ -44,6 +48,8 @@ npx copilotkit@latest create
 
 <Step>
 ### Build a headless chat component
+
+Use `useCopilotChatHeadless_c` to access messages, a send function, and loading state, then wire them to your own UI:
 
 ```tsx title="src/app/page.tsx"
 "use client";
@@ -102,6 +108,8 @@ export default function Home() {
 You can render generative UI either via `useFrontendTool` / `useComponent`, or by reading tools and rendering them directly.
 
 ### With `useFrontendTool`
+
+Register a frontend tool and attach a render function. CopilotKit inserts your component wherever that tool call appears in the message stream:
 
 ```tsx title="src/app/components/chat.tsx"
 import { useFrontendTool } from "@copilotkit/react-core/v2";
@@ -172,6 +180,8 @@ export const Chat = () => {
 CopilotKit's suggestions give users a list of generated or static prompts. The headless hook exposes full control over the lifecycle.
 
 ### Generating suggestions
+
+Use `useCopilotChatSuggestions` to generate and display prompt suggestions in your headless UI:
 
 ```tsx title="src/app/components/chat.tsx"
 import {

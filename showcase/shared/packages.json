@@ -1,0 +1,19 @@
+[
+  { "slug": "ag2", "name": "AG2" },
+  { "slug": "agno", "name": "Agno" },
+  { "slug": "claude-sdk-python", "name": "Claude SDK Python" },
+  { "slug": "claude-sdk-typescript", "name": "Claude SDK TypeScript" },
+  { "slug": "crewai-crews", "name": "CrewAI Crews" },
+  { "slug": "google-adk", "name": "Google ADK" },
+  { "slug": "langgraph-fastapi", "name": "LangGraph FastAPI" },
+  { "slug": "langgraph-python", "name": "LangGraph Python" },
+  { "slug": "langgraph-typescript", "name": "LangGraph TypeScript" },
+  { "slug": "langroid", "name": "Langroid" },
+  { "slug": "llamaindex", "name": "LlamaIndex" },
+  { "slug": "mastra", "name": "Mastra" },
+  { "slug": "ms-agent-dotnet", "name": "MS Agent .NET" },
+  { "slug": "ms-agent-python", "name": "MS Agent Python" },
+  { "slug": "pydantic-ai", "name": "Pydantic AI" },
+  { "slug": "spring-ai", "name": "Spring AI" },
+  { "slug": "strands", "name": "Strands" }
+]

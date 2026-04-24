@@ -182,6 +182,13 @@ export interface E2ePage {
     opts?: { timeout?: number; state?: "visible" },
   ): Promise<unknown>;
   textContent(selector: string): Promise<string | null>;
+  /**
+   * Run a function in the browser page context. Used for DOM reads that
+   * must NOT auto-wait (Playwright's `page.textContent(selector)` waits
+   * up to 30 s for the selector to match; `evaluate` returns immediately
+   * with whatever the DOM currently holds).
+   */
+  evaluate<R>(fn: () => R): Promise<R>;
   close(): Promise<void>;
 }
 
@@ -221,6 +228,14 @@ export interface E2eSmokeDriverDeps {
   timeoutMs?: number;
   /** Resolver for demos-by-slug. Defaults to reading /app/data/registry.json. */
   demosResolver?: DemosResolver;
+  /**
+   * After `waitForSelector` succeeds, poll `textContent` until non-empty
+   * for up to this many ms. CopilotKit renders the assistant-message
+   * container before tokens stream in (`""` initially); slower
+   * integrations (ms-agent-dotnet: extra network hop) need time for the
+   * first token to arrive. Defaults to `pageTimeoutMs`.
+   */
+  textPollTimeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 3 * 60 * 1000;
@@ -277,6 +292,7 @@ const defaultLauncher: E2eBrowserLauncher = async (): Promise<E2eBrowser> => {
             press: (sel, key, opts) => page.press(sel, key, opts),
             waitForSelector: (sel, opts) => page.waitForSelector(sel, opts),
             textContent: (sel) => page.textContent(sel),
+            evaluate: <R>(fn: () => R) => page.evaluate(fn),
             close: () => page.close(),
           };
         },
@@ -335,6 +351,7 @@ export function createE2eSmokeDriver(
   const launcher = deps.launcher ?? defaultLauncher;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
+  const textPollTimeoutMs = deps.textPollTimeoutMs ?? pageTimeoutMs;
   const demosResolver = deps.demosResolver ?? createDefaultDemosResolver();
 
   return {
@@ -475,6 +492,7 @@ export function createE2eSmokeDriver(
           message: "Hello, please respond with a brief greeting.",
           abortSignal: abort.signal,
           pageTimeoutMs,
+          textPollTimeoutMs,
           now: ctx.now,
           assertResponse: (text) => ({
             ok: text.length > 0,
@@ -509,6 +527,7 @@ export function createE2eSmokeDriver(
             message: "What's the weather in San Francisco?",
             abortSignal: abort.signal,
             pageTimeoutMs,
+            textPollTimeoutMs,
             now: ctx.now,
             assertResponse: (text) => {
               if (text.length === 0) {
@@ -635,6 +654,7 @@ async function runLevel(opts: {
   message: string;
   abortSignal: AbortSignal;
   pageTimeoutMs: number;
+  textPollTimeoutMs: number;
   now: () => Date;
   assertResponse: (text: string) => { ok: boolean; summary: string };
 }): Promise<{ result: ProbeResult<E2eSmokeLevelSignal> }> {
@@ -647,6 +667,7 @@ async function runLevel(opts: {
     message,
     abortSignal,
     pageTimeoutMs,
+    textPollTimeoutMs,
     now,
     assertResponse,
   } = opts;
@@ -697,10 +718,63 @@ async function runLevel(opts: {
         state: "visible",
         timeout: pageTimeoutMs,
       });
-      const raw =
-        (await page.textContent(
-          '[data-testid="copilot-assistant-message"]:last-of-type',
-        )) ?? "";
+      // CopilotKit renders the assistant-message container before tokens
+      // stream in (starts as ""). Slower integrations (ms-agent-dotnet:
+      // extra network hop) need time for the first token to arrive. Poll
+      // for non-empty textContent instead of reading once.
+      //
+      // IMPORTANT: we use `page.evaluate()` instead of
+      // `page.textContent(selector)` for two reasons:
+      //
+      //   1. CSS `:last-of-type` is unreliable here. CopilotKit often
+      //      renders a trailing <div> (streaming indicator, input area)
+      //      after the assistant-message <div>. `:last-of-type` selects
+      //      the last element of a given TAG TYPE among siblings, so it
+      //      matches the trailing <div> — not the assistant message.
+      //      The compound selector
+      //      `[data-testid="copilot-assistant-message"]:last-of-type`
+      //      then matches ZERO elements.
+      //
+      //   2. Playwright's `page.textContent(selector)` auto-waits up to
+      //      30 s for the selector to match. When the selector matches
+      //      nothing (see #1), each poll iteration blocks for 30 s and
+      //      then throws — making the 500 ms poll interval meaningless.
+      //      Two failed polls exhaust the entire textPollTimeoutMs
+      //      budget, and the outer catch swallows the timeout, returning
+      //      empty text → false-red.
+      //
+      // `page.evaluate()` runs synchronously in the browser context,
+      // returns immediately with whatever the DOM currently holds, and
+      // uses `querySelectorAll` to find the last matching element by
+      // index rather than by CSS pseudo-selector.
+      let raw = "";
+      const pollEnd = Date.now() + textPollTimeoutMs;
+      while (Date.now() < pollEnd) {
+        // The callback executes in the browser where `document` exists.
+        // TypeScript's Node-only `lib` doesn't include DOM types, so we
+        // access `document` via `globalThis` to avoid a compile error
+        // without polluting the project-wide tsconfig with `"dom"`.
+        raw =
+          (await page.evaluate(() => {
+            // `document` lives in the browser context where this callback
+            // runs. The server-side tsconfig intentionally excludes DOM
+            // types, so we reach it via a type-erased indirection.
+            const win = globalThis as unknown as {
+              document: {
+                querySelectorAll(
+                  sel: string,
+                ): ArrayLike<{ textContent: string | null }>;
+              };
+            };
+            const msgs = win.document.querySelectorAll(
+              '[data-testid="copilot-assistant-message"]',
+            );
+            if (msgs.length === 0) return "";
+            return msgs[msgs.length - 1]!.textContent ?? "";
+          })) ?? "";
+        if (raw.trim().length > 0) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
       responseText = raw.trim();
     } catch {
       // Fallback: pull <body> text and slice off everything up to and

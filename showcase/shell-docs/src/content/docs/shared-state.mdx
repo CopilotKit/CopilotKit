@@ -26,7 +26,7 @@ Agentic Copilots maintain a shared state that seamlessly connects your UI with t
 
 ## When should I use this?
 
-Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways — the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
+Use shared state when you want to facilitate collaboration between your agent and the user. Updates flow both ways: the agent's outputs are automatically reflected in the UI, and any inputs the user updates in the UI are automatically reflected in the agent's execution.
 
 ## The two directions
 
@@ -39,21 +39,20 @@ slices:
 - An **agent-written** slice (e.g. notes, a document, a plan) that the
   UI renders in real time as the agent produces it.
 
-The `shared-state-read-write` showcase cell wires both sides against a
-single `AgentState` schema with `preferences` (UI-written) and `notes`
-(agent-written).
+The example below wires both sides against a single `AgentState`
+schema with `preferences` (UI-written) and `notes` (agent-written).
 
 ## Reading agent state
 
 The `useAgent` hook subscribes your component to state changes. Pass
 `UseAgentUpdate.OnStateChanged` and every mutation the agent makes to
-its state triggers a re-render — your UI is a reactive window into the
+its state triggers a re-render; your UI is a reactive window into the
 agent's world.
 
 <Snippet region="use-agent-read" title="frontend/src/app/page.tsx — useAgent subscription" />
 
 Once subscribed, the agent-authored slice of state is just data you
-render. The `NotesCard` below is a plain presentational component — it
+render. The `NotesCard` below is a plain presentational component. It
 doesn't know about CopilotKit at all; it just receives `notes` as a
 prop from the parent page.
 
@@ -70,7 +69,7 @@ reads from `state`) and influence the reply.
 
 The form that generates those writes is, again, a plain controlled
 component. Every onChange bubbles up to the parent, which calls
-`agent.setState` — keeping the UI and the agent in lockstep.
+`agent.setState`, keeping the UI and the agent in lockstep.
 
 <Snippet region="preferences-card-render" title="frontend/src/app/preferences-card.tsx — preferences form" />
 
@@ -87,7 +86,5 @@ Two common extensions of the basic pattern:
   access.
 
 <FeatureIntegrations feature="shared-state-read-write" />
-
-## Get started by choosing your AI backend
 
 <IntegrationGrid path="shared-state" exclude={["agno", "agent-spec"]} />

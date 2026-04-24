@@ -38,7 +38,7 @@ Key benefits:
     import { NextRequest } from "next/server";
 
     const agent = new BuiltInAgent({
-      model: "openai:gpt-5.4",
+      model: "openai:gpt-5.4-mini",
       prompt: "You are a helpful assistant.",
     }).use( // [!code highlight:9]
       new MCPAppsMiddleware({

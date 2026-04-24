@@ -134,6 +134,13 @@ samp {
   color: var(--text);
 }
 
+/* Inline code inside headings should scale with the heading, not stay fixed */
+.reference-content h2 code,
+.reference-content h3 code,
+.reference-content h4 code {
+  font-size: 0.875em;
+}
+
 /* Bare <pre> fallback (when an MDX page uses a triple-fence rather than
  * <Snippet>). Mirrors the chrome on <Snippet>'s figure so pages look
  * consistent whether the code is live-from-cell or inline. */
@@ -162,6 +169,12 @@ samp {
 
 .reference-content a:hover {
   opacity: 0.8;
+}
+
+/* Cards and nav grids inside MDX use not-prose to opt out of prose link styling */
+.reference-content .not-prose a {
+  text-decoration: none;
+  color: inherit;
 }
 
 .reference-content table {

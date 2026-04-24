@@ -2,7 +2,7 @@
 
 Deterministic LLM fixture server for showcase E2E testing. Replaces real LLM API calls (OpenAI, Anthropic, Gemini) with pre-recorded responses so Playwright tests can run PR-gated in CI without API keys and without rate limits or non-determinism.
 
-The image built from this directory is [`ghcr.io/copilotkit/showcase-aimock`](https://github.com/orgs/CopilotKit/packages/container/package/showcase-aimock) and is deployed to Railway as a sidecar alongside the showcase packages.
+Railway pulls [`ghcr.io/copilotkit/aimock:latest`](https://github.com/orgs/CopilotKit/packages/container/package/aimock) directly (no wrapper image). The fixtures in this directory are loaded at boot via GitHub raw URLs configured in the Railway service's `startCommand`.
 
 ## What aimock is
 
@@ -12,9 +12,8 @@ The showcase deployment runs aimock in proxy mode — `--proxy-only` with real u
 
 ## Fixtures in this directory
 
-- **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `test_e2e-showcase-on-demand` Playwright suites and by the Dockerfile-baked image.
+- **`feature-parity.json`** — 35+ fixtures covering the nine showcase demos across 17 packages: agentic chat (weather, backgrounds, themes), tool rendering (pie/bar charts, weather cards), HITL (plans, steps, approvals), Sales Dashboard (deals, pipelines, todos), and assorted meeting/flight/greeting prompts. Consumed by the per-package `test_e2e-showcase-on-demand` Playwright suites and loaded at Railway boot via GitHub raw URL.
 - **`smoke.json`** — a single minimal fixture (`userMessage: "Respond with exactly: OK"` → `content: "OK"`). Used by `/api/smoke` endpoints in each package to verify the aimock → package → UI round-trip without depending on a real agent.
-- **`Dockerfile`** — pins the upstream `ghcr.io/copilotkit/aimock:latest`, copies both fixtures into `/fixtures/`, and boots with `--proxy-only --validate-on-load` plus the three provider upstream URLs.
 
 Fixture match semantics: `userMessage` is a substring match against the last user turn. First fixture to match wins, so more specific prompts should appear before more generic ones (see the `"Based on the following context, write a concise"` entry that precedes the generic `report` / `plan` fixtures to protect CrewAI's startup probe).
 
@@ -24,7 +23,7 @@ Fixture match semantics: `userMessage` is a substring match against the last use
 
 The safety net is two-layered load-time validation, not behavioral verification:
 
-1. **Load-time schema validation** (`--validate-on-load` in the `Dockerfile` and in every test entrypoint that boots aimock) — the container refuses to start if any fixture uses an unrecognized response key (e.g. `text` instead of `content`). See [#3973](https://github.com/CopilotKit/CopilotKit/pull/3973).
+1. **Load-time schema validation** (`--validate-on-load` in the Railway `startCommand` and in every test entrypoint that boots aimock) — the container refuses to start if any fixture uses an unrecognized response key (e.g. `text` instead of `content`). See [#3973](https://github.com/CopilotKit/CopilotKit/pull/3973).
 2. **CI schema validation** (`showcase/scripts/__tests__/aimock-fixtures.test.ts`) — the `showcase_validate` workflow runs `loadFixtureFile` + `validateFixtures` from `@copilotkit/aimock` against every `showcase/aimock/*.json` on every PR. A broken fixture fails the PR before merge.
 
 Neither layer catches **behavioral drift** — if a package's agent code changes what it asks the LLM (new prompt, new tool, renamed tool), the existing fixture keeps matching and keeps returning the old response. The test either keeps passing (wrong assertion) or fails at the UI-assertion layer (missing tool call, missing text), and a human has to trace it back to the fixture.
@@ -43,7 +42,7 @@ The process is manual. There is no CLI for this directory specifically — aimoc
    ```
    ./showcase/scripts/run-e2e-with-aimock.sh <slug> [test-filter]
    ```
-5. Ship it. The `showcase_deploy` workflow picks up `showcase/aimock/**` changes and rebuilds the Railway image.
+5. Ship it. Fixture changes take effect on the next Railway service restart (aimock fetches fixtures from GitHub raw URLs at boot).
 
 When a package's agent code changes in a way that changes its LLM calls, the person making the change is responsible for updating the corresponding fixture. There is no automation to remind you.
 
@@ -62,5 +61,5 @@ There is no scheduled drift-detection job that compares fixture responses agains
 
 - **`test_e2e-showcase-on-demand.yml`** (historically `showcase_aimock-e2e.yml`) — triggered by `/test-aimock <slug>` PR comments or `workflow_dispatch`. Installs `@copilotkit/aimock@latest`, boots it with `feature-parity.json`, spins up the target package's dev server against `OPENAI_BASE_URL=http://localhost:4010/v1`, and runs the package's Playwright suite. Posts pass/fail back to the PR.
 - **`showcase_validate.yml`** — runs fixture schema validation (`aimock-fixtures.test.ts`) on every PR that touches `showcase/**`.
-- **`showcase_deploy.yml`** — rebuilds and redeploys the `showcase-aimock` Railway service whenever `showcase/aimock/**` changes.
+- **`showcase_deploy.yml`** — builds and deploys all showcase services. aimock is no longer in this workflow's matrix (Railway pulls the upstream `ghcr.io/copilotkit/aimock:latest` image directly).
 - **`showcase_smoke-monitor.yml`** — every 15 minutes, polls `/api/smoke` on all deployed showcase packages. Those smoke endpoints internally hit aimock's `smoke.json` fixture to verify the full stack.
