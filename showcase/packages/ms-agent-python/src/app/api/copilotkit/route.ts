@@ -32,6 +32,8 @@ const agentNames = [
   "prebuilt-popup",
   "chat-slots",
   "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
