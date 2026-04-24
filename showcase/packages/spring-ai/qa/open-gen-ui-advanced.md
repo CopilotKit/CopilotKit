@@ -1,10 +1,12 @@
 # QA: Open-Ended Generative UI (Advanced) — Spring AI
 
 ## Prerequisites
+
 - Demo is deployed and accessible
 - OPENAI_API_KEY is set on the Spring backend
 
 ## Test Steps
+
 - [ ] Navigate to `/demos/open-gen-ui-advanced`
 - [ ] Click the "Calculator (calls evaluateExpression)" suggestion
 - [ ] Verify a calculator UI appears inside a sandboxed iframe
@@ -13,5 +15,6 @@
 - [ ] Check browser console for `[open-gen-ui/advanced] evaluateExpression`
 
 ## Expected Results
+
 - Sandbox function round-trips complete end-to-end
 - Console logs confirm host invocation

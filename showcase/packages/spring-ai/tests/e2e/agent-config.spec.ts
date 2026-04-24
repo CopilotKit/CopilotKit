@@ -8,9 +8,7 @@ test.describe("Agent Config", () => {
     await expect(
       page.getByTestId("agent-config-expertise-select"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("agent-config-length-select"),
-    ).toBeVisible();
+    await expect(page.getByTestId("agent-config-length-select")).toBeVisible();
     await expect(page.getByTestId("copilot-chat-textarea")).toBeVisible();
   });
 });

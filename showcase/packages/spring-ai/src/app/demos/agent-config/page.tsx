@@ -38,9 +38,9 @@ export default function AgentConfigDemoPage() {
         <header>
           <h1 className="text-lg font-semibold">Agent Config Object</h1>
           <p className="text-sm text-black/60 dark:text-white/60">
-            Forwarded props let the frontend tell the agent how to behave.
-            Tone, expertise, and response length are forwarded to Spring, which
-            builds a system prompt per turn.
+            Forwarded props let the frontend tell the agent how to behave. Tone,
+            expertise, and response length are forwarded to Spring, which builds
+            a system prompt per turn.
           </p>
         </header>
         <ConfigCard

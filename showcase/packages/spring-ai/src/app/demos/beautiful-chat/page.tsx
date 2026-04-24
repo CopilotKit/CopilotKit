@@ -18,7 +18,11 @@
  * frontend.
  */
 
-import { CopilotKit, CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 const AGENT_ID = "beautiful-chat";
 
