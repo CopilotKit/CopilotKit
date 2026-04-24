@@ -33,8 +33,8 @@ export default function AgentConfigDemoPage() {
         <header>
           <h1 className="text-lg font-semibold">Agent Config Object</h1>
           <p className="text-sm text-[var(--text-muted)]">
-            Forwarded props let the frontend tell the agent how to behave.
-            This demo passes <code>tone</code>, <code>expertise</code>, and
+            Forwarded props let the frontend tell the agent how to behave. This
+            demo passes <code>tone</code>, <code>expertise</code>, and
             <code> responseLength</code> through the provider; the agent reads
             them from the LangGraph config and builds its system prompt per
             turn.
