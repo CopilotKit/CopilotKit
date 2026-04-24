@@ -38,6 +38,7 @@ for (const name of agentNames) {
 // Dedicated-graph agents — each cell has its own LangGraph graph with a
 // tailored system prompt (tools=[], CopilotKitMiddleware attached).
 agents["frontend_tools"] = createAgent("frontend_tools");
+agents["frontend-tools-async"] = createAgent("frontend_tools_async");
 
 agents["default"] = createAgent();
 

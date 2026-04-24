@@ -38,6 +38,7 @@ features:
   - shared-state-streaming
   - subagents
   - frontend-tools
+  - frontend-tools-async
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -105,4 +106,16 @@ demos:
     highlight:
       - src/agents/src/frontend_tools.py
       - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: Frontend Tools (Async)
+    description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    animated_preview_url:
+    highlight:
+      - src/agents/src/frontend_tools_async.py
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
