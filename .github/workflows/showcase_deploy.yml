@@ -168,8 +168,14 @@ jobs:
               - 'showcase/packages/*/manifest.yaml'
             shell_dashboard:
               - 'showcase/shell-dashboard/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
             shell_docs:
               - 'showcase/shell-docs/**'
+              - 'showcase/shared/**'
+              - 'showcase/scripts/**'
+              - 'showcase/packages/*/manifest.yaml'
 
       - name: Build service matrix
         id: build-matrix

@@ -32,10 +32,17 @@ const FEATURE_REGISTRY_PATH = path.join(
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
 const SHELL_DOJO_OUTPUT_DIR = path.join(ROOT, "shell-dojo", "src", "data");
+const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
+  ROOT,
+  "shell-dashboard",
+  "src",
+  "data",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
+  SHELL_DASHBOARD_OUTPUT_DIR,
 ];
 const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
@@ -273,7 +280,6 @@ function main() {
   }
 
   const registry = {
-    generated_at: new Date().toISOString(),
     feature_registry: featureRegistry,
     integrations,
     packages,
