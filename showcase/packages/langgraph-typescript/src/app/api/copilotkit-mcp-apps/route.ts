@@ -1,4 +1,7 @@
-// CopilotKit runtime for the MCP Apps cell.
+// CopilotKit runtime for the MCP Apps cell — shared by two demos:
+//   - headless-complete (cell exercises MCP Apps rendering via a hand-rolled
+//     useRenderActivityMessage in use-rendered-messages.tsx)
+//   - mcp-apps (relies on CopilotKit's built-in MCPAppsActivityRenderer)
 //
 // The runtime's `mcpApps` config auto-applies the MCP Apps middleware to the
 // agent: when the agent calls a tool backed by an MCP UI resource, the
@@ -26,6 +29,12 @@ const headlessCompleteAgent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
+const mcpAppsAgent = new LangGraphAgent({
+  deploymentUrl: `${LANGGRAPH_URL}/`,
+  graphId: "mcp_apps",
+  langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+});
+
 // @region[runtime-mcpapps-config]
 // The `mcpApps.servers` config is all you need server-side. The runtime
 // auto-applies the MCP Apps middleware to every registered agent: on each
@@ -37,10 +46,8 @@ const runtime = new CopilotRuntime({
   // MaybePromise<NonEmptyRecord<...>> which rejects plain Records; fixed in
   // source, pending release.
   agents: {
-    // headless-complete uses this runtime because the cell exercises MCP
-    // Apps rendering (via a hand-rolled `useRenderActivityMessage` in
-    // `use-rendered-messages.tsx`).
     "headless-complete": headlessCompleteAgent,
+    "mcp-apps": mcpAppsAgent,
   },
   mcpApps: {
     servers: [

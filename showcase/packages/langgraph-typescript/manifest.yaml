@@ -55,6 +55,11 @@ features:
   - auth
   - multimodal
   - agent-config
+  - gen-ui-interrupt
+  - interrupt-headless
+  - declarative-gen-ui
+  - a2ui-fixed-schema
+  - mcp-apps
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -273,3 +278,67 @@ demos:
       - generative-ui
     route: /demos/reasoning-default-render
     animated_preview_url:
+  - id: gen-ui-interrupt
+    name: In-Chat HITL (useInterrupt — low-level primitive)
+    description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-interrupt
+    animated_preview_url:
+    highlight:
+      - src/agent/interrupt-agent.ts
+      - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: interrupt-headless
+    name: Headless Interrupt (testing)
+    description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url:
+    highlight:
+      - src/agent/interrupt-agent.ts
+      - src/app/demos/interrupt-headless/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI (A2UI)
+    description: Canonical A2UI BYOC — custom catalog (Card/StatusBadge/Metric/InfoRow/PrimaryButton) wired via a2ui.catalog on the provider; backend agent owns the generate_a2ui tool
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agent/a2ui-dynamic.ts
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: a2ui-fixed-schema
+    name: Declarative Generative UI (A2UI — Fixed Schema)
+    description: A2UI rendering against a known client-side schema
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+    highlight:
+      - src/agent/a2ui-fixed.ts
+      - src/agent/a2ui_schemas/flight_schema.json
+      - src/agent/a2ui_schemas/booked_schema.json
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: mcp-apps
+    name: MCP Apps
+    description: MCP server-driven UI via activity renderers
+    tags:
+      - generative-ui
+    route: /demos/mcp-apps
+    animated_preview_url:
+    highlight:
+      - src/agent/mcp-apps.ts
+      - src/app/demos/mcp-apps/page.tsx
+      - src/app/api/copilotkit-mcp-apps/route.ts

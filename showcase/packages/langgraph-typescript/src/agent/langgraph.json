@@ -12,7 +12,11 @@
     "reasoning-default-render": "./reasoning-agent.ts:graph",
     "tool-rendering-default-catchall": "./tool-rendering.ts:graph",
     "tool-rendering-custom-catchall": "./tool-rendering.ts:graph",
-    "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph"
+    "tool-rendering-reasoning-chain": "./tool-rendering-reasoning-chain.ts:graph",
+    "interrupt_agent": "./interrupt-agent.ts:graph",
+    "a2ui_dynamic": "./a2ui-dynamic.ts:graph",
+    "a2ui_fixed": "./a2ui-fixed.ts:graph",
+    "mcp_apps": "./mcp-apps.ts:graph"
   },
   "env": "../../.env"
 }
