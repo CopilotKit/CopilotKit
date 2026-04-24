@@ -1,10 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import {
   CopilotRuntime,
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 // The agent backend runs as a separate process on port 8000.
 // This runtime proxies CopilotKit requests to it via AG-UI protocol.
@@ -13,15 +15,14 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/run` });
+function createAgent(subpath: string = "") {
+  return new HttpAgent({ url: `${AGENT_URL}${subpath}/run` });
 }
 
-// Register the same agent under all names used by demo pages.
-// NOTE: The LlamaIndex package uses a single shared AG-UI workflow router,
-// so every agent id here resolves to the same backend. Per-demo behavior is
-// driven by the frontend (tools, suggestions, render slots).
-const agentNames = [
+// Shared-router agents — every id here resolves to the same backend + same
+// tool set. Per-demo behavior is driven by the frontend (tools, suggestions,
+// render slots).
+const sharedAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
@@ -46,9 +47,22 @@ const agentNames = [
   "readonly_state_agent_context",
 ];
 
+// Specialized routers live at dedicated subpaths on the agent_server so the
+// distinct system prompt / tool set / model can surface through this same
+// runtime. Each subpath matches the `include_router(..., prefix=)` in
+// src/agent_server.py.
+const specializedAgents: Record<string, string> = {
+  "agentic-chat-reasoning": "/reasoning",
+  "reasoning-default-render": "/reasoning",
+  "tool-rendering-reasoning-chain": "/tool-rendering-reasoning-chain",
+};
+
 const agents: Record<string, AbstractAgent> = {};
-for (const name of agentNames) {
+for (const name of sharedAgentNames) {
   agents[name] = createAgent();
+}
+for (const [name, subpath] of Object.entries(specializedAgents)) {
+  agents[name] = createAgent(subpath);
 }
 agents["default"] = createAgent();
 

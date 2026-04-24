@@ -17,6 +17,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import agent_router
+from agents.reasoning_agent import reasoning_router
+from agents.tool_rendering_reasoning_chain_agent import (
+    tool_rendering_reasoning_chain_router,
+)
 
 load_dotenv()
 
@@ -44,6 +48,15 @@ app.add_middleware(
 )
 
 app.include_router(agent_router)
+
+# Dedicated routers for demos that need distinct system prompts / tool sets.
+# Each is mounted at its own subpath so the Next.js runtime can route specific
+# agent IDs to the right backend via HttpAgent URL configuration.
+app.include_router(reasoning_router, prefix="/reasoning")
+app.include_router(
+    tool_rendering_reasoning_chain_router,
+    prefix="/tool-rendering-reasoning-chain",
+)
 
 
 def main():

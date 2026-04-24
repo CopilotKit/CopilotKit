@@ -27,6 +27,9 @@ starter:
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/llamaindex my-copilotkit-app
 features:
   - agentic-chat
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
   - frontend-tools
   - frontend-tools-async
   - hitl-in-chat
@@ -36,6 +39,18 @@ features:
   - tool-rendering-custom-catchall
   - gen-ui-tool-based
   - gen-ui-agent
+  - declarative-gen-ui
+  - a2ui-fixed-schema
+  - byoc-json-render
+  - byoc-hashbrown
+  - beautiful-chat
+  - multimodal
+  - auth
+  - voice
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - agent-config
+  - mcp-apps
   - shared-state-read-write
   - shared-state-streaming
   - subagents
@@ -274,4 +289,42 @@ demos:
     highlight:
       - src/app/demos/readonly-state-agent-context/agent.py
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agentic-chat-reasoning
+    name: Reasoning
+    description: Visible reasoning/thinking chain alongside the final answer via a custom reasoningMessage slot
+    tags:
+      - generative-ui
+    route: /demos/agentic-chat-reasoning
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/agentic-chat-reasoning/page.tsx
+      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default-render
+    name: Reasoning (Default Render)
+    description: Built-in CopilotChatReasoningMessage renders without a custom slot
+    tags:
+      - generative-ui
+    route: /demos/reasoning-default-render
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: Tool Rendering + Reasoning Chain (testing)
+    description: Sequential tool calls with reasoning tokens rendered side-by-side
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - src/agents/tool_rendering_reasoning_chain_agent.py
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
