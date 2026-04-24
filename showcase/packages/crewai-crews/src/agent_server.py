@@ -41,6 +41,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from agents.crew import LatestAiDevelopment
 from agents.a2ui_fixed import A2UIFixedSchema
+from agents.beautiful_chat import BeautifulChat
 from agents.byoc_hashbrown_agent import ByocHashbrown
 from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
@@ -255,6 +256,7 @@ add_crewai_crew_fastapi_endpoint(app, DeclarativeGenUI(), "/declarative-gen-ui")
 add_crewai_crew_fastapi_endpoint(app, A2UIFixedSchema(), "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
 add_crewai_crew_fastapi_endpoint(app, ByocJsonRender(), "/byoc-json-render")
+add_crewai_crew_fastapi_endpoint(app, BeautifulChat(), "/beautiful-chat")
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 

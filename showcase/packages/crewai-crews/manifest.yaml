@@ -62,6 +62,7 @@ features:
   - a2ui-fixed-schema
   - byoc-hashbrown
   - byoc-json-render
+  - beautiful-chat
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -293,4 +294,11 @@ demos:
     tags:
       - generative-ui
     route: /demos/byoc-json-render
+    animated_preview_url:
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Flagship showcase - polished brand-styled chat with A2UI, Open Generative UI, and shared-state todos
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
     animated_preview_url:

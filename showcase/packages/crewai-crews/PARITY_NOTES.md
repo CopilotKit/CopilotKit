@@ -116,45 +116,71 @@ Pydantic-schema `BaseTool` list on `Agent`, not an MCP client
 multiplexer. No equivalent primitive in `ag-ui-crewai` at the time of
 writing; porting would require first-class MCP support in CrewAI upstream.
 
-## Still deferred to a follow-up PR (architectural work)
+## Ported demos (Wave 3 — this update)
 
-The five demos below need a **dedicated per-demo backend crew or
-structured-output pipeline** — not just a route wiring change. They are
-genuinely architectural work, not cosmetic facades.
+Five demos that previously required dedicated per-demo backend work have
+all been shipped in this wave. Each runs against its own CrewAI crew
+mounted at a distinct path on the FastAPI agent server
+(`src/agent_server.py`), leaving the shared `LatestAiDevelopment` crew
+on `/` untouched. The Next.js side uses per-demo runtime routes with
+`HttpAgent` URLs pointing at the dedicated backend paths.
 
-### `beautiful-chat` — **deferred**
+| Demo                | Kind          | Crew module                         | Backend path         |
+| ------------------- | ------------- | ----------------------------------- | -------------------- |
+| declarative-gen-ui  | A2UI Dynamic  | `agents/declarative_gen_ui.py`      | `/declarative-gen-ui` |
+| a2ui-fixed-schema   | A2UI Fixed    | `agents/a2ui_fixed.py`              | `/a2ui-fixed-schema` |
+| byoc-hashbrown      | BYOC JSON     | `agents/byoc_hashbrown_agent.py`    | `/byoc-hashbrown`    |
+| byoc-json-render    | BYOC JSON     | `agents/byoc_json_render_agent.py`  | `/byoc-json-render`  |
+| beautiful-chat      | Flagship      | `agents/beautiful_chat.py`          | `/beautiful-chat`    |
 
-The LangGraph-Python reference assembles a combined runtime with A2UI
-(dynamic + fixed schema), Open Generative UI, and MCP Apps — plus a
-custom `beautiful_chat` graph that emits ingredient tool calls matching
-the frontend catalog. Porting to CrewAI needs:
+### Wave 3 implementation notes
 
-1. A bespoke `beautiful_chat` crew (~5 agents, curated system prompts,
-   tools that emit the ingredient tool-calls the frontend catalog
-   expects).
-2. A combined runtime endpoint on the Next.js side (`openGenerativeUI:
-true`, `a2ui.injectA2UITool: false`, `mcpApps.servers`). MCP Apps
-   still has no CrewAI backend wiring (see `mcp-apps` above), so even a
-   partial port would be an A2UI + OGUI duet without the MCP leg.
+**System-prompt control.** `ag-ui-crewai.crews.ChatWithCrewFlow` runs
+`crewai.cli.crew_chat.build_system_message(crew_chat_inputs)` on
+construction, which wraps any crew description in fixed "CrewAI platform"
+boilerplate that instructs the LLM to introduce itself and ask for
+clarifying inputs. For the A2UI demos we use
+`_chat_flow_helpers.preseed_system_prompt` to install a tuned
+`crew_description` into `_CREW_INPUTS_CACHE` (also skipping the
+secondary AI description calls). For BYOC demos that must emit pure
+JSON, we additionally patch `ChatWithCrewFlow.__init__` via
+`_chat_flow_helpers.install_custom_system_message` so our full system
+prompt replaces the composed one, fully bypassing the CrewAI platform
+wrapper.
 
-### `byoc-hashbrown`, `byoc-json-render` — **deferred**
+**BYOC wire format.** Both BYOC demos emit the schema shape directly
+(NOT the XML-style `<ui>...</ui>` DSL used internally by hashbrown when
+hashbrown itself drives the LLM). Hashbrown's `useJsonParser(content,
+kit.schema)` consumes the schema shape at runtime; the XML DSL is the
+authoring syntax that hashbrown compiles into that schema when its own
+LLM adapters are wired up.
 
-BYOC (bring-your-own-catalog) demos require an agent whose system
-prompt is tuned to emit structured JSON matching the catalog schema
-(`@hashbrownai/react` / `@json-render/react` respectively). The shared
-CrewAI crew emits A2UI via `GenerateA2uiTool` — the native CrewAI
-structured-output surface — and does NOT emit hashbrown- or
-json-render-shaped JSON. Porting needs per-demo crews with catalog-aware
-system prompts; the two catalogs are proprietary to their respective
-libraries and not interchangeable with A2UI.
+**byoc-json-render frontend hardening (from PR #4271).** Two fixes are
+rolled into the ported frontend:
 
-### `declarative-gen-ui`, `a2ui-fixed-schema` — **deferred**
+1. `registry.tsx` forwards `children` through the `MetricCard` wrapper
+   so multi-component dashboards (a MetricCard with a nested BarChart)
+   render as a wrapped block rather than dropping the chart.
+2. `json-render-renderer.tsx` wraps `<Renderer />` in `<JSONUIProvider>`
+   so the StateProvider / VisibilityProvider / ActionProvider /
+   ValidationProvider contexts the ElementRenderer requires are
+   available — without this wrap, clicking a suggestion crashes with
+   "useVisibility must be used within a VisibilityProvider".
 
-Both demos lean on A2UI rendering with `injectA2UITool: false` — the
-backend agent owns its own render tool. The shared CrewAI crew has
-`GenerateA2uiTool` (which could serve the dynamic case) but no fixed-
-schema counterpart; porting requires per-demo crews with tuned prompts.
-The existing `open-gen-ui` demos cover the open-ended A2UI surface.
+**beautiful-chat deviations.** Two deviations from the LangGraph
+reference, both rooted in the CrewAI / `ag-ui-crewai` primitive set:
+
+1. **No MCP Apps leg.** `ag-ui-crewai` has no MCP SSE multiplexer;
+   CrewAI crews use Pydantic `BaseTool` lists. The Excalidraw MCP
+   suggestion pill is removed from
+   `hooks/use-example-suggestions.tsx`. The rest of the cell (A2UI
+   fixed + dynamic, Open Generative UI, shared-state todos via a
+   `manage_todos` tool) ports cleanly.
+2. **Simplified shared-state todos.** LangGraph's `manage_todos`
+   returns a `Command(update={...})` that patches graph state; CrewAI
+   has no equivalent primitive. The CrewAI `ManageTodosTool` returns
+   the new list as a JSON tool result which the frontend consumes via
+   its existing `useCoAgent` wiring.
 
 ### `cli-start` — **not a page-level demo**
 
@@ -166,15 +192,14 @@ Already covered implicitly by the root manifest.
 - **Total LangGraph-Python demos:** 37
 - **Existing CrewAI-Crews demos (pre-parity):** 10
 - **Wave 1 ports (PR #4262 first push):** 18
-- **Wave 2 ports (this update):** 3 (`auth`, `voice`, `multimodal`)
+- **Wave 2 ports:** 3 (`auth`, `voice`, `multimodal`)
 - **Wave 2 backend fix:** `agent-config` now end-to-end
-- **Skipped (architectural):** 3 (`gen-ui-interrupt`, `interrupt-headless`, `mcp-apps`)
-- **Deferred (per-demo backend work required):** 5 (`beautiful-chat`,
-  `byoc-hashbrown`, `byoc-json-render`, `declarative-gen-ui`,
-  `a2ui-fixed-schema`)
+- **Wave 3 ports (this update):** 5 (`declarative-gen-ui`,
+  `a2ui-fixed-schema`, `byoc-hashbrown`, `byoc-json-render`,
+  `beautiful-chat`)
+- **Skipped (architectural):** 3 (`gen-ui-interrupt`,
+  `interrupt-headless`, `mcp-apps`)
 - **Not applicable:** `cli-start`
 
-CrewAI Crews covers ~84% of the LangGraph-Python feature matrix after
-Wave 2. Full parity on the five deferred demos requires dedicated
-per-demo crews (backend design work, not plumbing) and is tracked as
-follow-up work.
+Only the three architectural-skips remain out of the LangGraph-Python
+demo set.
