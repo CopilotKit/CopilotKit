@@ -380,13 +380,13 @@ Before you begin, you'll need the following:
 
         export default function Page() {
             useDefaultRenderTool({
-                render: ({ name, status, args, result }) => (
+                render: ({ name, status, parameters, result }) => (
                     <details>
                         <summary>
                             {status === "complete" ? `Called ${name}` : `Calling ${name}`}
                         </summary>
                         <p>Status: {status}</p>
-                        <p>Args: {JSON.stringify(args)}</p>
+                        <p>Args: {JSON.stringify(parameters)}</p>
                         <p>Result: {JSON.stringify(result)}</p>
                     </details>
                 ),
@@ -423,6 +423,11 @@ Before you begin, you'll need the following:
         </Tabs>
 
         Your agent will be available at `http://localhost:8123`.
+
+        <Callout type="info">
+            If port 8123 is already in use, change the `--port` flag (or the `port=` argument
+            in the FastAPI `main.py`) and update `LANGGRAPH_DEPLOYMENT_URL` in Step 7 to match.
+        </Callout>
     </Step>
     <Step>
         ### Start your UI
