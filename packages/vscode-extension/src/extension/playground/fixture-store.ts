@@ -70,7 +70,16 @@ export class FixtureStore {
     fs.mkdirSync(dir, { recursive: true });
     const safeName = sanitizeName(metadata.name) || "fixture";
     const filePath = path.join(dir, `${safeName}.json`);
-    const payload: SavedFixture = { metadata, recording: body.recording };
+    // Translate aimock's JournalEntry[] → aimock-native `fixtures[]` shape
+    // so `mock.loadFixtureFile(path)` in replay mode actually matches
+    // incoming requests. aimock reads `.fixtures`; our metadata + raw
+    // recording ride alongside for the webview sidebar and debugging.
+    const fixtures = extractAimockFixtures(body.recording);
+    const payload = {
+      metadata,
+      fixtures,
+      recording: body.recording,
+    };
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf-8");
     return filePath;
   }
@@ -90,4 +99,24 @@ function sanitizeName(name: string): string {
     .replace(/[^\w.\-]/g, "_")
     .replace(/^\.+/, "")
     .slice(0, 100);
+}
+
+/**
+ * Extracts aimock-native Fixture objects from a JournalEntry[] recording so
+ * that `LLMock.loadFixtureFile()` can replay them. Each journal entry has
+ * `response.fixture` set to the Fixture that matched (when aimock proxied +
+ * recorded from upstream, it synthesizes one). Entries without a fixture
+ * (unmatched replay misses) are skipped.
+ */
+function extractAimockFixtures(recording: unknown[]): unknown[] {
+  const out: unknown[] = [];
+  for (const entry of recording) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as {
+      response?: { fixture?: unknown };
+    };
+    const fixture = e.response?.fixture;
+    if (fixture != null) out.push(fixture);
+  }
+  return out;
 }

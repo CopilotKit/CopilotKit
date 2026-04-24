@@ -2,10 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  FixtureStore,
-  type FixtureMetadata,
-} from "../fixture-store";
+import { FixtureStore, type FixtureMetadata } from "../fixture-store";
 
 let workspaceRoot: string;
 
@@ -73,6 +70,50 @@ describe("FixtureStore", () => {
     expect(path.dirname(entry.filePath)).toBe(
       path.join(workspaceRoot, ".copilotkit", "fixtures"),
     );
+  });
+
+  it("emits aimock-native fixtures[] extracted from journal response.fixture", () => {
+    const store = new FixtureStore(workspaceRoot);
+    const journal = [
+      {
+        id: "j1",
+        timestamp: 1,
+        method: "POST",
+        path: "/v1/chat/completions",
+        response: {
+          status: 200,
+          fixture: {
+            match: { userMessage: "hi" },
+            response: { content: "hello" },
+          },
+        },
+      },
+      {
+        id: "j2",
+        timestamp: 2,
+        method: "POST",
+        path: "/v1/chat/completions",
+        response: { status: 503, fixture: null }, // unmatched — skipped
+      },
+    ];
+    const filePath = store.save(
+      {
+        name: "extract",
+        createdAt: "2026-04-24T00:00:00Z",
+        provider: "openai",
+        model: "gpt-4o-mini",
+      },
+      { recording: journal },
+    );
+    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    expect(Array.isArray(raw.fixtures)).toBe(true);
+    expect(raw.fixtures).toHaveLength(1);
+    expect(raw.fixtures[0]).toEqual({
+      match: { userMessage: "hi" },
+      response: { content: "hello" },
+    });
+    // Recording still travels in the same file for debugging.
+    expect(raw.recording).toHaveLength(2);
   });
 
   it("deletes a fixture", () => {
