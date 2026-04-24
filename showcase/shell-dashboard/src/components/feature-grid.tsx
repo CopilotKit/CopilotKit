@@ -10,12 +10,10 @@ import {
 } from "@/lib/registry";
 import {
   keyFor,
-  mergeRowsToMap,
   resolveCell,
   type ConnectionStatus,
   type LiveStatusMap,
 } from "@/lib/live-status";
-import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { LevelStrip } from "@/components/level-strip";
 
 export interface CellContext {
@@ -99,15 +97,6 @@ export function computeColumnTally(
   return { green, amber, red, unknown: false };
 }
 
-function aggregateConnection(
-  ...statuses: ConnectionStatus[]
-): ConnectionStatus {
-  // Worst-wins: error > connecting > live. Any "error" → show offline.
-  if (statuses.some((s) => s === "error")) return "error";
-  if (statuses.some((s) => s === "connecting")) return "connecting";
-  return "live";
-}
-
 /**
  * Resolve the shell URL used to build Demo/Code links.
  *
@@ -137,17 +126,25 @@ function resolveShellUrl(): string {
   return "http://localhost:3000";
 }
 
+export interface FeatureGridProps {
+  title: string;
+  subtitle?: string;
+  renderCell: CellRenderer;
+  minColWidth?: number;
+  /** Merged live-status map from all subscribed dimensions (lifted to page). */
+  liveStatus: LiveStatusMap;
+  /** Aggregated SSE connection status (lifted to page). */
+  connection: ConnectionStatus;
+}
+
 export function FeatureGrid({
   title,
   subtitle,
   renderCell,
   minColWidth = 220,
-}: {
-  title: string;
-  subtitle?: string;
-  renderCell: CellRenderer;
-  minColWidth?: number;
-}) {
+  liveStatus,
+  connection,
+}: FeatureGridProps) {
   const shellUrl = resolveShellUrl();
   // `getIntegrations()` / `getFeatures()` call `.sort()` / array spread on
   // every invocation, returning a fresh array identity. Memoize once per
@@ -156,36 +153,6 @@ export function FeatureGrid({
   const integrations = useMemo(() => getIntegrations(), []);
   const features = useMemo(() => getFeatures(), []);
   const categories = useMemo(() => getFeatureCategories(), []);
-
-  // One subscription per dimension — each resolves into `rows` that we
-  // merge into a single keyed `LiveStatusMap` (spec §5.4).
-  const smoke = useLiveStatus("smoke");
-  const health = useLiveStatus("health");
-  const e2eSmoke = useLiveStatus("e2e_smoke");
-  const agent = useLiveStatus("agent");
-  const chat = useLiveStatus("chat");
-  const tools = useLiveStatus("tools");
-
-  const liveStatus = useMemo(
-    () =>
-      mergeRowsToMap(
-        smoke.rows,
-        health.rows,
-        e2eSmoke.rows,
-        agent.rows,
-        chat.rows,
-        tools.rows,
-      ),
-    [smoke.rows, health.rows, e2eSmoke.rows, agent.rows, chat.rows, tools.rows],
-  );
-  const connection = aggregateConnection(
-    smoke.status,
-    health.status,
-    e2eSmoke.status,
-    agent.status,
-    chat.status,
-    tools.status,
-  );
 
   // O(features × integrations) per render is avoidable — the inputs only
   // change when live rows or connection shift, so memoize across the whole

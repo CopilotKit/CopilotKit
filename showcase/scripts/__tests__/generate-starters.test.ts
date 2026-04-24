@@ -12,6 +12,7 @@ import {
   forEachPyFile,
   extractUvicornModule,
   getEntrypointBlock,
+  getAgentHealthPath,
   getAgentBuildSteps,
   getAgentBuildCopy,
   generateStarterToDir,
@@ -803,6 +804,138 @@ describe("generate-starters", () => {
         expect(generated).not.toContain("_expected_key_for_model");
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  });
+
+  // -------------------------------------------------------------------
+  // Health-path verification: getAgentHealthPath() must match what the
+  // actual agent server code serves.
+  //
+  // Fixture map derived from reading agent source code:
+  //   * Python FastAPI agents (ag2, agno, claude-sdk-python, crewai-crews,
+  //     google-adk, langroid, llamaindex, ms-agent-python, pydantic-ai,
+  //     strands): /health via HealthMiddleware in agent_server.py
+  //   * langgraph-python, langgraph-fastapi: /ok served by langgraph_cli
+  //     dev server (Python `langgraph-api` package)
+  //   * langgraph-typescript: /ok served by @langchain/langgraph-cli dev
+  //     (liveness.mjs binds /ok on the health port)
+  //   * claude-sdk-typescript: /health via express app.get("/health")
+  //   * mastra: /health built into Mastra pre-built server (GET /health
+  //     returns {"success":true})
+  //   * ms-agent-dotnet: /health via app.MapGet("/health") in Program.cs
+  //   * spring-ai: /health via @GetMapping("/health") in AgentController
+  //
+  // If someone changes getAgentHealthPath() without updating this fixture
+  // (or vice versa), this test fails — preventing watchdog-probes-wrong-URL
+  // drift.
+  // -------------------------------------------------------------------
+  describe("getAgentHealthPath(): matches actual agent endpoints", () => {
+    /**
+     * Ground-truth fixture map: framework slug -> health path as actually
+     * served by each framework's agent server code. Every FRAMEWORKS entry
+     * must appear here; a missing key is a test failure.
+     */
+    const EXPECTED_HEALTH_PATHS: Record<string, string> = {
+      // langgraph-cli dev serves /ok (both Python and TS variants)
+      "langgraph-python": "/ok",
+      "langgraph-fastapi": "/ok",
+      "langgraph-typescript": "/ok",
+      // FastAPI/uvicorn agents: HealthMiddleware short-circuits /health
+      "pydantic-ai": "/health",
+      "crewai-crews": "/health",
+      ag2: "/health",
+      agno: "/health",
+      "google-adk": "/health",
+      langroid: "/health",
+      llamaindex: "/health",
+      strands: "/health",
+      "claude-sdk-python": "/health",
+      "ms-agent-python": "/health",
+      // TypeScript agents
+      mastra: "/health",
+      "claude-sdk-typescript": "/health",
+      // .NET: app.MapGet("/health")
+      "ms-agent-dotnet": "/health",
+      // Java: @GetMapping("/health")
+      "spring-ai": "/health",
+    };
+
+    it("fixture map covers every framework in FRAMEWORKS", () => {
+      const fixtureSlugs = Object.keys(EXPECTED_HEALTH_PATHS).sort();
+      const frameworkSlugs = FRAMEWORKS.map((f) => f.slug).sort();
+      expect(fixtureSlugs).toEqual(frameworkSlugs);
+    });
+
+    for (const fw of FRAMEWORKS) {
+      it(`${fw.slug}: getAgentHealthPath() === ${EXPECTED_HEALTH_PATHS[fw.slug]}`, () => {
+        expect(getAgentHealthPath(fw)).toBe(EXPECTED_HEALTH_PATHS[fw.slug]);
+      });
+    }
+
+    it("generated entrypoint.sh watchdog probes the correct URL per framework", () => {
+      for (const fw of FRAMEWORKS) {
+        const expectedPath = EXPECTED_HEALTH_PATHS[fw.slug];
+        const expectedUrl = `http://127.0.0.1:8123${expectedPath}`;
+        const entrypointPath = path.join(
+          STARTERS_DIR,
+          fw.slug,
+          "entrypoint.sh",
+        );
+        if (!fs.existsSync(entrypointPath)) continue;
+        const content = fs.readFileSync(entrypointPath, "utf-8");
+        expect(
+          content,
+          `${fw.slug} entrypoint.sh must probe ${expectedUrl}`,
+        ).toContain(expectedUrl);
+      }
+    });
+
+    it("langgraph starters: frontend health route probes /ok (not /health)", () => {
+      const langgraphSlugs = FRAMEWORKS.filter((f) =>
+        f.slug.startsWith("langgraph-"),
+      ).map((f) => f.slug);
+      for (const slug of langgraphSlugs) {
+        const healthRoute = path.join(
+          STARTERS_DIR,
+          slug,
+          "src",
+          "app",
+          "api",
+          "health",
+          "route.ts",
+        );
+        if (!fs.existsSync(healthRoute)) continue;
+        const content = fs.readFileSync(healthRoute, "utf-8");
+        expect(content, `${slug} health route must use /ok`).toContain(
+          "${AGENT_URL}/ok",
+        );
+        expect(
+          content,
+          `${slug} health route must NOT use /health for agent probe`,
+        ).not.toContain("${AGENT_URL}/health");
+      }
+    });
+
+    it("non-langgraph starters: frontend health route probes /health (not /ok)", () => {
+      const nonLanggraphSlugs = FRAMEWORKS.filter(
+        (f) => !f.slug.startsWith("langgraph-"),
+      ).map((f) => f.slug);
+      for (const slug of nonLanggraphSlugs) {
+        const healthRoute = path.join(
+          STARTERS_DIR,
+          slug,
+          "src",
+          "app",
+          "api",
+          "health",
+          "route.ts",
+        );
+        if (!fs.existsSync(healthRoute)) continue;
+        const content = fs.readFileSync(healthRoute, "utf-8");
+        expect(content, `${slug} health route must use /health`).toContain(
+          "${AGENT_URL}/health",
+        );
       }
     });
   });

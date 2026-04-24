@@ -64,6 +64,8 @@ features:
   - readonly-state-agent-context
   - subagents
   - multimodal
+  - open-gen-ui
+  - open-gen-ui-advanced
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -436,3 +438,27 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+  - id: open-gen-ui
+    name: Fully Open-Ended Generative UI
+    description: Agent generates UI from an arbitrary component library
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_agent.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
+    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_advanced_agent.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
+      - src/app/api/copilotkit-ogui/route.ts
