@@ -23,6 +23,7 @@ from agents.agent import create_agent
 from agents.agent_config_agent import create_agent_config_agent
 from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.multimodal_agent import create_multimodal_agent
+from agents.reasoning_agent import create_reasoning_agent
 
 load_dotenv()
 
@@ -46,6 +47,7 @@ def _build_chat_client(model_override: str | None = None) -> BaseChatClient:
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 agent_config_agent = create_agent_config_agent(chat_client)
+reasoning_agent = create_reasoning_agent(chat_client)
 
 # Multimodal: vision-capable; gpt-4o-mini natively handles `image` parts.
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
@@ -99,13 +101,18 @@ add_agent_framework_fastapi_endpoint(
     path="/beautiful-chat",
 )
 
-# Dedicated endpoint for the Agent Config Object demo. Scoped to its own path
-# so the dynamic-system-prompt behaviour does not leak into other demos that
-# share the main shared agent.
+# Dedicated endpoint for the Agent Config Object demo.
 add_agent_framework_fastapi_endpoint(
     app=app,
     agent=agent_config_agent,
     path="/agent-config",
+)
+
+# Dedicated endpoint for the Reasoning demos (agentic-chat-reasoning + reasoning-default-render).
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=reasoning_agent,
+    path="/reasoning",
 )
 
 # Shared agent for the rest of the demos (must be last: `/` is a catch-all).
