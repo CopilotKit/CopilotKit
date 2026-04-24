@@ -4,7 +4,8 @@ import {
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
 import { MastraAgent, getLocalAgent } from "@ag-ui/mastra";
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { mastra } from "@/mastra";
 
@@ -139,9 +140,7 @@ export function buildAgents(
     resourceId: "mastra-headlessCompleteAgent",
   });
   if (!headlessCompleteAgentInstance) {
-    throw new Error(
-      "getLocalAgent returned null for headlessCompleteAgent",
-    );
+    throw new Error("getLocalAgent returned null for headlessCompleteAgent");
   }
   const localAgents = {
     weatherAgent: baseLocalAgents.weatherAgent,
