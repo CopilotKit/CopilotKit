@@ -21,6 +21,7 @@ from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
 from agents.byoc_hashbrown_agent import create_byoc_hashbrown_agent
+from agents.byoc_json_render_agent import create_byoc_json_render_agent
 
 load_dotenv()
 
@@ -70,12 +71,20 @@ app.add_middleware(
 
 # BYOC demos: mount BEFORE the root catch-all so their paths aren't shadowed.
 # `add_agent_framework_fastapi_endpoint(..., path="/")` installs a catch-all
-# at the root that would otherwise swallow `/byoc-hashbrown`.
+# at the root that would otherwise swallow `/byoc-hashbrown` and
+# `/byoc-json-render`.
 byoc_hashbrown_agent = create_byoc_hashbrown_agent(chat_client)
 add_agent_framework_fastapi_endpoint(
     app=app,
     agent=byoc_hashbrown_agent,
     path="/byoc-hashbrown",
+)
+
+byoc_json_render_agent = create_byoc_json_render_agent(chat_client)
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=byoc_json_render_agent,
+    path="/byoc-json-render",
 )
 
 add_agent_framework_fastapi_endpoint(
