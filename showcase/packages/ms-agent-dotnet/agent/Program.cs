@@ -30,15 +30,15 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 
-// BYOC demos: each gets its own dedicated AG-UI endpoint so the frontend
-// can point `<CopilotKit runtimeUrl>` at a demo-specific runtime route
-// without bleed between agents. The backing factories are isolated from
-// SalesAgentFactory — they each own an OpenAIClient instance.
-var byocHashbrownFactory = new ByocHashbrownAgentFactory(builder.Configuration, loggerFactory);
-app.MapAGUI("/byoc-hashbrown", byocHashbrownFactory.CreateAgent());
+// Additional demo agents mounted at dedicated paths. Each factory is a thin
+// wrapper around `ChatClientAgent` with its own system prompt — kept
+// separate from `SalesAgentFactory` so their prompts / tool sets can evolve
+// independently without risking the shared sales pipeline behavior.
+var mcpAppsFactory = new McpAppsAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/mcp-apps", mcpAppsFactory.CreateMcpAppsAgent());
 
-var byocJsonRenderFactory = new ByocJsonRenderAgentFactory(builder.Configuration, loggerFactory);
-app.MapAGUI("/byoc-json-render", byocJsonRenderFactory.CreateAgent());
+var hitlInAppFactory = new HitlInAppAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/hitl-in-app", hitlInAppFactory.CreateHitlInAppAgent());
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
