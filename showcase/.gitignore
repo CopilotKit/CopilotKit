@@ -10,3 +10,12 @@ shared_typescript/
 # If the test is killed before cleanup, the directory leaks into the worktree;
 # this entry prevents accidental `git add`.
 packages/test-integration-tmp/
+
+# Generated data files — produced by showcase/scripts/ generators at build
+# time and dev startup. Every build path (Docker, CI, npm run build, npm
+# run dev) regenerates them, so they don't need to be committed. Tracking
+# them caused constant git noise from embedded timestamps.
+shell/src/data/*.json
+shell-dojo/src/data/*.json
+shell-docs/src/data/*.json
+shell-dashboard/src/data/*.json

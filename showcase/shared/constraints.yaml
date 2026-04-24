@@ -66,6 +66,8 @@ generative_ui:
       - subagents
       - voice
       - auth
+      - open-gen-ui
+      - open-gen-ui-advanced
 
 interaction_modalities:
   headless:

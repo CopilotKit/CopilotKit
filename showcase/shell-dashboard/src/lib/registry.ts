@@ -1,4 +1,4 @@
-import registryData from "../../../shell/src/data/registry.json";
+import registryData from "@/data/registry.json";
 import { sortOrder } from "./sort-order";
 
 export type FeatureKind = "primary" | "testing";
@@ -69,7 +69,6 @@ export interface Package {
 }
 
 export interface Registry {
-  generated_at: string;
   feature_registry: {
     version: string;
     categories: FeatureCategory[];

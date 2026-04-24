@@ -30,6 +30,24 @@ export const DIMENSIONS = [
   "agent",
   "chat",
   "tools",
+  // Phase 4A: QA dimension. The `qa` probe driver reads
+  // `showcase/packages/<slug>/qa/<feature>.md` file presence and emits one
+  // `qa:<slug>/<featureId>` row per manifest demo so the shell-dashboard
+  // can render the per-cell QA badge (see shell-dashboard's
+  // live-status.ts#resolveCell). The dimension does NOT contribute to the
+  // rollup — it's informational only — but it still needs a closed-enum
+  // slot so rule YAMLs that key on `qa` validate at load time.
+  "qa",
+  // Phase 4B: e2e-demos dimensions. The `e2e_demos` probe driver fans out
+  // across every declared demo of a showcase service, emitting an
+  // aggregate `e2e-demos:<slug>` row AND one `e2e:<slug>/<featureId>`
+  // side row per demo. Both literals are closed-enum so probe config
+  // YAMLs (`kind: e2e_demos`) and rule YAMLs filtering on
+  // `dimension: e2e_demos` / `dimension: e2e` validate at load time.
+  // `e2e` covers the per-cell side rows consumed by the dashboard's
+  // `keyFor("e2e", slug, featureId)` lookup in live-status.ts#resolveCell.
+  "e2e_demos",
+  "e2e",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
