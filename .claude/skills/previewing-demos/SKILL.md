@@ -18,6 +18,7 @@ If you're touching a demo's code and want to see the change in a browser (verify
    - `showcase-<slug>` → `showcase/shell*` and `showcase/starters/*` (e.g. `showcase-shell`, `showcase-shell-dashboard`, `showcase-langgraph-python`, `showcase-mastra`)
 
    Run `preview_list` or read `.claude/launch.json` to see all names.
+
 2. **Pre-flight check** (see the section below) — env vars, `npm install`.
 3. **Start:** `preview_start({ name: "<entry>" })`. It reuses the server if already running.
 4. **Interact:** `preview_click`, `preview_fill`, `preview_snapshot`, `preview_screenshot`, `preview_eval`, `preview_console_logs`.
@@ -56,6 +57,7 @@ Before `preview_start`, make sure these are in order. If you skip them the serve
 ## Port conventions
 
 Most demos land on port 3000 (Next.js default). Dedicated ports:
+
 - `showcase-shell-dojo` → 3001, `showcase-shell-dashboard` → 3002, `showcase-shell-docs` → 3003 (so you can run multiple shells side-by-side)
 - Storybook → 6006 (both `example-react-storybook` and `example-angular-storybook` — run them one at a time)
 - `example-docs` → 4000 (Mintlify)
