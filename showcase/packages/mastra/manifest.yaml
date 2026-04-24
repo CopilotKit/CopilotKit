@@ -58,6 +58,7 @@ features:
   - declarative-gen-ui
   - a2ui-fixed-schema
   - headless-complete
+  - auth
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -353,3 +354,16 @@ demos:
       - src/app/demos/headless-complete/message-list.tsx
       - src/mastra/agents/index.ts
       - src/app/api/copilotkit/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate enforced by the V2 runtime's onRequest hook — unauthenticated requests 401 before reaching the agent
+    tags:
+      - platform
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts

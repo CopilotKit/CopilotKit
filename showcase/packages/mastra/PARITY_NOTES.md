@@ -27,6 +27,10 @@ ported to Mastra.
   `useRenderCustomMessages`. Routes through the shared `/api/copilotkit`
   runtime; the langgraph-python reference's MCP Apps "sketch a diagram"
   suggestion is dropped because Mastra skips mcp-apps (see below).
+- `auth` — Bearer-token gate enforced by the V2 runtime's `onRequest` hook
+  (wired via `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2`).
+  Starts authenticated to avoid the initial `/info` 401 crash; a local
+  `ChatErrorBoundary` auto-resets when auth flips.
 
 ## Skipped / Deferred
 
@@ -67,11 +71,6 @@ Deferred pending a dedicated pass.
 The open generative UI demos ship their own iframe sandbox, frontend
 function injection, and a bespoke `/api/copilotkit-ogui` route. Non-trivial
 port. Deferred.
-
-### `auth`
-
-Requires a custom CopilotKit runtime with an `onRequest` auth hook at
-`/api/copilotkit-auth`. Deferred to a follow-up focused on middleware.
 
 ### `multimodal`
 
