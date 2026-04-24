@@ -1,7 +1,5 @@
-import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
-import { v4 as uuidv4 } from "uuid";
 import scarfClient from "./scarf-client";
 
 export function isTelemetryDisabled(): boolean {
@@ -17,11 +15,9 @@ export function isTelemetryDisabled(): boolean {
 }
 
 export class TelemetryClient {
-  segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
   private telemetryDisabled: boolean = false;
   private sampleRate: number = 0.05;
-  private anonymousId = `anon_${uuidv4()}`;
 
   constructor({
     telemetryDisabled,
@@ -31,21 +27,7 @@ export class TelemetryClient {
     sampleRate?: number;
   } = {}) {
     this.telemetryDisabled = telemetryDisabled ?? isTelemetryDisabled();
-
-    if (this.telemetryDisabled) {
-      this.setSampleRate(sampleRate);
-      return;
-    }
-
     this.setSampleRate(sampleRate);
-
-    const writeKey =
-      process.env.COPILOTKIT_SEGMENT_WRITE_KEY ||
-      "n7XAZtQCGS2v1vvBy3LgBCv2h3Y8whja";
-
-    this.segment = new Analytics({
-      writeKey,
-    });
   }
 
   private shouldSendEvent() {
@@ -58,33 +40,10 @@ export class TelemetryClient {
 
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
-    properties: AnalyticsEvents[K],
+    _properties: AnalyticsEvents[K],
   ) {
     if (!this.shouldSendEvent()) {
       return;
-    }
-
-    const flattenedProperties = flattenObject(properties);
-    const propertiesWithGlobal = {
-      ...this.globalProperties,
-      ...flattenedProperties,
-    };
-    const orderedPropertiesWithGlobal = Object.keys(propertiesWithGlobal)
-      .sort()
-      .reduce(
-        (obj, key) => {
-          obj[key] = propertiesWithGlobal[key];
-          return obj;
-        },
-        {} as Record<string, any>,
-      );
-
-    if (this.segment) {
-      this.segment.track({
-        anonymousId: this.anonymousId,
-        event,
-        properties: { ...orderedPropertiesWithGlobal },
-      });
     }
 
     await scarfClient.logEvent({
