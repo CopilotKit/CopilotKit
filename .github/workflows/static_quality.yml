@@ -74,7 +74,7 @@ jobs:
           git diff --name-only --diff-filter=ACMR "origin/$base_ref"...HEAD -- \
             '*.js' '*.jsx' '*.ts' '*.tsx' '*.mjs' '*.cjs' \
             '*.json' '*.jsonc' '*.json5' \
-            '*.md' '*.mdx' \
+            '*.md' \
             '*.css' '*.yml' '*.yaml' '*.html' '*.vue' \
             > .pr-format-files.txt
           : > .pr-format-files.existing.txt
