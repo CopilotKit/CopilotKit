@@ -20,6 +20,13 @@ ported to Mastra.
   `generate_a2ui` tool on the shared Mastra agent
 - `a2ui-fixed-schema` — A2UI fixed-schema flight card catalog via the
   same `generate_a2ui` tool
+- `headless-complete` — full chat-from-scratch on `useAgent` with a
+  dedicated `headlessCompleteAgent` (weather + stock backend tools,
+  frontend `highlight_note` component) and manual composition via
+  `useRenderToolCall` / `useRenderActivityMessage` /
+  `useRenderCustomMessages`. Routes through the shared `/api/copilotkit`
+  runtime; the langgraph-python reference's MCP Apps "sketch a diagram"
+  suggestion is dropped because Mastra skips mcp-apps (see below).
 
 ## Skipped / Deferred
 
@@ -91,12 +98,6 @@ those constants returns zero matches. Until the Mastra AG-UI bridge grows
 reasoning-event support, this demo cannot be ported without a cosmetic
 facade that fabricates reasoning tokens. Skipped as a truthful
 architectural limitation rather than a cosmetic stub.
-
-### `headless-complete`
-
-Full chat-from-scratch including message list + rendered-messages hook +
-MCP route. Deferred — the `headless-simple` port already exercises the core
-`useAgent` path.
 
 ## Architectural limitations
 

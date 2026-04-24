@@ -57,6 +57,7 @@ features:
   - agent-config
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - headless-complete
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -337,4 +338,18 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/mastra/tools/index.ts
+      - src/app/api/copilotkit/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: Full chat-from-scratch on useAgent — custom bubbles, manual generative-UI composition via useRenderToolCall / useRenderActivityMessage / useRenderCustomMessages
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/mastra/agents/index.ts
       - src/app/api/copilotkit/route.ts

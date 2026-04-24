@@ -68,7 +68,16 @@ export const demoAgentNames = [
   "agent-config",
   "declarative-gen-ui",
   "a2ui-fixed-schema",
+  "headless-complete",
 ] as const;
+
+// Per-demo override map: any demo alias listed here resolves to a dedicated
+// Mastra agent instead of the shared weatherAgent. Add a mapping here when a
+// demo needs its own system prompt / tool set (e.g. the headless-complete
+// demo uses a prompt that routes weather/stock/highlight requests).
+const demoAgentIdOverrides: Partial<Record<DemoAgentName, string>> = {
+  "headless-complete": "headlessCompleteAgent",
+};
 
 export type DemoAgentName = (typeof demoAgentNames)[number];
 
@@ -77,8 +86,14 @@ export type DemoAgentName = (typeof demoAgentNames)[number];
 // someone drops `as const` on `demoAgentNames` or widens this type back to
 // `Record<string, ...>`, the type-level test under tests/vitest/builtAgents.types.test.ts
 // should break `tsc --noEmit`.
+// Baseline local-agent keys Mastra registers under — these are the keys
+// handed back from `MastraAgent.getLocalAgents({ mastra })`. Keep this
+// narrowed alongside `mastra.agents` in `src/mastra/index.ts`; any agent
+// added there must be added here too.
+export type LocalMastraAgentName = "weatherAgent" | "headlessCompleteAgent";
+
 export type BuiltAgents = Record<
-  DemoAgentName | "weatherAgent",
+  DemoAgentName | LocalMastraAgentName,
   NonNullable<ReturnType<typeof getLocalAgent>>
 >;
 
@@ -99,15 +114,39 @@ export function buildAgents(
   // Give each demo its own stable resourceId so working-memory buckets don't
   // cross-contaminate between demos. `mastra-weatherAgent` keeps a baseline id
   // for direct smoke-test traffic that hits the underlying agent name.
-  const localAgents = MastraAgent.getLocalAgents({
+  // Dedicated per-local-agent resourceIds. `getLocalAgents` applies one
+  // resourceId to every local agent, which would make headlessCompleteAgent
+  // share weatherAgent's working-memory bucket. Rebind each local agent
+  // under its own id via `getLocalAgent` (keyed by agentId) so the buckets
+  // stay disjoint.
+  const baseLocalAgents = MastraAgent.getLocalAgents({
     mastra: mastraInstance,
     resourceId: weatherResourceId,
   });
-  if (!localAgents.weatherAgent) {
+  if (!baseLocalAgents.weatherAgent) {
     throw new Error(
       "weatherAgent missing from Mastra config — required for demo aliases",
     );
   }
+  if (!baseLocalAgents.headlessCompleteAgent) {
+    throw new Error(
+      "headlessCompleteAgent missing from Mastra config — required for headless-complete demo alias",
+    );
+  }
+  const headlessCompleteAgentInstance = getLocalAgent({
+    mastra: mastraInstance,
+    agentId: "headlessCompleteAgent",
+    resourceId: "mastra-headlessCompleteAgent",
+  });
+  if (!headlessCompleteAgentInstance) {
+    throw new Error(
+      "getLocalAgent returned null for headlessCompleteAgent",
+    );
+  }
+  const localAgents = {
+    weatherAgent: baseLocalAgents.weatherAgent,
+    headlessCompleteAgent: headlessCompleteAgentInstance,
+  };
 
   // Guard against silent shadowing: if Mastra ever registers a local agent
   // whose key collides with a demo alias, the spread order below would
@@ -124,6 +163,15 @@ export function buildAgents(
   // accidentally share one (would cause cross-demo working-memory contamination).
   const resourceIdByAgent = new Map<string, string>();
   resourceIdByAgent.set("weatherAgent", weatherResourceId);
+  // `getLocalAgents` above calls every local agent with the baseline
+  // `weatherResourceId`. For the dedicated headless-complete agent we want
+  // its own bucket so its working-memory doesn't collide with weatherAgent.
+  // Re-bind it under a dedicated resourceId here (the lookup below resolves
+  // via `getLocalAgent`, keyed by agentId).
+  resourceIdByAgent.set(
+    "headlessCompleteAgent",
+    "mastra-headlessCompleteAgent",
+  );
 
   const demoAliases: Record<
     string,
@@ -131,13 +179,16 @@ export function buildAgents(
   > = {};
   for (const name of demoAgentNames) {
     const resourceId = `mastra-${name}`;
+    const agentId = demoAgentIdOverrides[name] ?? "weatherAgent";
     const agent = getLocalAgent({
       mastra: mastraInstance,
-      agentId: "weatherAgent",
+      agentId,
       resourceId,
     });
     if (!agent) {
-      throw new Error(`getLocalAgent returned null for ${name}`);
+      throw new Error(
+        `getLocalAgent returned null for ${name} (agentId="${agentId}")`,
+      );
     }
     demoAliases[name] = agent;
     resourceIdByAgent.set(name, resourceId);
