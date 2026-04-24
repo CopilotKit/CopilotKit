@@ -338,25 +338,28 @@ export default defineConfig([
   {
     entry: { playground: "src/webview/playground/index.tsx" },
     outDir: "dist/webview",
-    format: ["esm"],
+    // IIFE (not ESM) to avoid two issues:
+    // 1) The VSCode webview loads playground.js via a classic <script> tag
+    //    which can't parse top-level ES `import` statements.
+    // 2) ESM output with `inlineDynamicImports: true` exposed a module-init
+    //    ordering bug — rolldown's `__esmMin` lazy-init wrappers emit their
+    //    `var init_X = __esmMin(...)` declarations in an order that breaks
+    //    TDZ guarantees when everything is inlined (init_src was used on
+    //    line 52686 but declared on line 107745 → "init_src is not a
+    //    function"). IIFE wraps everything in a single function scope with
+    //    eager evaluation in dependency order, sidestepping the hoisting
+    //    quirks.
+    format: ["iife"],
+    globalName: "__copilotkit_playground_bundle",
     platform: "browser",
     noExternal: [/.*/],
     dts: false,
     clean: false,
-    // The VSCode webview loads playground.js via a classic <script nonce=...>
-    // tag, which does not support ES module top-level `import` statements.
-    // Without these options, rolldown splits CopilotChat's dep graph into
-    // shared chunks + dynamic-import lazy chunks, emitting a multi-file ESM
-    // that the webview can't parse (→ "unknown error", blank tab).
-    // Forcing single-file output keeps playground.js self-contained.
-    inputOptions: {
-      experimental: {
-        // tsdown <-> rolldown passthrough; equivalent to Rollup's
-        // output.inlineDynamicImports + disabling code-splitting.
-      },
-    },
     outputOptions: {
       inlineDynamicImports: true,
+      // Override tsdown's default `playground.iife.js` name so view-provider's
+      // HTML continues to load `playground.js` like all the other webviews.
+      entryFileNames: "[name].js",
     },
     plugins: [
       stubNodeBuiltinsAndCss(PLAYGROUND_EXTRA_STUBBED_DEPS),
