@@ -61,6 +61,7 @@ features:
   - declarative-gen-ui
   - a2ui-fixed-schema
   - byoc-hashbrown
+  - byoc-json-render
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -285,4 +286,11 @@ demos:
     tags:
       - generative-ui
     route: /demos/byoc-hashbrown
+    animated_preview_url:
+  - id: byoc-json-render
+    name: BYOC (json-render)
+    description: Flat {root, elements} spec rendered by @json-render/react against a Zod catalog
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
     animated_preview_url:

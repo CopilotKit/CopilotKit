@@ -42,6 +42,7 @@ from starlette.responses import JSONResponse
 from agents.crew import LatestAiDevelopment
 from agents.a2ui_fixed import A2UIFixedSchema
 from agents.byoc_hashbrown_agent import ByocHashbrown
+from agents.byoc_json_render_agent import ByocJsonRender
 from agents.declarative_gen_ui import DeclarativeGenUI
 
 app = FastAPI(title="CrewAI (Crews) Agent Server")
@@ -253,6 +254,7 @@ app.add_middleware(
 add_crewai_crew_fastapi_endpoint(app, DeclarativeGenUI(), "/declarative-gen-ui")
 add_crewai_crew_fastapi_endpoint(app, A2UIFixedSchema(), "/a2ui-fixed-schema")
 add_crewai_crew_fastapi_endpoint(app, ByocHashbrown(), "/byoc-hashbrown")
+add_crewai_crew_fastapi_endpoint(app, ByocJsonRender(), "/byoc-json-render")
 
 add_crewai_crew_fastapi_endpoint(app, LatestAiDevelopment(), "/")
 
