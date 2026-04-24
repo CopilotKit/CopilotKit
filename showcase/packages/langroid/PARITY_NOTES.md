@@ -5,9 +5,9 @@ that are either deliberately skipped or deferred for the Langroid integration.
 
 Canonical list: 36 demos (excluding `cli-start`).
 
-## Ported in this pass (batch B4)
+## Ported
 
-### Pre-existing
+### Wave 1 (initial scaffold)
 
 - agentic-chat
 - hitl-in-chat (route: `/demos/hitl`)
@@ -18,7 +18,7 @@ Canonical list: 36 demos (excluding `cli-start`).
 - shared-state-streaming
 - subagents
 
-### Added in this pass
+### Wave 2 (chat chrome + reasoning)
 
 - chat-customization-css
 - prebuilt-sidebar
@@ -32,39 +32,64 @@ Canonical list: 36 demos (excluding `cli-start`).
 - reasoning-default-render
 - readonly-state-agent-context
 
-## Skipped — Langroid does not currently support
+### Wave 3 (batch B4 second pass)
 
-- **gen-ui-interrupt** — the canonical implementation uses
-  `useLangGraphInterrupt` + LangGraph's interrupt lifecycle (`interrupt()`
-  node, resume with `Command(resume=...)`). Langroid has no equivalent
-  interrupt primitive in its `ChatAgent` / `Task` model; the AG-UI adapter
-  here does not emit interrupt events.
-- **interrupt-headless** — same reasoning as `gen-ui-interrupt`; this is the
-  headless variant of the same LangGraph-specific primitive.
+- tool-rendering-default-catchall
+- tool-rendering-custom-catchall
+- declarative-gen-ui (A2UI dynamic schema — reuses agent's `generate_a2ui` tool)
+- auth (dedicated `/api/copilotkit-auth` route with `onRequest` hook)
+- headless-complete (frontend-only, reuses unified runtime)
+- agent-config (frontend + dedicated route; Langroid backend does not yet
+  consume forwarded `properties` — see "Known limitations" below)
 
-## Deferred — portable in principle, requires additional backend or BYOC work
+## Skipped — Langroid lacks the framework primitive
 
-These demos are portable to Langroid but were not implemented in this batch
-due to scope. Each requires either a dedicated route and renderer or a
-bespoke backend tool beyond the unified agent.
+- **gen-ui-interrupt** — uses `useLangGraphInterrupt` + LangGraph's
+  `interrupt()` node + `Command(resume=...)` lifecycle. Langroid has no
+  equivalent interrupt primitive and the current AG-UI adapter emits no
+  interrupt events.
+- **interrupt-headless** — same reason as `gen-ui-interrupt`.
 
-- **tool-rendering-default-catchall** — backend tool surface exists via
-  the agent's existing tools; requires the default-catchall variant of the
-  tool-rendering page.
-- **tool-rendering-custom-catchall** — same, with `useDefaultRenderTool`.
-- **tool-rendering-reasoning-chain** — requires sequential tool-call + reasoning
-  emission from the Langroid adapter.
-- **declarative-gen-ui** — A2UI dynamic schema already has a planner in
-  `agent.py` (`GenerateA2UITool`); needs the frontend catalog + renderers page.
-- **a2ui-fixed-schema** — needs a dedicated agent and schema JSON.
-- **mcp-apps** — Langroid does expose MCP support, but the canonical demo is
-  tightly coupled to LangGraph activity-message emission; deferred.
-- **byoc-json-render** — requires a dedicated BYOC route + json-render catalog.
-- **byoc-hashbrown** — requires a dedicated BYOC route + hashbrown structured-output pipeline.
-- **beautiful-chat** — requires a dedicated combined runtime (openGenerativeUI + a2ui + mcpApps).
-- **multimodal** — requires a vision-capable agent pipeline + dedicated route.
-- **auth** — requires a dedicated auth-gated runtime route.
-- **voice** — requires the voice-enabled runtime route + sample audio asset.
-- **open-gen-ui / open-gen-ui-advanced** — require a dedicated OGUI runtime route.
-- **agent-config** — requires typed-config forwarding to the agent's system prompt.
-- **headless-complete** — depends on the mcp-apps runtime + Excalidraw MCP.
+## Deferred — portable in principle, requires additional agent or runtime work
+
+Each of these is achievable but needs a dedicated Langroid agent tool / module
+that we did not take on in this pass. They are tracked so a follow-up can
+pick them up without re-litigating scope.
+
+- **tool-rendering-reasoning-chain** — needs the Langroid AG-UI adapter to
+  emit reasoning events; the current adapter only emits text + tool deltas.
+- **a2ui-fixed-schema** — needs a dedicated agent that loads JSON schemas
+  at startup and exposes a `display_flight`-shaped tool backed by the same
+  A2UI middleware path.
+- **byoc-json-render** — needs a Langroid agent that streams structured
+  JSON matching the `@json-render/react` Zod catalog, plus a dedicated BYOC
+  runtime route.
+- **byoc-hashbrown** — needs a Langroid agent that streams structured
+  output matching the hashbrown schema, plus a dedicated BYOC runtime route.
+- **beautiful-chat** — polished starter chat. Large frontend (example-layout,
+  example-canvas, generative-ui charts, hooks). Requires combining
+  openGenerativeUI + a2ui on one dedicated runtime route.
+- **multimodal** — needs a Langroid agent configured with a vision-capable
+  LLM and a dedicated runtime that accepts CopilotChat attachments
+  (images + PDFs).
+- **voice** — needs the `@copilotkit/voice` plumbing plus a dedicated voice
+  runtime route and sample audio assets.
+- **open-gen-ui** — needs a Langroid agent that emits a `generateSandboxedUi`
+  tool call; the runtime `openGenerativeUI` middleware converts that stream
+  into activity events.
+- **open-gen-ui-advanced** — same agent surface as `open-gen-ui` plus
+  host-side `sandboxFunctions` wiring on the frontend.
+- **mcp-apps** — Langroid does ship an MCP client surface, but the canonical
+  demo is tightly coupled to the LangGraph activity-message emission path.
+  A Langroid port needs a custom AG-UI adapter path that emits the
+  MCP-apps activity events.
+
+## Known limitations
+
+- **agent-config**: the frontend + runtime route are in place. The Langroid
+  backend (`src/agents/agui_adapter.py`) does not currently read
+  `RunAgentInput.forwarded_props` and pass them into the ChatAgent's system
+  prompt, so changing tone / expertise / response length in the config card
+  does not yet change agent behavior. Wiring this requires extending the
+  adapter to read forwarded props and the agent's system-prompt builder to
+  consume them — tracked as follow-up work.

@@ -51,6 +51,18 @@ const agentNames = [
   "reasoning-default-render",
   // Read-only agent context — frontend exposes useAgentContext; same agent.
   "readonly-state-agent-context",
+  // Tool rendering variants — all share the unified agent; frontend differs.
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
+  // Declarative A2UI + fixed-schema A2UI — use the agent's generate_a2ui tool.
+  "declarative-gen-ui",
+  "a2ui-fixed-schema",
+  // Agent-config, open-gen-ui, headless-complete all reuse the unified agent.
+  "agent-config",
+  "open-gen-ui",
+  "open-gen-ui-advanced",
+  "headless-complete",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

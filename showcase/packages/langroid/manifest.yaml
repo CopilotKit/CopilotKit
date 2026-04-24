@@ -38,6 +38,12 @@ features:
   - agentic-chat-reasoning
   - reasoning-default-render
   - readonly-state-agent-context
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
+  - declarative-gen-ui
+  - auth
+  - headless-complete
+  - agent-config
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -245,6 +251,79 @@ demos:
     highlight:
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default Catch-all)
+    description: Zero-config wildcard via useDefaultRenderTool — the built-in DefaultToolCallRenderer paints every tool call
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering-default-catchall
+    animated_preview_url:
+    highlight:
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: Tool Rendering (Custom Catch-all)
+    description: Single branded wildcard renderer registered via useDefaultRenderTool
+    tags:
+      - agent-capabilities
+    route: /demos/tool-rendering-custom-catchall
+    animated_preview_url:
+    highlight:
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI
+    description: A2UI dynamic-schema rendering — agent emits operations against a client-declared catalog
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via the V2 runtime's onRequest hook; unauth requests are rejected with 401
+    tags:
+      - authentication
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: A full chat surface built from scratch on useAgent — no CopilotChat, hand-rolled message list + bubbles
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: Typed config forwarded via CopilotKit provider properties; the agent reads tone/expertise/responseLength per turn
+    tags:
+      - agent-capabilities
+    route: /demos/agent-config
+    animated_preview_url:
+    highlight:
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/use-agent-config.ts
+      - src/app/api/copilotkit-agent-config/route.ts
 starter:
   path: showcase/starters/langroid
   name: Sales Dashboard
