@@ -29,6 +29,8 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "headless-simple",
+  "headless-complete",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
