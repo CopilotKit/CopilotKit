@@ -2,6 +2,7 @@
   "dependencies": ["."],
   "graphs": {
     "sample_agent": "./src/agents/src/agent.py:graph",
-    "byoc_hashbrown": "./src/agents/src/byoc_hashbrown_agent.py:graph"
+    "byoc_hashbrown": "./src/agents/src/byoc_hashbrown_agent.py:graph",
+    "byoc_json_render": "./src/agents/src/byoc_json_render_agent.py:graph"
   }
 }

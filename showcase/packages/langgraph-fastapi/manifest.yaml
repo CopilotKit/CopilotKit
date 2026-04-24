@@ -38,6 +38,7 @@ features:
   - shared-state-streaming
   - subagents
   - byoc-hashbrown
+  - byoc-json-render
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -111,3 +112,19 @@ demos:
       - src/app/demos/byoc-hashbrown/charts/pie-chart.tsx
       - src/app/demos/byoc-hashbrown/types.ts
       - src/app/demos/byoc-hashbrown/suggestions.ts
+  - id: byoc-json-render
+    name: BYOC json-render
+    description: Streaming hierarchical JSON UI spec rendered via @json-render/react, with a Zod-validated catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/src/byoc_json_render_agent.py
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/registry.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/demos/byoc-json-render/metric-card.tsx
+      - src/app/demos/byoc-json-render/charts/bar-chart.tsx
+      - src/app/demos/byoc-json-render/charts/pie-chart.tsx
