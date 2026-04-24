@@ -18,7 +18,14 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// The Claude Agent SDK (TypeScript) backend is a pass-through: it forwards
+// whatever tools the AG-UI client provides (frontend-registered via
+// useFrontendTool / useRenderTool, plus runtime-injected tools from
+// openGenerativeUI / a2ui / mcpApps middleware) to Claude. So distinct
+// agent behaviour across demos comes from the frontend, not a per-demo
+// backend graph — every demo can share the same HttpAgent target.
 const agentNames = [
+  // existing demos
   "agentic_chat",
   "agentic-chat",
   "human_in_the_loop",
@@ -30,6 +37,24 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // newly ported demos
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "frontend_tools",
+  "frontend-tools-async",
+  "hitl-in-chat",
+  "hitl-in-app",
+  "readonly-state-agent-context",
+  // runtime-injected demos (A2UI, open-gen-ui, mcp-apps live on dedicated
+  // runtimes; here we register the ids so intra-app links and probe
+  // requests resolve cleanly against the default runtime too)
+  "declarative-gen-ui",
+  "open-gen-ui",
+  "open-gen-ui-advanced",
+  "mcp-apps",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
