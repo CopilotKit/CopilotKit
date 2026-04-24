@@ -471,6 +471,11 @@ const config = {
         permanent: true,
       },
       {
+        source: '/ag-ui',
+        destination: 'https://docs.ag-ui.com/',
+        permanent: false,
+      },
+      {
         source: '/connect-mcp-servers',
         destination: '/learn/connect-mcp-servers',
         permanent: true,
