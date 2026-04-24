@@ -247,14 +247,15 @@ Before you begin, you'll need the following:
         ```
 
         <Callout type="info" title="Using Next.js is optional">
-            If you'd rather skip the Next.js API proxy and connect your frontend directly to the agent,
-            expose a CopilotKit-compatible HTTP endpoint from your LangGraph deployment instead.
-            See the [Vite + Direct Connection](#alternative-vite--direct-connection) alternative below,
-            or the [LangChain CopilotKit guide](https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit)
+            To skip the Next.js API proxy and connect your frontend directly to the agent,
+            select the **LangGraph with custom route** tab below. See the
+            [Vite + Direct Connection](#alternative-vite--direct-connection) section for
+            the full end-to-end walkthrough, or the
+            [LangChain CopilotKit guide](https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit)
             for how to add a custom CopilotKit route to an existing LangGraph app.
         </Callout>
 
-        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI']}>
+        <Tabs groupId="deployment_method" items={['Deep Agent', 'FastAPI', 'LangGraph with custom route']}>
             <Tab value="Deep Agent">
                 ```tsx title="app/api/copilotkit/route.ts"
                 import {
@@ -317,6 +318,22 @@ Before you begin, you'll need the following:
 
                     return handleRequest(req);
                 };
+                ```
+            </Tab>
+            <Tab value="LangGraph with custom route">
+                Skip the Next.js API proxy and connect your frontend directly to a LangGraph
+                deployment that exposes a custom CopilotKit route. See
+                [Alternative: Vite + Direct Connection](#alternative-vite--direct-connection)
+                below for the full Python + frontend walkthrough, or the
+                [LangChain CopilotKit guide](https://docs.langchain.com/oss/python/langchain/frontend/integrations/copilotkit).
+
+                No `app/api/copilotkit/route.ts` file is needed — point `CopilotKit` at the
+                agent URL directly in the next step:
+
+                ```tsx
+                <CopilotKit runtimeUrl="http://localhost:8123" agent="sample_agent">
+                    {children}
+                </CopilotKit>
                 ```
             </Tab>
         </Tabs>

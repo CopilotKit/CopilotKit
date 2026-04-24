@@ -84,9 +84,10 @@ prompt = a2ui_prompt(design_guidelines="Use a minimal, monochrome aesthetic.")
 ### Register the tool
 
 ```python title="apps/agent/main.py"
+from deepagents import create_deep_agent
 from src.a2ui_dynamic_schema import generate_a2ui
 
-agent = create_agent(
+agent = create_deep_agent(
     tools=[generate_a2ui, ...],
     ...
 )

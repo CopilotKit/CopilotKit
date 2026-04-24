@@ -99,9 +99,10 @@ Key points:
 ### Register the tool
 
 ```python title="apps/agent/main.py"
+from deepagents import create_deep_agent
 from src.a2ui_fixed_schema import search_flights
 
-agent = create_agent(
+agent = create_deep_agent(
     tools=[search_flights, ...],
     ...
 )
