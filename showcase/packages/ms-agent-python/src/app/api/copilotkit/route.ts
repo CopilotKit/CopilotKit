@@ -30,6 +30,7 @@ const agentNames = [
   "subagents",
   "frontend-tools",
   "frontend-tools-async",
+  "readonly-state-agent-context",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
