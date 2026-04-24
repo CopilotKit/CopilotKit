@@ -113,7 +113,7 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.total_cells).toBe(663);
   });
 
-  it("LGP has status=wired for its 32 features (31 wired + 1 stub), unshipped for the other 6", () => {
+  it("LGP has status=wired for its 33 features (32 wired + 1 stub), unshipped for the other 5", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -128,10 +128,11 @@ describe("Catalog Generator", () => {
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 32 features in manifest: 31 with routes (wired) + 1 without route (stub = cli-start)
-    expect(wired.length).toBe(31);
+    // LGP has 33 features in manifest: 32 with routes (wired) + 1 without route (stub = cli-start)
+    // (Wave 2a added `voice` as a wired feature → 32 wired + 1 stub)
+    expect(wired.length).toBe(32);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(6);
+    expect(unshipped.length).toBe(5);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -189,15 +190,15 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata).toBeDefined();
     expect(catalog.metadata.total_cells).toBe(663);
 
-    // Wired = LGP 31 wired + 16 * 8 wired + 17 starters = 31 + 128 + 17 = 176
+    // Wired = LGP 32 wired + 16 * 8 wired + 17 starters = 32 + 128 + 17 = 177
     // Stub = 1 (LGP cli-start)
-    // Unshipped = 6 (LGP) + 16 * 30 (other integrations) = 6 + 480 = 486
-    // Total integrated = 159 + 1 + 486 = 646
+    // Unshipped = 5 (LGP) + 16 * 30 (other integrations) = 5 + 480 = 485
+    // Total integrated = 160 + 1 + 485 = 646
     // Starters (all wired) = 17
-    // So wired = 159 + 17 = 176, stub = 1, unshipped = 486
-    expect(catalog.metadata.wired).toBe(176);
+    // So wired = 160 + 17 = 177, stub = 1, unshipped = 485
+    expect(catalog.metadata.wired).toBe(177);
     expect(catalog.metadata.stub).toBe(1);
-    expect(catalog.metadata.unshipped).toBe(486);
+    expect(catalog.metadata.unshipped).toBe(485);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {
