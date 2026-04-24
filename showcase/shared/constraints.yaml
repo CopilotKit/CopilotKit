@@ -66,6 +66,8 @@ generative_ui:
       - shared-state-streaming
       - subagents
       - voice
+      - open-gen-ui
+      - open-gen-ui-advanced
 
 interaction_modalities:
   headless:

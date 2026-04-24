@@ -32,10 +32,17 @@ const FEATURE_REGISTRY_PATH = path.join(
 const SHELL_OUTPUT_DIR = path.join(ROOT, "shell", "src", "data");
 const SHELL_DOCS_OUTPUT_DIR = path.join(ROOT, "shell-docs", "src", "data");
 const SHELL_DOJO_OUTPUT_DIR = path.join(ROOT, "shell-dojo", "src", "data");
+const SHELL_DASHBOARD_OUTPUT_DIR = path.join(
+  ROOT,
+  "shell-dashboard",
+  "src",
+  "data",
+);
 const OUTPUT_DIRS = [
   SHELL_OUTPUT_DIR,
   SHELL_DOCS_OUTPUT_DIR,
   SHELL_DOJO_OUTPUT_DIR,
+  SHELL_DASHBOARD_OUTPUT_DIR,
 ];
 const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
@@ -173,6 +180,238 @@ function validateManifest(
   return errors;
 }
 
+// --- Catalog types ---
+
+interface CatalogCell {
+  id: string;
+  manifestation: "integrated" | "starter";
+  integration: string;
+  integration_name: string;
+  feature: string | null;
+  feature_name: string | null;
+  category: string | null;
+  category_name: string | null;
+  status: "wired" | "stub" | "unshipped";
+  parity_tier: "reference" | "at_parity" | "partial" | "minimal" | "not_wired";
+  max_depth: number;
+}
+
+interface CatalogMetadata {
+  reference: string;
+  total_cells: number;
+  wired: number;
+  stub: number;
+  unshipped: number;
+  generated_at: string;
+}
+
+interface Catalog {
+  metadata: CatalogMetadata;
+  cells: CatalogCell[];
+}
+
+/**
+ * Determine cell status for a (feature, integration) pair.
+ *
+ * - wired: manifest declares the feature AND has a demo with a route for it
+ * - stub: manifest declares the feature AND has a demo, but no route
+ * - unshipped: feature is not in the manifest at all
+ */
+function determineCellStatus(
+  featureId: string,
+  manifest: Record<string, unknown>,
+): "wired" | "stub" | "unshipped" {
+  const features = (manifest.features as string[]) || [];
+  if (!features.includes(featureId)) {
+    return "unshipped";
+  }
+
+  const demos = (manifest.demos as Array<{ id: string; route?: string }>) || [];
+  const demo = demos.find((d) => d.id === featureId);
+  if (!demo) {
+    // Feature declared but no demo entry at all
+    return "unshipped";
+  }
+
+  if (demo.route) {
+    return "wired";
+  }
+
+  // Demo exists but no route (e.g. cli-start with command: only)
+  return "stub";
+}
+
+/**
+ * Generate the full 663-cell catalog by cross-joining features x integrations,
+ * plus 17 starter cells. Parity tiers are auto-derived from manifest data.
+ */
+function generateCatalog(
+  featureRegistry: {
+    features: Array<{ id: string; name: string; category: string }>;
+    categories: Array<{ id: string; name: string }>;
+  },
+  integrations: Record<string, unknown>[],
+): Catalog {
+  // Build feature -> category lookup
+  const featureCategoryMap = new Map<string, string>();
+  for (const feature of featureRegistry.features) {
+    featureCategoryMap.set(feature.id, feature.category);
+  }
+
+  // Build feature -> display name lookup
+  const featureNameMap = new Map<string, string>();
+  for (const feature of featureRegistry.features) {
+    featureNameMap.set(feature.id, feature.name);
+  }
+
+  // Build category -> display name lookup
+  const categoryNameMap = new Map<string, string>();
+  for (const category of featureRegistry.categories) {
+    categoryNameMap.set(category.id, category.name);
+  }
+
+  const allFeatureIds = featureRegistry.features.map((f) => f.id);
+
+  // Step 1: Cross-join to produce integrated cells and collect wired features per integration
+  const wiredFeaturesPerIntegration = new Map<string, Set<string>>();
+  const cells: CatalogCell[] = [];
+
+  for (const integration of integrations) {
+    const slug = integration.slug as string;
+    const integrationName = integration.name as string;
+    const wiredFeatures = new Set<string>();
+
+    for (const featureId of allFeatureIds) {
+      const status = determineCellStatus(featureId, integration);
+      if (status === "wired") {
+        wiredFeatures.add(featureId);
+      }
+
+      const categoryId = featureCategoryMap.get(featureId) || null;
+
+      cells.push({
+        id: `${slug}/${featureId}`,
+        manifestation: "integrated",
+        integration: slug,
+        integration_name: integrationName,
+        feature: featureId,
+        feature_name: featureNameMap.get(featureId) || null,
+        category: categoryId,
+        category_name: categoryId
+          ? categoryNameMap.get(categoryId) || null
+          : null,
+        status,
+        parity_tier: "not_wired", // placeholder, computed below
+        max_depth: status === "unshipped" ? 0 : 4,
+      });
+    }
+
+    wiredFeaturesPerIntegration.set(slug, wiredFeatures);
+  }
+
+  // Step 2: Auto-detect reference integration (most wired features, ties broken alphabetically)
+  let referenceSlug = "";
+  let referenceCount = -1;
+  for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
+    const count = wiredSet.size;
+    if (
+      count > referenceCount ||
+      (count === referenceCount && slug < referenceSlug)
+    ) {
+      referenceSlug = slug;
+      referenceCount = count;
+    }
+  }
+
+  const referenceWiredFeatures =
+    wiredFeaturesPerIntegration.get(referenceSlug)!;
+  console.log(
+    `\nCatalog: reference integration = ${referenceSlug} (${referenceCount} wired features)`,
+  );
+
+  // Step 3: Compute parity tiers for each integration
+  const integrationTiers = new Map<
+    string,
+    "reference" | "at_parity" | "partial" | "minimal" | "not_wired"
+  >();
+
+  for (const [slug, wiredSet] of wiredFeaturesPerIntegration) {
+    if (slug === referenceSlug) {
+      integrationTiers.set(slug, "reference");
+      continue;
+    }
+
+    // Check if this integration's wired features are a superset of the reference's
+    const isSuperset = [...referenceWiredFeatures].every((f) =>
+      wiredSet.has(f),
+    );
+    if (isSuperset) {
+      integrationTiers.set(slug, "at_parity");
+      continue;
+    }
+
+    // Count intersection with reference's wired features
+    const intersectionSize = [...referenceWiredFeatures].filter((f) =>
+      wiredSet.has(f),
+    ).length;
+    if (intersectionSize >= 3) {
+      integrationTiers.set(slug, "partial");
+    } else if (intersectionSize >= 1) {
+      integrationTiers.set(slug, "minimal");
+    } else {
+      integrationTiers.set(slug, "not_wired");
+    }
+  }
+
+  // Step 4: Apply parity tiers to all integrated cells
+  for (const cell of cells) {
+    if (cell.manifestation === "integrated") {
+      cell.parity_tier = integrationTiers.get(cell.integration)!;
+    }
+  }
+
+  // Step 5: Add 17 starter cells
+  for (const integration of integrations) {
+    const slug = integration.slug as string;
+    const integrationName = integration.name as string;
+    const starter = integration.starter as Record<string, unknown> | undefined;
+    if (starter) {
+      cells.push({
+        id: `starter/${slug}`,
+        manifestation: "starter",
+        integration: slug,
+        integration_name: integrationName,
+        feature: null,
+        feature_name: null,
+        category: null,
+        category_name: null,
+        status: "wired",
+        parity_tier: integrationTiers.get(slug) || "not_wired",
+        max_depth: 4,
+      });
+    }
+  }
+
+  // Step 6: Compute metadata
+  const wiredCount = cells.filter((c) => c.status === "wired").length;
+  const stubCount = cells.filter((c) => c.status === "stub").length;
+  const unshippedCount = cells.filter((c) => c.status === "unshipped").length;
+
+  const metadata: CatalogMetadata = {
+    reference: referenceSlug,
+    total_cells: cells.length,
+    wired: wiredCount,
+    stub: stubCount,
+    unshipped: unshippedCount,
+    generated_at: new Date().toISOString(),
+  };
+
+  return {
+    metadata,
+    cells,
+  };
+}
+
 function main() {
   console.log("Generating integration registry...\n");
 
@@ -273,7 +512,6 @@ function main() {
   }
 
   const registry = {
-    generated_at: new Date().toISOString(),
     feature_registry: featureRegistry,
     integrations,
     packages,
@@ -295,6 +533,17 @@ function main() {
     JSON.stringify(constraints, null, 2) + "\n",
   );
   console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
+
+  // --- Catalog generation (D0-D4 dashboard matrix) ---
+  const catalog = generateCatalog(featureRegistry, integrations);
+  const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
+  for (const dir of OUTPUT_DIRS) {
+    const catalogPath = path.join(dir, "catalog.json");
+    fs.writeFileSync(catalogPath, catalogJson);
+    console.log(
+      `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
+    );
+  }
 }
 
 main();

@@ -14,7 +14,7 @@
 // `shared/feature-registry.json` snapshots; if only the legacy key is present
 // we emit a one-shot notice in dev so the stale shape doesn't go unnoticed.
 //
-// Writes shell/src/data/docs-status.json. The shell-dashboard UI reads it
+// Writes shell-dashboard/src/data/docs-status.json. The shell-dashboard UI reads it
 // so green ✓ / red ✗ reflect actual reachability, not just "field present."
 //
 // Intended to run on `pnpm dev` (via predev hook) and CI. Safe to run
@@ -30,12 +30,18 @@ const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, "..");
 const REGISTRY_PATH = path.join(ROOT, "shared", "feature-registry.json");
 // MDX docs content now lives in shell-docs (it owns the docs hostname).
-// docs-status.json is still consumed only by shell-dashboard, so it keeps
-// emitting under shell/data for the dashboard to read. The CONTENT scan
+// docs-status.json is consumed only by shell-dashboard, so we emit
+// directly into shell-dashboard/src/data/ for the dashboard to read. The CONTENT scan
 // source is shell-docs — the "shell_docs_url" field points at paths that
 // now serve from docs.showcase.copilotkit.ai.
 const SHELL_DOCS_ROOT = path.join(ROOT, "shell-docs", "src", "content", "docs");
-const OUTPUT_PATH = path.join(ROOT, "shell", "src", "data", "docs-status.json");
+const OUTPUT_PATH = path.join(
+  ROOT,
+  "shell-dashboard",
+  "src",
+  "data",
+  "docs-status.json",
+);
 
 type DocState = "ok" | "missing" | "notfound" | "error";
 
@@ -144,11 +150,8 @@ async function main() {
   );
   for (const [id, status] of entries) results[id] = status;
 
-  const generatedAt = new Date().toISOString();
-  fs.writeFileSync(
-    OUTPUT_PATH,
-    JSON.stringify({ generated_at: generatedAt, features: results }, null, 2),
-  );
+  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
+  fs.writeFileSync(OUTPUT_PATH, JSON.stringify({ features: results }, null, 2));
 
   // Per-feature summary is noisy; print aggregate counts.
   const counts = { ok: 0, missing: 0, notfound: 0, error: 0 };

@@ -24,6 +24,7 @@ ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 # Generate registry + content, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
     && node node_modules/tsx/dist/cli.mjs bundle-demo-content.ts \
+    && node node_modules/tsx/dist/cli.mjs bundle-starter-content.ts \
     && node node_modules/tsx/dist/cli.mjs generate-search-index.ts \
     && cd ../shell && npx next build
 
