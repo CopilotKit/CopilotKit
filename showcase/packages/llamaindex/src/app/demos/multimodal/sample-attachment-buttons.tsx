@@ -65,6 +65,30 @@ function findChatFileInput(rootSelector: string): HTMLInputElement | null {
   return root.querySelector<HTMLInputElement>('input[type="file"]');
 }
 
+/**
+ * Magic-byte prefixes used to validate fetched sample files. We check
+ * these because Next.js will happily serve a Git LFS *pointer* file (a
+ * short plain-text stub starting with `version https://git-lfs...`) with
+ * a `Content-Type: image/png` header if LFS wasn't pulled at build time.
+ * Without this guard, the broken pointer bytes get base64-encoded,
+ * fed into CopilotChat as a valid-looking PNG, and rendered as a broken
+ * <img>. Fail loudly with an actionable error instead.
+ */
+const MAGIC_BYTES: Record<string, number[]> = {
+  "image/png": [0x89, 0x50, 0x4e, 0x47], // ‰PNG
+  "application/pdf": [0x25, 0x50, 0x44, 0x46], // %PDF
+};
+
+const LFS_POINTER_PREFIX = "version https://git-lfs";
+
+function bytesStartWith(bytes: Uint8Array, prefix: number[]): boolean {
+  if (bytes.length < prefix.length) return false;
+  for (let i = 0; i < prefix.length; i++) {
+    if (bytes[i] !== prefix[i]) return false;
+  }
+  return true;
+}
+
 async function fetchAsFile(spec: SampleSpec): Promise<File> {
   const res = await fetch(spec.fetchUrl);
   if (!res.ok) {
@@ -73,7 +97,33 @@ async function fetchAsFile(spec: SampleSpec): Promise<File> {
         `Is the file bundled under public${spec.fetchUrl}?`,
     );
   }
-  const blob = await res.blob();
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // Detect Git LFS pointer stub — the file on disk hasn't been materialized.
+  const asciiHead = new TextDecoder("utf-8", { fatal: false }).decode(
+    bytes.slice(0, Math.min(bytes.length, 64)),
+  );
+  if (asciiHead.startsWith(LFS_POINTER_PREFIX)) {
+    throw new Error(
+      `Sample "${spec.filename}" is a Git LFS pointer, not the real asset. ` +
+        "The deploy environment needs to run `git lfs pull` (or set " +
+        "`GIT_LFS_ENABLED=1`) so the binary is checked out before the Next.js " +
+        "app serves it.",
+    );
+  }
+
+  const expectedMagic = MAGIC_BYTES[spec.mimeType];
+  if (expectedMagic && !bytesStartWith(bytes, expectedMagic)) {
+    throw new Error(
+      `Sample "${spec.filename}" does not have a valid ${spec.mimeType} ` +
+        "signature. The file may be corrupted or a wrong asset was committed.",
+    );
+  }
+
+  // Re-wrap the bytes into a blob/File with the explicit MIME type rather than
+  // trusting whatever Content-Type the dev server returned.
+  const blob = new Blob([buffer], { type: spec.mimeType });
   return new File([blob], spec.filename, { type: spec.mimeType });
 }
 
