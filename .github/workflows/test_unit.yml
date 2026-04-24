@@ -112,6 +112,18 @@ jobs:
             pnpm install --frozen-lockfile
           fi
 
+      - name: Verify installed React version matches matrix
+        env:
+          EXPECTED_REACT_VERSION: ${{ matrix.react }}
+        run: |
+          INSTALLED=$(node -e "console.log(require('react/package.json').version)")
+          # matrix.react is an exact version ("17.0.2" etc.) — exact match is correct.
+          if [ "$INSTALLED" != "$EXPECTED_REACT_VERSION" ]; then
+            echo "::error::Expected React $EXPECTED_REACT_VERSION but got $INSTALLED"
+            exit 1
+          fi
+          echo "React $INSTALLED installed as expected."
+
       - name: Configure Nx Cloud environment
         run: |
           echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v1-${{ matrix.node-version }}-react${{ matrix.react-version }}" >> $GITHUB_ENV
