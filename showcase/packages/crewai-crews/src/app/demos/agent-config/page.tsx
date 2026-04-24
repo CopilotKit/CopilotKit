@@ -29,8 +29,10 @@ export default function AgentConfigDemoPage() {
           <h1 className="text-lg font-semibold">Agent Config Object</h1>
           <p className="text-sm text-gray-500">
             Forwarded provider properties (<code>tone</code>,{" "}
-            <code>expertise</code>, <code>responseLength</code>) are passed
-            through to the CrewAI backend as part of the run config.
+            <code>expertise</code>, <code>responseLength</code>) are threaded
+            into the CrewAI agent server via a FastAPI middleware that splices
+            them into <code>state.inputs</code>, which the crew chat flow
+            appends to the system prompt on every turn.
           </p>
         </header>
         <ConfigCard
