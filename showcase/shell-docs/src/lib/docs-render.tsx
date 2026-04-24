@@ -359,6 +359,38 @@ export function buildFrameworkOverridesNav(framework: string): NavNode[] {
   return filtered;
 }
 
+/**
+ * Return the list of framework slugs whose `integrations/<framework>/`
+ * tree contains an MDX file for `slugPath`. Matches either
+ * `<slug>.mdx` or `<slug>/index.mdx`. Used by the framework-scoped
+ * router to detect that a topic is available in *some* framework but
+ * not the one the user is currently viewing, so we can render a
+ * helpful "not available for <X>" page instead of a bare 404.
+ */
+export function findFrameworksWithPage(
+  slugPath: string,
+  integrationSlugs: readonly string[],
+): string[] {
+  const matches: string[] = [];
+  for (const slug of integrationSlugs) {
+    const mdx = path.join(
+      CONTENT_DIR,
+      "integrations",
+      slug,
+      `${slugPath}.mdx`,
+    );
+    const indexMdx = path.join(
+      CONTENT_DIR,
+      "integrations",
+      slug,
+      slugPath,
+      "index.mdx",
+    );
+    if (fs.existsSync(mdx) || fs.existsSync(indexMdx)) matches.push(slug);
+  }
+  return matches;
+}
+
 // ---------------------------------------------------------------------------
 // Snippet inlining (same rules as the docs page)
 // ---------------------------------------------------------------------------
