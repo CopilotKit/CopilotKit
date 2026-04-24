@@ -40,6 +40,7 @@ features:
   - byoc-hashbrown
   - byoc-json-render
   - open-gen-ui
+  - open-gen-ui-advanced
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -139,4 +140,17 @@ demos:
     highlight:
       - src/agents/src/open_gen_ui_agent.py
       - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: "Open-Ended Gen UI (Advanced: with frontend function calling)"
+    description: Agent-authored UI that can invoke frontend sandbox functions from inside the iframe
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/src/open_gen_ui_advanced_agent.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
