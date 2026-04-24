@@ -14,7 +14,8 @@ import { useMemo } from "react";
 import { DepthChip } from "./depth-chip";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
-import { deriveDepth, type CatalogCell } from "./depth-utils";
+import { deriveDepth } from "./depth-utils";
+import type { CatalogCell } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
 import type { LiveStatusMap } from "@/lib/live-status";
@@ -119,10 +120,7 @@ function CategorySection({
             className="border-t border-[var(--border)] hover:bg-[var(--bg-hover)]"
           >
             <td className="sticky left-0 z-10 bg-[var(--bg-surface)] px-4 py-1.5 border-r border-[var(--border)] align-middle min-w-[200px]">
-              <span
-                className="text-xs text-[var(--text)]"
-                title={feature.name}
-              >
+              <span className="text-xs text-[var(--text)]" title={feature.name}>
                 {feature.name}
               </span>
             </td>
