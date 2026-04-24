@@ -18,16 +18,32 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// NOTE: The LlamaIndex package uses a single shared AG-UI workflow router,
+// so every agent id here resolves to the same backend. Per-demo behavior is
+// driven by the frontend (tools, suggestions, render slots).
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
+  "shared-state-read-write",
   "subagents",
+  "frontend_tools",
+  "frontend_tools_async",
+  "hitl_in_app",
+  "prebuilt_sidebar",
+  "prebuilt_popup",
+  "chat_slots",
+  "chat_customization_css",
+  "headless_simple",
+  "headless_complete",
+  "readonly_state_agent_context",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
