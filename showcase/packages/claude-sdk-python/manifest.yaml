@@ -45,6 +45,12 @@ features:
   - frontend-tools-async
   - open-gen-ui
   - open-gen-ui-advanced
+  - byoc-json-render
+  - byoc-hashbrown
+  - multimodal
+  - voice
+  - agent-config
+  - auth
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -271,6 +277,81 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
+  - id: byoc-json-render
+    name: "BYOC: json-render"
+    description: Agent emits a JSON spec; `@json-render/react` renders it against a Zod catalog of MetricCard, BarChart, PieChart
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render_agent.py
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/registry.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/api/copilotkit-byoc-json-render/route.ts
+  - id: byoc-hashbrown
+    name: "BYOC: Hashbrown"
+    description: Streaming structured output via `@hashbrownai/react` — agent emits a catalog-constrained JSON envelope that renders progressively
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown_agent.py
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+  - id: multimodal
+    name: Multimodal Attachments
+    description: Image + PDF attachments routed through Claude's native vision + pypdf text flattening
+    tags:
+      - interactivity
+    route: /demos/multimodal
+    animated_preview_url:
+    highlight:
+      - src/agents/multimodal_agent.py
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: voice
+    name: Voice Input
+    description: Audio transcription wired on a per-demo runtime with a guarded OpenAI Whisper service that maps missing keys to 401
+    tags:
+      - chat-ui
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: Forwarded props (tone / expertise / responseLength) flow from the provider into the agent's system prompt via `forwardedProps.config.configurable.properties`
+    tags:
+      - agent-capabilities
+    route: /demos/agent-config
+    animated_preview_url:
+    highlight:
+      - src/agents/agent_config_agent.py
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/demos/agent-config/use-agent-config.ts
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: auth
+    name: Authentication
+    description: Framework-native request auth via the V2 runtime's `onRequest` hook; missing bearer token returns 401
+    tags:
+      - agent-capabilities
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts
 starter:
   path: showcase/starters/claude-sdk-python
   name: Sales Dashboard

@@ -7,6 +7,43 @@ Claude backend in `src/agents/agent.py`, plus dedicated ogui / headless
 surfaces. The demos below are deliberately out of scope for this pass and
 left for a follow-up.
 
+## New demos (post-PR #4271)
+
+- `byoc-json-render` — dedicated `/byoc-json-render` agent endpoint emits
+  a JSON spec; frontend renders via `<JSONUIProvider>` + `<Renderer />`
+  against a Zod catalog (MetricCard, BarChart, PieChart). Includes the
+  `<JSONUIProvider>` fix from PR #4271 and the `defineRegistry`
+  children-forwarding fix for MetricCard.
+- `byoc-hashbrown` — dedicated `/byoc-hashbrown` agent endpoint emits
+  the hashbrown JSON envelope `{ui: [{metric: {props: {...}}}, ...]}`
+  (NOT XML — the #4271 fix). Frontend parses via `useJsonParser` +
+  `useUiKit` with MetricCard / PieChart / BarChart / DealCard / Markdown.
+- `multimodal` — dedicated `/multimodal` agent endpoint with
+  `convert_part_for_claude` that translates AG-UI `image` / `document`
+  parts into Claude's native Messages API shape. PDFs flatten to text
+  via `pypdf`. **No legacy-binary shim required** — that shim is
+  specific to the `@ag-ui/langgraph@0.0.27` converter and is not needed
+  when HttpAgent forwards modern parts to the Claude Agent SDK backend.
+- `voice` — dedicated `/api/copilotkit-voice` runtime with a
+  `GuardedOpenAITranscriptionService` that reports a typed 401 when
+  `OPENAI_API_KEY` is missing (vs a silent 503). Transcription service
+  is written onto the V2 runtime instance directly to work around the
+  V1 wrapper silently dropping the service. Backend reuses the shared
+  Claude agent.
+- `agent-config` — dedicated `/agent-config` agent endpoint that reads
+  `tone` / `expertise` / `responseLength` off
+  `forwarded_props.config.configurable.properties` and builds the
+  system prompt per turn. Frontend route subclasses `HttpAgent` to
+  repack provider `properties` into the nested configurable shape so
+  the wire format matches the langgraph-python reference exactly.
+- `auth` — dedicated `/api/copilotkit-auth` route uses
+  `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` directly
+  so the `onRequest` hook actually fires (V1 adapter drops hooks).
+  Bearer-token gate returns 401 on mismatch. Includes the #4271
+  defaults fix: `useDemoAuth` defaults to signed-in, plus
+  `ChatErrorBoundary` so the page never white-screens on auth
+  transitions.
+
 ## Ported
 
 ### Initial pass (B2)
