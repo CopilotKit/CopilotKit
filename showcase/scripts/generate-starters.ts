@@ -665,7 +665,7 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  */
 function getWatchdogGraceSeconds(fw: FrameworkDef): number {
   if (fw.slug.startsWith("langgraph-")) return 180;
-  if (fw.slug === "mastra") return 360;
+  if (fw.slug === "mastra") return 600;
   if (fw.slug === "claude-sdk-typescript") return 180;
   return 0;
 }
