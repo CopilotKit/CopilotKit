@@ -125,20 +125,21 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
           "approved",
         );
         const reactMajor = parseInt(React.version.split(".")[0], 10);
-        if (reactMajor >= 18) {
-          // React 18+ batches effect updates, so the exact transition
-          // sequence is deterministic.
+        if (reactMajor >= 19) {
+          // React 19 collapses effect updates enough that the exact
+          // transition sequence is deterministic. Earlier majors can emit
+          // extra effect runs (including brief backwards transitions) so
+          // we assert the journey only there.
           expect(statusHistory).toEqual([
             ToolCallStatus.InProgress,
             ToolCallStatus.Executing,
             ToolCallStatus.Complete,
           ]);
         } else {
-          // React 17 can emit extra effect runs and briefly transition
-          // backwards (e.g. Executing → InProgress → Executing → Complete)
-          // because there's no automatic batching. Assert the journey
-          // rather than an exact order: start InProgress, end Complete,
-          // pass through Executing, and never emit an unexpected status.
+          // React 17/18 can emit extra effect runs and briefly transition
+          // backwards (e.g. Executing → InProgress → Executing → Complete).
+          // Assert the journey: start InProgress, end Complete, pass
+          // through Executing, and never emit an unexpected status.
           expect(statusHistory[0]).toBe(ToolCallStatus.InProgress);
           expect(statusHistory[statusHistory.length - 1]).toBe(
             ToolCallStatus.Complete,
