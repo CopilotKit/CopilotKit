@@ -80,8 +80,10 @@ Use state rendering when you want to:
         ```python title="agent.py"
         import asyncio
         from copilotkit.langgraph import copilotkit_emit_state # [!code highlight]
+        from langchain_core.runnables import RunnableConfig
 
-        async def chat_node(state: AgentState, config: RunnableConfig):
+        # Inside a custom tool or middleware hook where you have access to state and config:
+        async def emit_research_progress(state: AgentState, config: RunnableConfig):
             state["searches"] = [
                 {"query": "Initial research", "done": False},
                 {"query": "Retrieving sources", "done": False},
@@ -93,12 +95,6 @@ Use state rendering when you want to:
                 await asyncio.sleep(1)
                 search["done"] = True
                 await copilotkit_emit_state(config, state) # [!code highlight]
-
-            response = await ChatOpenAI(model="gpt-5.4").ainvoke(
-                [SystemMessage(content="You are a helpful assistant."), *state["messages"]],
-                config,
-            )
-            return {**state, "messages": response}
         ```
       </Tab>
       <Tab value="TypeScript">
