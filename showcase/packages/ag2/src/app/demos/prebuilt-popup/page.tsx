@@ -34,8 +34,8 @@ function MainContent() {
       </h1>
       <p className="text-gray-600 max-w-xl">
         This page showcases the pre-built <code>&lt;CopilotPopup /&gt;</code>{" "}
-        component backed by an AG2 ConversableAgent. A floating launcher sits
-        in the corner, opening an overlay chat window on top of the page.
+        component backed by an AG2 ConversableAgent. A floating launcher sits in
+        the corner, opening an overlay chat window on top of the page.
       </p>
     </main>
   );
