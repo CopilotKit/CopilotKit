@@ -31,16 +31,8 @@ const DEFAULT_TONE: Tone = "professional";
 const DEFAULT_EXPERTISE: Expertise = "intermediate";
 const DEFAULT_RESPONSE_LENGTH: ResponseLength = "concise";
 
-const VALID_TONES = new Set<string>([
-  "professional",
-  "casual",
-  "enthusiastic",
-]);
-const VALID_EXPERTISE = new Set<string>([
-  "beginner",
-  "intermediate",
-  "expert",
-]);
+const VALID_TONES = new Set<string>(["professional", "casual", "enthusiastic"]);
+const VALID_EXPERTISE = new Set<string>(["beginner", "intermediate", "expert"]);
 const VALID_RESPONSE_LENGTHS = new Set<string>(["concise", "detailed"]);
 
 interface ResolvedProps {

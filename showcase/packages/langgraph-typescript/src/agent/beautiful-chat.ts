@@ -264,10 +264,7 @@ Tool guidance:
 - Todos: enable app mode first, then manage todos.
 `;
 
-async function chatNode(
-  state: BeautifulChatState,
-  config: RunnableConfig,
-) {
+async function chatNode(state: BeautifulChatState, config: RunnableConfig) {
   const model = new ChatOpenAI({ temperature: 0, model: "gpt-4o" });
 
   const modelWithTools = model.bindTools!([
