@@ -14,7 +14,9 @@ test.describe("Tool Rendering + Reasoning Chain", () => {
     await input.fill("What's the weather in Tokyo?");
     await input.press("Enter");
 
-    await expect(page.locator('[data-testid="weather-card"]').first()).toBeVisible({
+    await expect(
+      page.locator('[data-testid="weather-card"]').first(),
+    ).toBeVisible({
       timeout: 45000,
     });
   });

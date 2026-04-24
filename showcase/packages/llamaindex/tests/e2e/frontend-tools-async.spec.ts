@@ -14,8 +14,8 @@ test.describe("Frontend Tools (Async)", () => {
     await input.fill("Find my notes about project planning");
     await input.press("Enter");
 
-    await expect(page.locator('[data-testid="notes-card"]').first()).toBeVisible(
-      { timeout: 45000 },
-    );
+    await expect(
+      page.locator('[data-testid="notes-card"]').first(),
+    ).toBeVisible({ timeout: 45000 });
   });
 });

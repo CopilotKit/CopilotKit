@@ -18,7 +18,7 @@
 
 - [ ] Ask a question that encourages step-by-step thinking
 - [ ] Verify the custom reasoning block (`data-testid="reasoning-block"`) is
-  visible in the chat when reasoning tokens surface
+      visible in the chat when reasoning tokens surface
 - [ ] Verify the "Reasoning" badge is shown
 - [ ] Verify the body of the reasoning block is italic
 

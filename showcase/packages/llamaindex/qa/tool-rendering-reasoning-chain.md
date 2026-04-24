@@ -16,7 +16,7 @@
 
 - [ ] Ask a question such as "What's the weather in Tokyo and any flights from SFO?"
 - [ ] Verify the custom reasoning block (`data-testid="reasoning-block"`) is
-  visible while the agent is thinking
+      visible while the agent is thinking
 
 ### 3. Tool Renderers
 

@@ -49,8 +49,9 @@ function Chat() {
   useEffect(() => {
     const ac = new AbortController();
     if ("abortController" in agent) {
-      (agent as unknown as { abortController: AbortController }).abortController =
-        ac;
+      (
+        agent as unknown as { abortController: AbortController }
+      ).abortController = ac;
     }
     copilotkit.connectAgent({ agent }).catch(() => {});
     return () => {

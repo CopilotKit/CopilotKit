@@ -6,15 +6,16 @@ This package aligns with `showcase/packages/langgraph-python` in terms of demo c
 
 The following demos are intentionally skipped because they depend on LangGraph-specific primitives for which LlamaIndex has no analogue.
 
-| Demo | Missing primitive |
-| --- | --- |
-| `cli-start` | CLI template only — nothing to port in the dojo. |
-| `gen-ui-interrupt` | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive. |
-| `interrupt-headless` | Same `interrupt()` primitive dependency. |
+| Demo                 | Missing primitive                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `cli-start`          | CLI template only — nothing to port in the dojo.                                                                   |
+| `gen-ui-interrupt`   | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive. |
+| `interrupt-headless` | Same `interrupt()` primitive dependency.                                                                           |
 
 ## Ported Demos
 
 Every other demo from the canonical matrix is ported. Each has:
+
 - A per-demo `src/app/demos/<id>/page.tsx`
 - A per-demo thin `src/app/demos/<id>/agent.py` stub
 - A dedicated backend module under `src/agents/` (or a registration on the shared router)

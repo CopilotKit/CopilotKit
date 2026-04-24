@@ -17,7 +17,7 @@
 ### 2. Built-in Reasoning Slot
 
 - [ ] Verify the default CopilotChatReasoningMessage renders (when reasoning
-  tokens surface) as a collapsible card
+      tokens surface) as a collapsible card
 - [ ] Verify the card can be expanded/collapsed
 - [ ] Confirm no custom reasoning block is used (page passes no slot override)
 
