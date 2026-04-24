@@ -13,6 +13,25 @@
  * hashbrown schema via `@hashbrownai/react`'s `useUiKit`. Renders assistant
  * messages through `useJsonParser` for progressive JSON→UI streaming.
  *
+ * Wire format
+ * -----------
+ * `useJsonParser(content, kit.schema)` parses a streaming JSON object of the
+ * shape produced by `createUiKit(...).schema`:
+ *
+ *   {
+ *     "ui": [
+ *       { "metric":   { "props": { "label": "...", "value": "..." } } },
+ *       { "pieChart": { "props": { "title": "...", "data": "[{...}]" } } },
+ *       { "Markdown": { "props": { "children": "..." } } }
+ *     ]
+ *   }
+ *
+ * The `useUiKit({ examples: ... })` `<ui>` JSX is hashbrown's prompt DSL used
+ * when hashbrown drives the LLM directly (e.g. `useUiChat`). Because this
+ * demo drives the LLM via the Microsoft Agent Framework, the backend agent
+ * (`src/agents/byoc_hashbrown_agent.py` / `agent/ByocHashbrownAgent.cs`) is
+ * responsible for emitting the JSON shape shown above.
+ *
  * Consume the renderer like this in a page:
  *
  *   <HashBrownDashboard>
