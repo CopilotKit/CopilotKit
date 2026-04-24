@@ -21,6 +21,7 @@ from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
 from agents.open_gen_ui_agent import create_open_gen_ui_agent
+from agents.open_gen_ui_advanced_agent import create_open_gen_ui_advanced_agent
 
 load_dotenv()
 
@@ -75,6 +76,12 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=create_open_gen_ui_agent(chat_client),
     path="/open-gen-ui",
+)
+
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=create_open_gen_ui_advanced_agent(chat_client),
+    path="/open-gen-ui-advanced",
 )
 
 add_agent_framework_fastapi_endpoint(
