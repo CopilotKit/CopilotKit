@@ -663,7 +663,9 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  */
 function getWatchdogGraceSeconds(fw: FrameworkDef): number {
   if (fw.slug.startsWith("langgraph-")) return 180;
-  if (fw.slug === "mastra") return 180;
+  // mastra: pre-built via `mastra build` at image time → `node` boot is <10s.
+  // 30s is ample for the pre-compiled bundle to bind its port.
+  if (fw.slug === "mastra") return 30;
   if (fw.slug === "claude-sdk-typescript") return 180;
   return 0;
 }
