@@ -21,9 +21,7 @@ test.describe("Tool Rendering — Custom Catch-all (Langroid)", () => {
     await input.fill("What's the weather in San Francisco?");
     await page.locator('[data-testid="copilot-send-button"]').first().click();
 
-    const card = page
-      .locator('[data-testid="custom-catchall-card"]')
-      .first();
+    const card = page.locator('[data-testid="custom-catchall-card"]').first();
     await expect(card).toBeVisible({ timeout: 60000 });
 
     await expect(
