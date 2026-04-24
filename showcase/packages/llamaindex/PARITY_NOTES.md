@@ -6,12 +6,12 @@ This package aligns with `showcase/packages/langgraph-python` in terms of demo c
 
 The following demos are intentionally skipped because they depend on LangGraph-specific primitives for which LlamaIndex has no analogue, or (for `beautiful-chat`) because the port requires significant design-system duplication best deferred to a dedicated follow-up.
 
-| Demo | Missing primitive / reason |
-| --- | --- |
-| `cli-start` | CLI template only — nothing to port in the dojo. |
-| `gen-ui-interrupt` | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive. |
-| `interrupt-headless` | Same `interrupt()` primitive dependency as `gen-ui-interrupt`. |
-| `beautiful-chat` | Deferred: requires a large polished design-system (example-layout, example-canvas, generative-ui charts, suggestion hooks) that mirrors the landing starter; better landed as a dedicated follow-up to keep this PR focused on feature parity rather than UI duplication. |
+| Demo                 | Missing primitive / reason                                                                                                                                                                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cli-start`          | CLI template only — nothing to port in the dojo.                                                                                                                                                                                                                          |
+| `gen-ui-interrupt`   | LangGraph's `interrupt()` primitive + `useLangGraphInterrupt`. LlamaIndex AG-UI has no interrupt/resume primitive.                                                                                                                                                        |
+| `interrupt-headless` | Same `interrupt()` primitive dependency as `gen-ui-interrupt`.                                                                                                                                                                                                            |
+| `beautiful-chat`     | Deferred: requires a large polished design-system (example-layout, example-canvas, generative-ui charts, suggestion hooks) that mirrors the landing starter; better landed as a dedicated follow-up to keep this PR focused on feature parity rather than UI duplication. |
 
 ## Partial Ports
 

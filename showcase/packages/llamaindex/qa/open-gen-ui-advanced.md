@@ -10,4 +10,4 @@
 - [ ] Ask for an interactive widget that calls a sandbox function
 - [ ] Verify the iframe renders
 - [ ] Click a button inside the widget; verify a host sandbox function is
-  invoked and the result is displayed in the iframe
+      invoked and the result is displayed in the iframe
