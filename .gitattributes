@@ -5,6 +5,7 @@
 *.pdf filter=lfs diff=lfs merge=lfs -text
 *.mp4 filter=lfs diff=lfs merge=lfs -text
 *.webm filter=lfs diff=lfs merge=lfs -text
+*.wav filter=lfs diff=lfs merge=lfs -text
 
 # Shell scripts must retain LF line endings. Windows contributors regenerating
 # showcase starters on a Windows checkout (or with autocrlf=true) would
