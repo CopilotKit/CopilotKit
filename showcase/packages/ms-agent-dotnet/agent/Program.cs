@@ -30,6 +30,7 @@ var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
 app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
+app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
@@ -357,6 +358,18 @@ public class SalesAgentFactory
     // the shared OpenAIClient so we don't re-resolve credentials for each
     // mount. No tools — the chat model consumes attachments natively.
     public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
+
+    // Factory method for the Beautiful Chat flagship demo. Holds its own
+    // per-factory tool surface + in-memory todo store so it doesn't
+    // interfere with the sales pipeline state owned by the main agent.
+    public AIAgent CreateBeautifulChatAgent()
+    {
+        var factory = new BeautifulChatAgentFactory(
+            _openAiClient,
+            _jsonSerializerOptions,
+            _loggerFactory.CreateLogger<BeautifulChatAgentFactory>());
+        return factory.Create();
+    }
 
     // =================
     // Tools
