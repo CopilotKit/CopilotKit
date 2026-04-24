@@ -60,6 +60,7 @@ features:
   - multimodal
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - byoc-hashbrown
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -277,4 +278,11 @@ demos:
     tags:
       - generative-ui
     route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+  - id: byoc-hashbrown
+    name: BYOC (Hashbrown)
+    description: Streaming structured output via @hashbrownai/react against a custom catalog
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
     animated_preview_url:
