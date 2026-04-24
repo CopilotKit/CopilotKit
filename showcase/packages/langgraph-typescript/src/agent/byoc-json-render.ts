@@ -153,7 +153,14 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.2 });
+  // Force JSON-object output mode so the renderer's parseSpec never has
+  // to parse around prose or code fences. Passed via `modelKwargs` so it
+  // survives the LangChain → OpenAI chat-completions mapping.
+  const model = new ChatOpenAI({
+    model: "gpt-4o-mini",
+    temperature: 0.2,
+    modelKwargs: { response_format: { type: "json_object" } },
+  });
   const response = await model.invoke(
     [new SystemMessage({ content: SYSTEM_PROMPT }), ...state.messages],
     config,

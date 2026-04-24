@@ -93,7 +93,15 @@ const AgentStateAnnotation = Annotation.Root({
 type AgentState = typeof AgentStateAnnotation.State;
 
 async function chatNode(state: AgentState, config: RunnableConfig) {
-  const model = new ChatOpenAI({ model: "gpt-4o-mini" });
+  // Force JSON-object output mode. The frontend's `useJsonParser` bails
+  // to `null` on any non-JSON prefix (code fences, prose preamble, etc.),
+  // so locking the model to JSON at the API layer keeps the wire
+  // contract honest. Passed via `modelKwargs` so it survives the
+  // LangChain → OpenAI chat-completions mapping.
+  const model = new ChatOpenAI({
+    model: "gpt-4o-mini",
+    modelKwargs: { response_format: { type: "json_object" } },
+  });
   const response = await model.invoke(
     [
       new SystemMessage({ content: BYOC_HASHBROWN_SYSTEM_PROMPT }),

@@ -144,7 +144,11 @@ Respond with the JSON object only.
 
 
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini", temperature=0.2),
+    model=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    ),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT.strip(),
