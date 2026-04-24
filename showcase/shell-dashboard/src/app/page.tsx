@@ -11,19 +11,11 @@ import { TabShell, type TabDef } from "@/components/tab-shell";
 import { CellsView } from "@/components/cells-view";
 import { ParityView } from "@/components/parity-view";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
-import { mergeRowsToMap, type ConnectionStatus } from "@/lib/live-status";
+import { mergeRowsToMap } from "@/lib/live-status";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
 
 const catalogData = catalog as unknown as CatalogData;
-
-function aggregateConnection(
-  ...statuses: ConnectionStatus[]
-): ConnectionStatus {
-  if (statuses.some((s) => s === "error")) return "error";
-  if (statuses.some((s) => s === "connecting")) return "connecting";
-  return "live";
-}
 
 function Cell(ctx: CellContext) {
   const isTesting = ctx.feature.kind === "testing";
@@ -66,47 +58,17 @@ function Cell(ctx: CellContext) {
 }
 
 export default function Page() {
-  // Seven subscriptions shared across all tabs (lifted from FeatureGrid).
-  // Six are the Phase 3 originals; "e2e" is new for D3 per-cell data.
-  const smoke = useLiveStatus("smoke");
-  const health = useLiveStatus("health");
-  const e2eSmoke = useLiveStatus("e2e_smoke");
-  const agent = useLiveStatus("agent");
-  const chat = useLiveStatus("chat");
-  const tools = useLiveStatus("tools");
-  const e2e = useLiveStatus("e2e");
+  // Single subscription for ALL dimensions — no filter. Avoids the 7-way
+  // SSE race that caused PB subscribe 400s when 7 hooks competed for the
+  // single PB SDK realtime connection during hydration.
+  const allStatus = useLiveStatus();
 
   const liveStatus = useMemo(
-    () =>
-      mergeRowsToMap(
-        smoke.rows,
-        health.rows,
-        e2eSmoke.rows,
-        agent.rows,
-        chat.rows,
-        tools.rows,
-        e2e.rows,
-      ),
-    [
-      smoke.rows,
-      health.rows,
-      e2eSmoke.rows,
-      agent.rows,
-      chat.rows,
-      tools.rows,
-      e2e.rows,
-    ],
+    () => mergeRowsToMap(allStatus.rows),
+    [allStatus.rows],
   );
 
-  const connection = aggregateConnection(
-    smoke.status,
-    health.status,
-    e2eSmoke.status,
-    agent.status,
-    chat.status,
-    tools.status,
-    e2e.status,
-  );
+  const connection = allStatus.status;
 
   const tabs: TabDef[] = useMemo(
     () => [
