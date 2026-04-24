@@ -26,7 +26,8 @@ import {
   ExperimentalEmptyAdapter,
   copilotRuntimeNextJSAppRouterEndpoint,
 } from "@copilotkit/runtime";
-import { AbstractAgent, HttpAgent } from "@ag-ui/client";
+import type { AbstractAgent } from "@ag-ui/client";
+import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
@@ -82,19 +83,13 @@ class AgentConfigHttpAgent extends HttpAgent {
     super(args);
   }
 
-  run(
-    input: Parameters<HttpAgent["run"]>[0],
-  ): ReturnType<HttpAgent["run"]> {
-    const repacked = repackForwardedPropsIntoContext(
-      input as RunInputShape,
-    );
+  run(input: Parameters<HttpAgent["run"]>[0]): ReturnType<HttpAgent["run"]> {
+    const repacked = repackForwardedPropsIntoContext(input as RunInputShape);
     return super.run(repacked as Parameters<HttpAgent["run"]>[0]);
   }
 }
 
-function repackForwardedPropsIntoContext<T extends RunInputShape>(
-  input: T,
-): T {
+function repackForwardedPropsIntoContext<T extends RunInputShape>(input: T): T {
   const fp = (input.forwardedProps ?? {}) as Record<string, unknown>;
   if (!fp || typeof fp !== "object") return input;
 
