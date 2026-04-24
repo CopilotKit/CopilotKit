@@ -47,6 +47,7 @@ features:
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
   - hitl-in-chat-booking
+  - hitl-in-app
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -216,6 +217,18 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-app
+    name: In-App HITL (frontend tools + app modal)
+    description: Agent requests approval via useFrontendTool with an async handler; approval UI is an app-level modal OUTSIDE the chat
+    tags:
+      - interactivity
+    route: /demos/hitl-in-app
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/hitl-in-app/page.tsx
+      - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat-booking
     name: In-Chat HITL (Booking)
