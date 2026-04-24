@@ -343,6 +343,21 @@ export default defineConfig([
     noExternal: [/.*/],
     dts: false,
     clean: false,
+    // The VSCode webview loads playground.js via a classic <script nonce=...>
+    // tag, which does not support ES module top-level `import` statements.
+    // Without these options, rolldown splits CopilotChat's dep graph into
+    // shared chunks + dynamic-import lazy chunks, emitting a multi-file ESM
+    // that the webview can't parse (→ "unknown error", blank tab).
+    // Forcing single-file output keeps playground.js self-contained.
+    inputOptions: {
+      experimental: {
+        // tsdown <-> rolldown passthrough; equivalent to Rollup's
+        // output.inlineDynamicImports + disabling code-splitting.
+      },
+    },
+    outputOptions: {
+      inlineDynamicImports: true,
+    },
     plugins: [
       stubNodeBuiltinsAndCss(PLAYGROUND_EXTRA_STUBBED_DEPS),
       nodeResolveFallback(playgroundSourceAliases),
