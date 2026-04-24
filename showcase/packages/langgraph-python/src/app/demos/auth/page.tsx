@@ -43,22 +43,25 @@ export default function AuthDemoPage() {
     return h;
   }, [auth.authorizationHeader]);
 
-  const onError = useCallback((errorEvent: {
-    error?: { message?: string; status?: number; statusCode?: number };
-    context?: { response?: { status?: number } };
-  }) => {
-    const err = errorEvent?.error;
-    const message = err?.message ?? "Request failed";
-    const status =
-      err?.status ?? err?.statusCode ?? errorEvent?.context?.response?.status;
-    if (status === 401 || /401|unauthor/i.test(message)) {
-      setLastError(
-        "401 Unauthorized — click Authenticate above to send messages.",
-      );
-    } else {
-      setLastError(message);
-    }
-  }, []);
+  const onError = useCallback(
+    (errorEvent: {
+      error?: { message?: string; status?: number; statusCode?: number };
+      context?: { response?: { status?: number } };
+    }) => {
+      const err = errorEvent?.error;
+      const message = err?.message ?? "Request failed";
+      const status =
+        err?.status ?? err?.statusCode ?? errorEvent?.context?.response?.status;
+      if (status === 401 || /401|unauthor/i.test(message)) {
+        setLastError(
+          "401 Unauthorized — click Authenticate above to send messages.",
+        );
+      } else {
+        setLastError(message);
+      }
+    },
+    [],
+  );
 
   return (
     <CopilotKit

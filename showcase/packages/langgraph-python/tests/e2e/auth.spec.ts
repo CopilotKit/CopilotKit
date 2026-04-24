@@ -22,9 +22,9 @@ test.describe("Authentication", () => {
     ).toHaveCount(0);
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
     // No error surface on first load.
-    await expect(
-      page.locator('[data-testid="auth-demo-error"]'),
-    ).toHaveCount(0);
+    await expect(page.locator('[data-testid="auth-demo-error"]')).toHaveCount(
+      0,
+    );
   });
 
   test("unauthenticated send surfaces a 401 error via auth-demo-error", async ({
@@ -67,9 +67,9 @@ test.describe("Authentication", () => {
     await input.fill("Hello");
     await input.press("Enter");
 
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 30000,
+    });
   });
 
   test("signing out reverts to the 401 path on the next send", async ({
@@ -80,9 +80,9 @@ test.describe("Authentication", () => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 30000,
+    });
 
     // Sign out.
     await page.locator('[data-testid="auth-sign-out-button"]').click();

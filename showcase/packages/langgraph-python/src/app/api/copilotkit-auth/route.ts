@@ -19,7 +19,10 @@
 // - packages/runtime/src/v2/runtime/__tests__/hooks.test.ts (throw Response pattern)
 
 import type { NextRequest } from "next/server";
-import { CopilotRuntime, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import {
+  CopilotRuntime,
+  createCopilotRuntimeHandler,
+} from "@copilotkit/runtime/v2";
 import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
 import { DEMO_AUTH_HEADER } from "@/app/demos/auth/demo-token";
 
