@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.beautiful_chat import create_beautiful_chat_agent
 from agents.multimodal_agent import create_multimodal_agent
 
 load_dotenv()
@@ -48,6 +49,10 @@ my_agent = create_agent(chat_client)
 # Scoped to its own endpoint so other demos don't silently upgrade to vision.
 multimodal_chat_client = _build_chat_client("gpt-4o-mini")
 multimodal_agent = create_multimodal_agent(multimodal_chat_client)
+
+# Beautiful Chat: flagship polished sales dashboard demo. Combines A2UI
+# (fixed + dynamic), Open Generative UI, shared-state todos, and HITL.
+beautiful_chat_agent = create_beautiful_chat_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -83,6 +88,13 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=multimodal_agent,
     path="/multimodal",
+)
+
+# Dedicated endpoint for the Beautiful Chat flagship showcase.
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=beautiful_chat_agent,
+    path="/beautiful-chat",
 )
 
 # Shared agent for the rest of the demos (must be last: `/` is a catch-all).
