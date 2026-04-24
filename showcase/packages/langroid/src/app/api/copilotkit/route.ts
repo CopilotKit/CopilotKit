@@ -18,6 +18,8 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// The Langroid agent_server.py exposes a single unified agent on "/" that
+// handles every request — so every entry here maps to the same HttpAgent.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
@@ -26,8 +28,29 @@ const agentNames = [
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
+  "shared-state-read-write",
   "shared-state-streaming",
   "subagents",
+  // Chat chrome variants — all share the unified agent. The frontend
+  // differentiates via UI composition only (CopilotChat vs Sidebar vs Popup,
+  // slots, headless useAgent).
+  "chat-customization-css",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "headless-simple",
+  // Frontend-tools variants — backend has no specialized tools; the frontend
+  // registers handlers via useFrontendTool and the agent calls them.
+  "frontend_tools",
+  "frontend-tools-async",
+  // HITL variants — use existing agent's schedule_meeting flow.
+  "hitl-in-chat",
+  "hitl-in-app",
+  // Reasoning variants — agent emits chain-of-thought; default vs custom render.
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  // Read-only agent context — frontend exposes useAgentContext; same agent.
+  "readonly-state-agent-context",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
