@@ -233,6 +233,7 @@ Before you begin, you'll need the following:
 
                         ```bash
                         uv init my-agent
+                        cd my-agent
                         uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
                         ```
                         Create a minimal FastAPI server that exposes a Microsoft Agent Framework agent over AG-UI:
@@ -293,8 +294,7 @@ Before you begin, you'll need the following:
                         # (optional) AZURE_OPENAI_API_KEY=...
 
                         # Run the agent
-                        cd agent
-                        uv run src/byo_agent.py
+                        uv run main.py
                         ```
                     </Tab>
                 </Tabs>
