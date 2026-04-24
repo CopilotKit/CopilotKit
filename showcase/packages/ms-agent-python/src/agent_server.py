@@ -20,6 +20,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.hitl_in_app_agent import create_hitl_in_app_agent
 from agents.mcp_apps_agent import create_mcp_apps_agent
 
 load_dotenv()
@@ -44,6 +45,7 @@ def _build_chat_client() -> BaseChatClient:
 chat_client = _build_chat_client()
 my_agent = create_agent(chat_client)
 mcp_apps_agent = create_mcp_apps_agent(chat_client)
+hitl_in_app_agent = create_hitl_in_app_agent(chat_client)
 
 app = FastAPI(title="CopilotKit + Microsoft Agent Framework (Python)")
 
@@ -75,6 +77,12 @@ add_agent_framework_fastapi_endpoint(
     app=app,
     agent=mcp_apps_agent,
     path="/mcp-apps",
+)
+
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=hitl_in_app_agent,
+    path="/hitl-in-app",
 )
 
 add_agent_framework_fastapi_endpoint(
