@@ -34,6 +34,7 @@ features:
   - hitl-in-chat
   - gen-ui-tool-based
   - gen-ui-agent
+  - gen-ui-interrupt
   - shared-state-read-write
   - shared-state-streaming
   - subagents
@@ -94,3 +95,15 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+  - id: gen-ui-interrupt
+    name: In-Chat HITL (useInterrupt — low-level primitive)
+    description: Interactive component rendered inline in the chat via the lower-level `useInterrupt` primitive — direct control over the LangGraph interrupt lifecycle
+    tags:
+      - generative-ui
+    route: /demos/gen-ui-interrupt
+    animated_preview_url:
+    highlight:
+      - src/agents/src/interrupt_agent.py
+      - src/app/demos/gen-ui-interrupt/page.tsx
+      - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts

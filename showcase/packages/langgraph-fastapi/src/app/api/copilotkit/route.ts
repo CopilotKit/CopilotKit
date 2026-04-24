@@ -34,6 +34,11 @@ const agents: Record<string, LangGraphAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+
+// Interrupt variants — share the dedicated `interrupt_agent` graph that uses
+// langgraph's `interrupt()` primitive inside `schedule_meeting`.
+agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
+
 agents["default"] = createAgent();
 
 console.log(
