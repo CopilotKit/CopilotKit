@@ -39,6 +39,7 @@ for (const name of agentNames) {
 // tailored system prompt (tools=[], CopilotKitMiddleware attached).
 agents["frontend_tools"] = createAgent("frontend_tools");
 agents["frontend-tools-async"] = createAgent("frontend_tools_async");
+agents["hitl-in-app"] = createAgent("hitl_in_app");
 
 agents["default"] = createAgent();
 
