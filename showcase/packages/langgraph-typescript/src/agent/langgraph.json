@@ -3,7 +3,10 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "starterAgent": "./graph.ts:graph"
+    "starterAgent": "./graph.ts:graph",
+    "headless_complete": "./headless-complete.ts:graph",
+    "multimodal": "./multimodal.ts:graph",
+    "agent_config_agent": "./agent-config.ts:graph"
   },
   "env": "../../.env"
 }

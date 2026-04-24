@@ -33,6 +33,9 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Headless Chat (Simple) — reuses the default `starterAgent` graph; the
+  // demo's surface and frontend tool wiring live in the page component.
+  "headless-simple",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
