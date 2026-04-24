@@ -41,6 +41,7 @@ features:
   - frontend-tools-async
   - hitl-in-app
   - readonly-state-agent-context
+  - voice
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -144,3 +145,15 @@ demos:
       - src/agents/src/readonly_state_agent_context.py
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: voice
+    name: Voice Input
+    description: Speech-to-text via @copilotkit/voice with a bundled sample audio button
+    tags:
+      - chat-ui
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/agents/src/agent.py
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
