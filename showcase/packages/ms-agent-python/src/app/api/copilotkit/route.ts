@@ -28,6 +28,7 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "frontend-tools",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
