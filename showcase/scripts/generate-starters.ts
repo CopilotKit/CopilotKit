@@ -602,7 +602,11 @@ fi`;
  *     google-adk, langroid, llamaindex, ms-agent-python, pydantic-ai, strands)
  *     -> /health (served via middleware short-circuit in agent_server.py)
  *   * langgraph-python, langgraph-fastapi, langgraph-typescript
- *     -> /ok (exposed by langgraph_cli dev)
+ *     -> /ok (exposed by langgraph_cli dev; langgraph-api does NOT serve
+ *       /health — /ok is the only built-in health endpoint. Verified
+ *       2026-04-23 against langgraph_cli Python + @langchain/langgraph-cli
+ *       TS, plus the TS liveness.mjs shim that binds /ok on HEALTH_PORT.
+ *       See also: generate-starters.test.ts health-path verification.)
  *   * claude-sdk-typescript -> /health (express app.get("/health"))
  *   * ms-agent-dotnet -> /health (app.MapGet("/health", ...))
  *   * spring-ai -> /health (custom @GetMapping in AgentController)
