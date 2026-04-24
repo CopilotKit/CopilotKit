@@ -38,10 +38,7 @@ const workspaceSourceAliases: Record<string, string> = {
   // 52687, but `var init_src = __esmMin(...)` isn't assigned until
   // line 107745 → "init_src is not a function"). Aliasing to TS source
   // side-steps the CJS wrapper and rolldown's init-ordering works again.
-  "@copilotkit/core": path.resolve(
-    import.meta.dirname,
-    "../core/src/index.ts",
-  ),
+  "@copilotkit/core": path.resolve(import.meta.dirname, "../core/src/index.ts"),
 };
 
 // Source aliases specifically for the playground webview — resolves the
@@ -87,13 +84,62 @@ function nodeResolveFallback(
         return { id: aliases[source], external: false };
       }
 
+      // Resolve the package, preferring the ESM ("import" condition) entry
+      // when the package ships both. `require.resolve()` alone picks the
+      // `.cjs` path, which rolldown then wraps with __commonJSMin — that
+      // wrapping triggers TDZ bugs for CJS dists that use common patterns
+      // like `const foo = require_foo();` where the local `foo` shadows the
+      // outer wrapper variable name (see @tanstack/pacer/dist/index.cjs).
+      // Prefer ESM to keep rolldown on a clean compile path.
       try {
-        return { id: require.resolve(source), external: false };
+        const cjsPath = require.resolve(source);
+        const esmPath = resolveEsmEntry(source, cjsPath);
+        return { id: esmPath ?? cjsPath, external: false };
       } catch {
         return null;
       }
     },
   };
+}
+
+/**
+ * Given a resolved CJS path (e.g. `/.../dist/index.cjs`) and the original
+ * bare specifier, returns the package's ESM entry if `package.json` declares
+ * one via `exports["."].import`, `exports.import`, or the legacy `module`
+ * field. Returns `null` otherwise (caller falls back to the CJS path).
+ */
+function resolveEsmEntry(specifier: string, cjsPath: string): string | null {
+  try {
+    // Walk up from the resolved path to find the package's package.json.
+    let dir = path.dirname(cjsPath);
+    let pkgJsonPath: string | null = null;
+    const root = path.parse(dir).root;
+    while (dir !== root) {
+      const candidate = path.join(dir, "package.json");
+      if (fs.existsSync(candidate)) {
+        pkgJsonPath = candidate;
+        break;
+      }
+      dir = path.dirname(dir);
+    }
+    if (!pkgJsonPath) return null;
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8"));
+    const pkgDir = path.dirname(pkgJsonPath);
+
+    // Only swap if the specifier matches the package's own name — sub-path
+    // imports (e.g. `@tanstack/pacer/async-queuer`) have their own exports
+    // entries we don't attempt to walk here.
+    if (specifier !== pkg.name) return null;
+
+    // Check exports["."].import first, then exports.import, then `module`.
+    const exp = pkg.exports;
+    const importPath = exp?.["."]?.import ?? exp?.import ?? pkg.module ?? null;
+    if (typeof importPath !== "string") return null;
+    const resolved = path.resolve(pkgDir, importPath);
+    return fs.existsSync(resolved) ? resolved : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
