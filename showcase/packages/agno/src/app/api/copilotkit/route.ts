@@ -13,15 +13,18 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
+function createMainAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/agui` });
 }
 
-// Register the same agent under all names used by demo pages.
-// Agno exposes a single AgentOS agent (src/agents/main.py). The Next.js
-// runtime aliases that one agent under every demo cell name so per-cell
-// frontend tool/component registrations scope correctly.
-const agentNames = [
+function createReasoningAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/reasoning/agui` });
+}
+
+// Main agent backs most demos. The Next.js runtime aliases the single
+// Agno `main` agent under every demo cell name so per-cell frontend
+// tool/component registrations scope correctly.
+const mainAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "hitl-in-chat",
@@ -49,11 +52,23 @@ const agentNames = [
   "agent-config",
 ];
 
+// Reasoning agent names — backed by the reasoning-enabled Agno agent at
+// /reasoning/agui. Emits AG-UI REASONING_MESSAGE_* events that the
+// frontend renders via CopilotChatReasoningMessage (or a custom slot).
+const reasoningAgentNames = [
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  "tool-rendering-reasoning-chain",
+];
+
 const agents: Record<string, AbstractAgent> = {};
-for (const name of agentNames) {
-  agents[name] = createAgent();
+for (const name of mainAgentNames) {
+  agents[name] = createMainAgent();
 }
-agents["default"] = createAgent();
+for (const name of reasoningAgentNames) {
+  agents[name] = createReasoningAgent();
+}
+agents["default"] = createMainAgent();
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

@@ -48,6 +48,11 @@ features:
   - tool-rendering-custom-catchall
   - hitl-in-chat-booking
   - hitl-in-app
+  - agentic-chat-reasoning
+  - reasoning-default-render
+  - tool-rendering-reasoning-chain
+  - headless-complete
+  - auth
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -277,6 +282,77 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
+  - id: agentic-chat-reasoning
+    name: Agentic Chat (Reasoning)
+    description: Visible reasoning chain via a custom ReasoningBlock slot — Agno reasoning agent emits AG-UI REASONING_MESSAGE_* events
+    tags:
+      - chat-ui
+      - reasoning
+    route: /demos/agentic-chat-reasoning
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/agentic-chat-reasoning/page.tsx
+      - src/app/demos/agentic-chat-reasoning/reasoning-block.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: reasoning-default-render
+    name: Reasoning (Default Render)
+    description: Zero-config reasoning rendering — CopilotKit's built-in CopilotChatReasoningMessage handles the AGUI reasoning events
+    tags:
+      - chat-ui
+      - reasoning
+    route: /demos/reasoning-default-render
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/reasoning-default-render/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-reasoning-chain
+    name: Tool Rendering (Reasoning Chain)
+    description: Reasoning card + sequential tool-call renderers (per-tool + catch-all) on the same reasoning-enabled Agno agent
+    tags:
+      - agent-capabilities
+      - reasoning
+    route: /demos/tool-rendering-reasoning-chain
+    animated_preview_url:
+    highlight:
+      - src/agents/reasoning_agent.py
+      - src/app/demos/tool-rendering-reasoning-chain/page.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/reasoning-block.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx
+      - src/app/demos/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: Full chat built from scratch on useAgent — custom bubbles, input bar, and manual generative-UI composition via useRenderToolCall
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/demos/headless-complete/input-bar.tsx
+      - src/app/demos/headless-complete/assistant-bubble.tsx
+      - src/app/demos/headless-complete/user-bubble.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via the V2 runtime onRequest hook — dedicated /api/copilotkit-auth route rejects unauthenticated requests
+    tags:
+      - runtime
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts
 managed_platform:
   name: Agent OS
   url: https://os.agno.com

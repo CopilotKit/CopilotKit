@@ -5,7 +5,9 @@ Tracking notes for feature-matrix parity between this package and
 
 ## Ported
 
-See `manifest.yaml` for the authoritative list. In this parity push we added:
+See `manifest.yaml` for the authoritative list.
+
+### Initial parity push
 
 - `prebuilt-sidebar`, `prebuilt-popup` — chrome demos using the shared main agent
 - `chat-slots`, `chat-customization-css` — chat customization paths
@@ -15,6 +17,29 @@ See `manifest.yaml` for the authoritative list. In this parity push we added:
 - `tool-rendering-default-catchall`, `tool-rendering-custom-catchall` — wildcard-only tool rendering variants (new `get_stock_price` + `roll_dice` tools added to the Agno main agent)
 - `hitl-in-chat` booking flow — useHumanInTheLoop with a new `book_call` external-execution tool
 - `hitl-in-app` — frontend-tool + app-level approval dialog (frontend-only)
+
+### Second pass (deferred-demo recovery)
+
+- `agentic-chat-reasoning`, `reasoning-default-render`,
+  `tool-rendering-reasoning-chain` — reasoning family. Verified Agno's AGUI
+  interface emits `REASONING_MESSAGE_*` events (`agno/os/interfaces/agui/utils.py`
+  imports `ReasoningMessageStartEvent` / `ReasoningMessageContentEvent` /
+  `ReasoningMessageEndEvent`). Added a new `reasoning_agent` Python module
+  with `reasoning=True` plus a second `AGUI` interface mounted at prefix
+  `/reasoning`. The Next.js runtime aliases the three reasoning agent names to
+  an `HttpAgent` targeting `/reasoning/agui`.
+- `headless-complete` — full chat from scratch on `useAgent` +
+  `CopilotChatConfigurationProvider` + manual `useRenderToolCall` /
+  `useRenderActivityMessage` / `useRenderCustomMessages` composition. Reuses
+  the Agno main agent via the default `/api/copilotkit` endpoint. MCP-Apps
+  activity surface is intentionally omitted — Agno's AGUI adapter doesn't
+  expose an MCP-Apps runtime. Every other generative-UI branch (per-tool
+  renderers, `useComponent` frontend tools, reasoning, custom messages,
+  wildcard catch-all) is wired in.
+- `auth` — dedicated `/api/copilotkit-auth` runtime using
+  `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` with an
+  `onRequest` hook that rejects requests lacking a static Bearer token.
+  Authenticated target is the Agno main agent at `/agui`.
 
 ## Skipped
 
@@ -34,37 +59,36 @@ this blitz pass.
   from a button grid requires a pause/resume handle the Agno AGUI adapter does
   not currently surface.
 
-### Require dedicated runtimes we didn't wire up in this pass
+### Require dedicated runtimes we haven't wired yet
 
 These demos depend on dedicated `/api/copilotkit-<variant>/route.ts` runtimes in
-the canonical reference. They're all portable in principle — they just need a
-new route file each and supporting Python wiring — but doing them right requires
-exercising Agno's runtime config paths we haven't validated here. Left for a
+the canonical reference. They are portable in principle — they just need new
+route files each and supporting Python wiring — but doing them right requires
+exercising Agno's runtime config paths we haven't validated yet. Deferred for a
 follow-up parity pass rather than faked in.
 
 - `beautiful-chat` — combined runtime (openGenerativeUI + a2ui + mcpApps)
-- `byoc-hashbrown` — dedicated `/api/copilotkit-byoc-hashbrown` runtime
-- `byoc-json-render` — dedicated `/api/copilotkit-byoc-json-render` runtime
-- `multimodal` — dedicated `/api/copilotkit-multimodal` runtime + vision-capable model
-- `auth` — dedicated `/api/copilotkit-auth` runtime with `onRequest` bearer-token gate
-- `voice` — dedicated `/api/copilotkit-voice` runtime + `@copilotkit/voice`
-- `open-gen-ui`, `open-gen-ui-advanced` — dedicated `/api/copilotkit-ogui` runtime
-- `agent-config` — dedicated `/api/copilotkit-agent-config` runtime with typed config forwarding
-- `declarative-gen-ui` (A2UI dynamic) — dedicated runtime + frontend A2UI catalog
+- `byoc-hashbrown` — dedicated `/api/copilotkit-byoc-hashbrown` runtime, requires
+  Agno structured-output streaming matching the hashbrown Zod catalog
+- `byoc-json-render` — dedicated `/api/copilotkit-byoc-json-render` runtime,
+  requires streaming JSON-schema-constrained output from Agno
+- `multimodal` — dedicated `/api/copilotkit-multimodal` runtime; Agno supports
+  multimodal input via `UserMessage(images=[...])` but wiring vision to an
+  AGUI-served agent needs a runtime surface we haven't built
+- `voice` — dedicated `/api/copilotkit-voice` runtime + `@copilotkit/voice`;
+  voice STT is a frontend concern independent of the Agno agent
+- `open-gen-ui`, `open-gen-ui-advanced` — dedicated `/api/copilotkit-ogui`
+  runtime; requires openGenerativeUI middleware on a V2 runtime talking to
+  an Agno agent
+- `agent-config` — dedicated `/api/copilotkit-agent-config` runtime with typed
+  config forwarding; needs Agno dynamic-system-prompt wiring per-request
+- `declarative-gen-ui` (A2UI dynamic) — dedicated runtime + frontend A2UI
+  catalog; the existing Agno `main` agent already exposes `generate_a2ui`,
+  but the declarative-gen-ui cell expects a different runtime surface
 - `a2ui-fixed-schema` — dedicated runtime + fixed-schema catalog
-- `mcp-apps` — requires Agno MCP client/server wiring; Agno MCP support status
-  in AGUI adapter not verified in this pass
-- `headless-complete` — routes through `/api/copilotkit-mcp-apps`; depends on
-  mcp-apps infra
-
-### Require reasoning-token emission via AG-UI we didn't verify
-
-- `agentic-chat-reasoning`, `reasoning-default-render`,
-  `tool-rendering-reasoning-chain` — These demos depend on the agent emitting
-  AG-UI `REASONING_MESSAGE_*` events. Agno has a `reasoning` option on `Agent`
-  but whether it translates through the `AGUI` interface into the exact
-  REASONING_MESSAGE event shape the CopilotKit frontend consumes wasn't verified
-  in this pass. Deferred rather than shipped broken.
+- `mcp-apps` — requires Agno MCP client/server wiring; Agno has
+  `agno.tools.mcp.MCPTools` but integration with the AGUI adapter's
+  activity-message surface wasn't verified
 
 ### Not a real demo
 
