@@ -69,11 +69,11 @@ describe("Registry Generator", () => {
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
     // Count matches current manifest after Wave 1 re-wired open-gen-ui +
-    // open-gen-ui-advanced (30→32; they had existed pre-#4029, were scrubbed,
-    // and are now re-declared for the langgraph-python column completion).
-    // Wave 2a adds `voice` → 33.
-    expect(langgraph.features.length).toBe(33);
-    expect(langgraph.demos.length).toBe(33);
+    // open-gen-ui-advanced (30→32). Waves 2a (voice) + 2b (multimodal) +
+    // 3a (auth) + 3b (agent-config) + 4a (byoc-hashbrown) + 4b
+    // (byoc-json-render) consolidated → 32 + 6 = 38.
+    expect(langgraph.features.length).toBe(38);
+    expect(langgraph.demos.length).toBe(38);
   });
 
   it("sorts integrations by sort_order", () => {

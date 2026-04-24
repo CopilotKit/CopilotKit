@@ -128,11 +128,12 @@ describe("Catalog Generator", () => {
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 33 features in manifest: 32 with routes (wired) + 1 without route (stub = cli-start)
-    // (Wave 2a added `voice` as a wired feature → 32 wired + 1 stub)
-    expect(wired.length).toBe(32);
+    // LGP has 38 features in manifest: 37 with routes (wired) + 1 without route (stub = cli-start)
+    // Waves 2a (voice) + 2b (multimodal) + 3a (auth) + 3b (agent-config)
+    // + 4a (byoc-hashbrown) + 4b (byoc-json-render) consolidated → 37 wired + 1 stub, 0 unshipped
+    expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(5);
+    expect(unshipped.length).toBe(0);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -190,15 +191,14 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata).toBeDefined();
     expect(catalog.metadata.total_cells).toBe(663);
 
-    // Wired = LGP 32 wired + 16 * 8 wired + 17 starters = 32 + 128 + 17 = 177
+    // Consolidated waves 2a/2b/3a/3b/4a/4b shifted 6 LGP cells from
+    // unshipped to wired: LGP wired 31→37, LGP unshipped 6→0.
+    // Wired = LGP 37 wired + 16 * 8 wired + 17 starters = 37 + 128 + 17 = 182
     // Stub = 1 (LGP cli-start)
-    // Unshipped = 5 (LGP) + 16 * 30 (other integrations) = 5 + 480 = 485
-    // Total integrated = 160 + 1 + 485 = 646
-    // Starters (all wired) = 17
-    // So wired = 160 + 17 = 177, stub = 1, unshipped = 485
-    expect(catalog.metadata.wired).toBe(177);
+    // Unshipped = 0 (LGP) + 16 * 30 (other integrations) = 0 + 480 = 480
+    expect(catalog.metadata.wired).toBe(182);
     expect(catalog.metadata.stub).toBe(1);
-    expect(catalog.metadata.unshipped).toBe(485);
+    expect(catalog.metadata.unshipped).toBe(480);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {
