@@ -37,6 +37,7 @@ features:
   - shared-state-read-write
   - shared-state-streaming
   - subagents
+  - byoc-hashbrown
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -94,3 +95,19 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+  - id: byoc-hashbrown
+    name: BYOC Hashbrown
+    description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/src/byoc_hashbrown_agent.py
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/demos/byoc-hashbrown/metric-card.tsx
+      - src/app/demos/byoc-hashbrown/charts/bar-chart.tsx
+      - src/app/demos/byoc-hashbrown/charts/pie-chart.tsx
+      - src/app/demos/byoc-hashbrown/types.ts
+      - src/app/demos/byoc-hashbrown/suggestions.ts
