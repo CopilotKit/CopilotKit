@@ -34,6 +34,11 @@ const agents: Record<string, LangGraphAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+
+// Dedicated-graph agents — each cell has its own LangGraph graph with a
+// tailored system prompt (tools=[], CopilotKitMiddleware attached).
+agents["frontend_tools"] = createAgent("frontend_tools");
+
 agents["default"] = createAgent();
 
 console.log(

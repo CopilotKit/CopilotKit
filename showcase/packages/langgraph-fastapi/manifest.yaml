@@ -37,6 +37,7 @@ features:
   - shared-state-read-write
   - shared-state-streaming
   - subagents
+  - frontend-tools
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -94,3 +95,14 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+  - id: frontend-tools
+    name: Frontend Tools (In-App Actions)
+    description: Agent invokes client-side handlers registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    animated_preview_url:
+    highlight:
+      - src/agents/src/frontend_tools.py
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts

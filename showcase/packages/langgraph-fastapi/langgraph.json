@@ -1,6 +1,7 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "sample_agent": "./src/agents/src/agent.py:graph"
+    "sample_agent": "./src/agents/src/agent.py:graph",
+    "frontend_tools": "./src/agents/src/frontend_tools.py:graph"
   }
 }
