@@ -46,6 +46,8 @@ features:
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
+  - open-gen-ui
+  - open-gen-ui-advanced
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -269,3 +271,26 @@ demos:
       - src/agents/agent.py
       - src/app/demos/subagents/page.tsx
       - src/app/api/copilotkit/route.ts
+  - id: open-gen-ui
+    name: Open Generative UI (Minimal)
+    description: Agent streams HTML/CSS into a sandboxed iframe via the runtime's openGenerativeUI middleware
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_agent.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: Open Generative UI (Advanced)
+    description: Sandboxed UI invokes host-registered sandbox functions via Websandbox.connection.remote
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_advanced_agent.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/api/copilotkit-ogui/route.ts

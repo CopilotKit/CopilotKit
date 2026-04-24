@@ -1,8 +1,21 @@
 """
 Agent Server for PydanticAI
 
-FastAPI server that hosts the PydanticAI agent backend.
-The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
+FastAPI server that hosts the PydanticAI agent backend. The Next.js
+CopilotKit runtime proxies requests here via the AG-UI protocol.
+
+Layout:
+- `/`                          main sales agent (all B1-ported demos)
+- `/open_gen_ui`               Open Generative UI — minimal
+- `/open_gen_ui_advanced`      Open Generative UI — with sandbox functions
+- `/a2ui_dynamic`              Declarative Generative UI (A2UI dynamic)
+- `/a2ui_fixed`                A2UI fixed-schema (flight card)
+- `/headless_complete`         Headless-complete custom chat agent
+- `/beautiful_chat`            Beautiful-chat flagship aliasing the main agent
+
+Sub-paths are mounted BEFORE the root catch-all so Starlette resolves
+them first. The existing single-agent behaviour at `/` is preserved for
+all demos that already target the main sales agent.
 """
 
 import os
@@ -14,6 +27,8 @@ from starlette.responses import JSONResponse
 from dotenv import load_dotenv
 
 from agents.agent import SalesTodosState, StateDeps, agent
+from agents.open_gen_ui_agent import agent as open_gen_ui_agent
+from agents.open_gen_ui_advanced_agent import agent as open_gen_ui_advanced_agent
 
 load_dotenv()
 
@@ -42,7 +57,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount the PydanticAI AG-UI endpoint at the root
+# ── Sub-path agents — mounted BEFORE the root catch-all ──────────────
+# Each demo-specific agent lives at its own sub-path. The matching
+# HttpAgent URL in the corresponding TS route points to that sub-path.
+app.mount("/open_gen_ui", open_gen_ui_agent.to_ag_ui())
+app.mount("/open_gen_ui_advanced", open_gen_ui_advanced_agent.to_ag_ui())
+
+# ── Main sales agent — mounted at root (catch-all) ───────────────────
+# Mounted LAST so the sub-path mounts above win for their specific paths.
 ag_ui_app = agent.to_ag_ui(deps=StateDeps(SalesTodosState()))
 app.mount("/", ag_ui_app)
 
