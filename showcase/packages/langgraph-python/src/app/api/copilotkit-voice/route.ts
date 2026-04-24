@@ -35,34 +35,40 @@ const voiceDemoAgent = new LangGraphAgent({
   langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
 });
 
-// Construct the OpenAI client lazily so the bundle can be built even when
-// OPENAI_API_KEY is not set at build time. Whisper calls only fire when the
-// user triggers transcription at runtime on Railway.
-const transcriptionService = new TranscriptionServiceOpenAI({
-  openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
-});
-
-const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts: published CopilotRuntime agents type
-  // wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain
-  // Records; fixed in source, pending release.
-  agents: {
-    // The page mounts <CopilotKit agent="voice-demo">; resolve that to the
-    // neutral sample_agent graph.
-    "voice-demo": voiceDemoAgent,
-    // useAgent() with no args defaults to "default"; alias so any internal
-    // default-agent lookups resolve against the same graph.
-    default: voiceDemoAgent,
-  },
-  transcriptionService,
-});
+// Construct the OpenAI client + runtime lazily on first request so the
+// Next.js build step (which imports and page-data-collects every route
+// module) can complete even when OPENAI_API_KEY is not set in the Docker
+// build context. Whisper calls only fire when the user triggers
+// transcription at runtime on Railway, where the env var is set.
+let cachedRuntime: CopilotRuntime | null = null;
+function getRuntime(): CopilotRuntime {
+  if (cachedRuntime) return cachedRuntime;
+  const transcriptionService = new TranscriptionServiceOpenAI({
+    openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+  });
+  cachedRuntime = new CopilotRuntime({
+    // @ts-ignore -- see main route.ts: published CopilotRuntime agents type
+    // wraps Record in MaybePromise<NonEmptyRecord<...>> which rejects plain
+    // Records; fixed in source, pending release.
+    agents: {
+      // The page mounts <CopilotKit agent="voice-demo">; resolve that to
+      // the neutral sample_agent graph.
+      "voice-demo": voiceDemoAgent,
+      // useAgent() with no args defaults to "default"; alias so any internal
+      // default-agent lookups resolve against the same graph.
+      default: voiceDemoAgent,
+    },
+    transcriptionService,
+  });
+  return cachedRuntime;
+}
 
 export const POST = async (req: NextRequest) => {
   try {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-voice",
       serviceAdapter: new ExperimentalEmptyAdapter(),
-      runtime,
+      runtime: getRuntime(),
     });
     return await handleRequest(req);
   } catch (error: unknown) {
