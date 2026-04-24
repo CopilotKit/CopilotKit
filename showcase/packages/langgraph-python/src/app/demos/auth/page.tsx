@@ -55,7 +55,10 @@ class ChatErrorBoundary extends Component<
 
   componentDidUpdate(prevProps: ChatErrorBoundaryProps): void {
     // Reset on auth transition so signing in re-mounts a fresh <CopilotChat />.
-    if (prevProps.authenticated !== this.props.authenticated && this.state.error) {
+    if (
+      prevProps.authenticated !== this.props.authenticated &&
+      this.state.error
+    ) {
       this.setState({ error: null });
     }
   }
@@ -153,8 +156,8 @@ export default function AuthDemoPage() {
             <code className="rounded bg-neutral-100 px-1 py-0.5 font-mono text-xs">
               onRequest
             </code>{" "}
-            hook. You start signed in — click Sign out above to exercise the
-            401 path, then Sign in to restore access.
+            hook. You start signed in — click Sign out above to exercise the 401
+            path, then Sign in to restore access.
           </p>
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">

@@ -27,7 +27,9 @@ test.describe("Authentication", () => {
     );
   });
 
-  test("authenticated send produces an assistant response", async ({ page }) => {
+  test("authenticated send produces an assistant response", async ({
+    page,
+  }) => {
     const input = page.getByPlaceholder("Type a message");
     await input.fill("Hello");
     await input.press("Enter");
