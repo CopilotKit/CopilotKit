@@ -28,7 +28,7 @@
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^5.2.0",
     "jsdom": "^29.0.2",
     "postcss": "^8.5.0",
     "tailwindcss": "^4.0.0",
