@@ -7,6 +7,37 @@ are **not** ported to the PydanticAI showcase, with the reason for each
 skip. See `manifest.yaml` for the full list of demos that **are** shipped
 in this package.
 
+## New demos (post-PR #4271)
+
+The following demos introduced on main via PR #4271 are now ported:
+
+- `byoc-json-render` — `@json-render/react` BYOC pattern with
+  JSONUIProvider wrapping `<Renderer />` and MetricCard children
+  forwarding (both post-#4271 fixes preserved).
+- `byoc-hashbrown` — `@hashbrownai/react` BYOC pattern. The PydanticAI
+  agent emits the post-#4271 JSON envelope
+  `{"ui": [{componentName: {"props": {...}}}]}` verbatim.
+- `multimodal` — image / PDF attachments. Images flow to GPT-4o vision
+  natively via `OpenAIResponsesModel`. PDFs are flattened to inline
+  text via `pypdf` inside a PydanticAI `history_processors` hook
+  (equivalent to langgraph-python's `_PdfFlattenMiddleware`). The
+  frontend's `onRunInitialized` shim and LFS-pointer guard are kept
+  intact.
+- `voice` — audio transcription. Route reuses the main sales agent at
+  the PydanticAI root as a neutral backing agent; the
+  `GuardedOpenAITranscriptionService` + direct-instance wiring pattern
+  is lifted verbatim from the langgraph-python reference.
+- `agent-config` — `forwardedProps` routing. The TS runtime route
+  subclasses `HttpAgent` to repack provider `properties` into an AG-UI
+  `context` entry tagged `agent-config-properties`; the Python agent's
+  dynamic `@agent.system_prompt` reads that entry. Framework-specific
+  adaptation vs. langgraph-python's `forwardedProps.config.configurable`
+  path — user-visible behaviour is identical.
+- `auth` — bearer token auth. Gate is built on
+  `createCopilotRuntimeHandler` from `@copilotkit/runtime/v2` with the
+  `onRequest` hook, framework-agnostic. Post-#4271 fixes preserved
+  (default authenticated, `ChatErrorBoundary`, inverted button labels).
+
 ## Skipped demos
 
 - `mcp-apps` — Requires CopilotKit MCP Apps middleware wired to a remote
@@ -35,11 +66,9 @@ in this package.
 
 ## Parked for future parity
 
-These demos are intentionally not in scope for the PydanticAI package:
-
-- `multimodal`, `auth`, `byoc-hashbrown`, `byoc-json-render`, `voice`,
-  `agent-config` — langgraph-python features that the original task brief
-  did not list among the portable demos, so they remain out of scope.
+These demos are intentionally not in scope for the PydanticAI package
+today — none remain now that the post-#4271 demos listed above have
+landed.
 
 ## Partial parity — ported with documented gaps
 

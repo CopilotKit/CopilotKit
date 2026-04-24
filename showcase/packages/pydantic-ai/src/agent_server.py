@@ -12,6 +12,10 @@ Layout:
 - `/a2ui_fixed`                A2UI fixed-schema (flight card)
 - `/headless_complete`         Headless-complete custom chat agent
 - `/beautiful_chat`            Beautiful-chat flagship aliasing the main agent
+- `/byoc_json_render`          BYOC json-render demo
+- `/byoc_hashbrown`            BYOC hashbrown demo
+- `/multimodal`                Multimodal attachments (image/PDF)
+- `/agent_config`              Agent-config forwarded-props demo
 
 Sub-paths are mounted BEFORE the root catch-all so Starlette resolves
 them first. The existing single-agent behaviour at `/` is preserved for
@@ -37,6 +41,11 @@ from agents.headless_complete import EmptyState as HeadlessCompleteState
 from agents.headless_complete import agent as headless_complete_agent
 from agents.beautiful_chat import BeautifulChatState
 from agents.beautiful_chat import agent as beautiful_chat_agent
+from agents.byoc_json_render_agent import agent as byoc_json_render_agent
+from agents.byoc_hashbrown_agent import agent as byoc_hashbrown_agent
+from agents.multimodal_agent import agent as multimodal_agent
+from agents.agent_config_agent import AgentConfigState
+from agents.agent_config_agent import agent as agent_config_agent
 
 load_dotenv()
 
@@ -85,6 +94,15 @@ app.mount(
 app.mount(
     "/beautiful_chat",
     beautiful_chat_agent.to_ag_ui(deps=StateDeps(BeautifulChatState())),
+)
+
+# ── BYOC + multimodal + agent-config (PR #4271 demos) ────────────────
+app.mount("/byoc_json_render", byoc_json_render_agent.to_ag_ui())
+app.mount("/byoc_hashbrown", byoc_hashbrown_agent.to_ag_ui())
+app.mount("/multimodal", multimodal_agent.to_ag_ui())
+app.mount(
+    "/agent_config",
+    agent_config_agent.to_ag_ui(deps=StateDeps(AgentConfigState())),
 )
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────
