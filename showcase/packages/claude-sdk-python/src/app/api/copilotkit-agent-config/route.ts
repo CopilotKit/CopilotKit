@@ -73,9 +73,7 @@ const RESERVED_FORWARDED_PROPS_KEYS = new Set<string>([
  * Playwright specs can assert against a consistent payload shape.
  */
 class AgentConfigHttpAgent extends HttpAgent {
-  run(
-    input: Parameters<HttpAgent["run"]>[0],
-  ): ReturnType<HttpAgent["run"]> {
+  run(input: Parameters<HttpAgent["run"]>[0]): ReturnType<HttpAgent["run"]> {
     const repacked = repackForwardedPropsIntoConfigurable(
       input as unknown as RunInputWithForwardedProps,
     );

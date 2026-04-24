@@ -12,7 +12,9 @@ test.describe("BYOC json-render", () => {
   });
 
   test("suggestion pills are rendered", async ({ page }) => {
-    await expect(page.getByText("Sales dashboard", { exact: false }).first()).toBeVisible({
+    await expect(
+      page.getByText("Sales dashboard", { exact: false }).first(),
+    ).toBeVisible({
       timeout: 10000,
     });
   });
