@@ -325,14 +325,12 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
                 outerRadius={80}
                 paddingAngle={2}
               >
-                {data.map(
-                  (entry: { color?: string }, i: number) => (
-                    <Cell
-                      key={i}
-                      fill={entry.color ?? COLORS[i % COLORS.length]}
-                    />
-                  ),
-                )}
+                {data.map((entry: { color?: string }, i: number) => (
+                  <Cell
+                    key={i}
+                    fill={entry.color ?? COLORS[i % COLORS.length]}
+                  />
+                ))}
               </Pie>
               <Tooltip />
             </RechartsPie>
@@ -460,9 +458,7 @@ const demonstrationCatalogRenderers: CatalogRenderers<DemonstrationCatalogDefini
         Cancelled: "#ef4444",
       };
       const dotColor =
-        props.statusColor ??
-        statusColors[props.status ?? ""] ??
-        "#22c55e";
+        props.statusColor ?? statusColors[props.status ?? ""] ?? "#22c55e";
 
       return (
         <div

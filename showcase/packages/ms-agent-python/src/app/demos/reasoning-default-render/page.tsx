@@ -42,10 +42,7 @@ function Chat() {
     name: "think",
     parameters: z.object({ thought: z.string() }),
     render: ({ args, status }: any) => (
-      <DefaultReasoningMessage
-        thought={args?.thought ?? ""}
-        status={status}
-      />
+      <DefaultReasoningMessage thought={args?.thought ?? ""} status={status} />
     ),
   });
 

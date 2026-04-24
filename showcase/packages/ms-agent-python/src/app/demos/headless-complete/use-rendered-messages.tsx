@@ -66,12 +66,7 @@ export function useRenderedMessages(
     // callbacks produced by their respective hooks; their identity turns over
     // whenever the underlying registries / agent / config change, which is
     // exactly when we want to recompute.
-  }, [
-    messages,
-    renderToolCall,
-    renderActivityMessage,
-    renderCustomMessage,
-  ]);
+  }, [messages, renderToolCall, renderActivityMessage, renderCustomMessage]);
 }
 // @endregion[use-rendered-messages-hook]
 

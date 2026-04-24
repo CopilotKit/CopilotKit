@@ -32,12 +32,11 @@ export default function AgentConfigDemoPage() {
         <header>
           <h1 className="text-lg font-semibold">Agent Config Object</h1>
           <p className="text-sm text-neutral-600">
-            Forwarded props let the frontend tell the agent how to behave.
-            This demo passes <code>tone</code>, <code>expertise</code>, and
+            Forwarded props let the frontend tell the agent how to behave. This
+            demo passes <code>tone</code>, <code>expertise</code>, and
             <code> responseLength</code> through the provider; the MS Agent
             Framework agent reads them from the AG-UI run&apos;s
-            <code> forwardedProps</code> and builds its system prompt per
-            turn.
+            <code> forwardedProps</code> and builds its system prompt per turn.
           </p>
         </header>
         <ConfigCard

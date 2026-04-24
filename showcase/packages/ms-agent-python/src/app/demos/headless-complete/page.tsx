@@ -388,7 +388,9 @@ function WeatherCard({
         marginBottom: 8,
       }}
     >
-      <div style={{ fontWeight: 600, fontSize: 16, textTransform: "capitalize" }}>
+      <div
+        style={{ fontWeight: 600, fontSize: 16, textTransform: "capitalize" }}
+      >
         {location}
       </div>
       {typeof temperature === "number" && (
@@ -397,7 +399,9 @@ function WeatherCard({
         </div>
       )}
       {conditions && (
-        <div style={{ fontSize: 14, opacity: 0.9, textTransform: "capitalize" }}>
+        <div
+          style={{ fontSize: 14, opacity: 0.9, textTransform: "capitalize" }}
+        >
           {conditions}
         </div>
       )}

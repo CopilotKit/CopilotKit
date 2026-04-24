@@ -19,10 +19,7 @@ function createAgent() {
 
 // Both demos share the same backend — we just register it under the names
 // each demo's `agent` prop uses.
-const agentNames = [
-  "agentic-chat-reasoning",
-  "reasoning-default-render",
-];
+const agentNames = ["agentic-chat-reasoning", "reasoning-default-render"];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
