@@ -35,6 +35,7 @@ features:
   - gen-ui-tool-based
   - gen-ui-agent
   - gen-ui-interrupt
+  - interrupt-headless
   - shared-state-read-write
   - shared-state-streaming
   - subagents
@@ -106,4 +107,15 @@ demos:
       - src/agents/src/interrupt_agent.py
       - src/app/demos/gen-ui-interrupt/page.tsx
       - src/app/demos/gen-ui-interrupt/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: interrupt-headless
+    name: Headless Interrupt (testing)
+    description: Resolve langgraph interrupts from a plain button grid — no chat, no useInterrupt render prop
+    tags:
+      - interactivity
+    route: /demos/interrupt-headless
+    animated_preview_url:
+    highlight:
+      - src/agents/src/interrupt_agent.py
+      - src/app/demos/interrupt-headless/page.tsx
       - src/app/api/copilotkit/route.ts
