@@ -20,6 +20,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from agents.agent import create_agent
+from agents.a2ui_dynamic import create_agent as create_a2ui_dynamic_agent
+from agents.a2ui_fixed import create_agent as create_a2ui_fixed_agent
 
 load_dotenv()
 
@@ -65,6 +67,22 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# A2UI demos — mount BEFORE the root catch-all. `add_agent_framework_fastapi_endpoint(..., path="/")`
+# installs a wildcard that would otherwise swallow any later-registered sub-paths.
+a2ui_dynamic_agent = create_a2ui_dynamic_agent(chat_client)
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=a2ui_dynamic_agent,
+    path="/a2ui_dynamic",
+)
+
+a2ui_fixed_agent = create_a2ui_fixed_agent(chat_client)
+add_agent_framework_fastapi_endpoint(
+    app=app,
+    agent=a2ui_fixed_agent,
+    path="/a2ui_fixed",
 )
 
 add_agent_framework_fastapi_endpoint(
