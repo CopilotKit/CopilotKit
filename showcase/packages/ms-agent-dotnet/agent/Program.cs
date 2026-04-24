@@ -29,6 +29,14 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// Additional demo agents mounted at dedicated paths. Each factory is a thin
+// wrapper around `ChatClientAgent` with its own system prompt — kept
+// separate from `SalesAgentFactory` so their prompts / tool sets can evolve
+// independently without risking the shared sales pipeline behavior.
+var mcpAppsFactory = new McpAppsAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/mcp-apps", mcpAppsFactory.CreateMcpAppsAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
