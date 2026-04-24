@@ -40,7 +40,7 @@ function emptyResponse(status = 204) {
 function runtimeCredentials(
   overrides: Partial<{
     threadId: string;
-    runId: string;
+    runId: string | null;
     joinToken: string;
     clientUrl: string;
     topic: string;
@@ -50,7 +50,7 @@ function runtimeCredentials(
 
   return {
     threadId,
-    runId: overrides.runId ?? "run-1",
+    runId: "runId" in overrides ? overrides.runId : "run-1",
     joinToken: overrides.joinToken ?? "jt-123",
     realtime: {
       clientUrl: overrides.clientUrl ?? "ws://localhost:4000/client",
@@ -470,6 +470,13 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       getChannel(agent)!.triggerJoin("ok");
+      getChannel(agent)!.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-2",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
 
       for (let i = 0; i < 5; i++) {
         getSocket(agent)!.triggerError(new Error("network failure"));
@@ -480,6 +487,13 @@ describe("IntelligenceAgent", () => {
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(getSocket(agent)!.opts.params).toMatchObject({
         join_token: "jt-2",
+      });
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-2",
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-2",
       });
     });
 
@@ -1143,6 +1157,32 @@ describe("IntelligenceAgent", () => {
       expect(getSocket(agent)!.opts.params).toMatchObject({
         join_token: "jt-2",
       });
+    });
+
+    it("does not treat a synthetic connect run id as abortable run identity", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ runId: null })),
+      );
+
+      const agent = createAgent();
+      connectWithTestAccess(agent, {
+        ...defaultInput,
+        runId: "synthetic-connect-run",
+      }).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+
+      expect(getCanonicalRunIdForTest(agent)).toBeNull();
+
+      agent.abortRun();
+
+      expect(channel.pushLog).toHaveLength(0);
+      expect(channel.left).toBe(true);
     });
   });
 

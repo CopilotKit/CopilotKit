@@ -264,6 +264,7 @@ export class IntelligenceAgent extends AbstractAgent {
         const canonicalInput = this.applyCanonicalRunIdentity(
           input,
           credentials,
+          { fallbackToInputRunId: true },
         );
 
         return this.observeThread$(canonicalInput, credentials, {
@@ -280,7 +281,7 @@ export class IntelligenceAgent extends AbstractAgent {
    */
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
-    this.canonicalRunId = input.runId;
+    this.canonicalRunId = null;
 
     return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
       switchMap((credentials) => {
@@ -291,6 +292,7 @@ export class IntelligenceAgent extends AbstractAgent {
         const canonicalInput = this.applyCanonicalRunIdentity(
           input,
           credentials,
+          { fallbackToInputRunId: false },
         );
 
         return this.observeThread$(canonicalInput, credentials, {
@@ -419,7 +421,7 @@ export class IntelligenceAgent extends AbstractAgent {
       runId:
         typeof envelope.runId === "string" && envelope.runId
           ? envelope.runId
-          : input.runId,
+          : null,
       joinToken: envelope.joinToken,
       realtime: {
         clientUrl: realtime.clientUrl,
@@ -434,6 +436,7 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      channelMode?: "run" | "connect";
       replayCursor?: string | null;
     },
   ): Observable<BaseEvent> {
@@ -448,10 +451,13 @@ export class IntelligenceAgent extends AbstractAgent {
             refreshedCredentials === null
               ? EMPTY
               : this.observeThread$(
-                  this.applyCanonicalRunIdentity(input, refreshedCredentials),
+                  this.applyCanonicalRunIdentity(input, refreshedCredentials, {
+                    fallbackToInputRunId: options.streamMode === "run",
+                  }),
                   refreshedCredentials,
                   {
                     ...options,
+                    channelMode: "connect",
                     replayCursor: this.getReconnectCursor(input),
                   },
                 ),
@@ -467,6 +473,7 @@ export class IntelligenceAgent extends AbstractAgent {
     options: {
       completeOnRunError: boolean;
       streamMode: "run" | "connect";
+      channelMode?: "run" | "connect";
       replayCursor?: string | null;
     },
   ): Observable<BaseEvent> {
@@ -500,7 +507,7 @@ export class IntelligenceAgent extends AbstractAgent {
       );
       const params = this.createThreadChannelParams(
         input,
-        options.streamMode,
+        options.channelMode ?? options.streamMode,
         options.replayCursor,
       );
       const channel$ = ɵphoenixChannel$({
@@ -722,14 +729,17 @@ export class IntelligenceAgent extends AbstractAgent {
   private applyCanonicalRunIdentity(
     input: RunAgentInput,
     credentials: ThreadJoinCredentials,
+    options: { fallbackToInputRunId: boolean },
   ): RunAgentInput {
     this.threadId = credentials.threadId;
-    this.canonicalRunId = credentials.runId ?? input.runId;
+    const runId =
+      credentials.runId ?? (options.fallbackToInputRunId ? input.runId : null);
+    this.canonicalRunId = runId;
 
     return {
       ...input,
       threadId: credentials.threadId,
-      runId: credentials.runId ?? input.runId,
+      ...(runId === null ? {} : { runId }),
     };
   }
 
