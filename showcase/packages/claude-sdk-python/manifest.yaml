@@ -22,6 +22,7 @@ interaction_modalities:
   - embedded
   - chat
 features:
+  - cli-start
   - agentic-chat
   - hitl-in-chat
   - tool-rendering
@@ -30,7 +31,18 @@ features:
   - shared-state-read-write
   - shared-state-streaming
   - subagents
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-slots
+  - chat-customization-css
+  - headless-simple
 demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to clone the canonical starter
+    tags:
+      - chat-ui
+    command: "npx copilotkit@latest init --framework claude-sdk-python"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -87,6 +99,63 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-popup
+    name: "Pre-Built: Popup"
+    description: Floating popup chat via <CopilotPopup />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-slots
+    name: Chat Customization (Slots)
+    description: Customize CopilotChat via its slot system
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-customization-css
+    name: Chat Customization (CSS)
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts
+  - id: headless-simple
+    name: Headless Chat (Simple)
+    description: Minimal custom chat surface built on useAgent
+    tags:
+      - chat-ui
+    route: /demos/headless-simple
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/headless-simple/page.tsx
+      - src/app/api/copilotkit/route.ts
 starter:
   path: showcase/starters/claude-sdk-python
   name: Sales Dashboard

@@ -28,6 +28,11 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
