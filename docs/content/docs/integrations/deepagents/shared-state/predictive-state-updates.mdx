@@ -340,7 +340,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
   <TailoredContentOption
     id="prebuilt"
     title="Prebuilt agent"
-    description={`I'm using a prebuilt agent like "create_agent" by LangGraph`}
+    description={`I'm using a prebuilt agent like createDeepAgent or create_agent`}
   >
     <Steps>
       <Step>
@@ -381,14 +381,14 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
           <Tab value="Python">
             ```python title="agent.py"
             from copilotkit import CopilotKitMiddleware, CopilotKitState, StateStreamingMiddleware, StateItem  # [!code highlight]
-            from langchain.agents import create_agent
+            from deepagents import create_deep_agent
             from langchain.tools import tool
 
             @tool
             def step_progress_tool(steps: list[str]):
                 """Reports the current steps being executed"""
 
-            graph = create_agent(
+            agent = create_deep_agent(
                 model="openai:gpt-5.4",
                 tools=[step_progress_tool],
                 middleware=[
@@ -398,7 +398,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     ),  # [!code highlight]
                 ],
                 system_prompt="You are a task performer. Report your steps using step_progress_tool.",
-                state_schema=AgentState
             )
             ```
           </Tab>

@@ -43,12 +43,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 <Step>
 ### Give your agent a tool to call
 
-<Tabs groupId="language_langgraph_agent" items={['Python', 'TypeScript']} default="Python" persist>
+<Tabs groupId="agent_language" items={['Python', 'TypeScript']} persist>
     <Tab value="Python">
         ```python title="agent.py"
-        from langchain_openai import ChatOpenAI
+        from deepagents import create_deep_agent
         from langchain.tools import tool
-        # ...
 
         # [!code highlight:6]
         @tool
@@ -58,28 +57,21 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
             """
             return f"The weather for {location} is 70 degrees."
 
-        # ...
-
-        async def chat_node(state: AgentState, config: RunnableConfig):
-            model = ChatOpenAI(model="gpt-5.4")
-            model_with_tools = model.bind_tools([get_weather]) # [!code highlight]
-
-            response = await model_with_tools.ainvoke([
-                SystemMessage(content=f"You are a helpful assistant."),
-                *state["messages"],
-            ], config)
-
-            # ...
+        agent = create_deep_agent(
+            model="openai:gpt-4o",
+            tools=[get_weather], # [!code highlight]
+            system_prompt="You are a helpful assistant.",
+        )
         ```
     </Tab>
     <Tab value="TypeScript">
-        ```typescript title="agent-js/src/agent.ts"
-        import { ChatOpenAI } from "@langchain/openai";
-        import { tool } from "@langchain/core/tools";
+        ```ts title="agent.ts"
+        import { createDeepAgent } from "deepagents";
+        import { tool } from "langchain";
         import { z } from "zod";
 
         // [!code highlight:12]
-        const get_weather = tool(
+        const getWeather = tool(
           (args) => {
             return `The weather for ${args.location} is 70 degrees.`;
           },
@@ -92,17 +84,11 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
           }
         );
 
-        async function chat_node(state: AgentState, config: RunnableConfig) {
-          const model = new ChatOpenAI({ temperature: 0, model: "gpt-5.4" });
-          const modelWithTools = model.bindTools([get_weather]); // [!code highlight]
-
-          const response = await modelWithTools.invoke([
-            new SystemMessage("You are a helpful assistant."),
-            ...state.messages,
-          ], config);
-
-          // ...
-        }
+        export const agent = createDeepAgent({
+          model: "openai:gpt-4o",
+          tools: [getWeather], // [!code highlight]
+          systemPrompt: "You are a helpful assistant.",
+        });
         ```
     </Tab>
 </Tabs>
