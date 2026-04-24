@@ -69,7 +69,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
             <Tab value="Python">
                 ```python title="agent.py"
                 from copilotkit import CopilotKitState
-                from typing import Literal
 
                 class AgentState(CopilotKitState):
                     observed_steps: list[str]  # Array of completed steps
@@ -172,7 +171,6 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
                     <Tab value="Python">
                         ```python
                         from copilotkit.langgraph import copilotkit_customize_config
-                        from copilotkit import CopilotKitState
                         from langgraph.types import Command
                         from langgraph.graph import END
                         from langchain.tools import tool
@@ -380,7 +378,7 @@ When a node in your LangGraph finishes executing, **its returned state becomes t
         <Tabs groupId="agent_language" items={["Python", "TypeScript"]} persist>
           <Tab value="Python">
             ```python title="agent.py"
-            from copilotkit import CopilotKitMiddleware, CopilotKitState, StateStreamingMiddleware, StateItem  # [!code highlight]
+            from copilotkit import CopilotKitMiddleware, StateStreamingMiddleware, StateItem  # [!code highlight]
             from deepagents import create_deep_agent
             from langchain.tools import tool
 

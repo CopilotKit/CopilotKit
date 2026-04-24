@@ -29,12 +29,11 @@ In addition, some state properties contain a lot of information. Syncing them ba
       let's assume that the state our agent should be using, can be described like this:
       ```python title="agent.py"
       from copilotkit import CopilotKitState
-      from typing import Literal
 
       class AgentState(CopilotKitState):
           question: str
           answer: str
-          resources: List[str]
+          resources: list[str]
       ```
   </Step>
   <Step>
@@ -46,7 +45,6 @@ In addition, some state properties contain a lot of information. Syncing them ba
 
       ```python title="agent.py"
       from copilotkit import CopilotKitState
-      from typing import Literal
 
       # Divide the state to 3 parts
 

@@ -155,10 +155,8 @@ Before you begin, you'll need the following:
                 Create a Deep Agent and expose it as an AG-UI endpoint:
 
                 ```python title="main.py"
-                import os
-
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-                from copilotkit import CopilotKitMiddleware, CopilotKitState, LangGraphAGUIAgent
+                from copilotkit import CopilotKitMiddleware, LangGraphAGUIAgent
                 from deepagents import create_deep_agent
                 from fastapi import FastAPI
                 from langgraph.checkpoint.memory import MemorySaver
