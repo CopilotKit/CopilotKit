@@ -29,26 +29,26 @@ Ported demos therefore fall into two categories:
 
 ## Ported demos (newly added in this PR)
 
-| Demo                             | Kind              | Notes                                                  |
-|----------------------------------|-------------------|--------------------------------------------------------|
-| prebuilt-sidebar                 | Chrome            | `<CopilotSidebar />` against shared crew               |
-| prebuilt-popup                   | Chrome            | `<CopilotPopup />` against shared crew                 |
-| chat-slots                       | Chrome            | Slot overrides on `<CopilotChat />`                    |
-| chat-customization-css           | Chrome            | CSS custom-properties theming                          |
-| headless-simple                  | Chrome / Headless | `useAgent` + `useComponent`                            |
-| headless-complete                | Chrome / Headless | Full headless implementation                           |
-| agentic-chat-reasoning           | Reasoning         | Uses the shared crew; reasoning tokens if model emits  |
-| reasoning-default-render         | Reasoning         | Default CopilotChatReasoningMessage                    |
-| tool-rendering-default-catchall  | Rendering         | Out-of-the-box default renderer                        |
-| tool-rendering-custom-catchall   | Rendering         | Custom wildcard renderer                               |
-| tool-rendering-reasoning-chain   | Rendering         | Sequential tool calls + reasoning                      |
-| frontend-tools                   | Frontend tools    | `useFrontendTool` for background change                |
-| frontend-tools-async             | Frontend tools    | Async `useFrontendTool` handler                        |
-| hitl-in-app                      | HITL              | `useFrontendTool` + app-level modal                    |
-| readonly-state-agent-context     | Context           | `useAgentContext`                                      |
-| agent-config                     | Context           | Typed config object via `useAgentContext`              |
-| open-gen-ui                      | Generative UI     | Fully open-ended gen UI, frontend-only                 |
-| open-gen-ui-advanced             | Generative UI     | Sandbox functions inside iframe                        |
+| Demo                            | Kind              | Notes                                                 |
+| ------------------------------- | ----------------- | ----------------------------------------------------- |
+| prebuilt-sidebar                | Chrome            | `<CopilotSidebar />` against shared crew              |
+| prebuilt-popup                  | Chrome            | `<CopilotPopup />` against shared crew                |
+| chat-slots                      | Chrome            | Slot overrides on `<CopilotChat />`                   |
+| chat-customization-css          | Chrome            | CSS custom-properties theming                         |
+| headless-simple                 | Chrome / Headless | `useAgent` + `useComponent`                           |
+| headless-complete               | Chrome / Headless | Full headless implementation                          |
+| agentic-chat-reasoning          | Reasoning         | Uses the shared crew; reasoning tokens if model emits |
+| reasoning-default-render        | Reasoning         | Default CopilotChatReasoningMessage                   |
+| tool-rendering-default-catchall | Rendering         | Out-of-the-box default renderer                       |
+| tool-rendering-custom-catchall  | Rendering         | Custom wildcard renderer                              |
+| tool-rendering-reasoning-chain  | Rendering         | Sequential tool calls + reasoning                     |
+| frontend-tools                  | Frontend tools    | `useFrontendTool` for background change               |
+| frontend-tools-async            | Frontend tools    | Async `useFrontendTool` handler                       |
+| hitl-in-app                     | HITL              | `useFrontendTool` + app-level modal                   |
+| readonly-state-agent-context    | Context           | `useAgentContext`                                     |
+| agent-config                    | Context           | Typed config object via `useAgentContext`             |
+| open-gen-ui                     | Generative UI     | Fully open-ended gen UI, frontend-only                |
+| open-gen-ui-advanced            | Generative UI     | Sandbox functions inside iframe                       |
 
 ## Skipped demos — architectural reasons
 

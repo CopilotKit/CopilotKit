@@ -1,6 +1,7 @@
 # QA: Chat Slots — CrewAI (Crews)
 
 ## Prerequisites
+
 - Demo deployed; agent backend healthy.
 
 ## Test Steps
@@ -14,4 +15,5 @@
 - [ ] Verify the custom disclaimer (`data-testid="custom-disclaimer"`) is visible under the input.
 
 ## Expected Results
+
 - All three slot overrides (welcomeScreen / input.disclaimer / messageView.assistantMessage) are visible.

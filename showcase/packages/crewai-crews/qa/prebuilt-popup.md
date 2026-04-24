@@ -1,6 +1,7 @@
 # QA: Pre-Built Popup — CrewAI (Crews)
 
 ## Prerequisites
+
 - Demo deployed; agent backend healthy.
 
 ## Test Steps
@@ -14,5 +15,6 @@
 - [ ] Re-open; verify prior messages persist.
 
 ## Expected Results
+
 - Popup opens by default.
 - Floating launcher is always visible and toggles the popup.

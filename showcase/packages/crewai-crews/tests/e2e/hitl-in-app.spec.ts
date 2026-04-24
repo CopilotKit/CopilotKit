@@ -7,9 +7,7 @@ test.describe("In-App HITL", () => {
 
   test("tickets panel and chat render", async ({ page }) => {
     await expect(page.getByText("Support Inbox")).toBeVisible();
-    await expect(
-      page.locator('[data-testid="ticket-12345"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="ticket-12345"]')).toBeVisible();
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 });

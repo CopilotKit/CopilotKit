@@ -1,6 +1,7 @@
 # QA: Chat Customization (CSS) — CrewAI (Crews)
 
 ## Prerequisites
+
 - Demo deployed; agent backend healthy.
 
 ## Test Steps
@@ -13,4 +14,5 @@
 - [ ] Verify the assistant bubble is amber (#fde047) with a dark indigo border and monospace text.
 
 ## Expected Results
+
 - All theming is scoped; rest of the app is unaffected.

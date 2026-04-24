@@ -1,6 +1,7 @@
 # QA: Pre-Built Sidebar — CrewAI (Crews)
 
 ## Prerequisites
+
 - Demo deployed; agent backend healthy.
 
 ## Test Steps
@@ -14,6 +15,7 @@
 - [ ] Re-open the sidebar; verify messages persist.
 
 ## Expected Results
+
 - Sidebar opens by default.
 - Launcher toggles the sidebar without unmounting it.
 - Main content remains visible alongside the sidebar.

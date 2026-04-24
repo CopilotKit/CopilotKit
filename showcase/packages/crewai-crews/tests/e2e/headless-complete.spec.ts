@@ -10,8 +10,6 @@ test.describe("Headless Chat (Complete)", () => {
   });
 
   test("composer textarea is visible", async ({ page }) => {
-    await expect(
-      page.getByPlaceholder("Type a message..."),
-    ).toBeVisible();
+    await expect(page.getByPlaceholder("Type a message...")).toBeVisible();
   });
 });

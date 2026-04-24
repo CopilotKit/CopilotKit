@@ -6,12 +6,8 @@ test.describe("Readonly State (Agent Context)", () => {
   });
 
   test("context card renders with controls", async ({ page }) => {
-    await expect(
-      page.locator('[data-testid="context-card"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="context-card"]')).toBeVisible();
     await expect(page.locator('[data-testid="ctx-name"]')).toBeVisible();
-    await expect(
-      page.locator('[data-testid="ctx-timezone"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="ctx-timezone"]')).toBeVisible();
   });
 });
