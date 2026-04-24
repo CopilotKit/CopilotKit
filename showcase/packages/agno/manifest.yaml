@@ -44,6 +44,9 @@ features:
   - frontend-tools
   - frontend-tools-async
   - readonly-state-agent-context
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
+  - hitl-in-chat-booking
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -213,6 +216,41 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-chat-booking
+    name: In-Chat HITL (Booking)
+    description: Time-picker card rendered inline via useHumanInTheLoop
+    tags:
+      - interactivity
+    route: /demos/hitl-in-chat
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/hitl-in-chat/page.tsx
+      - src/app/demos/hitl-in-chat/time-picker-card.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default Catch-all)
+    description: Out-of-the-box default tool-call card via useDefaultRenderTool()
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-default-catchall
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: Tool Rendering (Custom Catch-all)
+    description: Single branded wildcard renderer via useDefaultRenderTool
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-custom-catchall
+    animated_preview_url:
+    highlight:
+      - src/agents/main.py
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools-async
     name: Frontend Tools (Async)
