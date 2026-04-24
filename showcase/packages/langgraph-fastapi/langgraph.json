@@ -3,6 +3,7 @@
   "graphs": {
     "sample_agent": "./src/agents/src/agent.py:graph",
     "interrupt_agent": "./src/agents/src/interrupt_agent.py:graph",
-    "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph"
+    "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph",
+    "a2ui_fixed": "./src/agents/src/a2ui_fixed.py:graph"
   }
 }
