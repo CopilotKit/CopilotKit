@@ -13,7 +13,7 @@ test.describe("Pre-Built Sidebar", () => {
 
   test("sidebar is open by default", async ({ page }) => {
     // CopilotSidebar mounts with a chat input when open
-    await expect(page.locator('textarea').first()).toBeVisible({
+    await expect(page.locator("textarea").first()).toBeVisible({
       timeout: 10000,
     });
   });

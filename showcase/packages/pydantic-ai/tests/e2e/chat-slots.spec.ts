@@ -12,8 +12,8 @@ test.describe("Chat Slots", () => {
   });
 
   test("custom disclaimer renders", async ({ page }) => {
-    await expect(
-      page.locator('[data-testid="custom-disclaimer"]'),
-    ).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="custom-disclaimer"]')).toBeVisible(
+      { timeout: 10000 },
+    );
   });
 });
