@@ -38,11 +38,7 @@
  */
 
 import { useCallback, useEffect, useMemo } from "react";
-import {
-  CopilotKit,
-  CopilotChat,
-  useAgent,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, CopilotChat, useAgent } from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";

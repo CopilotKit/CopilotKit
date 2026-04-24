@@ -56,11 +56,11 @@ Ported demos therefore fall into three categories:
 
 ## Ported demos (Wave 2 — this PR)
 
-| Demo            | Kind         | Notes                                                      |
-|-----------------|--------------|------------------------------------------------------------|
-| auth            | Runtime      | Bearer-token gate via V2 `onRequest` hook                  |
-| voice           | Runtime      | `TranscriptionServiceOpenAI` mounted on per-demo runtime   |
-| multimodal      | Runtime      | Image + PDF uploads via `AttachmentsConfig`                |
+| Demo       | Kind    | Notes                                                    |
+| ---------- | ------- | -------------------------------------------------------- |
+| auth       | Runtime | Bearer-token gate via V2 `onRequest` hook                |
+| voice      | Runtime | `TranscriptionServiceOpenAI` mounted on per-demo runtime |
+| multimodal | Runtime | Image + PDF uploads via `AttachmentsConfig`              |
 
 ## Wave 2 fix: `agent-config` backend wiring
 
@@ -133,7 +133,7 @@ the frontend catalog. Porting to CrewAI needs:
    tools that emit the ingredient tool-calls the frontend catalog
    expects).
 2. A combined runtime endpoint on the Next.js side (`openGenerativeUI:
-   true`, `a2ui.injectA2UITool: false`, `mcpApps.servers`). MCP Apps
+true`, `a2ui.injectA2UITool: false`, `mcpApps.servers`). MCP Apps
    still has no CrewAI backend wiring (see `mcp-apps` above), so even a
    partial port would be an A2UI + OGUI duet without the MCP leg.
 
