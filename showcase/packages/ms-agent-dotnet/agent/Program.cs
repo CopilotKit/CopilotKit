@@ -37,6 +37,13 @@ app.MapAGUI("/", agentFactory.CreateSalesAgent());
 var declarativeGenUi = new DeclarativeGenUiAgent(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/declarative-gen-ui", declarativeGenUi.Create());
 
+// A2UI — Fixed Schema: dedicated agent whose sole tool is `search_flights`,
+// emitting an `a2ui_operations` container that updates a pre-authored
+// frontend schema (`copilotkit://flight-fixed-catalog`). Mounted at its own
+// path so `/api/copilotkit-a2ui-fixed-schema` can proxy directly to it.
+var a2uiFixedSchema = new A2uiFixedSchemaAgent(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/a2ui-fixed-schema", a2uiFixedSchema.Create());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
