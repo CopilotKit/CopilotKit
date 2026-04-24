@@ -1,9 +1,15 @@
 /**
  * Unit tests for CollapsibleCategory — expand/collapse, localStorage persist.
+ * Tests both the legacy CollapsibleCategory wrapper and the new
+ * useCollapsible hook + CategoryHeaderRow component.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, fireEvent } from "@testing-library/react";
-import { CollapsibleCategory } from "../collapsible-category";
+import { render, fireEvent, renderHook, act } from "@testing-library/react";
+import {
+  CollapsibleCategory,
+  CategoryHeaderRow,
+  useCollapsible,
+} from "../collapsible-category";
 
 // Mock localStorage
 const storageMap = new Map<string, string>();
@@ -22,7 +28,7 @@ beforeEach(() => {
   });
 });
 
-describe("CollapsibleCategory", () => {
+describe("CollapsibleCategory (legacy wrapper)", () => {
   it("renders children when defaultOpen is true", () => {
     const { getByText } = render(
       <CollapsibleCategory name="Core" count="10/38" defaultOpen>
@@ -107,5 +113,104 @@ describe("CollapsibleCategory", () => {
     );
     const chevron = getByTestId("collapsible-chevron");
     expect(chevron).toBeDefined();
+  });
+});
+
+describe("useCollapsible hook", () => {
+  it("returns isOpen=true when defaultOpen and no localStorage", () => {
+    const { result } = renderHook(() =>
+      useCollapsible({ name: "HookTest", defaultOpen: true }),
+    );
+    expect(result.current.isOpen).toBe(true);
+  });
+
+  it("returns isOpen=false when defaultOpen=false and no localStorage", () => {
+    const { result } = renderHook(() =>
+      useCollapsible({ name: "HookTest", defaultOpen: false }),
+    );
+    expect(result.current.isOpen).toBe(false);
+  });
+
+  it("toggle flips state and persists to localStorage", () => {
+    const { result } = renderHook(() =>
+      useCollapsible({ name: "HookToggle", defaultOpen: true }),
+    );
+    expect(result.current.isOpen).toBe(true);
+
+    act(() => result.current.toggle());
+    expect(result.current.isOpen).toBe(false);
+    expect(storageMap.get("dashboard-collapse-HookToggle")).toBe("collapsed");
+
+    act(() => result.current.toggle());
+    expect(result.current.isOpen).toBe(true);
+    expect(storageMap.get("dashboard-collapse-HookToggle")).toBe("expanded");
+  });
+
+  it("reads initial state from localStorage", () => {
+    storageMap.set("dashboard-collapse-Stored", "collapsed");
+    const { result } = renderHook(() =>
+      useCollapsible({ name: "Stored", defaultOpen: true }),
+    );
+    expect(result.current.isOpen).toBe(false);
+  });
+});
+
+describe("CategoryHeaderRow", () => {
+  it("renders name, count, and chevron inside a <tr>", () => {
+    const onToggle = vi.fn();
+    const { getByText, getByTestId } = render(
+      <table>
+        <tbody>
+          <CategoryHeaderRow
+            name="Chat & UI"
+            count="5/10"
+            colSpan={4}
+            isOpen={true}
+            onToggle={onToggle}
+          />
+        </tbody>
+      </table>,
+    );
+    expect(getByText("Chat & UI")).toBeDefined();
+    expect(getByText("5/10")).toBeDefined();
+    expect(getByTestId("collapsible-chevron")).toBeDefined();
+  });
+
+  it("calls onToggle when clicked", () => {
+    const onToggle = vi.fn();
+    const { getByTestId } = render(
+      <table>
+        <tbody>
+          <CategoryHeaderRow
+            name="Platform"
+            count="2/4"
+            colSpan={4}
+            isOpen={true}
+            onToggle={onToggle}
+          />
+        </tbody>
+      </table>,
+    );
+    fireEvent.click(getByTestId("collapsible-header"));
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets correct colSpan on the td", () => {
+    const { getByTestId } = render(
+      <table>
+        <tbody>
+          <CategoryHeaderRow
+            name="Core"
+            count="1/2"
+            colSpan={5}
+            isOpen={false}
+            onToggle={() => {}}
+          />
+        </tbody>
+      </table>,
+    );
+    const tr = getByTestId("collapsible-category");
+    const td = tr.querySelector("td");
+    expect(td?.getAttribute("colspan")).toBe("5");
   });
 });

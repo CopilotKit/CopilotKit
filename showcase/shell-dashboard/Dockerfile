@@ -28,10 +28,12 @@ COPY showcase/shell-dashboard/ ./shell-dashboard/
 ENV NEXT_PUBLIC_COMMIT_SHA=${COMMIT_SHA}
 ENV NEXT_PUBLIC_BRANCH=${BRANCH}
 
-# Shell URL is inlined by Next.js at build time (NEXT_PUBLIC_*). Must be
-# provided as a build arg — a runtime env var on Railway is too late.
+# NEXT_PUBLIC_* vars are inlined by Next.js at build time. Must be
+# provided as Docker build args — runtime env vars on Railway are too late.
 ARG NEXT_PUBLIC_SHELL_URL
 ENV NEXT_PUBLIC_SHELL_URL=${NEXT_PUBLIC_SHELL_URL}
+ARG NEXT_PUBLIC_POCKETBASE_URL
+ENV NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL}
 
 # Generate registry + docs status, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
