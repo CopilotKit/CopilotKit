@@ -132,6 +132,10 @@
     "voice": {
       "og_docs_url": "https://docs.copilotkit.ai/langgraph/voice",
       "shell_docs_path": null
+    },
+    "multimodal": {
+      "og_docs_url": null,
+      "shell_docs_path": null
     }
   }
 }

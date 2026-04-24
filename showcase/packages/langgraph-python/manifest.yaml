@@ -63,6 +63,7 @@ features:
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
+  - multimodal
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -426,6 +427,18 @@ demos:
       - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
       - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
       - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: multimodal
+    name: Multimodal Attachments
+    description: Image and PDF uploads via CopilotChat attachments, processed by a vision-capable agent
+    tags:
+      - chat-ui
+    route: /demos/multimodal
+    animated_preview_url:
+    highlight:
+      - src/agents/multimodal_agent.py
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library
