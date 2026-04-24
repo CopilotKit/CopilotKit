@@ -22,8 +22,9 @@ function createAgent(graphId: string = "starterAgent") {
   });
 }
 
-// Register the starterAgent under all names used by demo pages.
-const agentNames = [
+// Register the same starter agent under all names used by demo pages
+// that don't need their own graph.
+const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
@@ -44,7 +45,7 @@ const agentNames = [
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
-for (const name of agentNames) {
+for (const name of starterAgentNames) {
   agents[name] = createAgent();
 }
 agents["default"] = createAgent();
@@ -55,6 +56,18 @@ agents["starterAgent"] = createAgent();
 // schedule_meeting tool.
 agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
 agents["interrupt-headless"] = createAgent("interrupt_agent");
+
+// Demo-specific graphs. Agent name (as used on the frontend
+// `<CopilotKit agent="...">` prop) → graphId in src/agent/langgraph.json.
+const demoAgents: Record<string, string> = {
+  frontend_tools: "frontend_tools",
+  "frontend-tools-async": "frontend_tools_async",
+  "hitl-in-app": "hitl_in_app",
+  "readonly-state-agent-context": "readonly_state_agent_context",
+};
+for (const [agentName, graphId] of Object.entries(demoAgents)) {
+  agents[agentName] = createAgent(graphId);
+}
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

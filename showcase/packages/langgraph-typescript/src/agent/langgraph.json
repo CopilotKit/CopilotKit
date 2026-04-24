@@ -16,7 +16,11 @@
     "interrupt_agent": "./interrupt-agent.ts:graph",
     "a2ui_dynamic": "./a2ui-dynamic.ts:graph",
     "a2ui_fixed": "./a2ui-fixed.ts:graph",
-    "mcp_apps": "./mcp-apps.ts:graph"
+    "mcp_apps": "./mcp-apps.ts:graph",
+    "frontend_tools": "./frontend-tools.ts:graph",
+    "frontend_tools_async": "./frontend-tools-async.ts:graph",
+    "hitl_in_app": "./hitl-in-app.ts:graph",
+    "readonly_state_agent_context": "./readonly-state.ts:graph"
   },
   "env": "../../.env"
 }
