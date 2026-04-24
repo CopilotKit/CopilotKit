@@ -64,6 +64,7 @@ features:
   - readonly-state-agent-context
   - subagents
   - multimodal
+  - auth
   - open-gen-ui
   - open-gen-ui-advanced
   - voice
@@ -439,6 +440,19 @@ demos:
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
+    tags:
+      - chat-ui
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/demos/auth/demo-token.ts
+      - src/app/api/copilotkit-auth/route.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library
