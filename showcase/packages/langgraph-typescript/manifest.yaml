@@ -40,6 +40,11 @@ features:
   - shared-state-read-write
   - shared-state-streaming
   - subagents
+  - beautiful-chat
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-slots
+  - chat-customization-css
 demos:
   - id: agentic-chat
     name: Agentic Chat
@@ -97,3 +102,66 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
+    tags:
+      - chat-ui
+    route: /demos/beautiful-chat
+    animated_preview_url:
+    highlight:
+      - src/agent/beautiful-chat.ts
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/bar-chart.tsx
+      - src/app/demos/beautiful-chat/components/generative-ui/charts/pie-chart.tsx
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    animated_preview_url:
+    highlight:
+      - src/agent/graph.ts
+      - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-popup
+    name: "Pre-Built: Popup"
+    description: Floating popup chat via <CopilotPopup />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    animated_preview_url:
+    highlight:
+      - src/agent/graph.ts
+      - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-slots
+    name: Chat Customization (Slots)
+    description: Customize CopilotChat via its slot system
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    animated_preview_url:
+    highlight:
+      - src/agent/graph.ts
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-customization-css
+    name: Chat Customization (CSS)
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    animated_preview_url:
+    highlight:
+      - src/agent/graph.ts
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts

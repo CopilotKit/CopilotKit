@@ -33,6 +33,11 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Chat-UI demos — all reuse the default starterAgent.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-customization-css",
+  "chat-slots",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
