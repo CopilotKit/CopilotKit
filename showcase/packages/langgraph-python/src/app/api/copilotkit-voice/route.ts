@@ -14,13 +14,21 @@
 // Two non-obvious things this file does:
 //
 // 1. It bypasses the V1 `CopilotRuntime` wrapper's silent drop of
-//    `transcriptionService` by writing the service onto the V2 runtime
-//    instance directly. See `packages/runtime/src/lib/runtime/copilot-runtime.ts`
-//    — `transcriptionService` is `Omit`ed from the V1 constructor type and the
+//    `transcriptionService` by defining the service as an own property on
+//    the V2 runtime instance that shadows the prototype's getter-only
+//    `transcriptionService` accessor. See
+//    `packages/runtime/src/lib/runtime/copilot-runtime.ts` —
+//    `transcriptionService` is `Omit`ed from the V1 constructor type and the
 //    constructor explicitly does not forward it to the V2 runtime (see the
-//    "TODO: add support for transcriptionService" comment there). Until that
-//    is unblocked upstream, per-demo routes that need transcription must
-//    reach through `.instance`.
+//    "TODO: add support for transcriptionService" comment there). The V2
+//    `CopilotRuntime` class in turn only exposes `transcriptionService` as a
+//    getter that reads from a private delegate, so a plain assignment
+//    (`instance.transcriptionService = ...`) throws at runtime:
+//    "Cannot set property transcriptionService of #<X> which has only a
+//    getter". Until the upstream pass-through is fixed, per-demo routes
+//    that need transcription must install the service via
+//    `Object.defineProperty` so the lookup on the wrapper resolves to our
+//    own-property value before it ever reaches the prototype getter.
 //
 // 2. It always mounts a transcription service (so `/info` advertises the
 //    mic-capable state and the composer renders the mic button) but makes
@@ -123,14 +131,22 @@ function getRuntime(): CopilotRuntime {
     },
   });
 
-  // V1 CopilotRuntime's constructor drops `transcriptionService` on the floor
-  // (see file header note #1). Write it onto the V2 runtime instance directly
-  // so `/info` advertises `audioFileTranscriptionEnabled: true` and so
-  // `POST {method: "transcribe"}` has a service to invoke.
-  const v2Instance = runtime.instance as unknown as {
-    transcriptionService?: TranscriptionService;
-  };
-  v2Instance.transcriptionService = new GuardedOpenAITranscriptionService();
+  // V1 CopilotRuntime's constructor drops `transcriptionService` on the floor,
+  // and the V2 `CopilotRuntime` wrapper only exposes `transcriptionService` as
+  // a getter (no setter) — plain assignment throws
+  // "Cannot set property transcriptionService of #<X> which has only a getter".
+  // See file header note #1. Use `Object.defineProperty` to install an own
+  // data property on the V2 wrapper instance. Own properties take precedence
+  // over prototype accessors during property lookup, so `/info` sees
+  // `audioFileTranscriptionEnabled: true` and `handleTranscribe` resolves a
+  // real service via `runtime.transcriptionService`.
+  const v2Instance = runtime.instance as object;
+  Object.defineProperty(v2Instance, "transcriptionService", {
+    value: new GuardedOpenAITranscriptionService(),
+    writable: true,
+    configurable: true,
+    enumerable: true,
+  });
 
   cachedRuntime = runtime;
   return cachedRuntime;
