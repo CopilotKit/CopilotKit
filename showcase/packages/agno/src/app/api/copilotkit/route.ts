@@ -18,16 +18,35 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// Agno exposes a single AgentOS agent (src/agents/main.py). The Next.js
+// runtime aliases that one agent under every demo cell name so per-cell
+// frontend tool/component registrations scope correctly.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
+  "hitl-in-chat",
+  "hitl-in-app",
   "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
+  "shared-state-read-write",
   "shared-state-streaming",
   "subagents",
+  // Neutral / chrome demos reusing the default agent.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  "frontend_tools",
+  "frontend-tools-async",
+  "readonly-state-agent-context",
+  "agent-config",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
