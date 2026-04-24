@@ -50,6 +50,7 @@ features:
   - open-gen-ui-advanced
   - declarative-gen-ui
   - a2ui-fixed-schema
+  - headless-complete
 demos:
   - id: cli-start
     name: CLI Start Command
@@ -325,3 +326,17 @@ demos:
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: Full custom chat built from scratch on useAgent — no CopilotChat primitives
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/agents/headless_complete.py
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/api/copilotkit/route.ts

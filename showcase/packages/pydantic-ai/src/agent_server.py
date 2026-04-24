@@ -33,6 +33,8 @@ from agents.a2ui_dynamic import EmptyState as A2UIDynamicState
 from agents.a2ui_dynamic import agent as a2ui_dynamic_agent
 from agents.a2ui_fixed import EmptyState as A2UIFixedState
 from agents.a2ui_fixed import agent as a2ui_fixed_agent
+from agents.headless_complete import EmptyState as HeadlessCompleteState
+from agents.headless_complete import agent as headless_complete_agent
 
 load_dotenv()
 
@@ -73,6 +75,10 @@ app.mount(
 app.mount(
     "/a2ui_fixed",
     a2ui_fixed_agent.to_ag_ui(deps=StateDeps(A2UIFixedState())),
+)
+app.mount(
+    "/headless_complete",
+    headless_complete_agent.to_ag_ui(deps=StateDeps(HeadlessCompleteState())),
 )
 
 # ── Main sales agent — mounted at root (catch-all) ───────────────────

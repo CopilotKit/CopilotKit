@@ -58,6 +58,14 @@ for (const name of agentNames) {
 }
 agents["default"] = createAgent();
 
+// Demo-specific agents with distinct backend prompts live at dedicated
+// sub-paths on the PydanticAI server (see src/agent_server.py). Override
+// the URL for those agent ids so they proxy to the right backend mount
+// instead of the shared sales agent at the root.
+agents["headless-complete"] = new HttpAgent({
+  url: `${AGENT_URL}/headless_complete/`,
+});
+
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
 );
