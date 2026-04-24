@@ -137,7 +137,7 @@ const INTEGRATIONS: Integration[] = [
     name: "Claude Agent SDK (Python)",
     backendUrl: "https://showcase-claude-sdk-python-production.up.railway.app",
     backendType: "ag-ui",
-    deployed: false,
+    deployed: true,
     demos: [
       "agentic-chat",
       "tool-rendering",
@@ -151,7 +151,7 @@ const INTEGRATIONS: Integration[] = [
     backendUrl:
       "https://showcase-claude-sdk-typescript-production.up.railway.app",
     backendType: "ag-ui",
-    deployed: false,
+    deployed: true,
     demos: [
       "agentic-chat",
       "tool-rendering",
@@ -229,7 +229,7 @@ const INTEGRATIONS: Integration[] = [
     name: "Langroid",
     backendUrl: "https://showcase-langroid-production.up.railway.app",
     backendType: "ag-ui",
-    deployed: false,
+    deployed: true,
     demos: [
       "agentic-chat",
       "tool-rendering",
@@ -268,7 +268,7 @@ const INTEGRATIONS: Integration[] = [
     name: "Spring AI",
     backendUrl: "https://showcase-spring-ai-production.up.railway.app",
     backendType: "ag-ui",
-    deployed: false,
+    deployed: true,
     demos: [
       "agentic-chat",
       "tool-rendering",
