@@ -55,12 +55,10 @@ function makeIntelligenceRuntime(
   runner.run = vi.fn(() => runObservable);
 
   const platform: MockIntelligencePlatform = {
-    getOrCreateThread: vi
-      .fn()
-      .mockResolvedValue({
-        thread: { id: "thread-1", name: null },
-        created: false,
-      }),
+    getOrCreateThread: vi.fn().mockResolvedValue({
+      thread: { id: "thread-1", name: null },
+      created: false,
+    }),
     getThreadMessages: vi.fn().mockResolvedValue({ messages: [] }),
     ɵacquireThreadLock: vi
       .fn()
@@ -78,9 +76,7 @@ function makeIntelligenceRuntime(
     mode: "intelligence",
     generateThreadNames: false,
     intelligence: platform,
-    identifyUser: vi
-      .fn()
-      .mockResolvedValue({ id: "user-1", name: "User One" }),
+    identifyUser: vi.fn().mockResolvedValue({ id: "user-1", name: "User One" }),
     lockTtlSeconds: 20,
     lockHeartbeatIntervalSeconds: 15,
   } as unknown as CopilotRuntime;

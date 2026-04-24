@@ -485,10 +485,9 @@ describe("handleConnectAgent", () => {
 
       try {
         const runtime = createMockRuntime({});
-        const request = new Request(
-          "https://example.com/agent/test/connect",
-          { method: "POST" },
-        );
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+        });
         await handleConnectAgent({
           runtime,
           request,
@@ -515,15 +514,12 @@ describe("handleConnectAgent", () => {
 
       try {
         const runtime = createMockRuntime({});
-        const request = new Request(
-          "https://example.com/agent/test/connect",
-          {
-            method: "POST",
-            headers: {
-              "x-copilotcloud-public-api-key": "ck_pub_connect_test",
-            },
+        const request = new Request("https://example.com/agent/test/connect", {
+          method: "POST",
+          headers: {
+            "x-copilotcloud-public-api-key": "ck_pub_connect_test",
           },
-        );
+        });
 
         await handleConnectAgent({
           runtime,
