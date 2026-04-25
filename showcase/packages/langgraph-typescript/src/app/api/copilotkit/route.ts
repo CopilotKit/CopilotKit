@@ -15,15 +15,16 @@ const AGENT_URL =
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
+function createAgent(graphId: string = "starterAgent") {
   return new LangGraphAgent({
     deploymentUrl: `${AGENT_URL}/`,
-    graphId: "starterAgent",
+    graphId,
   });
 }
 
-// Register the same agent under all names used by demo pages.
-const agentNames = [
+// Register the same starter agent under all names used by demo pages
+// that don't need their own graph.
+const starterAgentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
@@ -33,14 +34,40 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Chat-UI demos — all reuse the default starterAgent.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-customization-css",
+  "chat-slots",
+  // Headless Chat (Simple) — reuses the default `starterAgent` graph; the
+  // demo's surface and frontend tool wiring live in the page component.
+  "headless-simple",
 ];
 
 const agents: Record<string, LangGraphAgent> = {};
-for (const name of agentNames) {
+for (const name of starterAgentNames) {
   agents[name] = createAgent();
 }
 agents["default"] = createAgent();
 agents["starterAgent"] = createAgent();
+
+// gen-ui-interrupt + interrupt-headless share the dedicated interrupt_agent
+// graph, which uses langgraph's interrupt() primitive inside its
+// schedule_meeting tool.
+agents["gen-ui-interrupt"] = createAgent("interrupt_agent");
+agents["interrupt-headless"] = createAgent("interrupt_agent");
+
+// Demo-specific graphs. Agent name (as used on the frontend
+// `<CopilotKit agent="...">` prop) → graphId in src/agent/langgraph.json.
+const demoAgents: Record<string, string> = {
+  frontend_tools: "frontend_tools",
+  "frontend-tools-async": "frontend_tools_async",
+  "hitl-in-app": "hitl_in_app",
+  "readonly-state-agent-context": "readonly_state_agent_context",
+};
+for (const [agentName, graphId] of Object.entries(demoAgents)) {
+  agents[agentName] = createAgent(graphId);
+}
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
