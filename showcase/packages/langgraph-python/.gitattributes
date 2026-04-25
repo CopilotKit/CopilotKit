@@ -1,3 +1,8 @@
-# Audio clips bundled with demos (e.g. the voice demo's sample.wav) are
-# binary — prevent autocrlf / line-ending rewrites on Windows checkouts.
-*.wav binary
+# Sample multimodal demo binaries (PNG + PDF) must stay as regular
+# binaries — not LFS pointers — so deploy environments without `git lfs pull`
+# (Railway, in particular) serve the actual files. LFS tracking for other
+# PNG/PDFs under this package inherits from the repo-root .gitattributes.
+public/demo-files/sample.png -filter -diff -merge binary
+public/demo-files/sample.pdf -filter -diff -merge binary
+# Voice demo sample audio follows the same convention.
+public/demo-audio/sample.wav -filter -diff -merge binary
