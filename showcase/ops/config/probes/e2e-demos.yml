@@ -30,13 +30,13 @@
 #
 # ── Cadence: every 6 hours ────────────────────────────────────────────
 #
-# Chromium cost scales as demos × services per tick. langgraph-python
-# alone declares ~32 demos — 32 fresh contexts + gotos per tick. With
-# `max_concurrency: 1` and a ~3-5s realistic goto+selector budget per
-# demo, one tick takes ~2-3 minutes of wall time even on the happy
-# path. Every 6 hours gives us:
+# Chromium cost scales as demos × services per tick. With 15 framework
+# packages and ~32 demos each, total page loads per tick can reach
+# ~480. With `max_concurrency: 6` and a ~3-5s realistic goto+selector
+# budget per demo, one tick takes ~3-5 minutes of wall time on the
+# happy path. Every 6 hours gives us:
 #   - 4 ticks/day: catches regressions within a half-deploy window
-#     while leaving ~95% of the scheduler's wall time to sibling
+#     while leaving ~90% of the scheduler's wall time to sibling
 #     probes.
 #   - Bounded LLM and bandwidth cost: the driver's ready-selector
 #     check does NOT issue a chat turn (unlike e2e-smoke) so there is
@@ -45,98 +45,58 @@
 #
 # Speed up (e.g. */2h, */1h) ONLY after observing the per-tick memory
 # headroom + any downstream cost (LLM, bandwidth, Railway compute) on
-# the production orchestrator for a full cycle. The cadence is
-# deliberately conservative at Wave 1 to let the signal bed in.
+# the production orchestrator for a full cycle.
 #
-# ── timeout_ms: 600_000 (10 min) ──────────────────────────────────────
+# ── timeout_ms: 1_200_000 (20 min) ─────────────────────────────────────
 #
 # Outer driver-invocation cap. The driver subdivides internally with a
-# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — 32
-# demos * 30s worst-case = 960s > 600s, so the outer cap WILL fire on
-# a pathologically-slow service (every demo timing out). When that
-# happens the driver sets `timedOut = true` on the AbortController and
-# side-emits `errorClass: "abort"` / `errorDesc: "timeout after
-# 600000ms"` for every remaining demo — the dashboard keeps rendering
-# red dots rather than going gray, which is the right signal for
-# operator triage ("this whole service is wedged").
+# 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — the
+# largest services now have 38 demos and could exceed 15 min on cold
+# starts, so the outer cap is set to 20 min. When the cap fires the
+# driver sets `timedOut = true` on the AbortController and side-emits
+# `errorClass: "abort"` / `errorDesc: "timeout after 1200000ms"` for
+# every remaining demo — the dashboard keeps rendering red dots rather
+# than going gray, which is the right signal for operator triage
+# ("this whole service is wedged").
 #
-# ── max_concurrency: 1 ────────────────────────────────────────────────
+# ── max_concurrency: 6 ────────────────────────────────────────────────
 #
-# One chromium launch per tick. The driver itself is already serial
-# across demos within a single invocation (fresh context per demo,
-# awaited sequentially). The concurrency knob here governs how many
-# discovered SERVICES run in parallel. Keep at 1 for Wave 1:
-#   - Each chromium instance is ~300MB resident. Running two
-#     services in parallel doubles the footprint.
-#   - Wave 1 scope is a single service (langgraph-python) so >1 has
-#     no effect anyway; pinning to 1 makes the intent explicit for
-#     when we widen scope.
-# When widening to N services, raise to 2 to halve wall time while
-# staying under the orchestrator's Railway memory budget, following
-# the same pattern as `e2e-smoke.yml` (max_concurrency: 2).
+# 6 concurrent chromium instances = ~1.8GB RAM + 6 vCPU, well within
+# the 24GB/24vCPU Railway allocation. Shortest-service-first dispatch
+# ordering is a future optimization. The driver itself is serial across
+# demos within a single invocation (fresh context per demo, awaited
+# sequentially). The concurrency knob here governs how many discovered
+# SERVICES run in parallel.
 #
-# ── Wave 1 scope: langgraph-python ────────────────────────────────────
+# ── Scope: all showcase packages ───────────────────────────────────────
 #
-# Discovery narrows via `namePrefix: "showcase-langgraph-python"`.
-# Rationale mirrors `qa.yml`'s Wave 1 scoping:
-#   - Phase 3 of the E2E rollout authored per-feature `tests/e2e/
-#     <featureId>.spec.ts` files and the supporting route pages for
-#     every demo declared in langgraph-python's manifest.
-#   - Other showcase packages (mastra, vercel-ai, crewai, etc.) still
-#     have demos whose routes either don't exist or don't yet emit
-#     the `[data-testid="copilot-chat-input"]` structural marker. If
-#     we probed them now the dashboard would flood with expected-red
-#     per-cell rows per missing demo × per-service — drowning real
-#     signal, same failure mode `qa.yml` documents.
+# Discovery matches all `showcase-*` Railway services via `namePrefix`.
+# All 15 framework packages now have demo routes wired with the
+# `[data-testid="copilot-chat-input"]` structural marker after the
+# omnibus parity merge.
 #
-# The prefix `"showcase-langgraph-python"` matches exactly one Railway
-# service: `showcase-langgraph-typescript` / `-fastapi` do NOT start
-# with `-python`. No `nameExcludes` strictly needed at this scope.
+# ── nameExcludes ──────────────────────────────────────────────────────
 #
-# ── nameExcludes: future-proofing the widening path ───────────────────
-#
-# The infra exclude list is copied verbatim from `smoke.yml` /
-# `e2e-smoke.yml`. At Wave 1 scope these entries are no-ops — the
-# tighter `namePrefix` already filters them out — but carrying the
-# list means future scope expansions (step 1 below) don't silently
-# start probing the aimock mock-LLM, the orchestrator itself, or the
-# shell routing services. Keeping the list authored now surfaces
-# "obvious infra-ish service" concerns at review time rather than
-# after a bad widening drops a flood of false-red rows.
-#
-# ── Widening scope in future waves ────────────────────────────────────
-#
-# When a subsequent package completes its E2E Phase (routes + testids
-# wired up for every manifest demo):
-#   1. Relax `namePrefix` to `"showcase-"` (matching `e2e-smoke.yml`).
-#   2. Keep the `nameExcludes` list as-is — the infra excludes
-#      already drop the non-demo services from the fan-out.
-#   3. Optionally add a TEMPORARY `nameExcludes` entry for every
-#      still-unwritten package's Railway service so the dashboard
-#      surfaces only "truly-missing" reds while each package is
-#      progressively covered (same incremental-widening pattern
-#      `qa.yml` documents).
-# Once every `showcase-*` service has full demo coverage, the filter
-# is just `namePrefix: "showcase-"` + the infra exclude list — same
-# shape as `e2e-smoke.yml` today.
+# The infra exclude list drops non-demo services (aimock mock-LLM,
+# the orchestrator itself, PocketBase state store, and shell routing
+# services). Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a
+# new infra service added there lands here too during review.
 kind: e2e_demos
 id: e2e-demos
 schedule: "0 */6 * * *"
-timeout_ms: 900000
-max_concurrency: 2
+timeout_ms: 1200000
+max_concurrency: 6
 discovery:
   source: railway-services
   filter:
-    # Full fleet scope: matches all `showcase-*` Railway services.
-    # The infra excludes below drop non-demo services. The driver
-    # strips the `showcase-` prefix internally to derive the slug
-    # used in side-emit keys (`e2e:<slug>/<featureId>`).
+    # Matches all `showcase-*` Railway services. The infra excludes
+    # below drop non-demo services. The driver strips the `showcase-`
+    # prefix internally to derive the slug used in side-emit keys
+    # (`e2e:<slug>/<featureId>`).
     namePrefix: "showcase-"
-    # Infra exclude list — inert at Wave 1 scope (the tight prefix
-    # already drops them) but authored up-front so a future scope
-    # widening doesn't accidentally fan out to these non-demo
-    # services. Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a
-    # new infra service added there lands here too during review.
+    # Infra exclude list — drops non-demo services from the fan-out.
+    # Kept in sync with `smoke.yml` / `e2e-smoke.yml` so a new infra
+    # service added there lands here too during review.
     nameExcludes:
       - showcase-aimock
       - showcase-ops
