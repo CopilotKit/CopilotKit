@@ -50,14 +50,12 @@ from langchain.agents.middleware import AgentMiddleware
 from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI
 
-
 SYSTEM_PROMPT = (
     "You are a helpful assistant. The user may attach images or documents "
     "(PDFs). When they do, analyze the attachment carefully and answer the "
     "user's question. If no attachment is present, answer the text question "
     "normally. Keep responses concise (1-3 sentences) unless asked to go deep."
 )
-
 
 def _extract_data_url_parts(url: str) -> tuple[str, str]:
     """Split a ``data:<mime>;base64,<payload>`` URL into (mime, base64-payload).
@@ -75,7 +73,6 @@ def _extract_data_url_parts(url: str) -> tuple[str, str]:
     meta = header.split(":", 1)[1]
     mime = meta.split(";", 1)[0] if ";" in meta else meta
     return mime, payload
-
 
 def _extract_pdf_text(b64: str) -> str:
     """Decode an inline-base64 PDF and extract its text.
@@ -109,7 +106,6 @@ def _extract_pdf_text(b64: str) -> str:
     except Exception as exc:  # pragma: no cover - defensive
         print(f"[multimodal_agent] pypdf extraction failed: {exc}")
         return ""
-
 
 def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
     """Inspect a content part and return (kind, mime, base64_payload).
@@ -168,7 +164,6 @@ def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
 
     return None
 
-
 def _preprocess_part(part: Any) -> Any:
     """Flatten PDF attachments to text; pass everything else through.
 
@@ -193,7 +188,6 @@ def _preprocess_part(part: Any) -> Any:
         }
     return {"type": "text", "text": f"[Attached document]\n{text}"}
 
-
 def _rewrite_messages(messages: list[Any]) -> list[Any]:
     """Rewrite user messages so non-image attachments become text parts.
 
@@ -213,7 +207,6 @@ def _rewrite_messages(messages: list[Any]) -> list[Any]:
         new_parts = [_preprocess_part(part) for part in content]
         rewritten.append(HumanMessage(content=new_parts, id=message.id))
     return rewritten
-
 
 class _PdfFlattenMiddleware(AgentMiddleware):
     """Flatten PDF content parts to text before the model call.
@@ -236,10 +229,8 @@ class _PdfFlattenMiddleware(AgentMiddleware):
             return None
         return {"messages": rewritten}
 
-
 # Vision-capable model. gpt-4o consumes `image_url` content parts natively.
 _MODEL = ChatOpenAI(model="gpt-4o", temperature=0.2)
-
 
 graph = create_agent(
     model=_MODEL,
@@ -247,7 +238,6 @@ graph = create_agent(
     middleware=[_PdfFlattenMiddleware(), CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT,
 )
-
 
 # Re-export under both names — `graph` matches the langgraph.json convention
 # used by the rest of the package; `multimodal_agent` is a friendlier alias
