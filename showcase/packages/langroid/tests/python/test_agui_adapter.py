@@ -838,6 +838,7 @@ async def test_non_string_role_or_content_skipped(monkeypatch, caplog):
         def __init__(self, **_kwargs: Any) -> None:
             self.thread_id = "t-msg"
             self.run_id = "run-x"
+            self.forwarded_props = {}
             self.messages = [
                 SimpleNamespace(role="user", content="hello"),
                 # non-string content
