@@ -3,7 +3,7 @@
  * `computeColumnTally` (§5.4 rollup + §5.3 offline handling).
  *
  * Phase 3: QA removed, smoke removed from per-cell tally. E2E uses
- * e2e_smoke dimension. Tally now counts health (once) + e2e per feature.
+ * e2e dimension. Tally now counts health (once) + e2e per feature.
  */
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
@@ -76,8 +76,8 @@ describe("computeColumnTally", () => {
 
   it("counts health once + e2e per feature", () => {
     const live: LiveStatusMap = new Map();
-    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "red"));
-    live.set("e2e_smoke:i1/f2", row("e2e_smoke:i1/f2", "e2e_smoke", "green"));
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "red"));
+    live.set("e2e:i1/f2", row("e2e:i1/f2", "e2e", "green"));
     live.set("health:i1", row("health:i1", "health", "green"));
     const t = computeColumnTally(integration, features, live);
     // health (integration): green → +1g
@@ -96,14 +96,14 @@ describe("computeColumnTally", () => {
 
   it("missing health row contributes zero (does not count as red)", () => {
     const live: LiveStatusMap = new Map();
-    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "green"));
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
     const t = computeColumnTally(integration, features, live);
     expect(t).toEqual({ green: 1, amber: 0, red: 0, unknown: false });
   });
 
   it("returns unknown=true when connection is error", () => {
     const live: LiveStatusMap = new Map();
-    live.set("e2e_smoke:i1/f1", row("e2e_smoke:i1/f1", "e2e_smoke", "green"));
+    live.set("e2e:i1/f1", row("e2e:i1/f1", "e2e", "green"));
     const t = computeColumnTally(integration, features, live, "error");
     expect(t.unknown).toBe(true);
     expect(t.green).toBe(0);

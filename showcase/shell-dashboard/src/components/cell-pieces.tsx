@@ -203,7 +203,7 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
           name="E2E"
           badge={cell.e2e}
           dimensionKey={keyFor(
-            "e2e_smoke",
+            "e2e",
             ctx.integration.slug,
             ctx.feature.id,
           )}

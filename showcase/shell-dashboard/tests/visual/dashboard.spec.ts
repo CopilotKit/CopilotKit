@@ -2,7 +2,7 @@
  * Visual regression for the shell-dashboard feature matrix at 3 viewports
  * under 3 synthetic PB states: all-green, mixed, all-unknown.
  *
- * Phase 3: e2e→e2e_smoke, qa removed, agent/chat/tools added for strip.
+ * Phase 3: e2e→e2e, qa removed, agent/chat/tools added for strip.
  */
 import { test, expect } from "@playwright/test";
 
@@ -36,13 +36,13 @@ function fixtureFor(label: StateLabel): Array<Record<string, unknown>> {
     }
     // Feature-level dimensions
     for (const feat of FEATURES) {
-      for (const dim of ["smoke", "e2e_smoke"]) {
+      for (const dim of ["smoke", "e2e"]) {
         const state =
           label === "all-green"
             ? "green"
             : dim === "smoke" && slug === "crewai-crews"
               ? "degraded"
-              : dim === "e2e_smoke" && feat === "human-in-the-loop"
+              : dim === "e2e" && feat === "human-in-the-loop"
                 ? "red"
                 : "green";
         rows.push({
