@@ -128,10 +128,10 @@ describe("Catalog Generator", () => {
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 40 features: 37 wired + 1 stub (cli-start) + 2 unshipped
-    expect(wired.length).toBe(37);
+    // LGP has 40 features: 39 wired + 1 stub (cli-start) + 0 unshipped
+    expect(wired.length).toBe(39);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(2);
+    expect(unshipped.length).toBe(0);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -146,19 +146,19 @@ describe("Catalog Generator", () => {
     expect(cliStartCell.manifestation).toBe("integrated");
   });
 
-  it("parity tier: LGF = reference (most wired features, fewest stubs)", () => {
+  it("parity tier: LGP = reference (most wired features, fewest stubs)", () => {
     runGenerator();
     const catalog = readCatalog();
 
-    expect(catalog.metadata.reference).toBe("langgraph-fastapi");
+    expect(catalog.metadata.reference).toBe("langgraph-python");
 
-    // All LGF integrated cells should have parity_tier = "reference"
-    const lgfCells = catalog.cells.filter(
+    // All LGP integrated cells should have parity_tier = "reference"
+    const lgpCells = catalog.cells.filter(
       (c: any) =>
-        c.integration === "langgraph-fastapi" &&
+        c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    for (const cell of lgfCells) {
+    for (const cell of lgpCells) {
       expect(cell.parity_tier).toBe("reference");
     }
   });
@@ -188,10 +188,10 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.total_cells).toBe(737);
 
     // 18 integrations x 40 features + 17 starters = 737 total cells
-    // Wired = 524, Stub = 8, Unshipped = 205
-    expect(catalog.metadata.wired).toBe(524);
+    // Wired = 526, Stub = 8, Unshipped = 203
+    expect(catalog.metadata.wired).toBe(526);
     expect(catalog.metadata.stub).toBe(8);
-    expect(catalog.metadata.unshipped).toBe(205);
+    expect(catalog.metadata.unshipped).toBe(203);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {
