@@ -47,6 +47,11 @@ type Assert<T extends true> = T;
 
 // 1. `DemoAgentName` must be the literal union of the entries in `demoAgentNames`,
 //    not just `string`. If someone drops `as const`, this breaks.
+//
+// IMPORTANT: This union must mirror `demoAgentNames` in route.ts. When you
+// add a new demo agent alias, append it here as well. Either:
+//   - the canonical 9 original demos, OR
+//   - the parity-with-langgraph-python demos (second block).
 type _DemoAgentNameIsLiteralUnion = Assert<
   Equals<
     DemoAgentName,
@@ -59,6 +64,23 @@ type _DemoAgentNameIsLiteralUnion = Assert<
     | "shared-state-write"
     | "shared-state-streaming"
     | "subagents"
+    | "prebuilt-sidebar"
+    | "prebuilt-popup"
+    | "chat-slots"
+    | "chat-customization-css"
+    | "headless-simple"
+    | "frontend_tools"
+    | "frontend-tools-async"
+    | "hitl-in-chat"
+    | "hitl-in-app"
+    | "tool-rendering-default-catchall"
+    | "tool-rendering-custom-catchall"
+    | "agentic-chat-reasoning"
+    | "reasoning-default-render"
+    | "readonly-state-agent-context"
+    | "agent-config"
+    | "declarative-gen-ui"
+    | "a2ui-fixed-schema"
   >
 >;
 
@@ -87,6 +109,23 @@ const _badKey: BuiltAgents = {
   "shared-state-write": {} as _AgentValue,
   "shared-state-streaming": {} as _AgentValue,
   subagents: {} as _AgentValue,
+  "prebuilt-sidebar": {} as _AgentValue,
+  "prebuilt-popup": {} as _AgentValue,
+  "chat-slots": {} as _AgentValue,
+  "chat-customization-css": {} as _AgentValue,
+  "headless-simple": {} as _AgentValue,
+  frontend_tools: {} as _AgentValue,
+  "frontend-tools-async": {} as _AgentValue,
+  "hitl-in-chat": {} as _AgentValue,
+  "hitl-in-app": {} as _AgentValue,
+  "tool-rendering-default-catchall": {} as _AgentValue,
+  "tool-rendering-custom-catchall": {} as _AgentValue,
+  "agentic-chat-reasoning": {} as _AgentValue,
+  "reasoning-default-render": {} as _AgentValue,
+  "readonly-state-agent-context": {} as _AgentValue,
+  "agent-config": {} as _AgentValue,
+  "declarative-gen-ui": {} as _AgentValue,
+  "a2ui-fixed-schema": {} as _AgentValue,
 };
 
 describe("BuiltAgents type narrowing", () => {
