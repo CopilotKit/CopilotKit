@@ -1,0 +1,81 @@
+"use client";
+
+/**
+ * byoc-hashbrown demo page.
+ *
+ * Ports the hashbrown renderer onto a CrewAI crew whose system prompt is
+ * installed via `install_custom_system_message` to emit the hashbrown JSON
+ * schema shape directly (NOT the XML `<ui>...</ui>` DSL — that DSL is used
+ * only when hashbrown itself drives the LLM; here CrewAI drives, so the
+ * agent must emit the raw schema shape).
+ *
+ * Streaming structured output from the agent is parsed progressively by
+ * `@hashbrownai/react`'s `useJsonParser` + `useUiKit` and rendered with
+ * MetricCard + PieChart + BarChart from `./charts/`.
+ */
+
+import React from "react";
+import {
+  CopilotKit,
+  CopilotChat,
+  CopilotChatAssistantMessage,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+import {
+  HashBrownDashboard,
+  useHashBrownMessageRenderer,
+} from "./hashbrown-renderer";
+import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
+
+export default function ByocHashbrownDemoPage() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-byoc-hashbrown"
+      agent="byoc-hashbrown-demo"
+    >
+      <HashBrownDashboard>
+        <div
+          data-testid="byoc-hashbrown-root"
+          className="flex h-screen flex-col gap-3 p-6"
+        >
+          <header>
+            <h1 className="text-lg font-semibold">BYOC: Hashbrown</h1>
+            <p className="text-sm text-[var(--muted-foreground)]">
+              Streaming structured output via <code>@hashbrownai/react</code>.
+              The crew emits a catalog-constrained JSON envelope that renders
+              progressively as data streams.
+            </p>
+          </header>
+          <div className="flex-1 overflow-hidden rounded-md border border-[var(--border)]">
+            <ChatBody />
+          </div>
+        </div>
+      </HashBrownDashboard>
+    </CopilotKit>
+  );
+}
+
+function ChatBody() {
+  useConfigureSuggestions({
+    suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
+      title: s.label,
+      message: s.prompt,
+      className: `byoc-hashbrown-suggestion-${s.label
+        .toLowerCase()
+        .replace(/\s+/g, "-")}`,
+    })),
+    available: "always",
+  });
+
+  const HashBrownMessage = useHashBrownMessageRenderer();
+
+  return (
+    <CopilotChat
+      className="h-full"
+      messageView={{
+        assistantMessage:
+          HashBrownMessage as unknown as typeof CopilotChatAssistantMessage,
+      }}
+    />
+  );
+}
