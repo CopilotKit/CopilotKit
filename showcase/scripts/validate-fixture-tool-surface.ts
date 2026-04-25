@@ -76,6 +76,9 @@ export function validate(
       if (!matchedSuggestion) continue;
 
       const registered = new Set(demo.tools);
+      // Wildcard renderers (useDefaultRenderTool — represented as "*" in
+      // the tool set) match every fixture tool — skip all checks for this demo.
+      if (registered.has("*")) continue;
       for (const tc of toolCalls) {
         if (registered.has(tc.name)) continue;
         violations.push({
@@ -119,6 +122,9 @@ const SUGGESTION_MESSAGE_RE =
 const USE_COMPONENT_BLOCK_RE =
   /use(?:Component|HumanInTheLoop|FrontendTool|RenderTool|DefaultRenderTool)\s*\(\s*\{[\s\S]*?name:\s*["']([^"']+)["']/g;
 const AGENT_PROP_RE = /<CopilotKit[^>]*\bagent\s*=\s*["']([^"']+)["']/;
+// Detects useDefaultRenderTool({ ... }) — the wildcard catch-all renderer
+// that matches ALL tool calls. No `name:` property needed.
+const USE_DEFAULT_RENDER_TOOL_RE = /useDefaultRenderTool\s*\(/;
 
 function extractStringLiteral(rawLiteral: string): string {
   // Strip outer quotes and unescape — conservative: only \" \' \\ \n
@@ -144,6 +150,11 @@ function parseDemoPage(pageTsxPath: string): {
   const frontendTools: string[] = [];
   for (const m of src.matchAll(USE_COMPONENT_BLOCK_RE)) {
     frontendTools.push(m[1]);
+  }
+  // useDefaultRenderTool is a wildcard renderer — it registers "*" which
+  // matches every fixture tool, so no drift violation can occur.
+  if (USE_DEFAULT_RENDER_TOOL_RE.test(src)) {
+    frontendTools.push("*");
   }
   return {
     agentId: agentMatch ? agentMatch[1] : null,

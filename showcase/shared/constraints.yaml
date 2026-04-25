@@ -54,7 +54,9 @@ generative_ui:
       - interrupt-headless
       - gen-ui-agent
       - hitl-in-chat
+      - hitl-in-chat-booking
       - hitl-in-app
+      - hitl
       - declarative-gen-ui
       - a2ui-fixed-schema
       - mcp-apps
