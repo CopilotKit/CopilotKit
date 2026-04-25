@@ -36,7 +36,7 @@ export type CellRenderer = (ctx: CellContext) => React.ReactNode;
  * all features.
  *
  * Signal scoping (spec §5.4):
- *   - Feature-level dimensions (`e2e_smoke`) are counted per feature.
+ *   - Feature-level dimensions (`e2e`) are counted per feature.
  *   - Integration-level dimensions (`health`) are counted EXACTLY ONCE
  *     per integration — the health row keyed `health:<slug>` is a single
  *     signal for the whole column, not one signal per feature.
@@ -82,7 +82,7 @@ export function computeColumnTally(
     }
   }
 
-  // Feature-level dimensions: e2e_smoke per feature-with-demo.
+  // Feature-level dimensions: e2e per feature-with-demo.
   for (const feature of features) {
     const demo = integration.demos.find((d) => d.id === feature.id);
     if (!demo) continue;

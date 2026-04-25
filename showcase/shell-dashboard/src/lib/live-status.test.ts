@@ -39,9 +39,7 @@ describe("keyFor", () => {
     expect(keyFor("smoke", "agno", "agentic-chat")).toBe(
       "smoke:agno/agentic-chat",
     );
-    expect(keyFor("e2e_smoke", "agno", "agentic-chat")).toBe(
-      "e2e_smoke:agno/agentic-chat",
-    );
+    expect(keyFor("e2e", "agno", "agentic-chat")).toBe("e2e:agno/agentic-chat");
   });
 });
 
@@ -60,14 +58,14 @@ describe("upsertByKey", () => {
   });
 });
 
-describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", () => {
+describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   // Order: red > degraded > green > error > unknown.
-  // Rollup contributors: health, e2e_smoke (Decision #7: smokeRow dropped).
+  // Rollup contributors: health, e2e (Decision #7: smokeRow dropped).
 
   it("rolls up to red when any contributing dimension is red", () => {
     const live = mapOf([
       row("health:agno", "health", "red"),
-      row("e2e_smoke:agno/ac", "e2e_smoke", "green"),
+      row("e2e:agno/ac", "e2e", "green"),
     ]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("red");
@@ -76,29 +74,29 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
   it("rolls up to degraded when no red but any degraded", () => {
     const live = mapOf([
       row("health:agno", "health", "green"),
-      row("e2e_smoke:agno/ac", "e2e_smoke", "degraded"),
+      row("e2e:agno/ac", "e2e", "degraded"),
     ]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("amber");
   });
 
-  it("rolls up to green when health present+green and e2e_smoke absent", () => {
+  it("rolls up to green when health present+green and e2e absent", () => {
     const live = mapOf([row("health:agno", "health", "green")]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("green");
   });
 
-  it("rolls up to green when health+e2e_smoke both green", () => {
+  it("rolls up to green when health+e2e both green", () => {
     const live = mapOf([
       row("health:agno", "health", "green"),
-      row("e2e_smoke:agno/ac", "e2e_smoke", "green"),
+      row("e2e:agno/ac", "e2e", "green"),
     ]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("green");
   });
 
   it("rolls up to unknown when health is missing", () => {
-    const live = mapOf([row("e2e_smoke:agno/ac", "e2e_smoke", "green")]);
+    const live = mapOf([row("e2e:agno/ac", "e2e", "green")]);
     const c = resolveCell(live, "agno", "ac");
     expect(c.rollup).toBe("gray");
   });
@@ -135,7 +133,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
     for (const c of combos) {
       const rows: StatusRow[] = [];
       if (c.health) rows.push(row("health:a", "health", c.health));
-      if (c.e2e) rows.push(row("e2e_smoke:a/b", "e2e_smoke", c.e2e));
+      if (c.e2e) rows.push(row("e2e:a/b", "e2e", c.e2e));
       const out = resolveCell(mapOf(rows), "a", "b");
       expect(out.rollup, JSON.stringify(c)).toBe(c.expect);
     }
@@ -145,7 +143,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
     const live = mapOf([
       row("smoke:a/b", "smoke", "green"),
       row("health:a", "health", "red"),
-      row("e2e_smoke:a/b", "e2e_smoke", "degraded"),
+      row("e2e:a/b", "e2e", "degraded"),
     ]);
     const c = resolveCell(live, "a", "b");
     expect(c.smoke.tone).toBe("green");
@@ -161,7 +159,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
     expect(c.health.label).toBe("?");
   });
 
-  it("health green with e2e_smoke=null rolls up to green (C5 F13)", () => {
+  it("health green with e2e=null rolls up to green (C5 F13)", () => {
     const live = mapOf([row("health:a", "health", "green")]);
     const c = resolveCell(live, "a", "b");
     expect(c.rollup).toBe("green");
@@ -170,7 +168,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
   it("all-green rows + connection=error: rollup is error, NOT stale-green (R5 F5.1)", () => {
     const live = mapOf([
       row("health:a", "health", "green"),
-      row("e2e_smoke:a/b", "e2e_smoke", "green"),
+      row("e2e:a/b", "e2e", "green"),
     ]);
     const c = resolveCell(live, "a", "b", { connection: "error" });
     expect(c.rollup).toBe("error");
@@ -186,7 +184,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e_smoke only)", (
   it("degraded does NOT render a green check glyph (C5 F12)", () => {
     const live = mapOf([
       row("smoke:a/b", "smoke", "degraded"),
-      row("e2e_smoke:a/b", "e2e_smoke", "degraded"),
+      row("e2e:a/b", "e2e", "degraded"),
       row("health:a", "health", "degraded"),
     ]);
     const c = resolveCell(live, "a", "b");

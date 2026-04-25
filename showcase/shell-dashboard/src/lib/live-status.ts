@@ -5,7 +5,7 @@
  * PB row keys: `<dimension>:<slug>` for integration-level dimensions
  * (e.g. `health`, `agent`, `chat`, `tools`), or
  * `<dimension>:<slug>/<featureId>` for per-feature dimensions
- * (e.g. `smoke`, `e2e_smoke`).
+ * (e.g. `smoke`, `e2e`).
  */
 
 export type State = "green" | "red" | "degraded";
@@ -76,13 +76,12 @@ function rowTone(row: StatusRow | null): BadgeTone {
 
 /** Dimension identifiers for formatLabel / formatTooltip. */
 export type LiveDimension =
-  | "e2e_smoke"
+  | "e2e"
   | "smoke"
   | "health"
   | "agent"
   | "chat"
-  | "tools"
-  | "e2e";
+  | "tools";
 
 function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (!row) return "?";
@@ -137,8 +136,8 @@ export interface ResolveCellOptions {
  * Multi-dimension precedence (spec §5.4):
  *   red > degraded > green > error > unknown
  *
- * Rollup contributors: health + e2e_smoke only. smokeRow was dropped from
- * the rollup in Phase 3 (Decision #7) because the producer writes
+ * Rollup contributors: health + e2e only. smokeRow was dropped from the
+ * rollup in Phase 3 (Decision #7) because the producer writes
  * integration-scoped smoke:<slug>, not feature-scoped smoke:<slug>/<feature>.
  * The L1 signal now lives in the per-integration strip.
  */
@@ -151,10 +150,10 @@ export function resolveCell(
   const connection: ConnectionStatus = opts.connection ?? "live";
 
   const healthRow = live.get(keyFor("health", slug)) ?? null;
-  const e2eRow = live.get(keyFor("e2e_smoke", slug, featureId)) ?? null;
+  const e2eRow = live.get(keyFor("e2e", slug, featureId)) ?? null;
   const smokeRow = live.get(keyFor("smoke", slug, featureId)) ?? null;
 
-  // Rollup contributors: health + e2e_smoke (Decision #7: smokeRow dropped).
+  // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
   const contributors: Array<StatusRow | null> = [healthRow, e2eRow];
   const toneSet = contributors.map(rowTone);
   const hasAnyRed = toneSet.includes("red");
@@ -189,8 +188,8 @@ export function resolveCell(
   return {
     e2e: {
       tone: rowTone(e2eRow),
-      label: formatLabel("e2e_smoke", e2eRow),
-      tooltip: formatTooltip("e2e_smoke", e2eRow, connection),
+      label: formatLabel("e2e", e2eRow),
+      tooltip: formatTooltip("e2e", e2eRow, connection),
       row: e2eRow,
     },
     smoke: {
