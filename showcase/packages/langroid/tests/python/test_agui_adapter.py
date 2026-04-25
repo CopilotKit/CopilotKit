@@ -311,7 +311,7 @@ def test_parse_tool_args_dict_passthrough():
 
 
 def test_parse_tool_args_empty_string_is_malformed():
-    """Empty string is treated as DEGRADED, not "ok with {}".
+    """Empty string is treated as malformed, not "ok with {}".
     Consistent with the oai-path rationale: firing a tool with no
     arguments produces a meaningless UI card, so we skip it the same
     way we skip unparseable JSON."""
@@ -342,7 +342,7 @@ def test_parse_tool_args_malformed_returns_malformed_status(caplog):
 
 
 def test_parse_tool_args_non_dict_json_is_malformed(caplog):
-    """Valid JSON but not a dict (e.g. an array) is likewise DEGRADED."""
+    """Valid JSON but not a dict (e.g. an array) is likewise malformed."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
         parsed = _parse_tool_args("[1, 2, 3]")
     assert parsed.status == "malformed"
@@ -630,11 +630,6 @@ def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
 
 
 # ---------------------------------------------------------------------------
-# Logging hygiene: plain-text turns must NOT emit warnings
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
 # CR Round 4: bytes-args handling in _try_parse_tool
 # ---------------------------------------------------------------------------
 
@@ -651,10 +646,6 @@ def test_try_parse_tool_function_call_bytes_arguments():
     # Use a real backend tool from ALL_TOOLS so this exercises the actual
     # dispatch loop rather than a synthetic stub.
     request_name = agent_module.GetWeatherTool.default_value("request")
-    content = json.dumps({
-        "name": request_name,
-        "arguments": b'{"location": "SF"}'.decode("utf-8"),
-    })
     # Patch the function_call payload to carry a bytes ``arguments`` at
     # parse time. We construct the wrapper JSON as normal (str) but the
     # inner ``arguments`` field is a str whose *decoded* value would be
