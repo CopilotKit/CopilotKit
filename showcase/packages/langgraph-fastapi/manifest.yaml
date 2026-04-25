@@ -209,7 +209,7 @@ demos:
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/message-list.tsx
       - src/app/demos/headless-complete/use-rendered-messages.tsx
-      - src/app/api/copilotkit-mcp-apps/route.ts
+      - src/app/api/copilotkit/route.ts
   - id: auth
     name: Authentication
     description: Bearer-token gate via runtime onRequest hook with unauthenticated / authenticated states
@@ -462,6 +462,8 @@ demos:
       - src/app/demos/byoc-json-render/metric-card.tsx
       - src/app/demos/byoc-json-render/charts/bar-chart.tsx
       - src/app/demos/byoc-json-render/charts/pie-chart.tsx
+      - src/app/demos/byoc-json-render/types.ts
+      - src/app/demos/byoc-json-render/suggestions.ts
   - id: open-gen-ui
     name: Fully Open-Ended Generative UI
     description: Agent generates UI from an arbitrary component library
