@@ -33,7 +33,7 @@ starter:
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-typescript my-copilotkit-app
 features:
   - agentic-chat
-  - hitl-in-chat
+  - hitl
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
@@ -77,8 +77,8 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
-  - id: hitl-in-chat
-    name: In-Chat Human in the Loop
+  - id: hitl
+    name: In-Chat Human in the Loop (Original)
     description: User approves agent actions before execution
     tags:
       - interactivity

@@ -43,7 +43,7 @@ features:
   - frontend-tools
   - frontend-tools-async
   - gen-ui-tool-based
-  - hitl-in-chat
+  - hitl
   - hitl-in-app
   - gen-ui-interrupt
   - interrupt-headless
@@ -143,8 +143,8 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat
-    name: In-Chat Human in the Loop
+  - id: hitl
+    name: In-Chat Human in the Loop (Original)
     description: User approves agent actions before execution
     tags:
       - interactivity

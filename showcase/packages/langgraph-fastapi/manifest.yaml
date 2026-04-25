@@ -36,7 +36,7 @@ features:
   - tool-rendering-reasoning-chain
   - agentic-chat-reasoning
   - reasoning-default-render
-  - hitl-in-chat
+  - hitl
   - gen-ui-tool-based
   - gen-ui-agent
   - gen-ui-interrupt
@@ -81,8 +81,8 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
-  - id: hitl-in-chat
-    name: In-Chat Human in the Loop
+  - id: hitl
+    name: In-Chat Human in the Loop (Original)
     description: User approves agent actions before execution
     tags:
       - interactivity
