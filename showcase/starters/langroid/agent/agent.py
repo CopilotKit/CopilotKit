@@ -845,7 +845,7 @@ SYSTEM_PROMPT = (
 # Agent factory
 # =====================================================================
 
-def create_agent() -> lr.ChatAgent:
+def create_agent(system_message: str | None = None) -> lr.ChatAgent:
     """Create a Langroid ChatAgent configured with all showcase tools.
 
     Default model is the bare ``gpt-4.1`` (not ``openai/gpt-4.1``): langroid
@@ -853,6 +853,12 @@ def create_agent() -> lr.ChatAgent:
     OpenAI SDK, and the SDK rejects ``openai/gpt-4.1`` as "model not found".
     See ``_resolve_a2ui_model`` for the same reasoning on the planner
     default.
+
+    ``system_message`` — optional override for the agent's system prompt.
+    Used by the Agent Config Object demo to steer tone / expertise /
+    responseLength per request. When ``None`` (the default), the canonical
+    ``SYSTEM_PROMPT`` is used so behavior for every other demo is
+    unchanged.
     """
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
 
@@ -863,9 +869,146 @@ def create_agent() -> lr.ChatAgent:
 
     agent_config = lr.ChatAgentConfig(
         llm=llm_config,
-        system_message=SYSTEM_PROMPT,
+        system_message=system_message or SYSTEM_PROMPT,
     )
 
     agent = lr.ChatAgent(agent_config)
     agent.enable_message(list(ALL_TOOLS))
     return agent
+
+# =====================================================================
+# Agent-config demo — dynamic system-prompt construction
+# =====================================================================
+#
+# The /demos/agent-config cell lets the user pick ``tone`` / ``expertise`` /
+# ``responseLength`` in a config card; those values arrive as frontend
+# ``properties`` and are forwarded by the Next.js runtime on the AG-UI
+# ``forwardedProps`` field. The dedicated TS route at
+# ``src/app/api/copilotkit-agent-config/route.ts`` repacks them into
+# ``forwardedProps.config.configurable.properties`` (mirroring the upstream
+# langgraph-python shape) so the backend reads them from a single
+# deterministic location regardless of which showcase adapter is
+# forwarding the request.
+#
+# Kept close to ``SYSTEM_PROMPT`` so the tool-list copy stays in sync.
+
+# Valid values — silently ignore anything else instead of blowing up a
+# turn on a frontend bug. The page's <CopilotKit properties={...}> is the
+# source of truth, but an operator running the backend against a
+# customized frontend (or a bad test fixture) should see "prompt not
+# steered" not "500 from the agent".
+_AGENT_CONFIG_TONES: frozenset[str] = frozenset(
+    {"professional", "casual", "enthusiastic"}
+)
+_AGENT_CONFIG_EXPERTISE: frozenset[str] = frozenset(
+    {"beginner", "intermediate", "expert"}
+)
+_AGENT_CONFIG_LENGTHS: frozenset[str] = frozenset({"concise", "detailed"})
+
+_TONE_DIRECTIVES: dict[str, str] = {
+    "professional": "Use a polished, professional tone.",
+    "casual": "Use a casual, conversational tone.",
+    "enthusiastic": "Use an enthusiastic, upbeat tone with warmth.",
+}
+
+_EXPERTISE_DIRECTIVES: dict[str, str] = {
+    "beginner": (
+        "Assume the user is a beginner: explain concepts step by step, "
+        "avoid jargon, and define any technical term the first time it "
+        "appears."
+    ),
+    "intermediate": (
+        "Assume the user has intermediate familiarity with the topic: "
+        "you can use common domain terminology without defining every "
+        "term, but still briefly frame non-obvious concepts."
+    ),
+    "expert": (
+        "Assume the user is an expert: be precise, use domain-specific "
+        "terminology freely, and skip introductory framing."
+    ),
+}
+
+_LENGTH_DIRECTIVES: dict[str, str] = {
+    "concise": "Keep responses brief — 1 to 2 sentences max.",
+    "detailed": (
+        "Provide a detailed response — multiple sentences or a short "
+        "paragraph, with enough context for the user to act on it."
+    ),
+}
+
+def build_agent_config_system_prompt(
+    *,
+    tone: str | None,
+    expertise: str | None,
+    response_length: str | None,
+) -> str:
+    """Build a dynamic system prompt for the agent-config demo.
+
+    Appends tone / expertise / length directives to the canonical
+    ``SYSTEM_PROMPT`` so the agent keeps the same tool repertoire and demo
+    persona but adopts the user-selected style. Unknown values (including
+    ``None``) are skipped silently so a partial set of forwarded
+    properties still produces a usable prompt.
+    """
+    directives: list[str] = []
+    if tone in _AGENT_CONFIG_TONES:
+        directives.append(_TONE_DIRECTIVES[tone])
+    if expertise in _AGENT_CONFIG_EXPERTISE:
+        directives.append(_EXPERTISE_DIRECTIVES[expertise])
+    if response_length in _AGENT_CONFIG_LENGTHS:
+        directives.append(_LENGTH_DIRECTIVES[response_length])
+
+    if not directives:
+        return SYSTEM_PROMPT
+
+    return SYSTEM_PROMPT + "\n\nUser-selected style:\n- " + "\n- ".join(
+        directives
+    )
+
+def extract_agent_config_properties(
+    forwarded_props: Any,
+) -> dict[str, str] | None:
+    """Pull ``{tone, expertise, responseLength}`` out of AG-UI forwardedProps.
+
+    Accepts two shapes and merges them (flat keys win for the keys they
+    define, but ``config.configurable.properties`` is the canonical
+    location):
+
+    1. The canonical location — ``forwarded_props.config.configurable.properties``
+       — which is where the dedicated Next.js route repacks provider
+       properties.
+    2. Flat top-level keys on ``forwarded_props`` — a defensive fallback
+       in case a future runtime bypasses the repack step.
+
+    Returns ``None`` when none of the three keys are present, so callers
+    can trivially tell "no agent-config steering requested" from
+    "explicitly requested but with empty strings".
+    """
+    if not isinstance(forwarded_props, dict):
+        return None
+
+    # Start with the canonical location.
+    merged: dict[str, str] = {}
+    config = forwarded_props.get("config")
+    if isinstance(config, dict):
+        configurable = config.get("configurable")
+        if isinstance(configurable, dict):
+            properties = configurable.get("properties")
+            if isinstance(properties, dict):
+                for key in ("tone", "expertise", "responseLength"):
+                    value = properties.get(key)
+                    if isinstance(value, str) and value:
+                        merged[key] = value
+
+    # Flat-key fallback — only fills in keys the canonical location
+    # didn't provide, so the repacked location stays authoritative.
+    for key in ("tone", "expertise", "responseLength"):
+        if key in merged:
+            continue
+        value = forwarded_props.get(key)
+        if isinstance(value, str) and value:
+            merged[key] = value
+
+    if not merged:
+        return None
+    return merged
