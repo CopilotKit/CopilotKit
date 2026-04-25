@@ -1,8 +1,12 @@
 """
 Agent Server for Agno
 
-Uses AgentOS with the AG-UI interface to serve the Agno agent.
-The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
+Uses AgentOS with the AG-UI interface to serve multiple Agno agents.
+The Next.js CopilotKit runtime proxies requests to each interface via AG-UI.
+
+Interfaces:
+    /agui              → main agent (sales assistant, most demos)
+    /agui-reasoning    → reasoning-capable agent (reasoning family demos)
 """
 
 import os
@@ -12,12 +16,21 @@ from agno.os.interfaces.agui import AGUI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from agents.main import agent
+from agents.main import agent as main_agent
+from agents.reasoning_agent import agent as reasoning_agent
 
 dotenv.load_dotenv()
 
-# Build AgentOS and extract the app for serving
-agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+# Build AgentOS with multiple agents and one AGUI interface per agent,
+# each at a distinct prefix so the Next.js runtime can target them
+# independently.
+agent_os = AgentOS(
+    agents=[main_agent, reasoning_agent],
+    interfaces=[
+        AGUI(agent=main_agent),  # default prefix "" -> /agui
+        AGUI(agent=reasoning_agent, prefix="/reasoning"),  # -> /reasoning/agui
+    ],
+)
 app = agent_os.get_app()
 
 
