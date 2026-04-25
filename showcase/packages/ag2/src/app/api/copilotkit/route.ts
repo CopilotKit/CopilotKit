@@ -18,6 +18,10 @@ function createAgent() {
 }
 
 // Register the same agent under all names used by demo pages.
+// AG2's AGUIStream wraps a single ConversableAgent; all these names proxy
+// to the same backend process. Frontend-only variations (slots, sidebar,
+// CSS theming, headless chat, tool rendering wildcards, etc.) all reuse
+// the shared `agent.py` ConversableAgent under a unique registered name.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
@@ -28,6 +32,22 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Frontend-only variants (Batch 1) — same ConversableAgent, different UI.
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "readonly-state-agent-context",
+  "reasoning-default-render",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "frontend_tools",
+  "frontend-tools-async",
+  "hitl-in-app",
+  "hitl-in-chat",
+  "agentic-chat-reasoning",
+  "shared-state-read-write",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
