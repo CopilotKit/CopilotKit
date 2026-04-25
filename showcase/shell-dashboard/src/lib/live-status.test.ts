@@ -39,9 +39,7 @@ describe("keyFor", () => {
     expect(keyFor("smoke", "agno", "agentic-chat")).toBe(
       "smoke:agno/agentic-chat",
     );
-    expect(keyFor("e2e", "agno", "agentic-chat")).toBe(
-      "e2e:agno/agentic-chat",
-    );
+    expect(keyFor("e2e", "agno", "agentic-chat")).toBe("e2e:agno/agentic-chat");
   });
 });
 
