@@ -363,8 +363,30 @@ def _execute_tool(name: str, tool_input: dict[str, Any], state: AgentState, conv
     return f"Unknown tool: {name}", None
 
 
-async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
-    """Run the Claude agent and yield AG-UI SSE events."""
+async def run_agent(
+    input_data: RunAgentInput,
+    *,
+    system_prompt_override: str | None = None,
+    disable_tools: bool = False,
+    preprocess_user_parts: Any = None,
+) -> AsyncIterator[str]:
+    """Run the Claude agent and yield AG-UI SSE events.
+
+    Keyword arguments let dedicated demo endpoints reuse this streaming
+    loop with targeted overrides:
+
+    - ``system_prompt_override`` — replace the shared ``SYSTEM_PROMPT``
+      (e.g. BYOC demos emit a JSON envelope, so the sales-assistant
+      prompt is irrelevant).
+    - ``disable_tools`` — run the model with no tool schemas. Useful for
+      BYOC / pure-text demos where tool calls would derail the output.
+    - ``preprocess_user_parts`` — a ``callable(part) -> part`` applied to
+      each content part of every user message before they are sent to
+      Claude. Used by the multimodal demo to convert AG-UI
+      ``image``/``document`` parts into Claude's Messages API shape
+      (``{"type": "image", "source": {...}}``) and to flatten PDFs to
+      text via ``pypdf``.
+    """
     encoder = EventEncoder()
     client = anthropic.AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
@@ -373,31 +395,59 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
     if input_data.state and isinstance(input_data.state, dict):
         state = AgentState(**input_data.state)
 
-    # Convert AG-UI messages to Anthropic format
+    # Convert AG-UI messages to Anthropic format. When a preprocessor is
+    # supplied we preserve the structured content list (image blocks,
+    # document text, etc.) — otherwise we collapse to a flat string for
+    # the text-only happy path used by most demos.
     messages: list[dict[str, Any]] = []
     for msg in (input_data.messages or []):
         role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-        if role in ("user", "assistant"):
-            content = ""
-            if hasattr(msg, "content"):
-                if isinstance(msg.content, str):
-                    content = msg.content
-                elif isinstance(msg.content, list):
-                    parts = []
-                    for part in msg.content:
-                        if hasattr(part, "text"):
-                            parts.append(part.text)
-                        elif isinstance(part, dict) and "text" in part:
-                            parts.append(part["text"])
-                    content = "".join(parts)
-            if content:
-                messages.append({"role": role, "content": content})
+        if role not in ("user", "assistant"):
+            continue
+
+        raw_content = getattr(msg, "content", None)
+
+        if preprocess_user_parts is not None and role == "user" and isinstance(raw_content, list):
+            converted_parts: list[Any] = []
+            for part in raw_content:
+                # AG-UI emits pydantic models; normalise to a plain dict
+                # before handing to the converter so the demo-specific
+                # code can rely on ``.get(...)`` semantics.
+                if hasattr(part, "model_dump"):
+                    part_dict = part.model_dump()
+                elif isinstance(part, dict):
+                    part_dict = part
+                else:
+                    part_dict = part
+                converted = preprocess_user_parts(part_dict)
+                if converted is not None:
+                    converted_parts.append(converted)
+            if converted_parts:
+                messages.append({"role": role, "content": converted_parts})
+            continue
+
+        content = ""
+        if isinstance(raw_content, str):
+            content = raw_content
+        elif isinstance(raw_content, list):
+            parts = []
+            for part in raw_content:
+                if hasattr(part, "text"):
+                    parts.append(part.text)
+                elif isinstance(part, dict) and "text" in part:
+                    parts.append(part["text"])
+            content = "".join(parts)
+        if content:
+            messages.append({"role": role, "content": content})
 
     # Inject sales pipeline state into system prompt if state exists
-    system = SYSTEM_PROMPT
-    if state.todos:
-        todos_json = json.dumps(state.todos, indent=2)
-        system = f"{SYSTEM_PROMPT}\n\nCurrent sales pipeline:\n{todos_json}"
+    if system_prompt_override is not None:
+        system = system_prompt_override
+    else:
+        system = SYSTEM_PROMPT
+        if state.todos:
+            todos_json = json.dumps(state.todos, indent=2)
+            system = f"{SYSTEM_PROMPT}\n\nCurrent sales pipeline:\n{todos_json}"
 
     thread_id = input_data.thread_id or "default"
     run_id = input_data.run_id or "run-1"
@@ -416,14 +466,20 @@ async def run_agent(input_data: RunAgentInput) -> AsyncIterator[str]:
             role="assistant",
         ))
 
-        # Stream Claude response
-        async with client.messages.stream(
-            model=os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
-            max_tokens=4096,
-            system=system,
-            messages=messages,
-            tools=TOOLS,  # type: ignore[arg-type]
-        ) as stream:
+        # Stream Claude response. BYOC / multimodal demos opt out of the
+        # shared sales-assistant tool schemas so the model replies as pure
+        # text (or structured JSON for BYOC) rather than chasing tool
+        # calls.
+        stream_kwargs: dict[str, Any] = {
+            "model": os.getenv("ANTHROPIC_MODEL", "claude-opus-4-5"),
+            "max_tokens": 4096,
+            "system": system,
+            "messages": messages,
+        }
+        if not disable_tools:
+            stream_kwargs["tools"] = TOOLS  # type: ignore[assignment]
+
+        async with client.messages.stream(**stream_kwargs) as stream:
             current_tool_id: str | None = None
             current_tool_name: str | None = None
             current_tool_args = ""
