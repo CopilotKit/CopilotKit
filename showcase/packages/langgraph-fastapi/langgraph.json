@@ -1,6 +1,25 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "sample_agent": "./src/agents/src/agent.py:graph"
+    "sample_agent": "./src/agents/src/agent.py:graph",
+    "beautiful_chat": "./src/agents/src/beautiful_chat.py:graph",
+    "headless_complete": "./src/agents/src/headless_complete.py:graph",
+    "multimodal": "./src/agents/src/multimodal_agent.py:graph",
+    "agent_config_agent": "./src/agents/src/agent_config_agent.py:graph",
+    "reasoning_agent": "./src/agents/src/reasoning_agent.py:graph",
+    "tool_rendering": "./src/agents/src/tool_rendering_agent.py:graph",
+    "tool_rendering_reasoning_chain": "./src/agents/src/tool_rendering_reasoning_chain_agent.py:graph",
+    "interrupt_agent": "./src/agents/src/interrupt_agent.py:graph",
+    "a2ui_dynamic": "./src/agents/src/a2ui_dynamic.py:graph",
+    "a2ui_fixed": "./src/agents/src/a2ui_fixed.py:graph",
+    "mcp_apps": "./src/agents/src/mcp_apps_agent.py:graph",
+    "frontend_tools": "./src/agents/src/frontend_tools.py:graph",
+    "frontend_tools_async": "./src/agents/src/frontend_tools_async.py:graph",
+    "hitl_in_app": "./src/agents/src/hitl_in_app.py:graph",
+    "readonly_state_agent_context": "./src/agents/src/readonly_state_agent_context.py:graph",
+    "byoc_hashbrown": "./src/agents/src/byoc_hashbrown_agent.py:graph",
+    "byoc_json_render": "./src/agents/src/byoc_json_render_agent.py:graph",
+    "open_gen_ui": "./src/agents/src/open_gen_ui_agent.py:graph",
+    "open_gen_ui_advanced": "./src/agents/src/open_gen_ui_advanced_agent.py:graph"
   }
 }
