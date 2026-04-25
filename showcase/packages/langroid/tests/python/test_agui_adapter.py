@@ -60,7 +60,7 @@ class _FakeRequest:
 
 def _install_fake_agent(monkeypatch: pytest.MonkeyPatch, response: Any) -> _FakeAgent:
     agent = _FakeAgent(response)
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: agent)
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: agent)
     return agent
 
 
@@ -722,7 +722,7 @@ async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog
                 "secret: postgres://user:pass@host/db /opt/app/internal.py line 99"
             )
 
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _ExplodingAgent())
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: _ExplodingAgent())
 
     req = _FakeRequest(_minimal_run_input(thread_id="t-boom"))
     with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
@@ -773,7 +773,7 @@ async def test_llm_response_async_programmer_bug_propagates(monkeypatch):
             # an attribute that doesn't exist on the response object.
             raise AttributeError("typo")
 
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _TypoAgent())
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: _TypoAgent())
 
     req = _FakeRequest(_minimal_run_input(thread_id="t-bug"))
     resp = await handle_run(req)

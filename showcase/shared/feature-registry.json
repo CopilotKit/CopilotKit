@@ -141,6 +141,12 @@
       "shell_docs_url": "/docs/features/gen-ui-interrupt"
     },
     {
+      "id": "hitl-in-chat-booking",
+      "name": "In-Chat HITL (Booking)",
+      "category": "controlled-generative-ui",
+      "description": "Time-picker card rendered inline via useHumanInTheLoop for a booking flow"
+    },
+    {
       "id": "interrupt-headless",
       "name": "Headless Interrupt",
       "category": "controlled-generative-ui",
