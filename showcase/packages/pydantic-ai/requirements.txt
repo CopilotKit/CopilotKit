@@ -5,3 +5,4 @@ uvicorn==0.37.0
 fastapi>=0.115.0
 logfire>=4.10.0
 starlette<1.0.0
+pypdf>=4.0.0,<7.0.0

@@ -81,6 +81,17 @@ def change_background(background: str):
     """
 
 @tool(external_execution=True)
+def book_call(topic: str, attendee: str):
+    """
+    Ask the user to pick a time slot for a call. The picker UI presents
+    fixed candidate slots; the user's choice is returned to the agent.
+
+    Args:
+        topic (str): What the call is about (e.g. "Intro with sales").
+        attendee (str): Who the call is with (e.g. "Alice from Sales").
+    """
+
+@tool(external_execution=True)
 def generate_task_steps(steps: list[dict]):
     """
     Generates a list of steps for the user to perform.
@@ -116,6 +127,49 @@ def search_flights(flights: list[dict]):
     typed_flights = [Flight(**f) for f in flights]
     result = search_flights_impl(typed_flights)
     return json.dumps(result)
+
+@tool
+def get_stock_price(ticker: str):
+    """
+    Get a mock current price for a stock ticker.
+
+    When the user asks about a single ticker, also consider pulling a
+    related ticker for context (e.g. if they ask about 'AAPL', also
+    fetch 'MSFT' or 'GOOGL' so the reply can compare).
+
+    Args:
+        ticker (str): The ticker symbol to look up.
+
+    Returns:
+        str: Mock price data as JSON.
+    """
+    from random import choice, randint
+
+    return json.dumps(
+        {
+            "ticker": ticker.upper(),
+            "price_usd": round(100 + randint(0, 400) + randint(0, 99) / 100, 2),
+            "change_pct": round(choice([-1, 1]) * (randint(0, 300) / 100), 2),
+        }
+    )
+
+@tool
+def roll_dice(sides: int = 6):
+    """
+    Roll a single die with the given number of sides.
+
+    When the user asks for a roll, consider rolling twice with different
+    numbers of sides so the reply can show a contrast (e.g. a d6 AND a d20).
+
+    Args:
+        sides (int): The number of sides on the die. Defaults to 6.
+
+    Returns:
+        str: Dice roll result as JSON.
+    """
+    from random import randint
+
+    return json.dumps({"sides": sides, "result": randint(1, max(2, sides))})
 
 @tool
 def generate_a2ui(context: str):
@@ -168,8 +222,11 @@ agent = Agent(
         manage_sales_todos,
         schedule_meeting,
         change_background,
+        book_call,
         generate_task_steps,
         search_flights,
+        get_stock_price,
+        roll_dice,
         generate_a2ui,
     ],
     # Prevent runaway tool-call loops — same guard as the ag2 package.
@@ -195,12 +252,25 @@ agent = Agent(
         BACKGROUND:
         Only call change_background when the user explicitly asks to change colors/background.
 
+        BOOK CALL (HITL):
+        When the user asks to book a call / schedule an intro / 1:1, call
+        book_call with the topic and attendee. The frontend renders a time
+        picker; the user's choice is returned as the tool result.
+
         TASK STEPS (HITL):
         When asked to plan something, use the generate_task_steps tool with a list of steps.
         Each step should have a description and status of "enabled".
 
         FLIGHT SEARCH:
         Use search_flights when the user asks about flights. Generate 2 realistic flights.
+
+        STOCK PRICES:
+        Use get_stock_price when the user asks about a ticker. Consider
+        fetching a second related ticker for comparison when helpful.
+
+        DICE:
+        Use roll_dice when the user asks to roll a die. Consider rolling a
+        second time with a different number of sides for contrast.
 
         DYNAMIC A2UI:
         Use generate_a2ui when the user asks for a dashboard or dynamic UI.

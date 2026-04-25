@@ -119,8 +119,15 @@ jobs:
           found=0
           for pkg_dir in showcase/packages/*/; do
             [ -d "$pkg_dir" ] || continue
-            found=$((found + 1))
             pkg=$(basename "$pkg_dir")
+            # Skip manifest-only packages (no src/ directory) — these are
+            # virtual/meta integrations (e.g. built-in-agent) that carry no
+            # source code or demos and therefore have no e2e specs to enforce.
+            if [ ! -d "${pkg_dir}src" ]; then
+              echo "skip: $pkg (manifest-only, no src/)"
+              continue
+            fi
+            found=$((found + 1))
             e2e_dir="${pkg_dir}tests/e2e/"
             if [ ! -d "$e2e_dir" ]; then
               echo "::error file=$pkg_dir::Package '$pkg' is missing tests/e2e/ directory (required for baseline e2e coverage)"

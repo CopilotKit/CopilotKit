@@ -16,7 +16,7 @@ pre-commit:
       run: bash scripts/hooks/check-binaries.sh
     sync-lockfile:
       tags: lockfile
-      glob: "**/package.json"
+      glob: "{packages,examples,showcase/scripts}/**/package.json"
       run: pnpm i --lockfile-only
       stage_fixed: true
     lint-fix:

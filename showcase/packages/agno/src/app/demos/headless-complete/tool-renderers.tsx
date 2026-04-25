@@ -1,0 +1,117 @@
+"use client";
+
+import React from "react";
+import {
+  useRenderTool,
+  useDefaultRenderTool,
+  useComponent,
+} from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import { WeatherCard } from "./weather-card";
+import { StockCard } from "./stock-card";
+import { HighlightNote, highlightNotePropsSchema } from "./highlight-note";
+
+/**
+ * Central registration hook for every tool-call rendering surface
+ * exercised by the headless-complete cell:
+ *
+ *   - `useRenderTool({ name: "get_weather", ... })` — per-tool renderer
+ *     for the backend weather tool (blue card).
+ *   - `useRenderTool({ name: "get_stock_price", ... })` — per-tool
+ *     renderer for the backend stock tool (gray card, green/red delta).
+ *   - `useComponent({ name: "highlight_note", ... })` — frontend-only
+ *     tool the agent can invoke; renders the `HighlightNote` component
+ *     inline through the same `useRenderToolCall` path.
+ *   - `useDefaultRenderTool(...)` — wildcard catch-all so any other
+ *     tool the agent might call still gets a visible card even though
+ *     the headless cell composes its own message view.
+ */
+export function useHeadlessCompleteToolRenderers() {
+  // Per-tool renderer #1: backend `get_weather` -> branded WeatherCard.
+  useRenderTool(
+    {
+      name: "get_weather",
+      parameters: z.object({
+        location: z.string(),
+      }),
+      render: (props) => {
+        const { result, status } = props;
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<{
+          city?: string;
+          temperature?: number;
+          conditions?: string;
+        }>(result);
+        const location =
+          (props as { parameters?: { location?: string } }).parameters
+            ?.location ??
+          parsed.city ??
+          "";
+        return (
+          <WeatherCard
+            loading={loading}
+            location={location}
+            temperature={parsed.temperature}
+            conditions={parsed.conditions}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  // Per-tool renderer #2: backend `get_stock_price` -> branded StockCard.
+  useRenderTool(
+    {
+      name: "get_stock_price",
+      parameters: z.object({
+        ticker: z.string(),
+      }),
+      render: (props) => {
+        const { result, status } = props;
+        const loading = status !== "complete";
+        const parsed = parseJsonResult<{
+          ticker?: string;
+          price_usd?: number;
+          change_pct?: number;
+        }>(result);
+        const ticker =
+          (props as { parameters?: { ticker?: string } }).parameters?.ticker ??
+          parsed.ticker ??
+          "";
+        return (
+          <StockCard
+            loading={loading}
+            ticker={ticker}
+            price={parsed.price_usd}
+            changePct={parsed.change_pct}
+          />
+        );
+      },
+    },
+    [],
+  );
+
+  // Frontend-registered tool the agent can invoke. `useComponent` is
+  // sugar over `useFrontendTool`, so the registration flows through
+  // the same `useRenderToolCall` path the manual hook consumes.
+  useComponent({
+    name: "highlight_note",
+    description:
+      "Highlight a short note or phrase inline in the chat with a colored card. Use this whenever the user asks to highlight, flag, or mark a snippet of text.",
+    parameters: highlightNotePropsSchema,
+    render: HighlightNote,
+  });
+
+  // Wildcard catch-all for tools without a bespoke renderer.
+  useDefaultRenderTool();
+}
+
+function parseJsonResult<T>(result: unknown): T {
+  if (!result) return {} as T;
+  try {
+    return (typeof result === "string" ? JSON.parse(result) : result) as T;
+  } catch {
+    return {} as T;
+  }
+}

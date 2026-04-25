@@ -93,7 +93,7 @@ describe("Catalog Generator", () => {
     }
   });
 
-  it("cross-join produces 663 cells (646 integrated + 17 starters)", () => {
+  it("cross-join produces 737 cells (720 integrated + 17 starters)", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -107,13 +107,13 @@ describe("Catalog Generator", () => {
       (c: any) => c.manifestation === "starter",
     );
 
-    expect(integrated.length).toBe(646); // 38 features x 17 integrations
+    expect(integrated.length).toBe(720); // 40 features x 18 integrations
     expect(starters.length).toBe(17);
-    expect(catalog.cells.length).toBe(663);
-    expect(catalog.metadata.total_cells).toBe(663);
+    expect(catalog.cells.length).toBe(737);
+    expect(catalog.metadata.total_cells).toBe(737);
   });
 
-  it("LGP has status=wired for its 33 features (32 wired + 1 stub), unshipped for the other 5", () => {
+  it("LGP has 40 cells: 37 wired + 1 stub + 2 unshipped", () => {
     runGenerator();
     const catalog = readCatalog();
 
@@ -122,18 +122,16 @@ describe("Catalog Generator", () => {
         c.integration === "langgraph-python" &&
         c.manifestation === "integrated",
     );
-    expect(lgpCells.length).toBe(38); // One cell per feature
+    expect(lgpCells.length).toBe(40); // One cell per feature
 
     const wired = lgpCells.filter((c: any) => c.status === "wired");
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 38 features in manifest: 37 with routes (wired) + 1 without route (stub = cli-start)
-    // Waves 2a (voice) + 2b (multimodal) + 3a (auth) + 3b (agent-config)
-    // + 4a (byoc-hashbrown) + 4b (byoc-json-render) consolidated → 37 wired + 1 stub, 0 unshipped
+    // LGP has 40 features: 37 wired + 1 stub (cli-start) + 2 unshipped
     expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(0);
+    expect(unshipped.length).toBe(2);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -148,35 +146,33 @@ describe("Catalog Generator", () => {
     expect(cliStartCell.manifestation).toBe("integrated");
   });
 
-  it("parity tier: LGP = reference (most wired features)", () => {
+  it("parity tier: LGF = reference (most wired features, fewest stubs)", () => {
     runGenerator();
     const catalog = readCatalog();
 
-    expect(catalog.metadata.reference).toBe("langgraph-python");
+    expect(catalog.metadata.reference).toBe("langgraph-fastapi");
 
-    // All LGP integrated cells should have parity_tier = "reference"
-    const lgpCells = catalog.cells.filter(
+    // All LGF integrated cells should have parity_tier = "reference"
+    const lgfCells = catalog.cells.filter(
       (c: any) =>
-        c.integration === "langgraph-python" &&
+        c.integration === "langgraph-fastapi" &&
         c.manifestation === "integrated",
     );
-    for (const cell of lgpCells) {
+    for (const cell of lgfCells) {
       expect(cell.parity_tier).toBe("reference");
     }
   });
 
-  it("parity tier: 8-feature integration = partial (intersection >= 3 with reference)", () => {
+  it("parity tier: crewai-crews (34 wired) = partial (intersection >= 3 with reference)", () => {
     runGenerator();
     const catalog = readCatalog();
 
-    // All 16 non-LGP integrations have 8 features, all in LGP's set
-    // intersection with reference = 8 >= 3 => partial
     const crewaiCells = catalog.cells.filter(
       (c: any) =>
         c.integration === "crewai-crews" && c.manifestation === "integrated",
     );
     const crewaiWired = crewaiCells.filter((c: any) => c.status === "wired");
-    expect(crewaiWired.length).toBe(8);
+    expect(crewaiWired.length).toBe(34);
 
     // All cells for crewai should have parity_tier = "partial"
     for (const cell of crewaiCells) {
@@ -189,16 +185,13 @@ describe("Catalog Generator", () => {
     const catalog = readCatalog();
 
     expect(catalog.metadata).toBeDefined();
-    expect(catalog.metadata.total_cells).toBe(663);
+    expect(catalog.metadata.total_cells).toBe(737);
 
-    // Consolidated waves 2a/2b/3a/3b/4a/4b shifted 6 LGP cells from
-    // unshipped to wired: LGP wired 31→37, LGP unshipped 6→0.
-    // Wired = LGP 37 wired + 16 * 8 wired + 17 starters = 37 + 128 + 17 = 182
-    // Stub = 1 (LGP cli-start)
-    // Unshipped = 0 (LGP) + 16 * 30 (other integrations) = 0 + 480 = 480
-    expect(catalog.metadata.wired).toBe(182);
-    expect(catalog.metadata.stub).toBe(1);
-    expect(catalog.metadata.unshipped).toBe(480);
+    // 18 integrations x 40 features + 17 starters = 737 total cells
+    // Wired = 524, Stub = 8, Unshipped = 205
+    expect(catalog.metadata.wired).toBe(524);
+    expect(catalog.metadata.stub).toBe(8);
+    expect(catalog.metadata.unshipped).toBe(205);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {

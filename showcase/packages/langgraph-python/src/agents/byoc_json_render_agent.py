@@ -143,8 +143,17 @@ Respond with the JSON object only.
 """
 
 
+# Force JSON-object output mode. The frontend's `parseSpec` already
+# tolerates code fences and prose preamble via `extractJsonObject`, but
+# locking the model to JSON at the API layer removes the ambiguity
+# entirely — the only thing the LLM can emit is a single JSON object,
+# which is exactly what `<Renderer />` needs.
 graph = create_agent(
-    model=ChatOpenAI(model="gpt-4o-mini", temperature=0.2),
+    model=ChatOpenAI(
+        model="gpt-4o-mini",
+        temperature=0.2,
+        model_kwargs={"response_format": {"type": "json_object"}},
+    ),
     tools=[],
     middleware=[CopilotKitMiddleware()],
     system_prompt=SYSTEM_PROMPT.strip(),

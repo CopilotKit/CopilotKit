@@ -60,7 +60,7 @@ class _FakeRequest:
 
 def _install_fake_agent(monkeypatch: pytest.MonkeyPatch, response: Any) -> _FakeAgent:
     agent = _FakeAgent(response)
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: agent)
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: agent)
     return agent
 
 
@@ -311,7 +311,7 @@ def test_parse_tool_args_dict_passthrough():
 
 
 def test_parse_tool_args_empty_string_is_malformed():
-    """Empty string is treated as DEGRADED, not "ok with {}".
+    """Empty string is treated as malformed, not "ok with {}".
     Consistent with the oai-path rationale: firing a tool with no
     arguments produces a meaningless UI card, so we skip it the same
     way we skip unparseable JSON."""
@@ -342,7 +342,7 @@ def test_parse_tool_args_malformed_returns_malformed_status(caplog):
 
 
 def test_parse_tool_args_non_dict_json_is_malformed(caplog):
-    """Valid JSON but not a dict (e.g. an array) is likewise DEGRADED."""
+    """Valid JSON but not a dict (e.g. an array) is likewise malformed."""
     with caplog.at_level(logging.WARNING, logger=agui_adapter.logger.name):
         parsed = _parse_tool_args("[1, 2, 3]")
     assert parsed.status == "malformed"
@@ -630,12 +630,7 @@ def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
 
 
 # ---------------------------------------------------------------------------
-# Logging hygiene: plain-text turns must NOT emit warnings
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# CR Round 4: bytes-args handling in _try_parse_tool
+# bytes-args handling in _try_parse_tool
 # ---------------------------------------------------------------------------
 
 
@@ -651,10 +646,6 @@ def test_try_parse_tool_function_call_bytes_arguments():
     # Use a real backend tool from ALL_TOOLS so this exercises the actual
     # dispatch loop rather than a synthetic stub.
     request_name = agent_module.GetWeatherTool.default_value("request")
-    content = json.dumps({
-        "name": request_name,
-        "arguments": b'{"location": "SF"}'.decode("utf-8"),
-    })
     # Patch the function_call payload to carry a bytes ``arguments`` at
     # parse time. We construct the wrapper JSON as normal (str) but the
     # inner ``arguments`` field is a str whose *decoded* value would be
@@ -694,7 +685,7 @@ def test_try_parse_tool_function_call_bytes_arguments():
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: mid-stream llm_response_async failure must not hang the UI
+# mid-stream llm_response_async failure must not hang the UI
 # ---------------------------------------------------------------------------
 
 
@@ -722,7 +713,7 @@ async def test_llm_response_async_failure_emits_run_finished(monkeypatch, caplog
                 "secret: postgres://user:pass@host/db /opt/app/internal.py line 99"
             )
 
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _ExplodingAgent())
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: _ExplodingAgent())
 
     req = _FakeRequest(_minimal_run_input(thread_id="t-boom"))
     with caplog.at_level(logging.ERROR, logger=agui_adapter.logger.name):
@@ -773,7 +764,7 @@ async def test_llm_response_async_programmer_bug_propagates(monkeypatch):
             # an attribute that doesn't exist on the response object.
             raise AttributeError("typo")
 
-    monkeypatch.setattr(agui_adapter, "create_agent", lambda: _TypoAgent())
+    monkeypatch.setattr(agui_adapter, "create_agent", lambda **kwargs: _TypoAgent())
 
     req = _FakeRequest(_minimal_run_input(thread_id="t-bug"))
     resp = await handle_run(req)
@@ -784,7 +775,7 @@ async def test_llm_response_async_programmer_bug_propagates(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: request.json() / RunAgentInput failures get correlation ids
+# request.json() / RunAgentInput failures get correlation ids
 # ---------------------------------------------------------------------------
 
 
@@ -821,7 +812,7 @@ async def test_invalid_run_agent_input_returns_422():
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: non-string role/content is skipped with a warning
+# non-string role/content is skipped with a warning
 # ---------------------------------------------------------------------------
 
 
@@ -847,6 +838,7 @@ async def test_non_string_role_or_content_skipped(monkeypatch, caplog):
         def __init__(self, **_kwargs: Any) -> None:
             self.thread_id = "t-msg"
             self.run_id = "run-x"
+            self.forwarded_props = {}
             self.messages = [
                 SimpleNamespace(role="user", content="hello"),
                 # non-string content
@@ -873,7 +865,7 @@ async def test_non_string_role_or_content_skipped(monkeypatch, caplog):
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: tool-collision RuntimeError names the colliding classes
+# tool-collision RuntimeError names the colliding classes
 # ---------------------------------------------------------------------------
 
 

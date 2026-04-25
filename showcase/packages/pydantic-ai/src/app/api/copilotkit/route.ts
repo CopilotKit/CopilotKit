@@ -28,6 +28,28 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  // Prebuilt chat UI demos
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  "beautiful-chat",
+  // Frontend tool demos
+  "frontend-tools",
+  "frontend-tools-async",
+  "hitl-in-app",
+  // Generative UI demos
+  "declarative-gen-ui",
+  "a2ui-fixed-schema",
+  "open-gen-ui",
+  "open-gen-ui-advanced",
+  // Tool rendering variants
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  // Readonly state
+  "readonly-state-agent-context",
 ];
 
 const agents: Record<string, AbstractAgent> = {};
@@ -35,6 +57,14 @@ for (const name of agentNames) {
   agents[name] = createAgent();
 }
 agents["default"] = createAgent();
+
+// Demo-specific agents with distinct backend prompts live at dedicated
+// sub-paths on the PydanticAI server (see src/agent_server.py). Override
+// the URL for those agent ids so they proxy to the right backend mount
+// instead of the shared sales agent at the root.
+agents["headless-complete"] = new HttpAgent({
+  url: `${AGENT_URL}/headless_complete/`,
+});
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,
