@@ -147,6 +147,12 @@
       "description": "Time-picker card rendered inline via useHumanInTheLoop for a booking flow"
     },
     {
+      "id": "hitl",
+      "name": "In-Chat Human in the Loop (Original)",
+      "category": "controlled-generative-ui",
+      "description": "Original HITL demo kept for backwards compatibility"
+    },
+    {
       "id": "interrupt-headless",
       "name": "Headless Interrupt",
       "category": "controlled-generative-ui",

@@ -194,7 +194,7 @@ demos:
     route: /demos/headless-simple
     animated_preview_url:
     highlight:
-      - src/agents/main.py
+      - src/agents/src/agent.py
       - src/app/demos/headless-simple/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: headless-complete
@@ -205,7 +205,7 @@ demos:
     route: /demos/headless-complete
     animated_preview_url:
     highlight:
-      - src/agents/headless_complete.py
+      - src/agents/src/headless_complete.py
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/message-list.tsx
       - src/app/demos/headless-complete/use-rendered-messages.tsx
@@ -222,7 +222,7 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
-      - src/app/api/copilotkit-auth/route.ts
+      - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: multimodal
     name: Multimodal Attachments
     description: Image and PDF uploads via CopilotChat attachments, processed by a vision-capable agent
@@ -231,7 +231,7 @@ demos:
     route: /demos/multimodal
     animated_preview_url:
     highlight:
-      - src/agents/multimodal_agent.py
+      - src/agents/src/multimodal_agent.py
       - src/app/demos/multimodal/page.tsx
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
@@ -243,7 +243,7 @@ demos:
     route: /demos/agent-config
     animated_preview_url:
     highlight:
-      - src/agents/agent_config_agent.py
+      - src/agents/src/agent_config_agent.py
       - src/app/demos/agent-config/page.tsx
       - src/app/demos/agent-config/config-card.tsx
       - src/app/demos/agent-config/use-agent-config.ts
@@ -429,7 +429,7 @@ demos:
       - src/agents/src/agent.py
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
-      - src/app/api/copilotkit-voice/route.ts
+      - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: byoc-hashbrown
     name: BYOC Hashbrown
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)

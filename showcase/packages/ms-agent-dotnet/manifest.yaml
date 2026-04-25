@@ -294,7 +294,7 @@ demos:
     route: /demos/declarative-gen-ui
     animated_preview_url:
     highlight:
-      - agent/A2UIDynamicAgent.cs
+      - agent/DeclarativeGenUiAgent.cs
       - src/app/demos/declarative-gen-ui/page.tsx
       - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
       - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
@@ -308,7 +308,7 @@ demos:
     route: /demos/a2ui-fixed-schema
     animated_preview_url:
     highlight:
-      - agent/A2UIFixedAgent.cs
+      - agent/A2uiFixedSchemaAgent.cs
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
       - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
@@ -366,7 +366,7 @@ demos:
     route: /demos/tool-rendering-reasoning-chain
     animated_preview_url:
     highlight:
-      - agent/ToolRenderingReasoningChainAgent.cs
+      - agent/ReasoningAgent.cs
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/demos/tool-rendering-reasoning-chain/weather-card.tsx
       - src/app/demos/tool-rendering-reasoning-chain/flight-list-card.tsx

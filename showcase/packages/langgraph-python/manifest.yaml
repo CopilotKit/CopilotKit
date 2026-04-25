@@ -474,7 +474,7 @@ demos:
       - src/app/demos/auth/auth-banner.tsx
       - src/app/demos/auth/use-demo-auth.ts
       - src/app/demos/auth/demo-token.ts
-      - src/app/api/copilotkit-auth/route.ts
+      - src/app/api/copilotkit-auth/[[...slug]]/route.ts
   - id: byoc-hashbrown
     name: BYOC Hashbrown
     description: Streaming structured output via @hashbrownai/react, rendering a sales dashboard catalog (MetricCard + PieChart + BarChart)
@@ -527,7 +527,7 @@ demos:
       - src/agents/main.py
       - src/app/demos/voice/page.tsx
       - src/app/demos/voice/sample-audio-button.tsx
-      - src/app/api/copilotkit-voice/route.ts
+      - src/app/api/copilotkit-voice/[[...slug]]/route.ts
   - id: agent-config
     name: Agent Config Object
     description: Forward a typed config object (tone / expertise / response length) from the provider to the agent's dynamic system prompt
