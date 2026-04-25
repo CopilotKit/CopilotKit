@@ -29,6 +29,55 @@ var loggerFactory = app.Services.GetRequiredService<ILoggerFactory>();
 var jsonOptions = app.Services.GetRequiredService<IOptions<JsonOptions>>();
 var agentFactory = new SalesAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
 app.MapAGUI("/", agentFactory.CreateSalesAgent());
+
+// Interrupt-adapted agent: mounted on its own path so the Next.js runtime
+// can proxy the `gen-ui-interrupt` and `interrupt-headless` demo names to
+// it. The two demos share this single backend — the differentiation happens
+// on the frontend (in-chat picker vs. headless/app-surface picker).
+var interruptAgentFactory = new InterruptAgentFactory(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/interrupt-adapted", interruptAgentFactory.CreateInterruptAgent());
+
+// Multimodal demo agent (vision-capable gpt-4o-mini, no tools).
+app.MapAGUI("/multimodal", agentFactory.CreateMultimodalAgent());
+
+// Beautiful Chat flagship demo.
+app.MapAGUI("/beautiful-chat", agentFactory.CreateBeautifulChatAgent());
+
+// Agent Config demo — wraps a basic ChatClientAgent in AgentConfigAgent.
+app.MapAGUI("/agent-config", agentFactory.CreateAgentConfigAgent());
+
+// Reasoning demo — wraps a basic ChatClientAgent in ReasoningAgent via a
+// static factory that builds its own chat client off the shared OpenAI client.
+app.MapAGUI("/reasoning", agentFactory.CreateReasoningAgent());
+
+// Declarative Gen UI (instance factory — builds its own chat client).
+var declarativeGenUiAgent = new DeclarativeGenUiAgent(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/declarative-gen-ui", declarativeGenUiAgent.Create());
+
+// A2UI fixed-schema demo (instance factory).
+var a2uiFixedSchemaAgent = new A2uiFixedSchemaAgent(builder.Configuration, loggerFactory, jsonOptions.Value.SerializerOptions);
+app.MapAGUI("/a2ui-fixed-schema", a2uiFixedSchemaAgent.Create());
+
+// Open Generative UI — basic + advanced.
+var openGenUiFactory = new OpenGenUiAgentFactory(builder.Configuration);
+app.MapAGUI("/open-gen-ui", openGenUiFactory.CreateAgent());
+var openGenUiAdvancedFactory = new OpenGenUiAdvancedAgentFactory(builder.Configuration);
+app.MapAGUI("/open-gen-ui-advanced", openGenUiAdvancedFactory.CreateAgent());
+
+// BYOC demos (hashbrown + json-render).
+var byocHashbrownFactory = new ByocHashbrownAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-hashbrown", byocHashbrownFactory.CreateAgent());
+var byocJsonRenderFactory = new ByocJsonRenderAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/byoc-json-render", byocJsonRenderFactory.CreateAgent());
+
+// MCP Apps demo.
+var mcpAppsFactory = new McpAppsAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/mcp-apps", mcpAppsFactory.CreateMcpAppsAgent());
+
+// In-app HITL demo.
+var hitlInAppFactory = new HitlInAppAgentFactory(builder.Configuration, loggerFactory);
+app.MapAGUI("/hitl-in-app", hitlInAppFactory.CreateHitlInAppAgent());
+
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 await app.RunAsync();
@@ -350,6 +399,47 @@ public class SalesAgentFactory
             ]);
 
         return new SharedStateAgent(chatClientAgent, _jsonSerializerOptions, _loggerFactory.CreateLogger<SharedStateAgent>());
+    }
+
+    // Factory method for the Multimodal demo's vision-capable agent. Reuses
+    // the shared OpenAIClient so we don't re-resolve credentials for each
+    // mount. No tools — the chat model consumes attachments natively.
+    public AIAgent CreateMultimodalAgent() => MultimodalAgentFactory.Create(_openAiClient);
+
+    // Factory method for the Beautiful Chat flagship demo. Holds its own
+    // per-factory tool surface + in-memory todo store so it doesn't
+    // interfere with the sales pipeline state owned by the main agent.
+    public AIAgent CreateBeautifulChatAgent()
+    {
+        var factory = new BeautifulChatAgentFactory(
+            _openAiClient,
+            _jsonSerializerOptions,
+            _loggerFactory.CreateLogger<BeautifulChatAgentFactory>());
+        return factory.Create();
+    }
+
+    // Factory method for the Agent Config demo. Wraps a neutral ChatClientAgent
+    // (no tools) in AgentConfigAgent so the tone/expertise/responseLength
+    // directives read from AG-UI shared state steer the inner model per-turn.
+    public AIAgent CreateAgentConfigAgent()
+    {
+        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        var inner = new ChatClientAgent(
+            chatClient,
+            name: "AgentConfigInner",
+            description: "You are a helpful assistant. Follow the tone, expertise, and response-length directives in the system message for each turn.",
+            tools: []);
+        return new AgentConfigAgent(inner, _loggerFactory.CreateLogger<AgentConfigAgent>());
+    }
+
+    // Factory method for the Reasoning demo. Delegates to the static
+    // ReasoningAgentFactory.Create(...) which expects an IChatClient +
+    // ILoggerFactory and wraps a ChatClientAgent in a DelegatingAIAgent that
+    // surfaces reasoning-chain events.
+    public AIAgent CreateReasoningAgent()
+    {
+        var chatClient = _openAiClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+        return ReasoningAgentFactory.Create(chatClient, _loggerFactory);
     }
 
     // =================
