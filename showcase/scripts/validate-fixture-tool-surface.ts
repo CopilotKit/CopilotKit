@@ -76,8 +76,8 @@ export function validate(
       if (!matchedSuggestion) continue;
 
       const registered = new Set(demo.tools);
-      // Wildcard renderers (useDefaultRenderTool with name: "*") match
-      // every fixture tool — skip all checks for this demo.
+      // Wildcard renderers (useDefaultRenderTool — represented as "*" in
+      // the tool set) match every fixture tool — skip all checks for this demo.
       if (registered.has("*")) continue;
       for (const tc of toolCalls) {
         if (registered.has(tc.name)) continue;

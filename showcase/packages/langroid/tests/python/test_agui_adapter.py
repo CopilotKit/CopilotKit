@@ -630,7 +630,7 @@ def test_try_parse_tool_non_str_content_warns_and_returns_none(caplog):
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: bytes-args handling in _try_parse_tool
+# bytes-args handling in _try_parse_tool
 # ---------------------------------------------------------------------------
 
 
@@ -685,7 +685,7 @@ def test_try_parse_tool_function_call_bytes_arguments():
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: mid-stream llm_response_async failure must not hang the UI
+# mid-stream llm_response_async failure must not hang the UI
 # ---------------------------------------------------------------------------
 
 
@@ -775,7 +775,7 @@ async def test_llm_response_async_programmer_bug_propagates(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: request.json() / RunAgentInput failures get correlation ids
+# request.json() / RunAgentInput failures get correlation ids
 # ---------------------------------------------------------------------------
 
 
@@ -812,7 +812,7 @@ async def test_invalid_run_agent_input_returns_422():
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: non-string role/content is skipped with a warning
+# non-string role/content is skipped with a warning
 # ---------------------------------------------------------------------------
 
 
@@ -864,7 +864,7 @@ async def test_non_string_role_or_content_skipped(monkeypatch, caplog):
 
 
 # ---------------------------------------------------------------------------
-# CR Round 4: tool-collision RuntimeError names the colliding classes
+# tool-collision RuntimeError names the colliding classes
 # ---------------------------------------------------------------------------
 
 
