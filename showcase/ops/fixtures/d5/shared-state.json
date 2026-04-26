@@ -1,0 +1,29 @@
+{
+  "_comment": "D5 multi-turn fixture for /demos/shared-state-read-write against LangGraph Python (LGP). Demonstrates the agent-write half of bidirectional shared state: turn 1 the user asks the agent to remember something, the agent calls the backend `set_notes` tool (defined in src/agents/shared_state_read_write.py) which mutates shared state via Command(update={'notes': ...}). The frontend NotesCard re-renders. After the tool result is appended, the agent re-invokes the LLM — we match that second leg via toolCallId. Turn 2 the user asks the agent to recall what it remembered; the agent reads its own notes from state and replies. The UI-write half (preferences via agent.setState) does not flow through the LLM, so it is not part of this fixture. ORDER MATTERS: toolCallId fixture MUST appear above the userMessage fixtures or first-match-wins will re-match the original 'remember' fixture after the tool result is appended (the user message has not changed) and create an infinite loop.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_set_notes_001" },
+      "response": {
+        "content": "Got it — I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": { "userMessage": "remember that my favorite color is blue" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_set_notes_001",
+            "name": "set_notes",
+            "arguments": { "notes": ["Favorite color: blue"] }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "userMessage": "favorite color" },
+      "response": {
+        "content": "Your favorite color is blue — I noted it earlier."
+      }
+    }
+  ]
+}

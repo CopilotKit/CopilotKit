@@ -1,0 +1,34 @@
+{
+  "_comment": "D5 multi-turn fixture for /demos/tool-rendering against LangGraph Python (LGP). The LGP backend defines two tools (get_weather, search_flights) and the frontend renders WeatherCard for the weather tool call. The agent's system prompt biases toward CHAINING tools — see src/agents/tool_rendering_agent.py — so a single 'weather in Tokyo' question realistically yields two tool calls (weather, then flights). This fixture mirrors that. After the tool calls return, the agent re-invokes the LLM with the same user message + appended tool results; we match that second leg via toolCallId on the LAST tool message (the search_flights id). ORDER MATTERS: toolCallId-routed fixtures MUST appear ABOVE the userMessage-routed first leg, or first-match-wins will re-match the original tool-call fixture and create an infinite loop (the user message has not changed between the request that emitted the tool calls and the request that carries the tool results back). See showcase/ops/fixtures/d5/README.md § How each fixture was constructed.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_search_flights_001" },
+      "response": {
+        "content": "Tokyo is currently 22°C and partly cloudy — pleasant and walk-friendly. I also pulled SFO→NRT options in case you want to head over: most carriers have non-stops at around $720–$890 round-trip in the next two weeks. Want me to narrow by date or airline?"
+      }
+    },
+    {
+      "match": { "toolCallId": "call_d5_get_weather_001" },
+      "response": {
+        "content": "Tokyo is 22°C and partly cloudy."
+      }
+    },
+    {
+      "match": { "userMessage": "weather in Tokyo" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_get_weather_001",
+            "name": "get_weather",
+            "arguments": { "location": "Tokyo" }
+          },
+          {
+            "id": "call_d5_search_flights_001",
+            "name": "search_flights",
+            "arguments": { "origin": "SFO", "destination": "Tokyo" }
+          }
+        ]
+      }
+    }
+  ]
+}

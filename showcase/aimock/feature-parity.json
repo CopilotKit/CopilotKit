@@ -456,6 +456,22 @@
           }
         ]
       }
+    },
+    {
+      "match": {
+        "userMessage": "Break down revenue by category as a pie chart"
+      },
+      "response": {
+        "content": "{\"root\":\"category-pie\",\"elements\":{\"category-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Revenue by category\",\"description\":\"Share of total revenue by product category\",\"data\":[{\"label\":\"Enterprise\",\"value\":540000},{\"label\":\"SMB\",\"value\":310000},{\"label\":\"Self-serve\",\"value\":220000},{\"label\":\"Partner\",\"value\":170000}]}}}}"
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me monthly expenses as a bar chart"
+      },
+      "response": {
+        "content": "{\"root\":\"expense-bar\",\"elements\":{\"expense-bar\":{\"type\":\"BarChart\",\"props\":{\"title\":\"Monthly expenses\",\"description\":\"Operating expenses by month\",\"data\":[{\"label\":\"Jul\",\"value\":210000},{\"label\":\"Aug\",\"value\":225000},{\"label\":\"Sep\",\"value\":240000}]}}}}"
+      }
     }
   ]
 }
