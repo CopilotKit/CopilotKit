@@ -94,6 +94,95 @@ describe("d5-hitl-approve-deny script", () => {
     ).toBe(true);
   });
 
+  it("assertion throws a clear error when the page is missing click()", async () => {
+    // Per A9 — the page-shape widening from ConversationPage → HitlPage
+    // is a structural cast through `unknown`. We guard at runtime so a
+    // fake (or production page that lost click()) fails loudly rather
+    // than silently no-opping when approveOrDeny tries to dispatch.
+    const mod = await import("./d5-hitl-approve-deny.js");
+    const script = mod.__d5HitlApproveDenyScript;
+    const turns = script.buildTurns({
+      integrationSlug: "langgraph-python",
+      featureType: "hitl-approve-deny",
+      baseUrl: "https://example.test",
+    });
+
+    const pageWithoutClick = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate<R>(_fn: () => R): Promise<R> {
+        return 0 as unknown as R;
+      },
+      // intentionally NOT providing `click`
+    } as unknown as import("../helpers/conversation-runner.js").Page;
+
+    await expect(turns[0]!.assertions!(pageWithoutClick)).rejects.toThrow(
+      /missing click/,
+    );
+  });
+
+  it("anchors approve-button selectors under the resolved approval-dialog selector", async () => {
+    // Per A10 — the button cascade MUST be scoped to the approval
+    // dialog; otherwise text-content fallbacks like
+    // `button:has-text("Approve")` could match buttons elsewhere on
+    // the page. The first selector to resolve via waitForSelector is
+    // the dialog; subsequent button selectors should appear with the
+    // dialog selector prepended.
+    const mod = await import("./d5-hitl-approve-deny.js");
+    const script = mod.__d5HitlApproveDenyScript;
+    const turns = script.buildTurns({
+      integrationSlug: "langgraph-python",
+      featureType: "hitl-approve-deny",
+      baseUrl: "https://example.test",
+    });
+
+    const seenSelectors: string[] = [];
+    let evaluateCount = 0;
+    const page = {
+      async waitForSelector(selector: string) {
+        seenSelectors.push(selector);
+        // Resolve only specific selectors to drive the cascade
+        // deterministically:
+        //   - the canonical dialog testid (resolves dialog cascade)
+        //   - the canonical approve-button testid scoped under dialog
+        if (selector === '[data-testid="approval-dialog"]') return;
+        if (
+          selector ===
+          '[data-testid="approval-dialog"] [data-testid="approval-dialog-approve"]'
+        ) {
+          return;
+        }
+        throw new Error(`no match for ${selector}`);
+      },
+      async fill() {},
+      async press() {},
+      async click() {},
+      async evaluate<R>(_fn: () => R): Promise<R> {
+        evaluateCount += 1;
+        if (evaluateCount === 1) return 1 as unknown as R;
+        if (evaluateCount === 2) return 2 as unknown as R;
+        return "Approved — processing the $50 refund to customer #12345 now." as unknown as R;
+      },
+    };
+
+    await turns[0]!.assertions!(page);
+
+    // Dialog selector queried first.
+    expect(seenSelectors[0]).toBe('[data-testid="approval-dialog"]');
+    // At least one button selector queried with the dialog prefix.
+    const scopedButtons = seenSelectors.filter((s) =>
+      s.startsWith('[data-testid="approval-dialog"] '),
+    );
+    expect(scopedButtons.length).toBeGreaterThan(0);
+    // No bare `button:has-text("Approve")` ever queried — every
+    // button query MUST be scoped under the dialog selector.
+    const bareButton = seenSelectors.find(
+      (s) => s === 'button:has-text("Approve")',
+    );
+    expect(bareButton).toBeUndefined();
+  });
+
   it("assertion throws when the follow-up message is missing reference tokens", async () => {
     const mod = await import("./d5-hitl-approve-deny.js");
     const script = mod.__d5HitlApproveDenyScript;

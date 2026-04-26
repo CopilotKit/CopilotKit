@@ -61,6 +61,14 @@ export interface Page extends ConversationPage {
 const SELECTOR_PROBE_TIMEOUT_MS = 3_000;
 const ASSISTANT_FOLLOWUP_TIMEOUT_MS = 30_000;
 const POLL_INTERVAL_MS = 100;
+/**
+ * Once the assistant-message count has grown past the baseline, wait
+ * this long with no further growth before declaring the message
+ * settled and reading its text. Without this window we'd capture
+ * partial text from a still-streaming response — same race the
+ * conversation-runner's per-turn settle was designed to avoid.
+ */
+const ASSISTANT_FOLLOWUP_SETTLE_MS = 1_500;
 
 /**
  * Approval-dialog cascade. Reference DOM is langgraph-python's
@@ -135,12 +143,19 @@ export async function approveOrDeny(
     APPROVAL_DIALOG_SELECTORS,
     "approval dialog",
   );
-  void dialogSelector;
   const buttonSelectors =
     action === "approve" ? APPROVE_BUTTON_SELECTORS : REJECT_BUTTON_SELECTORS;
+  // Anchor each button selector under the resolved dialog selector so
+  // text-content fallbacks (e.g. `button:has-text("Approve")`) cannot
+  // match buttons elsewhere on the page (a "Cancel" or "Approve" button
+  // in some unrelated chrome). Without this scoping, a custom showcase
+  // that renders an "Approve cookies" banner would be clicked instead.
+  const scopedButtonSelectors = buttonSelectors.map(
+    (sel) => `${dialogSelector} ${sel}`,
+  );
   const buttonSelector = await selectorCascade(
     page,
-    buttonSelectors,
+    scopedButtonSelectors,
     `${action} button`,
   );
   await page.click(buttonSelector);
@@ -158,10 +173,20 @@ export async function pickTimeSlot(page: Page): Promise<void> {
     TIME_PICKER_CARD_SELECTORS,
     "time-picker card",
   );
-  void cardSelector;
+  // Anchor every slot selector under the resolved card selector so
+  // a stray `[data-testid="time-picker-slot"]` (or a generic
+  // `button >> nth=0`) cannot match elements outside the card —
+  // e.g. a navbar button or a slot that lives in a different,
+  // already-rendered card. Some entries already include a card-shaped
+  // prefix, but composing under the resolved cardSelector is
+  // idempotent (duplicate prefixes still resolve correctly) and
+  // provides a stronger guarantee than per-selector inspection.
+  const scopedSlotSelectors = TIME_PICKER_SLOT_SELECTORS.map(
+    (sel) => `${cardSelector} ${sel}`,
+  );
   const slotSelector = await selectorCascade(
     page,
-    TIME_PICKER_SLOT_SELECTORS,
+    scopedSlotSelectors,
     "time-picker slot",
   );
   await page.click(slotSelector);
@@ -183,18 +208,44 @@ export async function waitForNextAssistantMessage(
   page: Page,
   baseline: number,
   timeoutMs: number = ASSISTANT_FOLLOWUP_TIMEOUT_MS,
+  settleMs: number = ASSISTANT_FOLLOWUP_SETTLE_MS,
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
+  // Phase 1: wait for the count to grow past `baseline` (the
+  // follow-up message has started rendering).
+  let count = await readAssistantCount(page);
+  while (Date.now() < deadline && count <= baseline) {
+    await sleep(POLL_INTERVAL_MS);
+    count = await readAssistantCount(page);
+  }
+  if (count <= baseline) {
+    throw new Error(
+      `timeout: assistant follow-up message did not arrive within ${timeoutMs}ms`,
+    );
+  }
+  // Phase 2: once a new message has appeared, hold off reading its
+  // text until the count has been stable for `settleMs`. While we
+  // primarily watch the assistant-message COUNT, a still-streaming
+  // message can mutate text mid-read; the settle window mirrors the
+  // conversation-runner's per-turn settle pattern so partial reads
+  // don't trip substring assertions.
+  let lastChangeAt = Date.now();
+  let lastCount = count;
   while (Date.now() < deadline) {
-    const count = await readAssistantCount(page);
-    if (count > baseline) {
+    if (Date.now() - lastChangeAt >= settleMs) {
       return await readLatestAssistantText(page);
     }
     await sleep(POLL_INTERVAL_MS);
+    const current = await readAssistantCount(page);
+    if (current !== lastCount) {
+      lastCount = current;
+      lastChangeAt = Date.now();
+    }
   }
-  throw new Error(
-    `timeout: assistant follow-up message did not arrive within ${timeoutMs}ms`,
-  );
+  // Deadline elapsed before the new message could settle — return
+  // what we have rather than throw, so substring assertions get a
+  // chance against a partial read.
+  return await readLatestAssistantText(page);
 }
 
 /**

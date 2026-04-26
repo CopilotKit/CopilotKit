@@ -66,7 +66,18 @@ const script: D5Script = {
       // (which carries the toolCall) has streamed in.
       responseTimeoutMs: 60_000,
       assertions: async (page: ConversationPage) => {
-        const hitlPage = page as HitlPage;
+        // Runtime guard: HitlPage extends ConversationPage with `click`,
+        // and the ConversationPage interface deliberately omits DOM/click
+        // semantics so the conversation-runner stays minimal. The cast
+        // through `unknown` makes the structural widening explicit; we
+        // back it with a typeof check so a fake page that forgets to
+        // implement `click` fails loudly instead of silently no-opping.
+        const hitlPage = page as unknown as HitlPage;
+        if (typeof (hitlPage as { click?: unknown }).click !== "function") {
+          throw new Error(
+            "d5-hitl-approve-deny: page is missing click() — cannot drive HITL dialog",
+          );
+        }
         // Snapshot the assistant-message count BEFORE we click — the
         // click triggers the second LLM leg, which lands a NEW
         // assistant message. We poll for growth past this baseline.
