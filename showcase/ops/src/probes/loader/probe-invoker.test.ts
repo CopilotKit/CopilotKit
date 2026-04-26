@@ -1075,10 +1075,7 @@ describe("buildProbeInvoker", () => {
     });
     // Only the requested slugs ran AND were written. Beta — discovered
     // but unfiltered — must not appear in the writer or driver call list.
-    expect(seenKeys.sort()).toEqual([
-      "image_drift:alpha",
-      "image_drift:gamma",
-    ]);
+    expect(seenKeys.sort()).toEqual(["image_drift:alpha", "image_drift:gamma"]);
     expect(writes.map((w) => w.key).sort()).toEqual([
       "image_drift:alpha",
       "image_drift:gamma",
@@ -1264,9 +1261,9 @@ describe("buildProbeInvoker", () => {
     // Synthetic-error tile written for the probe-as-a-whole.
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
-    expect(
-      (writes[0]!.signal as { errorDesc?: string }).errorDesc,
-    ).toContain("upstream is down");
+    expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toContain(
+      "upstream is down",
+    );
     // Run row marked as failed (not completed).
     expect(rw.finishes).toHaveLength(1);
     expect(rw.finishes[0]!.state).toBe("failed");

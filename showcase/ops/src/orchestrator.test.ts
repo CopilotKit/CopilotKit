@@ -905,7 +905,9 @@ describe("orchestrator boot start() failure cleanup (CR-A2.1)", () => {
       >("./scheduler/scheduler.js");
       return {
         ...actual,
-        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
           const real = actual.createScheduler(deps);
           return {
             ...real,
@@ -1018,7 +1020,9 @@ describe("orchestrator probe unregister failure preserves config (CR-A2.2)", () 
       >("./scheduler/scheduler.js");
       return {
         ...actual,
-        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
           const real = actual.createScheduler(deps);
           return {
             ...real,
@@ -1026,9 +1030,7 @@ describe("orchestrator probe unregister failure preserves config (CR-A2.2)", () 
             // unregister to simulate a rejecting cleanup.
             unregister: async (id: string) => {
               if (unregisterShouldReject) {
-                throw new Error(
-                  `simulated unregister rejection for ${id}`,
-                );
+                throw new Error(`simulated unregister rejection for ${id}`);
               }
               return real.unregister(id);
             },
