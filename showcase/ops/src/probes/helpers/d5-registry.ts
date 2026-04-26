@@ -44,6 +44,41 @@ export type D5FeatureType =
   | "subagents";
 
 /**
+ * Closed-set runtime mirror of `D5FeatureType`. Kept in lock-step with
+ * the type union so a TypeScript error fires if the two drift apart
+ * (the `satisfies` constraint forces this list to remain a superset
+ * of the union).
+ */
+const D5_FEATURE_TYPES: readonly D5FeatureType[] = [
+  "agentic-chat",
+  "tool-rendering",
+  "shared-state-read",
+  "shared-state-write",
+  "hitl-approve-deny",
+  "hitl-text-input",
+  "gen-ui-headless",
+  "gen-ui-custom",
+  "mcp-apps",
+  "subagents",
+] as const satisfies readonly D5FeatureType[];
+
+/**
+ * Runtime type guard for `D5FeatureType`. Use this to validate
+ * untrusted strings (CLI args, env vars, JSON) BEFORE handing them to
+ * registry-aware code that types its parameters as `D5FeatureType`.
+ *
+ * Replaces ad-hoc `value as D5FeatureType` casts that would let an
+ * unknown string slip past the type system and silently mismatch
+ * against an empty registry.
+ */
+export function isD5FeatureType(value: unknown): value is D5FeatureType {
+  return (
+    typeof value === "string" &&
+    (D5_FEATURE_TYPES as readonly string[]).includes(value)
+  );
+}
+
+/**
  * Build context handed to `D5Script.buildTurns`. Scripts use this to
  * customise their conversation per-integration / per-feature without
  * having to import the driver itself. `baseUrl` is the integration's
@@ -110,12 +145,20 @@ export function registerD5Script(script: D5Script): void {
       "registerD5Script: featureTypes must contain at least one entry",
     );
   }
+  // Validate ALL featureTypes upfront so a collision on (e.g.) the
+  // second entry doesn't leave the first one half-registered. Without
+  // this two-pass approach, a script with `featureTypes: ["a", "b"]`
+  // where `b` collides would still register `a` before throwing — the
+  // registry would then be in a partial state where the failed script
+  // is partially "won".
   for (const featureType of script.featureTypes) {
     if (D5_REGISTRY.has(featureType)) {
       throw new Error(
         `registerD5Script: featureType "${featureType}" already registered (fixtureFile: "${script.fixtureFile}")`,
       );
     }
+  }
+  for (const featureType of script.featureTypes) {
     D5_REGISTRY.set(featureType, script);
   }
 }
