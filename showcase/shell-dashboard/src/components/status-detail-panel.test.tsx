@@ -14,10 +14,7 @@ vi.mock("../hooks/use-probes", () => ({
 }));
 
 import { StatusDetailPanel } from "./status-detail-panel";
-import type {
-  ProbeRun,
-  ProbeScheduleEntry,
-} from "../lib/ops-api";
+import type { ProbeRun, ProbeScheduleEntry } from "../lib/ops-api";
 
 const NOW = new Date("2026-04-25T12:00:00Z").getTime();
 

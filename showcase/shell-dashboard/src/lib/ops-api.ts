@@ -124,9 +124,7 @@ const FALLBACK_BASE_URL = "/api/ops";
  */
 function resolveBaseUrl(explicit?: string): string {
   const raw =
-    explicit ??
-    process.env.NEXT_PUBLIC_OPS_BASE_URL ??
-    FALLBACK_BASE_URL;
+    explicit ?? process.env.NEXT_PUBLIC_OPS_BASE_URL ?? FALLBACK_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
 
@@ -171,10 +169,12 @@ async function parseJson<T>(response: Response, url: string): Promise<T> {
 // Public API
 // ─────────────────────────────────────────────────────────────────────────
 
-export async function fetchProbes(opts: {
-  signal?: AbortSignal;
-  baseUrl?: string;
-} = {}): Promise<ProbesResponse> {
+export async function fetchProbes(
+  opts: {
+    signal?: AbortSignal;
+    baseUrl?: string;
+  } = {},
+): Promise<ProbesResponse> {
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes`;
   const response = await fetch(url, {
     method: "GET",

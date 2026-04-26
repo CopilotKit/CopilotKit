@@ -84,9 +84,7 @@ function toIsoOrNull(ms: number | null | undefined): string | null {
   return new Date(ms).toISOString();
 }
 
-function buildLastRun(
-  status: EntryStatus,
-): ProbeScheduleEntryDto["lastRun"] {
+function buildLastRun(status: EntryStatus): ProbeScheduleEntryDto["lastRun"] {
   // Spec calls for lastRun=null until the first finish; render only when
   // both start AND finish timestamps are set so a half-finished tick
   // (process killed mid-run on a previous boot) doesn't produce a partial
@@ -134,7 +132,9 @@ function buildInflight(
   };
 }
 
-function buildConfig(cfg: ProbeConfig | undefined): ProbeScheduleEntryDto["config"] {
+function buildConfig(
+  cfg: ProbeConfig | undefined,
+): ProbeScheduleEntryDto["config"] {
   if (!cfg) {
     return { timeout_ms: null, max_concurrency: null, discovery: null };
   }
@@ -185,10 +185,7 @@ function buildEntryDto(
  * client (B4b) polls these endpoints and any intermediate proxy caching
  * would mask in-flight transitions.
  */
-export function registerProbesRoutes(
-  app: Hono,
-  deps: ProbesRouteDeps,
-): void {
+export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
   const { scheduler, writer, getProbeConfig } = deps;
   const now = deps.now ?? (() => Date.now());
 

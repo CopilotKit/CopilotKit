@@ -16,11 +16,7 @@
  * without leaning on `vi.useFakeTimers()`.
  */
 
-export type ProbeServiceState =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed";
+export type ProbeServiceState = "queued" | "running" | "completed" | "failed";
 
 export interface ProbeServiceProgress {
   state: ProbeServiceState;

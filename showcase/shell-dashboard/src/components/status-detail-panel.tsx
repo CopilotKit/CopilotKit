@@ -82,7 +82,10 @@ export function StatusDetailPanel({
 
       {data && (
         <>
-          <section data-testid="status-detail-runs" className="flex flex-col gap-2">
+          <section
+            data-testid="status-detail-runs"
+            className="flex flex-col gap-2"
+          >
             <h3 className="text-xs uppercase tracking-wide text-[var(--text-muted)]">
               Recent Runs
             </h3>

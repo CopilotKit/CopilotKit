@@ -26,17 +26,17 @@ vi.mock("../lib/ops-api", () => {
 });
 
 import * as opsApi from "../lib/ops-api";
-import {
-  useProbes,
-  useProbeDetail,
-  useTriggerProbe,
-} from "./use-probes";
+import { useProbes, useProbeDetail, useTriggerProbe } from "./use-probes";
 
-const fetchProbesMock = opsApi.fetchProbes as unknown as ReturnType<typeof vi.fn>;
+const fetchProbesMock = opsApi.fetchProbes as unknown as ReturnType<
+  typeof vi.fn
+>;
 const fetchProbeDetailMock = opsApi.fetchProbeDetail as unknown as ReturnType<
   typeof vi.fn
 >;
-const triggerProbeMock = opsApi.triggerProbe as unknown as ReturnType<typeof vi.fn>;
+const triggerProbeMock = opsApi.triggerProbe as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 function emptyProbes(): ProbesResponse {
   return { probes: [] };
@@ -81,9 +81,7 @@ describe("useProbes", () => {
     fetchProbesMock.mockResolvedValue({ probes: [entry("smoke")] });
     const { result } = renderHook(() => useProbes());
     expect(result.current.loading).toBe(true);
-    await waitFor(() =>
-      expect(result.current.data?.probes).toHaveLength(1),
-    );
+    await waitFor(() => expect(result.current.data?.probes).toHaveLength(1));
     expect(result.current.loading).toBe(false);
     expect(fetchProbesMock).toHaveBeenCalledTimes(1);
   });
@@ -414,9 +412,7 @@ describe("useTriggerProbe", () => {
           resolve = r;
         }),
     );
-    const { result } = renderHook(() =>
-      useTriggerProbe({ token: "t" }),
-    );
+    const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
     expect(result.current.pending).toBe(false);
     let p: Promise<TriggerResponse>;
     act(() => {
