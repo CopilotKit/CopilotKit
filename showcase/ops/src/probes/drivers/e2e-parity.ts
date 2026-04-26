@@ -39,6 +39,7 @@ import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { defaultScriptLoader as defaultD5ScriptLoader } from "./e2e-deep.js";
 import type { Page as PlaywrightPage } from "playwright";
 
 /**
@@ -223,6 +224,22 @@ export type E2eParityRunConversation = (
 ) => Promise<ConversationResult>;
 
 /**
+ * Script loader — invoked once per driver invocation. Production
+ * default scans `src/probes/scripts/d5-*.{js,ts}` (sharing the matcher
+ * with `e2e-deep.ts::defaultScriptLoader`) and dynamically imports each
+ * file. Tests inject a no-op (or a registry-priming stub) to avoid
+ * hitting disk.
+ *
+ * Without this dep injection the driver's `D5_REGISTRY.has(ft)` check
+ * would always be false in standalone invocations (the registry is
+ * populated by side-effect imports — those imports never happen unless
+ * the e2e-deep driver runs in the same process first), and every
+ * featureType would be classified as `skippedScript`. The loader makes
+ * D6 work standalone.
+ */
+export type E2eParityScriptLoader = (ctx: ProbeContext) => Promise<void>;
+
+/**
  * Fleet resolver — produces the FULL list of D6-eligible integration
  * slugs the rotation walks across. Default reads `registry.json`
  * (mirroring e2e-demos's resolver pattern); tests inject a static list.
@@ -236,6 +253,13 @@ export interface E2eParityDriverDeps {
   loadReference?: E2eParityLoadReference;
   runConversation?: E2eParityRunConversation;
   fleetResolver?: E2eParityFleetResolver;
+  /**
+   * Optional D5 script loader. Mirrors `e2e-deep.ts`'s injection point.
+   * Production default scans the scripts directory and imports each
+   * `d5-*.{js,ts}` file (registering scripts via side effect). Tests
+   * inject a no-op or a stub that primes the registry directly.
+   */
+  scriptLoader?: E2eParityScriptLoader;
   pageTimeoutMs?: number;
   timeoutMs?: number;
   /** Override tolerances. Tests use this to assert axis verdict mapping. */
@@ -356,7 +380,14 @@ const defaultRunConversation: E2eParityRunConversation = (page, turns) =>
  * degrades to "nothing selected, green aggregate" rather than
  * red-flapping every service.
  */
-function createDefaultFleetResolver(): E2eParityFleetResolver {
+export function createDefaultFleetResolver(): E2eParityFleetResolver {
+  // Cache successful reads only. Caching a failure (the pre-fix
+  // behaviour assigned `cache = []` on any error) permanently disabled
+  // D6: a transient ENOENT during process startup or a stale fs cache
+  // would lock the resolver to "[]" forever, and the rotation pick
+  // would always be empty. By leaving `cache` null on error we retry
+  // on the next call, which is the same behaviour operators get from
+  // a freshly-restarted process.
   let cache: string[] | null = null;
   return async (ctx) => {
     if (cache !== null) return cache;
@@ -375,10 +406,16 @@ function createDefaultFleetResolver(): E2eParityFleetResolver {
         }
       }
       cache = slugs;
-    } catch {
-      cache = [];
+      return cache;
+    } catch (err) {
+      ctx.logger.warn("probe.e2e-parity.fleet-read-failed", {
+        registryPath,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      // Return [] for THIS call but leave `cache` null so subsequent
+      // calls can retry the read.
+      return [];
     }
-    return cache;
   };
 }
 
@@ -395,6 +432,7 @@ export function createE2eParityDriver(
   const referenceDir = deps.referenceDir ?? defaultReferenceDir();
   const tolerances = deps.tolerances;
   const fleetResolver = deps.fleetResolver ?? createDefaultFleetResolver();
+  const scriptLoader = deps.scriptLoader ?? defaultD5ScriptLoader;
 
   return {
     kind: "e2e_parity",
@@ -407,6 +445,22 @@ export function createE2eParityDriver(
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
 
+      // Populate the D5 script registry up front. Without this the
+      // driver could be invoked standalone (without `e2e-deep` having
+      // run first in the same process) and find an empty registry —
+      // every featureType would be classified as `skippedScript` and
+      // D6 would silently no-op. Loader is idempotent (registry's
+      // double-registration throw is caught and logged inside the
+      // production loader) so calling it on every tick is safe.
+      try {
+        await scriptLoader(ctx);
+      } catch (err) {
+        ctx.logger.warn("probe.e2e-parity.script-loader-failed", {
+          slug,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+
       // Resolve scoping mode + targets. The driver runs against a
       // single integration per invocation; the scoping logic decides
       // whether THIS invocation's slug is the one selected for the
@@ -416,6 +470,7 @@ export function createE2eParityDriver(
       let scopingMode: "weekly-rotation" | "on-demand";
       let scopingReason: string;
       let selectedThisTick: boolean;
+      let selfMissingFromFleet = false;
       try {
         // Resolve the FULL fleet of D6-eligible integrations so
         // weekly-rotation can pick exactly one per week and on-demand
@@ -424,14 +479,24 @@ export function createE2eParityDriver(
         // tells us whether THIS integration is the one selected for
         // the current tick.
         const fleetSlugs = await fleetResolver(ctx);
-        // Defensive: the slug for this invocation MIGHT not be in the
-        // fleet list (registry drift, new package not yet wired). We
-        // include it so the rotation is consistent across invocations
-        // for the same tick.
-        const fleet = fleetSlugs.includes(slug)
-          ? fleetSlugs
-          : [...fleetSlugs, slug];
-        const scoping = selectD6Targets(ctx.env, fleet, ctx.now());
+        // Use `fleetSlugs` verbatim. The pre-fix code defensively
+        // appended this invocation's slug to the fleet when it was
+        // missing, but doing so per-invocation breaks rotation
+        // determinism: different invocations with different slugs all
+        // produce different fleet sizes, and `weekNumber % len` then
+        // picks different integrations within the same tick. Registry
+        // drift (a new package not yet wired into registry.json)
+        // simply means this slug sits out the rotation — that's the
+        // correct, stable behaviour. Operators see the warning below
+        // and can patch the registry.
+        if (!fleetSlugs.includes(slug)) {
+          selfMissingFromFleet = true;
+          ctx.logger.warn("probe.e2e-parity.self-not-in-fleet", {
+            slug,
+            fleetSize: fleetSlugs.length,
+          });
+        }
+        const scoping = selectD6Targets(ctx.env, fleetSlugs, ctx.now());
         scopingMode = scoping.mode;
         scopingReason = scoping.reason;
         selectedThisTick = scoping.selected.includes(slug);
@@ -492,6 +557,9 @@ export function createE2eParityDriver(
       // slug; the `scopingReason` carries why so operators tailing
       // logs / dashboards can see the rotation cycle.
       if (!selectedThisTick) {
+        const note = selfMissingFromFleet
+          ? "not selected this tick (scoping); slug missing from fleet (registry drift)"
+          : "not selected this tick (scoping)";
         return {
           key: input.key,
           state: "green",
@@ -508,7 +576,7 @@ export function createE2eParityDriver(
             red: 0,
             skipped: [],
             axisFailures: 0,
-            note: "not selected this tick (scoping)",
+            note,
           },
           observedAt,
         };
@@ -695,6 +763,35 @@ export function createE2eParityDriver(
             slug,
             err: msg,
           });
+          // Per A13 — emit a per-feature side row for every runnable
+          // feature so the dashboard's per-feature drilldown reflects
+          // the launcher failure instead of going stale on whatever
+          // state the previous tick left behind. Without these
+          // emissions, individual feature cells could continue to
+          // render "green" from a successful prior tick even though
+          // we never even got Chromium up this tick.
+          const launcherErrorObservedAt = ctx.now().toISOString();
+          for (const ft of runnable) {
+            const script = D5_REGISTRY.get(ft);
+            const sideKey = `d6:${slug}/${ft}`;
+            const route = (script?.preNavigateRoute ?? defaultRoute)(ft);
+            const url = `${backendUrl}${route}`;
+            await sideEmit(ctx, {
+              key: sideKey,
+              state: "red",
+              signal: {
+                slug,
+                featureType: ft,
+                backendUrl,
+                url,
+                fixtureFile: script?.fixtureFile,
+                referencePath: referencePaths.get(ft),
+                errorClass: "launcher-error",
+                errorDesc: truncateUtf8(msg, 1200),
+              },
+              observedAt: launcherErrorObservedAt,
+            });
+          }
           return {
             key: input.key,
             state: "red",
