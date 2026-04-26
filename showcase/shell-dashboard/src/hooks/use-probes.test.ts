@@ -192,10 +192,16 @@ describe("useProbes", () => {
     const bData: ProbesResponse = { probes: [entry("B")] };
 
     fetchProbesMock.mockImplementationOnce(
-      () => new Promise<ProbesResponse>((r) => { resolveA = r; }),
+      () =>
+        new Promise<ProbesResponse>((r) => {
+          resolveA = r;
+        }),
     );
     fetchProbesMock.mockImplementationOnce(
-      () => new Promise<ProbesResponse>((r) => { resolveB = r; }),
+      () =>
+        new Promise<ProbesResponse>((r) => {
+          resolveB = r;
+        }),
     );
 
     const { result, rerender } = renderHook(
@@ -221,9 +227,7 @@ describe("useProbes", () => {
       resolveB!(bData);
       await Promise.resolve();
     });
-    await waitFor(() =>
-      expect(result.current.data?.probes[0]?.id).toBe("B"),
-    );
+    await waitFor(() => expect(result.current.data?.probes[0]?.id).toBe("B"));
   });
 });
 
@@ -306,7 +310,9 @@ describe("useProbeDetail", () => {
     });
     // Second id: deep — never resolves so we can observe the in-between
     // state.
-    let resolveDeep: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
+    let resolveDeep:
+      | ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void)
+      | null = null;
     fetchProbeDetailMock.mockImplementationOnce(
       () =>
         new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
@@ -334,8 +340,12 @@ describe("useProbeDetail", () => {
   });
 
   it("does not setData with stale data when id changes rapidly (CR-B1.3)", async () => {
-    let resolveA: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
-    let resolveB: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
+    let resolveA:
+      | ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void)
+      | null = null;
+    let resolveB:
+      | ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void)
+      | null = null;
     fetchProbeDetailMock.mockImplementationOnce(
       () =>
         new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
