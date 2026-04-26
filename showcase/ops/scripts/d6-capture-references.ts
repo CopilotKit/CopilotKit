@@ -57,8 +57,11 @@ import {
 } from "../src/probes/helpers/conversation-runner.js";
 import {
   D5_REGISTRY,
+  isD5FeatureType,
   type D5FeatureType,
 } from "../src/probes/helpers/d5-registry.js";
+import { defaultScriptLoader } from "../src/probes/drivers/e2e-deep.js";
+import type { ProbeContext } from "../src/types/index.js";
 
 interface Args {
   integration: string;
@@ -86,12 +89,22 @@ function parseArgs(argv: string[]): Args {
         "--base-url https://langgraph-python.up.railway.app",
     );
   }
-  const feature = flag("feature") as D5FeatureType | undefined;
-  if (feature !== undefined && !D5_REGISTRY.has(feature)) {
-    const known = [...D5_REGISTRY.keys()].sort().join(", ");
-    throw new Error(
-      `unknown --feature "${feature}". Known: ${known || "(registry empty)"}`,
-    );
+  const featureRaw = flag("feature");
+  let feature: D5FeatureType | undefined;
+  if (featureRaw !== undefined) {
+    if (!isD5FeatureType(featureRaw)) {
+      const known = [...D5_REGISTRY.keys()].sort().join(", ");
+      throw new Error(
+        `unknown --feature "${featureRaw}". Known: ${known || "(registry empty)"}`,
+      );
+    }
+    if (!D5_REGISTRY.has(featureRaw)) {
+      const known = [...D5_REGISTRY.keys()].sort().join(", ");
+      throw new Error(
+        `unknown --feature "${featureRaw}". Known: ${known || "(registry empty)"}`,
+      );
+    }
+    feature = featureRaw;
   }
   const outputDir =
     process.env.D6_REFERENCE_DIR ??
@@ -159,12 +172,62 @@ async function buildDeps(): Promise<ReferenceCaptureDeps> {
 function summaryLine(r: ReferenceCaptureResult): string {
   const tail =
     r.status === "captured"
-      ? r.snapshotPath ?? "(no snapshotPath)"
-      : r.reason ?? "(no reason)";
+      ? (r.snapshotPath ?? "(no snapshotPath)")
+      : (r.reason ?? "(no reason)");
   return `[d6-capture] ${r.featureType} → ${r.status} (${tail})`;
 }
 
+/**
+ * Build a minimal `ProbeContext` for the script loader. The CLI does
+ * not have an invoker-level logger / writer / abort signal — it just
+ * needs `logger` for the loader's warn/error reporting.
+ */
+function buildLoaderCtx(): ProbeContext {
+  return {
+    now: () => new Date(),
+    env: process.env,
+    logger: {
+      // eslint-disable-next-line no-console
+      info: (msg, extra) => console.log(`[d6-capture] ${msg}`, extra ?? ""),
+      // eslint-disable-next-line no-console
+      warn: (msg, extra) =>
+        console.warn(`[d6-capture] WARN ${msg}`, extra ?? ""),
+      // eslint-disable-next-line no-console
+      error: (msg, extra) =>
+        console.error(`[d6-capture] ERROR ${msg}`, extra ?? ""),
+      // eslint-disable-next-line no-console
+      debug: (msg, extra) =>
+        console.log(`[d6-capture] DEBUG ${msg}`, extra ?? ""),
+    },
+  };
+}
+
 async function main(): Promise<number> {
+  // Populate the D5 registry by scanning `src/probes/scripts/` and
+  // importing each `d5-*.ts` file (each one calls `registerD5Script(...)`
+  // as a top-level side effect). Without this, `D5_REGISTRY` would be
+  // empty when `parseArgs` validates `--feature` and when
+  // `captureAllReferences` enumerates known features — silently producing
+  // a "no features captured" run that looks like success.
+  try {
+    await defaultScriptLoader(buildLoaderCtx());
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[d6-capture] script loader failed: ${(err as Error).message}`,
+    );
+    return 1;
+  }
+  if (D5_REGISTRY.size === 0) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[d6-capture] D5_REGISTRY is empty after script loader ran — " +
+        "check that `src/probes/scripts/d5-*.ts` exist and call " +
+        "`registerD5Script(...)` at module top-level.",
+    );
+    return 1;
+  }
+
   let args: Args;
   try {
     args = parseArgs(process.argv.slice(2));

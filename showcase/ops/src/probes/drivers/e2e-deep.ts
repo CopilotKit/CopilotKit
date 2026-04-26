@@ -239,9 +239,30 @@ const defaultLauncher: E2eDeepBrowserLauncher =
   };
 
 /**
+ * Filename matcher for D5 script files. Accepts `d5-<name>.{js,ts}` but
+ * REJECTS:
+ *   - `d5-<name>.test.{js,ts}` — co-located vitest specs would
+ *     re-import the script under test and trigger double-registration
+ *     throws. Without this guard, running the driver in dev (where
+ *     test files sit beside source) would fail at boot.
+ *   - `d5-<name>.d.ts` — TypeScript declaration files. Importing a
+ *     `.d.ts` at runtime is a no-op at best and can spuriously fail
+ *     under tsx in dev.
+ *   - Any non-`d5-` prefixed file (e.g. `_hitl-shared.ts`,
+ *     `d6-capture-references.ts`). The leading underscore on shared
+ *     helpers is load-bearing.
+ *
+ * Exported so the e2e-parity driver (and the d6-capture CLI) can share
+ * one matcher with no risk of drift.
+ */
+export const D5_SCRIPT_FILE_MATCHER =
+  /^d5-(?!.*\.test\.)(?!.*\.d\.).*\.(js|ts)$/;
+
+/**
  * Default script loader — scans `<driverDir>/../scripts/` for files
- * matching `^d5-.*\.(js|ts)$` and imports each. Each file's top-level
- * `registerD5Script(...)` populates the registry as a side effect.
+ * matching `D5_SCRIPT_FILE_MATCHER` and imports each. Each file's
+ * top-level `registerD5Script(...)` populates the registry as a side
+ * effect.
  *
  * Empty / missing directory → log a warning and return cleanly. Wave
  * 2b scripts haven't shipped yet; the driver must still typecheck and
@@ -251,8 +272,12 @@ const defaultLauncher: E2eDeepBrowserLauncher =
  * authors place files directly under `scripts/`, never under
  * `scripts/test/fixtures/` (which would be picked up here and break
  * the registry).
+ *
+ * Exported so the e2e-parity driver and `scripts/d6-capture-references`
+ * CLI can reuse the same loader without duplicating the regex /
+ * directory-resolution / import-loop logic.
  */
-const defaultScriptLoader: E2eDeepScriptLoader = async (
+export const defaultScriptLoader: E2eDeepScriptLoader = async (
   ctx: ProbeContext,
 ): Promise<void> => {
   // Resolve the scripts directory relative to THIS module's compiled
@@ -274,8 +299,7 @@ const defaultScriptLoader: E2eDeepScriptLoader = async (
     return;
   }
 
-  const matcher = /^d5-.*\.(js|ts)$/;
-  const matched = entries.filter((name) => matcher.test(name));
+  const matched = entries.filter((name) => D5_SCRIPT_FILE_MATCHER.test(name));
   if (matched.length === 0) {
     ctx.logger.warn("probe.e2e-deep.no-scripts-found", { scriptsDir });
     return;
