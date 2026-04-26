@@ -28,6 +28,7 @@ import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
+import { createProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { smokeDriver } from "./probes/drivers/smoke.js";
@@ -229,6 +230,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
   //
   // Scheduler IDs use the `probe:` prefix so they never collide with the
   // rule-cron IDs (`<ruleId>:cron:<idx>`) or the internal IDs (`internal:`).
+  // F1: per-probe config map populated by `diffProbeSchedules` and consumed
+  // by the /api/probes router via `getProbeConfig(id)`. Keyed by the
+  // scheduler-id (`probe:<cfg.id>`) so a single lookup serves both the
+  // routes and any future call site that has the scheduler entry id in hand.
+  // Stays in sync with the loader output: each diff sweep clears the map of
+  // ids no longer desired and (re-)inserts the active set.
+  const probeConfigs = new Map<string, ProbeConfig>();
+  // F1: probe_runs writer reused by every per-probe invoker so each tick
+  // inserts a `running` row at start and finalizes it at finish. Constructed
+  // once at boot so the writer's PB client (and any internal state added
+  // later — caches, batching) is shared across invokers.
+  const runWriter = createProbeRunWriter(pb);
+
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
   probeRegistry.register(aimockWiringDriver);
@@ -274,6 +288,10 @@ export async function boot(opts: BootOptions = {}): Promise<{
             err: String(err),
           }),
         );
+        // F1: drop the config entry alongside the scheduler entry so the
+        // /api/probes router doesn't surface stale config for an id whose
+        // YAML has been removed.
+        probeConfigs.delete(entry.id);
       }
     }
     // Register / re-register each desired probe. `scheduler.register` is
@@ -300,6 +318,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
         fetchImpl: globalThis.fetch,
         env: process.env as Readonly<Record<string, string | undefined>>,
         now: () => new Date(),
+        // F1: thread the live scheduler + runWriter through so the invoker's
+        // optional B7 hooks (ProbeRunTracker registration, probe_runs row
+        // start/finish) actually fire in production. Pre-fix both deps were
+        // unset and tracker + run-history were dead code.
+        scheduler,
+        runWriter,
       });
       try {
         scheduler.register({
@@ -307,6 +331,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
           cron: cfg.schedule,
           handler: invoker,
         });
+        // F1: stamp the config map AFTER successful register so a thrown
+        // validateCron doesn't leave a probeConfigs entry pointing at no
+        // scheduler entry. The /api/probes router intersects scheduler.list()
+        // with this map; an orphaned config would still render as "unknown"
+        // but it's cleaner to keep the two collections in lockstep.
+        probeConfigs.set(id, cfg);
       } catch (err) {
         logger.error("orchestrator.probe-register-failed", {
           id,
@@ -382,6 +412,30 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // hasn't ticked yet. Flipped true immediately after start, flipped false
   // in stop() so post-shutdown probes also read correctly.
   let schedulerRunning = false;
+
+  // F1: only mount the /api/probes router when an OPS_TRIGGER_TOKEN is
+  // configured. The router's bearer-auth middleware is fail-loud at
+  // construction (MissingAuthTokenError) — wiring it unconditionally would
+  // break every test / dev boot that doesn't set the env var. When unset we
+  // log at info level so operators can see the routes were intentionally
+  // skipped, then flag it as a hardening concern in the boot summary.
+  const triggerToken = process.env.OPS_TRIGGER_TOKEN;
+  const probesDeps = triggerToken
+    ? {
+        scheduler,
+        writer: runWriter,
+        getProbeConfig: (id: string): ProbeConfig | undefined =>
+          probeConfigs.get(id),
+        triggerToken,
+        now: () => Date.now(),
+      }
+    : undefined;
+  if (!triggerToken) {
+    logger.info("orchestrator.probes-router-disabled", {
+      reason: "OPS_TRIGGER_TOKEN unset — /api/probes routes not mounted",
+    });
+  }
+
   const app = buildServer({
     pb,
     logger,
@@ -400,6 +454,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     bus,
     webhookSecrets,
     metrics,
+    probes: probesDeps,
   });
 
   // S3 backup — cron 0 3 * * * (daily 03:00 UTC). Retention handled via

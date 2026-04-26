@@ -777,6 +777,99 @@ describe("orchestrator S3 backup init failure (R28-slot2-A1)", () => {
   });
 });
 
+/**
+ * F1: end-to-end wiring test for the /api/probes router. Pre-fix, the
+ * orchestrator built `buildProbeInvoker` without a scheduler / runWriter and
+ * never mounted the probes router on the live server — so the Status tab in
+ * the dashboard had no backend to poll. This boots a real orchestrator with a
+ * minimal probe YAML, hits `GET /api/probes`, and asserts:
+ *   1. The probe shows up in the list (router is mounted).
+ *   2. The `config` section is populated (getProbeConfig wiring).
+ *   3. The probe `kind` is non-"unknown" (config lookup resolves).
+ */
+describe("orchestrator /api/probes wiring (F1)", () => {
+  let tempDir: string;
+  let probeDir: string;
+  let stopFn: (() => Promise<void>) | null = null;
+  let port = 0;
+  const prevToken = process.env.OPS_TRIGGER_TOKEN;
+
+  beforeEach(async () => {
+    // Mirror the boot path's expected layout: configDir is the alerts dir,
+    // probes live in a sibling `../probes` dir.
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-probes-"));
+    tempDir = path.join(root, "alerts");
+    probeDir = path.join(root, "probes");
+    await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(probeDir, { recursive: true });
+    port = await pickPort();
+    // The probes router's bearer-auth middleware fails loud on construction
+    // if no OPS_TRIGGER_TOKEN is configured. Set one for the duration of the
+    // test so boot can mount the routes.
+    process.env.OPS_TRIGGER_TOKEN = "test-trigger-token";
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(path.dirname(tempDir), { recursive: true, force: true });
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+  });
+
+  it("GET /api/probes returns the registered probe with non-null config", async () => {
+    // Minimal valid smoke-probe YAML: static targets list, valid cron.
+    const probeYaml = [
+      "kind: smoke",
+      "id: f1-wiring-probe",
+      'schedule: "0 9 * * 1"',
+      "timeout_ms: 15000",
+      "max_concurrency: 2",
+      "targets:",
+      "  - key: example",
+      '    url: "https://example.com"',
+      "",
+    ].join("\n");
+    await fs.writeFile(
+      path.join(probeDir, "f1-wiring-probe.yml"),
+      probeYaml,
+      "utf8",
+    );
+
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+
+    const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      probes: Array<{
+        id: string;
+        kind: string;
+        schedule: string;
+        config: {
+          timeout_ms: number | null;
+          max_concurrency: number | null;
+          discovery: unknown;
+        };
+      }>;
+    };
+    const probe = body.probes.find((p) => p.id === "probe:f1-wiring-probe");
+    expect(probe).toBeDefined();
+    // Pre-fix: kind would be "unknown" because getProbeConfig returned undefined.
+    expect(probe!.kind).toBe("smoke");
+    // Pre-fix: timeout_ms / max_concurrency would be null because the router
+    // had no probe-config lookup wired through.
+    expect(probe!.config.timeout_ms).toBe(15000);
+    expect(probe!.config.max_concurrency).toBe(2);
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {

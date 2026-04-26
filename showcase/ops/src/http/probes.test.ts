@@ -71,6 +71,11 @@ function makeFakeScheduler(): FakeScheduler {
       );
     },
     nextRunAt: (id) => entries.get(id)?.nextRunAt ?? null,
+    // F1: B7 widened the Scheduler interface with `setEntryTracker` for the
+    // probe-invoker hook. Test fakes don't drive a real run, so this is a
+    // no-op — kept structural so a future test that wants to assert the
+    // invoker called it can override on the fake instance.
+    setEntryTracker: () => {},
     setEntry: (row) => entries.set(row.entry.id, row),
     setTriggerBehavior: ({ throw: t, result }) => {
       triggerThrow = t;
