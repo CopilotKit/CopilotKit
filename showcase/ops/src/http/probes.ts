@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { bearerAuth } from "./auth.js";
 import type {
   EntryStatus,
@@ -276,7 +277,20 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
     return c.json(runsError ? { probe, runs, runsError } : { probe, runs });
   });
 
-  app.post("/api/probes/:id/trigger", auth, async (c) => {
+  // R4-A.5: use Hono's bodyLimit middleware for early-bail streaming
+  // enforcement of the body cap. This catches chunked uploads that omit
+  // (or lie about) Content-Length, aborting the read at limit+small
+  // rather than buffering the full body before checking. The middleware
+  // also short-circuits oversize Content-Length declarations.
+  const triggerBodyLimit = bodyLimit({
+    maxSize: TRIGGER_BODY_LIMIT_BYTES,
+    onError: (c) =>
+      c.json({ error: "payload_too_large" } as const, 413) as unknown as
+        | Response
+        | Promise<Response>,
+  });
+
+  app.post("/api/probes/:id/trigger", auth, triggerBodyLimit, async (c) => {
     const id = c.req.param("id");
     c.header("Cache-Control", "no-cache");
     // CR-A1.7: 404 if id is not a registered probe. `internal:s3-backup`,
@@ -289,33 +303,32 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
       return c.json({ error: "not_found" }, 404);
     }
 
-    // R2-A.8: enforce body-size limit BEFORE reading. Content-Length is
-    // the only signal Hono surfaces synchronously — a hostile client can
-    // lie, but the actual `c.req.text()` will read up to whatever the
-    // platform allows, so this is a soft cap. Pair with the post-read
-    // length check below to catch chunked uploads that omit the header.
-    const contentLengthRaw = c.req.header("content-length");
-    if (contentLengthRaw !== undefined) {
-      const declared = Number.parseInt(contentLengthRaw, 10);
-      if (Number.isFinite(declared) && declared > TRIGGER_BODY_LIMIT_BYTES) {
-        return c.json({ error: "payload_too_large" }, 413);
-      }
-    }
-
     // R2-A.5: read + parse the body BEFORE stamping the rate-limit
     // window. A malformed body must NOT consume the operator's 5-minute
     // hold — that punished users for our own validation rejecting their
-    // request. Sequence: auth → 404 → body read → JSON parse → filter
-    // shape → rate-limit check → STAMP → scheduler.trigger.
+    // request. Sequence: auth → bodyLimit → 404 → body read → JSON parse
+    // → filter shape → rate-limit check → STAMP → scheduler.trigger.
     let raw: string;
     try {
       raw = await c.req.text();
-    } catch {
+    } catch (err) {
+      // R4-A.5: the bodyLimit middleware errors the request stream with
+      // a BodyLimitError when an oversize chunk arrives without a
+      // truthful Content-Length. Surface that as 413 (matching the CL
+      // fast-path) rather than masking it as a generic 400 invalid_body.
+      if (err instanceof Error && err.name === "BodyLimitError") {
+        return c.json({ error: "payload_too_large" }, 413);
+      }
       return c.json({ error: "invalid_body" }, 400);
     }
-    // R2-A.8 (post-read): catch chunked uploads that hid behind a
-    // missing/lying Content-Length header.
-    if (raw.length > TRIGGER_BODY_LIMIT_BYTES) {
+    // R4-A.4: post-read defense uses BYTE length (UTF-8) not char length.
+    // The bodyLimit middleware above is the primary guard, but a payload
+    // that slips a (lying) Content-Length past the middleware's CL fast-
+    // path could still arrive here — and a multibyte payload (emoji =
+    // 4 UTF-8 bytes per code point) can have a char length under the cap
+    // while exceeding the byte limit. Compare byte counts to stay aligned
+    // with the spec's BYTE-denominated TRIGGER_BODY_LIMIT_BYTES.
+    if (Buffer.byteLength(raw, "utf8") > TRIGGER_BODY_LIMIT_BYTES) {
       return c.json({ error: "payload_too_large" }, 413);
     }
 
@@ -323,7 +336,13 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
     // to the scheduler. Without this, the invoker constructs
     // `new Set(filterSlugs)` on a string → per-character set membership
     // (`new Set("foo")` === `Set{"f","o"}`), silently broken.
+    //
+    // R4-A.1: track whether a filter was provided at all so the response
+    // envelope can return `scope: null` (no filter sent) vs `scope: []`
+    // (filter sent but empty). Operators rely on this distinction when
+    // reading audit logs.
     let filterSlugs: string[] = [];
+    let filterProvided = false;
     let opts: { filter?: { slugs?: string[] } } | undefined;
     if (raw.length > 0) {
       let parsed: { filter?: { slugs?: unknown } };
@@ -344,6 +363,7 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
             return c.json({ error: "invalid_filter" }, 400);
           }
           filterSlugs = slugs;
+          filterProvided = true;
           opts = { filter: { slugs } };
         }
       }
@@ -379,23 +399,40 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
     try {
       const result = await scheduler.trigger(id, opts);
       // Stamp already in place — leave it.
+      // R4-A.1: scope is null when no filter was provided in the body;
+      // the actual array (possibly empty) when filter.slugs was sent.
+      // This lets operators distinguish "no filter" from "filter:[]".
       return c.json({
         runId: result.runId,
         status: result.status,
         probe: result.probe,
-        scope: filterSlugs,
+        scope: filterProvided ? filterSlugs : null,
       });
     } catch (err) {
+      // R4-A.6: roll back the rate-limit stamp on ALL non-success paths,
+      // not just InflightConflictError. A transient scheduler/network
+      // error that surfaces as a 5xx must not lock the operator out of
+      // the 5-min window — the trigger never actually consumed a run.
+      // Rollback fires FIRST so even a malicious throw inside the type-
+      // check below can't escape with the window stamped. The R2-A.6
+      // compare-and-swap inside `rollbackRateLimit` keeps concurrent
+      // triggers' stamps safe.
+      rollbackRateLimit();
       if (err instanceof InflightConflictError) {
-        // CR-A1.4: 409 inflight didn't actually start a new run; roll
-        // back the rate-limit stamp so a follow-up trigger isn't locked
-        // out of the 5-min window. R2-A.6 CAS guards races.
-        rollbackRateLimit();
+        // CR-A1.4: 409 inflight didn't actually start a new run; rate-
+        // limit already rolled back above so a follow-up trigger after
+        // the conflict clears isn't locked out.
         return c.json({ error: "inflight" }, 409);
       }
-      // Any other unexpected failure also didn't consume a real trigger;
-      // roll back so operators aren't stuck with a stale lockout.
-      rollbackRateLimit();
+      // Bonus (bucket b): structured trace for unexpected throws so 500s
+      // are diagnosable from logs alone. Mirrors the `console.warn` style
+      // used by `probes.recent-failed` above — the route layer doesn't
+      // (yet) take a logger dep, so use console.error to surface in CI.
+      // eslint-disable-next-line no-console
+      console.error("probes.trigger-unexpected", {
+        probeId: id,
+        err: err instanceof Error ? err.message : String(err),
+      });
       // Unknown ids should already have been caught above by getEntry,
       // but keep the catch-all as a defensive 500.
       throw err;
