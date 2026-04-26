@@ -45,13 +45,24 @@ migrate(
         { name: "probe_id", type: "text", required: true },
         { name: "started_at", type: "date", required: true },
         { name: "finished_at", type: "date" },
-        { name: "duration_ms", type: "number" },
+        // CR-A1.6: reject negative durations from clock skew. PB
+        // numeric fields support a `min` constraint that fails inserts
+        // outside the bound — surfaces the bug at the writer rather
+        // than letting nonsense durations propagate to dashboards.
+        { name: "duration_ms", type: "number", options: { min: 0 } },
         {
           name: "triggered",
+          // CR-A1.6: writer always sets this (running rows pass true|false
+          // explicitly), so the schema should match the contract. Marking
+          // required:true makes a forgetful caller fail at insert time.
           type: "bool",
-          required: false,
+          required: true,
         },
-        { name: "summary", type: "json", options: { maxSize: 2000000 } },
+        // CR-A1.6: tighten maxSize from 2MB to 64KB. The summary shape
+        // is `{total, passed, failed, services?}` — well under 64KB.
+        // The 2MB ceiling was an exfiltration sink given the public
+        // listRule below; keep the budget close to the realistic max.
+        { name: "summary", type: "json", options: { maxSize: 65536 } },
         {
           name: "state",
           type: "select",
@@ -86,14 +97,18 @@ migrate(
   },
   (db) => {
     const dao = new Dao(db);
-    // Best-effort drop. If the collection isn't present (rolled back on
-    // a partial apply), short-circuit cleanly so down-migrations stay
-    // idempotent — same pattern as 1776789200_drop_history_fail_count.
+    // CR-A1.6: narrow the catch to `findCollectionByNameOrId` only.
+    // A real `deleteCollection` failure (FK constraint, permission,
+    // etc.) must propagate so the migration framework can roll back —
+    // swallowing here would leave a half-deleted collection live in PB
+    // and look like a clean down-migration to the operator.
+    let c;
     try {
-      const c = dao.findCollectionByNameOrId("probe_runs");
-      dao.deleteCollection(c);
+      c = dao.findCollectionByNameOrId("probe_runs");
     } catch (e) {
       // Already absent — nothing to do.
+      return;
     }
+    dao.deleteCollection(c);
   },
 );

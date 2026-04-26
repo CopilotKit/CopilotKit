@@ -411,6 +411,91 @@ describe("scheduler", () => {
     await s.stop();
   }, 10_000);
 
+  // ---------------------------------------------------------------------
+  // CR-A1.1: trigger(id, opts) threads opts to the handler
+  // ---------------------------------------------------------------------
+  it("passes TriggerOptions through to the handler when supplied", async () => {
+    const s = createScheduler({ logger });
+    const seenOpts: Array<unknown> = [];
+    s.register({
+      id: "thread",
+      cron: "0 0 1 1 *",
+      handler: async (opts) => {
+        seenOpts.push(opts);
+      },
+    });
+    s.start();
+    await s.trigger("thread", { filter: { slugs: ["a", "b"] } });
+    // Wait for the run to drain.
+    await new Promise((r) => setTimeout(r, 100));
+    expect(seenOpts).toHaveLength(1);
+    expect(seenOpts[0]).toEqual({ filter: { slugs: ["a", "b"] } });
+    await s.stop();
+  });
+
+  it("scheduled cron ticks invoke the handler with no opts (default = full discovery)", async () => {
+    const s = createScheduler({ logger });
+    const seenOpts: Array<unknown> = [];
+    s.register({
+      id: "tick-no-opts",
+      cron: "* * * * * *",
+      handler: async (opts) => {
+        seenOpts.push(opts);
+      },
+    });
+    s.start();
+    // Wait for at least one cron-driven tick.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 2500 && seenOpts.length === 0) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(seenOpts.length).toBeGreaterThanOrEqual(1);
+    // Cron-fired ticks pass undefined — NOT an empty filter.
+    expect(seenOpts[0]).toBeUndefined();
+    await s.stop();
+  }, 10_000);
+
+  // ---------------------------------------------------------------------
+  // CR-A1.3: lastRunSummary clears when handler throws
+  // ---------------------------------------------------------------------
+  it("clears lastRunSummary when the handler throws (no stale counts)", async () => {
+    const s = createScheduler({ logger });
+    let throwOnNextRun = false;
+    s.register({
+      id: "stale-summary",
+      cron: "0 0 1 1 *",
+      handler: async () => {
+        if (throwOnNextRun) {
+          throw new Error("handler exploded mid-run");
+        }
+        return { total: 10, passed: 7, failed: 3 };
+      },
+    });
+    s.start();
+    // First trigger: handler returns a summary cleanly.
+    await s.trigger("stale-summary");
+    await new Promise((r) => setTimeout(r, 50));
+    const afterSuccess = s.getEntry("stale-summary")!;
+    expect(afterSuccess.lastRunSummary).toEqual({
+      total: 10,
+      passed: 7,
+      failed: 3,
+    });
+    expect(afterSuccess.lastRunFinishedAt).not.toBeNull();
+    const successFinishedAt = afterSuccess.lastRunFinishedAt;
+    // Second trigger: handler throws. Timestamps must update; lastRunSummary
+    // must be cleared (NOT preserved at the prior {7,3} value).
+    throwOnNextRun = true;
+    await s.trigger("stale-summary");
+    await new Promise((r) => setTimeout(r, 50));
+    const afterThrow = s.getEntry("stale-summary")!;
+    expect(afterThrow.lastRunSummary).toBeNull();
+    expect(afterThrow.lastRunFinishedAt).not.toBeNull();
+    // Fresh timestamp distinct from the prior successful run.
+    expect(afterThrow.lastRunFinishedAt).not.toBe(successFinishedAt);
+    await s.stop();
+  }, 10_000);
+
   it("skips an overlapping tick rather than running handlers concurrently", async () => {
     // Croner fires every second, but if the handler takes longer than the
     // interval the second tick should be skipped (not queued) so ticks can't

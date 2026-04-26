@@ -201,10 +201,22 @@ export function registerProbesRoutes(
   // both `expectedToken` and the env var are unset/empty.
   const auth = bearerAuth({ expectedToken: deps.triggerToken });
 
+  // CR-A1.7: scope filter — `scheduler.list()` includes scheduler entries
+  // that aren't probes (e.g. `internal:s3-backup`, rule-cron entries
+  // `<ruleId>:cron:<idx>`). Without this guard a trigger token holder
+  // could fire `internal:s3-backup` via /api/probes/.../trigger. We
+  // restrict ALL /api/probes routes (list + detail + trigger) to ids
+  // that have a registered ProbeConfig — i.e. ids the loader actually
+  // recognizes as probes.
+  function isProbeId(id: string): boolean {
+    return getProbeConfig(id) !== undefined;
+  }
+
   app.get("/api/probes", (c) => {
     const ids = scheduler.list().map((e) => e.id);
     const probes: ProbeScheduleEntryDto[] = [];
     for (const id of ids) {
+      if (!isProbeId(id)) continue;
       const status = scheduler.getEntry(id);
       if (!status) continue;
       probes.push(
@@ -217,6 +229,12 @@ export function registerProbesRoutes(
 
   app.get("/api/probes/:id", async (c) => {
     const id = c.req.param("id");
+    // CR-A1.7: 404 when the id isn't a probe — same UX as "unknown id."
+    // Defends the detail route alongside the listing.
+    if (!isProbeId(id)) {
+      c.header("Cache-Control", "no-cache");
+      return c.json({ error: "not_found" }, 404);
+    }
     const status = scheduler.getEntry(id);
     if (!status) {
       c.header("Cache-Control", "no-cache");
@@ -235,14 +253,23 @@ export function registerProbesRoutes(
   app.post("/api/probes/:id/trigger", auth, async (c) => {
     const id = c.req.param("id");
     c.header("Cache-Control", "no-cache");
+    // CR-A1.7: 404 if id is not a registered probe. `internal:s3-backup`,
+    // rule-cron entries, and any other non-probe scheduler ids are off-
+    // limits to this endpoint — those have their own admin paths.
+    if (!isProbeId(id)) {
+      return c.json({ error: "not_found" }, 404);
+    }
     if (!scheduler.getEntry(id)) {
       return c.json({ error: "not_found" }, 404);
     }
 
     // Rate-limit BEFORE invoking trigger() so an overzealous caller can't
-    // pile up scheduler.trigger calls inside the window. Only stamp the
-    // window on a successful trigger — a 409 inflight conflict (or any
-    // other failure) shouldn't lock the operator out for 5 minutes.
+    // pile up scheduler.trigger calls inside the window. CR-A1.4: stamp
+    // the window IMMEDIATELY on pass so two near-simultaneous requests
+    // can't both clear the check before either records a timestamp
+    // (TOCTOU). On `InflightConflictError` we roll the stamp back so a
+    // 409 doesn't lock out the operator for 5 minutes; any other failure
+    // path also rolls back since it didn't actually consume a slot.
     const last = lastTriggerAt.get(id);
     const t = now();
     if (last !== undefined && t - last < TRIGGER_RATE_LIMIT_MS) {
@@ -254,6 +281,16 @@ export function registerProbesRoutes(
         429,
       );
     }
+    // Stamp BEFORE awaiting the trigger so a parallel request can't
+    // race past the check. Captured `last` (above) is used to roll back
+    // exactly to the prior value if the trigger fails — important so
+    // back-to-back 409 → success doesn't leak a stale timestamp from
+    // an earlier successful trigger.
+    lastTriggerAt.set(id, t);
+    const rollbackRateLimit = (): void => {
+      if (last === undefined) lastTriggerAt.delete(id);
+      else lastTriggerAt.set(id, last);
+    };
 
     // Body is optional — tolerate empty / non-JSON bodies so a curl with
     // no -d still works. Guard the parse so a malformed JSON body becomes
@@ -273,14 +310,16 @@ export function registerProbesRoutes(
           }
         }
       } catch {
+        // Body parse failure: roll back the stamp — caller never
+        // actually consumed a trigger slot.
+        rollbackRateLimit();
         return c.json({ error: "invalid_json" }, 400);
       }
     }
 
     try {
       const result = await scheduler.trigger(id, opts);
-      // Stamp the window only on success — see comment above.
-      lastTriggerAt.set(id, t);
+      // Stamp already in place — leave it.
       return c.json({
         runId: result.runId,
         status: result.status,
@@ -289,8 +328,15 @@ export function registerProbesRoutes(
       });
     } catch (err) {
       if (err instanceof InflightConflictError) {
+        // CR-A1.4: 409 inflight didn't actually start a new run; roll
+        // back the rate-limit stamp so a follow-up trigger isn't locked
+        // out of the 5-min window.
+        rollbackRateLimit();
         return c.json({ error: "inflight" }, 409);
       }
+      // Any other unexpected failure also didn't consume a real trigger;
+      // roll back so operators aren't stuck with a stale lockout.
+      rollbackRateLimit();
       // Unknown ids should already have been caught above by getEntry,
       // but keep the catch-all as a defensive 500.
       throw err;

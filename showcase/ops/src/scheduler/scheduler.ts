@@ -19,6 +19,13 @@ export interface RunSummary {
   total: number;
   passed: number;
   failed: number;
+  /**
+   * CR-A1.5: set when the probe handler's discovery enumeration itself
+   * failed (vs. per-target failures, which roll up into `failed`). Surfaced
+   * to dashboards via `lastRunSummary` so a discovery outage is
+   * distinguishable from "no targets configured."
+   */
+  discoveryFailed?: boolean;
 }
 
 export interface ScheduleEntry {
@@ -29,8 +36,17 @@ export interface ScheduleEntry {
    * scheduler can surface pass/fail counts via `getEntry(id).lastRunSummary`.
    * Returning a non-RunSummary value is tolerated (treated as void) so the
    * existing legacy invoker (`() => Promise<void>`) keeps working unchanged.
+   *
+   * CR-A1.1: handlers built from `buildProbeInvoker` accept an optional
+   * `TriggerOptions` arg so `scheduler.trigger(id, opts)` can thread the
+   * filter (e.g. `{filter:{slugs:["a","b"]}}`) all the way through to
+   * discovery filtering. Cron ticks pass nothing — the handler defaults to
+   * "discover everything" — so legacy void-returning handlers ignore the
+   * arg without breaking.
    */
-  handler: () => Promise<RunSummary | void> | RunSummary | void;
+  handler: (
+    opts?: TriggerOptions,
+  ) => Promise<RunSummary | void> | RunSummary | void;
 }
 
 /**
@@ -221,15 +237,27 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
    * the manual `trigger()` path so the bookkeeping shape is identical
    * regardless of how the run was initiated.
    */
-  async function runHandlerOnce(e: EntrySlot, id: string): Promise<void> {
+  async function runHandlerOnce(
+    e: EntrySlot,
+    id: string,
+    handlerOpts?: TriggerOptions,
+  ): Promise<void> {
     const startedAt = Date.now();
     e.lastRunStartedAt = startedAt;
     let summary: RunSummary | null = null;
+    // CR-A1.3: track whether the handler threw. When it does, the
+    // previous successful run's `lastRunSummary` becomes stale —
+    // operators looking at fresh `lastRunFinishedAt` would otherwise see
+    // pass/fail counts from a different invocation. Clear `lastRunSummary`
+    // in the error path so consumers see (fresh timestamps, summary=null)
+    // = "this run errored; no counts available."
+    let handlerThrew = false;
     const p = (async () => {
       try {
-        const ret = await e.entry.handler();
+        const ret = await e.entry.handler(handlerOpts);
         if (isRunSummary(ret)) summary = ret;
       } catch (err) {
+        handlerThrew = true;
         opts.logger.error("scheduler.handler-error", {
           id,
           err: String(err),
@@ -244,10 +272,15 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       const finishedAt = Date.now();
       e.lastRunFinishedAt = finishedAt;
       e.lastRunDurationMs = finishedAt - startedAt;
-      // Only overwrite lastRunSummary when the handler explicitly returned
-      // one — preserves the previous summary across handlers that emit
-      // void (e.g. an error path that never produced a summary).
-      if (summary !== null) e.lastRunSummary = summary;
+      // CR-A1.3: a thrown handler invalidates the prior summary — clear
+      // it so the (timestamps, summary) pair is internally consistent.
+      // Successful runs that returned no summary still preserve the
+      // prior one (legacy void-returning handlers rely on this).
+      if (handlerThrew) {
+        e.lastRunSummary = null;
+      } else if (summary !== null) {
+        e.lastRunSummary = summary;
+      }
     }
   }
 
@@ -409,7 +442,7 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       if (!e) return;
       e.tracker = tracker;
     },
-    async trigger(id, _opts) {
+    async trigger(id, triggerOpts) {
       const e = entries.get(id);
       if (!e) {
         // Surface as InflightConflict's neighbour: a separate error type
@@ -426,7 +459,10 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       e.triggeredRun = true;
       const runPromise = (async () => {
         try {
-          await runHandlerOnce(e, id);
+          // CR-A1.1: pass the trigger's opts through to the handler so
+          // `filter.slugs` reaches the probe-invoker. Cron ticks pass
+          // nothing — see `startEntry` — keeping legacy behavior intact.
+          await runHandlerOnce(e, id, triggerOpts);
         } finally {
           // Restore the flag once the manual run drains, so subsequent
           // scheduled ticks don't keep mis-reporting `triggeredRun: true`.
