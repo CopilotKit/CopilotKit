@@ -381,3 +381,189 @@ def test_post_without_forwarded_props_passes_through_unchanged():
         # Original state.inputs preserved, no agent_config_guidance injected:
         assert "preserved" in response.text
         assert "agent_config_guidance" not in response.text
+
+
+# --------------------------------------------------------------------------- #
+# Bucket (a) regression tests: ASGI middleware error-handling semantics.       #
+# --------------------------------------------------------------------------- #
+#
+# These tests drive `ForwardedPropsASGIMiddleware` directly (bypassing
+# TestClient) because they need to inject specific receive() event sequences
+# and exception types that the test client's transport does not emit.
+
+
+def _get_middleware_class():
+    """Import the real `ForwardedPropsASGIMiddleware` from agent_server.
+
+    Stubs for `ag_ui_crewai` and `agents.*` are installed by the module-scoped
+    `_stub_agent_server_deps` autouse fixture before each test runs, so a
+    fresh `import agent_server` here binds against those stubs.
+    """
+    if "agent_server" not in sys.modules:
+        import agent_server  # noqa: F401
+    return sys.modules["agent_server"].ForwardedPropsASGIMiddleware
+
+
+def _build_http_scope(body_bytes: bytes) -> dict:
+    return {
+        "type": "http",
+        "method": "POST",
+        "path": "/",
+        "headers": [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(body_bytes)).encode()),
+        ],
+    }
+
+
+@pytest.mark.anyio
+async def test_replay_receive_propagates_cancellederror():
+    """`replay_receive` MUST propagate `asyncio.CancelledError` so the outer
+    task can be cancelled cleanly. The bare `except Exception` was a
+    correctness hazard: even if Python 3.8+ correctly inherits CancelledError
+    from BaseException, the broad except still swallows programming errors
+    (KeyError, AttributeError) that should surface, not silently convert
+    into a clean http.disconnect.
+
+    Post-fix: CancelledError is caught explicitly and re-raised; any other
+    unexpected exception is logged (observable) rather than silently
+    swallowed.
+    """
+    import asyncio
+
+    MW = _get_middleware_class()
+
+    body = json.dumps({"threadId": "t1"}).encode()
+
+    async def inner_app(scope, receive, send):
+        msg1 = await receive()
+        assert msg1["type"] == "http.request"
+        # Poll again — this is where CancelledError should propagate up.
+        await receive()
+
+    mw = MW(inner_app)
+
+    state = {"calls": 0}
+
+    async def receive():
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return {"type": "http.request", "body": body, "more_body": False}
+        raise asyncio.CancelledError()
+
+    async def send(_msg):
+        pass
+
+    scope = _build_http_scope(body)
+
+    with pytest.raises(asyncio.CancelledError):
+        await mw(scope, receive, send)
+
+
+def test_replay_receive_explicitly_handles_cancellederror():
+    """Source-level RED-GREEN: assert `replay_receive` catches
+    `asyncio.CancelledError` explicitly (and re-raises) BEFORE the broader
+    except. The bare `except Exception` left CancelledError propagation
+    contingent on Python version and the BaseException hierarchy, which is
+    fragile; the fix makes it explicit and version-independent."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    src_path = os.path.normpath(
+        os.path.join(here, "..", "..", "src", "agent_server.py")
+    )
+    with open(src_path) as f:
+        source = f.read()
+
+    # Locate the replay_receive function body.
+    marker = "async def replay_receive"
+    idx = source.find(marker)
+    assert idx != -1, "replay_receive function not found in agent_server.py"
+    # Take a window large enough to include its body.
+    window = source[idx : idx + 1500]
+
+    assert "except asyncio.CancelledError" in window, (
+        "replay_receive must catch asyncio.CancelledError explicitly and "
+        "re-raise it. A bare `except Exception` is too broad — it can "
+        "swallow programming errors that should surface, and is fragile "
+        "across Python versions where CancelledError's class hierarchy "
+        "changes."
+    )
+
+
+@pytest.mark.anyio
+async def test_replay_disconnect_delivers_buffered_chunks_before_disconnect():
+    """RED pre-fix: when http.disconnect arrives mid-buffer, the middleware
+    only forwards the disconnect — buffered body chunks are silently dropped.
+
+    GREEN post-fix: the inner ASGI app must observe the buffered chunks (as
+    a single http.request message) BEFORE the http.disconnect, so it sees
+    the partial body that actually arrived.
+    """
+    MW = _get_middleware_class()
+
+    chunk1 = b'{"threadId":"t1",'
+    chunk2 = b'"runId":"r1",'
+    # No final chunk — disconnect arrives mid-stream.
+
+    received: list[dict] = []
+
+    async def inner_app(scope, receive, send):
+        # Drain receive until we see a disconnect.
+        while True:
+            msg = await receive()
+            received.append(msg)
+            if msg["type"] == "http.disconnect":
+                return
+
+    mw = MW(inner_app)
+
+    state = {"step": 0}
+
+    async def receive():
+        state["step"] += 1
+        if state["step"] == 1:
+            return {"type": "http.request", "body": chunk1, "more_body": True}
+        if state["step"] == 2:
+            return {"type": "http.request", "body": chunk2, "more_body": True}
+        if state["step"] == 3:
+            return {"type": "http.disconnect"}
+        # No further events.
+        return {"type": "http.disconnect"}
+
+    async def send(_msg):
+        pass
+
+    # Body bytes hint for content-length is approximate; middleware doesn't
+    # validate it against actual chunks, so any value works.
+    scope = _build_http_scope(chunk1 + chunk2)
+    await mw(scope, receive, send)
+
+    # The inner app must have seen at least one http.request with the
+    # buffered chunks BEFORE the http.disconnect.
+    request_msgs = [m for m in received if m["type"] == "http.request"]
+    disconnect_msgs = [m for m in received if m["type"] == "http.disconnect"]
+    assert request_msgs, (
+        "Inner ASGI app did not receive buffered body chunks before disconnect — "
+        "they were silently dropped."
+    )
+    assert disconnect_msgs, "Inner ASGI app never observed http.disconnect."
+
+    # Buffered chunks must combine to chunk1+chunk2.
+    combined = b"".join(m.get("body", b"") for m in request_msgs)
+    assert combined == chunk1 + chunk2, (
+        f"Buffered body mismatch: expected {chunk1 + chunk2!r}, got {combined!r}"
+    )
+
+    # Order: at least one request message must precede the first disconnect.
+    first_disconnect_idx = next(
+        i for i, m in enumerate(received) if m["type"] == "http.disconnect"
+    )
+    first_request_idx = next(
+        (i for i, m in enumerate(received) if m["type"] == "http.request"), None
+    )
+    assert first_request_idx is not None
+    assert first_request_idx < first_disconnect_idx
+
+
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"

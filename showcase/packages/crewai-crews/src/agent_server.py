@@ -31,6 +31,7 @@ configure_aimock()
 # is what the shim was reaching for. With the requirements.txt pin bumped to
 # `>=0.2.0,<0.3.0`, the shim is dead code and has been removed.
 
+import asyncio
 import json
 from typing import Any
 
@@ -149,7 +150,8 @@ def _has_agent_config_props(props: Any) -> bool:
 def _splice_forwarded_props(body: Any) -> Any:
     """Splice agent-config `forwardedProps` into `body.state.inputs`.
 
-    Pure dict-in / dict-out helper — no ASGI surgery. Returns the body
+    In-place mutation: the input `body` dict is modified and also returned
+    for fluent use. No ASGI surgery happens here. Returns the body
     unchanged when no agent-config props are present, so non-config demos
     keep their exact request bytes.
     """
@@ -158,8 +160,12 @@ def _splice_forwarded_props(body: Any) -> Any:
     forwarded = body.get("forwardedProps")
     if not _has_agent_config_props(forwarded):
         return body
-    # _has_agent_config_props guarantees forwarded is a dict — narrow for type checker.
-    assert isinstance(forwarded, dict)
+    # `_has_agent_config_props` guarantees `forwarded` is a dict, but
+    # narrow it explicitly for the type checker — using `assert` here
+    # would be stripped under `python -O`, leaving the type checker
+    # without a guarantee.
+    if not isinstance(forwarded, dict):
+        return body
 
     existing_state = body.get("state")
     state: dict[str, Any] = existing_state if isinstance(existing_state, dict) else {}
@@ -224,15 +230,20 @@ class ForwardedPropsASGIMiddleware:
 
         method = scope.get("method", "")
         path = scope.get("path", "")
-        if method != "POST" or path not in ("/", ""):
+        # Per ASGI spec, `path` is always at least "/" — no need to also
+        # check for the empty string.
+        if method != "POST" or path != "/":
             await self.app(scope, receive, send)
             return
 
         # `headers` is a list of (bytes, bytes) — find content-type.
+        # ASGI normalizes header names to lowercase, but match
+        # case-insensitively for parity with the content-length filter
+        # below and to be defensive against non-spec ASGI servers.
         headers = scope.get("headers") or []
         content_type = b""
         for k, v in headers:
-            if k == b"content-type":
+            if k.lower() == b"content-type":
                 content_type = v
                 break
         if b"application/json" not in content_type:
@@ -246,13 +257,32 @@ class ForwardedPropsASGIMiddleware:
         while more_body:
             message = await receive()
             if message["type"] != "http.request":
-                # Unexpected (e.g. http.disconnect before body fully sent):
-                # replay what we already have and propagate the early
-                # disconnect so the inner app can handle it.
-                async def _replay_disconnect(msg=message):
-                    return msg
+                # Unexpected (e.g. http.disconnect before body fully sent).
+                # Replay the buffered chunks we already received as a single
+                # http.request BEFORE forwarding the disconnect — otherwise
+                # the inner ASGI app sees disconnect with no body even when
+                # partial chunks arrived. The inner app can then choose
+                # whether to surface a 4xx from the partial body or honor
+                # the disconnect.
+                pending: list[dict] = [
+                    {
+                        "type": "http.request",
+                        "body": b"".join(chunks),
+                        "more_body": False,
+                    },
+                    message,
+                ]
+                idx = 0
 
-                await self.app(scope, _replay_disconnect, send)
+                async def _replay_partial():
+                    nonlocal idx
+                    if idx < len(pending):
+                        m = pending[idx]
+                        idx += 1
+                        return m
+                    return {"type": "http.disconnect"}
+
+                await self.app(scope, _replay_partial, send)
                 return
             chunks.append(message.get("body") or b"")
             more_body = message.get("more_body", False)
@@ -268,7 +298,18 @@ class ForwardedPropsASGIMiddleware:
         if raw:
             try:
                 body = json.loads(raw)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as exc:
+                # Don't change behavior — still pass through the original
+                # bytes verbatim — but make the failure observable so a
+                # malformed frontend body doesn't disappear silently. This
+                # package has no structured logger, so we use stderr
+                # directly with method/path context (same convention as
+                # the rest of the showcase Python entrypoints).
+                print(
+                    f"[ForwardedPropsASGIMiddleware] JSON parse failed for "
+                    f"{method} {path}: {exc!r}",
+                    flush=True,
+                )
                 body = None
             if isinstance(body, dict) and _has_agent_config_props(
                 body.get("forwardedProps")
@@ -308,7 +349,22 @@ class ForwardedPropsASGIMiddleware:
                 return {"type": "http.disconnect"}
             try:
                 msg = await receive()
-            except Exception:
+            except asyncio.CancelledError:
+                # Cancellation MUST propagate — the outer ASGI server is
+                # cancelling this task, and swallowing it leaks the task
+                # and corrupts task-cancellation semantics. Do NOT mark
+                # disconnect; let the cancellation unwind cleanly.
+                raise
+            except Exception as exc:  # noqa: BLE001  pragma: no cover
+                # Narrow this further once we know which transport errors
+                # actually surface here. For now, log the failure so it's
+                # observable rather than silently converted into a clean
+                # disconnect (which masked real bugs).
+                print(
+                    f"[ForwardedPropsASGIMiddleware] receive() raised "
+                    f"{type(exc).__name__}: {exc!r} — treating as disconnect",
+                    flush=True,
+                )
                 sent_disconnect = True
                 return {"type": "http.disconnect"}
             if msg.get("type") == "http.disconnect":
