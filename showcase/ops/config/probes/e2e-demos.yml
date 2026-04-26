@@ -62,11 +62,18 @@
 # ── max_concurrency: 6 ────────────────────────────────────────────────
 #
 # 6 concurrent chromium instances = ~1.8GB RAM + 6 vCPU, well within
-# the 24GB/24vCPU Railway allocation. Shortest-service-first dispatch
-# ordering is a future optimization. The driver itself is serial across
-# demos within a single invocation (fresh context per demo, awaited
-# sequentially). The concurrency knob here governs how many discovered
-# SERVICES run in parallel.
+# the 24GB/24vCPU Railway allocation. Discovered services are sorted
+# ascending by demo count (from the registry/discovery record's `demos`
+# array, zod-validated by the driver schema) BEFORE entering the
+# bounded worker pool, so small services clear first and free slots
+# for the larger ones. The sort is stable, tie-broken by service key,
+# and fully deterministic across ticks. The 20-min outer `timeout_ms`
+# above still caps any single service regardless of dispatch position.
+# This ordering only applies to `kind: e2e_demos` — sibling probes
+# (smoke, e2e-smoke, qa) are unaffected. The driver itself is serial
+# across demos within a single invocation (fresh context per demo,
+# awaited sequentially). The concurrency knob here governs how many
+# discovered SERVICES run in parallel.
 #
 # ── Scope: all showcase packages ───────────────────────────────────────
 #
