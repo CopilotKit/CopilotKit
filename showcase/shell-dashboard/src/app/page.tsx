@@ -2,7 +2,7 @@
 // Feature matrix: one row per feature x integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
@@ -74,12 +74,15 @@ export default function Page() {
   // TODO(B4b integration): replace with `useProbes()` from hooks/use-probes.
   // For now, use a placeholder list so the tab renders.
   const [probeEntries] = useState<ProbeScheduleEntry[]>([]);
-  const handleTrigger = async (
-    _probeId: string,
-    _slugs?: string[],
-  ): Promise<void> => {
-    // TODO(B4b integration): forward to ops API trigger endpoint.
-  };
+  // Wrapped in useCallback so the tabs useMemo can list it as a dep
+  // without re-creating the array every render. When B4b lands and
+  // this becomes a real handler, the dep array stays correct.
+  const handleTrigger = useCallback(
+    async (_probeId: string, _slugs?: string[]): Promise<void> => {
+      // TODO(B4b integration): forward to ops API trigger endpoint.
+    },
+    [],
+  );
 
   const tabs: TabDef[] = useMemo(
     () => [
@@ -136,7 +139,7 @@ export default function Page() {
         content: <StatusTab entries={probeEntries} onTrigger={handleTrigger} />,
       },
     ],
-    [liveStatus, connection, probeEntries],
+    [liveStatus, connection, probeEntries, handleTrigger],
   );
 
   return <TabShell tabs={tabs} defaultTab="coverage" />;
