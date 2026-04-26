@@ -917,8 +917,7 @@ describe("buildProbeInvoker", () => {
     expect(writes[0]!.state).toBe("green");
   });
 
-  // --- A11: errorClass discriminator on synthetic results ---------------
-  describe("synthetic-error errorClass discriminator (A11)", () => {
+  describe("synthetic-error errorClass discriminator", () => {
     it("sets errorClass='timeout' when driver exceeds timeout_ms", async () => {
       const inputSchema = z.object({ key: z.string() }).passthrough();
       const driver: ProbeDriver = {
@@ -1043,7 +1042,7 @@ describe("buildProbeInvoker", () => {
         writer,
         ...BASE_DEPS,
       })();
-      // A4: synthetic dashboard tick instead of silent zero-write.
+      // Synthetic dashboard tick instead of silent zero-write.
       expect(writes).toHaveLength(1);
       expect(writes[0]!.key).toBe("image-drift:misconfigured");
       expect(writes[0]!.state).toBe("error");
@@ -1052,8 +1051,8 @@ describe("buildProbeInvoker", () => {
     });
   });
 
-  // --- A1: late driver rejection must not surface as unhandledRejection -
-  it("does not surface unhandledRejection when driver rejects after timeout (A1)", async () => {
+  // Late driver rejection must not surface as unhandledRejection.
+  it("does not surface unhandledRejection when driver rejects after timeout", async () => {
     // Tag this test's rejection with a unique marker so a sibling test
     // running in the same worker process can't pollute our captured
     // list. `onTestFinished` guarantees listener cleanup even if the
@@ -1143,8 +1142,7 @@ describe("buildProbeInvoker", () => {
     expect(unhandled).toHaveLength(0);
   });
 
-  // --- A6: array-typed discovery records ---------------------------------
-  it("falls back to {key} when a discovery record is an array (A6)", async () => {
+  it("falls back to {key} when a discovery record is an array", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
@@ -1193,8 +1191,7 @@ describe("buildProbeInvoker", () => {
     expect(writes[0]!.key).toBe("image_drift:array");
   });
 
-  // --- A3: template-path-unresolvable produces unique keys --------------
-  it("emits unique unresolved-suffix keys when template paths collide (A3)", async () => {
+  it("emits unique unresolved-suffix keys when template paths collide", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
@@ -1248,7 +1245,7 @@ describe("buildProbeInvoker", () => {
     }
   });
 
-  it("emits unresolved-suffix when template path resolves to non-primitive (A3)", async () => {
+  it("emits unresolved-suffix when template path resolves to non-primitive", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
@@ -1296,8 +1293,7 @@ describe("buildProbeInvoker", () => {
     expect(writes[0]!.key).toMatch(/__unresolved_/);
   });
 
-  // --- E1: discovery enumerate timeout -----------------------------------
-  it("returns within timeout when source.enumerate hangs (E1)", async () => {
+  it("returns within timeout when source.enumerate hangs", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
@@ -1356,9 +1352,9 @@ describe("buildProbeInvoker", () => {
     expect(elapsed).toBeLessThan(500);
     // (b) ONE synthetic ProbeResult emitted with `errorClass:
     // "discovery-error"`. Earlier behaviour was zero writes (silently
-    // indistinguishable from "no services matched the filter"); A1
-    // changed the catch path to surface a sentinel ResolvedInput so
-    // operators see a red tick instead.
+    // indistinguishable from "no services matched the filter"); the
+    // catch path now surfaces a sentinel ResolvedInput so operators
+    // see a red tick instead.
     expect(writes).toHaveLength(1);
     expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
     expect(writes[0]!.state).toBe("error");
@@ -1366,8 +1362,7 @@ describe("buildProbeInvoker", () => {
     expect(sig.errorClass).toBe("discovery-error");
   });
 
-  // --- E2: writer.write failure isolation -------------------------------
-  it("isolates writer.write failures: sibling targets still write (E2)", async () => {
+  it("isolates writer.write failures: sibling targets still write", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "smoke",
@@ -1421,8 +1416,7 @@ describe("buildProbeInvoker", () => {
     expect(successful.sort()).toEqual(["smoke:a", "smoke:c"]);
   });
 
-  // --- A1: enumerate-throw emits synthetic discovery-error tick ----------
-  it("emits one synthetic discovery-error tick when source.enumerate throws (A1)", async () => {
+  it("emits one synthetic discovery-error tick when source.enumerate throws", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
       kind: "image_drift",
@@ -1469,7 +1463,7 @@ describe("buildProbeInvoker", () => {
     expect(sig.errorDesc).toContain("synthetic-failure");
   });
 
-  it("isolates discovery-error from sibling probes' invocations (A1)", async () => {
+  it("isolates discovery-error from sibling probes' invocations", async () => {
     // Two probes share the same writer in production: one with a
     // throwing discovery source, the other with a working static
     // target. The throwing one must NOT prevent the working one from
@@ -1546,7 +1540,6 @@ describe("buildProbeInvoker", () => {
     expect(greens.map((w) => w.key).sort()).toEqual(["smoke:a", "smoke:b"]);
   });
 
-  // --- F1.B: empty-string primitive in interpolateTemplate -------------
   // Empty strings short-circuit the same way `undefined`/`null` do — every
   // `""` resolution would otherwise stringify to `""` and collapse multiple
   // siblings to the same writer key. `0` and `false` are real primitives
@@ -1649,7 +1642,6 @@ describe("buildProbeInvoker", () => {
     expect(writes.map((w) => w.key).sort()).toEqual(["drift:0", "drift:false"]);
   });
 
-  // --- F1.C: late driver rejection logs at debug ------------------------
   it("logs probe.driver-late-rejection at debug when driver rejects post-timeout", async () => {
     const debugCalls: { msg: string; meta?: Record<string, unknown> }[] = [];
     const captureLogger = {
@@ -1724,7 +1716,6 @@ describe("buildProbeInvoker", () => {
     expect(String(lateRejection!.meta?.err)).toContain("late-driver-typeerror");
   });
 
-  // --- F1.D: errName flows through synthetic-error signal ---------------
   it("populates signal.errName on driver-error from err.name", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
@@ -1795,7 +1786,6 @@ describe("buildProbeInvoker", () => {
     expect(sig.errName).toBe("ZodError");
   });
 
-  // --- F1.E: e2e_demos sort gates on discovery presence -----------------
   it("does NOT sort static-targets e2e_demos configs (gate on discovery)", async () => {
     // A hypothetical static-target e2e_demos config has records that
     // lack `demos`, so demoCount=0 for every entry and the tie-break on
@@ -1836,7 +1826,6 @@ describe("buildProbeInvoker", () => {
     expect(writes.map((w) => w.key)).toEqual(["zulu", "alpha", "mike"]);
   });
 
-  // --- F1.F: discovery record key shadowing warning ---------------------
   it("warns probe.discovery-record-key-shadowed when record carries differing `key`", async () => {
     const warns: { msg: string; meta?: Record<string, unknown> }[] = [];
     const captureLogger = {
