@@ -99,23 +99,43 @@ describe("ProbeConfigSchema", () => {
     expect(() => ProbeConfigSchema.parse(input)).toThrow();
   });
 
-  it("accepts timeout_ms up to 900_000 (15 min, e2e-smoke daily budget)", () => {
+  it("accepts timeout_ms up to 1_800_000 (30 min, accommodates e2e-demos at 20 min)", () => {
     const input = {
       kind: "e2e_smoke",
       id: "e2e-smoke-daily",
       schedule: "0 0 * * *",
-      timeout_ms: 900000,
+      timeout_ms: 1_800_000,
       target: { key: "e2e_smoke:l4", suite: "l4" },
     };
     expect(() => ProbeConfigSchema.parse(input)).not.toThrow();
   });
 
-  it("rejects timeout_ms above 900_000", () => {
+  it("accepts timeout_ms at e2e-demos production value (1_200_000 / 20 min)", () => {
+    // e2e-demos.yml ships with `timeout_ms: 1200000`. Before R4 the schema
+    // cap was 900_000 and probe-loader rejected the YAML at parse time —
+    // probe was dead-on-arrival in production. This test pins the
+    // production-scenario value so a future cap regression is caught
+    // immediately.
+    const input = {
+      kind: "e2e_demos",
+      id: "e2e-demos",
+      schedule: "0 */6 * * *",
+      timeout_ms: 1_200_000,
+      discovery: {
+        source: "railway-services",
+        filter: {},
+        key_template: "e2e_demos:${service.name}",
+      },
+    };
+    expect(() => ProbeConfigSchema.parse(input)).not.toThrow();
+  });
+
+  it("rejects timeout_ms above 1_800_000", () => {
     const input = {
       kind: "e2e_smoke",
       id: "e2e-smoke-daily",
       schedule: "0 0 * * *",
-      timeout_ms: 900001,
+      timeout_ms: 1_800_001,
       target: { key: "e2e_smoke:l4" },
     };
     expect(() => ProbeConfigSchema.parse(input)).toThrow();

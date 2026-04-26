@@ -53,13 +53,19 @@ const BaseFields = {
   kind: ProbeKindEnum,
   id: z.string().min(1),
   schedule: z.string().min(1),
-  // 900_000ms (15 min) upper bound accommodates the slow-path probes
-  // (e2e-smoke daily L4 runs a full Playwright matrix against Railway
-  // preview envs, historically 8-12 minutes). The previous 300_000 cap
-  // rejected those configs at load time. Keep the positive() / int()
+  // 1_800_000ms (30 min) upper bound. The slowest user is `e2e-demos.yml`,
+  // which ships with `timeout_ms: 1_200_000` (20 min) — its driver fans
+  // out a Playwright matrix across every demo of every Railway service
+  // (32-avg / 38-largest demos × 17 frameworks). The 30-min ceiling gives
+  // ~10 min of headroom over today's slowest probe so a future slow-but-
+  // still-reasonable budget addition doesn't push us back through this
+  // file. The previous 900_000 (15 min) cap REJECTED `e2e-demos.yml` at
+  // probe-loader parse-time — probe was dead-on-arrival in production
+  // (the 845/847 unit-suite passed because probe-loader unit tests use
+  // stub configs, not the real YAMLs). Keep the positive() / int()
   // guards — a negative or non-integer timeout is a typo, not a valid
   // long-running budget.
-  timeout_ms: z.number().int().positive().max(900_000).optional(),
+  timeout_ms: z.number().int().positive().max(1_800_000).optional(),
   /**
    * Max simultaneous per-target invocations per tick. Bounded [1, 32] —
    * smaller than 1 would deadlock; larger than 32 would risk stampeding
