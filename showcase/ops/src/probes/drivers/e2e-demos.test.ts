@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { z } from "zod";
 import {
   e2eDemosDriver,
   createE2eDemosDriver,
@@ -10,6 +11,10 @@ import {
   type E2eDemosPage,
   type E2eDemosAggregateSignal,
 } from "./e2e-demos.js";
+import { buildProbeInvoker } from "../loader/probe-invoker.js";
+import { createDiscoveryRegistry } from "../discovery/index.js";
+import type { DiscoverySource } from "../types.js";
+import type { ProbeConfig } from "../loader/schema.js";
 import { logger } from "../../logger.js";
 import type {
   ProbeContext,
@@ -599,5 +604,301 @@ describe("e2e-demos driver", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const c of cleanups.splice(0)) c();
+  });
+});
+
+// --- Integration: shortest-service-first dispatch ------------------------
+//
+// Drives the WHOLE invoker → e2e-demos driver path against multiple fake
+// services with varying demo counts. PD1 is implementing the sort inside
+// `buildProbeInvoker`'s discovery path so that a tick with services of
+// length [5, 20, 38] dispatches the smallest first under bounded
+// concurrency. This integration test catches regressions where the sort
+// is bypassed (e.g. moved into the driver instead of the invoker, or
+// short-circuited for static targets).
+//
+// Until PD1 lands the sort, this block is RED — the assertions on the
+// 5-demo service finishing before the 38-demo service starts will fail
+// because FIFO dispatch under max_concurrency=2 puts the 38-demo
+// service in one of the first two slots.
+
+describe("shortest-service-first dispatch (integration)", () => {
+  it("dispatches small services before large ones via the invoker", async () => {
+    // Per-slug bookkeeping so the assertion can compare finished(small)
+    // against started(large) without relying on driver internals.
+    type SlugTimings = { firstGotoAt: number; lastGotoAt: number };
+    const timings = new Map<string, SlugTimings>();
+
+    // Demo counts per slug. The msPerGoto multiplier equals the demo
+    // count, so total wall-clock per service is N*N ms (5→25ms,
+    // 20→400ms, 38→1444ms). The 38-demo service dominates wall-clock if
+    // dispatched first under bounded concurrency.
+    const demoCounts: Record<string, number> = {
+      tiny: 5,
+      medium: 20,
+      huge: 38,
+    };
+
+    // Single shared fake browser. The slug is recovered from the URL
+    // each goto receives (`https://<slug>.example.com/demos/...`), which
+    // avoids any race between concurrent runs trying to share a queue
+    // variable in the launcher closure.
+    function slugFromUrl(url: string): string {
+      const m = /^https:\/\/([^.]+)\.example\.com/.exec(url);
+      return m?.[1] ?? "unknown";
+    }
+
+    const sharedPage: E2eDemosPage = {
+      async goto(url) {
+        const slug = slugFromUrl(url);
+        const ms = demoCounts[slug] ?? 1;
+        const t = Date.now();
+        const existing = timings.get(slug);
+        if (!existing) {
+          timings.set(slug, { firstGotoAt: t, lastGotoAt: t });
+        } else {
+          existing.lastGotoAt = t;
+        }
+        await new Promise((r) => setTimeout(r, ms));
+      },
+      async waitForSelector() {
+        /* match immediately */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const sharedBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return sharedPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => sharedBrowser,
+      // Tighten driver-internal timeouts so this test does not hang for
+      // 5 minutes if the dispatch order regresses catastrophically.
+      timeoutMs: 30_000,
+      pageTimeoutMs: 5_000,
+    });
+
+    // Stub StatusWriter — same shape as probe-invoker.test.ts.
+    const writes: ProbeResult<unknown>[] = [];
+    const writer = {
+      async write(r: ProbeResult<unknown>) {
+        writes.push(r);
+        return {
+          previousState: null,
+          newState: r.state,
+          transition: "first" as const,
+          firstFailureAt: null,
+          failCount: 0,
+        };
+      },
+    };
+
+    // Discovery source returns services in REVERSE size order so that a
+    // missing or broken sort sends the 38-demo service into the first
+    // concurrency slot. With shortest-first sort, the 5-demo service
+    // claims a slot first.
+    const fakeSource: DiscoverySource = {
+      name: "fake-services",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return [
+          {
+            name: "showcase-huge",
+            publicUrl: "https://huge.example.com",
+            demos: Array.from({ length: 38 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+          {
+            name: "showcase-medium",
+            publicUrl: "https://medium.example.com",
+            demos: Array.from({ length: 20 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+          {
+            name: "showcase-tiny",
+            publicUrl: "https://tiny.example.com",
+            demos: Array.from({ length: 5 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+        ];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(fakeSource);
+
+    const cfg: ProbeConfig = {
+      kind: "e2e_demos",
+      id: "e2e-demos-integration",
+      schedule: "*/15 * * * *",
+      max_concurrency: 2,
+      discovery: {
+        source: "fake-services",
+        filter: {},
+        key_template: "e2e-demos:${name}",
+      },
+    };
+
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      logger,
+      fetchImpl: globalThis.fetch,
+      env: {} as Readonly<Record<string, string | undefined>>,
+      now: () => new Date("2026-04-25T00:00:00Z"),
+    });
+
+    await invoker();
+
+    // Sanity: every service produced an aggregate row.
+    const aggregates = writes.filter((w) => w.key.startsWith("e2e-demos:"));
+    expect(aggregates.map((w) => w.key).sort()).toEqual([
+      "e2e-demos:showcase-huge",
+      "e2e-demos:showcase-medium",
+      "e2e-demos:showcase-tiny",
+    ]);
+
+    // Load-bearing assertion: the 5-demo service finished its LAST goto
+    // BEFORE the 38-demo service issued its FIRST goto. This holds only
+    // if the invoker dispatched shortest-first under max_concurrency=2.
+    const tiny = timings.get("tiny");
+    const huge = timings.get("huge");
+    expect(tiny).toBeDefined();
+    expect(huge).toBeDefined();
+    expect(tiny!.lastGotoAt).toBeLessThan(huge!.firstGotoAt);
+  });
+
+  it("records driver dispatch order ascending by demo count", async () => {
+    // Companion assertion: the order in which run() is invoked across
+    // services must be [tiny(5), medium(20), huge(38)] when discovery
+    // returned them in reverse. Captures the dispatch ordering by
+    // recording the slug of the FIRST goto each service issues. With
+    // max_concurrency=1, those firsts are strictly ordered by dispatch.
+    const dispatchOrder: string[] = [];
+
+    function slugFromUrl(url: string): string {
+      const m = /^https:\/\/([^.]+)\.example\.com/.exec(url);
+      return m?.[1] ?? "unknown";
+    }
+
+    const seenSlugs = new Set<string>();
+    const sharedPage: E2eDemosPage = {
+      async goto(url) {
+        const slug = slugFromUrl(url);
+        if (!seenSlugs.has(slug)) {
+          seenSlugs.add(slug);
+          dispatchOrder.push(slug);
+        }
+      },
+      async waitForSelector() {
+        /* immediate match */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const sharedBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return sharedPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => sharedBrowser,
+      timeoutMs: 30_000,
+      pageTimeoutMs: 5_000,
+    });
+
+    const writer = {
+      async write(r: ProbeResult<unknown>) {
+        return {
+          previousState: null,
+          newState: r.state,
+          transition: "first" as const,
+          firstFailureAt: null,
+          failCount: 0,
+        };
+      },
+    };
+
+    const fakeSource: DiscoverySource = {
+      name: "fake-services-2",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return [
+          {
+            name: "showcase-huge",
+            publicUrl: "https://huge.example.com",
+            demos: Array.from({ length: 38 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+          {
+            name: "showcase-medium",
+            publicUrl: "https://medium.example.com",
+            demos: Array.from({ length: 20 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+          {
+            name: "showcase-tiny",
+            publicUrl: "https://tiny.example.com",
+            demos: Array.from({ length: 5 }, (_, i) => `demo-${i}`),
+            shape: "package",
+          },
+        ];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(fakeSource);
+
+    const cfg: ProbeConfig = {
+      kind: "e2e_demos",
+      id: "e2e-demos-dispatch-order",
+      schedule: "*/15 * * * *",
+      // Concurrency=1 so dispatch order is observable as resolver-call
+      // order without parallel interleaving noise.
+      max_concurrency: 1,
+      discovery: {
+        source: "fake-services-2",
+        filter: {},
+        key_template: "e2e-demos:${name}",
+      },
+    };
+
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      logger,
+      fetchImpl: globalThis.fetch,
+      env: {} as Readonly<Record<string, string | undefined>>,
+      now: () => new Date("2026-04-25T00:00:00Z"),
+    })();
+
+    expect(dispatchOrder).toEqual(["tiny", "medium", "huge"]);
   });
 });
