@@ -283,15 +283,28 @@ async function readMessageCount(page: Page): Promise<number> {
           querySelectorAll(sel: string): { length: number };
         };
       };
-      // Match either the canonical CopilotKit testid or the more
-      // generic `[role="article"]` that some custom composers use.
-      // The first match wins; if neither matches we return 0 and the
-      // poll waits. Two `querySelectorAll` calls are cheap.
+      // Match either the canonical CopilotKit testid or a narrowed
+      // `[role="article"]` that excludes user-side articles.
+      // The canonical testid wins; if absent, fall back to articles
+      // that are explicitly tagged as assistant (or are not tagged
+      // user) so we never count user-input bubbles toward "assistant
+      // response settled".
       const canonical = win.document.querySelectorAll(
         '[data-testid="copilot-assistant-message"]',
       );
       if (canonical.length > 0) return canonical.length;
-      const fallback = win.document.querySelectorAll('[role="article"]');
+      // Prefer an explicit assistant-tagged article when present.
+      const tagged = win.document.querySelectorAll(
+        '[role="article"][data-message-role="assistant"]',
+      );
+      if (tagged.length > 0) return tagged.length;
+      // Last resort: any [role="article"] that is NOT explicitly
+      // tagged as a user message. This still matches untagged
+      // articles (the historical behaviour) but excludes user
+      // bubbles that some composers tag with `data-message-role="user"`.
+      const fallback = win.document.querySelectorAll(
+        '[role="article"]:not([data-message-role="user"])',
+      );
       return fallback.length;
     });
   } catch {
