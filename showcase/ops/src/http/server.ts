@@ -3,6 +3,7 @@ import type { PbClient } from "../storage/pb-client.js";
 import type { Logger } from "../types/index.js";
 import type { TypedEventBus } from "../events/event-bus.js";
 import { registerDeployWebhook } from "./webhooks/deploy.js";
+import { registerProbesRoutes, type ProbesRouteDeps } from "./probes.js";
 import { renderPrometheus, type MetricsRegistry } from "./metrics.js";
 
 export interface ServerDeps {
@@ -48,6 +49,14 @@ export interface ServerDeps {
   webhookSecrets?: string[];
   /** Metrics registry. When provided, `/metrics` returns Prometheus text. */
   metrics?: MetricsRegistry;
+  /**
+   * Optional `/api/probes` wiring. When supplied, the three probe routes
+   * (list / detail / trigger) are mounted; absent, the routes return
+   * Hono's default 404 so older test setups that only need `/health`
+   * don't have to thread the full scheduler through. The orchestrator
+   * always supplies this in production.
+   */
+  probes?: ProbesRouteDeps;
 }
 
 export function buildServer(deps: ServerDeps): Hono {
@@ -60,6 +69,10 @@ export function buildServer(deps: ServerDeps): Hono {
       secrets: deps.webhookSecrets,
       metrics: deps.metrics,
     });
+  }
+
+  if (deps.probes) {
+    registerProbesRoutes(app, deps.probes);
   }
 
   if (deps.metrics) {

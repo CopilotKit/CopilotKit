@@ -2,7 +2,7 @@
 // Feature matrix: one row per feature x integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
@@ -10,6 +10,7 @@ import { PackagesSection } from "@/components/packages-section";
 import { TabShell, type TabDef } from "@/components/tab-shell";
 import { CellsView } from "@/components/cells-view";
 import { ParityView } from "@/components/parity-view";
+import { StatusTab, type ProbeScheduleEntry } from "@/components/status-tab";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
 import { mergeRowsToMap } from "@/lib/live-status";
 import catalog from "@/data/catalog.json";
@@ -70,6 +71,16 @@ export default function Page() {
 
   const connection = allStatus.status;
 
+  // TODO(B4b integration): replace with `useProbes()` from hooks/use-probes.
+  // For now, use a placeholder list so the tab renders.
+  const [probeEntries] = useState<ProbeScheduleEntry[]>([]);
+  const handleTrigger = async (
+    _probeId: string,
+    _slugs?: string[],
+  ): Promise<void> => {
+    // TODO(B4b integration): forward to ops API trigger endpoint.
+  };
+
   const tabs: TabDef[] = useMemo(
     () => [
       {
@@ -119,8 +130,13 @@ export default function Page() {
           <PackagesSection liveStatus={liveStatus} connection={connection} />
         ),
       },
+      {
+        id: "status",
+        label: "Status",
+        content: <StatusTab entries={probeEntries} onTrigger={handleTrigger} />,
+      },
     ],
-    [liveStatus, connection],
+    [liveStatus, connection, probeEntries],
   );
 
   return <TabShell tabs={tabs} defaultTab="coverage" />;
