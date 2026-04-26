@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 import type { DiscoveryContext, DiscoverySource } from "../types.js";
 import {
@@ -291,7 +290,10 @@ async function loadDemosMap(
   ctx: DiscoveryContext,
 ): Promise<Map<string, string[]>> {
   const override = ctx.env.REGISTRY_JSON_PATH;
-  const fallback = path.resolve("/app/data/registry.json");
+  // Production fallback path. Previously wrapped in `path.resolve()`,
+  // which is a no-op for an absolute path; dropped the wrap to keep
+  // the constant greppable.
+  const fallback = "/app/data/registry.json";
   const registryPath = override ?? fallback;
   let raw: string;
   try {
@@ -307,27 +309,73 @@ async function loadDemosMap(
       signal: ctx.abortSignal,
     });
   } catch (err) {
-    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
+    // Bucket: ENOENT is the steady-state for non-demos consumers
+    // (image-drift, smoke, aimock-wiring) — they don't mount the
+    // registry. Treating that as a `warn` pulses the alert stream
+    // every tick. Downgrade ENOENT specifically to `info`; everything
+    // else (permission denied, abort, IO error) stays at `warn`.
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? (err as { code?: unknown }).code
+        : undefined;
+    const meta = {
+      path: registryPath,
+      err: err instanceof Error ? err.message : String(err),
+    };
+    if (code === "ENOENT") {
+      ctx.logger.info(
+        "discovery.railway-services.registry-read-failed",
+        meta,
+      );
+    } else {
+      ctx.logger.warn(
+        "discovery.railway-services.registry-read-failed",
+        meta,
+      );
+    }
+    return new Map();
+  }
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(raw);
+  } catch (err) {
+    // Distinct log key from read failure so operators can tell
+    // "file is corrupt" from "file isn't there" without parsing
+    // error strings. Stays at `warn` — a corrupt registry is never
+    // expected steady-state.
+    ctx.logger.warn("discovery.railway-services.registry-parse-failed", {
       path: registryPath,
       err: err instanceof Error ? err.message : String(err),
     });
     return new Map();
   }
-  let parsed: {
+  // Shape guard: `JSON.parse("null")` returns null, `JSON.parse("42")`
+  // returns 42, `JSON.parse("[]")` returns an array. Any of these
+  // would crash the `for (const it of parsed.integrations ?? [])`
+  // loop with a TypeError on property access (`null.integrations`).
+  // Reject anything that isn't a plain object root and degrade to an
+  // empty map with a structurally-distinct log key.
+  if (
+    parsedUnknown === null ||
+    typeof parsedUnknown !== "object" ||
+    Array.isArray(parsedUnknown)
+  ) {
+    ctx.logger.warn(
+      "discovery.railway-services.registry-shape-invalid",
+      {
+        path: registryPath,
+        rootType: parsedUnknown === null ? "null" : typeof parsedUnknown,
+        isArray: Array.isArray(parsedUnknown),
+      },
+    );
+    return new Map();
+  }
+  const parsed = parsedUnknown as {
     integrations?: Array<{
       slug?: string;
       demos?: Array<{ id?: string }>;
     }>;
   };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch (err) {
-    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
-      path: registryPath,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return new Map();
-  }
   const map = new Map<string, string[]>();
   for (const it of parsed.integrations ?? []) {
     if (!it.slug) continue;
@@ -346,6 +394,16 @@ async function loadDemosMap(
  * Mirrors the driver's `deriveSlug` for consistency. Names without the
  * prefix pass through unchanged so unrelated workloads simply don't
  * match a registry slug and end up with `demos: []`.
+ *
+ * Strip behaviour for starter services: `showcase-starter-ag2` becomes
+ * `starter-ag2` (only the leading `showcase-` segment is removed). The
+ * registry uses bare integration slugs (e.g. `ag2`) for package
+ * services, so starter slugs don't match a registry entry and end up
+ * with `demos: []`. This is the documented contract — the e2e-demos
+ * driver doesn't fan out for starters anyway (shape-gated), so the
+ * intentional miss is harmless. Adding a starter-specific demos slug
+ * scheme would require a coordinated change in the driver, the
+ * resolver, and `registry.json`'s `integrations` shape.
  */
 function deriveSlugFromServiceName(name: string): string {
   return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
@@ -390,6 +448,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       // large project — one stuck call could otherwise orphan a socket
       // for many minutes.
       abortSignal: ctx.abortSignal,
+      logger: ctx.logger,
     });
 
     // Project-level query: fetch all services with their instance image
@@ -484,18 +543,37 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
             service: svc.name,
             err: parsedVars.error.message,
           });
+          // `env` already initialised to {} above; no reassignment
+          // needed. The schema-rejection path leaves the empty default
+          // in place — that's the documented degraded behaviour.
         } else {
           const vars = parsedVars.data.variables ?? {};
-          env = {};
           for (const [k, v] of Object.entries(vars)) {
             env[k] = v === "*****" ? "__SEALED__" : v;
           }
         }
       } catch (err) {
-        // Single-service variable fetch failure: log + continue with
-        // empty env. A global 401 would have already aborted the tick
-        // via the project-level query above, so reaching this branch
-        // means transient per-service trouble — not a blanket outage.
+        // Tick-wide concerns must escape the per-service loop:
+        //   1. AbortError — the invoker fired the per-tick timeout
+        //      mid-loop. Continuing to spin up N more gql() calls
+        //      that will all reject is pure noise; rethrow and let
+        //      the invoker take a single keyed synthetic-error
+        //      ProbeResult instead of N variables-failed warns.
+        //   2. AuthError — a 401/403 mid-loop means the token rotated
+        //      (or was revoked) BETWEEN the project-level query and
+        //      this per-service call. Every remaining call will also
+        //      401, and silently degrading every env to {} produces a
+        //      green discovery while operators are blind to the auth
+        //      break. Rethrow so the invoker surfaces the failure.
+        // Other errors (transport flakes, backend 5xx, schema drift on
+        // a single service) keep the documented per-service-degraded
+        // behaviour: log + continue with empty env.
+        const aborted =
+          ctx.abortSignal?.aborted === true ||
+          (err instanceof Error && err.name === "AbortError");
+        if (aborted || err instanceof DiscoverySourceAuthError) {
+          throw err;
+        }
         ctx.logger.warn("discovery.railway-services.variables-failed", {
           service: svc.name,
           err: err instanceof Error ? err.message : String(err),
@@ -528,8 +606,10 @@ function makeGql(opts: {
   token: string;
   sourceName: string;
   abortSignal: AbortSignal | undefined;
+  logger: DiscoveryContext["logger"];
 }): <T>(query: string, variables: Record<string, unknown>) => Promise<T> {
-  const { fetchImpl, token, sourceName, abortSignal } = opts;
+  const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } =
+    opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,
@@ -582,16 +662,33 @@ function makeGql(opts: {
         err,
       );
     }
-    if (json.errors?.length) {
-      // GraphQL errors with a 200 envelope still class as backend errors —
-      // the transport was fine but Railway rejected the query. 500 is a
-      // synthetic status on this class; schema-shape errors above would
-      // reach here if the GraphQL layer surfaced them as `errors[]`.
+    const hasErrors = (json.errors?.length ?? 0) > 0;
+    const hasData = json.data !== undefined && json.data !== null;
+    if (hasErrors && !hasData) {
+      // No `data` payload AND non-empty `errors[]` — the query failed
+      // outright. 500 is a synthetic status on this class; schema-shape
+      // errors above would reach here if the GraphQL layer surfaced
+      // them as `errors[]`.
       throw new DiscoverySourceBackendError(
         sourceName,
-        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
+        `railway gql errors: ${json.errors!.map((e) => e.message).join("; ")}`,
         500,
       );
+    }
+    if (hasErrors && hasData) {
+      // GraphQL "partial success" envelope: Railway populated `data`
+      // but also surfaced non-fatal `errors[]` (e.g. soft-deprecation
+      // warnings on a sub-field, or a permission gap on an optional
+      // nested field). Discarding `data` here would force every
+      // downstream caller into the synthetic-error branch even though
+      // the payload they asked for is right there. Log a structured
+      // warn so operators can audit the partial-error stream, then
+      // hand `data` back. Schema validation downstream catches any
+      // shape rot the partial payload introduced.
+      gqlLogger.warn("discovery.railway-services.partial-errors", {
+        source: sourceName,
+        errors: json.errors!.map((e) => e.message),
+      });
     }
     return json.data as T;
   };
