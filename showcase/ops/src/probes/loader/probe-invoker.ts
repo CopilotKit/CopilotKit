@@ -40,6 +40,15 @@ export type ProbeInvokerErrorClass =
 export interface ProbeInvokerSyntheticSignal {
   errorDesc: string;
   errorClass: ProbeInvokerErrorClass;
+  /**
+   * `err.name` from the originating exception (e.g. "TypeError",
+   * "AbortError", "ZodError"). Operators triaging a timeout vs. a
+   * TypeError need to distinguish the two without parsing the free-form
+   * `errorDesc`. Optional: synthetic results that don't originate from
+   * an Error (e.g. the misconfigured-discovery sentinel) leave it
+   * undefined.
+   */
+  errName?: string;
 }
 
 /**
@@ -170,7 +179,14 @@ export function buildProbeInvoker(
     // discovery) don't carry `demos`, but they also can't be
     // `kind: e2e_demos` in practice — the gate below short-circuits
     // anyway.
-    if (cfg.kind === "e2e_demos") {
+    // Gate is `kind === "e2e_demos" && "discovery" in cfg` — the second
+    // half blocks a hypothetical static-targets `e2e_demos` config from
+    // sorting alphabetically. A static config's records lack `demos`,
+    // so `demoCount(input)` returns 0 for every entry and the tie-break
+    // on `key` would silently re-order the YAML. Tightening here keeps
+    // the YAML's authored order authoritative for any non-discovery
+    // shape that might land later.
+    if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
       inputs.sort((a, b) => {
         const da = demoCount(a.input);
         const db = demoCount(b.input);
@@ -367,6 +383,27 @@ async function resolveInputs(
       // strip array shape, so guard explicitly.
       let input: unknown;
       if (record && typeof record === "object" && !Array.isArray(record)) {
+        // If the discovery source already emitted a `key` field whose
+        // value differs from the interpolated one, the spread+overwrite
+        // below silently shadows it. Surface a structured warning so
+        // operators discover when a source's natural payload happens
+        // to carry `key` (e.g. a service whose env exports `key=...`)
+        // — the interpolated value remains authoritative (it's the one
+        // the writer dedupes on), but invisible mutation of caller
+        // payloads is the kind of foot-gun that bites long after
+        // shipping.
+        const recordKey = (record as Record<string, unknown>).key;
+        if (recordKey !== undefined && recordKey !== key) {
+          logger.warn("probe.discovery-record-key-shadowed", {
+            probeId: cfg.id,
+            recordIndex: idx,
+            interpolatedKey: key,
+            recordKey:
+              typeof recordKey === "string"
+                ? recordKey
+                : typeof recordKey,
+          });
+        }
         input = { ...(record as Record<string, unknown>), key };
       } else {
         if (Array.isArray(record)) {
@@ -391,11 +428,17 @@ async function resolveInputs(
  * AND a unique `:__unresolved_<idx>` suffix so siblings whose template
  * collapses to the same prefix don't silently overwrite each other.
  *
- * Templates with literal `${}` (empty path) are still rendered: the
- * regex matches even an empty path slot and falls through the
- * non-primitive branch below, getting a unique suffix. Schema-level
- * validation that rejects `${}` at config-load time is desirable but not
- * load-bearing — the unresolvable-suffix path keeps the probe alive.
+ * Templates with a literal `${}` (empty path slot) take a dedicated
+ * branch below — the regex matches the empty slot, the `path.length ===
+ * 0` guard logs `reason: "empty-path"` and emits a unique suffix.
+ * Schema-level validation that rejects `${}` at config-load time is
+ * desirable but not load-bearing — this path keeps the probe alive.
+ *
+ * Empty-string primitive resolutions (`""`) are also routed to the
+ * unresolvable-suffix path: an empty string has no operator-meaningful
+ * key value AND collides across records (every empty path collapses to
+ * the same prefix). `0` and `false` still stringify normally — they're
+ * real primitive values, not absences.
  */
 function interpolateTemplate(
   template: string,
@@ -437,6 +480,21 @@ function interpolateTemplate(
         path,
         recordIndex,
         reason: "non-primitive",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    // Empty-string primitive: same collision risk as a missing path —
+    // every record with `""` at this slot collapses to the same prefix
+    // and the writer overwrites earlier siblings. `0` and `false` are
+    // real primitives and stringify normally below.
+    if (typeof value === "string" && value.length === 0) {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path,
+        recordIndex,
+        reason: "empty-string",
       });
       const suffix = unresolvedCounter++;
       return `__unresolved_${recordIndex}_${suffix}`;
@@ -525,6 +583,7 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       `inputSchema rejected: ${parsed.error.message}`,
       now,
       "input-rejected",
+      parsed.error.name,
     );
   }
   // Drivers that emit paired results (e.g. smoke → smoke+health) push the
@@ -587,12 +646,25 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // surface as an `unhandledRejection`. The original promise still
     // throws into the outer `try/catch` for the non-timeout path.
     const driverPromise = driver.run(ctx, parsed.data);
-    // Attach a no-op rejection handler so a late driver rejection is
-    // observed and doesn't bubble up to `process.on('unhandledRejection')`.
-    // The original promise is what we race; catching from a separate
-    // .catch() chain doesn't consume the original.
-    void driverPromise.catch(() => {
-      /* swallow late rejections — primary result already settled */
+    // Attach a rejection observer so a late driver rejection is
+    // surfaced — without it (or with a `.catch(() => {})` no-op) a
+    // post-timeout chromium SIGSEGV / TypeError lands silently and
+    // operators see only "timeout" with no underlying signal. We log at
+    // debug rather than warn/error because the primary result has
+    // already settled (operators have a timeout tick to act on); the
+    // late signal is correlation-fuel for post-mortem, not an alertable
+    // event of its own. Critically: this observer does NOT consume the
+    // original `driverPromise` — it's a sibling chain, so the race path
+    // still observes the rejection and routes it through the catch
+    // block when `timedOut === false`.
+    void driverPromise.catch((err) => {
+      logger.debug("probe.driver-late-rejection", {
+        probeId,
+        kind: driver.kind,
+        key,
+        errName: err instanceof Error ? err.name : "unknown",
+        err: err instanceof Error ? err.message : String(err),
+      });
     });
     return await Promise.race([driverPromise, timeoutPromise]);
   } catch (err) {
@@ -604,12 +676,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       return syntheticError(key, timeoutReason, now, "timeout");
     }
     const message = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.name : undefined;
     logErrorWithStack(logger, "probe.run-failed", err, {
       probeId,
       kind: driver.kind,
       key,
     });
-    return syntheticError(key, message, now, "driver-error");
+    return syntheticError(key, message, now, "driver-error", errName);
   } finally {
     if (timer !== null) clearTimeout(timer);
   }
@@ -620,11 +693,24 @@ function syntheticError(
   message: string,
   now: () => Date,
   errorClass: ProbeInvokerErrorClass,
+  errName?: string,
 ): ProbeResult<ProbeInvokerSyntheticSignal> {
+  const signal: ProbeInvokerSyntheticSignal = {
+    errorDesc: message,
+    errorClass,
+  };
+  // Only attach `errName` when present — keeps the wire shape minimal
+  // for sentinel paths that don't originate from a real Error
+  // (e.g. misconfigured-discovery / enumerate-failed sentinels), and
+  // avoids forcing every existing test that asserts the exact signal
+  // shape to add an undefined field.
+  if (errName !== undefined) {
+    signal.errName = errName;
+  }
   return {
     key,
     state: "error",
-    signal: { errorDesc: message, errorClass },
+    signal,
     observedAt: now().toISOString(),
   };
 }
@@ -633,10 +719,20 @@ function syntheticError(
  * Standardise the shape of `logger.error` calls so the structured-log
  * payload always carries `errName` + a truncated `stack` alongside the
  * message. Without this, `err.message` alone strips the type and stack —
- * making post-mortem on production logs much harder. Stack is truncated
- * to the first 5 lines because Slack/Pocketbase render budgets are
- * tight; the rest of the stack lives in the orchestrator's full log
- * stream if needed.
+ * making post-mortem on production logs much harder.
+ *
+ * Stack handling is two-tier:
+ *
+ *   - `logger.error(msg, ...)` carries a TRUNCATED stack (first 5 lines)
+ *     because Slack/Pocketbase render budgets are tight and a
+ *     full-frame Node stack drowns the alert.
+ *   - `logger.debug("<msg>.full-stack", ...)` carries the FULL stack
+ *     alongside, every time. Production debug-level logs flow into the
+ *     orchestrator's structured log stream where storage is cheap and
+ *     post-mortem operators can pull them on demand. Always emitting
+ *     means the comment "the rest of the stack lives in the
+ *     orchestrator's full log stream" is now load-bearing rather than
+ *     aspirational.
  */
 function logErrorWithStack(
   logger: Logger,
@@ -645,15 +741,23 @@ function logErrorWithStack(
   extra: Record<string, unknown> = {},
 ): void {
   const meta: Record<string, unknown> = { ...extra };
+  let fullStack: string | undefined;
   if (err instanceof Error) {
     meta.err = err.message;
     meta.errName = err.name;
     if (err.stack) {
       meta.stack = err.stack.split("\n").slice(0, 5).join("\n");
+      fullStack = err.stack;
     }
   } else {
     meta.err = String(err);
     meta.errName = "unknown";
   }
   logger.error(msg, meta);
+  // Parallel debug emission carrying the full stack; only when we have
+  // one (string-thrown values have no stack to preserve). Reuses the
+  // same `extra` keys so log-aggregation can correlate the two.
+  if (fullStack !== undefined) {
+    logger.debug(`${msg}.full-stack`, { ...extra, stack: fullStack });
+  }
 }
