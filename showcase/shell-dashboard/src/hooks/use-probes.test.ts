@@ -668,9 +668,7 @@ describe("useTriggerProbe", () => {
           });
         }),
     );
-    triggerProbeMock.mockImplementationOnce(() =>
-      Promise.resolve(triggerOk()),
-    );
+    triggerProbeMock.mockImplementationOnce(() => Promise.resolve(triggerOk()));
     const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
 
     let firstPromise!: Promise<TriggerResponse | null>;
