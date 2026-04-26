@@ -214,7 +214,12 @@ function formatTooltip(
     case "degraded": {
       // The hardcoded ">6h" was a lie — the threshold lives in the
       // producer config and is not asserted in copy. Just say "stale".
-      const base = `${dim} stale — last pass @ ${row.observed_at}`;
+      // `observed_at` is when this row was last *seen* in any state
+      // (most recent producer tick), NOT when it last passed green —
+      // for a degraded row that timestamp is when degradation was
+      // last observed. Earlier copy ("last pass @ ...") was misleading
+      // operators into reading it as the last green tick.
+      const base = `${dim} stale — last seen @ ${row.observed_at}`;
       const sig = summarizeSignal(row.signal);
       return sig ? `${base} — ${sig}` : base;
     }
