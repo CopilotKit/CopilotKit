@@ -9,9 +9,15 @@
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse
  *
  * `baseUrl` resolution order (per call):
- *   1. explicit `baseUrl` param
- *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` (inlined at build)
- *   3. `/api/ops` — same-origin proxy fallback (Next.js route)
+ *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
+ *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` (inlined at build — opt-in
+ *      escape hatch for direct cross-origin calls; production does NOT use
+ *      this because showcase-ops has no CORS allowlist)
+ *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
+ *      `next.config.ts`. This is the production contract, not a guess: the
+ *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
+ *      on the server side, so the browser only ever sees same-origin calls
+ *      and `OPS_BASE_URL` stays out of the client bundle.
  *
  * The trigger token is supplied by the caller (typically read from
  * `process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN` at the React layer).
