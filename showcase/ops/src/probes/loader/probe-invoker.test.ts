@@ -2086,6 +2086,86 @@ describe("buildProbeInvoker", () => {
     expect(kinds).toEqual(["boolean", "null", "number", "string"]);
   });
 
+  // When loadDemosMap fails (every record's demoCount=0), the sort
+  // would silently re-order alphabetically by key. Skip the sort and
+  // emit a warn so operators can correlate.
+  it("skips sort and warns when no e2e_demos input has demos", async () => {
+    const warns: { msg: string; meta?: Record<string, unknown> }[] = [];
+    const captureLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: (msg: string, meta?: Record<string, unknown>) => {
+        warns.push({ msg, meta });
+      },
+      error: () => {},
+    };
+    const inputSchema = z
+      .object({ key: z.string(), demos: z.array(z.string()).optional() })
+      .passthrough();
+    const driver: ProbeDriver = {
+      kind: "e2e_demos",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    // Intentionally non-alphabetic order. With the sort short-circuit,
+    // dispatch (and thus write) order matches enumeration order
+    // verbatim. Without the short-circuit, the tie-break on `key`
+    // would re-order to alpha, mike, zulu.
+    const records = [
+      { name: "zulu" },
+      { name: "alpha" },
+      { name: "mike" },
+    ];
+    const source: DiscoverySource = {
+      name: "no-demos-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return records;
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "e2e_demos",
+      id: "e2e-demos",
+      schedule: "0 */6 * * *",
+      max_concurrency: 1, // serialize so writes order == dispatch order
+      discovery: {
+        source: "no-demos-src",
+        filter: {},
+        key_template: "e2e-demos:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+      logger: captureLogger,
+    })();
+    expect(writes.map((w) => w.key)).toEqual([
+      "e2e-demos:zulu",
+      "e2e-demos:alpha",
+      "e2e-demos:mike",
+    ]);
+    const sortWarn = warns.filter(
+      (w) => w.msg === "probe.e2e-demos.sort-no-demos",
+    );
+    expect(sortWarn).toHaveLength(1);
+    expect(sortWarn[0]!.meta).toMatchObject({
+      probeId: "e2e-demos",
+      inputCount: 3,
+    });
+  });
+
   it("does NOT warn key-shadowed when record's `key` matches interpolated key", async () => {
     const warns: { msg: string }[] = [];
     const captureLogger = {

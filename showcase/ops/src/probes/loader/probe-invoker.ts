@@ -187,12 +187,26 @@ export function buildProbeInvoker(
     // the YAML's authored order authoritative for any non-discovery
     // shape that might land later.
     if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
-      inputs.sort((a, b) => {
-        const da = demoCount(a.input);
-        const db = demoCount(b.input);
-        if (da !== db) return da - db;
-        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
-      });
+      // Skip the sort entirely when every input has demoCount=0 — the
+      // tie-break on `key` would silently re-order discovery's natural
+      // emission order without operator signal. The most common cause
+      // is `registry.json` missing/corrupt at the discovery source, so
+      // emit a structured warn so the operator can correlate.
+      const anyDemos = inputs.some((i) => demoCount(i.input) > 0);
+      if (!anyDemos) {
+        logger.warn("probe.e2e-demos.sort-no-demos", {
+          probeId: cfg.id,
+          inputCount: inputs.length,
+          hint: "every record has demoCount=0; registry.json may be missing/corrupt",
+        });
+      } else {
+        inputs.sort((a, b) => {
+          const da = demoCount(a.input);
+          const db = demoCount(b.input);
+          if (da !== db) return da - db;
+          return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+        });
+      }
     }
 
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
