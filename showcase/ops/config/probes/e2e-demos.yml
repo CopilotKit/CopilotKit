@@ -30,11 +30,18 @@
 #
 # ── Cadence: every 6 hours ────────────────────────────────────────────
 #
-# Chromium cost scales as demos × services per tick. With 15 framework
+# Chromium cost scales as demos × services per tick. With 17 framework
 # packages and ~32 demos each, total page loads per tick can reach
-# ~480. With `max_concurrency: 6` and a ~3-5s realistic goto+selector
-# budget per demo, one tick takes ~3-5 minutes of wall time on the
-# happy path. Every 6 hours gives us:
+# ~544 in aggregate. Wall-clock per tick is NOT aggregate-divided-by-
+# concurrency: under bounded `max_concurrency: 6`, the wall-clock floor
+# is dominated by the SLOWEST single service plus its serial per-demo
+# fan-out (the driver visits each demo sequentially within a single
+# service invocation). For a typical 38-demo service at ~3-5s per
+# goto+selector, that's ~2-3 minutes alone. Smaller services interleave
+# in parallel slots and don't extend wall-clock past the slowest. So
+# expected per-tick wall-clock is ~3 minutes (slowest single service)
+# under happy conditions, capped at the 20-min outer timeout below.
+# Every 6 hours gives us:
 #   - 4 ticks/day: catches regressions within a half-deploy window
 #     while leaving ~90% of the scheduler's wall time to sibling
 #     probes.
@@ -52,12 +59,17 @@
 # Outer driver-invocation cap. The driver subdivides internally with a
 # 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — the
 # largest services now have 38 demos and could exceed 15 min on cold
-# starts, so the outer cap is set to 20 min. When the cap fires the
-# driver sets `timedOut = true` on the AbortController and side-emits
-# `errorClass: "abort"` / `errorDesc: "timeout after 1200000ms"` for
-# every remaining demo — the dashboard keeps rendering red dots rather
-# than going gray, which is the right signal for operator triage
-# ("this whole service is wedged").
+# starts, so the outer cap is set to 20 min. When the cap fires inside
+# the driver, the driver itself iterates the remaining demos and side-
+# emits `errorClass: "abort"` / `errorDesc: "timeout after 1200000ms"`
+# rows for each — the per-demo fan-out loop in `e2e-demos.ts` checks
+# `abort.signal.aborted` at the top of every iteration and writes a
+# red side-row before continuing to the next demo. The dashboard keeps
+# rendering red dots rather than going gray, which is the right signal
+# for operator triage ("this whole service is wedged"). Note: this
+# behaviour is the driver's, not the invoker's — the invoker only
+# emits one AGGREGATE synthetic-error ProbeResult on its own outer
+# timeout race, not per-demo side rows.
 #
 # ── max_concurrency: 6 ────────────────────────────────────────────────
 #
@@ -81,7 +93,7 @@
 # ── Scope: all showcase packages ───────────────────────────────────────
 #
 # Discovery matches all `showcase-*` Railway services via `namePrefix`.
-# All 15 framework packages now have demo routes wired with the
+# All 17 framework packages now have demo routes wired with the
 # `[data-testid="copilot-chat-input"]` structural marker after the
 # omnibus parity merge.
 #
@@ -115,9 +127,13 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-  # Primary row key uses the Railway service name (not the stripped
-  # slug) to stay consistent with sibling `smoke:showcase-*` /
-  # `e2e-smoke:showcase-*` / `qa:showcase-*` keys. Alert rules that
-  # dedupe on `e2e-demos:*` or pattern-match `e2e-demos:showcase-*`
-  # work identically across driver families.
+  #
+  # `key_template` lives at the `discovery:` level (sibling of `source`
+  # / `filter`), per `loader/schema.ts:DiscoveryBlockSchema`. The
+  # 2-space indent below matches that. Primary row key uses the Railway
+  # service name (not the stripped slug) to stay consistent with
+  # sibling `smoke:showcase-*` / `e2e-smoke:showcase-*` /
+  # `qa:showcase-*` keys. Alert rules that dedupe on `e2e-demos:*` or
+  # pattern-match `e2e-demos:showcase-*` work identically across driver
+  # families.
   key_template: "e2e-demos:${name}"

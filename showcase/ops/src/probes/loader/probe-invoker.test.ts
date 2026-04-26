@@ -1021,7 +1021,7 @@ describe("buildProbeInvoker", () => {
       const driver: ProbeDriver = {
         kind: "smoke",
         inputSchema,
-        async run(ctx) {
+        async run(ctx, input) {
           // Reject AFTER the invoker has timed out and moved on.
           await new Promise<void>((_, reject) => {
             ctx.abortSignal?.addEventListener(
@@ -1034,6 +1034,14 @@ describe("buildProbeInvoker", () => {
               { once: true },
             );
           });
+          // Unreachable — promise above always rejects on abort. The
+          // return is here to satisfy the ProbeDriver.run signature.
+          return {
+            key: (input as { key: string }).key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
         },
       };
       const cfg: ProbeConfig = {
