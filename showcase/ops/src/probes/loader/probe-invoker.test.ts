@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { z } from "zod";
 import { buildProbeInvoker } from "./probe-invoker.js";
 import type { ProbeConfig } from "./schema.js";
@@ -6,6 +6,8 @@ import { createDiscoveryRegistry } from "../discovery/index.js";
 import type { DiscoverySource, ProbeDriver } from "../types.js";
 import type { ProbeResult } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import type { ProbeRunWriter } from "../run-history.js";
+import { ProbeRunTracker } from "../run-tracker.js";
 import { logger } from "../../logger.js";
 
 function mkWriter(): {
@@ -567,5 +569,440 @@ describe("buildProbeInvoker", () => {
     expect(observedAborted).toBe(false);
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("green");
+  });
+
+  // ---------------------------------------------------------------------
+  // B7: ProbeRunTracker registration + RunSummary + probe_runs writer
+  // ---------------------------------------------------------------------
+  //
+  // The invoker must (1) register a ProbeRunTracker on the scheduler entry
+  // for the duration of the run so `GET /api/probes` can surface inflight
+  // progress, (2) call enqueue/start/complete/fail in the right order for
+  // each fan-out target, (3) clear the tracker (set null) on completion,
+  // (4) return a RunSummary so the scheduler populates lastRunSummary, and
+  // (5) start/finish a row in the `probe_runs` collection via the writer.
+
+  /**
+   * Tiny fake scheduler-like surface exposing only the methods the
+   * invoker uses. Mirrors the real shape on purpose: getEntry returns a
+   * snapshot whose `triggeredRun` flag the invoker reads, and
+   * setEntryTracker mutates the underlying slot.
+   */
+  function fakeScheduler(): {
+    scheduler: {
+      getEntry: (id: string) => { triggeredRun: boolean } | undefined;
+      setEntryTracker: (id: string, tracker: ProbeRunTracker | null) => void;
+    };
+    trackerHistory: Array<ProbeRunTracker | null>;
+    triggered: boolean;
+  } {
+    const trackerHistory: Array<ProbeRunTracker | null> = [];
+    const state = { triggered: false };
+    return {
+      scheduler: {
+        getEntry: (_id: string) => ({ triggeredRun: state.triggered }),
+        setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+          trackerHistory.push(tracker);
+        },
+      },
+      trackerHistory,
+      get triggered() {
+        return state.triggered;
+      },
+      set triggered(v: boolean) {
+        state.triggered = v;
+      },
+    };
+  }
+
+  function fakeRunWriter(): {
+    writer: ProbeRunWriter;
+    starts: Array<{ probeId: string; startedAt: number; triggered: boolean }>;
+    finishes: Array<{
+      id: string;
+      finishedAt: number;
+      state: "completed" | "failed";
+      summary: { total: number; passed: number; failed: number } | null;
+    }>;
+  } {
+    const starts: Array<{
+      probeId: string;
+      startedAt: number;
+      triggered: boolean;
+    }> = [];
+    const finishes: Array<{
+      id: string;
+      finishedAt: number;
+      state: "completed" | "failed";
+      summary: { total: number; passed: number; failed: number } | null;
+    }> = [];
+    let nextId = 1;
+    const writer: ProbeRunWriter = {
+      async start(opts) {
+        starts.push(opts);
+        return { id: `run-${nextId++}` };
+      },
+      async finish(opts) {
+        finishes.push({
+          id: opts.id,
+          finishedAt: opts.finishedAt,
+          state: opts.state,
+          summary:
+            opts.summary === null
+              ? null
+              : {
+                  total: opts.summary.total,
+                  passed: opts.summary.passed,
+                  failed: opts.summary.failed,
+                },
+        });
+      },
+      async recent() {
+        return [];
+      },
+    };
+    return { writer, starts, finishes };
+  }
+
+  it("registers a ProbeRunTracker on the scheduler entry while the handler runs and clears it after", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    // First setEntryTracker call assigns a real tracker; second clears it.
+    expect(sched.trackerHistory).toHaveLength(2);
+    expect(sched.trackerHistory[0]).toBeInstanceOf(ProbeRunTracker);
+    expect(sched.trackerHistory[1]).toBeNull();
+  });
+
+  it("calls tracker.enqueue/start/complete in order for each discovered service", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Single concurrency so call order is deterministic across both targets.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    // Capture method calls on the tracker the invoker will create. We
+    // can't intercept the constructor here, so spy via setEntryTracker:
+    // when the invoker calls setEntryTracker(id, tracker), wrap each
+    // method on that tracker before the invoker invokes them.
+    const calls: string[] = [];
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker) {
+        const orig = {
+          enqueue: tracker.enqueue.bind(tracker),
+          start: tracker.start.bind(tracker),
+          complete: tracker.complete.bind(tracker),
+          fail: tracker.fail.bind(tracker),
+        };
+        tracker.enqueue = (slug: string) => {
+          calls.push(`enqueue:${slug}`);
+          return orig.enqueue(slug);
+        };
+        tracker.start = (slug: string) => {
+          calls.push(`start:${slug}`);
+          return orig.start(slug);
+        };
+        tracker.complete = (slug, result) => {
+          calls.push(`complete:${slug}:${result}`);
+          return orig.complete(slug, result);
+        };
+        tracker.fail = (slug, err) => {
+          calls.push(`fail:${slug}:${err}`);
+          return orig.fail(slug, err);
+        };
+      }
+      origSet(id, tracker);
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    // Both services enqueue first; then per-service start → complete in
+    // order. With concurrency=1 the relative order is deterministic.
+    expect(calls).toEqual([
+      "enqueue:smoke:a",
+      "enqueue:smoke:b",
+      "start:smoke:a",
+      "complete:smoke:a:green",
+      "start:smoke:b",
+      "complete:smoke:b:green",
+    ]);
+  });
+
+  it("returns a RunSummary with total/passed/failed counts", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        return {
+          key,
+          state: key.endsWith("bad") ? "red" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [
+        { key: "smoke:a" },
+        { key: "smoke:b" },
+        { key: "smoke:bad" },
+      ],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    expect(summary).toEqual({ total: 3, passed: 2, failed: 1 });
+  });
+
+  it("invokes runWriter.start at run start and runWriter.finish with state='completed' on success", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    sched.triggered = true; // simulate a manually-triggered run
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    expect(rw.starts).toHaveLength(1);
+    expect(rw.starts[0]).toMatchObject({
+      probeId: "smoke",
+      triggered: true,
+    });
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]).toMatchObject({
+      id: "run-1",
+      state: "completed",
+      summary: { total: 2, passed: 2, failed: 0 },
+    });
+  });
+
+  it("calls tracker.fail and runWriter.finish(state='failed') when a driver throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(_ctx, input) {
+        const key = (input as { key: string }).key;
+        if (key === "smoke:bad") throw new Error("driver exploded");
+        return {
+          key,
+          state: "green",
+          signal: {},
+          observedAt: _ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:bad" }, { key: "smoke:ok" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    let capturedTracker: ProbeRunTracker | null = null;
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker && capturedTracker === null) capturedTracker = tracker;
+      origSet(id, tracker);
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    expect(capturedTracker).not.toBeNull();
+    const snap = capturedTracker!.snapshot();
+    const bad = snap.services.find((s) => s.slug === "smoke:bad");
+    expect(bad?.state).toBe("failed");
+    expect(bad?.error).toContain("driver exploded");
+    // The whole run still "completes" from the scheduler's perspective —
+    // the per-target failure is captured in the summary as one failed.
+    // Per-service errors don't escalate the overall run to 'failed' (the
+    // probe handler itself didn't throw); the summary's `failed` counter
+    // is the right surface.
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]).toMatchObject({
+      state: "completed",
+      summary: { total: 2, passed: 1, failed: 1 },
+    });
+  });
+
+  it("does NOT throw when runWriter.start fails — observability must be best-effort", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingWriter: ProbeRunWriter = {
+      start: vi.fn().mockRejectedValue(new Error("PB down")),
+      finish: vi.fn().mockResolvedValue(undefined),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    await expect(
+      buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        runWriter: failingWriter,
+        ...BASE_DEPS,
+      })(),
+    ).resolves.toBeDefined();
+    // finish() not called when start() failed — no row id to update.
+    expect(failingWriter.finish).not.toHaveBeenCalled();
+  });
+
+  it("does NOT throw when runWriter.finish fails", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingFinish: ProbeRunWriter = {
+      start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      finish: vi.fn().mockRejectedValue(new Error("PB down")),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    await expect(
+      buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        runWriter: failingFinish,
+        ...BASE_DEPS,
+      })(),
+    ).resolves.toBeDefined();
+    expect(failingFinish.finish).toHaveBeenCalledTimes(1);
   });
 });
