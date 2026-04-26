@@ -227,9 +227,7 @@ export type E2eParityRunConversation = (
  * slugs the rotation walks across. Default reads `registry.json`
  * (mirroring e2e-demos's resolver pattern); tests inject a static list.
  */
-export type E2eParityFleetResolver = (
-  ctx: ProbeContext,
-) => Promise<string[]>;
+export type E2eParityFleetResolver = (ctx: ProbeContext) => Promise<string[]>;
 
 export interface E2eParityDriverDeps {
   launcher?: E2eParityBrowserLauncher;
@@ -284,7 +282,14 @@ function defaultReferenceDir(): string {
   const here = fileURLToPath(import.meta.url);
   // src/probes/drivers/e2e-parity.ts → ../../../fixtures/d6-reference
   // dist/probes/drivers/e2e-parity.js → ../../../fixtures/d6-reference
-  return path.resolve(path.dirname(here), "..", "..", "..", "fixtures", "d6-reference");
+  return path.resolve(
+    path.dirname(here),
+    "..",
+    "..",
+    "..",
+    "fixtures",
+    "d6-reference",
+  );
 }
 
 /**
@@ -381,8 +386,7 @@ export function createE2eParityDriver(
   deps: E2eParityDriverDeps = {},
 ): ProbeDriver<E2eParityDriverInput, E2eParityAggregateSignal> {
   const launcher = deps.launcher ?? defaultLauncher;
-  const attachInterceptor =
-    deps.attachInterceptor ?? defaultAttachInterceptor;
+  const attachInterceptor = deps.attachInterceptor ?? defaultAttachInterceptor;
   const serializeDom = deps.serializeDom ?? defaultSerializeDom;
   const loadReference = deps.loadReference ?? defaultLoadReference;
   const runConv = deps.runConversation ?? defaultRunConversation;
@@ -545,8 +549,11 @@ export function createE2eParityDriver(
       const runnable: D5FeatureType[] = [];
       const skippedScript: D5FeatureType[] = [];
       const skippedRef: { ft: D5FeatureType; refPath: string }[] = [];
-      const invalidRef: { ft: D5FeatureType; refPath: string; reason: string }[] =
-        [];
+      const invalidRef: {
+        ft: D5FeatureType;
+        refPath: string;
+        reason: string;
+      }[] = [];
       const referenceSnapshots = new Map<D5FeatureType, ParitySnapshot>();
       const referencePaths = new Map<D5FeatureType, string>();
 
@@ -619,10 +626,7 @@ export function createE2eParityDriver(
         });
       }
 
-      const skipped = [
-        ...skippedScript,
-        ...skippedRef.map((s) => s.ft),
-      ];
+      const skipped = [...skippedScript, ...skippedRef.map((s) => s.ft)];
 
       // Nothing runnable + nothing failed-on-load → aggregate green.
       // (Invalid ref is still aggregate-red because the reference is

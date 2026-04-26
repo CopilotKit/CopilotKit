@@ -71,17 +71,14 @@ describe("parseSseEvents", () => {
   });
 
   it("ignores SSE comment lines", () => {
-    const payload =
-      ': keep-alive\n' +
-      'data: {"type":"RUN_STARTED"}\n\n';
+    const payload = ": keep-alive\n" + 'data: {"type":"RUN_STARTED"}\n\n';
     const events = parseSseEvents(payload);
     expect(events).toHaveLength(1);
     expect(events[0]!.kind).toBe("json");
   });
 
   it("normalizes CRLF line endings", () => {
-    const payload =
-      'data: {"type":"A"}\r\n\r\n' + 'data: {"type":"B"}\r\n\r\n';
+    const payload = 'data: {"type":"A"}\r\n\r\n' + 'data: {"type":"B"}\r\n\r\n';
     const events = parseSseEvents(payload);
     expect(events).toHaveLength(2);
     expect(events.every((e) => e.kind === "json")).toBe(true);
@@ -240,12 +237,9 @@ describe("computeStreamProfile", () => {
 describe("assembleCapture", () => {
   it("assembles a complete capture from the multi-tool-call fixture", async () => {
     const payload = await loadFixture("multi-tool-call.txt");
-    const cap = assembleCapture(
-      payload,
-      [100, 110, 130, 200],
-      90,
-      ["TOOL_CALL_START"],
-    );
+    const cap = assembleCapture(payload, [100, 110, 130, 200], 90, [
+      "TOOL_CALL_START",
+    ]);
     expect(cap.toolCalls).toEqual([
       "search_flights",
       "book_hotel",
@@ -269,7 +263,9 @@ describe("assembleCapture", () => {
 
   it("counts only successfully parsed JSON records as events", () => {
     const payload =
-      'data: {"type":"A"}\n\n' + 'data: not-json\n\n' + 'data: {"type":"B"}\n\n';
+      'data: {"type":"A"}\n\n' +
+      "data: not-json\n\n" +
+      'data: {"type":"B"}\n\n';
     const cap = assembleCapture(payload, [], 0, ["TOOL_CALL_START"]);
     expect(cap.raw_event_count).toBe(2);
   });

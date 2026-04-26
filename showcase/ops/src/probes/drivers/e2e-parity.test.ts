@@ -207,9 +207,7 @@ describe("e2e-parity driver", () => {
     const driver = createE2eParityDriver({
       launcher: async () => browser,
       attachInterceptor,
-      serializeDom: async () => [
-        { tag: "div", classes: ["copilotkit-chat"] },
-      ],
+      serializeDom: async () => [{ tag: "div", classes: ["copilotkit-chat"] }],
       loadReference: async (): Promise<LoadReferenceResult> => ({
         status: "ok",
         snapshot: reference,
@@ -332,9 +330,7 @@ describe("e2e-parity driver", () => {
     const driver = createE2eParityDriver({
       launcher: async () => browser,
       attachInterceptor,
-      serializeDom: async () => [
-        { tag: "div", classes: ["copilotkit-chat"] },
-      ],
+      serializeDom: async () => [{ tag: "div", classes: ["copilotkit-chat"] }],
       loadReference: async () => ({
         status: "ok",
         snapshot: reference,

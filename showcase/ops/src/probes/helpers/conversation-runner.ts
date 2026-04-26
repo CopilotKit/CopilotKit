@@ -64,8 +64,16 @@ export interface Page {
     selector: string,
     opts?: { timeout?: number; state?: "visible" },
   ): Promise<unknown>;
-  fill(selector: string, value: string, opts?: { timeout?: number }): Promise<void>;
-  press(selector: string, key: string, opts?: { timeout?: number }): Promise<void>;
+  fill(
+    selector: string,
+    value: string,
+    opts?: { timeout?: number },
+  ): Promise<void>;
+  press(
+    selector: string,
+    key: string,
+    opts?: { timeout?: number },
+  ): Promise<void>;
   /**
    * Run a function in the browser page context. The runner uses this
    * (NOT `page.textContent(...)`) for the assistant-message count poll
@@ -156,7 +164,10 @@ export async function runConversation(
   // is reused so we don't re-probe per turn.
   let chatInputSelector: string;
   try {
-    chatInputSelector = await resolveChatInputSelector(page, opts.chatInputSelector);
+    chatInputSelector = await resolveChatInputSelector(
+      page,
+      opts.chatInputSelector,
+    );
   } catch (err) {
     return {
       turns_completed: 0,

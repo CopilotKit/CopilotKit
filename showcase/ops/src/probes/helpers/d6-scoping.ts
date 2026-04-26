@@ -199,11 +199,10 @@ export type LoadReferenceResult =
 export async function loadReferenceSnapshot(
   featureType: D5FeatureType,
   outputDir: string,
-  readFileImpl: (
-    filePath: string,
-    encoding: "utf-8",
-  ) => Promise<string> = (filePath, encoding) =>
-    fs.readFile(filePath, encoding),
+  readFileImpl: (filePath: string, encoding: "utf-8") => Promise<string> = (
+    filePath,
+    encoding,
+  ) => fs.readFile(filePath, encoding),
 ): Promise<LoadReferenceResult> {
   const snapshotPath = path.join(outputDir, `${featureType}.json`);
   let raw: string;

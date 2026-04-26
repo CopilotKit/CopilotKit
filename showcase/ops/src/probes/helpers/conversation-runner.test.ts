@@ -71,18 +71,60 @@ describe("runConversation", () => {
     // the settle window without the tests caring about exact timing.
     const page = makePage({
       evaluateValues: [
-        0, 0, 1, 1, 1, 1, 1, 1, 1, 1, // turn 1 settle
-        1, 1, 2, 2, 2, 2, 2, 2, 2, 2, // turn 2 settle
-        2, 2, 3, 3, 3, 3, 3, 3, 3, 3, // turn 3 settle
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1, // turn 1 settle
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2, // turn 2 settle
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3, // turn 3 settle
       ],
       recorded,
     });
 
     const order: number[] = [];
     const turns: ConversationTurn[] = [
-      { input: "first", assertions: async () => { order.push(1); } },
-      { input: "second", assertions: async () => { order.push(2); } },
-      { input: "third", assertions: async () => { order.push(3); } },
+      {
+        input: "first",
+        assertions: async () => {
+          order.push(1);
+        },
+      },
+      {
+        input: "second",
+        assertions: async () => {
+          order.push(2);
+        },
+      },
+      {
+        input: "third",
+        assertions: async () => {
+          order.push(3);
+        },
+      },
     ];
 
     const result = await runConversation(page, turns, {
@@ -103,8 +145,7 @@ describe("runConversation", () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
     const page = makePage({
       evaluateValues: [
-        0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+        0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
         // turn 3 should never run
       ],
       recorded,
@@ -205,11 +246,9 @@ describe("runConversation", () => {
       },
     };
 
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(1);
     expect(triedSelectors.length).toBeGreaterThanOrEqual(3);
@@ -233,11 +272,10 @@ describe("runConversation", () => {
       },
     };
 
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { chatInputSelector: "#custom-input", assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      chatInputSelector: "#custom-input",
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(1);
     expect(triedSelectors).toEqual(["#custom-input"]);
@@ -261,11 +299,9 @@ describe("runConversation", () => {
 
   it("propagates errors thrown during fill() as a turn failure", async () => {
     const page = makePage({ throwOnFill: new Error("input not editable") });
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(0);
     expect(result.failure_turn).toBe(1);
@@ -312,11 +348,9 @@ describe("runConversation", () => {
         return 1 as never;
       },
     };
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
     expect(result.turns_completed).toBe(1);
   });
 
@@ -335,11 +369,9 @@ describe("runConversation", () => {
         return 0 as never;
       },
     };
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
     expect(result.failure_turn).toBe(1);
     expect(result.error).toContain("non-error string boom");
   });

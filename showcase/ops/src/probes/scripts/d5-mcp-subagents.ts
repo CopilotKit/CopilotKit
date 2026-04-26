@@ -28,10 +28,7 @@ import {
   type D5BuildContext,
   type D5FeatureType,
 } from "../helpers/d5-registry.js";
-import type {
-  ConversationTurn,
-  Page,
-} from "../helpers/conversation-runner.js";
+import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
 
 /**
  * Phrases the final assistant reply MUST contain to prove the entire
@@ -103,9 +100,7 @@ export async function assertChainedReply(page: Page): Promise<void> {
         body: { innerText?: string; textContent?: string };
       };
     };
-    return (
-      win.document.body.innerText ?? win.document.body.textContent ?? ""
-    );
+    return win.document.body.innerText ?? win.document.body.textContent ?? "";
   });
 
   const lower = visibleText.toLowerCase();

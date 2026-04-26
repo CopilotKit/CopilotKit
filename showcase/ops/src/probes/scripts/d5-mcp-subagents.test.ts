@@ -172,9 +172,7 @@ describe("D5 mcp-subagents assertChainedReply", () => {
       "Remote work returns roughly ten hours a week. Surveys cite remote workers and a wider talent pool.",
     );
 
-    await expect(mod.assertChainedReply(page)).rejects.toThrow(
-      /mentorship/,
-    );
+    await expect(mod.assertChainedReply(page)).rejects.toThrow(/mentorship/);
   });
 
   it("throws when the reply is empty", async () => {

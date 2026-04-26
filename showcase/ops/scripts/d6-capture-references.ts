@@ -159,8 +159,8 @@ async function buildDeps(): Promise<ReferenceCaptureDeps> {
 function summaryLine(r: ReferenceCaptureResult): string {
   const tail =
     r.status === "captured"
-      ? r.snapshotPath ?? "(no snapshotPath)"
-      : r.reason ?? "(no reason)";
+      ? (r.snapshotPath ?? "(no snapshotPath)")
+      : (r.reason ?? "(no reason)");
   return `[d6-capture] ${r.featureType} → ${r.status} (${tail})`;
 }
 

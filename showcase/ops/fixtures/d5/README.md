@@ -17,7 +17,7 @@ same file**, each of which matches a different point in the conversation:
   substring. Substring match is **case-sensitive** (see
   `dist/router.js` in the aimock package — `text.includes(match.userMessage)`),
   so prefer fragments that are stable across capitalization (e.g. `"favorite
-  color"` rather than `"What is my favorite color"`).
+color"` rather than `"What is my favorite color"`).
 - Turn 2 user message — matched via a different `userMessage` substring that
   doesn't collide with turn 1.
 - Mid-loop re-invocations after a tool call — matched by `toolCallId` on the
@@ -66,16 +66,16 @@ expected tool calls / replies should be, write JSON.
 
 For each feature type, the authoring inputs were:
 
-| Feature | LGP source files |
-| --- | --- |
-| agentic-chat | `showcase/packages/langgraph-python/src/agents/agentic_chat.py` |
-| tool-rendering | `src/agents/tool_rendering_agent.py` (chains `get_weather` → `search_flights`) + `src/app/demos/tool-rendering/{weather-card,flight-list-card}.tsx` |
-| shared-state | `src/agents/shared_state_read_write.py` (`set_notes` tool, `Preferences` shared state) + `src/app/demos/shared-state-read-write/{notes-card,preferences-card}.tsx` |
-| hitl-approve-deny | `src/agents/hitl_in_app.py` + `src/app/demos/hitl-in-app/{page,approval-dialog}.tsx` (`request_user_approval` frontend tool) |
-| hitl-text-input | `src/agents/hitl_in_chat_agent.py` + `src/app/demos/hitl-in-chat/{page,time-picker-card}.tsx` (`book_call` HITL tool) |
-| gen-ui-headless | `src/app/demos/headless-simple/page.tsx` (`show_card` `useComponent`) — backend agent is `src/agents/main.py` |
-| gen-ui-custom | `src/agents/gen_ui_tool_based.py` + `src/app/demos/gen-ui-tool-based/page.tsx` (`render_bar_chart` / `render_pie_chart`) |
-| mcp-subagents | `src/agents/subagents.py` + `src/app/demos/subagents/{page,delegation-log}.tsx` (`research_agent` / `writing_agent` / `critique_agent`) |
+| Feature           | LGP source files                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| agentic-chat      | `showcase/packages/langgraph-python/src/agents/agentic_chat.py`                                                                                                    |
+| tool-rendering    | `src/agents/tool_rendering_agent.py` (chains `get_weather` → `search_flights`) + `src/app/demos/tool-rendering/{weather-card,flight-list-card}.tsx`                |
+| shared-state      | `src/agents/shared_state_read_write.py` (`set_notes` tool, `Preferences` shared state) + `src/app/demos/shared-state-read-write/{notes-card,preferences-card}.tsx` |
+| hitl-approve-deny | `src/agents/hitl_in_app.py` + `src/app/demos/hitl-in-app/{page,approval-dialog}.tsx` (`request_user_approval` frontend tool)                                       |
+| hitl-text-input   | `src/agents/hitl_in_chat_agent.py` + `src/app/demos/hitl-in-chat/{page,time-picker-card}.tsx` (`book_call` HITL tool)                                              |
+| gen-ui-headless   | `src/app/demos/headless-simple/page.tsx` (`show_card` `useComponent`) — backend agent is `src/agents/main.py`                                                      |
+| gen-ui-custom     | `src/agents/gen_ui_tool_based.py` + `src/app/demos/gen-ui-tool-based/page.tsx` (`render_bar_chart` / `render_pie_chart`)                                           |
+| mcp-subagents     | `src/agents/subagents.py` + `src/app/demos/subagents/{page,delegation-log}.tsx` (`research_agent` / `writing_agent` / `critique_agent`)                            |
 
 A note on naming: the spec calls the eighth fixture `mcp-subagents`. LGP's
 canonical multi-agent demo is `/demos/subagents` (subagents-as-tools).
@@ -154,16 +154,16 @@ fixture pool (first-match-wins).
 
 ## Status of each fixture
 
-| Fixture | Status |
-| --- | --- |
-| `agentic-chat.json` | real (3 turns, no tools) |
-| `tool-rendering.json` | real (1 turn, 2 chained tool calls) |
-| `shared-state.json` | real (2 user turns + 1 tool-routed leg) |
-| `hitl-approve-deny.json` | real (1 turn, frontend HITL tool, approve path) |
-| `hitl-text-input.json` | real (1 turn, frontend HITL tool, text/time picker) |
-| `gen-ui-headless.json` | real (1 turn, `show_card` `useComponent`) |
-| `gen-ui-custom.json` | real (1 turn, custom chart component) |
-| `mcp-subagents.json` | real (1 turn, 3 chained sub-agent delegations) |
+| Fixture                  | Status                                              |
+| ------------------------ | --------------------------------------------------- |
+| `agentic-chat.json`      | real (3 turns, no tools)                            |
+| `tool-rendering.json`    | real (1 turn, 2 chained tool calls)                 |
+| `shared-state.json`      | real (2 user turns + 1 tool-routed leg)             |
+| `hitl-approve-deny.json` | real (1 turn, frontend HITL tool, approve path)     |
+| `hitl-text-input.json`   | real (1 turn, frontend HITL tool, text/time picker) |
+| `gen-ui-headless.json`   | real (1 turn, `show_card` `useComponent`)           |
+| `gen-ui-custom.json`     | real (1 turn, custom chart component)               |
+| `mcp-subagents.json`     | real (1 turn, 3 chained sub-agent delegations)      |
 
 None are marked `pending` — all eight are exercisable on LGP today against the
 agent source as it stands.

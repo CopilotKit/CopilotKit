@@ -166,7 +166,11 @@ export function parseSseEvents(payload: string): ParsedSseEvent[] {
     const raw = dataLines.join("\n");
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      if (
+        parsed !== null &&
+        typeof parsed === "object" &&
+        !Array.isArray(parsed)
+      ) {
         out.push({
           kind: "json",
           raw,
@@ -305,10 +309,7 @@ export function assembleCapture(
     }
   }
   const toolCalls = extractToolCallNames(events, toolCallEventTypes);
-  const streamProfile = computeStreamProfile(
-    chunkTimestampsMs,
-    requestStartMs,
-  );
+  const streamProfile = computeStreamProfile(chunkTimestampsMs, requestStartMs);
   return {
     toolCalls,
     streamProfile,
