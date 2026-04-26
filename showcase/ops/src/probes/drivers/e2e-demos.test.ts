@@ -17,10 +17,37 @@ import type { DiscoverySource } from "../types.js";
 import type { ProbeConfig } from "../loader/schema.js";
 import { logger } from "../../logger.js";
 import type {
+  Logger,
   ProbeContext,
   ProbeResult,
   ProbeResultWriter,
 } from "../../types/index.js";
+
+// In-memory logger spy used by the registry-error and writer-missing
+// dedupe tests. Captures level + msg + meta so assertions can pin the
+// exact log key + bucketing decision (info vs warn) instead of reading
+// stdout. Mirrors the patterns used in railway-services tests.
+interface LogEntry {
+  level: "debug" | "info" | "warn" | "error";
+  msg: string;
+  meta?: Record<string, unknown>;
+}
+function mkSpyLogger(): { logger: Logger; entries: LogEntry[] } {
+  const entries: LogEntry[] = [];
+  const log = (level: LogEntry["level"]) =>
+    (msg: string, meta?: Record<string, unknown>) => {
+      entries.push({ level, msg, meta });
+    };
+  return {
+    logger: {
+      debug: log("debug"),
+      info: log("info"),
+      warn: log("warn"),
+      error: log("error"),
+    },
+    entries,
+  };
+}
 
 // Driver-level tests for the e2e-demos ProbeDriver. The driver fans out over
 // every declared demo of a service and emits one `e2e:<slug>/<featureId>`
@@ -97,6 +124,21 @@ function mkWriter(): {
     },
   };
   return { writer, writes };
+}
+
+function mkCtxWithLogger(
+  writer: ProbeResultWriter | undefined,
+  env: Record<string, string | undefined>,
+  customLogger: Logger,
+): ProbeContext {
+  return {
+    now: () => new Date("2026-04-23T00:00:00Z"),
+    logger: customLogger,
+    env,
+    writer,
+    fetchImpl: globalThis.fetch,
+    abortSignal: new AbortController().signal,
+  };
 }
 
 function mkCtx(
@@ -867,6 +909,517 @@ describe("e2e-demos driver", () => {
       expect(typeof sig?.errorDesc).toBe("string");
       expect(sig.errorDesc).toMatch(/timeout/i);
     }
+  });
+
+  // --- C3: defaultDemosResolver structured registry-error logging --------
+  //
+  // The default resolver previously swallowed all read/parse errors with
+  // an empty `catch {}` — a corrupt or missing registry silently flipped
+  // every e2e_demos cell green forever. These tests pin the structured
+  // logging buckets (read/parse/shape) so a regression that drops one
+  // would surface as a missing log entry instead of silent green.
+
+  it("logs registry-read-failed at info on ENOENT and returns empty demos", async () => {
+    // Missing registry → ENOENT — steady-state in dev. Must downgrade to
+    // info so the alert stream isn't pulsed every tick.
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-demos-enoent-"));
+    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
+    const missingPath = path.join(tmp, "does-not-exist.json");
+
+    const { logger: spy, entries } = mkSpyLogger();
+    const { browser } = makeBrowser([]);
+    const driver = createE2eDemosDriver({ launcher: async () => browser });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtxWithLogger(writer, { REGISTRY_JSON_PATH: missingPath }, spy),
+      {
+        key: "e2e-demos:any",
+        name: "showcase-any",
+        publicUrl: "https://showcase-any.example.com",
+        shape: "package",
+      },
+    );
+
+    // Empty demos → aggregate green, no side rows.
+    expect(result.state).toBe("green");
+    expect(writes).toHaveLength(0);
+
+    // Structural assertion: exactly one info-level read-failed log,
+    // no warn-level read-failed log (ENOENT must downgrade to info).
+    const reads = entries.filter(
+      (e) => e.msg === "probe.e2e-demos.registry-read-failed",
+    );
+    expect(reads).toHaveLength(1);
+    expect(reads[0]?.level).toBe("info");
+    expect(reads[0]?.meta?.path).toBe(missingPath);
+  });
+
+  it("logs registry-parse-failed at warn on corrupt JSON", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-demos-corrupt-"));
+    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
+    const corruptPath = path.join(tmp, "registry.json");
+    fs.writeFileSync(corruptPath, "{ this is not valid json,,,");
+
+    const { logger: spy, entries } = mkSpyLogger();
+    const { browser } = makeBrowser([]);
+    const driver = createE2eDemosDriver({ launcher: async () => browser });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtxWithLogger(writer, { REGISTRY_JSON_PATH: corruptPath }, spy),
+      {
+        key: "e2e-demos:any",
+        name: "showcase-any",
+        publicUrl: "https://showcase-any.example.com",
+        shape: "package",
+      },
+    );
+
+    expect(result.state).toBe("green");
+    expect(writes).toHaveLength(0);
+
+    const parseFails = entries.filter(
+      (e) => e.msg === "probe.e2e-demos.registry-parse-failed",
+    );
+    expect(parseFails).toHaveLength(1);
+    expect(parseFails[0]?.level).toBe("warn");
+    expect(parseFails[0]?.meta?.path).toBe(corruptPath);
+  });
+
+  it("logs registry-shape-invalid at warn when root is not a plain object", async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-demos-shape-"));
+    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
+    const shapePath = path.join(tmp, "registry.json");
+    // JSON-valid but wrong root shape — an array, not an object. The
+    // resolver's shape guard catches this before the property access
+    // would TypeError.
+    fs.writeFileSync(shapePath, '["this", "is", "an", "array"]');
+
+    const { logger: spy, entries } = mkSpyLogger();
+    const { browser } = makeBrowser([]);
+    const driver = createE2eDemosDriver({ launcher: async () => browser });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtxWithLogger(writer, { REGISTRY_JSON_PATH: shapePath }, spy),
+      {
+        key: "e2e-demos:any",
+        name: "showcase-any",
+        publicUrl: "https://showcase-any.example.com",
+        shape: "package",
+      },
+    );
+
+    expect(result.state).toBe("green");
+    expect(writes).toHaveLength(0);
+
+    const shapeFails = entries.filter(
+      (e) => e.msg === "probe.e2e-demos.registry-shape-invalid",
+    );
+    expect(shapeFails).toHaveLength(1);
+    expect(shapeFails[0]?.level).toBe("warn");
+    expect(shapeFails[0]?.meta?.isArray).toBe(true);
+  });
+
+  // --- C5: AbortError classification via err.name (race-proof) -----------
+
+  it("classifies a non-abort error as driver-error even if abort fires concurrently", async () => {
+    // Synthetic launcher that throws a plain TypeError DURING goto AND
+    // simultaneously triggers an external abort. The race-prone classifier
+    // would read `abortSignal.aborted` after the catch, see the abort flag
+    // flipped, and misclassify the TypeError as "abort". The new
+    // classifier reads `err.name === "AbortError"` directly so the
+    // TypeError stays bucketed as "driver-error" (or the goto-error
+    // bucket if the throw happens inside page.goto).
+    const externalCtl = new AbortController();
+    const racyPage: E2eDemosPage = {
+      async goto() {
+        // Fire abort first so the flag is set by the time the catch runs.
+        externalCtl.abort();
+        // Then throw a real driver bug — NOT an AbortError.
+        throw new TypeError("undefined is not a function");
+      },
+      async waitForSelector() {
+        /* never reached */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const racyBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return racyPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const driver = createE2eDemosDriver({
+      launcher: async () => racyBrowser,
+      timeoutMs: 60_000,
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      {
+        now: () => new Date("2026-04-23T00:00:00Z"),
+        logger,
+        env: {},
+        writer,
+        fetchImpl: globalThis.fetch,
+        abortSignal: externalCtl.signal,
+      },
+      {
+        key: "e2e-demos:racy",
+        name: "showcase-racy",
+        publicUrl: "https://showcase-racy.example.com",
+        demos: ["d1"],
+        shape: "package",
+      },
+    );
+
+    expect(result.state).toBe("red");
+    // The single demo's side row must NOT be classified as "abort"
+    // (which would happen with the prior abortSignal.aborted-after-catch
+    // logic). The TypeError is a real driver bug → "goto-error" because
+    // the throw happened inside page.goto.
+    const sideRow = writes.find((w) => w.key === "e2e:racy/d1");
+    expect(sideRow).toBeDefined();
+    const sig = sideRow?.signal as { errorClass?: string };
+    expect(sig?.errorClass).toBe("goto-error");
+    expect(sig?.errorClass).not.toBe("abort");
+  });
+
+  // --- C7: selector-loop is abort-responsive ---------------------------
+
+  it("aborts mid-selector-loop without walking all 5 selectors", async () => {
+    // Slow waitForSelector + cap fires mid-loop. Without the abort
+    // check between iterations, the worst case is 5*pageTimeoutMs per
+    // demo. Assert the loop bails after a small constant number of
+    // selectors (< 5) once the cap fires.
+    const selectorsTried: string[] = [];
+    let resolveFirstSel!: () => void;
+    const firstSelGate = new Promise<void>((r) => {
+      resolveFirstSel = r;
+    });
+
+    const slowSelectorPage: E2eDemosPage = {
+      async goto() {
+        /* immediate */
+      },
+      async waitForSelector(sel: string) {
+        selectorsTried.push(sel);
+        if (selectorsTried.length === 1) {
+          // First selector: wait until the test releases us, then throw
+          // so the loop continues to the next selector. By that time
+          // the cap should have fired and the next iteration's abort
+          // check should bail.
+          await firstSelGate;
+          throw new Error(`Timeout for ${sel}`);
+        }
+        throw new Error(`Timeout for ${sel}`);
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowSelectorBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowSelectorPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowSelectorBrowser,
+      timeoutMs: 50,
+      pageTimeoutMs: 30_000,
+    });
+    const { writer, writes } = mkWriter();
+
+    const runP = driver.run(mkCtx(writer), {
+      key: "e2e-demos:abort-mid-loop",
+      name: "showcase-abort-mid-loop",
+      publicUrl: "https://showcase-abort-mid-loop.example.com",
+      demos: ["d1"],
+      shape: "package",
+    });
+
+    // Let the cap fire (50ms) before the first selector resolves.
+    await new Promise((r) => setTimeout(r, 100));
+    resolveFirstSel();
+    const result = await runP;
+
+    expect(result.state).toBe("red");
+    // Strict: only the first selector should have been attempted; the
+    // mid-loop abort check must bail before the second iteration runs.
+    expect(selectorsTried.length).toBeLessThan(5);
+    // Side row must reflect either abort or selector-error/timeout, NOT
+    // a wall-clock-bloated five-selector walk.
+    const sideRow = writes.find((w) => w.key === "e2e:abort-mid-loop/d1");
+    const sig = sideRow?.signal as { errorClass?: string };
+    expect(["abort", "selector-error", "selector-timeout"]).toContain(
+      sig?.errorClass,
+    );
+  });
+
+  // --- C8: empty-string route → red config-invalid row ------------------
+
+  it("emits red config-invalid for entries with route: ''", async () => {
+    const { browser } = makeBrowser([]);
+    const driver = createE2eDemosDriver({
+      launcher: async () => browser,
+      demosResolver: async () => [
+        { id: "broken-demo", route: "" },
+      ],
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-demos:foo",
+      name: "showcase-foo",
+      publicUrl: "https://showcase-foo.example.com",
+      shape: "package",
+    });
+
+    expect(result.state).toBe("red");
+    const sig = result.signal as E2eDemosAggregateSignal;
+    expect(sig.failed).toEqual(["broken-demo"]);
+
+    const sideRow = writes.find((w) => w.key === "e2e:foo/broken-demo");
+    expect(sideRow?.state).toBe("red");
+    const rowSig = sideRow?.signal as { errorClass?: string; errorDesc?: string };
+    expect(rowSig?.errorClass).toBe("config-invalid");
+    expect(rowSig?.errorDesc).toBe("route is empty string");
+  });
+
+  // --- C9: abort branch fires-and-forgets sideEmit ----------------------
+
+  it("does not block on slow writer when abort fires mid-fan-out", async () => {
+    // Slow goto so the cap fires after demo 1; remaining demos hit the
+    // pre-iteration abort branch. The writer is intentionally slow on
+    // every write — if the driver awaited sideEmit on the abort branch
+    // the run would be gated on N * writerLatency, defeating prompt
+    // shutdown. With void-ed sideEmit the driver returns promptly and
+    // the writes drain in the background.
+    let writeCount = 0;
+    const slowWriter: ProbeResultWriter = {
+      async write() {
+        writeCount++;
+        await new Promise((r) => setTimeout(r, 200));
+        return undefined;
+      },
+    };
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        await new Promise((r) => setTimeout(r, 30));
+      },
+      async waitForSelector() {
+        /* match immediately */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      timeoutMs: 40,
+    });
+
+    const startedAt = Date.now();
+    const result = await driver.run(mkCtxWithLogger(slowWriter, {}, logger), {
+      key: "e2e-demos:slow-writer",
+      name: "showcase-slow-writer",
+      publicUrl: "https://showcase-slow-writer.example.com",
+      demos: ["d1", "d2", "d3", "d4", "d5"],
+      shape: "package",
+    });
+    const elapsed = Date.now() - startedAt;
+
+    expect(result.state).toBe("red");
+    // The driver must return well before N * 200ms (which would happen
+    // if the abort-branch writes were awaited). Allow generous slack:
+    // 5 * 200ms = 1000ms; we expect <500ms.
+    expect(elapsed).toBeLessThan(500);
+    // Drain any pending background writes so the test doesn't leave
+    // dangling timers.
+    await new Promise((r) => setTimeout(r, 1500));
+    // At least one demo's writes started.
+    expect(writeCount).toBeGreaterThan(0);
+  });
+
+  // --- C10: writer-missing warn fires once per run ----------------------
+
+  it("emits at most one writer-missing warn per run regardless of demo count", async () => {
+    const { browser } = makeBrowser([{}, {}, {}, {}, {}]);
+    const { logger: spy, entries } = mkSpyLogger();
+    const driver = createE2eDemosDriver({ launcher: async () => browser });
+
+    // No writer plumbed.
+    const result = await driver.run(
+      mkCtxWithLogger(undefined, {}, spy),
+      {
+        key: "e2e-demos:no-writer",
+        name: "showcase-no-writer",
+        publicUrl: "https://showcase-no-writer.example.com",
+        demos: ["d1", "d2", "d3", "d4", "d5"],
+        shape: "package",
+      },
+    );
+
+    expect(result.state).toBe("green");
+    const warns = entries.filter(
+      (e) => e.msg === "probe.e2e-demos.writer-missing",
+    );
+    // Exactly one warn even though 5 side-emits were attempted.
+    expect(warns).toHaveLength(1);
+  });
+
+  // --- C11: per-demo wall-clock bound by pageTimeoutMs ------------------
+
+  it("bounds total per-demo wall-clock to pageTimeoutMs across goto + selectors", async () => {
+    // Each waitForSelector consumes the remaining budget but never
+    // resolves until forced. The total per-demo wall-clock must stay
+    // close to pageTimeoutMs (e.g. 200ms) — NOT 5 * pageTimeoutMs
+    // (which the prior implementation would have allowed).
+    const selectorsTried: string[] = [];
+    const sleepyPage: E2eDemosPage = {
+      async goto() {
+        /* immediate */
+      },
+      async waitForSelector(sel: string, opts) {
+        selectorsTried.push(sel);
+        // Honour the per-call timeout. If the driver passed the FULL
+        // pageTimeoutMs to every selector, this sleep would multiply
+        // up; if it passed a remaining-budget timeout, we'd see a
+        // strictly decreasing series of sleeps that sum to <= budget.
+        const t = (opts && typeof opts.timeout === "number" ? opts.timeout : 50);
+        await new Promise((r) => setTimeout(r, t));
+        throw new Error(`Timeout waiting for ${sel}`);
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const sleepyBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return sleepyPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => sleepyBrowser,
+      timeoutMs: 5_000,
+      pageTimeoutMs: 200,
+    });
+    const { writer, writes } = mkWriter();
+
+    const startedAt = Date.now();
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-demos:bounded",
+      name: "showcase-bounded",
+      publicUrl: "https://showcase-bounded.example.com",
+      demos: ["d1"],
+      shape: "package",
+    });
+    const elapsed = Date.now() - startedAt;
+
+    expect(result.state).toBe("red");
+    // Sum of selector waits must not exceed pageTimeoutMs (with slack):
+    // 1 demo * 200ms budget. Allow 400ms slack for goto + scheduler.
+    expect(elapsed).toBeLessThan(600);
+    expect(selectorsTried.length).toBeGreaterThan(0);
+    expect(writes[0]?.state).toBe("red");
+  });
+
+  // --- C12: custom resolver throws → synthetic __resolver red row -------
+
+  it("emits synthetic resolver-error side row when custom resolver throws", async () => {
+    const { browser } = makeBrowser([]);
+    const driver = createE2eDemosDriver({
+      launcher: async () => browser,
+      demosResolver: async () => {
+        throw new Error("registry adapter exploded");
+      },
+    });
+    const { writer, writes } = mkWriter();
+    const { logger: spy, entries } = mkSpyLogger();
+
+    const result = await driver.run(
+      mkCtxWithLogger(writer, {}, spy),
+      {
+        key: "e2e-demos:exploded",
+        name: "showcase-exploded",
+        publicUrl: "https://showcase-exploded.example.com",
+        shape: "package",
+      },
+    );
+
+    // A synthetic side row surfaces the configuration mistake distinctly
+    // from a green-aggregate-with-empty-demos masquerade.
+    const synthetic = writes.find(
+      (w) => w.key === "e2e:exploded/__resolver",
+    );
+    expect(synthetic).toBeDefined();
+    expect(synthetic?.state).toBe("red");
+    const sig = synthetic?.signal as { errorClass?: string; errorDesc?: string };
+    expect(sig?.errorClass).toBe("resolver-error");
+    expect(sig?.errorDesc).toMatch(/exploded/);
+
+    // Aggregate primary still emits — the orchestrator's writer sees
+    // both a synthetic red row and the green aggregate; alert rules
+    // can branch on `__resolver` to surface the bug.
+    expect(result.key).toBe("e2e-demos:exploded");
+
+    // Log carries errName + stack for debuggability.
+    const failLogs = entries.filter(
+      (e) => e.msg === "probe.e2e-demos.demos-resolve-failed",
+    );
+    expect(failLogs).toHaveLength(1);
+    expect(failLogs[0]?.meta?.errName).toBe("Error");
   });
 
 });
