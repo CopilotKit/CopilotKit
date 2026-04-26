@@ -25,9 +25,12 @@ export interface CatalogCell {
   category_name: string | null;
 }
 
+/** Achieved depth on the D0-D4 ladder. */
+export type AchievedDepth = 0 | 1 | 2 | 3 | 4;
+
 export interface DepthResult {
   /** Highest contiguous depth achieved (0-4). */
-  achieved: number;
+  achieved: AchievedDepth;
   /** Whether depth has regressed from a previous high-water mark. Always false for now. */
   isRegression: boolean;
 }
@@ -53,7 +56,7 @@ export function deriveDepth(
   }
 
   // D0: cell exists (wired or stub) — always true if we reach here.
-  let achieved = 0;
+  let achieved: AchievedDepth = 0;
 
   // D1: health:<slug> green
   if (!isGreen(live, keyFor("health", cell.integration))) {
