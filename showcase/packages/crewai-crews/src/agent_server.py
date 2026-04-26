@@ -158,12 +158,14 @@ def _splice_forwarded_props(body: Any) -> Any:
     forwarded = body.get("forwardedProps")
     if not _has_agent_config_props(forwarded):
         return body
+    # _has_agent_config_props guarantees forwarded is a dict — narrow for type checker.
+    assert isinstance(forwarded, dict)
 
     existing_state = body.get("state")
-    state = existing_state if isinstance(existing_state, dict) else {}
+    state: dict[str, Any] = existing_state if isinstance(existing_state, dict) else {}
 
-    inputs = state.get("inputs") if isinstance(state.get("inputs"), dict) else {}
-    inputs = dict(inputs)  # copy
+    raw_inputs = state.get("inputs")
+    inputs: dict[str, Any] = dict(raw_inputs) if isinstance(raw_inputs, dict) else {}
     # Build a prose guidance string the LLM can actually follow. The upstream
     # flow appends `Current inputs: {json}` verbatim to the system prompt —
     # raw enum values ("casual", "intermediate", "concise") are ambiguous,

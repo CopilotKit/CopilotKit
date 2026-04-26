@@ -180,10 +180,12 @@ def _splice_forwarded_props(body):
     forwarded = body.get("forwardedProps")
     if not _has_agent_config_props(forwarded):
         return body
+    # _has_agent_config_props guarantees forwarded is a dict — narrow for type checker.
+    assert isinstance(forwarded, dict)
     existing_state = body.get("state")
-    state = existing_state if isinstance(existing_state, dict) else {}
-    inputs = state.get("inputs") if isinstance(state.get("inputs"), dict) else {}
-    inputs = dict(inputs)
+    state: dict[str, Any] = existing_state if isinstance(existing_state, dict) else {}
+    raw_inputs = state.get("inputs")
+    inputs: dict[str, Any] = dict(raw_inputs) if isinstance(raw_inputs, dict) else {}
     tone = forwarded.get("tone")
     expertise = forwarded.get("expertise")
     response_length = forwarded.get("responseLength")
@@ -398,7 +400,11 @@ def test_real_agent_server_streams_post_root_without_runtimeerror():
 
         app.post(path)(_make_stub())
 
-    ag_ui_crewai_endpoint.add_crewai_crew_fastapi_endpoint = _add_crewai_crew_fastapi_endpoint
+    setattr(
+        ag_ui_crewai_endpoint,
+        "add_crewai_crew_fastapi_endpoint",
+        _add_crewai_crew_fastapi_endpoint,
+    )
     sys.modules["ag_ui_crewai"] = ag_ui_crewai
     sys.modules["ag_ui_crewai.endpoint"] = ag_ui_crewai_endpoint
 
@@ -411,12 +417,18 @@ def test_real_agent_server_streams_post_root_without_runtimeerror():
                  "byoc_json_render_agent", "declarative_gen_ui"):
         m = types.ModuleType(f"agents.{name}")
         sys.modules[f"agents.{name}"] = m
-    sys.modules["agents.crew"].LatestAiDevelopment = lambda: object()
-    sys.modules["agents.a2ui_fixed"].A2UIFixedSchema = lambda: object()
-    sys.modules["agents.beautiful_chat"].BeautifulChat = lambda: object()
-    sys.modules["agents.byoc_hashbrown_agent"].ByocHashbrown = lambda: object()
-    sys.modules["agents.byoc_json_render_agent"].ByocJsonRender = lambda: object()
-    sys.modules["agents.declarative_gen_ui"].DeclarativeGenUI = lambda: object()
+    setattr(sys.modules["agents.crew"], "LatestAiDevelopment", lambda: object())
+    setattr(sys.modules["agents.a2ui_fixed"], "A2UIFixedSchema", lambda: object())
+    setattr(sys.modules["agents.beautiful_chat"], "BeautifulChat", lambda: object())
+    setattr(
+        sys.modules["agents.byoc_hashbrown_agent"], "ByocHashbrown", lambda: object()
+    )
+    setattr(
+        sys.modules["agents.byoc_json_render_agent"], "ByocJsonRender", lambda: object()
+    )
+    setattr(
+        sys.modules["agents.declarative_gen_ui"], "DeclarativeGenUI", lambda: object()
+    )
 
     # Now import the real module. This will fail loudly pre-fix because the
     # middleware class is referenced; the test's intent is to exercise the
