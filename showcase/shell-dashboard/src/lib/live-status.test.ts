@@ -353,6 +353,22 @@ describe("formatTooltip behaviour (via resolveCell)", () => {
     expect(c.e2e.tooltip).toContain("2026-04-22T08:00:00Z");
   });
 
+  // D1: `observed_at` on a degraded row is when the dim was last *seen*
+  // (most recent tick recorded that state), NOT when it last *passed*.
+  // The tooltip copy must reflect that — operators reading
+  // "last pass @ ..." would think the dim last went green at that
+  // timestamp, when it was actually still degraded then.
+  it("degraded tooltip says 'last seen' not 'last pass' (D1)", () => {
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "degraded", {
+        observed_at: "2026-04-22T08:00:00Z",
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.e2e.tooltip).toContain("last seen @ 2026-04-22T08:00:00Z");
+    expect(c.e2e.tooltip).not.toContain("last pass");
+  });
+
   it("red tooltip surfaces non-empty signal summary (LS8)", () => {
     const live = mapOf([
       row("e2e:a/b", "e2e", "red", {
