@@ -390,7 +390,12 @@ describe("captureReferenceForFeature", () => {
     const result = await captureReferenceForFeature(FEATURE, ctx, harness.deps);
 
     expect(result.status).toBe("failed");
-    expect(result.reason).toContain("conversation failed on turn 1");
+    // Bug fix R7: the per-turn slice always reports `failure_turn === 1`
+    // (its slice-local index). The capture helper must translate to
+    // the OUTER 1-based turn index — here, the SECOND turn failed, so
+    // the reason must say "turn 2", NOT "turn 1".
+    expect(result.reason).toContain("conversation failed on turn 2");
+    expect(result.reason).not.toContain("conversation failed on turn 1");
     expect(result.reason).toContain("timeout");
     expect(harness.writes).toHaveLength(0);
     // Both turn interceptors attach/stop happened.

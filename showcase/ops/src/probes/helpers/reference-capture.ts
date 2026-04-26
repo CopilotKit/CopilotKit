@@ -243,10 +243,17 @@ export async function captureReferenceForFeature(
       perTurnCaptures.push(capture);
 
       if (turnResult.failure_turn !== undefined) {
+        // We slice the conversation per-turn so the interceptor only
+        // sees that turn's request. `runConversation` therefore always
+        // reports `failure_turn === 1` (its own slice-local index).
+        // Translate back to the OUTER 1-based turn index — without
+        // this, every per-turn capture failure looks like "turn 1
+        // failed" no matter which turn actually failed.
+        const outerTurnIndex = i + 1;
         return {
           featureType,
           status: "failed",
-          reason: `conversation failed on turn ${turnResult.failure_turn}: ${
+          reason: `conversation failed on turn ${outerTurnIndex}: ${
             turnResult.error ?? "unknown error"
           }`,
         };
