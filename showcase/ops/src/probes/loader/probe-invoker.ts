@@ -658,6 +658,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // still observes the rejection and routes it through the catch
     // block when `timedOut === false`.
     void driverPromise.catch((err) => {
+      // Guard: a driver rejection BEFORE the timeout fires reaches both
+      // this detached observer AND the outer `try/catch` (which logs
+      // `probe.run-failed` and emits the `driver-error` synthetic). Without
+      // this guard we'd double-log on every normal rejection. Only fire
+      // for true late rejections — i.e. the timeout path won the race
+      // and the driver rejected afterwards.
+      if (!timedOut) return;
       logger.debug("probe.driver-late-rejection", {
         probeId,
         kind: driver.kind,

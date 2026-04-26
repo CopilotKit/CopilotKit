@@ -1912,6 +1912,69 @@ describe("buildProbeInvoker", () => {
     });
   });
 
+  // Normal driver rejection (BEFORE timeout) must produce a single
+  // `probe.run-failed` log — NOT a duplicate `probe.driver-late-rejection`.
+  // The detached-catch observer is guarded behind `timedOut === true` so
+  // only the timeout-and-then-late path emits the late-rejection key.
+  it("does not double-log on normal driver rejection (no late-rejection log)", async () => {
+    const debugCalls: { msg: string; meta?: Record<string, unknown> }[] = [];
+    const errorCalls: { msg: string; meta?: Record<string, unknown> }[] = [];
+    const captureLogger = {
+      debug: (msg: string, meta?: Record<string, unknown>) => {
+        debugCalls.push({ msg, meta });
+      },
+      info: () => {},
+      warn: () => {},
+      error: (msg: string, meta?: Record<string, unknown>) => {
+        errorCalls.push({ msg, meta });
+      },
+    };
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        // Reject promptly — well under the timeout. The race observes
+        // this rejection in the outer catch (which logs run-failed);
+        // the detached `.catch` MUST NOT also fire its late-rejection
+        // log because we never timed out.
+        throw new Error("normal-failure");
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      // timeout_ms set so we go through the race path (with a detached
+      // catch attached), but the driver rejects WAY before the timer.
+      timeout_ms: 5000,
+      targets: [{ key: "smoke:fast-failure" }],
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+      logger: captureLogger,
+    })();
+    // Microtask flush so the detached `.catch` would have fired by now
+    // if the guard were missing.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+    // Exactly one `run-failed` log. No `driver-late-rejection` log
+    // since the guard `if (!timedOut) return;` short-circuits before
+    // the debug call.
+    const runFailed = errorCalls.filter((c) => c.msg === "probe.run-failed");
+    expect(runFailed).toHaveLength(1);
+    const lateRejection = debugCalls.filter(
+      (c) => c.msg === "probe.driver-late-rejection",
+    );
+    expect(lateRejection).toHaveLength(0);
+  });
+
   it("does NOT warn key-shadowed when record's `key` matches interpolated key", async () => {
     const warns: { msg: string }[] = [];
     const captureLogger = {
