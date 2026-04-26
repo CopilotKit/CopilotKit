@@ -223,13 +223,21 @@ export function buildProbeInvoker(
     // Surface a synthetic-error ProbeResult (so the alert-engine sees a
     // non-green tick) and persist state="failed" with discoveryFailed:true
     // so operators can tell "no targets" from "discovery broke."
+    //
+    // R2-A.1: do NOT call `tracker.fail(cfg.id, ...)` — the probe id is
+    // not a service slug, and stuffing it into the tracker pollutes the
+    // per-service inflight roster surfaced by GET /api/probes. The
+    // failure is conveyed structurally via `discoveryFailed: true` in
+    // the snapshot/summary; the synthetic-error ProbeResult below
+    // carries the human-readable description through to the writer.
+    // The failed-counter here counts the discovery itself as the single
+    // failed unit so RunSummary's invariant holds (total === passed+failed).
     if (!resolved.ok) {
       const errResult = syntheticError(
         cfg.id,
         `discovery enumerate failed: ${resolved.error}`,
         now,
       );
-      tracker.fail(cfg.id, resolved.error);
       failed++;
       try {
         await writer.write(errResult);
@@ -344,8 +352,13 @@ export function buildProbeInvoker(
         err: err instanceof Error ? err.message : String(err),
       });
     } finally {
+      // R2-A.1: when discovery failed, treat the discovery itself as a
+      // single failed unit so the RunSummary invariant
+      // (total === passed + failed) holds. inputs.length is 0 in that
+      // case (no per-target fan-out), and `failed` was bumped by 1
+      // above for the synthetic-error tile, so total must be 1 too.
       const summary: RunSummary = {
-        total: inputs.length,
+        total: resolved.ok ? inputs.length : 1,
         passed,
         failed,
         ...(resolved.ok ? {} : { discoveryFailed: true }),
@@ -379,8 +392,10 @@ export function buildProbeInvoker(
       scheduler?.setEntryTracker(cfg.id, null);
     }
 
+    // R2-A.1: same total-vs-(passed+failed) invariant in the return —
+    // mirror the persisted summary above.
     return {
-      total: inputs.length,
+      total: resolved.ok ? inputs.length : 1,
       passed,
       failed,
       ...(resolved.ok ? {} : { discoveryFailed: true }),
@@ -483,6 +498,13 @@ async function resolveInputs(
         },
         cfg.discovery.filter ?? {},
       );
+      // R2-A.3: absorb late rejections from enumerate — same rationale
+      // as R2-A.2. If the timeoutPromise wins, the enumerate promise
+      // continues running and may eventually reject; without a catch
+      // that becomes an UnhandledRejection. Attach a no-op catch so
+      // the orphan tail is silenced; the actual race outcome is still
+      // decided by whichever promise settles first.
+      enumeratePromise.catch(() => {});
       if (timeoutMs === undefined) {
         records = await enumeratePromise;
       } else {
@@ -740,7 +762,17 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
         { once: true },
       );
     });
-    return await Promise.race([driver.run(ctx, parsed.data), timeoutPromise]);
+    // R2-A.2: when the timeoutPromise wins the race, the driver promise
+    // is left dangling. Without a catch handler, a late rejection from
+    // the driver (e.g. a misbehaved driver that ignored abortSignal)
+    // surfaces as an UnhandledRejection — fatal under Node's
+    // `--unhandled-rejections=throw` default. Attach a no-op catch
+    // BEFORE the race so the late rejection has a handler regardless
+    // of which side wins. The race outcome is decided by whoever
+    // settles first; the catch only swallows the orphaned tail.
+    const driverPromise = driver.run(ctx, parsed.data);
+    driverPromise.catch(() => {});
+    return await Promise.race([driverPromise, timeoutPromise]);
   } catch (err) {
     // If the driver rejected *because* it observed our abort, surface
     // the timeout synthetic-error rather than the driver's opaque
