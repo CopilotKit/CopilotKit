@@ -61,10 +61,10 @@ const BaseFields = {
   // still-reasonable budget addition doesn't push us back through this
   // file. The previous 900_000 (15 min) cap REJECTED `e2e-demos.yml` at
   // probe-loader parse-time — probe was dead-on-arrival in production
-  // (the 845/847 unit-suite passed because probe-loader unit tests use
-  // stub configs, not the real YAMLs). Keep the positive() / int()
-  // guards — a negative or non-integer timeout is a typo, not a valid
-  // long-running budget.
+  // (probe-loader unit tests pass with stub configs, not the real
+  // YAMLs, so this only surfaces in integration). Keep the positive() /
+  // int() guards — a negative or non-integer timeout is a typo, not a
+  // valid long-running budget.
   timeout_ms: z.number().int().positive().max(1_800_000).optional(),
   /**
    * Max simultaneous per-target invocations per tick. Bounded [1, 32] —

@@ -7,6 +7,18 @@ import type {
   ProbeResultWriter,
 } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import { truncateUtf8 } from "../../render/filters.js";
+
+/**
+ * Bound the size of any string flowing into a synthetic-error ProbeResult.
+ * Driver throws can carry multi-MB Playwright stack traces or browser
+ * console dumps; without truncation those propagate untouched into
+ * Pocketbase rows and Slack alerts, blowing past render budgets and
+ * making the dashboard unreadable. Same budget the e2e drivers use
+ * (`drivers/e2e-demos.ts`, `drivers/e2e-smoke.ts` — both at 1200) so the
+ * synthetic path matches what drivers self-truncate to.
+ */
+const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
 
 /**
  * Dependencies the invoker needs at build time. Kept as a single options
@@ -163,22 +175,12 @@ export function buildProbeInvoker(
     // up. Without this, the largest service (e.g. 38 demos) starting at
     // t=0 occupies a worker slot for the entire fan-out and small
     // services queue behind it — head-of-line blocking that delays
-    // useful signal. Sorting puts small services first so they complete
-    // and free slots while the big one chews through its demo list. Tie-
-    // break on `key` ascending so dispatch order is fully deterministic
-    // across ticks regardless of the discovery source's enumeration
-    // order. Gated strictly on `cfg.kind === "e2e_demos"`; other probe
-    // kinds keep their resolveInputs-order dispatch.
+    // useful signal under bounded concurrency. Sorting puts small
+    // services first so they complete and free slots while the big one
+    // chews through its demo list, reducing tail latency. Tie-break on
+    // `key` ascending so dispatch order is fully deterministic across
+    // ticks regardless of the discovery source's enumeration order.
     //
-    // Source of `demos` on the input: the `railway-services` discovery
-    // source reads `registry.json` once per `enumerate()` call and
-    // joins demos by slug onto every emitted record (see
-    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
-    // BEFORE we land here, so `demoCount(input)` returns a real count
-    // for production records. Static-target probe configs (no
-    // discovery) don't carry `demos`, but they also can't be
-    // `kind: e2e_demos` in practice — the gate below short-circuits
-    // anyway.
     // Gate is `kind === "e2e_demos" && "discovery" in cfg` — the second
     // half blocks a hypothetical static-targets `e2e_demos` config from
     // sorting alphabetically. A static config's records lack `demos`,
@@ -186,12 +188,47 @@ export function buildProbeInvoker(
     // on `key` would silently re-order the YAML. Tightening here keeps
     // the YAML's authored order authoritative for any non-discovery
     // shape that might land later.
+    //
+    // Source of `demos` on the input: the `railway-services` discovery
+    // source reads `registry.json` once per `enumerate()` call and
+    // joins demos by slug onto every emitted record (see
+    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
+    // BEFORE we land here, so `demoCount(input)` returns a real count
+    // for production records.
     if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
-      inputs.sort((a, b) => {
-        const da = demoCount(a.input);
-        const db = demoCount(b.input);
-        if (da !== db) return da - db;
-        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      // Skip the sort entirely when every input has demoCount=0 — the
+      // tie-break on `key` would silently re-order discovery's natural
+      // emission order without operator signal. The most common cause
+      // is `registry.json` missing/corrupt at the discovery source, so
+      // emit a structured warn so the operator can correlate.
+      const anyDemos = inputs.some((i) => demoCount(i.input) > 0);
+      if (!anyDemos) {
+        logger.warn("probe.e2e-demos.sort-no-demos", {
+          probeId: cfg.id,
+          inputCount: inputs.length,
+          hint: "every record has demoCount=0; registry.json may be missing/corrupt",
+        });
+      } else {
+        inputs.sort((a, b) => {
+          const da = demoCount(a.input);
+          const db = demoCount(b.input);
+          if (da !== db) return da - db;
+          return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+        });
+      }
+    }
+
+    // Discovery returned zero records (or every record was filtered out
+    // by `nameExcludes` upstream). Static / single-target probes can't
+    // hit this path — the schema requires `min(1)` for both. Emit a
+    // structured info log so operators can correlate "no signal" against
+    // "discovery returned empty"; without this the tick is silent.
+    // Behaviour is unchanged: zero inputs still mean zero writes for
+    // this tick.
+    if (inputs.length === 0) {
+      logger.info("probe.no-inputs", {
+        probeId: cfg.id,
+        kind: cfg.kind,
       });
     }
 
@@ -201,10 +238,11 @@ export function buildProbeInvoker(
     let cursor = 0;
     const runOne = async (): Promise<void> => {
       while (cursor < inputs.length) {
+        // Invariant: `idx < inputs.length` from the loop precondition,
+        // so `inputs[idx]` is always defined. Non-null assertion avoids
+        // a dead defensive guard.
         const idx = cursor++;
-        const item = inputs[idx];
-        if (!item) break;
-        const { input, key } = item;
+        const { input, key } = inputs[idx]!;
         const result = await executeOne({
           input,
           key,
@@ -362,11 +400,18 @@ async function resolveInputs(
       // the success path. An unconditional `abort()` in the finally
       // signals timeout-on-success to any source listener that
       // snapshots `signal.reason` — exactly the inverse of what the
-      // signal is meant to represent. Listener-cleanup is not a real
-      // concern: the AbortController is local to this function call,
-      // nothing outside resolveInputs holds a reference, and any
-      // listeners attached by the source die with the controller as
-      // soon as this function returns and the controller is GC'd.
+      // signal is meant to represent.
+      //
+      // Listener-leak window: any `signal.addEventListener("abort", ...)`
+      // closures attached by the source remain reachable through
+      // `discoveryAbort.signal` until this function returns and the
+      // controller becomes unreachable. We have no API to remove them
+      // explicitly (the source owns the listener it registered, not
+      // us), so the window is bounded by GC of the controller after
+      // resolveInputs returns. For long-lived sources this is a slow
+      // leak per probe tick rather than per record; in practice GC
+      // reclaims it on the next major collection. Acceptable until/
+      // unless we measure it as a hot spot.
     }
     return records.map((record, idx) => {
       const key = interpolateTemplate(
@@ -382,7 +427,16 @@ async function resolveInputs(
       // Arrays match `typeof === "object"` but spread-with-key would
       // strip array shape, so guard explicitly.
       let input: unknown;
-      if (record && typeof record === "object" && !Array.isArray(record)) {
+      // Object-shape gate: arrays match `typeof === "object"` but spread-
+      // with-key would strip array shape. Null/undefined/primitive records
+      // (string/number/boolean) all fall through to the `{ key }`-only
+      // input below and now carry a structured warn so silent zero-info
+      // inputs surface in the log.
+      if (
+        record !== null &&
+        typeof record === "object" &&
+        !Array.isArray(record)
+      ) {
         // If the discovery source already emitted a `key` field whose
         // value differs from the interpolated one, the spread+overwrite
         // below silently shadows it. Surface a structured warning so
@@ -406,13 +460,19 @@ async function resolveInputs(
         }
         input = { ...(record as Record<string, unknown>), key };
       } else {
-        if (Array.isArray(record)) {
-          logger.warn("probe.discovery-record-non-object", {
-            probeId: cfg.id,
-            recordIndex: idx,
-            recordKind: "array",
-          });
-        }
+        // Single warn key for every non-object record (array, null,
+        // primitive). The `recordKind` field discriminates so log
+        // consumers can branch without parsing free-form messages.
+        const recordKind = Array.isArray(record)
+          ? "array"
+          : record === null
+            ? "null"
+            : typeof record;
+        logger.warn("probe.discovery-record-non-object", {
+          probeId: cfg.id,
+          recordIndex: idx,
+          recordKind,
+        });
         input = { key };
       }
       return { input, key };
@@ -620,7 +680,9 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       ? setTimeout(() => {
           timedOut = true;
           if (resolveTimeout) {
-            resolveTimeout(syntheticError(key, timeoutReason, now, "timeout"));
+            resolveTimeout(
+              syntheticError(key, timeoutReason, now, "timeout", "TimeoutError"),
+            );
           }
           // Notify the driver via abort so a well-behaved driver can
           // stop in-flight work; this is decoupled from the timeout
@@ -658,6 +720,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // still observes the rejection and routes it through the catch
     // block when `timedOut === false`.
     void driverPromise.catch((err) => {
+      // Guard: a driver rejection BEFORE the timeout fires reaches both
+      // this detached observer AND the outer `try/catch` (which logs
+      // `probe.run-failed` and emits the `driver-error` synthetic). Without
+      // this guard we'd double-log on every normal rejection. Only fire
+      // for true late rejections — i.e. the timeout path won the race
+      // and the driver rejected afterwards.
+      if (!timedOut) return;
       logger.debug("probe.driver-late-rejection", {
         probeId,
         kind: driver.kind,
@@ -673,7 +742,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // "AbortError" message. Otherwise fall through to the normal
     // error-to-synthetic path so siblings still proceed.
     if (timedOut) {
-      return syntheticError(key, timeoutReason, now, "timeout");
+      return syntheticError(
+        key,
+        timeoutReason,
+        now,
+        "timeout",
+        "TimeoutError",
+      );
     }
     const message = err instanceof Error ? err.message : String(err);
     const errName = err instanceof Error ? err.name : undefined;
@@ -695,8 +770,12 @@ function syntheticError(
   errorClass: ProbeInvokerErrorClass,
   errName?: string,
 ): ProbeResult<ProbeInvokerSyntheticSignal> {
+  // Bound the errorDesc — a driver throw or sentinel message can be a
+  // multi-MB Playwright stack; without truncation it lands verbatim in
+  // PB rows / Slack alerts and blows past render budgets. See
+  // SYNTHETIC_ERROR_MSG_BUDGET above for why 1200.
   const signal: ProbeInvokerSyntheticSignal = {
-    errorDesc: message,
+    errorDesc: truncateUtf8(message, SYNTHETIC_ERROR_MSG_BUDGET),
     errorClass,
   };
   // Only attach `errName` when present — keeps the wire shape minimal
@@ -727,11 +806,12 @@ function syntheticError(
  *     because Slack/Pocketbase render budgets are tight and a
  *     full-frame Node stack drowns the alert.
  *   - `logger.debug("<msg>.full-stack", ...)` carries the FULL stack
- *     alongside, every time. Production debug-level logs flow into the
+ *     alongside — only when one is available (string-thrown values have
+ *     no stack to preserve). Production debug-level logs flow into the
  *     orchestrator's structured log stream where storage is cheap and
- *     post-mortem operators can pull them on demand. Always emitting
- *     means the comment "the rest of the stack lives in the
- *     orchestrator's full log stream" is now load-bearing rather than
+ *     post-mortem operators can pull them on demand. When a stack is
+ *     present this also emits, so "the rest of the stack lives in the
+ *     orchestrator's full log stream" is load-bearing rather than
  *     aspirational.
  */
 function logErrorWithStack(
