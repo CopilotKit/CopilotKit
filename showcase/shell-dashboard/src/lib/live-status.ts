@@ -263,7 +263,11 @@ export function resolveCell(
 
   const healthRow = live.get(keyFor("health", slug)) ?? null;
   const e2eRow = live.get(keyFor("e2e", slug, featureId)) ?? null;
-  const smokeRow = live.get(keyFor("smoke", slug, featureId)) ?? null;
+  // The smoke producer emits integration-scoped `smoke:<slug>` rows, NOT
+  // per-feature `smoke:<slug>/<featureId>`. Looking up the per-feature
+  // shape always misses, leaving every smoke badge gray. Use the
+  // integration-scoped key so the badge actually populates.
+  const smokeRow = live.get(keyFor("smoke", slug)) ?? null;
   // D5 / D6 per-feature rows (`d5:<slug>/<featureType>` /
   // `d6:<slug>/<featureType>`) emitted by the e2e-deep / e2e-parity
   // drivers. Informational — they do NOT contribute to the rollup
@@ -285,10 +289,14 @@ export function resolveCell(
   // stream is down — see the C5 F14 test), but a cell that would otherwise
   // read green becomes `error` tone so operators see the offline banner
   // rather than a misleading green check.
+  // Both health AND e2e must be present and green. Treating a missing e2e
+  // row as "green-eligible" lets a brand-new cell read green before any
+  // e2e probe has actually ticked, which is a different flavour of the
+  // stale-green lie.
   const allGreen =
     connection !== "error" &&
     healthRow?.state === "green" &&
-    (e2eRow === null || e2eRow.state === "green");
+    e2eRow?.state === "green";
 
   let rollup: BadgeTone;
   if (hasAnyRed) {
