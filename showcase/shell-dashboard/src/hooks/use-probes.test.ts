@@ -212,6 +212,39 @@ describe("useProbes", () => {
     expect(result.current.error).toBeNull();
   });
 
+  it("clears data on baseUrl change until new fetch resolves (R4-B.1)", async () => {
+    // baseUrl A returns data; switching to baseUrl B must null out `data`
+    // until B resolves. Otherwise the dashboard renders stale A-data under
+    // a B header — inconsistent with useProbeDetail's CR-B1.4 behavior.
+    const aData: ProbesResponse = { probes: [entry("A")] };
+    fetchProbesMock.mockResolvedValueOnce(aData);
+    let resolveB: ((v: ProbesResponse) => void) | null = null;
+    fetchProbesMock.mockImplementationOnce(
+      () =>
+        new Promise<ProbesResponse>((r) => {
+          resolveB = r;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ baseUrl }: { baseUrl: string }) => useProbes({ baseUrl }),
+      { initialProps: { baseUrl: "http://a.test" } },
+    );
+    await waitFor(() => expect(result.current.data?.probes[0]?.id).toBe("A"));
+
+    // Swap baseUrl — data must clear before B resolves.
+    rerender({ baseUrl: "http://b.test" });
+    await waitFor(() => expect(result.current.data).toBeNull());
+
+    // Resolve B — data populates with B-data.
+    const bData: ProbesResponse = { probes: [entry("B")] };
+    await act(async () => {
+      resolveB!(bData);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.data?.probes[0]?.id).toBe("B"));
+  });
+
   it("does not setData with stale data when deps change rapidly (CR-B1.3)", async () => {
     // Drive a sequence where the first effect's fetch resolves AFTER the
     // dep change has triggered a new effect. With the old aliveRef pattern,
@@ -694,6 +727,54 @@ describe("useTriggerProbe", () => {
     expect(firstValue).toBeNull();
     // Discriminate via strict null check.
     expect(firstValue === null).toBe(true);
+  });
+
+  it("returns null when superseded after fetch already resolved (R4-B.6)", async () => {
+    // Real-world race: trigger 1's fetch resolves with a real TriggerResponse,
+    // then trigger 2 fires and aborts trigger 1's controller. Trigger 1's
+    // promise must resolve to `null` (supersession contract from R3-C.1),
+    // not return the response that already came back. Without the post-await
+    // aborted check, the try block would return the resolved response and
+    // contradict the declared contract.
+    let resolveFirst: ((v: TriggerResponse) => void) | null = null;
+    triggerProbeMock.mockImplementationOnce(
+      () =>
+        new Promise<TriggerResponse>((r) => {
+          resolveFirst = r;
+        }),
+    );
+    triggerProbeMock.mockImplementationOnce(() => Promise.resolve(triggerOk()));
+
+    const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
+
+    let firstPromise!: Promise<TriggerResponse | null>;
+    act(() => {
+      firstPromise = result.current.trigger("smoke");
+      firstPromise.catch(() => {});
+    });
+    await waitFor(() => expect(triggerProbeMock).toHaveBeenCalledTimes(1));
+
+    // Resolve the first fetch BEFORE the second call aborts it. This
+    // simulates a fetch that came back at roughly the same instant the
+    // user fired a back-to-back trigger.
+    act(() => {
+      resolveFirst!(triggerOk());
+    });
+
+    // Now fire the second call — this aborts the first controller AFTER
+    // the await has already resolved with a real response.
+    let secondPromise!: Promise<TriggerResponse | null>;
+    act(() => {
+      secondPromise = result.current.trigger("smoke");
+    });
+    await act(async () => {
+      await secondPromise;
+    });
+
+    // The first call must resolve to null per R3-C.1 / R4-B.6, NOT the
+    // real TriggerResponse that came back from the resolved fetch.
+    const firstValue = await firstPromise;
+    expect(firstValue).toBeNull();
   });
 
   it("clears error on next successful trigger (R3-C.4)", async () => {

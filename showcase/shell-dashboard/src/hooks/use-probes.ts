@@ -96,6 +96,11 @@ export function useProbes(opts?: {
     // baseUrl). Otherwise an error from a stale baseUrl persists under the
     // new one until a fresh failure or successful fetch overwrites it.
     setError(null);
+    // R4-B.1: clear data on dep change too — symmetry with useProbeDetail
+    // (CR-B1.4). Without this, the dashboard renders stale list data from
+    // the previous baseUrl until the new fetch resolves, which is
+    // inconsistent with how the detail panel handles id changes.
+    setData(null);
     void run();
     const timer = setInterval(() => {
       void run();
@@ -284,6 +289,13 @@ export function useTriggerProbe(opts?: {
           baseUrl,
           signal: controller.signal,
         });
+        // R4-B.6: if a back-to-back trigger aborted this controller AFTER
+        // the fetch resolved (real-world race — fetch already committed
+        // before the abort signal propagated), honor the supersession
+        // contract and resolve to `null`. Without this guard, the try
+        // block would return the resolved TriggerResponse and contradict
+        // the documented R3-C.1 contract that callers rely on.
+        if (controller.signal.aborted) return null;
         return result;
       } catch (err) {
         // R2-C.2: AbortError here means this call was superseded by a
