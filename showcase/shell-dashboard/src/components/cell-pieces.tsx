@@ -8,6 +8,16 @@ import { keyFor, resolveCell, type BadgeRender } from "@/lib/live-status";
 import type { Feature, Integration } from "@/lib/registry";
 import { useLastTransition, deriveFromTo } from "@/hooks/useLastTransition";
 
+/**
+ * Magic path segment used by the shell when no framework column is selected.
+ * Coupled to the shell's routing under `/<slug>/<framework-or-unselected>/...`
+ * — if the shell ever renames or removes this fallback segment, this constant
+ * MUST move in lockstep. Kept here as a local const because no shared
+ * registry constant exists today; promote to a shared module if a second
+ * caller appears.
+ */
+const SHELL_UNSELECTED_PATH = "unselected";
+
 export function urlsFor(ctx: CellContext): {
   demoUrl: string;
   codeUrl: string;
@@ -40,11 +50,24 @@ export function DocsRow({
   const ogHref = override?.og_docs_url ?? feature.og_docs_url ?? undefined;
   const shellPath = override?.shell_docs_path ?? undefined;
   const shellHref = shellPath
-    ? `${shellUrl}/${integration.slug}/unselected${shellPath}`
+    ? `${shellUrl}/${integration.slug}/${SHELL_UNSELECTED_PATH}${shellPath}`
     : undefined;
 
   const hasOgOverride = override?.og_docs_url !== undefined;
   const hasShellOverride = override?.shell_docs_path !== undefined;
+  // CP5: distinguish the two "missing" sub-cases so the tooltip is honest.
+  // The override shape (`og_docs_url: string | null`) lets us tell apart:
+  //   (a) framework explicitly set `og_docs_url: null` → opt-out
+  //   (b) override absent AND feature has no `og_docs_url` → globally absent
+  // This lives at the call-site (not inside DocsLink) because DocsLink only
+  // sees the resolved `state` and would otherwise need a third "missing"
+  // variant. Surfaced via a `missingReason` prop on DocsLink instead.
+  const ogMissingReason: MissingReason =
+    hasOgOverride && override?.og_docs_url === null ? "opt-out" : "absent";
+  const shellMissingReason: MissingReason =
+    hasShellOverride && override?.shell_docs_path === null
+      ? "opt-out"
+      : "absent";
   const ogState: DocState = hasOgOverride
     ? ogHref
       ? "ok"
@@ -58,23 +81,48 @@ export function DocsRow({
 
   return (
     <div className="flex items-center gap-2.5">
-      <DocsLink label="docs-og" href={ogHref} state={ogState} />
-      <DocsLink label="docs-shell" href={shellHref} state={shellState} />
+      <DocsLink
+        label="docs-og"
+        href={ogHref}
+        state={ogState}
+        missingReason={ogMissingReason}
+      />
+      <DocsLink
+        label="docs-shell"
+        href={shellHref}
+        state={shellState}
+        missingReason={shellMissingReason}
+      />
     </div>
   );
 }
+
+/**
+ * Why the docs URL is missing — drives the tooltip copy on a `missing`-state
+ * link. `opt-out` means the framework explicitly set the override to `null`
+ * (declined); `absent` means no override exists and no global URL was
+ * declared. Drives only tooltip copy, not glyph.
+ */
+type MissingReason = "opt-out" | "absent";
 
 function DocsLink({
   label,
   href,
   state,
+  missingReason,
 }: {
   label: string;
   href?: string;
   state: DocState;
+  /** Only consulted when `state === "missing"`. */
+  missingReason?: MissingReason;
 }) {
   let glyph: string;
   let tone: string;
+  // CP6: exhaustiveness guard — the `default` branch assigns `state` to
+  // `never`, which makes the TS compiler reject any new `DocState` variant
+  // until it's handled here. Without this, adding e.g. `pending` to the
+  // union would silently fall through to undefined glyph/tone.
   switch (state) {
     case "ok":
       glyph = "✓";
@@ -92,7 +140,18 @@ function DocsLink({
       glyph = "!";
       tone = "text-[var(--amber)]";
       break;
+    default: {
+      const _exhaustive: never = state;
+      throw new Error(`unhandled DocState: ${String(_exhaustive)}`);
+    }
   }
+  // CP5: split the `missing` tooltip into the two real sub-cases so the
+  // copy doesn't lie about which integration declined docs vs the registry
+  // never declaring a URL.
+  const missingTitle =
+    missingReason === "opt-out"
+      ? "framework opt-out: this framework declined docs"
+      : "no docs URL declared";
   const title =
     state === "ok"
       ? "docs reachable"
@@ -100,9 +159,16 @@ function DocsLink({
         ? "docs URL returned 404 / file missing"
         : state === "error"
           ? "docs probe failed (network?)"
-          : "no docs URL declared";
+          : missingTitle;
 
-  if (state === "ok" && href) {
+  // CP7: `error` means the probe failed — but the URL itself MAY still be
+  // valid (the dashboard host might just be unreachable, the network might
+  // be flaky, or PB's probe job might have mis-classified). If we have an
+  // `href`, render a clickable `<a>` so users can verify manually. For
+  // `notfound`, the upstream probe positively confirmed a 404, so we keep
+  // the `<span>` and don't surface a known-broken link.
+  const linkable = (state === "ok" || state === "error") && !!href;
+  if (linkable) {
     return (
       <a
         href={href}
