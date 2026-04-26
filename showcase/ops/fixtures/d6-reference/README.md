@@ -81,7 +81,7 @@ const results = await captureAllReferences(
     outputDir: path.resolve(__dirname, "../../fixtures/d6-reference"),
   },
   {
-    launchBrowser: /* see scripts/d6-capture-references.ts for the wiring */,
+    launchBrowser: yourLauncher,
     attachSseInterceptor,
     runConversation,
     serializeDom: serializeRelevantDom,
@@ -90,7 +90,7 @@ const results = await captureAllReferences(
 );
 ```
 
-It exits 0 when every result is `captured` or `skipped`, exits 1 when any result is `failed`. Production wiring (driver + scheduler) lands with B13.
+`yourLauncher` is a placeholder — production callers compose a real Playwright launcher. See `scripts/d6-capture-references.ts` for the canonical wiring (browser launch, page setup, teardown).
 
 ## What to verify after capture
 
