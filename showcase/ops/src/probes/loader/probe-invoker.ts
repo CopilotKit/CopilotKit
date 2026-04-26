@@ -428,11 +428,17 @@ async function resolveInputs(
  * AND a unique `:__unresolved_<idx>` suffix so siblings whose template
  * collapses to the same prefix don't silently overwrite each other.
  *
- * Templates with literal `${}` (empty path) are still rendered: the
- * regex matches even an empty path slot and falls through the
- * non-primitive branch below, getting a unique suffix. Schema-level
- * validation that rejects `${}` at config-load time is desirable but not
- * load-bearing — the unresolvable-suffix path keeps the probe alive.
+ * Templates with a literal `${}` (empty path slot) take a dedicated
+ * branch below — the regex matches the empty slot, the `path.length ===
+ * 0` guard logs `reason: "empty-path"` and emits a unique suffix.
+ * Schema-level validation that rejects `${}` at config-load time is
+ * desirable but not load-bearing — this path keeps the probe alive.
+ *
+ * Empty-string primitive resolutions (`""`) are also routed to the
+ * unresolvable-suffix path: an empty string has no operator-meaningful
+ * key value AND collides across records (every empty path collapses to
+ * the same prefix). `0` and `false` still stringify normally — they're
+ * real primitive values, not absences.
  */
 function interpolateTemplate(
   template: string,
@@ -474,6 +480,21 @@ function interpolateTemplate(
         path,
         recordIndex,
         reason: "non-primitive",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    // Empty-string primitive: same collision risk as a missing path —
+    // every record with `""` at this slot collapses to the same prefix
+    // and the writer overwrites earlier siblings. `0` and `false` are
+    // real primitives and stringify normally below.
+    if (typeof value === "string" && value.length === 0) {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path,
+        recordIndex,
+        reason: "empty-string",
       });
       const suffix = unresolvedCounter++;
       return `__unresolved_${recordIndex}_${suffix}`;
