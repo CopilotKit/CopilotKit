@@ -581,12 +581,16 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       }
 
       out.push({
+        // Property order mirrors `RailwayServiceInfo` declaration
+        // order so a reviewer can grep the interface and the emit
+        // site side by side without re-shuffling fields. Behaviour
+        // unchanged.
         name: svc.name,
         imageRef,
-        deployedDigest,
         publicUrl,
         env,
         shape: classifyShape(svc.name, { logger: ctx.logger }),
+        deployedDigest,
         demos: demosMap.get(deriveSlugFromServiceName(svc.name)) ?? [],
       });
     }
