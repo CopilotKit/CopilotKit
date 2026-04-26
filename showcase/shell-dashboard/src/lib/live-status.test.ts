@@ -100,25 +100,20 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.rollup).toBe("amber");
   });
 
-  it("rolls up to green when health present+green and e2e absent", () => {
-    const live = mapOf([row("health:agno", "health", "green")]);
-    const c = resolveCell(live, "agno", "ac");
-    expect(c.rollup).toBe("green");
-  });
-
-  it("rolls up to green when health+e2e both green", () => {
-    const live = mapOf([
+  it("rolls up to green only when health AND e2e are green (LS1)", () => {
+    // Stale-green guard (LS1): a missing e2e row is NOT green-eligible —
+    // the cell must read "gray" until the e2e probe has actually ticked.
+    const liveBoth = mapOf([
       row("health:agno", "health", "green"),
       row("e2e:agno/ac", "e2e", "green"),
     ]);
-    const c = resolveCell(live, "agno", "ac");
-    expect(c.rollup).toBe("green");
-  });
+    expect(resolveCell(liveBoth, "agno", "ac").rollup).toBe("green");
 
-  it("rolls up to unknown when health is missing", () => {
-    const live = mapOf([row("e2e:agno/ac", "e2e", "green")]);
-    const c = resolveCell(live, "agno", "ac");
-    expect(c.rollup).toBe("gray");
+    const liveHealthOnly = mapOf([row("health:agno", "health", "green")]);
+    expect(resolveCell(liveHealthOnly, "agno", "ac").rollup).toBe("gray");
+
+    const liveE2eOnly = mapOf([row("e2e:agno/ac", "e2e", "green")]);
+    expect(resolveCell(liveE2eOnly, "agno", "ac").rollup).toBe("gray");
   });
 
   it("rolls up to gray when no rows at all", () => {
@@ -144,7 +139,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
       { health: "degraded", e2e: "green", expect: "amber" },
       { health: "green", e2e: "degraded", expect: "amber" },
       { health: "green", e2e: "green", expect: "green" },
-      { health: "green", e2e: null, expect: "green" },
+      { health: "green", e2e: null, expect: "gray" },
       { health: null, e2e: "green", expect: "gray" },
       { health: null, e2e: null, expect: "gray" },
       { health: "red", e2e: "degraded", expect: "red" },
@@ -160,8 +155,10 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   });
 
   it("per-badge tones match spec §5.4 table", () => {
+    // smoke is integration-scoped (LS11): producer emits `smoke:<slug>`,
+    // not `smoke:<slug>/<featureId>`.
     const live = mapOf([
-      row("smoke:a/b", "smoke", "green"),
+      row("smoke:a", "smoke", "green"),
       row("health:a", "health", "red"),
       row("e2e:a/b", "e2e", "degraded"),
     ]);
@@ -171,18 +168,27 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     expect(c.e2e.tone).toBe("amber");
   });
 
+  it("smoke lookup uses integration-scoped key (LS11) — feature-keyed rows are NOT visible", () => {
+    // Regression guard: pre-fix, resolveCell looked up `smoke:a/b`,
+    // which always missed because the producer emits `smoke:a`. The
+    // dashboard must populate the smoke badge from the integration-
+    // scoped key.
+    const live = mapOf([
+      row("smoke:a", "smoke", "red"),
+      // A bogus per-feature smoke row must NOT bleed into resolveCell.
+      row("smoke:a/b", "smoke", "green"),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.smoke.tone).toBe("red");
+    expect(c.smoke.row?.key).toBe("smoke:a");
+  });
+
   it("unknown badges render label '?' and tone 'gray'", () => {
     const c = resolveCell(mapOf([]), "a", "b");
     expect(c.smoke.tone).toBe("gray");
     expect(c.smoke.label).toBe("?");
     expect(c.health.tone).toBe("gray");
     expect(c.health.label).toBe("?");
-  });
-
-  it("health green with e2e=null rolls up to green (C5 F13)", () => {
-    const live = mapOf([row("health:a", "health", "green")]);
-    const c = resolveCell(live, "a", "b");
-    expect(c.rollup).toBe("green");
   });
 
   it("all-green rows + connection=error: rollup is error, NOT stale-green (R5 F5.1)", () => {
@@ -203,7 +209,7 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
 
   it("degraded does NOT render a green check glyph (C5 F12)", () => {
     const live = mapOf([
-      row("smoke:a/b", "smoke", "degraded"),
+      row("smoke:a", "smoke", "degraded"),
       row("e2e:a/b", "e2e", "degraded"),
       row("health:a", "health", "degraded"),
     ]);
@@ -249,13 +255,16 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     // Mirrors smoke's post-Phase-3 behaviour: a red d5/d6 row alone must
     // not flip the cell's rollup to red — the alert engine routes those
     // dimensions independently. Only health + e2e drive the rollup.
+    // Note: with LS1 in force, health-only does NOT roll up to green
+    // (e2e is also required); rollup is "gray" and the red d5/d6 rows
+    // must not promote it to red.
     const live = mapOf([
       row("health:agno", "health", "green"),
       row("d5:agno/ac", "d5", "red"),
       row("d6:agno/ac", "d6", "red"),
     ]);
     const c = resolveCell(live, "agno", "ac");
-    expect(c.rollup).toBe("green");
+    expect(c.rollup).toBe("gray");
     expect(c.d5.tone).toBe("red");
     expect(c.d6.tone).toBe("red");
   });
