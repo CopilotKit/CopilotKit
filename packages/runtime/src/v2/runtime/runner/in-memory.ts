@@ -11,6 +11,7 @@ import {
   BaseEvent,
   EventType,
   MessagesSnapshotEvent,
+  RunAgentInput,
   RunStartedEvent,
   compactEvents,
 } from "@ag-ui/client";
@@ -296,7 +297,22 @@ export class InMemoryAgentRunner extends AgentRunner {
     const connectionSubject = new ReplaySubject<BaseEvent>(Infinity);
 
     if (!store) {
-      // No store means no events
+      // Fall back to upstream agent's connect endpoint when available
+      if (request.agent) {
+        const input: RunAgentInput = {
+          threadId: request.threadId,
+          runId: "",
+          messages: [],
+          state: {},
+        };
+        return (
+          request.agent as unknown as {
+            connect(input: RunAgentInput): Observable<BaseEvent>;
+          }
+        ).connect(input);
+      }
+
+      // No store and no agent — return empty
       connectionSubject.complete();
       return connectionSubject.asObservable();
     }

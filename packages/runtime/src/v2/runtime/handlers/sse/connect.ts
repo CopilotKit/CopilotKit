@@ -1,3 +1,4 @@
+import { AbstractAgent } from "@ag-ui/client";
 import { CopilotRuntimeLike } from "../../core/runtime";
 import { createSseEventResponse } from "../shared/sse-response";
 import { extractForwardableHeaders } from "../header-utils";
@@ -7,6 +8,7 @@ interface HandleSseConnectParams {
   request: Request;
   agentId: string;
   threadId: string;
+  agent?: AbstractAgent;
 }
 
 export function handleSseConnect({
@@ -14,6 +16,7 @@ export function handleSseConnect({
   request,
   agentId,
   threadId,
+  agent,
 }: HandleSseConnectParams): Response {
   return createSseEventResponse({
     request,
@@ -24,6 +27,7 @@ export function handleSseConnect({
     observableFactory: () =>
       runtime.runner.connect({
         threadId,
+        agent,
         headers: extractForwardableHeaders(request),
       }),
   });

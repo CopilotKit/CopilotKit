@@ -13,7 +13,7 @@ import {
   TextMessageStartEvent,
   ToolCallResultEvent,
 } from "@ag-ui/client";
-import { EMPTY, firstValueFrom } from "rxjs";
+import { EMPTY, firstValueFrom, from } from "rxjs";
 import { toArray } from "rxjs/operators";
 
 const stripTerminalEvents = (events: BaseEvent[]) =>
@@ -64,6 +64,32 @@ class TestAgent extends AbstractAgent {
 
   protected connect(): ReturnType<AbstractAgent["connect"]> {
     return EMPTY;
+  }
+}
+
+/**
+ * Agent that returns pre-configured events from its connect() method.
+ * Simulates an upstream agent (e.g. HttpAgent) with persistent storage.
+ */
+class ConnectableAgent extends AbstractAgent {
+  constructor(private readonly connectEvents: BaseEvent[]) {
+    super();
+  }
+
+  async runAgent(): Promise<void> {
+    throw new Error("not used");
+  }
+
+  clone(): AbstractAgent {
+    return new ConnectableAgent(this.connectEvents);
+  }
+
+  protected run(): ReturnType<AbstractAgent["run"]> {
+    return EMPTY;
+  }
+
+  protected connect(): ReturnType<AbstractAgent["connect"]> {
+    return from(this.connectEvents);
   }
 }
 
@@ -311,6 +337,106 @@ describe("InMemoryAgentRunner", () => {
       expect(nonTerminalEvents).toHaveLength(2);
       const [, toolResult] = nonTerminalEvents;
       expect(toolResult.type).toBe(EventType.TOOL_CALL_RESULT);
+    });
+  });
+
+  describe("Agent fallback on connect", () => {
+    it("falls back to agent connect when threadId is not in GLOBAL_STORE", async () => {
+      const threadId = "unknown-thread-serverless";
+      const upstreamEvents: BaseEvent[] = [
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "upstream-run-1",
+        } as RunStartedEvent,
+        {
+          type: EventType.TEXT_MESSAGE_START,
+          messageId: "upstream-msg-1",
+          role: "assistant",
+        } as TextMessageStartEvent,
+        {
+          type: EventType.TEXT_MESSAGE_CONTENT,
+          messageId: "upstream-msg-1",
+          delta: "Hello from upstream",
+        } as TextMessageContentEvent,
+        {
+          type: EventType.TEXT_MESSAGE_END,
+          messageId: "upstream-msg-1",
+        } as TextMessageEndEvent,
+      ];
+
+      const agent = new ConnectableAgent(upstreamEvents);
+
+      // connect with a threadId that has never been run locally
+      const events = await firstValueFrom(
+        runner.connect({ threadId, agent }).pipe(toArray()),
+      );
+
+      expect(events.length).toBeGreaterThan(0);
+      expect(events).toEqual(upstreamEvents);
+    });
+
+    it("prefers in-memory store over agent fallback when store exists", async () => {
+      const threadId = "in-memory-preferred";
+
+      // Run locally to populate the in-memory store
+      await firstValueFrom(
+        runner
+          .run({
+            threadId,
+            agent: new TestAgent([
+              {
+                type: EventType.TEXT_MESSAGE_START,
+                messageId: "local-msg",
+                role: "assistant",
+              } as TextMessageStartEvent,
+              {
+                type: EventType.TEXT_MESSAGE_CONTENT,
+                messageId: "local-msg",
+                delta: "Local reply",
+              } as TextMessageContentEvent,
+              {
+                type: EventType.TEXT_MESSAGE_END,
+                messageId: "local-msg",
+              } as TextMessageEndEvent,
+            ]),
+            input: { threadId, runId: "run-1", messages: [], state: {} },
+          })
+          .pipe(toArray()),
+      );
+
+      // Create an agent with different events (simulating upstream)
+      const upstreamAgent = new ConnectableAgent([
+        {
+          type: EventType.RUN_STARTED,
+          threadId,
+          runId: "upstream-run",
+        } as RunStartedEvent,
+      ]);
+
+      // connect with the agent - should use in-memory store, NOT the agent
+      const events = await firstValueFrom(
+        runner.connect({ threadId, agent: upstreamAgent }).pipe(toArray()),
+      );
+
+      const nonTerminalEvents = stripTerminalEvents(events);
+      // Should contain the local events, not the upstream ones
+      expect(nonTerminalEvents[0].type).toBe(EventType.RUN_STARTED);
+      expect(
+        nonTerminalEvents.some(
+          (e) =>
+            e.type === EventType.TEXT_MESSAGE_CONTENT &&
+            (e as TextMessageContentEvent).delta === "Local reply",
+        ),
+      ).toBe(true);
+    });
+
+    it("returns empty when no store and no agent provided", async () => {
+      const events = await firstValueFrom(
+        runner.connect({ threadId: "completely-unknown" }).pipe(toArray()),
+      );
+
+      expect(events).toHaveLength(0);
     });
   });
 
