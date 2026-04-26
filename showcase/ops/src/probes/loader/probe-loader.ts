@@ -24,6 +24,18 @@ export interface ProbeLoaderDeps {
   discoveryRegistry: DiscoveryRegistry;
   bus?: ProbeLoadErrorEmitter;
   logger: Logger;
+  /**
+   * Test-only escape hatch for chokidar's options. Production callers leave
+   * this undefined; the loader picks FSEvents on macOS / inotify on Linux.
+   * Tests pass `{ usePolling: true, interval: 50 }` because chokidar's
+   * native backends are unreliable for newly-created tmpdirs on Node 22+
+   * (FSEvents in particular needs the parent path to be already-watched
+   * by the kernel before it streams events for fresh subdirectories).
+   */
+  watcherOptionsOverride?: {
+    usePolling?: boolean;
+    interval?: number;
+  };
 }
 
 export interface ProbeLoader {
@@ -55,7 +67,13 @@ export function createProbeLoader(
   dir: string,
   deps: ProbeLoaderDeps,
 ): ProbeLoader {
-  const { probeRegistry, discoveryRegistry, bus, logger } = deps;
+  const {
+    probeRegistry,
+    discoveryRegistry,
+    bus,
+    logger,
+    watcherOptionsOverride,
+  } = deps;
   let watcher: FSWatcher | null = null;
 
   async function readYaml(file: string): Promise<unknown> {
@@ -140,6 +158,7 @@ export function createProbeLoader(
         if (!base.includes(".")) return false;
         return true;
       },
+      ...(watcherOptionsOverride ?? {}),
     });
     let timer: NodeJS.Timeout | null = null;
     // Monotonic reload sequence — a slow parse followed by a fast re-edit
