@@ -349,8 +349,38 @@ export function resolveCell(
 }
 
 /**
+ * Shallow equality on the row fields that change observably between
+ * SSE updates. We deliberately avoid deep-equal on `signal` because it
+ * may be a large nested object — the producer-side state machine
+ * already collapses semantically equivalent signals upstream.
+ */
+function rowsAreNoop(prev: unknown, next: unknown): boolean {
+  if (prev === next) return true;
+  if (
+    typeof prev !== "object" ||
+    typeof next !== "object" ||
+    prev === null ||
+    next === null
+  )
+    return false;
+  const a = prev as Record<string, unknown>;
+  const b = next as Record<string, unknown>;
+  return (
+    a.key === b.key &&
+    a.state === b.state &&
+    a.observed_at === b.observed_at &&
+    a.transitioned_at === b.transitioned_at
+  );
+}
+
+/**
  * Upsert a row by `key` into an array preserving ordering. Used by the
  * live-subscribe reducer when the SSE stream emits a record update.
+ *
+ * Returns the SAME array reference when the incoming row is a no-op
+ * (key + state + observed_at + transitioned_at unchanged) so React's
+ * reference-equality short-circuit can skip re-rendering downstream
+ * memoised components.
  */
 export function upsertByKey<T extends { key: string }>(
   rows: T[],
@@ -358,6 +388,10 @@ export function upsertByKey<T extends { key: string }>(
 ): T[] {
   const idx = rows.findIndex((r) => r.key === next.key);
   if (idx === -1) return [...rows, next];
+  const existing = rows[idx];
+  if (existing !== undefined && rowsAreNoop(existing, next)) {
+    return rows;
+  }
   const out = rows.slice();
   out[idx] = next;
   return out;
@@ -365,13 +399,27 @@ export function upsertByKey<T extends { key: string }>(
 
 /**
  * Merge N per-dimension row arrays into a single `LiveStatusMap` keyed by
- * `row.key`. Later entries win on collision (expected: each dimension
- * owns disjoint keys).
+ * `row.key`. Later entries win on collision — but each dimension is
+ * supposed to own a disjoint slice of the keyspace, so a collision
+ * means the disjoint-key invariant has been violated upstream.
+ * Surface it via `console.warn` so dev mode catches the regression
+ * without changing return semantics (last-wins is still fine for
+ * eventual consistency).
  */
 export function mergeRowsToMap(...rowGroups: StatusRow[][]): LiveStatusMap {
   const map: LiveStatusMap = new Map();
   for (const rows of rowGroups) {
-    for (const r of rows) map.set(r.key, r);
+    for (const r of rows) {
+      const prior = map.get(r.key);
+      if (prior !== undefined && prior !== r) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `mergeRowsToMap: disjoint-key invariant violated for key="${r.key}" ` +
+            `(prior id=${prior.id}, new id=${r.id})`,
+        );
+      }
+      map.set(r.key, r);
+    }
   }
   return map;
 }
