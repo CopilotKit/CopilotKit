@@ -399,6 +399,26 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
     (s): s is string => typeof s === "string" && s.length > 0,
   );
+  // R5-G4 D5: empty webhookSecrets silently disables auth on the
+  // deploy.result webhook — anyone who knows the URL can POST. Mirror
+  // the POCKETBASE_URL fail-loud pattern: in production the missing
+  // config is a deploy bug that must surface immediately. In dev/test
+  // emit an info log so developers see the bypass.
+  if (webhookSecrets.length === 0) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("orchestrator.FATAL-CONFIG", {
+        msg: "SHARED_SECRET required in production",
+        nodeEnv: process.env.NODE_ENV,
+      });
+      throw new Error(
+        "FATAL-CONFIG: SHARED_SECRET required in production (NODE_ENV=production)",
+      );
+    }
+    logger.info("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+    });
+  }
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the

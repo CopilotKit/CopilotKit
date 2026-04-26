@@ -941,6 +941,102 @@ describe("createRailwayAdapter via shared makeGql (R5-G4 D2/D3)", () => {
   });
 });
 
+/**
+ * R5-G4 D5: webhook secrets must be configured in production. Pre-fix,
+ * if both SHARED_SECRET and SHARED_SECRET_PREV were unset/empty,
+ * webhookSecrets resolved to `[]` and webhook auth was silently
+ * disabled — anyone could POST a deploy.result. Mirror the
+ * POCKETBASE_URL fail-loud pattern: throw FATAL-CONFIG in prod, log
+ * info in dev/test.
+ */
+describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () => {
+  let tempDir: string;
+  let port = 0;
+  let stopFn: (() => Promise<void>) | null = null;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-secrets-"));
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("throws FATAL-CONFIG when NODE_ENV=production and both webhook secrets are unset", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    process.env.NODE_ENV = "production";
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    // POCKETBASE_URL must be set so the prior FATAL-CONFIG throw
+    // doesn't pre-empt the SHARED_SECRET check.
+    process.env.POCKETBASE_URL = "http://localhost:8090";
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/FATAL-CONFIG: SHARED_SECRET required in production/);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+      delete process.env.POCKETBASE_URL;
+    }
+  });
+
+  it("boots successfully without webhook secrets when NODE_ENV is not production", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    process.env.NODE_ENV = "test";
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+    }
+  });
+
+  it("boots successfully in production when at least one webhook secret is set", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    process.env.NODE_ENV = "production";
+    process.env.SHARED_SECRET = "test-secret-prod-ok";
+    process.env.POCKETBASE_URL = "http://localhost:8090";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      else delete process.env.SHARED_SECRET;
+      delete process.env.POCKETBASE_URL;
+    }
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {
