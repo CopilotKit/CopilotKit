@@ -587,3 +587,184 @@ describe("GET routes do not require auth", () => {
 async function res2Body(r: Response): Promise<Record<string, unknown>> {
   return (await r.json()) as Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------
+// CR-A1.4: trigger rate-limit TOCTOU + 409 rollback
+// ---------------------------------------------------------------------
+describe("POST /api/probes/:id/trigger — rate-limit TOCTOU & rollback", () => {
+  let sched: FakeScheduler;
+  let writer: ReturnType<typeof makeFakeWriter>;
+  let configs: Map<string, ProbeConfig>;
+
+  beforeEach(() => {
+    sched = makeFakeScheduler();
+    writer = makeFakeWriter();
+    configs = new Map<string, ProbeConfig>([["smoke", baseConfig("smoke")]]);
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+  });
+
+  it("two near-simultaneous triggers: first succeeds, second gets 429 (TOCTOU prevention)", async () => {
+    // The route must stamp the rate-limit window IMMEDIATELY after the
+    // check passes, NOT after awaiting scheduler.trigger. Otherwise two
+    // requests hitting the route concurrently could both pass the check
+    // before either records a timestamp.
+    let resolveTrigger: (() => void) | null = null;
+    sched.setTriggerBehavior({
+      result: { runId: "run_1", status: "queued", probe: "smoke" },
+    });
+    // Override trigger to pause until we say so, simulating a slow trigger.
+    const origTrigger = sched.trigger;
+    sched.trigger = async (id, opts) => {
+      const result = await origTrigger(id, opts);
+      // Suspend in the await so a parallel request hits the same window.
+      await new Promise<void>((resolve) => {
+        resolveTrigger = resolve;
+      });
+      return result;
+    };
+    let nowMs = 1_000_000_000_000;
+    const app = buildApp(sched, writer, configs, { now: () => nowMs });
+    // Fire two requests in parallel. Same wall-clock so both clear the
+    // rate-limit check at construction time IF the stamp is deferred.
+    const [first, second] = await Promise.all([
+      app.request("/api/probes/smoke/trigger", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      }),
+      // Tiny delay so first hits the suspension point first.
+      new Promise<Response>((resolve) =>
+        setTimeout(() => {
+          // Release the first trigger so the second's getEntry passes.
+          resolve(
+            app.request("/api/probes/smoke/trigger", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${TOKEN}` },
+            }),
+          );
+        }, 10),
+      ).then(async (r) => {
+        // After the second returns, release the first trigger to drain.
+        if (resolveTrigger) resolveTrigger();
+        return r;
+      }),
+    ]);
+    // Exactly one must have succeeded; the other must be 429.
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([200, 429]);
+  });
+
+  it("InflightConflictError 409 rolls back rate-limit stamp so a follow-up trigger isn't locked out", async () => {
+    sched.setTriggerBehavior({ throw: new InflightConflictError("smoke") });
+    let nowMs = 1_000_000_000_000;
+    const app = buildApp(sched, writer, configs, { now: () => nowMs });
+    const first = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(first.status).toBe(409);
+    // 1ms later — the conflict resolves and a real trigger should
+    // succeed without hitting the 5-minute lockout.
+    sched.setTriggerBehavior({
+      result: { runId: "run_2", status: "queued", probe: "smoke" },
+    });
+    nowMs += 1;
+    const second = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(second.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------
+// CR-A1.7: scope filter — only registered probes are visible/triggerable
+// ---------------------------------------------------------------------
+describe("/api/probes — scope filter (CR-A1.7)", () => {
+  it("GET /api/probes excludes scheduler entries that aren't registered probes", async () => {
+    const sched = makeFakeScheduler();
+    const writer = makeFakeWriter();
+    // Register a real probe AND an internal scheduler entry that is NOT
+    // a probe (e.g. internal:s3-backup, rule-cron entries).
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+    sched.setEntry({
+      entry: {
+        id: "internal:s3-backup",
+        cron: "0 4 * * *",
+        handler: async () => {},
+      },
+      status: baseStatus({ id: "internal:s3-backup", cron: "0 4 * * *" }),
+      nextRunAt: null,
+    });
+    sched.setEntry({
+      entry: {
+        id: "rule-x:cron:0",
+        cron: "*/15 * * * *",
+        handler: async () => {},
+      },
+      status: baseStatus({ id: "rule-x:cron:0", cron: "*/15 * * * *" }),
+      nextRunAt: null,
+    });
+    // Only `smoke` has a registered ProbeConfig.
+    const configs = new Map<string, ProbeConfig>([
+      ["smoke", baseConfig("smoke")],
+    ]);
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { probes: Array<{ id: string }> };
+    const ids = body.probes.map((p) => p.id);
+    expect(ids).toContain("smoke");
+    expect(ids).not.toContain("internal:s3-backup");
+    expect(ids).not.toContain("rule-x:cron:0");
+  });
+
+  it("POST /api/probes/internal:s3-backup/trigger returns 404", async () => {
+    const sched = makeFakeScheduler();
+    const writer = makeFakeWriter();
+    sched.setEntry({
+      entry: {
+        id: "internal:s3-backup",
+        cron: "0 4 * * *",
+        handler: async () => {},
+      },
+      status: baseStatus({ id: "internal:s3-backup", cron: "0 4 * * *" }),
+      nextRunAt: null,
+    });
+    // No ProbeConfig registered for `internal:s3-backup` — it's not a probe.
+    const configs = new Map<string, ProbeConfig>();
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes/internal:s3-backup/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body).toEqual({ error: "not_found" });
+  });
+
+  it("GET /api/probes/internal:s3-backup returns 404", async () => {
+    const sched = makeFakeScheduler();
+    const writer = makeFakeWriter();
+    sched.setEntry({
+      entry: {
+        id: "internal:s3-backup",
+        cron: "0 4 * * *",
+        handler: async () => {},
+      },
+      status: baseStatus({ id: "internal:s3-backup", cron: "0 4 * * *" }),
+      nextRunAt: null,
+    });
+    const configs = new Map<string, ProbeConfig>();
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes/internal:s3-backup");
+    expect(res.status).toBe(404);
+  });
+});
