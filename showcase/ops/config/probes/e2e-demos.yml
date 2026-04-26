@@ -31,22 +31,32 @@
 # ── Cadence: every 6 hours ────────────────────────────────────────────
 #
 # Chromium cost scales as demos × services per tick. The 17 framework
-# packages average ~32 demos each, with the largest service carrying
-# ~38 demos (the wall-clock-dominating service under bounded
-# concurrency). Aggregate page loads per tick: 17 × 32 ≈ 544 typical.
+# packages each carry ~32 demos on average; the largest single service
+# carries ~38 demos and is the wall-clock-dominating service under
+# bounded concurrency. Aggregate page loads per tick are
+# 17 × ~32 ≈ 544 typical (~32 average per service, capped by the
+# ~38-demo largest).
+#
 # Wall-clock per tick is NOT aggregate-divided-by-concurrency: with
 # `max_concurrency: 6` the wall-clock floor is set by the SLOWEST
 # single service's serial per-demo fan-out (the driver visits each
-# demo sequentially within a single service invocation). For the
-# largest 38-demo service at the driver's 30s per-page timeout, the
-# absolute worst case is ~38 × 30s ≈ ~19 min — bounded by the 20-min
-# outer cap below (which the driver's internal hard-cap is now
-# aligned to via the orchestrator's `E2E_DEMOS_TIMEOUT_MS` threading;
-# see the `timeout_ms` block). Typical pages finish in ~3-5s so the
-# realistic wall-clock is ~2-3 minutes (the slowest single service).
-# Smaller services interleave in parallel slots and don't extend
-# wall-clock past the slowest, so the bound holds regardless of
-# service count.
+# demo sequentially within a single service invocation).
+#
+# Per-demo wall-clock is bounded by `pageTimeoutMs` (30s) — the
+# driver's runDemo() shares one 30s budget across goto + all 5
+# fallback selector waits, so a single demo cannot exceed 30s
+# regardless of how many selectors it tries (enforced via a single
+# wall-clock deadline in `drivers/e2e-demos.ts`'s runDemo()). For
+# the largest 38-demo service the
+# absolute worst case is therefore ~38 × 30s ≈ ~19 min — bounded by
+# the 20-min outer cap below (which the driver's internal hard-cap is
+# now aligned to via the orchestrator's `E2E_DEMOS_TIMEOUT_MS`
+# threading; see the `timeout_ms` block).
+#
+# Typical pages finish in ~3-5s so the realistic wall-clock is ~2-3
+# minutes (the slowest single service). Smaller services interleave
+# in parallel slots and don't extend wall-clock past the slowest, so
+# the bound holds regardless of service count.
 # Every 6 hours gives us:
 #   - 4 ticks/day: catches regressions within a half-deploy window
 #     while leaving ~90% of the scheduler's wall time to sibling
