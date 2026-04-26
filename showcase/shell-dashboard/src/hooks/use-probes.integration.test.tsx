@@ -24,6 +24,7 @@ import { useProbes } from "./use-probes";
 import type { ProbesResponse } from "../lib/ops-api";
 
 let fetchSpy: ReturnType<typeof vi.fn>;
+let savedOpsBaseUrl: string | undefined;
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -35,12 +36,21 @@ function jsonResponse(body: unknown): Response {
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
+  // Snapshot + clear NEXT_PUBLIC_OPS_BASE_URL so the resolveBaseUrl()
+  // fallback path is exercised. Restored in afterEach so test ordering
+  // never leaks env state to the next file.
+  savedOpsBaseUrl = process.env.NEXT_PUBLIC_OPS_BASE_URL;
   delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  if (savedOpsBaseUrl !== undefined) {
+    process.env.NEXT_PUBLIC_OPS_BASE_URL = savedOpsBaseUrl;
+  } else {
+    delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  }
 });
 
 describe("useProbes → ops-api → fetch wiring", () => {
@@ -66,9 +76,21 @@ describe("useProbes → ops-api → fetch wiring", () => {
     // The hook must call fetch through ops-api with the same-origin proxy
     // path. Anything else (the dashboard origin + /api/ops, or an inlined
     // ops base URL) means the rewrite contract is broken.
-    expect(fetchSpy).toHaveBeenCalled();
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     const url = String(fetchSpy.mock.calls[0]![0]);
     expect(url).toBe("/api/ops/probes");
+
+    // Lock in the request shape the proxy contract depends on: GET (no
+    // method override), no-store cache (live polling, never serve a stale
+    // response), JSON accept header, and an AbortSignal for hook-level
+    // cancellation. A regression in any of these silently breaks polling.
+    const callArg = fetchSpy.mock.calls[0]![1] as RequestInit | undefined;
+    expect(callArg?.method).toBe("GET");
+    expect(callArg?.cache).toBe("no-store");
+    expect(callArg?.headers).toMatchObject({
+      accept: expect.stringMatching(/json/i),
+    });
+    expect(callArg?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("parses probes returned by the proxy and exposes them on data", async () => {
@@ -120,8 +142,12 @@ describe("useProbes → ops-api → fetch wiring", () => {
     const { result } = renderHook(() => useProbes());
     await waitFor(() => expect(result.current.error).not.toBeNull());
 
-    expect(result.current.error?.message).toMatch(/404/);
-    expect(result.current.error?.message).toMatch(/\/api\/ops\/probes/);
+    // Tighten to the canonical `ensureOk` shape so a future refactor that
+    // changes the error format (status/statusText/url ordering) trips this
+    // test instead of silently regressing the operator-facing message.
+    expect(result.current.error?.message).toMatch(
+      /^ops-api request failed: 404 Not Found at \/api\/ops\/probes/,
+    );
     expect(result.current.data).toBeNull();
   });
 });

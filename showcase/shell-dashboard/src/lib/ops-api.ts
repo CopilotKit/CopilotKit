@@ -10,9 +10,13 @@
  *
  * `baseUrl` resolution order (per call):
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
- *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` (inlined at build — opt-in
- *      escape hatch for direct cross-origin calls; production does NOT use
- *      this because showcase-ops has no CORS allowlist)
+ *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` — opt-in escape hatch for
+ *      direct cross-origin calls; production does NOT use this because
+ *      showcase-ops has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
+ *      into the client bundle at build time, but this module ALSO runs in
+ *      SSR + tests where `process.env` is read live at call time — so
+ *      `delete process.env.NEXT_PUBLIC_OPS_BASE_URL` in a test does take
+ *      effect on subsequent `resolveBaseUrl()` calls.
  *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
  *      `next.config.ts`. This is the production contract, not a guess: the
  *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
@@ -129,10 +133,16 @@ const FALLBACK_BASE_URL = "/api/ops";
  * Resolve the API base URL with the precedence documented at the top of
  * this module. Trailing slashes are stripped so callers don't end up with
  * a double-slash like `http://host//probes` that some servers reject.
+ *
+ * `NEXT_PUBLIC_OPS_BASE_URL` is treated as missing when it is undefined,
+ * empty, or whitespace-only. `??` only falls through on `null`/`undefined`,
+ * so without this an env var set to `""` would silently produce
+ * `baseUrl === ""` and URLs like `"/probes"` (no `/api/ops` prefix) — a
+ * silent failure mode where the dashboard hits its own origin and 404s.
  */
 function resolveBaseUrl(explicit?: string): string {
-  const raw =
-    explicit ?? process.env.NEXT_PUBLIC_OPS_BASE_URL ?? FALLBACK_BASE_URL;
+  const envBase = process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim();
+  const raw = explicit ?? (envBase || undefined) ?? FALLBACK_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
 
@@ -147,11 +157,21 @@ async function ensureOk(response: Response, url: string): Promise<void> {
   let detail = "";
   try {
     const text = await response.text();
-    if (text && text.length <= 200) detail = ` — ${text}`;
+    if (text) {
+      if (text.length <= 500) {
+        detail = ` — ${text}`;
+      } else {
+        // Bodies larger than 500B (often HTML 5xx pages or stack traces)
+        // would balloon the error message and trash log readability;
+        // truncate but keep the marker + total size so an operator can see
+        // they're missing tail data and re-fetch from the source if needed.
+        detail = ` — ${text.slice(0, 500)} [truncated, ${text.length} bytes total]`;
+      }
+    }
   } catch (bodyErr) {
-    // R2-C.3: propagate AbortError as-is so hook-layer cancellation
-    // filters (`err.name === "AbortError"`) keep working. Wrapping it in a
-    // generic Error would surface "AbortError" as user-facing noise.
+    // Propagate AbortError as-is so hook-layer cancellation filters
+    // (`err.name === "AbortError"`) keep working. Wrapping it in a generic
+    // Error would surface "AbortError" as user-facing noise.
     if ((bodyErr as { name?: string })?.name === "AbortError") {
       throw bodyErr;
     }
@@ -174,14 +194,13 @@ async function parseJson<T>(response: Response, url: string): Promise<T> {
   try {
     return (await response.json()) as T;
   } catch (parseErr) {
-    // R2-C.3: propagate AbortError as-is — same rationale as ensureOk.
+    // Propagate AbortError as-is — same rationale as ensureOk.
     if ((parseErr as { name?: string })?.name === "AbortError") {
       throw parseErr;
     }
     const msg = (parseErr as Error)?.message ?? "unknown";
-    // R3-C bonus: preserve the original error as `cause` so debuggers can
-    // walk back to the SyntaxError name/stack without re-parsing the
-    // wrapped message string.
+    // Preserve the original error as `cause` so debuggers can walk back to
+    // the SyntaxError name/stack without re-parsing the wrapped message.
     throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`, {
       cause: parseErr,
     });
@@ -199,9 +218,9 @@ export async function fetchProbes(
   } = {},
 ): Promise<ProbesResponse> {
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes`;
-  // R3-D.1: opt out of browser + Next.js fetch caching. Status data is
-  // polled every ~10s and must reflect the current backend state, not a
-  // cached response from a prior poll.
+  // Opt out of browser + Next.js fetch caching. Status data is polled
+  // every ~10s and must reflect the current backend state, not a cached
+  // response from a prior poll.
   const response = await fetch(url, {
     method: "GET",
     signal: opts.signal,
@@ -216,8 +235,9 @@ export async function fetchProbeDetail(
   id: string,
   opts: { signal?: AbortSignal; baseUrl?: string } = {},
 ): Promise<ProbeDetailResponse> {
+  if (!id) throw new Error("probe id is required");
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes/${encodeURIComponent(id)}`;
-  // R3-D.1: see fetchProbes — same no-store rationale for live detail data.
+  // See fetchProbes — same no-store rationale for live detail data.
   const response = await fetch(url, {
     method: "GET",
     signal: opts.signal,
@@ -239,6 +259,7 @@ export async function triggerProbe(
   id: string,
   opts: TriggerProbeOptions,
 ): Promise<TriggerResponse> {
+  if (!id) throw new Error("probe id is required");
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes/${encodeURIComponent(
     id,
   )}/trigger`;
@@ -255,6 +276,10 @@ export async function triggerProbe(
       authorization: `Bearer ${opts.token}`,
     },
     body: JSON.stringify(body),
+    // No-store for parity with the GET fetches — POST responses can be
+    // cached by intermediaries when CDN-fronted; explicit no-store
+    // guarantees the trigger response goes end-to-end live.
+    cache: "no-store",
     signal: opts.signal,
   });
   await ensureOk(response, url);

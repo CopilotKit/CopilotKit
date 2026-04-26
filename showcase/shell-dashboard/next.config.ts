@@ -25,8 +25,13 @@ const nextConfig: NextConfig = {
           "(without it, /api/ops/* requests cannot proxy to showcase-ops)",
       );
     }
+    // Strip trailing slashes so we never produce `https://host//api/...`
+    // (some servers reject the double slash). Mirrors the same
+    // normalization in `src/lib/ops-api.ts:resolveBaseUrl` so the
+    // server-side rewrite and client-side fetch agree on the URL shape.
+    const normalized = opsBase.replace(/\/+$/, "");
     return [
-      { source: "/api/ops/:path*", destination: `${opsBase}/api/:path*` },
+      { source: "/api/ops/:path*", destination: `${normalized}/api/:path*` },
     ];
   },
 };
