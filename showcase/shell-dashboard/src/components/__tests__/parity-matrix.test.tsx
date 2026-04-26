@@ -1,7 +1,7 @@
 /**
  * Unit tests for ParityMatrix — renders parity grid with reference column.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { ParityMatrix } from "../parity-matrix";
 import type { CatalogCell } from "../depth-utils";
@@ -22,6 +22,12 @@ beforeEach(() => {
     },
     key: () => null,
   });
+});
+
+afterEach(() => {
+  // Clear vi.stubGlobal so the localStorage stub doesn't leak across tests
+  // running in the same vitest worker.
+  vi.unstubAllGlobals();
 });
 
 function row(
@@ -110,10 +116,14 @@ describe("ParityMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // Should have Ref Depth column + 2 integration columns (lgp, crewai)
+    // Reference (lgp) renders as the frozen "Ref Depth" column (no
+    // integration-header-* testid). Only crewai (non-ref) gets a
+    // per-integration header — so headers.length === 1.
     const headers = getAllByTestId(/^integration-header-/);
-    // At least the non-reference integrations
-    expect(headers.length).toBeGreaterThanOrEqual(1);
+    expect(headers.length).toBe(1);
+    expect(headers[0].getAttribute("data-testid")).toBe(
+      "integration-header-crewai",
+    );
   });
 
   it("renders depth chips for cells", () => {
@@ -134,8 +144,8 @@ describe("ParityMatrix", () => {
       />,
     );
     const depthChips = getAllByTestId("depth-chip");
-    // At least 2 chips (ref col + crewai col for the one feature)
-    expect(depthChips.length).toBeGreaterThanOrEqual(2);
+    // 1 feature × (ref col + 1 non-ref col) = exactly 2 chips
+    expect(depthChips.length).toBe(2);
   });
 
   it("reference column shows correct depth for reference integration", () => {
@@ -157,5 +167,80 @@ describe("ParityMatrix", () => {
     const depthChips = getAllByTestId("depth-chip");
     // First chip should be reference column = lgp with D2
     expect(depthChips[0].textContent).toBe("D2");
+  });
+
+  it("orders non-reference integration headers strictly by parity tier", () => {
+    // One integration per tier — alphabetical within tier (deterministic).
+    // Reference (lgp) is rendered as the frozen Ref-Depth column and does
+    // NOT appear in the integration-header-* set.
+    const tierIntegrations = [
+      { slug: "lgp", name: "LangGraph Python", tier: "reference" as const },
+      { slug: "lgjs", name: "LangGraph JS", tier: "at_parity" as const },
+      { slug: "crewai", name: "CrewAI", tier: "partial" as const },
+      { slug: "mastra", name: "Mastra", tier: "minimal" as const },
+      { slug: "noop", name: "Noop", tier: "not_wired" as const },
+    ];
+    const tierCells: CatalogCell[] = tierIntegrations.map((i) => ({
+      id: `${i.slug}/agentic-chat`,
+      integration: i.slug,
+      integration_name: i.name,
+      feature: "agentic-chat",
+      feature_name: "Agentic Chat",
+      status: "wired",
+      category: "chat-ui",
+      category_name: "Chat & UI",
+    }));
+
+    const { getAllByTestId } = render(
+      <ParityMatrix
+        cells={tierCells}
+        categories={categories}
+        features={features}
+        integrations={tierIntegrations}
+        liveStatus={new Map()}
+        defaultOpenCategories={new Set(["chat-ui"])}
+        referenceSlug="lgp"
+      />,
+    );
+    const headers = getAllByTestId(/^integration-header-/);
+    // Reference (lgp) is excluded from this list — it owns the Ref Depth col.
+    const slugs = headers.map((h) =>
+      h.getAttribute("data-testid")?.replace(/^integration-header-/, ""),
+    );
+    expect(slugs).toEqual(["lgjs", "crewai", "mastra", "noop"]);
+  });
+
+  it("skips starter cells (feature===null) without polluting the cell index", () => {
+    // A starter cell (feature: null) must not be indexed under "<slug>/null"
+    // — it should be silently skipped from the parity grid (which is
+    // feature-row driven anyway).
+    const cellsWithStarter: CatalogCell[] = [
+      ...cells,
+      {
+        id: "lgp/__starter",
+        integration: "lgp",
+        integration_name: "LangGraph Python",
+        feature: null,
+        feature_name: null,
+        status: "wired",
+        category: null,
+        category_name: null,
+      },
+    ];
+    const { getAllByTestId, queryByText } = render(
+      <ParityMatrix
+        cells={cellsWithStarter}
+        categories={categories}
+        features={features}
+        integrations={integrations}
+        liveStatus={new Map()}
+        defaultOpenCategories={new Set(["chat-ui"])}
+        referenceSlug="lgp"
+      />,
+    );
+    // 1 feature × (ref col + 1 non-ref col) = exactly 2 chips. The starter
+    // cell adds no row, no chip.
+    expect(getAllByTestId("depth-chip").length).toBe(2);
+    expect(queryByText(/\bnull\b/)).toBeNull();
   });
 });
