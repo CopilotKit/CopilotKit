@@ -102,6 +102,56 @@ describe("StatusTable", () => {
     ).toBe("red");
   });
 
+  it("color-codes last-run amber when partial pass (failed=0, passed<total)", () => {
+    // R3-B.1: schedule-table must mirror runs-list partial-pass semantics.
+    // failed=0 alone is not sufficient for green — if some services were
+    // skipped (passed < total) we render amber so the operator can't
+    // misread an incomplete run as fully green.
+    const e = entry({
+      lastRun: {
+        startedAt: new Date(NOW - 60_000).toISOString(),
+        finishedAt: new Date(NOW - 30_000).toISOString(),
+        durationMs: 30_000,
+        state: "completed",
+        summary: { total: 17, passed: 14, failed: 0 },
+      },
+    });
+    const { getByTestId } = render(
+      <StatusTable entries={[e]} onTrigger={async () => {}} />,
+    );
+    const cell = getByTestId("status-row-smoke-result");
+    expect(cell.getAttribute("data-tone")).toBe("amber");
+    expect(cell.textContent).toMatch(/14\/17/);
+    expect(cell.textContent).toMatch(/3 skipped/);
+  });
+
+  it("renders fully-passed result text as 'N/N pass'", () => {
+    const e = entry({
+      lastRun: {
+        startedAt: new Date(NOW - 60_000).toISOString(),
+        finishedAt: new Date(NOW - 30_000).toISOString(),
+        durationMs: 30_000,
+        state: "completed",
+        summary: { total: 17, passed: 17, failed: 0 },
+      },
+    });
+    const { getByTestId } = render(
+      <StatusTable entries={[e]} onTrigger={async () => {}} />,
+    );
+    expect(getByTestId("status-row-smoke-result").textContent).toBe(
+      "17/17 pass",
+    );
+  });
+
+  it("renders failed result text with explicit fail count", () => {
+    const { getByTestId } = render(
+      <StatusTable entries={[entry()]} onTrigger={async () => {}} />,
+    );
+    expect(getByTestId("status-row-smoke-result").textContent).toBe(
+      "14/17 pass (3 fail)",
+    );
+  });
+
   it("color-codes last-run gray when never run", () => {
     const e = entry({ lastRun: null });
     const { getByTestId } = render(

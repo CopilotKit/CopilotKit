@@ -32,11 +32,14 @@ export function StatusDetailPanel({
 
   // Sparkline reads oldest → newest. The API returns runs newest-first,
   // so we reverse and drop runs that haven't recorded a duration yet.
+  // R3-B.2: filter with Number.isFinite — `typeof NaN === "number"` so a
+  // naive type guard admits NaN/Infinity, which then poisons
+  // Math.min/Math.max and produces "NaN,NaN" coords in the SVG polyline.
   const durations = data
     ? [...data.runs]
         .reverse()
         .map((r) => r.durationMs)
-        .filter((d): d is number => typeof d === "number")
+        .filter((d): d is number => Number.isFinite(d))
     : [];
 
   return (
