@@ -144,6 +144,38 @@ describe("StatusTriggerButton", () => {
     expect(getByText(/Run selected \(0\)/)).toBeDefined();
   });
 
+  it("resets pickerOpen and selected when toggling menu closed via Trigger (R3-D.2)", () => {
+    cleanup();
+    const { getByTestId, getByText, queryByText } = render(
+      <StatusTriggerButton
+        probeId="smoke"
+        serviceSlugs={["a", "b"]}
+        onTrigger={async () => {}}
+      />,
+    );
+    // Open menu, open picker, check a slug.
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    fireEvent.click(getByText(/Run specific/i));
+    fireEvent.click(getByTestId("status-trigger-smoke-slug-a"));
+    expect(
+      (getByTestId("status-trigger-smoke-slug-a") as HTMLInputElement).checked,
+    ).toBe(true);
+    // Toggle the menu CLOSED via Trigger button — should reset pickerOpen and
+    // selected for consistency with outside-click and Escape close paths.
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    expect(queryByText(/Run all/i)).toBeNull();
+    // Reopen — picker should be closed (pickerOpen reset) and slug-a unchecked.
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    // Picker section should not be visible until "Run specific..." is clicked
+    // again — assert by checking the slug checkbox is not in the DOM yet.
+    expect(() => getByTestId("status-trigger-smoke-slug-a")).toThrow();
+    // Now open picker explicitly — slug-a must be unchecked.
+    fireEvent.click(getByText(/Run specific/i));
+    expect(
+      (getByTestId("status-trigger-smoke-slug-a") as HTMLInputElement).checked,
+    ).toBe(false);
+  });
+
   it("resets selected when menu closes via outside click (R2-D.3)", () => {
     cleanup();
     const { getByTestId, getByText, queryByText } = render(

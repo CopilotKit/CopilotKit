@@ -272,6 +272,24 @@ describe("triggerProbe", () => {
   });
 });
 
+describe("GET requests bypass cache (R3-D.1)", () => {
+  it("fetchProbes sends cache: 'no-store' to defeat browser/Next caching", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
+    await fetchProbes({ baseUrl: "http://ops.test" });
+    const init = fetchSpy.mock.calls[0]![1] as FetchInit;
+    expect(init?.cache).toBe("no-store");
+  });
+
+  it("fetchProbeDetail sends cache: 'no-store' to defeat browser/Next caching", async () => {
+    fetchSpy.mockResolvedValue(
+      jsonResponse({ probe: sampleEntry(), runs: [] }),
+    );
+    await fetchProbeDetail("smoke", { baseUrl: "http://ops.test" });
+    const init = fetchSpy.mock.calls[0]![1] as FetchInit;
+    expect(init?.cache).toBe("no-store");
+  });
+});
+
 describe("ensureOk error handling (CR-B1.6)", () => {
   it("includes a body-read failure marker when text() throws", async () => {
     // Build a Response-like object whose `text()` throws and whose `ok` is
