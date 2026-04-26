@@ -212,29 +212,63 @@ function LiveBadge({
   // the amber branch thinking it's dead — the degraded-row path depends on it.
   const eligible = badge.tone === "red" || badge.tone === "amber";
   const { row } = useLastTransition(dimensionKey, tooltipOpen && eligible);
-  const transitionLine = row
-    ? (() => {
-        const { from, to } = deriveFromTo(row.transition);
-        // Some transitions (`first`, `error`) don't encode a prior state, so
-        // fall back to showing just the current state in that case rather
-        // than rendering "null → null".
-        const pair = from && to ? `${from} → ${to}` : row.state;
-        return ` — since ${row.observed_at} (${pair})`;
-      })()
-    : "";
+  // CP2: format the transition line from the source `transition` enum
+  // rather than just `state`. `first` and `error` don't encode a prior
+  // state — discriminate them explicitly so operators can tell "we just
+  // started observing this cell" apart from "the producer hit an error".
+  const transitionLine = row ? formatTransitionLine(row) : "";
   const title = badge.tooltip + (eligible ? transitionLine : "");
 
+  // CP1: `onTooltipOpen` flips `tooltipOpen` true on the first mouseenter,
+  // but Badge doesn't surface a close hook. Wrap in a span that resets the
+  // flag on mouseleave/blur so the lazy-fetch effect can detach instead of
+  // reading as "always-open" forever, which both defeats the optimization
+  // and (once the hook upgrades to a live subscription) would leak it.
   return (
     <FlashOnChange tone={badge.tone}>
-      <Badge
-        name={name}
-        state={{ tone: badge.tone, label: badge.label }}
-        href={href}
-        title={title}
-        onTooltipOpen={() => setTooltipOpen(true)}
-      />
+      <span
+        onMouseLeave={() => setTooltipOpen(false)}
+        onBlur={() => setTooltipOpen(false)}
+      >
+        <Badge
+          name={name}
+          state={{ tone: badge.tone, label: badge.label }}
+          href={href}
+          title={title}
+          onTooltipOpen={() => setTooltipOpen(true)}
+        />
+      </span>
     </FlashOnChange>
   );
+}
+
+/**
+ * Format a status_history row into the trailing tooltip clause.
+ *
+ * Per spec §5.6 the four meaningful transitions (`green_to_red`,
+ * `red_to_green`, `sustained_red`, `sustained_green`) render as `from → to`.
+ * `first` is the cell's very first observation — there is no prior state, so
+ * we render it as `(initial: <state>)`. `error` means the producer hit a
+ * fault; the row's `state` is whatever the producer last knew, which is
+ * useful context for "(error → <state>)".
+ */
+function formatTransitionLine(row: {
+  transition: string;
+  state: string;
+  observed_at: string;
+}): string {
+  if (row.transition === "first") {
+    return ` — since ${row.observed_at} (initial: ${row.state})`;
+  }
+  if (row.transition === "error") {
+    return ` — since ${row.observed_at} (error → ${row.state})`;
+  }
+  const { from, to } = deriveFromTo(row.transition);
+  // Any non-first/non-error transition that deriveFromTo can't decode
+  // (unexpected enum value) falls back to the row's current state so we
+  // never render "null → null" copy.
+  const pair = from && to ? `${from} → ${to}` : row.state;
+  return ` — since ${row.observed_at} (${pair})`;
 }
 
 /**
