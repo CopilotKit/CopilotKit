@@ -1235,7 +1235,9 @@ describe("createDefaultFleetResolver", () => {
 
     // Use a real on-disk file so the resolver's actual readFile path
     // exercises end-to-end. We control mtime via the injected stat.
-    const dir = await fs.mkdtemp(path.join(tmpdir(), "e2e-parity-fleet-mtime-"));
+    const dir = await fs.mkdtemp(
+      path.join(tmpdir(), "e2e-parity-fleet-mtime-"),
+    );
     const registryPath = path.join(dir, "registry.json");
     const writeRegistry = async (slugs: string[]): Promise<void> => {
       reads.push(slugs.join(","));

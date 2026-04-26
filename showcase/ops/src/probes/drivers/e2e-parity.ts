@@ -628,7 +628,9 @@ export function createE2eParityDriver(
           ? "not selected this tick (scoping); slug missing from fleet (registry drift)"
           : "not selected this tick (scoping)";
 
-        const requestedKnown = (input.features ?? []).filter(isKnownFeatureType);
+        const requestedKnown = (input.features ?? []).filter(
+          isKnownFeatureType,
+        );
         const sideObservedAt = ctx.now().toISOString();
         for (const ft of requestedKnown) {
           const script = D5_REGISTRY.get(ft);
