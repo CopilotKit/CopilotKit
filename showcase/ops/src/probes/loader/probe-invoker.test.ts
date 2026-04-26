@@ -2166,6 +2166,41 @@ describe("buildProbeInvoker", () => {
     });
   });
 
+  // Driver error messages pass through `truncateUtf8` before landing on
+  // the synthetic ProbeResult — without this, a multi-MB Playwright
+  // stack trace blows past PB / Slack render budgets.
+  it("bounds synthetic errorDesc length when driver throws a huge message", async () => {
+    const huge = "X".repeat(50_000); // 50KB error message
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        throw new Error(huge);
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:huge-error" }],
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(writes).toHaveLength(1);
+    const sig = writes[0]!.signal as { errorDesc?: string };
+    expect(sig.errorDesc).toBeDefined();
+    // Bounded by the 1200-char synthetic-error budget — well below the
+    // 50K input.
+    expect(sig.errorDesc!.length).toBeLessThanOrEqual(1200);
+  });
+
   it("does NOT warn key-shadowed when record's `key` matches interpolated key", async () => {
     const warns: { msg: string }[] = [];
     const captureLogger = {

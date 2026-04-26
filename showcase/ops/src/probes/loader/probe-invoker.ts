@@ -7,6 +7,18 @@ import type {
   ProbeResultWriter,
 } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import { truncateUtf8 } from "../../render/filters.js";
+
+/**
+ * Bound the size of any string flowing into a synthetic-error ProbeResult.
+ * Driver throws can carry multi-MB Playwright stack traces or browser
+ * console dumps; without truncation those propagate untouched into
+ * Pocketbase rows and Slack alerts, blowing past render budgets and
+ * making the dashboard unreadable. Same budget the e2e drivers use
+ * (`drivers/e2e-demos.ts`, `drivers/e2e-smoke.ts` — both at 1200) so the
+ * synthetic path matches what drivers self-truncate to.
+ */
+const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
 
 /**
  * Dependencies the invoker needs at build time. Kept as a single options
@@ -739,8 +751,12 @@ function syntheticError(
   errorClass: ProbeInvokerErrorClass,
   errName?: string,
 ): ProbeResult<ProbeInvokerSyntheticSignal> {
+  // Bound the errorDesc — a driver throw or sentinel message can be a
+  // multi-MB Playwright stack; without truncation it lands verbatim in
+  // PB rows / Slack alerts and blows past render budgets. See
+  // SYNTHETIC_ERROR_MSG_BUDGET above for why 1200.
   const signal: ProbeInvokerSyntheticSignal = {
-    errorDesc: message,
+    errorDesc: truncateUtf8(message, SYNTHETIC_ERROR_MSG_BUDGET),
     errorClass,
   };
   // Only attach `errName` when present — keeps the wire shape minimal
