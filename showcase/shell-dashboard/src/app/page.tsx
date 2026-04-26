@@ -2,7 +2,7 @@
 // Feature matrix: one row per feature x integration. Each feature's
 // `kind` (primary | testing) determines its visual grouping.
 // "testing"-kind features render muted and skip the docs row.
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { FeatureGrid, type CellContext } from "@/components/feature-grid";
 import { CellStatus, urlsFor } from "@/components/cell-pieces";
 import { CommandCell } from "@/components/command-cell";
@@ -10,8 +10,9 @@ import { PackagesSection } from "@/components/packages-section";
 import { TabShell, type TabDef } from "@/components/tab-shell";
 import { CellsView } from "@/components/cells-view";
 import { ParityView } from "@/components/parity-view";
-import { StatusTab, type ProbeScheduleEntry } from "@/components/status-tab";
+import { StatusTab } from "@/components/status-tab";
 import { useLiveStatus } from "@/hooks/useLiveStatus";
+import { useProbes, useTriggerProbe } from "@/hooks/use-probes";
 import { mergeRowsToMap } from "@/lib/live-status";
 import catalog from "@/data/catalog.json";
 import type { CatalogData } from "@/data/catalog-types";
@@ -73,17 +74,23 @@ export default function Page() {
 
   const connection = allStatus.status;
 
-  // TODO(B4b integration): replace with `useProbes()` from hooks/use-probes.
-  // For now, use a placeholder list so the tab renders.
-  const [probeEntries] = useState<ProbeScheduleEntry[]>([]);
-  // Wrapped in useCallback so the tabs useMemo can list it as a dep
-  // without re-creating the array every render. When B4b lands and
-  // this becomes a real handler, the dep array stays correct.
+  // R2-D.1: real probe wiring. `useProbes` polls the ops API every 10s and
+  // feeds the schedule grid; `useTriggerProbe` POSTs to /trigger with the
+  // operator token. If the token is unset, the trigger callback throws
+  // a clear "token required" error from useTriggerProbe — fail-loud so
+  // operators see the issue rather than a silent no-op.
+  const probesQuery = useProbes();
+  const probeEntries = useMemo(
+    () => probesQuery.data?.probes ?? [],
+    [probesQuery.data],
+  );
+  const triggerToken = process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN;
+  const { trigger } = useTriggerProbe({ token: triggerToken });
   const handleTrigger = useCallback(
-    async (_probeId: string, _slugs?: string[]): Promise<void> => {
-      // TODO(B4b integration): forward to ops API trigger endpoint.
+    async (probeId: string, slugs?: string[]): Promise<void> => {
+      await trigger(probeId, slugs);
     },
-    [],
+    [trigger],
   );
 
   const tabs: TabDef[] = useMemo(
