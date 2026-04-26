@@ -951,6 +951,166 @@ describe("orchestrator boot start() failure cleanup (CR-A2.1)", () => {
   });
 });
 
+/**
+ * CR-A2.2: orchestrator's diffProbeSchedules must NOT orphan probeConfigs
+ * when scheduler.unregister rejects.
+ *
+ * Pre-fix sequence:
+ *   scheduler.unregister(id).catch(log)   // fire-and-forget
+ *   probeConfigs.delete(id)               // runs synchronously
+ *
+ * If unregister rejects, the scheduler still has the entry but probeConfigs
+ * no longer has the config. The /api/probes router would render the
+ * stale entry as `kind: "unknown"` with `config: { timeout_ms: null, ... }` —
+ * the worst possible debugging experience.
+ *
+ * Fix: await unregister, and if it rejects, skip the probeConfigs.delete so
+ * the orphan stays visible with proper config rather than fully orphaned.
+ *
+ * Test: boot with a probe YAML, confirm /api/probes shows the probe with
+ * proper config. Mock scheduler.unregister to reject. Delete the YAML,
+ * fire SIGHUP-style reload (re-call probeLoader path via deletion + watcher
+ * settle). Assert /api/probes STILL shows the probe with proper config —
+ * NOT "unknown".
+ */
+describe("orchestrator probe unregister failure preserves config (CR-A2.2)", () => {
+  let tempDir: string;
+  let probeDir: string;
+  let stopFn: (() => Promise<void>) | null = null;
+  let port = 0;
+  let prevToken: string | undefined;
+
+  beforeEach(async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-unreg-"));
+    tempDir = path.join(root, "alerts");
+    probeDir = path.join(root, "probes");
+    await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(probeDir, { recursive: true });
+    port = await pickPort();
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
+    process.env.OPS_TRIGGER_TOKEN = "test-trigger-token";
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(path.dirname(tempDir), { recursive: true, force: true });
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps probeConfigs entry when scheduler.unregister rejects (orphan stays visible with proper config)", async () => {
+    vi.resetModules();
+
+    // Wrap createScheduler: unregister is replaced with a rejecting mock,
+    // but only after the registration phase has succeeded (we install the
+    // rejection during the first list() that returns a non-empty set, so
+    // initial diffProbeSchedules works as normal). All other methods
+    // delegate to the real scheduler.
+    let unregisterShouldReject = false;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            // Pass through register/list/start/stop/etc.; intercept ONLY
+            // unregister to simulate a rejecting cleanup.
+            unregister: async (id: string) => {
+              if (unregisterShouldReject) {
+                throw new Error(
+                  `simulated unregister rejection for ${id}`,
+                );
+              }
+              return real.unregister(id);
+            },
+          };
+        },
+      };
+    });
+
+    const probeYaml = [
+      "kind: smoke",
+      "id: cr-a2-2-probe",
+      'schedule: "0 9 * * 1"',
+      "timeout_ms: 12345",
+      "max_concurrency: 3",
+      "targets:",
+      "  - key: example",
+      '    url: "https://example.com"',
+      "",
+    ].join("\n");
+    const probePath = path.join(probeDir, "cr-a2-2-probe.yml");
+    await fs.writeFile(probePath, probeYaml, "utf8");
+
+    const orchMod = await import("./orchestrator.js");
+    const booted = await orchMod.boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+
+    // Sanity: probe shows with proper kind + config initially.
+    const beforeRes = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(beforeRes.status).toBe(200);
+    const beforeBody = (await beforeRes.json()) as {
+      probes: Array<{
+        id: string;
+        kind: string;
+        config: { timeout_ms: number | null; max_concurrency: number | null };
+      }>;
+    };
+    const beforeProbe = beforeBody.probes.find(
+      (p) => p.id === "probe:cr-a2-2-probe",
+    );
+    expect(beforeProbe).toBeDefined();
+    expect(beforeProbe!.kind).toBe("smoke");
+    expect(beforeProbe!.config.timeout_ms).toBe(12345);
+
+    // Now arm the unregister rejection and remove the YAML file. The
+    // probe-loader file watcher will pick up the deletion and call
+    // diffProbeSchedules with an empty desired set → unregister fires → rejects.
+    unregisterShouldReject = true;
+    await fs.rm(probePath, { force: true });
+
+    // Wait long enough for chokidar's debounce + the post-fix awaited
+    // unregister to settle. The probe-loader uses a 100ms debounce; pad
+    // generously.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Post-fix expectation: probe is STILL in /api/probes (scheduler
+    // still has the entry because unregister rejected) AND the config
+    // is preserved (kind: "smoke", timeout_ms: 12345). Pre-fix, the
+    // sync probeConfigs.delete would have nuked the config so kind
+    // would render as "unknown" with timeout_ms: null.
+    const afterRes = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(afterRes.status).toBe(200);
+    const afterBody = (await afterRes.json()) as {
+      probes: Array<{
+        id: string;
+        kind: string;
+        config: { timeout_ms: number | null; max_concurrency: number | null };
+      }>;
+    };
+    const afterProbe = afterBody.probes.find(
+      (p) => p.id === "probe:cr-a2-2-probe",
+    );
+    expect(afterProbe).toBeDefined();
+    expect(afterProbe!.kind).toBe("smoke");
+    expect(afterProbe!.kind).not.toBe("unknown");
+    expect(afterProbe!.config.timeout_ms).toBe(12345);
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {

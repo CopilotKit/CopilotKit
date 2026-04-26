@@ -271,7 +271,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     logger,
   });
 
-  function diffProbeSchedules(configs: ProbeConfig[]): void {
+  async function diffProbeSchedules(configs: ProbeConfig[]): Promise<void> {
     // Build desired map: scheduler-id → cfg. `probe:` prefix keeps us from
     // unregistering rule-cron or internal IDs in the same sweep.
     const desired = new Map<string, ProbeConfig>();
@@ -279,19 +279,32 @@ export async function boot(opts: BootOptions = {}): Promise<{
       desired.set(`probe:${cfg.id}`, cfg);
     }
     // Unregister probe IDs that are no longer desired (YAML deleted).
+    // CR-A2.2: await the unregister and only drop probeConfigs on
+    // success. Pre-fix the unregister was fire-and-forget and probeConfigs
+    // was deleted synchronously — so if unregister rejected, the scheduler
+    // still had the old entry but probeConfigs no longer had its config,
+    // causing the /api/probes router to surface a fully orphaned entry as
+    // `kind: "unknown"` with `config: { timeout_ms: null, ... }`. Keeping
+    // the config on rejection means the orphan stays VISIBLE with proper
+    // metadata — operators can still see what kind of probe was leaked,
+    // which is the better debugging surface than "unknown". The next
+    // successful diff sweep (after the YAML is restored or the operator
+    // restarts the service) cleans things up.
     for (const entry of scheduler.list()) {
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
-        scheduler.unregister(entry.id).catch((err) =>
+        try {
+          await scheduler.unregister(entry.id);
+          probeConfigs.delete(entry.id);
+        } catch (err) {
           logger.error("orchestrator.probe-unregister-failed", {
             id: entry.id,
             err: String(err),
-          }),
-        );
-        // F1: drop the config entry alongside the scheduler entry so the
-        // /api/probes router doesn't surface stale config for an id whose
-        // YAML has been removed.
-        probeConfigs.delete(entry.id);
+          });
+          // Intentionally do NOT delete from probeConfigs — see comment
+          // above. Orphan stays visible with proper config so /api/probes
+          // surfaces a useful `kind`/`config` rather than "unknown".
+        }
       }
     }
     // Register / re-register each desired probe. `scheduler.register` is
@@ -350,7 +363,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   async function reloadProbes(): Promise<void> {
     const next = await probeLoader.load();
-    diffProbeSchedules(next);
+    await diffProbeSchedules(next);
     bus.emit("probes.reloaded", { count: next.length });
   }
 
@@ -369,8 +382,25 @@ export async function boot(opts: BootOptions = {}): Promise<{
   }
 
   const unwatchProbes = probeLoader.watch((next) => {
-    diffProbeSchedules(next);
-    bus.emit("probes.reloaded", { count: next.length });
+    // CR-A2.2: diffProbeSchedules is now async (awaits unregister). The
+    // file-watch callback signature is sync (void return), so we fire-and-
+    // forget the diff and route any uncaught rejection into the same
+    // log/emit channel as the initial-load path. A rejection here means
+    // both: (a) at least one probe entry could not be removed cleanly (the
+    // orphan stays visible in /api/probes per the design choice in the
+    // body of diffProbeSchedules), AND (b) the post-await `bus.emit` may
+    // not have fired — operators see a "probes.reload.failed" instead of
+    // a stale "probes.reloaded" claim.
+    diffProbeSchedules(next)
+      .then(() => bus.emit("probes.reloaded", { count: next.length }))
+      .catch((err) => {
+        logger.error("orchestrator.probe-watch-reload-failed", {
+          err: String(err),
+        });
+        bus.emit("probes.reload.failed", {
+          errors: [{ file: "(watch-reload)", error: String(err) }],
+        });
+      });
   });
 
   const unwatch = loader.watch((next) => {
