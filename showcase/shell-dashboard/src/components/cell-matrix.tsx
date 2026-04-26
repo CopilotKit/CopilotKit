@@ -15,7 +15,7 @@ import { DepthChip } from "./depth-chip";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
 import { deriveDepth } from "./depth-utils";
-import type { CatalogCell } from "./depth-utils";
+import type { CatalogCell, DepthResult } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { FilterMode } from "./filter-chips";
 import type { LiveStatusMap } from "@/lib/live-status";
@@ -127,7 +127,7 @@ function CategorySection({
             {visibleIntegrations.map((int) => {
               const cell = cellIndex.get(`${int.slug}/${feature.id}`);
               const cellStatus = cell?.status ?? "unshipped";
-              const depth = cell
+              const depth: DepthResult = cell
                 ? deriveDepth(cell, liveStatus)
                 : { achieved: 0, isRegression: false };
 
@@ -137,7 +137,7 @@ function CategorySection({
                   className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
                 >
                   <DepthChip
-                    depth={depth.achieved as 0 | 1 | 2 | 3 | 4}
+                    depth={depth.achieved}
                     status={cellStatus}
                     regression={depth.isRegression}
                   />
@@ -177,10 +177,15 @@ export function CellMatrix({
     return sortedIntegrations;
   }, [sortedIntegrations, filter, referenceSlug]);
 
-  // Index cells by integration+feature for O(1) lookup
+  // Index cells by integration+feature for O(1) lookup.
+  // Skip starter cells (feature === null) — they have no feature row to render
+  // and would otherwise produce a bogus "<slug>/null" key that orphans them.
   const cellIndex = useMemo(() => {
     const idx = new Map<string, CatalogCell>();
-    for (const c of cells) idx.set(`${c.integration}/${c.feature}`, c);
+    for (const c of cells) {
+      if (c.feature === null) continue;
+      idx.set(`${c.integration}/${c.feature}`, c);
+    }
     return idx;
   }, [cells]);
 
@@ -210,11 +215,27 @@ export function CellMatrix({
       });
     }
     if (filter === "regressions") {
-      // Placeholder — no regression detection yet
+      // TODO: regression detection not yet implemented — see DepthResult.isRegression
+      // (always false). Until that lands, this filter shows no rows; the matrix
+      // surfaces an explicit empty-state below so users see *why*.
       return false;
     }
     return true;
   };
+
+  // Regressions filter has no implementation yet; surface an explicit empty
+  // state instead of silently rendering an empty grid.
+  if (filter === "regressions") {
+    return (
+      <div
+        data-testid="cell-matrix"
+        data-empty-reason="regressions-not-implemented"
+        className="rounded-lg border border-[var(--border)] bg-[var(--bg-surface)] p-6 text-center text-sm text-[var(--text-muted)]"
+      >
+        Regression detection not yet implemented.
+      </div>
+    );
+  }
 
   return (
     <div
