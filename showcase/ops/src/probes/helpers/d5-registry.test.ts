@@ -3,6 +3,7 @@ import {
   D5_REGISTRY,
   __clearD5RegistryForTesting,
   getD5Script,
+  isD5FeatureType,
   registerD5Script,
   type D5BuildContext,
   type D5FeatureType,
@@ -93,6 +94,34 @@ describe("D5 registry", () => {
     ).toThrow(/shared-state-read.*already registered/);
   });
 
+  it("registration is atomic when collision is on the second featureType", () => {
+    // Register a script that occupies "tool-rendering" first.
+    const occupant = makeScript({
+      featureTypes: ["tool-rendering"],
+      fixtureFile: "occupant.json",
+    });
+    registerD5Script(occupant);
+
+    // Now try to register a script that claims "agentic-chat" first
+    // (free) AND "tool-rendering" second (collides). The throw must
+    // leave NEITHER partially registered — pre-fix code would have
+    // written "agentic-chat" before throwing on "tool-rendering".
+    const newcomer = makeScript({
+      featureTypes: ["agentic-chat", "tool-rendering"],
+      fixtureFile: "newcomer.json",
+    });
+    expect(() => registerD5Script(newcomer)).toThrow(
+      /tool-rendering.*already registered/,
+    );
+
+    // Critical: agentic-chat must NOT be in the registry. The occupant
+    // remains for tool-rendering, and the registry size reflects only
+    // the occupant entry.
+    expect(getD5Script("agentic-chat")).toBeUndefined();
+    expect(getD5Script("tool-rendering")).toBe(occupant);
+    expect(D5_REGISTRY.size).toBe(1);
+  });
+
   it("throws when featureTypes is empty", () => {
     expect(() =>
       registerD5Script(
@@ -130,5 +159,53 @@ describe("D5 registry", () => {
 
     const fetched = getD5Script("mcp-apps");
     expect(fetched?.preNavigateRoute).toBe(route);
+  });
+});
+
+describe("isD5FeatureType", () => {
+  it("accepts every known D5FeatureType literal", () => {
+    const known: D5FeatureType[] = [
+      "agentic-chat",
+      "tool-rendering",
+      "shared-state-read",
+      "shared-state-write",
+      "hitl-approve-deny",
+      "hitl-text-input",
+      "gen-ui-headless",
+      "gen-ui-custom",
+      "mcp-apps",
+      "subagents",
+    ];
+    for (const k of known) {
+      expect(isD5FeatureType(k)).toBe(true);
+    }
+  });
+
+  it("rejects unknown strings (typos, casing, empty)", () => {
+    expect(isD5FeatureType("agentic-chats")).toBe(false);
+    expect(isD5FeatureType("Agentic-Chat")).toBe(false);
+    expect(isD5FeatureType("")).toBe(false);
+    expect(isD5FeatureType("hitl")).toBe(false);
+  });
+
+  it("rejects non-string values (number, null, undefined, object)", () => {
+    expect(isD5FeatureType(0)).toBe(false);
+    expect(isD5FeatureType(null)).toBe(false);
+    expect(isD5FeatureType(undefined)).toBe(false);
+    expect(isD5FeatureType({ feature: "agentic-chat" })).toBe(false);
+    expect(isD5FeatureType(["agentic-chat"])).toBe(false);
+  });
+
+  it("narrows types so the result can flow into D5FeatureType-typed slots", () => {
+    const raw: unknown = "agentic-chat";
+    if (isD5FeatureType(raw)) {
+      // This assignment compiles only if the guard correctly narrows
+      // `unknown` → `D5FeatureType`. Coverage: type-system check at
+      // compile time + runtime smoke at test time.
+      const narrowed: D5FeatureType = raw;
+      expect(narrowed).toBe("agentic-chat");
+    } else {
+      throw new Error("expected isD5FeatureType to narrow 'agentic-chat'");
+    }
   });
 });
