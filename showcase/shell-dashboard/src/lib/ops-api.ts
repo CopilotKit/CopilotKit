@@ -50,7 +50,10 @@ export interface ProbeLastRun {
   finishedAt: string;
   durationMs: number;
   state: "completed" | "failed";
-  summary: ProbeRunSummary;
+  // Nullable: a "completed" run produced by a failure path can land here
+  // without a summary (see showcase-ops CR-A1.5). Consumers MUST null-guard
+  // before reading summary.passed / summary.total / summary.failed.
+  summary: ProbeRunSummary | null;
 }
 
 export interface ProbeServiceProgress {
@@ -139,12 +142,29 @@ async function ensureOk(response: Response, url: string): Promise<void> {
   try {
     const text = await response.text();
     if (text && text.length <= 200) detail = ` — ${text}`;
-  } catch {
-    // ignore body-read failures; the status line is enough.
+  } catch (bodyErr) {
+    // Surface the body-read failure rather than swallowing it silently —
+    // callers and tests need a marker to distinguish "server returned an
+    // empty/unreachable body" from "we just chose not to include it".
+    const msg = (bodyErr as Error)?.message ?? "unknown";
+    detail = ` (body read failed: ${msg})`;
   }
   throw new Error(
     `ops-api request failed: ${response.status} ${response.statusText} at ${url}${detail}`,
   );
+}
+
+/**
+ * Parse a JSON response, wrapping any parse failure with the URL so the
+ * caller can attribute the failure to a specific endpoint.
+ */
+async function parseJson<T>(response: Response, url: string): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch (parseErr) {
+    const msg = (parseErr as Error)?.message ?? "unknown";
+    throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -162,7 +182,7 @@ export async function fetchProbes(opts: {
     headers: { accept: "application/json" },
   });
   await ensureOk(response, url);
-  return (await response.json()) as ProbesResponse;
+  return parseJson<ProbesResponse>(response, url);
 }
 
 export async function fetchProbeDetail(
@@ -176,12 +196,19 @@ export async function fetchProbeDetail(
     headers: { accept: "application/json" },
   });
   await ensureOk(response, url);
-  return (await response.json()) as ProbeDetailResponse;
+  return parseJson<ProbeDetailResponse>(response, url);
+}
+
+export interface TriggerProbeOptions {
+  slugs?: string[];
+  token: string;
+  baseUrl?: string;
+  signal?: AbortSignal;
 }
 
 export async function triggerProbe(
   id: string,
-  opts: { slugs?: string[]; token: string; baseUrl?: string },
+  opts: TriggerProbeOptions,
 ): Promise<TriggerResponse> {
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes/${encodeURIComponent(
     id,
@@ -199,7 +226,8 @@ export async function triggerProbe(
       authorization: `Bearer ${opts.token}`,
     },
     body: JSON.stringify(body),
+    signal: opts.signal,
   });
   await ensureOk(response, url);
-  return (await response.json()) as TriggerResponse;
+  return parseJson<TriggerResponse>(response, url);
 }
