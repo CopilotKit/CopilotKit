@@ -234,14 +234,19 @@ export function collectContractShape(
  * A "tool-call name" is the string at one of these locations on a JSON
  * payload whose `type` matches one of `toolCallEventTypes`:
  *   - `toolCallName`            — ag-ui canonical (TOOL_CALL_START)
- *   - `name`                    — legacy / alternate transports
  *   - `tool_call.name`          — snake_case variant
  *   - `tool_use.name`           — Anthropic-style passthrough
+ *   - `name`                    — legacy / alternate transports
  *
  * Walking all four is intentional: the spec's reading list flagged
  * uncertainty about the on-wire shape, and the parity-compare engine
  * needs to cope with reference implementations that haven't migrated to
- * ag-ui canonical naming yet. Order: first matching field wins per event.
+ * ag-ui canonical naming yet. Order is load-bearing — STRUCTURED
+ * variants (`tool_call.name` / `tool_use.name`) are checked BEFORE the
+ * bare `name` field because some transports include a top-level `name`
+ * for an event/step label alongside a structured tool descriptor;
+ * picking `name` first would harvest the label instead of the actual
+ * tool name. First matching field wins per event.
  */
 export function extractToolCallNames(
   events: ParsedSseEvent[],
@@ -262,7 +267,11 @@ export function extractToolCallNames(
 
 function pickToolCallName(p: Record<string, unknown>): string | undefined {
   if (typeof p["toolCallName"] === "string") return p["toolCallName"];
-  if (typeof p["name"] === "string") return p["name"];
+  // Structured variants first — see the docstring above for why
+  // `name` is the LAST resort. Some transports surface a step/event
+  // label as top-level `name` alongside a structured tool descriptor,
+  // and picking that label up before the structured field would
+  // poison the parity comparison's tool-call list.
   const tc = p["tool_call"];
   if (
     tc !== null &&
@@ -279,6 +288,7 @@ function pickToolCallName(p: Record<string, unknown>): string | undefined {
   ) {
     return (tu as Record<string, unknown>)["name"] as string;
   }
+  if (typeof p["name"] === "string") return p["name"];
   return undefined;
 }
 

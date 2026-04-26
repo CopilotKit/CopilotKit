@@ -158,6 +158,38 @@ describe("extractToolCallNames", () => {
     );
     expect(extractToolCallNames(events, ["CUSTOM_TOOL_BEGIN"])).toEqual(["x"]);
   });
+
+  // Bug fix R9: when an event carries BOTH a top-level `name` (often
+  // a step / event label) and a structured `tool_call.name` /
+  // `tool_use.name` (the actual tool descriptor), the structured
+  // variants must win — otherwise the parity-compare engine harvests
+  // the step label and produces a wrong tool-call list.
+  it("prefers tool_call.name over a top-level name step-label", () => {
+    const events = parseSseEvents(
+      'data: {"type":"TOOL_CALL_START","name":"step_label","tool_call":{"name":"actual_tool"}}\n\n',
+    );
+    expect(extractToolCallNames(events, ["TOOL_CALL_START"])).toEqual([
+      "actual_tool",
+    ]);
+  });
+
+  it("prefers tool_use.name over a top-level name step-label", () => {
+    const events = parseSseEvents(
+      'data: {"type":"TOOL_CALL_START","name":"step_label","tool_use":{"name":"anthropic_tool"}}\n\n',
+    );
+    expect(extractToolCallNames(events, ["TOOL_CALL_START"])).toEqual([
+      "anthropic_tool",
+    ]);
+  });
+
+  it("toolCallName still wins over any other shape", () => {
+    const events = parseSseEvents(
+      'data: {"type":"TOOL_CALL_START","toolCallName":"canonical","name":"step_label","tool_call":{"name":"sc"},"tool_use":{"name":"anth"}}\n\n',
+    );
+    expect(extractToolCallNames(events, ["TOOL_CALL_START"])).toEqual([
+      "canonical",
+    ]);
+  });
 });
 
 describe("collectContractShape", () => {
