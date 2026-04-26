@@ -130,7 +130,11 @@ function useNowTick(): number {
   return now;
 }
 
-export function StatusTable({ entries, onTrigger, onSelect }: StatusTableProps) {
+export function StatusTable({
+  entries,
+  onTrigger,
+  onSelect,
+}: StatusTableProps) {
   const now = useNowTick();
 
   return (
@@ -191,9 +195,7 @@ export function StatusTable({ entries, onTrigger, onSelect }: StatusTableProps) 
                 </td>
                 <td
                   className="py-2"
-                  onClick={
-                    onSelect ? (ev) => ev.stopPropagation() : undefined
-                  }
+                  onClick={onSelect ? (ev) => ev.stopPropagation() : undefined}
                 >
                   <StatusTriggerButton
                     probeId={e.id}

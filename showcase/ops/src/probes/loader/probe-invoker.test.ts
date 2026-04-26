@@ -800,11 +800,7 @@ describe("buildProbeInvoker", () => {
       id: "smoke",
       schedule: "*/15 * * * *",
       max_concurrency: 4,
-      targets: [
-        { key: "smoke:a" },
-        { key: "smoke:b" },
-        { key: "smoke:bad" },
-      ],
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }, { key: "smoke:bad" }],
     };
     const { writer } = mkWriter();
     const sched = fakeScheduler();

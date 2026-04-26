@@ -65,8 +65,7 @@ export function StatusDurationSparkline({
   const innerH = height - PADDING * 2;
 
   const points = durations.map((d, i) => {
-    const xFrac =
-      durations.length === 1 ? 0 : i / (durations.length - 1);
+    const xFrac = durations.length === 1 ? 0 : i / (durations.length - 1);
     const x = PADDING + xFrac * innerW;
     // Higher duration → lower y (visually "up"). When the input is flat
     // (range === 0) we center the line vertically rather than dividing

@@ -126,18 +126,18 @@ describe("fetchProbes", () => {
     fetchSpy.mockResolvedValue(
       new Response("nope", { status: 503, statusText: "Service Unavailable" }),
     );
-    await expect(
-      fetchProbes({ baseUrl: "http://ops.test" }),
-    ).rejects.toThrow(/503/);
+    await expect(fetchProbes({ baseUrl: "http://ops.test" })).rejects.toThrow(
+      /503/,
+    );
   });
 
   it("throws on 4xx responses", async () => {
     fetchSpy.mockResolvedValue(
       new Response("bad", { status: 400, statusText: "Bad Request" }),
     );
-    await expect(
-      fetchProbes({ baseUrl: "http://ops.test" }),
-    ).rejects.toThrow(/400/);
+    await expect(fetchProbes({ baseUrl: "http://ops.test" })).rejects.toThrow(
+      /400/,
+    );
   });
 });
 

@@ -14,10 +14,7 @@ import {
   InflightConflictError,
 } from "../scheduler/scheduler.js";
 import { ProbeRunTracker } from "../probes/run-tracker.js";
-import type {
-  ProbeRunRecord,
-  ProbeRunWriter,
-} from "../probes/run-history.js";
+import type { ProbeRunRecord, ProbeRunWriter } from "../probes/run-history.js";
 import type { ProbeConfig } from "../probes/loader/schema.js";
 
 const TOKEN = "test-trigger-token";
@@ -37,10 +34,7 @@ interface FakeScheduler extends Scheduler {
   /** Test-only: install an entry into the fake. */
   setEntry(row: FakeEntryRow): void;
   /** Test-only: install the trigger() return / throw behavior. */
-  setTriggerBehavior(behavior: {
-    throw?: Error;
-    result?: TriggerResult;
-  }): void;
+  setTriggerBehavior(behavior: { throw?: Error; result?: TriggerResult }): void;
   /** Test-only: capture last trigger() invocation. */
   lastTriggerOpts: TriggerOptions | undefined;
 }

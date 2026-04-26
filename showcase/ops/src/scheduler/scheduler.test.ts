@@ -349,7 +349,8 @@ describe("scheduler", () => {
       cron: "* * * * * *",
       handler: () =>
         new Promise<void>((resolve) => {
-          scheduledTriggeredFlag = s.getEntry("flag-sched")?.triggeredRun ?? null;
+          scheduledTriggeredFlag =
+            s.getEntry("flag-sched")?.triggeredRun ?? null;
           resolveScheduled = resolve;
         }),
     });
@@ -373,7 +374,8 @@ describe("scheduler", () => {
       cron: "0 0 1 1 *",
       handler: () =>
         new Promise<void>((resolve) => {
-          manualTriggeredFlag = s2.getEntry("flag-manual")?.triggeredRun ?? null;
+          manualTriggeredFlag =
+            s2.getEntry("flag-manual")?.triggeredRun ?? null;
           resolveManual = resolve;
         }),
     });

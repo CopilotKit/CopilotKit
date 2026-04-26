@@ -48,7 +48,10 @@ describe("ProbeRunTracker", () => {
     tracker.enqueue("smoke:a");
     const snap = tracker.snapshot();
     expect(snap.services).toHaveLength(1);
-    expect(snap.services[0]).toMatchObject({ slug: "smoke:a", state: "queued" });
+    expect(snap.services[0]).toMatchObject({
+      slug: "smoke:a",
+      state: "queued",
+    });
     expect(snap.counts).toEqual({
       queued: 1,
       running: 0,

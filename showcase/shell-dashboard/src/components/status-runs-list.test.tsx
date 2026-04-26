@@ -47,13 +47,13 @@ describe("StatusRunsList", () => {
     const { getAllByTestId } = render(<StatusRunsList runs={runs} />);
     // Match the row containers exactly — the cells use suffixes like
     // -state / -trigger / -summary that we don't want to count here.
-    expect(
-      getAllByTestId(/^status-run-row-[a-z]+$/).length,
-    ).toBe(3);
+    expect(getAllByTestId(/^status-run-row-[a-z]+$/).length).toBe(3);
   });
 
   it("renders relative started time, formatted duration, and pass/total", () => {
-    const { getByTestId } = render(<StatusRunsList runs={[run({ id: "a" })]} />);
+    const { getByTestId } = render(
+      <StatusRunsList runs={[run({ id: "a" })]} />,
+    );
     const row = getByTestId("status-run-row-a");
     // 5 minutes ago
     expect(row.textContent).toMatch(/5m\s+ago/);

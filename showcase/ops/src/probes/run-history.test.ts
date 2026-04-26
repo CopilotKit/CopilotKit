@@ -43,10 +43,7 @@ function fakePb(): {
     async getFirst<T>(): Promise<T | null> {
       return null;
     },
-    async list<T>(
-      collection: string,
-      opts?: ListOpts,
-    ): Promise<ListResult<T>> {
+    async list<T>(collection: string, opts?: ListOpts): Promise<ListResult<T>> {
       listCalls.push({ collection, opts });
       // Honor filter (`probe_id = "..."`) and sort (`-started_at`) plus perPage.
       let items = [...rows.values()];
