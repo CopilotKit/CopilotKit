@@ -297,4 +297,105 @@ describe("ensureOk error handling (CR-B1.6)", () => {
     // status should still appear so callers can match on it.
     expect((caught as Error).message).toMatch(/502/);
   });
+
+  it("re-throws AbortError as-is from response.text() (preserves name)", async () => {
+    // R2-C.3: when body read fails with AbortError (e.g. caller aborted
+    // mid-body), preserve the AbortError name so hooks can filter it.
+    const abortErr = new DOMException("aborted", "AbortError");
+    const fakeResponse = {
+      ok: false,
+      status: 503,
+      statusText: "Service Unavailable",
+      text: vi.fn(async () => {
+        throw abortErr;
+      }),
+    } as unknown as Response;
+    fetchSpy.mockResolvedValue(fakeResponse);
+    let caught: unknown = null;
+    try {
+      await fetchProbes({ baseUrl: "http://ops.test" });
+    } catch (err) {
+      caught = err;
+    }
+    // Must be the original AbortError, not a wrapped Error.
+    expect((caught as { name?: string })?.name).toBe("AbortError");
+  });
+
+  it("re-throws AbortError as-is from response.json() (parseJson)", async () => {
+    // R2-C.3: parseJson must propagate AbortError from response.json().
+    const abortErr = new DOMException("aborted", "AbortError");
+    const fakeResponse = {
+      ok: true,
+      status: 200,
+      statusText: "OK",
+      json: vi.fn(async () => {
+        throw abortErr;
+      }),
+    } as unknown as Response;
+    fetchSpy.mockResolvedValue(fakeResponse);
+    let caught: unknown = null;
+    try {
+      await fetchProbes({ baseUrl: "http://ops.test" });
+    } catch (err) {
+      caught = err;
+    }
+    expect((caught as { name?: string })?.name).toBe("AbortError");
+  });
+
+  it("still wraps non-Abort body-read failures with a descriptive message", async () => {
+    // R2-C.3: regression guard — non-Abort body errors keep the wrap path.
+    const fakeResponse = {
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: vi.fn(async () => {
+        throw new Error("stream consumed");
+      }),
+    } as unknown as Response;
+    fetchSpy.mockResolvedValue(fakeResponse);
+    let caught: unknown = null;
+    try {
+      await fetchProbes({ baseUrl: "http://ops.test" });
+    } catch (err) {
+      caught = err;
+    }
+    expect((caught as Error).message).toMatch(/body read failed/);
+    expect((caught as { name?: string })?.name).not.toBe("AbortError");
+  });
+});
+
+describe("triggerProbe abort behavior (R2-C.4)", () => {
+  function triggerOk(): TriggerResponse {
+    return {
+      runId: "run-9",
+      status: "queued",
+      probe: "smoke",
+      scope: [],
+    };
+  }
+
+  it("rejects with AbortError when called with an already-aborted signal", async () => {
+    // Real fetch raises AbortError synchronously when the signal is already
+    // aborted. We mimic that here so triggerProbe surfaces AbortError
+    // unwrapped (per R2-C.3).
+    fetchSpy.mockImplementation((_url: string, init?: FetchInit) => {
+      if (init?.signal?.aborted) {
+        return Promise.reject(new DOMException("aborted", "AbortError"));
+      }
+      return Promise.resolve(jsonResponse(triggerOk()));
+    });
+    const ctrl = new AbortController();
+    ctrl.abort();
+    let caught: unknown = null;
+    try {
+      await triggerProbe("smoke", {
+        token: "t",
+        baseUrl: "http://ops.test",
+        signal: ctrl.signal,
+      });
+    } catch (err) {
+      caught = err;
+    }
+    expect((caught as { name?: string })?.name).toBe("AbortError");
+  });
 });

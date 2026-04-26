@@ -34,7 +34,9 @@ export type ProbeKind =
   | "version-drift"
   | "deploy-result"
   // Allow forward-compat probes the dashboard hasn't been taught about yet.
-  | string;
+  // The `(string & {})` form preserves autocomplete on the known literals
+  // while still accepting any string at the type level.
+  | (string & {});
 
 export type ServiceState = "queued" | "running" | "completed" | "failed";
 export type ProbeResult = "green" | "yellow" | "red";
@@ -141,6 +143,12 @@ async function ensureOk(response: Response, url: string): Promise<void> {
     const text = await response.text();
     if (text && text.length <= 200) detail = ` — ${text}`;
   } catch (bodyErr) {
+    // R2-C.3: propagate AbortError as-is so hook-layer cancellation
+    // filters (`err.name === "AbortError"`) keep working. Wrapping it in a
+    // generic Error would surface "AbortError" as user-facing noise.
+    if ((bodyErr as { name?: string })?.name === "AbortError") {
+      throw bodyErr;
+    }
     // Surface the body-read failure rather than swallowing it silently —
     // callers and tests need a marker to distinguish "server returned an
     // empty/unreachable body" from "we just chose not to include it".
@@ -160,6 +168,10 @@ async function parseJson<T>(response: Response, url: string): Promise<T> {
   try {
     return (await response.json()) as T;
   } catch (parseErr) {
+    // R2-C.3: propagate AbortError as-is — same rationale as ensureOk.
+    if ((parseErr as { name?: string })?.name === "AbortError") {
+      throw parseErr;
+    }
     const msg = (parseErr as Error)?.message ?? "unknown";
     throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`);
   }
