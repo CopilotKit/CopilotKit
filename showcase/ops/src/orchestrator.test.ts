@@ -338,22 +338,6 @@ describe("orchestrator /health wiring (F1.1)", () => {
  *      guards is "ruleC never registers because ruleB threw".
  */
 describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () => {
-  function makeCronRule(id: string, cron: string): CompiledRule {
-    return {
-      id,
-      name: id,
-      owner: "@test",
-      severity: "warn",
-      signal: { dimension: "aimock_wiring" },
-      stringTriggers: [],
-      cronTriggers: [{ schedule: cron }],
-      conditions: { guards: [], escalations: [] },
-      targets: [{ kind: "slack_webhook", webhook: "oss_alerts" }],
-      template: { text: "x" },
-      actions: [],
-    };
-  }
-
   it("continues registering subsequent rules when one rule's register throws", () => {
     // Build a stub scheduler satisfying only the surface `diffCronSchedules`
     // touches: register / unregister / list. register() throws for ruleB,
@@ -792,7 +776,13 @@ describe("orchestrator /api/probes wiring (F1)", () => {
   let probeDir: string;
   let stopFn: (() => Promise<void>) | null = null;
   let port = 0;
-  const prevToken = process.env.OPS_TRIGGER_TOKEN;
+  // T-A2 (CR-A2 bonus): capture `prevToken` per-test in beforeEach instead
+  // of at module load. Pre-fix, the binding was taken once at file-import
+  // time — if any earlier test mutated OPS_TRIGGER_TOKEN and didn't restore
+  // it before this describe ran, this block's afterEach would reset to the
+  // wrong value. Per-test capture isolates this describe from cross-test
+  // pollution.
+  let prevToken: string | undefined;
 
   beforeEach(async () => {
     // Mirror the boot path's expected layout: configDir is the alerts dir,
@@ -803,6 +793,7 @@ describe("orchestrator /api/probes wiring (F1)", () => {
     await fs.mkdir(tempDir, { recursive: true });
     await fs.mkdir(probeDir, { recursive: true });
     port = await pickPort();
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
     // The probes router's bearer-auth middleware fails loud on construction
     // if no OPS_TRIGGER_TOKEN is configured. Set one for the duration of the
     // test so boot can mount the routes.
@@ -867,6 +858,256 @@ describe("orchestrator /api/probes wiring (F1)", () => {
     // had no probe-config lookup wired through.
     expect(probe!.config.timeout_ms).toBe(15000);
     expect(probe!.config.max_concurrency).toBe(2);
+  });
+});
+
+/**
+ * CR-A2.1: boot must NOT orphan the HTTP server when scheduler.start() throws.
+ *
+ * Pre-fix sequence in orchestrator.boot():
+ *   1. const server = serve({ ... port })   // HTTP socket bound
+ *   2. scheduler.start()                    // throws synchronously
+ *   3. (boot's try wrapping is upstream — start() throw propagates out)
+ *
+ * Result pre-fix: boot rejects but `server` keeps the port bound. The next
+ * boot attempt on the same port hits EADDRINUSE; CI runs that pick a fresh
+ * port mask the bug, but in production a Railway restart loop leaks
+ * one socket per crash until OOM. Fix: reorder so scheduler.start() runs
+ * BEFORE serve() (option B), or close the server before rethrowing.
+ *
+ * Test: doMock createScheduler so scheduler.start() throws. Boot must reject
+ * AND the chosen port must NOT be left in LISTEN state.
+ */
+describe("orchestrator boot start() failure cleanup (CR-A2.1)", () => {
+  let tempDir: string;
+  let port = 0;
+
+  beforeEach(async () => {
+    tempDir = await mkTempConfigDir();
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects boot AND does not leave the HTTP port bound when scheduler.start() throws", async () => {
+    vi.resetModules();
+
+    // Wrap createScheduler so the returned scheduler.start throws on first
+    // invocation. All other methods delegate to the real scheduler so
+    // boot() can register entries / call list() etc. before start().
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            start: () => {
+              throw new Error("simulated scheduler.start() failure");
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    await expect(
+      orchMod.boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/simulated scheduler\.start\(\) failure/);
+
+    // Wait long enough for any deferred listen() callback to fire — pre-fix,
+    // serve() schedules the actual socket bind on next tick, so a synchronous
+    // port-probe could miss the orphan window.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Critical assertion: a fetch to the port must NOT succeed. Pre-fix
+    // the orphaned http.Server stays listening on `port` even after boot
+    // rejects, so /health (or even /) responds. Post-fix the server was
+    // either never bound (option B: scheduler.start before serve) or
+    // closed before rethrow (option A). NOTE: net.createServer().listen()
+    // can succeed for a still-bound orphan because Node sets SO_REUSEADDR
+    // by default on macOS — the probe-bind cannot detect the orphan.
+    // Only an actual fetch can prove the port is silent.
+    let fetchSucceeded = false;
+    let fetchErr = "";
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      fetchSucceeded = res.status >= 200 && res.status < 600;
+    } catch (err) {
+      fetchErr = err instanceof Error ? err.message : String(err);
+    }
+    expect(
+      fetchSucceeded,
+      `port should NOT serve after rejected boot; fetchErr=${fetchErr}`,
+    ).toBe(false);
+  });
+});
+
+/**
+ * CR-A2.2: orchestrator's diffProbeSchedules must NOT orphan probeConfigs
+ * when scheduler.unregister rejects.
+ *
+ * Pre-fix sequence:
+ *   scheduler.unregister(id).catch(log)   // fire-and-forget
+ *   probeConfigs.delete(id)               // runs synchronously
+ *
+ * If unregister rejects, the scheduler still has the entry but probeConfigs
+ * no longer has the config. The /api/probes router would render the
+ * stale entry as `kind: "unknown"` with `config: { timeout_ms: null, ... }` —
+ * the worst possible debugging experience.
+ *
+ * Fix: await unregister, and if it rejects, skip the probeConfigs.delete so
+ * the orphan stays visible with proper config rather than fully orphaned.
+ *
+ * Test: boot with a probe YAML, confirm /api/probes shows the probe with
+ * proper config. Mock scheduler.unregister to reject. Delete the YAML,
+ * fire SIGHUP-style reload (re-call probeLoader path via deletion + watcher
+ * settle). Assert /api/probes STILL shows the probe with proper config —
+ * NOT "unknown".
+ */
+describe("orchestrator probe unregister failure preserves config (CR-A2.2)", () => {
+  let tempDir: string;
+  let probeDir: string;
+  let stopFn: (() => Promise<void>) | null = null;
+  let port = 0;
+  let prevToken: string | undefined;
+
+  beforeEach(async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-unreg-"));
+    tempDir = path.join(root, "alerts");
+    probeDir = path.join(root, "probes");
+    await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(probeDir, { recursive: true });
+    port = await pickPort();
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
+    process.env.OPS_TRIGGER_TOKEN = "test-trigger-token";
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(path.dirname(tempDir), { recursive: true, force: true });
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("keeps probeConfigs entry when scheduler.unregister rejects (orphan stays visible with proper config)", async () => {
+    vi.resetModules();
+
+    // Wrap createScheduler: unregister is replaced with a rejecting mock,
+    // but only after the registration phase has succeeded (we install the
+    // rejection during the first list() that returns a non-empty set, so
+    // initial diffProbeSchedules works as normal). All other methods
+    // delegate to the real scheduler.
+    let unregisterShouldReject = false;
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            // Pass through register/list/start/stop/etc.; intercept ONLY
+            // unregister to simulate a rejecting cleanup.
+            unregister: async (id: string) => {
+              if (unregisterShouldReject) {
+                throw new Error(
+                  `simulated unregister rejection for ${id}`,
+                );
+              }
+              return real.unregister(id);
+            },
+          };
+        },
+      };
+    });
+
+    const probeYaml = [
+      "kind: smoke",
+      "id: cr-a2-2-probe",
+      'schedule: "0 9 * * 1"',
+      "timeout_ms: 12345",
+      "max_concurrency: 3",
+      "targets:",
+      "  - key: example",
+      '    url: "https://example.com"',
+      "",
+    ].join("\n");
+    const probePath = path.join(probeDir, "cr-a2-2-probe.yml");
+    await fs.writeFile(probePath, probeYaml, "utf8");
+
+    const orchMod = await import("./orchestrator.js");
+    const booted = await orchMod.boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+
+    // Sanity: probe shows with proper kind + config initially.
+    const beforeRes = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(beforeRes.status).toBe(200);
+    const beforeBody = (await beforeRes.json()) as {
+      probes: Array<{
+        id: string;
+        kind: string;
+        config: { timeout_ms: number | null; max_concurrency: number | null };
+      }>;
+    };
+    const beforeProbe = beforeBody.probes.find(
+      (p) => p.id === "probe:cr-a2-2-probe",
+    );
+    expect(beforeProbe).toBeDefined();
+    expect(beforeProbe!.kind).toBe("smoke");
+    expect(beforeProbe!.config.timeout_ms).toBe(12345);
+
+    // Now arm the unregister rejection and remove the YAML file. The
+    // probe-loader file watcher will pick up the deletion and call
+    // diffProbeSchedules with an empty desired set → unregister fires → rejects.
+    unregisterShouldReject = true;
+    await fs.rm(probePath, { force: true });
+
+    // Wait long enough for chokidar's debounce + the post-fix awaited
+    // unregister to settle. The probe-loader uses a 100ms debounce; pad
+    // generously.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    // Post-fix expectation: probe is STILL in /api/probes (scheduler
+    // still has the entry because unregister rejected) AND the config
+    // is preserved (kind: "smoke", timeout_ms: 12345). Pre-fix, the
+    // sync probeConfigs.delete would have nuked the config so kind
+    // would render as "unknown" with timeout_ms: null.
+    const afterRes = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(afterRes.status).toBe(200);
+    const afterBody = (await afterRes.json()) as {
+      probes: Array<{
+        id: string;
+        kind: string;
+        config: { timeout_ms: number | null; max_concurrency: number | null };
+      }>;
+    };
+    const afterProbe = afterBody.probes.find(
+      (p) => p.id === "probe:cr-a2-2-probe",
+    );
+    expect(afterProbe).toBeDefined();
+    expect(afterProbe!.kind).toBe("smoke");
+    expect(afterProbe!.kind).not.toBe("unknown");
+    expect(afterProbe!.config.timeout_ms).toBe(12345);
   });
 });
 
