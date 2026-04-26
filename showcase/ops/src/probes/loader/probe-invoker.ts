@@ -750,7 +750,6 @@ type ResolvedInputs =
   | { ok: true; inputs: ResolvedInput[] }
   | { ok: false; error: string };
 
-
 async function resolveInputs(
   cfg: ProbeConfig,
   discoveryRegistry: DiscoveryRegistry,
