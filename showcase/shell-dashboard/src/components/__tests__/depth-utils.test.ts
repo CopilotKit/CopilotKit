@@ -4,19 +4,8 @@
  */
 import { describe, it, expect } from "vitest";
 import { deriveDepth } from "../depth-utils";
+import type { CatalogCell } from "../depth-utils";
 import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
-
-/** Catalog cell shape matching what catalog.json will provide. */
-interface CatalogCell {
-  id: string;
-  integration: string;
-  integration_name: string;
-  feature: string;
-  feature_name: string;
-  status: "wired" | "stub" | "unshipped";
-  category: string;
-  category_name: string;
-}
 
 function row(
   key: string,
@@ -55,6 +44,23 @@ const cell = (
   status,
   category: "dev-ex",
   category_name: "Dev Ex",
+});
+
+// Starter cells: feature === null. These represent the integration's CLI
+// starter (no feature wired), and the depth ladder caps at D2 because D3
+// (per-cell e2e) is not meaningful without a feature id.
+const starter = (
+  slug: string,
+  status: CatalogCell["status"] = "wired",
+): CatalogCell => ({
+  id: `${slug}/__starter`,
+  integration: slug,
+  integration_name: slug,
+  feature: null,
+  feature_name: null,
+  status,
+  category: null,
+  category_name: null,
 });
 
 describe("deriveDepth", () => {
@@ -190,5 +196,30 @@ describe("deriveDepth", () => {
     ]);
     const result = deriveDepth(c, live);
     expect(result.isRegression).toBe(false);
+  });
+
+  it("starter cell (feature null) caps at D2 with health+agent green", () => {
+    const c = starter("lgp");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(2);
+    expect(result.isRegression).toBe(false);
+  });
+
+  it("starter cell skips D3 even with chat+tools green", () => {
+    const c = starter("lgp");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+      // Even if these were green they cannot lift a starter past D2 because
+      // D3 (e2e) is not evaluable without a feature id.
+      row("chat:lgp", "chat", "green"),
+      row("tools:lgp", "tools", "green"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.achieved).toBe(2);
   });
 });
