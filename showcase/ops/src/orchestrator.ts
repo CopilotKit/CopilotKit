@@ -28,6 +28,7 @@ import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
+import { createProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { smokeDriver } from "./probes/drivers/smoke.js";
@@ -40,6 +41,8 @@ import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
+import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
+import { makeGql } from "./probes/discovery/railway-services.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
 export interface BootOptions {
@@ -200,14 +203,16 @@ export async function boot(opts: BootOptions = {}): Promise<{
     const next = await loader.load();
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister) —
+    // await the diff so rules.reloaded fires only after the diff settles.
+    await diffCronSchedules(scheduler, next, bus, cronProbeResolver);
     bus.emit("rules.reloaded", { count: next.length });
   }
 
   try {
     await reloadRules();
   } catch (err) {
-    logger.error("orchestrator.initial-rule-load-failed", { err: String(err) });
+    logErrorWithStack(logger, "orchestrator.initial-rule-load-failed", err);
     throw err;
   }
 
@@ -229,6 +234,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
   //
   // Scheduler IDs use the `probe:` prefix so they never collide with the
   // rule-cron IDs (`<ruleId>:cron:<idx>`) or the internal IDs (`internal:`).
+  // F1: per-probe config map populated by `diffProbeSchedules` and consumed
+  // by the /api/probes router via `getProbeConfig(id)`. Keyed by the
+  // scheduler-id (`probe:<cfg.id>`) so a single lookup serves both the
+  // routes and any future call site that has the scheduler entry id in hand.
+  // Stays in sync with the loader output: each diff sweep clears the map of
+  // ids no longer desired and (re-)inserts the active set.
+  const probeConfigs = new Map<string, ProbeConfig>();
+  // F1: probe_runs writer reused by every per-probe invoker so each tick
+  // inserts a `running` row at start and finalizes it at finish. Constructed
+  // once at boot so the writer's PB client (and any internal state added
+  // later — caches, batching) is shared across invokers.
+  const runWriter = createProbeRunWriter(pb);
+
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
   probeRegistry.register(aimockWiringDriver);
@@ -257,7 +275,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     logger,
   });
 
-  function diffProbeSchedules(configs: ProbeConfig[]): void {
+  async function diffProbeSchedules(configs: ProbeConfig[]): Promise<void> {
     // Build desired map: scheduler-id → cfg. `probe:` prefix keeps us from
     // unregistering rule-cron or internal IDs in the same sweep.
     const desired = new Map<string, ProbeConfig>();
@@ -265,17 +283,67 @@ export async function boot(opts: BootOptions = {}): Promise<{
       desired.set(`probe:${cfg.id}`, cfg);
     }
     // Unregister probe IDs that are no longer desired (YAML deleted).
+    // CR-A2.2: await the unregister and only drop probeConfigs on
+    // success. Pre-fix the unregister was fire-and-forget and probeConfigs
+    // was deleted synchronously — so if unregister rejected, the scheduler
+    // still had the old entry but probeConfigs no longer had its config,
+    // causing the /api/probes router to surface a fully orphaned entry as
+    // `kind: "unknown"` with `config: { timeout_ms: null, ... }`. Keeping
+    // the config on rejection means the orphan stays VISIBLE with proper
+    // metadata — operators can still see what kind of probe was leaked,
+    // which is the better debugging surface than "unknown". The next
+    // successful diff sweep (after the YAML is restored or the operator
+    // restarts the service) cleans things up.
     for (const entry of scheduler.list()) {
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
-        scheduler.unregister(entry.id).catch((err) =>
-          logger.error("orchestrator.probe-unregister-failed", {
-            id: entry.id,
-            err: String(err),
-          }),
-        );
+        try {
+          await scheduler.unregister(entry.id);
+          probeConfigs.delete(entry.id);
+        } catch (err) {
+          logErrorWithStack(
+            logger,
+            "orchestrator.probe-unregister-failed",
+            err,
+            {
+              id: entry.id,
+            },
+          );
+          // R2-B.4: dedicated `scheduler_unregister_failures_total`
+          // counter would belong here, but adding it requires extending
+          // metrics.ts COUNTER_NAMES (out of scope for this fix). Defer
+          // to bucket-b follow-up; the structured log above is the
+          // first-class observability surface in the meantime.
+          // Intentionally do NOT delete from probeConfigs — see comment
+          // above. Orphan stays visible with proper config so /api/probes
+          // surfaces a useful `kind`/`config` rather than "unknown".
+        }
       }
     }
+    // Driver-singleton timeout threading: drivers are registered as
+    // singletons at boot (BEFORE configs are loaded), so we can't pass
+    // each YAML's `timeout_ms` straight into the driver factory. Instead
+    // we compute a PER-CFG env overlay via `envForCfg(cfg, baseEnv)` and
+    // hand it to `buildProbeInvoker` as the invoker's `env`. Drivers
+    // read the timeout via `ctx.env.E2E_DEMOS_TIMEOUT_MS` (see
+    // drivers/e2e-demos.ts — `TIMEOUT_ENV_VAR`).
+    //
+    // Pre-fix this loop wrote `process.env.E2E_DEMOS_TIMEOUT_MS = ...`
+    // directly. Three problems with that:
+    //   1. Stale across YAML reloads — when the cfg removed timeout_ms,
+    //      the env var stayed set and leaked into every subsequent tick.
+    //   2. Last-write-wins silently across multiple e2e_demos configs.
+    //   3. Mutating shared global state from a diff function broke
+    //      parallel test isolation.
+    // The overlay pattern is fully isolated per-cfg and per-call.
+
+    // Snapshot process.env once at the top so every overlay derives from
+    // the same base — eliminates the read-after-write hazard if a future
+    // refactor accidentally mutates process.env between iterations.
+    const baseEnv: Readonly<Record<string, string | undefined>> = {
+      ...process.env,
+    };
+
     // Register / re-register each desired probe. `scheduler.register` is
     // idempotent — if the cron+handler combination is unchanged it's
     // effectively a no-op; otherwise it replaces the prior entry.
@@ -298,8 +366,21 @@ export async function boot(opts: BootOptions = {}): Promise<{
         writer,
         logger,
         fetchImpl: globalThis.fetch,
-        env: process.env as Readonly<Record<string, string | undefined>>,
+        env: envForCfg(cfg, baseEnv),
         now: () => new Date(),
+        // F1: thread the live scheduler + runWriter through so the invoker's
+        // optional B7 hooks (ProbeRunTracker registration, probe_runs row
+        // start/finish) actually fire in production. Pre-fix both deps were
+        // unset and tracker + run-history were dead code.
+        scheduler,
+        // R3-A.2: pass the prefixed scheduler id so the invoker's
+        // getEntry/setEntryTracker calls actually find the scheduler entry
+        // we just registered (`probe:${cfg.id}`). Pre-fix the invoker used
+        // the bare cfg.id and tracker registration was a silent no-op
+        // against the live scheduler — /api/probes never surfaced inflight
+        // tracker data for cron-tick runs.
+        schedulerId: id,
+        runWriter,
       });
       try {
         scheduler.register({
@@ -307,12 +388,17 @@ export async function boot(opts: BootOptions = {}): Promise<{
           cron: cfg.schedule,
           handler: invoker,
         });
+        // F1: stamp the config map AFTER successful register so a thrown
+        // validateCron doesn't leave a probeConfigs entry pointing at no
+        // scheduler entry. The /api/probes router intersects scheduler.list()
+        // with this map; an orphaned config would still render as "unknown"
+        // but it's cleaner to keep the two collections in lockstep.
+        probeConfigs.set(id, cfg);
       } catch (err) {
-        logger.error("orchestrator.probe-register-failed", {
+        logErrorWithStack(logger, "orchestrator.probe-register-failed", err, {
           id,
           kind: cfg.kind,
           schedule: cfg.schedule,
-          err: String(err),
         });
       }
     }
@@ -320,7 +406,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   async function reloadProbes(): Promise<void> {
     const next = await probeLoader.load();
-    diffProbeSchedules(next);
+    await diffProbeSchedules(next);
     bus.emit("probes.reloaded", { count: next.length });
   }
 
@@ -330,26 +416,67 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // Probe load failure must NOT take down the service — rules and other
     // probes (deploy-result webhook) still function. Surface on the bus so
     // operators can alert on `probes.reload.failed` without blocking boot.
-    logger.error("orchestrator.initial-probe-load-failed", {
-      err: String(err),
-    });
+    logErrorWithStack(logger, "orchestrator.initial-probe-load-failed", err);
     bus.emit("probes.reload.failed", {
       errors: [{ file: "(initial-load)", error: String(err) }],
     });
   }
 
-  const unwatchProbes = probeLoader.watch((next) => {
-    diffProbeSchedules(next);
-    bus.emit("probes.reloaded", { count: next.length });
-  });
+  // R5-G4 D7: initialize as a no-op BEFORE the watch() call so a
+  // synchronous throw inside `probeLoader.watch(...)` cannot leave
+  // `unwatchProbes` undefined. Pre-fix, a stop() invoked after a
+  // failed watch() init would throw `ReferenceError: unwatchProbes is
+  // not defined` and orphan the engine + scheduler.
+  let unwatchProbes: () => void = () => {};
+  try {
+    unwatchProbes = probeLoader.watch((next) => {
+      // CR-A2.2: diffProbeSchedules is now async (awaits unregister). The
+      // file-watch callback signature is sync (void return), so we fire-and-
+      // forget the diff and route any uncaught rejection into the same
+      // log/emit channel as the initial-load path. A rejection here means
+      // both: (a) at least one probe entry could not be removed cleanly (the
+      // orphan stays visible in /api/probes per the design choice in the
+      // body of diffProbeSchedules), AND (b) the post-await `bus.emit` may
+      // not have fired — operators see a "probes.reload.failed" instead of
+      // a stale "probes.reloaded" claim.
+      diffProbeSchedules(next)
+        .then(() => bus.emit("probes.reloaded", { count: next.length }))
+        .catch((err) => {
+          logErrorWithStack(
+            logger,
+            "orchestrator.probe-watch-reload-failed",
+            err,
+          );
+          bus.emit("probes.reload.failed", {
+            errors: [{ file: "(watch-reload)", error: String(err) }],
+          });
+        });
+    });
+  } catch (err) {
+    logErrorWithStack(logger, "orchestrator.probe-watch-init-failed", err);
+  }
 
   const unwatch = loader.watch((next) => {
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
-    // Emit rules.reloaded on file-watch reload too so the metric stays
-    // accurate regardless of reload source (SIGHUP vs file event).
-    bus.emit("rules.reloaded", { count: next.length });
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister).
+    // The file-watch callback signature is sync (void return), so we
+    // fire-and-forget the diff and route any uncaught rejection into a
+    // structured log + bus emit — same shape as the probe-watch path.
+    diffCronSchedules(scheduler, next, bus, cronProbeResolver)
+      .then(() =>
+        // Emit rules.reloaded on file-watch reload too so the metric stays
+        // accurate regardless of reload source (SIGHUP vs file event).
+        bus.emit("rules.reloaded", { count: next.length }),
+      )
+      .catch((err) => {
+        logger.error("orchestrator.rule-watch-reload-failed", {
+          err: String(err),
+        });
+        bus.emit("rules.reload.failed", {
+          errors: [{ file: "(watch-reload)", error: String(err) }],
+        });
+      });
   });
 
   // Route deploy.result webhook events through the writer so they emit status.changed.
@@ -361,11 +488,11 @@ export async function boot(opts: BootOptions = {}): Promise<{
   busUnsubs.push(
     bus.on("deploy.result", (event) => {
       const result = deployEventToProbeResult(event, deployCtx);
-      writer.write(result).catch((err) =>
-        logger.error("orchestrator.deploy-writer-failed", {
-          err: String(err),
-        }),
-      );
+      writer
+        .write(result)
+        .catch((err) =>
+          logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
+        );
     }),
   );
 
@@ -374,6 +501,26 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
     (s): s is string => typeof s === "string" && s.length > 0,
   );
+  // R5-G4 D5: empty webhookSecrets silently disables auth on the
+  // deploy.result webhook — anyone who knows the URL can POST. Mirror
+  // the POCKETBASE_URL fail-loud pattern: in production the missing
+  // config is a deploy bug that must surface immediately. In dev/test
+  // emit an info log so developers see the bypass.
+  if (webhookSecrets.length === 0) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("orchestrator.FATAL-CONFIG", {
+        msg: "SHARED_SECRET required in production",
+        nodeEnv: process.env.NODE_ENV,
+      });
+      throw new Error(
+        "FATAL-CONFIG: SHARED_SECRET required in production (NODE_ENV=production)",
+      );
+    }
+    logger.info("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+    });
+  }
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the
@@ -382,6 +529,48 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // hasn't ticked yet. Flipped true immediately after start, flipped false
   // in stop() so post-shutdown probes also read correctly.
   let schedulerRunning = false;
+
+  // F1: only mount the /api/probes router when an OPS_TRIGGER_TOKEN is
+  // configured. The router's bearer-auth middleware is fail-loud at
+  // construction (MissingAuthTokenError) — wiring it unconditionally would
+  // break every test / dev boot that doesn't set the env var. When unset we
+  // log at info level so operators can see the routes were intentionally
+  // skipped, then flag it as a hardening concern in the boot summary.
+  //
+  // R2-B.3: distinguish "unset" (intentional disable) from "set-but-empty"
+  // (misconfiguration). An operator who mistypes `OPS_TRIGGER_TOKEN=`
+  // (no value) ships an empty string AND would otherwise see a silent-skip
+  // log instead of the load-bearing fail-loud error. Whitespace-only is
+  // treated identically: trim() then reject if zero-length.
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  // R3-A.5: trim defense-in-depth. The auth layer (auth.ts) also trims
+  // both sides at construction, but normalising here keeps the orchestrator
+  // contract honest — the value passed downstream is the same one the
+  // bearer-auth middleware will compare against. Pre-fix, a "  abc  "
+  // token boot'd successfully but the auth layer's asymmetric trimming
+  // (presented trimmed, expected verbatim) silently 401'd every request.
+  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  const probesDeps = triggerToken
+    ? {
+        scheduler,
+        writer: runWriter,
+        getProbeConfig: (id: string): ProbeConfig | undefined =>
+          probeConfigs.get(id),
+        triggerToken,
+        now: () => Date.now(),
+      }
+    : undefined;
+  if (!triggerToken) {
+    logger.info("orchestrator.probes-router-disabled", {
+      reason: "OPS_TRIGGER_TOKEN unset — /api/probes routes not mounted",
+    });
+  }
+
   const app = buildServer({
     pb,
     logger,
@@ -400,6 +589,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     bus,
     webhookSecrets,
     metrics,
+    probes: probesDeps,
   });
 
   // S3 backup — cron 0 3 * * * (daily 03:00 UTC). Retention handled via
@@ -486,7 +676,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
       // only logged — the service booted green while backups silently
       // never ran. Alert rules can now subscribe to
       // `internal.backup.init-failed` to surface the degraded state.
-      logger.error("orchestrator.s3-backup-init-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.s3-backup-init-failed", err, {
+        bucket: s3Bucket,
+      });
       bus.emit("internal.backup.init-failed", {
         err: String(err),
         bucket: s3Bucket,
@@ -495,9 +687,82 @@ export async function boot(opts: BootOptions = {}): Promise<{
   }
 
   const port = opts.port ?? Number(process.env.PORT ?? 8080);
-  const server = serve({ fetch: app.fetch, port });
+  // CR-A2.1: start the scheduler BEFORE binding the HTTP server. Pre-fix,
+  // `serve()` ran first and `scheduler.start()` second — if start() threw
+  // (a stopped-scheduler reentry, future precondition check, etc.) the
+  // bound socket was never closed. Boot rejected, but the http.Server kept
+  // listening, leaking one socket per restart loop. The HTTP server has
+  // no dependency on scheduler state at construction time (the /health
+  // probes accept callbacks that read scheduler liveness lazily), so the
+  // reorder is safe and obviates needing a try/catch around start() to
+  // close the server before rethrowing.
   scheduler.start();
   schedulerRunning = true;
+  // R2-B.2: wrap serve() so a synchronous throw (EADDRINUSE, etc.) doesn't
+  // leave the scheduler running with no stop handle. Pre-fix CR-A2.1
+  // reordered start() before serve() to avoid orphaning the HTTP socket on
+  // a scheduler.start() throw — but if serve() itself throws, the scheduler
+  // is up with no owner and cron tasks fire indefinitely. Tear it down
+  // before rethrowing so boot()'s rejection cleanly releases all resources.
+  let server: ReturnType<typeof serve>;
+  try {
+    server = serve({ fetch: app.fetch, port });
+  } catch (err) {
+    await scheduler.stop().catch((stopErr) =>
+      logger.error("orchestrator.stop-after-serve-failure", {
+        err: String(stopErr),
+      }),
+    );
+    schedulerRunning = false;
+    throw err;
+  }
+  // R4-A.3: serve() returns the http.Server SYNCHRONOUSLY but bind happens
+  // via server.listen() which emits 'error' ASYNCHRONOUSLY for conditions
+  // like EADDRINUSE. The R2-B.2 try/catch only catches synchronous throws —
+  // a real bind failure resolves boot() successfully with an orphaned
+  // scheduler still ticking. Race 'listening' vs 'error' so async bind
+  // errors propagate as boot() rejections AND tear down the scheduler.
+  //
+  // The returned object is a Node http.Server (or Http2Server) per
+  // @hono/node-server's `ServerType`; both extend EventEmitter and emit
+  // 'listening' on bind success and 'error' on bind failure. If the server
+  // is already in `listening` state by the time we get here (sync bind
+  // succeeded before we attached listeners), short-circuit to resolve.
+  await new Promise<void>((resolve, reject) => {
+    const srv = server as unknown as {
+      listening?: boolean;
+      once(event: string, cb: (...args: unknown[]) => void): unknown;
+      removeListener(event: string, cb: (...args: unknown[]) => void): unknown;
+    };
+    const onListen = (): void => {
+      srv.removeListener("error", onError);
+      resolve();
+    };
+    const onError = (err: unknown): void => {
+      srv.removeListener("listening", onListen);
+      // Fire the cleanup as a separate promise chain so the rejection
+      // below isn't gated on scheduler.stop() — operators see the original
+      // bind error, not a stop-failure shadow. schedulerRunning flips
+      // immediately so /health stops claiming "ok" before the stop awaits.
+      schedulerRunning = false;
+      scheduler.stop().catch((stopErr) =>
+        logger.error("orchestrator.stop-after-async-bind-failure", {
+          err: String(stopErr),
+        }),
+      );
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+    srv.once("listening", onListen);
+    srv.once("error", onError);
+    // If listen() resolved synchronously before we attached, the
+    // 'listening' event already fired and we'd hang forever. Guard with
+    // the `.listening` flag.
+    if (srv.listening === true) {
+      srv.removeListener("error", onError);
+      srv.removeListener("listening", onListen);
+      resolve();
+    }
+  });
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {
@@ -508,7 +773,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // to bump to debug saw the rule-reload log at the OLD level.
     reloadLogLevel();
     reloadRules().catch((err) => {
-      logger.error("orchestrator.reload-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.reload-failed", err);
       // R21 bucket-a: mirror the watch-path failure emission in
       // rule-loader.ts (~line 540). File-watch reload failures hit the
       // bus so the alert engine / dashboard can surface them; SIGHUP
@@ -598,6 +863,43 @@ export function createStatusReader(pb: {
 }
 
 /**
+ * Project a per-cfg env overlay for `buildProbeInvoker`. Drivers that
+ * need YAML-derived knobs (e.g. `e2e_demos`'s `cfg.timeout_ms` —
+ * threaded through as `E2E_DEMOS_TIMEOUT_MS`) read them from
+ * `ctx.env`. Returning a FRESH overlay per cfg eliminates three classes
+ * of bugs the prior `process.env` mutation introduced:
+ *
+ *   1. **Stale across reloads** — when a YAML reload drops `timeout_ms`,
+ *      the previous value no longer leaks into subsequent ticks because
+ *      the overlay is derived from `baseEnv` only (which the orchestrator
+ *      snapshots once per `diffProbeSchedules`, untouched by prior probe
+ *      iterations).
+ *   2. **Last-write-wins across multiple configs** — two e2e_demos cfgs
+ *      with different `timeout_ms` each get their own overlay; neither
+ *      stomps the other.
+ *   3. **Test isolation** — `process.env` is never written, so parallel
+ *      tests don't see each other's bleed.
+ *
+ * Exported for unit-test access. Callers outside the orchestrator should
+ * NOT use this — drivers should accept their config via constructor deps
+ * (`createE2eDemosDriver({ timeoutMs })`) once the singleton-driver
+ * registration pattern is replaced by per-cfg factories.
+ */
+export function envForCfg(
+  cfg: ProbeConfig,
+  baseEnv: Readonly<Record<string, string | undefined>>,
+): Readonly<Record<string, string | undefined>> {
+  if (
+    cfg.kind === "e2e_demos" &&
+    "timeout_ms" in cfg &&
+    cfg.timeout_ms !== undefined
+  ) {
+    return { ...baseEnv, E2E_DEMOS_TIMEOUT_MS: String(cfg.timeout_ms) };
+  }
+  return baseEnv;
+}
+
+/**
  * Resolver that returns an async probe invoker for a given rule
  * dimension, or null if no in-process probe is available (cron tick
  * should emit `rule.scheduled` without a result and defer to external
@@ -623,12 +925,12 @@ export type CronProbeResolver = (
  * Railway adapter (orchestrator-level config: RAILWAY_TOKEN,
  * RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, AIMOCK_URL).
  */
-export function diffCronSchedules(
+export async function diffCronSchedules(
   scheduler: ReturnType<typeof createScheduler>,
   rules: CompiledRule[],
   bus: ReturnType<typeof createEventBus>,
   cronProbeResolver: CronProbeResolver,
-): void {
+): Promise<void> {
   const desired = new Map<
     string,
     { schedule: string; ruleId: string; dimension: string }
@@ -645,7 +947,28 @@ export function diffCronSchedules(
   }
   const currentIds = scheduler.list().map((e) => e.id);
   for (const id of currentIds) {
-    if (!desired.has(id) && id.includes(":cron:")) scheduler.unregister(id);
+    if (!desired.has(id) && id.includes(":cron:")) {
+      // R2-B.1: await the unregister, mirroring the CR-A2.2 fix on the
+      // probe-rule path. Pre-fix this was fire-and-forget — a rejection
+      // became an unhandled rejection AND the orphan got no structured
+      // log. On rejection we log (operators get a first-class signal)
+      // and leave the entry in scheduler.list(); next diff sweep will
+      // retry. Same design choice as CR-A2.2: the orphan stays VISIBLE
+      // rather than being silently dropped from bookkeeping.
+      try {
+        await scheduler.unregister(id);
+      } catch (err) {
+        logger.error("orchestrator.cron-unregister-failed", {
+          id,
+          err: String(err),
+        });
+        // R2-B.4: dedicated `scheduler_unregister_failures_total` counter
+        // would belong here, but adding it requires extending metrics.ts
+        // COUNTER_NAMES (out of scope for this fix). Defer to bucket-b
+        // follow-up; the structured log above is the first-class
+        // observability surface in the meantime.
+      }
+    }
   }
   for (const [id, { schedule, ruleId, dimension }] of desired) {
     const invoker = cronProbeResolver(dimension);
@@ -673,10 +996,9 @@ export function diffCronSchedules(
               // a sentinel). The scheduler also logs its own handler-error
               // when the handler itself throws; this try/catch keeps the
               // handler green so that layer stays quiet for probe bugs.
-              logger.error("orchestrator.cron-probe-failed", {
+              logErrorWithStack(logger, "orchestrator.cron-probe-failed", err, {
                 ruleId,
                 dimension,
-                err: String(err),
               });
             }
           }
@@ -688,12 +1010,11 @@ export function diffCronSchedules(
         },
       });
     } catch (err) {
-      logger.error("orchestrator.cron-register-failed", {
+      logErrorWithStack(logger, "orchestrator.cron-register-failed", err, {
         id,
         ruleId,
         dimension,
         schedule,
-        err: String(err),
       });
       // Continue the loop — other rules must still register.
     }
@@ -743,8 +1064,7 @@ export function buildCronProbeResolver(
     // Railway and must stay up — but we log at error level so the
     // healthcheck or log-alerts pipeline catches it.
     adapter.listServices().catch((err) => {
-      logger.error("orchestrator.RAILWAY_AUTH_FAILED", {
-        err: String(err),
+      logErrorWithStack(logger, "orchestrator.RAILWAY_AUTH_FAILED", err, {
         hint: "aimock-wiring probe will fail on every cron tick — check RAILWAY_TOKEN / RAILWAY_PROJECT_ID",
       });
     });
@@ -783,65 +1103,50 @@ export function buildCronProbeResolver(
  * Lists services in a project and fetches per-service env-var values
  * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
  *
- * Kept in-file (rather than spun out into a module) because this is the
- * only consumer today — if pin_drift or version_drift ever grow in-process
- * probes that also need Railway, promote this to `src/adapters/railway.ts`.
+ * Routes through the shared `makeGql` helper exported from
+ * `probes/discovery/railway-services.ts` so error taxonomy (Auth /
+ * Backend / Schema / Transport class hierarchy) and partial-success
+ * envelope handling stay aligned with the discovery source. Pre-fix,
+ * the orchestrator's inline gql threw on any non-empty `errors[]` even
+ * when `data` was present, and surfaced raw `SyntaxError` from
+ * `res.json()` on HTML edge-proxy error pages — both diverged from
+ * makeGql's behaviour.
+ *
+ * Per-tick: each `listServices()` issues one fresh GraphQL roundtrip,
+ * so renamed/added Railway services surface on the next cron tick
+ * without orchestrator restart. (The prior in-adapter cache survived
+ * across ticks and would silently miss service-list changes.)
+ *
+ * Exported for unit-test access. Production callers go through
+ * `buildCronProbeResolver`.
  */
-function createRailwayAdapter(opts: {
-  token: string;
-  projectId: string;
-  environmentId: string;
-}): {
+export function createRailwayAdapter(
+  opts: {
+    token: string;
+    projectId: string;
+    environmentId: string;
+  },
+  deps: { fetchImpl?: typeof fetch } = {},
+): {
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
 } {
-  const endpoint = "https://backboard.railway.com/graphql/v2";
-
-  async function gql<T>(
-    query: string,
-    variables: Record<string, unknown>,
-  ): Promise<T> {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${opts.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`railway gql ${res.status}: ${text}`);
-    }
-    const json = (await res.json()) as {
-      data?: T;
-      errors?: Array<{ message: string }>;
-    };
-    if (json.errors?.length) {
-      throw new Error(
-        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
-      );
-    }
-    return json.data as T;
-  }
-
-  // Cache services by name so getServiceEnv doesn't refetch the service
-  // list on every call. A cron tick on `aimock_wiring` calls listServices
-  // once and getServiceEnv once per service — keeping the mapping around
-  // shaves one extra GraphQL round-trip per invocation.
-  let cachedServices: { name: string; id: string }[] | null = null;
+  const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  const gql = makeGql({
+    fetchImpl,
+    token: opts.token,
+    sourceName: "orchestrator-railway-adapter",
+    abortSignal: undefined,
+    logger,
+  });
 
   // `listServices` is pulled into a plain binding so `getServiceEnv`
   // can call it regardless of how it's invoked. The previous `this.listServices()`
   // form broke the moment a caller destructured the adapter
   // (`const { getServiceEnv } = adapter`) or bound `getServiceEnv` as a
-  // property of another object (`input.getServiceEnv`) — both patterns
-  // already in use (see buildCronProbeResolver passing `adapter.getServiceEnv`
-  // into `aimockWiringProbe.run` as `input.getServiceEnv`). Pre-fix the
-  // fallback path would throw `TypeError: Cannot read properties of
-  // undefined (reading 'listServices')` as soon as the cache was cold.
+  // property of another object (`input.getServiceEnv`).
   const listServices = async (): Promise<{ name: string; id: string }[]> => {
-    const data = await gql<{
+    const { data } = await gql<{
       project: {
         services: { edges: { node: { id: string; name: string } }[] };
       };
@@ -853,25 +1158,24 @@ function createRailwayAdapter(opts: {
       }`,
       { id: opts.projectId },
     );
-    const out = data.project.services.edges.map((e) => e.node);
-    cachedServices = out;
-    return out;
+    return data.project.services.edges.map((e) => e.node);
   };
 
   const getServiceEnv = async (
     name: string,
   ): Promise<Record<string, string | undefined>> => {
-    if (!cachedServices) {
-      // Fallback path for callers that skip listServices — still fetch.
-      // Uses the lexically-captured binding instead of `this.listServices`,
-      // which would be undefined when this method is passed as a callback.
-      await listServices();
-    }
-    const match = cachedServices!.find((s) => s.name === name);
+    // No cross-tick cache: the aimock-wiring probe always calls
+    // `listServices` first (see buildCronProbeResolver), and per-tick
+    // refetch costs one GraphQL round-trip but ensures
+    // newly-renamed/added Railway services are visible without a
+    // restart. If a future caller invokes `getServiceEnv` directly
+    // without `listServices`, fetch the list here too.
+    const services = await listServices();
+    const match = services.find((s) => s.name === name);
     if (!match) {
       throw new Error(`railway service not found: ${name}`);
     }
-    const data = await gql<{ variables: Record<string, string> }>(
+    const { data } = await gql<{ variables: Record<string, string> }>(
       `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
         variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
       }`,
@@ -913,7 +1217,7 @@ function createRailwayAdapter(opts: {
 // so symlinks and cross-platform path normalization don't break the check.
 if (process.argv[1] && url.fileURLToPath(import.meta.url) === process.argv[1]) {
   boot().catch((err) => {
-    logger.error("showcase-ops.boot-failed", { err: String(err) });
+    logErrorWithStack(logger, "showcase-ops.boot-failed", err);
     process.exit(1);
   });
 }

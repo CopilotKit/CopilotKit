@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+import { promises as fsp } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   classifyShape,
   railwayServicesSource,
@@ -61,31 +64,42 @@ function railwayProjectResponse(
     image: string | null;
     domain?: string | null;
     variables?: Record<string, string>;
+    /**
+     * Optional `latestDeployment.meta` payload threaded into the project
+     * GraphQL response. Pass `null` to simulate "no deployment yet"
+     * (Railway returns `latestDeployment: null` for a service that has
+     * never deployed). Pass an object to populate the meta scalar (the
+     * source extracts `imageDigest` from this object). Omit to leave
+     * `latestDeployment` field absent from the node entirely.
+     */
+    latestDeployment?: { meta?: Record<string, unknown> | null } | null;
   }>,
 ) {
   return {
     data: {
       project: {
         services: {
-          edges: services.map((s) => ({
-            node: {
-              id: s.id,
-              name: s.name,
-              serviceInstances: {
-                edges: [
-                  {
-                    node: {
-                      environmentId: "env-1",
-                      source: { image: s.image },
-                      domains: {
-                        serviceDomains: s.domain ? [{ domain: s.domain }] : [],
-                      },
-                    },
-                  },
-                ],
+          edges: services.map((s) => {
+            const node: Record<string, unknown> = {
+              environmentId: "env-1",
+              source: { image: s.image },
+              domains: {
+                serviceDomains: s.domain ? [{ domain: s.domain }] : [],
               },
-            },
-          })),
+            };
+            if ("latestDeployment" in s) {
+              node["latestDeployment"] = s.latestDeployment;
+            }
+            return {
+              node: {
+                id: s.id,
+                name: s.name,
+                serviceInstances: {
+                  edges: [{ node }],
+                },
+              },
+            };
+          }),
         },
       },
     },
@@ -98,11 +112,22 @@ const BASE_ENV = {
   RAILWAY_ENVIRONMENT_ID: "env-1",
 };
 
+/**
+ * Build a `DiscoveryContext` for tests. Defaults `abortSignal` to a fresh
+ * `AbortController().signal` (never aborted) rather than `undefined` so
+ * regressions that drop the signal forwarding fail loudly — every fetch
+ * stub in the suite sees a real signal object and can assert identity.
+ * Pass `abortSignal: undefined` explicitly to recover the legacy
+ * "no signal" behaviour for a specific test.
+ */
 function makeCtx(
   fetchImpl: typeof fetch,
   env: Record<string, string | undefined> = BASE_ENV,
+  opts: { abortSignal?: AbortSignal } = {},
 ): DiscoveryContext {
-  return { fetchImpl, logger, env };
+  const abortSignal =
+    "abortSignal" in opts ? opts.abortSignal : new AbortController().signal;
+  return { fetchImpl, logger, env, abortSignal };
 }
 
 // Tests ---------------------------------------------------------------------
@@ -933,5 +958,964 @@ describe("railwayServicesSource", () => {
     for (const sig of captured) {
       expect(sig).toBe(controller.signal);
     }
+  });
+
+  // -----------------------------------------------------------------
+  // Demos enrichment from registry.json
+  //
+  // The `e2e_demos` probe sorts services by demo count BEFORE the
+  // worker pool picks them up — that sort lives in the probe-invoker
+  // and reads `input.demos`. The driver's lazy `demosResolver` runs
+  // INSIDE the driver, AFTER dispatch, so it cannot feed the sort. To
+  // make the documented "shortest-first" behaviour actually trigger in
+  // production, the discovery source reads `registry.json` once per
+  // enumerate() call and joins demos by slug onto every emitted record.
+  //
+  // Resilience: if the registry is unreadable, the source MUST log a
+  // structured warning and emit `demos: []` for every record (siblings
+  // need to keep working even when the registry is missing).
+  // -----------------------------------------------------------------
+
+  /**
+   * Write a registry.json to a temp dir and return the path. Tests pass
+   * the path through `REGISTRY_JSON_PATH` so the source overrides the
+   * default `/app/data/registry.json` location.
+   */
+  async function writeRegistry(content: string): Promise<string> {
+    const dir = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "railway-services-test-"),
+    );
+    const file = path.join(dir, "registry.json");
+    await fsp.writeFile(file, content, "utf-8");
+    return file;
+  }
+
+  it("joins demos by slug from registry.json (happy path)", async () => {
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          {
+            slug: "ag2",
+            demos: [
+              { id: "agentic-chat" },
+              { id: "human-in-the-loop" },
+              { id: "tool-based-generative-ui" },
+            ],
+          },
+          {
+            slug: "langgraph-python",
+            demos: [{ id: "agentic-chat" }],
+          },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out).toHaveLength(2);
+    const byName = Object.fromEntries(out.map((r) => [r.name, r.demos]));
+    expect(byName["showcase-ag2"]).toEqual([
+      "agentic-chat",
+      "human-in-the-loop",
+      "tool-based-generative-ui",
+    ]);
+    expect(byName["showcase-langgraph-python"]).toEqual(["agentic-chat"]);
+  });
+
+  it("emits demos: [] for services whose slug is missing from the registry", async () => {
+    // Slug derived from `showcase-` prefix strip — `showcase-ag2` →
+    // `ag2`. A service whose slug is not in the registry must still be
+    // enumerated, but with `demos: []` so the invoker's sort treats it
+    // as "no demos" rather than poisoning the tick.
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-mystery",
+            image: "ghcr.io/copilotkit/showcase-mystery:latest",
+            domain: "showcase-mystery.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out).toHaveLength(2);
+    const byName = Object.fromEntries(out.map((r) => [r.name, r.demos]));
+    expect(byName["showcase-ag2"]).toEqual(["agentic-chat"]);
+    expect(byName["showcase-mystery"]).toEqual([]);
+  });
+
+  it("emits demos: [] for every service when the registry is missing (info, not warn)", async () => {
+    // Unreadable registry MUST NOT throw — sibling probes still need
+    // their service list. ENOENT downgrades from warn to info because
+    // non-demos consumers (image-drift, smoke, aimock-wiring) don't
+    // mount the registry path; treating their steady-state as a warn
+    // pulses every tick.
+    const warn = vi.fn();
+    const info = vi.fn();
+    const ctxLogger = { ...logger, warn, info };
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const missingPath = path.join(
+      os.tmpdir(),
+      `does-not-exist-${Date.now()}-${Math.random()}.json`,
+    );
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: missingPath };
+    const out = await railwayServicesSource.enumerate(
+      { fetchImpl, logger: ctxLogger, env },
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].demos).toEqual([]);
+    const warnReadFailed = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(warnReadFailed).toHaveLength(0);
+    const infoReadFailed = info.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(infoReadFailed).toHaveLength(1);
+  });
+
+  // -----------------------------------------------------------------
+  // Registry shape guards + log-key separation.
+  // -----------------------------------------------------------------
+
+  describe("loadDemosMap registry shape guards (A)", () => {
+    // Registry roots that aren't an integrations-bearing object — null,
+    // numeric, string, or array. Each must NOT crash enumerate(), MUST
+    // log `discovery.railway-services.registry-shape-invalid`, and the
+    // emitted records carry `demos: []`.
+    const cases: Array<{ name: string; raw: string }> = [
+      { name: "literal null", raw: "null" },
+      { name: "numeric", raw: "42" },
+      { name: "string", raw: '"a string"' },
+      { name: "array root", raw: "[]" },
+    ];
+    for (const { name, raw } of cases) {
+      it(`degrades + logs registry-shape-invalid on ${name} root`, async () => {
+        const registryPath = await writeRegistry(raw);
+        const warn = vi.fn();
+        const ctxLogger = { ...logger, warn };
+        const { fetchImpl } = makeFetch([
+          {
+            status: 200,
+            body: railwayProjectResponse([
+              {
+                id: "s-1",
+                name: "showcase-a",
+                image: "ghcr.io/c/a:v1",
+                domain: "a.up.railway.app",
+              },
+            ]),
+          },
+          { status: 200, body: { data: { variables: {} } } },
+        ]);
+        const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+        const out = await railwayServicesSource.enumerate(
+          { fetchImpl, logger: ctxLogger, env },
+          {},
+        );
+        expect(out).toHaveLength(1);
+        expect(out[0].demos).toEqual([]);
+        const shapeInvalid = warn.mock.calls.filter(
+          (c) => c[0] === "discovery.railway-services.registry-shape-invalid",
+        );
+        expect(shapeInvalid).toHaveLength(1);
+      });
+    }
+  });
+
+  describe("registry log-key separation (B)", () => {
+    it("logs registry-parse-failed (not registry-read-failed) on malformed JSON", async () => {
+      const registryPath = await writeRegistry("{not valid json");
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:v1",
+              domain: "a.up.railway.app",
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+      const out = await railwayServicesSource.enumerate(
+        { fetchImpl, logger: ctxLogger, env },
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].demos).toEqual([]);
+      const parseFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-parse-failed",
+      );
+      expect(parseFailed).toHaveLength(1);
+      const readFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-read-failed",
+      );
+      // Parse failure must NOT share the read-failure log key.
+      expect(readFailed).toHaveLength(0);
+    });
+  });
+
+  it("honours REGISTRY_JSON_PATH env override over the /app/data default", async () => {
+    // Env override is the test/dev hook — production reads
+    // /app/data/registry.json (mounted by the Dockerfile). When the env
+    // var is set the source MUST read that path verbatim.
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          {
+            slug: "ag2",
+            demos: [{ id: "demo-from-override" }],
+          },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out[0].demos).toEqual(["demo-from-override"]);
+  });
+
+  it("honours ctx.abortSignal during loadDemosMap and degrades to demos: [] when aborted (A2)", async () => {
+    // Discovery context can carry an abortSignal that fires when the
+    // probe-invoker's `timeout_ms` elapses. `fs.readFile` previously
+    // ignored it, so a stalled volume mount could orphan past the
+    // tick. After A2 readFile honours the signal — pre-aborted reads
+    // reject with AbortError, the warn fires, and we degrade to an
+    // empty demos map (NOT an exception that aborts the whole tick).
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+
+    // Pre-aborted signal — readFile sees a fired signal at call time
+    // and rejects synchronously with AbortError. Mimics the case
+    // where the per-tick timer fired while another phase was still
+    // resolving.
+    const abortCtrl = new AbortController();
+    abortCtrl.abort(new Error("simulated tick timeout"));
+
+    const warn = vi.fn();
+    const ctxLogger = { ...logger, warn };
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const ctx: DiscoveryContext = {
+      fetchImpl,
+      logger: ctxLogger,
+      env,
+      abortSignal: abortCtrl.signal,
+    };
+    // The aborted signal is also what the GraphQL fetch sees, so the
+    // overall enumerate() either:
+    //   (a) completes with `demos: []` and a warn from the registry
+    //       read failure; OR
+    //   (b) throws because the GraphQL call rejected with AbortError.
+    // Both branches confirm the readFile honours the signal — we
+    // assert via the warn-was-called path which is the load-bearing
+    // contract for A2 (registry-read-failed with empty map).
+    let outOrError: unknown;
+    try {
+      outOrError = await railwayServicesSource.enumerate(ctx, {});
+    } catch (err) {
+      outOrError = err;
+    }
+
+    // Either way, the readFile MUST have observed the abort and
+    // logged the registry-read-failed warn. That's the
+    // observable-contract assertion for A2.
+    const readFailed = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(readFailed).toHaveLength(1);
+    // Should mention the abort in the err string.
+    const meta = readFailed[0][1] as { err?: string };
+    expect(meta.err).toBeTruthy();
+
+    // If enumerate() returned (i.e. the GraphQL fetch wasn't aborted
+    // — happens because makeFetch ignores AbortSignal), every record
+    // MUST have demos: [] since the registry read collapsed.
+    if (Array.isArray(outOrError)) {
+      for (const record of outOrError) {
+        expect(record.demos).toEqual([]);
+      }
+    }
+  });
+
+  // -----------------------------------------------------------------
+  // Per-service variables loop error bucketing.
+  // -----------------------------------------------------------------
+
+  // -----------------------------------------------------------------
+  // GraphQL partial-data envelope handling.
+  // -----------------------------------------------------------------
+
+  describe("graphql partial-data handling (F)", () => {
+    it("returns data when both data and errors[] are present (200 envelope)", async () => {
+      // Railway can surface non-fatal graphql errors[] alongside a
+      // populated `data` field — e.g. soft-deprecation warnings on a
+      // nested field. The previous gql() helper threw on any non-empty
+      // errors[], discarding the populated `data` payload.
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: {
+            data: railwayProjectResponse([
+              {
+                id: "s-1",
+                name: "showcase-a",
+                image: "ghcr.io/c/a:v1",
+                domain: "a.up.railway.app",
+              },
+            ]).data,
+            errors: [{ message: "deprecation: foo will be removed" }],
+          },
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        { fetchImpl, logger: ctxLogger, env: BASE_ENV },
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].name).toBe("showcase-a");
+      const partial = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.partial-errors",
+      );
+      expect(partial).toHaveLength(1);
+    });
+  });
+
+  describe("per-service variables loop error bucketing (C, D)", () => {
+    it("rethrows AuthError mid-loop instead of silently degrading", async () => {
+      // Token rotation race: every per-service call returns 401. The
+      // pre-fix code degraded all of them to `env: {}` and emitted a
+      // green discovery — operators never saw the auth break.
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:v1",
+              domain: "a.up.railway.app",
+            },
+            {
+              id: "s-2",
+              name: "showcase-b",
+              image: "ghcr.io/c/b:v1",
+              domain: "b.up.railway.app",
+            },
+          ]),
+        },
+        // First per-service call: 401 — must propagate, not degrade.
+        { status: 401, body: { errors: [{ message: "token expired" }] } },
+      ]);
+      await expect(
+        railwayServicesSource.enumerate(makeCtx(fetchImpl), {}),
+      ).rejects.toBeInstanceOf(DiscoverySourceAuthError);
+    });
+
+    it("on abort mid-loop, breaks out cleanly (one log, not N)", async () => {
+      // 3-service project, abort fires before service #2's variables
+      // call resolves. Every remaining gql() rejects with AbortError.
+      // Pre-fix: N variables-failed warns. Post-fix: at most one (or
+      // zero — the loop exits before logging at all, depending on
+      // whether the abort wins the race).
+      const controller = new AbortController();
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      let callIdx = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        callIdx += 1;
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+                {
+                  id: "s-2",
+                  name: "showcase-b",
+                  image: "ghcr.io/c/b:v1",
+                  domain: "b.up.railway.app",
+                },
+                {
+                  id: "s-3",
+                  name: "showcase-c",
+                  image: "ghcr.io/c/c:v1",
+                  domain: "c.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // After the first variables call, abort. Subsequent gql() calls
+        // see signal.aborted at fetch-time and reject with AbortError.
+        if (callIdx === 2) {
+          controller.abort(new Error("tick timeout"));
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        if (init?.signal?.aborted) {
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        return new Response(JSON.stringify({ data: { variables: {} } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger: ctxLogger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      let threw = false;
+      try {
+        await railwayServicesSource.enumerate(ctx, {});
+      } catch {
+        threw = true;
+      }
+      // Either throws (preferred) or completes cleanly. Either way,
+      // `variables-failed` warns must be at most 1 — never one per
+      // remaining service.
+      const variablesFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.variables-failed",
+      );
+      expect(variablesFailed.length).toBeLessThanOrEqual(1);
+      // Confidence check that abort actually fired.
+      expect(controller.signal.aborted).toBe(true);
+      void threw;
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Stronger abort propagation coverage (J): the existing identity
+  // assertion never fires the controller, so a regression that
+  // forwards a different (never-aborted) signal would still pass.
+  // This block aborts mid-flight and asserts the next fetch sees
+  // aborted state.
+  // -----------------------------------------------------------------
+
+  describe("abort propagation actually fires (J)", () => {
+    it("aborts mid-flight: subsequent gql() calls see aborted signal", async () => {
+      const controller = new AbortController();
+      const seenSignals: AbortSignal[] = [];
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        const sig = (init as RequestInit | undefined)?.signal;
+        if (sig) seenSignals.push(sig);
+        if (sig?.aborted) {
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          // Fire abort BEFORE returning so the next gql() call sees
+          // aborted state.
+          controller.abort(new Error("tick timeout"));
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ data: { variables: {} } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      let threw = false;
+      try {
+        await railwayServicesSource.enumerate(ctx, {});
+      } catch {
+        threw = true;
+      }
+      // The first call's signal must have been live (not aborted at
+      // call time), the second must be aborted.
+      expect(seenSignals.length).toBeGreaterThanOrEqual(1);
+      if (seenSignals.length >= 2) {
+        expect(seenSignals[1].aborted).toBe(true);
+      }
+      void threw;
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Concurrent-test noise isolation (H): the legacy concurrent test
+  // fell through to the production /app/data/registry.json fallback
+  // and emitted an info log per call into CI. This block uses a tmp
+  // registry path so no production-fallback log fires; asserts no
+  // registry-read-failed warns leak.
+  // -----------------------------------------------------------------
+
+  describe("registry path tmp-isolation in concurrent test (H)", () => {
+    it("concurrent enumerate() calls don't emit ENOENT noise on /app/data", async () => {
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const registryPath = await writeRegistry(
+        JSON.stringify({ integrations: [] }),
+      );
+      const runs = Array.from({ length: 5 }, (_, i) => {
+        const { fetchImpl } = makeFetch([
+          {
+            status: 200,
+            body: railwayProjectResponse([
+              {
+                id: `s-${i}`,
+                name: `showcase-${i}`,
+                image: `ghcr.io/c/showcase-${i}:v1`,
+                domain: `showcase-${i}.up.railway.app`,
+              },
+            ]),
+          },
+          { status: 200, body: { data: { variables: { RUN: String(i) } } } },
+        ]);
+        const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+        return railwayServicesSource.enumerate(
+          {
+            fetchImpl,
+            logger: ctxLogger,
+            env,
+            abortSignal: new AbortController().signal,
+          },
+          {},
+        );
+      });
+      const results = await Promise.all(runs);
+      expect(results).toHaveLength(5);
+      const readFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-read-failed",
+      );
+      expect(readFailed).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B1 — abort detection mid-loop must NOT over-rethrow unrelated
+  // errors. The narrow contract: only AbortError (a real
+  // signal-aborted fetch rejection) gets re-thrown out of the
+  // per-service catch. A 500 from Railway in a later iteration —
+  // even when ctx.abortSignal.aborted is already true — must be
+  // treated as a per-service degradation (env: {}) so an external
+  // abort doesn't poison the rest of the loop.
+  // -----------------------------------------------------------------
+
+  describe("per-service variables loop abort regression (B1)", () => {
+    it("after abort fires, a 500 on a subsequent service degrades to env: {} (not rethrown)", async () => {
+      // Sequence: project query OK; service-1's variables OK; abort
+      // signal fires before service-2; service-2's variables 500s.
+      // Pre-fix: the 500 catch saw `ctx.abortSignal.aborted === true`
+      // and rethrew the (non-AbortError) backend error, killing the
+      // whole tick. Post-fix: only AbortError-name errors rethrow,
+      // so the 500 records as a `variables-failed` warn + env: {}.
+      const controller = new AbortController();
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      let callIdx = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        callIdx += 1;
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+                {
+                  id: "s-2",
+                  name: "showcase-b",
+                  image: "ghcr.io/c/b:v1",
+                  domain: "b.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Service-1 variables: succeed.
+        if (callIdx === 2) {
+          return new Response(
+            JSON.stringify({ data: { variables: { OK: "yes" } } }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Between service-1 and service-2, abort fires (e.g. tick
+        // timer expired). The signal flag flips to aborted but the
+        // underlying fetch resolves normally — Railway returns 500
+        // for some unrelated reason on this iteration.
+        controller.abort(new Error("tick timeout"));
+        return new Response("internal error", {
+          status: 500,
+          headers: { "content-type": "text/plain" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger: ctxLogger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      // The 500 must NOT escape — it should land in the catch as a
+      // DiscoverySourceBackendError, see that name !== "AbortError",
+      // log a `variables-failed` warn, and continue.
+      const out = await railwayServicesSource.enumerate(ctx, {});
+      expect(out).toHaveLength(2);
+      expect(out[0].name).toBe("showcase-a");
+      expect(out[0].env).toEqual({ OK: "yes" });
+      expect(out[1].name).toBe("showcase-b");
+      expect(out[1].env).toEqual({});
+      // Confidence: the abort actually fired AND the 500 was logged
+      // as a per-service degradation rather than crashing the loop.
+      expect(controller.signal.aborted).toBe(true);
+      const variablesFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.variables-failed",
+      );
+      expect(variablesFailed).toHaveLength(1);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B5 — `deployedDigest` extraction needs explicit unit coverage.
+  // The fixture used to discard `latestDeployment` entirely, leaving
+  // the digest extraction path uncovered.
+  // -----------------------------------------------------------------
+
+  describe("deployedDigest extraction (B5)", () => {
+    it("extracts imageDigest from latestDeployment.meta", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: {
+                meta: {
+                  imageDigest:
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                },
+              },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+      expect(out[0].deployedDigest).toBe(
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      );
+    });
+
+    it("emits deployedDigest === '' when latestDeployment is null", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: null,
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when latestDeployment.meta is missing", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: null },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when imageDigest is non-string (defensive)", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: { imageDigest: 12345 } },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
+      expect(out[0].deployedDigest).toBe("");
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B6 — resolveShape mismatch-throw path coverage.
+  // -----------------------------------------------------------------
+
+  describe("resolveShape mismatch (B6)", () => {
+    it("throws when classifier disagrees with caller-supplied shape", () => {
+      // `showcase-starter-ag2` classifies as "starter"; pass shape
+      // "package" — the resolver must throw rather than silently pick
+      // one. Inverting that fix is the exact regression this test
+      // guards against.
+      expect(() =>
+        resolveShape({ name: "showcase-starter-ag2", shape: "package" }),
+      ).toThrow(/Shape mismatch/);
+    });
+
+    it("throws with both classifier value and input value in the message", () => {
+      // `showcase-ag2` classifies as "package"; passing shape "starter"
+      // mismatches. The error message must include both values for
+      // operator triage.
+      expect(() =>
+        resolveShape({ name: "showcase-ag2", shape: "starter" }),
+      ).toThrow(/classifier="package".*input="starter"/);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B7 — classifyShape silent typo nudge. A name like
+  // `showcase-strater-ag2` is a transposition of `showcase-starter-`
+  // and is currently classified as "package" silently. Surface the
+  // suspicion via a `classify-typo-suspected` warn (without changing
+  // the classification).
+  // -----------------------------------------------------------------
+
+  describe("classifyShape typo nudge (B7)", () => {
+    it("emits classify-typo-suspected warn for 1-edit-distance typos of `starter-`", () => {
+      const warn = vi.fn();
+      const shape = classifyShape("showcase-strater-ag2", { logger: { warn } });
+      // Classification stays "package" — we don't change behaviour,
+      // we just surface the suspicion.
+      expect(shape).toBe("package");
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(1);
+      expect(typoWarns[0][1]).toMatchObject({
+        name: "showcase-strater-ag2",
+        suggested: "showcase-starter-ag2",
+      });
+    });
+
+    it("does not emit classify-typo-suspected warn for legitimate package names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-langgraph-python", { logger: { warn } });
+      classifyShape("showcase-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
+    });
+
+    it("does not emit classify-typo-suspected warn on well-formed starter names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-starter-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Starter slug contract (L): documents that
+  // deriveSlugFromServiceName() strips only `showcase-`, so
+  // `showcase-starter-ag2` becomes `starter-ag2` — which doesn't
+  // match registry slugs (which use bare integration names like
+  // `ag2`). Starters intentionally end up with `demos: []`.
+  // -----------------------------------------------------------------
+
+  describe("starter slug contract (L)", () => {
+    it("starter service slug strips only `showcase-` prefix; demos lookup misses gracefully", async () => {
+      const registryPath = await writeRegistry(
+        JSON.stringify({
+          integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
+        }),
+      );
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-starter-ag2",
+              image: "ghcr.io/c/showcase-starter-ag2:v1",
+              domain: "showcase-starter-ag2-production.up.railway.app",
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl, env),
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].name).toBe("showcase-starter-ag2");
+      // The slug becomes `starter-ag2`, which is NOT in the registry,
+      // so demos resolves to [] — documented contract for starters.
+      expect(out[0].demos).toEqual([]);
+    });
   });
 });

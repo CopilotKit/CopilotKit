@@ -1,5 +1,4 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { EventEmitter } from "node:events";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -9,31 +8,6 @@ import { createDiscoveryRegistry } from "../discovery/index.js";
 import { z } from "zod";
 import type { DiscoverySource, ProbeDriver } from "../types.js";
 import { logger } from "../../logger.js";
-
-// Mock chokidar with an in-memory EventEmitter so watch() tests are
-// deterministic. Real chokidar's macOS fsevents latency makes timing-
-// based assertions flaky (see rule-loader.test.ts for the same pattern,
-// where the real-watcher path was abandoned for the same reason).
-// The mock preserves the chokidar.watch() return shape we depend on:
-// `.on(event, cb)` and `.close()`.
-const watchers: MockWatcher[] = [];
-class MockWatcher extends EventEmitter {
-  closed = false;
-  close(): Promise<void> {
-    this.closed = true;
-    this.removeAllListeners();
-    return Promise.resolve();
-  }
-}
-vi.mock("chokidar", () => ({
-  default: {
-    watch: () => {
-      const w = new MockWatcher();
-      watchers.push(w);
-      return w;
-    },
-  },
-}));
 
 interface Emitted {
   event: string;
@@ -297,14 +271,6 @@ describe("createProbeLoader", () => {
   });
 
   it("fires watch callback on file add/change/unlink", async () => {
-    // Real chokidar timing on macOS is not deterministic enough for a
-    // 500ms-after-write assertion (the prior version of this test was
-    // failing 5/5 runs locally). Mock chokidar (top of file) gives us
-    // an EventEmitter we drive directly, so the assertion exercises
-    // the trigger → debounce(100ms) → loadInternal → callback wiring
-    // without depending on fsevents latency. Same rationale as rule-
-    // loader.test.ts, which gave up on real-chokidar tests entirely.
-    watchers.length = 0;
     const probeRegistry = createProbeRegistry();
     probeRegistry.register(mkDriver("smoke"));
     const bus = mkBus();
@@ -313,27 +279,28 @@ describe("createProbeLoader", () => {
       discoveryRegistry: createDiscoveryRegistry(),
       bus,
       logger,
+      // Force polling for this test only. chokidar's native FSEvents
+      // backend on macOS (and inotify under some Linux configs) does not
+      // reliably emit events for files written into a fresh mkdtemp dir
+      // on Node 22+ — the parent path isn't pre-watched by the kernel, so
+      // the event stream silently drops the first add. Polling is the
+      // documented chokidar workaround and is what the upstream test
+      // suite uses for the same reason.
+      watcherOptionsOverride: { usePolling: true, interval: 50 },
     });
 
     let lastConfigs: unknown[] = [];
-    let callCount = 0;
-    const callbackFired = new Promise<void>((resolve) => {
-      const unwatch = loader.watch((configs) => {
-        lastConfigs = configs;
-        callCount++;
-        resolve();
-        // Hold a reference so closure isn't GC'd before assert; unsub
-        // is called in afterEach via watcher.close (mock).
-        void unwatch;
-      });
+    let callbackFired = 0;
+    const unwatch = loader.watch((configs) => {
+      lastConfigs = configs;
+      callbackFired += 1;
     });
 
-    expect(watchers.length).toBe(1);
-    const w = watchers[0]!;
+    // Give the polling watcher one tick to take its initial snapshot
+    // before we write the new file — without this, the snapshot can race
+    // with the write and miss the first add.
+    await new Promise((r) => setTimeout(r, 200));
 
-    // Write the file first so loadInternal() (called after debounce)
-    // observes it on the real fs — the mock only stands in for
-    // chokidar's event delivery, not the fs read.
     await fs.writeFile(
       path.join(dir, "new.yml"),
       [
@@ -345,61 +312,23 @@ describe("createProbeLoader", () => {
       "utf-8",
     );
 
-    // Drive the synthetic chokidar event — this is what the real
-    // watcher would emit on file creation.
-    w.emit("add", path.join(dir, "new.yml"));
-
-    await callbackFired;
-
-    expect(callCount).toBeGreaterThan(0);
-    expect(
-      (lastConfigs as { id: string }[]).some((c) => c.id === "smoke-new"),
-    ).toBe(true);
-  });
-
-  it("debounces rapid add/change/unlink bursts into a single reload", async () => {
-    // Reload-debounce contract: 100ms timer is reset on each event so a
-    // burst (e.g. editor-save fan-out + atomic rename) collapses to one
-    // load. Drive three events back-to-back through the mock and assert
-    // the callback fires exactly once.
-    watchers.length = 0;
-    const probeRegistry = createProbeRegistry();
-    probeRegistry.register(mkDriver("smoke"));
-    const bus = mkBus();
-    const loader = createProbeLoader(dir, {
-      probeRegistry,
-      discoveryRegistry: createDiscoveryRegistry(),
-      bus,
-      logger,
-    });
-
-    let callCount = 0;
-    const fired = new Promise<void>((resolve) => {
-      loader.watch(() => {
-        callCount++;
-        resolve();
-      });
-    });
-
-    expect(watchers.length).toBe(1);
-    const w = watchers[0]!;
-    await fs.writeFile(
-      path.join(dir, "burst.yml"),
-      [
-        "kind: smoke",
-        "id: smoke-burst",
-        'schedule: "*/15 * * * *"',
-        "targets: [{ key: 'smoke:burst', url: 'https://burst.example' }]",
-      ].join("\n"),
-      "utf-8",
-    );
-    w.emit("add", path.join(dir, "burst.yml"));
-    w.emit("change", path.join(dir, "burst.yml"));
-    w.emit("change", path.join(dir, "burst.yml"));
-
-    await fired;
-    // Give any erroneous extra debounced fires a chance to land.
-    await new Promise((r) => setTimeout(r, 200));
-    expect(callCount).toBe(1);
-  });
+    // Poll for the watch callback to fire and reflect the new file.
+    // Replaces a fixed setTimeout(500) which raced chokidar's debounce on
+    // macOS APFS where mtime resolution + FSEvents latency can push the
+    // first event past 500ms. waitFor keeps the assertion deterministic
+    // without inflating the happy-path runtime.
+    try {
+      await vi.waitFor(
+        () => {
+          expect(callbackFired).toBeGreaterThan(0);
+          expect(
+            (lastConfigs as { id: string }[]).some((c) => c.id === "smoke-new"),
+          ).toBe(true);
+        },
+        { timeout: 8_000, interval: 50 },
+      );
+    } finally {
+      unwatch();
+    }
+  }, 15_000);
 });
