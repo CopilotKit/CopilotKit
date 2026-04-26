@@ -4,44 +4,22 @@
  * panel. Owns no data of its own; the parent passes in `entries` and a
  * trigger callback.
  *
- * TODO(B4b integration): once `lib/ops-api.ts` lands, replace the local
- * `ProbeScheduleEntry` interface below with the canonical export from
- * that module, and have page.tsx wire the `useProbes()` hook.
+ * `ProbeScheduleEntry` is re-exported from `lib/ops-api` so existing
+ * imports from `./status-tab` keep working while the canonical wire-shape
+ * lives in one place. The canonical definition is the source of truth for
+ * the showcase-ops HTTP contract — drift between this file and ops-api
+ * was a real problem (e.g. local lacked `error?` / `finishedAt?` on
+ * service progress, and used `string` instead of the `ProbeKind` union).
  */
 import { useState } from "react";
 import { StatusTable } from "./status-table";
 import { StatusRunningPanel } from "./status-running-panel";
 import { StatusDetailPanel } from "./status-detail-panel";
 
-// TODO(B4b integration): replace with import from lib/ops-api
-export interface ProbeScheduleEntry {
-  id: string;
-  kind: string;
-  schedule: string; // cron expression
-  nextRunAt: string | null; // ISO
-  lastRun: {
-    startedAt: string;
-    finishedAt: string;
-    durationMs: number;
-    state: "completed" | "failed";
-    summary: { total: number; passed: number; failed: number };
-  } | null;
-  inflight: {
-    startedAt: string;
-    elapsedMs: number;
-    services: Array<{
-      slug: string;
-      state: "queued" | "running" | "completed" | "failed";
-      startedAt?: string;
-      result?: "green" | "yellow" | "red";
-    }>;
-  } | null;
-  config: {
-    timeout_ms: number;
-    max_concurrency: number;
-    discovery: unknown;
-  };
-}
+// Re-export the canonical type for backwards compatibility with existing
+// `import type { ProbeScheduleEntry } from './status-tab'` call sites.
+export type { ProbeScheduleEntry } from "../lib/ops-api";
+import type { ProbeScheduleEntry } from "../lib/ops-api";
 
 export interface StatusTabProps {
   entries: ProbeScheduleEntry[];

@@ -258,4 +258,43 @@ describe("triggerProbe", () => {
       }),
     ).rejects.toThrow(/500/);
   });
+
+  it("propagates AbortSignal to fetch (CR-B1.5)", async () => {
+    fetchSpy.mockResolvedValue(jsonResponse(triggerOk()));
+    const ctrl = new AbortController();
+    await triggerProbe("smoke", {
+      token: "t",
+      baseUrl: "http://ops.test",
+      signal: ctrl.signal,
+    });
+    const init = fetchSpy.mock.calls[0]![1] as FetchInit;
+    expect(init?.signal).toBe(ctrl.signal);
+  });
+});
+
+describe("ensureOk error handling (CR-B1.6)", () => {
+  it("includes a body-read failure marker when text() throws", async () => {
+    // Build a Response-like object whose `text()` throws and whose `ok` is
+    // false. Response.text() does not normally throw on Response objects
+    // with string bodies, so we hand-roll a stub.
+    const fakeResponse = {
+      ok: false,
+      status: 502,
+      statusText: "Bad Gateway",
+      text: vi.fn(async () => {
+        throw new Error("stream consumed");
+      }),
+    } as unknown as Response;
+    fetchSpy.mockResolvedValue(fakeResponse);
+    let caught: unknown = null;
+    try {
+      await fetchProbes({ baseUrl: "http://ops.test" });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toMatch(/body read failed/);
+    // status should still appear so callers can match on it.
+    expect((caught as Error).message).toMatch(/502/);
+  });
 });
