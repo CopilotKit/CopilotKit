@@ -297,10 +297,7 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
     const contentLengthRaw = c.req.header("content-length");
     if (contentLengthRaw !== undefined) {
       const declared = Number.parseInt(contentLengthRaw, 10);
-      if (
-        Number.isFinite(declared) &&
-        declared > TRIGGER_BODY_LIMIT_BYTES
-      ) {
+      if (Number.isFinite(declared) && declared > TRIGGER_BODY_LIMIT_BYTES) {
         return c.json({ error: "payload_too_large" }, 413);
       }
     }

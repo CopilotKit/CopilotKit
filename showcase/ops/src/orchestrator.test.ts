@@ -1354,9 +1354,10 @@ describe("orchestrator boot serve() failure cleanup (R2-B.2)", () => {
 
     // Force `serve()` to throw synchronously when boot tries to bind.
     vi.doMock("@hono/node-server", async () => {
-      const actual = await vi.importActual<typeof import("@hono/node-server")>(
-        "@hono/node-server",
-      );
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
       return {
         ...actual,
         serve: () => {
@@ -1376,7 +1377,6 @@ describe("orchestrator boot serve() failure cleanup (R2-B.2)", () => {
     expect(stopSpy).toHaveBeenCalled();
   });
 });
-
 
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
