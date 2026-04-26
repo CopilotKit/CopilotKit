@@ -49,6 +49,16 @@ describe("keyFor", () => {
       "d6:agno/tool-rendering",
     );
   });
+  it("throws when slug contains ':' (lookup-map collision guard)", () => {
+    expect(() => keyFor("smoke", "bad:slug")).toThrow(/must not contain/);
+  });
+  it("throws when slug contains '/' (lookup-map collision guard)", () => {
+    expect(() => keyFor("smoke", "bad/slug")).toThrow(/must not contain/);
+  });
+  it("throws when featureId contains ':' or '/'", () => {
+    expect(() => keyFor("e2e", "agno", "bad:id")).toThrow(/must not contain/);
+    expect(() => keyFor("e2e", "agno", "bad/id")).toThrow(/must not contain/);
+  });
 });
 
 describe("upsertByKey", () => {
