@@ -7,7 +7,7 @@
  * Self-contained popover; no portal — positioned below the button via
  * relative/absolute. Closes on outside click or Escape.
  */
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface StatusTriggerButtonProps {
   probeId: string;
@@ -40,6 +40,18 @@ export function StatusTriggerButton({
     });
   }, [serviceSlugs]);
 
+  // R3-D.2: single close path used by outside-click, Escape, and the
+  // toggle-close branch of the Trigger button. Previously the toggle-close
+  // path forgot to reset pickerOpen + selected, so reopening the menu
+  // showed ghost checks from a prior session — a UX inconsistency with
+  // the other two close paths. Extracting a helper makes the invariant
+  // ("closing the menu always resets picker state") obvious by construction.
+  const closeMenu = useCallback(() => {
+    setOpen(false);
+    setPickerOpen(false);
+    setSelected(new Set());
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
@@ -47,18 +59,12 @@ export function StatusTriggerButton({
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
       ) {
-        setOpen(false);
-        setPickerOpen(false);
-        // R2-D.3: clear selection on outside-click close so reopening the
-        // menu doesn't show ghost checks from a prior session.
-        setSelected(new Set());
+        closeMenu();
       }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        setOpen(false);
-        setPickerOpen(false);
-        setSelected(new Set());
+        closeMenu();
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -67,7 +73,18 @@ export function StatusTriggerButton({
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, closeMenu]);
+
+  // R3-D bonus: track mount so async rejections from onTrigger that resolve
+  // after unmount don't trigger setState-on-unmounted-component warnings or
+  // resurrect an error UI on a re-mounted instance.
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
 
   // Local error surface so an async rejection from onTrigger doesn't
   // bubble up as an unhandled promise rejection. R2-D.2: render the
@@ -80,11 +97,13 @@ export function StatusTriggerButton({
     setPickerOpen(false);
     try {
       await onTrigger(probeId, undefined);
-      setLastError(null);
+      if (aliveRef.current) setLastError(null);
     } catch (err) {
-      setLastError(err instanceof Error ? err : new Error(String(err)));
+      if (aliveRef.current) {
+        setLastError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setSelected(new Set());
+      if (aliveRef.current) setSelected(new Set());
     }
   };
 
@@ -94,11 +113,13 @@ export function StatusTriggerButton({
     setPickerOpen(false);
     try {
       await onTrigger(probeId, Array.from(selected));
-      setLastError(null);
+      if (aliveRef.current) setLastError(null);
     } catch (err) {
-      setLastError(err instanceof Error ? err : new Error(String(err)));
+      if (aliveRef.current) {
+        setLastError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setSelected(new Set());
+      if (aliveRef.current) setSelected(new Set());
     }
   };
 
@@ -116,7 +137,13 @@ export function StatusTriggerButton({
       <button
         type="button"
         data-testid={`status-trigger-${probeId}`}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // R3-D.2: when toggling closed, route through closeMenu so the
+          // picker + selection state is reset, matching outside-click and
+          // Escape. Toggling open is just setOpen(true).
+          if (open) closeMenu();
+          else setOpen(true);
+        }}
         className="px-2 py-1 text-xs rounded border border-[var(--border)] hover:bg-[var(--surface-hover)] text-[var(--text-secondary)]"
       >
         Trigger
