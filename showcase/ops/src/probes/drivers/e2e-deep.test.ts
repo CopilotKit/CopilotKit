@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   createE2eDeepDriver,
+  D5_SCRIPT_FILE_MATCHER,
   e2eDeepDriver,
   type E2eDeepAggregateSignal,
   type E2eDeepBrowser,
@@ -535,5 +536,30 @@ describe("e2e-deep driver", () => {
     const sig = result.signal as E2eDeepAggregateSignal;
     expect(sig.errorDesc).toBe("launcher-error");
     expect(sig.failureSummary).toMatch(/chromium launch failed/);
+  });
+});
+
+describe("D5_SCRIPT_FILE_MATCHER", () => {
+  it("accepts canonical d5-<name>.{js,ts} files", () => {
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-agentic-chat.ts")).toBe(true);
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-tool-rendering.js")).toBe(true);
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-hitl-approve-deny.ts")).toBe(true);
+  });
+
+  it("rejects co-located test files (would re-import script under test)", () => {
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-agentic-chat.test.ts")).toBe(false);
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-tool-rendering.test.js")).toBe(
+      false,
+    );
+  });
+
+  it("rejects TypeScript declaration files", () => {
+    expect(D5_SCRIPT_FILE_MATCHER.test("d5-agentic-chat.d.ts")).toBe(false);
+  });
+
+  it("rejects shared helpers and non-d5 files", () => {
+    expect(D5_SCRIPT_FILE_MATCHER.test("_hitl-shared.ts")).toBe(false);
+    expect(D5_SCRIPT_FILE_MATCHER.test("d6-capture-references.ts")).toBe(false);
+    expect(D5_SCRIPT_FILE_MATCHER.test("README.md")).toBe(false);
   });
 });
