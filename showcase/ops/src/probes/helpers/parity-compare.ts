@@ -122,7 +122,17 @@ export interface ParityReport {
       reason?: string;
     };
     contract?: {
+      /** Field paths absent in captured (`captured[path] === undefined`). */
       missing_fields: string[];
+      /**
+       * Field paths present in captured but with a JS-type that does not
+       * equal the reference type. Distinct from `missing_fields` because
+       * a type drift (e.g. `string` → `number`) is operationally a
+       * different signal than an outright missing field — the dashboard
+       * surfaces the two separately so triagers can tell whether a field
+       * vanished or its shape regressed.
+       */
+      type_mismatched_fields: string[];
       extra_field_count: number;
     };
   };
@@ -391,12 +401,20 @@ function compareContract(
   verdict: AxisVerdict;
   details: NonNullable<ParityReport["details"]["contract"]>;
 } {
+  // Split the two failure modes — "field is absent" and "field is
+  // present but typed differently" are distinct operational signals.
+  // Conflating them (the pre-fix behaviour) made it impossible for
+  // triagers to tell whether a field had vanished from the contract
+  // versus merely changed shape.
   const missing_fields: string[] = [];
+  const type_mismatched_fields: string[] = [];
 
   for (const [path, refType] of Object.entries(reference)) {
     const capType = captured[path];
-    if (capType === undefined || capType !== refType) {
+    if (capType === undefined) {
       missing_fields.push(path);
+    } else if (capType !== refType) {
+      type_mismatched_fields.push(path);
     }
   }
 
@@ -406,9 +424,14 @@ function compareContract(
     if (!referenceKeys.has(key)) extra_field_count += 1;
   }
 
-  const verdict: AxisVerdict = missing_fields.length === 0 ? "pass" : "fail";
+  // Both buckets fail the axis — the verdict cares about parity break,
+  // not which flavour of break. The split only exists for the details.
+  const verdict: AxisVerdict =
+    missing_fields.length === 0 && type_mismatched_fields.length === 0
+      ? "pass"
+      : "fail";
   return {
     verdict,
-    details: { missing_fields, extra_field_count },
+    details: { missing_fields, type_mismatched_fields, extra_field_count },
   };
 }
