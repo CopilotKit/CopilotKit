@@ -64,31 +64,42 @@ function railwayProjectResponse(
     image: string | null;
     domain?: string | null;
     variables?: Record<string, string>;
+    /**
+     * Optional `latestDeployment.meta` payload threaded into the project
+     * GraphQL response. Pass `null` to simulate "no deployment yet"
+     * (Railway returns `latestDeployment: null` for a service that has
+     * never deployed). Pass an object to populate the meta scalar (the
+     * source extracts `imageDigest` from this object). Omit to leave
+     * `latestDeployment` field absent from the node entirely.
+     */
+    latestDeployment?: { meta?: Record<string, unknown> | null } | null;
   }>,
 ) {
   return {
     data: {
       project: {
         services: {
-          edges: services.map((s) => ({
-            node: {
-              id: s.id,
-              name: s.name,
-              serviceInstances: {
-                edges: [
-                  {
-                    node: {
-                      environmentId: "env-1",
-                      source: { image: s.image },
-                      domains: {
-                        serviceDomains: s.domain ? [{ domain: s.domain }] : [],
-                      },
-                    },
-                  },
-                ],
+          edges: services.map((s) => {
+            const node: Record<string, unknown> = {
+              environmentId: "env-1",
+              source: { image: s.image },
+              domains: {
+                serviceDomains: s.domain ? [{ domain: s.domain }] : [],
               },
-            },
-          })),
+            };
+            if ("latestDeployment" in s) {
+              node["latestDeployment"] = s.latestDeployment;
+            }
+            return {
+              node: {
+                id: s.id,
+                name: s.name,
+                serviceInstances: {
+                  edges: [{ node }],
+                },
+              },
+            };
+          }),
         },
       },
     },
@@ -1610,6 +1621,276 @@ describe("railwayServicesSource", () => {
         (c) => c[0] === "discovery.railway-services.registry-read-failed",
       );
       expect(readFailed).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B1 — abort detection mid-loop must NOT over-rethrow unrelated
+  // errors. The narrow contract: only AbortError (a real
+  // signal-aborted fetch rejection) gets re-thrown out of the
+  // per-service catch. A 500 from Railway in a later iteration —
+  // even when ctx.abortSignal.aborted is already true — must be
+  // treated as a per-service degradation (env: {}) so an external
+  // abort doesn't poison the rest of the loop.
+  // -----------------------------------------------------------------
+
+  describe("per-service variables loop abort regression (B1)", () => {
+    it("after abort fires, a 500 on a subsequent service degrades to env: {} (not rethrown)", async () => {
+      // Sequence: project query OK; service-1's variables OK; abort
+      // signal fires before service-2; service-2's variables 500s.
+      // Pre-fix: the 500 catch saw `ctx.abortSignal.aborted === true`
+      // and rethrew the (non-AbortError) backend error, killing the
+      // whole tick. Post-fix: only AbortError-name errors rethrow,
+      // so the 500 records as a `variables-failed` warn + env: {}.
+      const controller = new AbortController();
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      let callIdx = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        callIdx += 1;
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+                {
+                  id: "s-2",
+                  name: "showcase-b",
+                  image: "ghcr.io/c/b:v1",
+                  domain: "b.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Service-1 variables: succeed.
+        if (callIdx === 2) {
+          return new Response(
+            JSON.stringify({ data: { variables: { OK: "yes" } } }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Between service-1 and service-2, abort fires (e.g. tick
+        // timer expired). The signal flag flips to aborted but the
+        // underlying fetch resolves normally — Railway returns 500
+        // for some unrelated reason on this iteration.
+        controller.abort(new Error("tick timeout"));
+        return new Response("internal error", {
+          status: 500,
+          headers: { "content-type": "text/plain" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger: ctxLogger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      // The 500 must NOT escape — it should land in the catch as a
+      // DiscoverySourceBackendError, see that name !== "AbortError",
+      // log a `variables-failed` warn, and continue.
+      const out = await railwayServicesSource.enumerate(ctx, {});
+      expect(out).toHaveLength(2);
+      expect(out[0].name).toBe("showcase-a");
+      expect(out[0].env).toEqual({ OK: "yes" });
+      expect(out[1].name).toBe("showcase-b");
+      expect(out[1].env).toEqual({});
+      // Confidence: the abort actually fired AND the 500 was logged
+      // as a per-service degradation rather than crashing the loop.
+      expect(controller.signal.aborted).toBe(true);
+      const variablesFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.variables-failed",
+      );
+      expect(variablesFailed).toHaveLength(1);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B5 — `deployedDigest` extraction needs explicit unit coverage.
+  // The fixture used to discard `latestDeployment` entirely, leaving
+  // the digest extraction path uncovered.
+  // -----------------------------------------------------------------
+
+  describe("deployedDigest extraction (B5)", () => {
+    it("extracts imageDigest from latestDeployment.meta", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: {
+                meta: {
+                  imageDigest:
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                },
+              },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe(
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      );
+    });
+
+    it("emits deployedDigest === '' when latestDeployment is null", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: null,
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when latestDeployment.meta is missing", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: null },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when imageDigest is non-string (defensive)", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: { imageDigest: 12345 } },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B6 — resolveShape mismatch-throw path coverage.
+  // -----------------------------------------------------------------
+
+  describe("resolveShape mismatch (B6)", () => {
+    it("throws when classifier disagrees with caller-supplied shape", () => {
+      // `showcase-starter-ag2` classifies as "starter"; pass shape
+      // "package" — the resolver must throw rather than silently pick
+      // one. Inverting that fix is the exact regression this test
+      // guards against.
+      expect(() =>
+        resolveShape({ name: "showcase-starter-ag2", shape: "package" }),
+      ).toThrow(/Shape mismatch/);
+    });
+
+    it("throws with both classifier value and input value in the message", () => {
+      // `showcase-ag2` classifies as "package"; passing shape "starter"
+      // mismatches. The error message must include both values for
+      // operator triage.
+      expect(() =>
+        resolveShape({ name: "showcase-ag2", shape: "starter" }),
+      ).toThrow(/classifier="package".*input="starter"/);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B7 — classifyShape silent typo nudge. A name like
+  // `showcase-strater-ag2` is a transposition of `showcase-starter-`
+  // and is currently classified as "package" silently. Surface the
+  // suspicion via a `classify-typo-suspected` warn (without changing
+  // the classification).
+  // -----------------------------------------------------------------
+
+  describe("classifyShape typo nudge (B7)", () => {
+    it("emits classify-typo-suspected warn for 1-edit-distance typos of `starter-`", () => {
+      const warn = vi.fn();
+      const shape = classifyShape("showcase-strater-ag2", { logger: { warn } });
+      // Classification stays "package" — we don't change behaviour,
+      // we just surface the suspicion.
+      expect(shape).toBe("package");
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(1);
+      expect(typoWarns[0][1]).toMatchObject({
+        name: "showcase-strater-ag2",
+        suggested: "showcase-starter-ag2",
+      });
+    });
+
+    it("does not emit classify-typo-suspected warn for legitimate package names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-langgraph-python", { logger: { warn } });
+      classifyShape("showcase-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
+    });
+
+    it("does not emit classify-typo-suspected warn on well-formed starter names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-starter-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
     });
   });
 

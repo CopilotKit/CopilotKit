@@ -114,6 +114,96 @@ interface ShapeLogger {
 }
 
 /**
+ * True iff the thrown value is (or wraps) a real `AbortError`. The
+ * gql() helper wraps fetch rejections in `DiscoverySourceTransportError`,
+ * so a fetch-level abort surfaces as a TransportError whose `cause` is
+ * the original AbortError. Walking up to two cause links keeps the
+ * check honest without unbounded recursion. Anything that isn't an
+ * AbortError (transport flakes, schema violations, backend 5xxs) falls
+ * through to the per-service degradation path.
+ */
+function isAbortError(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; depth < 3 && cur instanceof Error; depth++) {
+    if (cur.name === "AbortError") return true;
+    cur = (cur as Error & { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/**
+ * True iff `a` and `b` are exactly one single-character edit apart
+ * (insertion, deletion, substitution, OR adjacent transposition).
+ * Used by `classifyShape` to surface suspected typos of `starter-`.
+ *
+ * Equal strings return `false` — this checks "exactly one edit", not
+ * "at most one". Implementation is the standard early-exit linear
+ * scan; we don't pull in a full Levenshtein library because the
+ * comparison budget is tiny (one segment vs. one literal "starter").
+ *
+ * Adjacent-transposition detection is included because the canonical
+ * starter typo this guards against is `strater` (a/r swap), which a
+ * pure Levenshtein-1 check would score as distance 2.
+ */
+function isOneEditDistance(a: string, b: string): boolean {
+  if (a === b) return false;
+  // Adjacent transposition: same length, exactly two adjacent chars
+  // differ AND swapping them makes the strings equal.
+  if (a.length === b.length) {
+    let firstDiff = -1;
+    let secondDiff = -1;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) {
+        if (firstDiff === -1) {
+          firstDiff = i;
+        } else if (secondDiff === -1) {
+          secondDiff = i;
+        } else {
+          // Three or more diffs — too far for a single edit.
+          firstDiff = -1;
+          break;
+        }
+      }
+    }
+    if (
+      firstDiff !== -1 &&
+      secondDiff === firstDiff + 1 &&
+      a[firstDiff] === b[secondDiff] &&
+      a[secondDiff] === b[firstDiff]
+    ) {
+      return true;
+    }
+  }
+  // Standard 1-edit check: substitution (same length), insertion or
+  // deletion (length differs by 1). Anything else is too far.
+  const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  if (longer.length - shorter.length > 1) return false;
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < shorter.length && j < longer.length) {
+    if (shorter[i] === longer[j]) {
+      i++;
+      j++;
+      continue;
+    }
+    edits++;
+    if (edits > 1) return false;
+    if (shorter.length === longer.length) {
+      // Substitution — advance both.
+      i++;
+      j++;
+    } else {
+      // Insertion in `longer` — advance only `longer`.
+      j++;
+    }
+  }
+  // Trailing char in `longer` (single insertion at end).
+  if (j < longer.length) edits++;
+  return edits === 1;
+}
+
+/**
  * Classify a Railway service name into a `ShowcaseServiceShape`. Exported
  * so tests can exercise the classifier directly and downstream drivers
  * can reclassify from a bare name when the discovery record wasn't
@@ -141,7 +231,30 @@ export function classifyShape(
   // `starter-` (that path is the branch above), then lowercase-alnum
   // plus hyphens. Accepts `showcase-ag2`, `showcase-langgraph-python`,
   // `showcase-claude-sdk-typescript`, etc. without firing a warn.
-  if (/^showcase-(?!starter-)[a-z0-9][a-z0-9-]*$/.test(name)) return "package";
+  if (/^showcase-(?!starter-)[a-z0-9][a-z0-9-]*$/.test(name)) {
+    // Typo nudge: a name like `showcase-strater-ag2` (transposition)
+    // or `showcase-startr-ag2` (deletion) classifies as package
+    // silently, but is overwhelmingly likely to be a typo of
+    // `starter-`. Surface the suspicion via a structured warn with
+    // a suggested correction; do NOT change classification — that
+    // would break the documented "anything-not-starter is package"
+    // fallback. The widened package regex matches 1-edit-distance
+    // typos by construction, so we can't tighten the regex without
+    // also rejecting legitimate multi-segment package names.
+    const firstSegment = name.slice("showcase-".length).split("-")[0];
+    if (firstSegment && isOneEditDistance(firstSegment, "starter")) {
+      const suggested = `showcase-starter-${name
+        .slice("showcase-".length)
+        .split("-")
+        .slice(1)
+        .join("-")}`;
+      opts.logger?.warn?.(
+        "discovery.railway-services.classify-typo-suspected",
+        { name, suggested },
+      );
+    }
+    return "package";
+  }
   // Everything else — a `showcase-*` typo, a mixed-case variant, or a
   // name that doesn't start with `showcase-` at all — gets a warn. The
   // return value stays `"package"` so downstream drivers keep
@@ -311,9 +424,15 @@ async function loadDemosMap(
   } catch (err) {
     // Bucket: ENOENT is the steady-state for non-demos consumers
     // (image-drift, smoke, aimock-wiring) — they don't mount the
-    // registry. Treating that as a `warn` pulses the alert stream
-    // every tick. Downgrade ENOENT specifically to `info`; everything
-    // else (permission denied, abort, IO error) stays at `warn`.
+    // registry. In dev/test treating that as `warn` pulses the alert
+    // stream every tick, so we downgrade ENOENT specifically to
+    // `info`. In production a missing registry is genuinely an
+    // operational concern — the volume mount may have failed, or the
+    // image was built without the registry — so we promote ENOENT
+    // back to `warn` only when `NODE_ENV === "production"`. Other
+    // read errors (EACCES, EIO, AbortError) always log at `warn`
+    // regardless of environment because they signal an active fault,
+    // not steady-state.
     const code =
       err && typeof err === "object" && "code" in err
         ? (err as { code?: unknown }).code
@@ -322,7 +441,7 @@ async function loadDemosMap(
       path: registryPath,
       err: err instanceof Error ? err.message : String(err),
     };
-    if (code === "ENOENT") {
+    if (code === "ENOENT" && process.env.NODE_ENV !== "production") {
       ctx.logger.info(
         "discovery.railway-services.registry-read-failed",
         meta,
@@ -461,7 +580,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // and 400s the whole tick. We fetch every instance and filter by
     // environment client-side below (the loop that finds
     // `environmentId === environmentId`).
-    const projectRaw = await gql<unknown>(
+    const projectResult = await gql<unknown>(
       `query project($id: String!) {
         project(id: $id) {
           services {
@@ -482,11 +601,20 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       }`,
       { id: projectId },
     );
-    const parsedProject = ProjectServicesSchema.safeParse(projectRaw);
+    const parsedProject = ProjectServicesSchema.safeParse(projectResult.data);
     if (!parsedProject.success) {
+      // Correlate downstream schema failures with the partial-errors
+      // warn that already fired in `gql()` for the same request — see
+      // B2 in the CR notes. When the partial-data envelope fires, we
+      // tag the schema-failure log with `cause: "partial-data"` so an
+      // operator scanning the alert stream can tell "Railway changed
+      // their schema" from "Railway returned partial data and the
+      // partial payload tripped our shape guard".
       throw new DiscoverySourceSchemaError(
         "railway-services",
-        `project response did not match expected shape: ${parsedProject.error.message}`,
+        projectResult.partialData
+          ? `project response did not match expected shape (cause: partial-data): ${parsedProject.error.message}`
+          : `project response did not match expected shape: ${parsedProject.error.message}`,
         undefined,
         parsedProject.error,
       );
@@ -531,17 +659,26 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
 
       let env: Record<string, string> = {};
       try {
-        const varsRaw = await gql<unknown>(
+        const varsResult = await gql<unknown>(
           `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
             variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
           }`,
           { projectId, environmentId, serviceId: svc.id },
         );
-        const parsedVars = VariablesSchema.safeParse(varsRaw);
+        const parsedVars = VariablesSchema.safeParse(varsResult.data);
         if (!parsedVars.success) {
+          // Correlation marker: when the partial-errors warn already
+          // fired for THIS request (gql() returned `partialData: true`),
+          // tag the schema-failure log so operators can tell "Railway
+          // schema drifted" from "we got partial data and the partial
+          // payload tripped the shape guard". Otherwise the two log
+          // keys (partial-errors vs variables-schema) look unrelated
+          // even though they share a root cause. See B2 in the CR
+          // notes.
           ctx.logger.warn("discovery.railway-services.variables-schema", {
             service: svc.name,
             err: parsedVars.error.message,
+            ...(varsResult.partialData ? { cause: "partial-data" } : {}),
           });
           // `env` already initialised to {} above; no reassignment
           // needed. The schema-rejection path leaves the empty default
@@ -568,9 +705,24 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         // Other errors (transport flakes, backend 5xx, schema drift on
         // a single service) keep the documented per-service-degraded
         // behaviour: log + continue with empty env.
-        const aborted =
-          ctx.abortSignal?.aborted === true ||
-          (err instanceof Error && err.name === "AbortError");
+        //
+        // Narrow contract: ONLY a real AbortError (a fetch rejection
+        // wired to the controller's signal) qualifies as "abort". The
+        // earlier check that also tripped on `ctx.abortSignal.aborted`
+        // over-rethrew unrelated mid-loop failures — once an external
+        // tick-timer fires, every subsequent iteration sees
+        // `signal.aborted === true`, so a plain Railway 500 on the
+        // next service would also escape this catch and kill the
+        // whole tick. The catch must distinguish "fetch was aborted"
+        // from "controller fired but this error is unrelated".
+        //
+        // We check `err.name === "AbortError"` directly AND walk the
+        // `cause` chain because the gql() helper wraps fetch
+        // rejections in DiscoverySourceTransportError; the underlying
+        // AbortError lives on `err.cause`. Walking the chain catches
+        // that case without re-tripping on unrelated transport
+        // errors that happened to fire while the signal was aborted.
+        const aborted = isAbortError(err);
         if (aborted || err instanceof DiscoverySourceAuthError) {
           throw err;
         }
@@ -581,12 +733,16 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       }
 
       out.push({
+        // Property order mirrors `RailwayServiceInfo` declaration
+        // order so a reviewer can grep the interface and the emit
+        // site side by side without re-shuffling fields. Behaviour
+        // unchanged.
         name: svc.name,
         imageRef,
-        deployedDigest,
         publicUrl,
         env,
         shape: classifyShape(svc.name, { logger: ctx.logger }),
+        deployedDigest,
         demos: demosMap.get(deriveSlugFromServiceName(svc.name)) ?? [],
       });
     }
@@ -601,19 +757,35 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
  * share identical error semantics — an operator reading the log stream
  * sees the same class regardless of which sub-query failed.
  */
+/**
+ * Result envelope from a `gql()` call. `partialData` is true iff
+ * Railway returned both a populated `data` payload AND non-empty
+ * `errors[]` — the helper logs `partial-errors` and hands `data`
+ * back, so callers should propagate the flag onto any downstream
+ * schema-failure log to correlate "partial response" with "shape
+ * rejection". See B2 in the discovery probe CR notes.
+ */
+interface GqlResult<T> {
+  data: T;
+  partialData: boolean;
+}
+
 function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
   sourceName: string;
   abortSignal: AbortSignal | undefined;
   logger: DiscoveryContext["logger"];
-}): <T>(query: string, variables: Record<string, unknown>) => Promise<T> {
+}): <T>(
+  query: string,
+  variables: Record<string, unknown>,
+) => Promise<GqlResult<T>> {
   const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } =
     opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,
-  ): Promise<T> {
+  ): Promise<GqlResult<T>> {
     let res: Response;
     try {
       res = await fetchImpl(ENDPOINT, {
@@ -690,6 +862,6 @@ function makeGql(opts: {
         errors: json.errors!.map((e) => e.message),
       });
     }
-    return json.data as T;
+    return { data: json.data as T, partialData: hasErrors && hasData };
   };
 }
