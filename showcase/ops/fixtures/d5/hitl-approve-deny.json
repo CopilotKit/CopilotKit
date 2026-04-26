@@ -1,0 +1,28 @@
+{
+  "_comment": "D5 fixture for /demos/hitl-in-app against LangGraph Python (LGP). Approve/deny HITL via the frontend-defined `request_user_approval` tool (see src/app/demos/hitl-in-app/page.tsx and src/agents/hitl_in_app.py). The agent calls request_user_approval; the frontend opens an out-of-chat modal; on approval the async handler resolves with {approved: true, reason: ...} and the tool result is appended back to the conversation. The agent then re-invokes the LLM — second-leg fixture matches on toolCallId. Per the system prompt the agent then issues a one-sentence acknowledgement, no further tool calls. ORDER: toolCallId fixture above userMessage fixture to avoid infinite-loop re-matching (the user message has not changed across the agent loop).",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_request_approval_001" },
+      "response": {
+        "content": "Approved — processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": {
+              "message": "Issue a $50 refund to customer #12345.",
+              "context": "Per the standard goodwill-credit policy for shipping delays."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

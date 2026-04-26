@@ -1,0 +1,28 @@
+{
+  "_comment": "D5 fixture for /demos/hitl-in-chat against LangGraph Python (LGP). Text-input HITL via the frontend-defined `book_call` tool (see src/app/demos/hitl-in-chat/page.tsx and src/agents/hitl_in_chat_agent.py). The agent calls book_call with topic and name; the frontend renders an inline time-picker card via useHumanInTheLoop; the user picks a slot and the value is sent back as the tool result; the agent re-invokes with that result and emits a short acknowledgement. We match the second leg by toolCallId because the user's original message has not changed. ORDER: toolCallId fixture above userMessage fixture to avoid infinite-loop re-matching.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_book_call_001" },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected — calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_book_call_001",
+            "name": "book_call",
+            "arguments": {
+              "topic": "Onboarding call",
+              "name": "Alice"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
