@@ -116,9 +116,9 @@ export function formatRelative(targetMs: number, nowMs: number): string {
   return future ? `in ${body}` : `${body} ago`;
 }
 
-function lastRunTone(
-  lastRun: ProbeScheduleEntry["lastRun"],
-): "green" | "red" | "gray" {
+type Tone = "green" | "amber" | "red" | "gray";
+
+function lastRunTone(lastRun: ProbeScheduleEntry["lastRun"]): Tone {
   if (!lastRun) return "gray";
   if (lastRun.state === "failed") return "red";
   // summary may be null on a "completed" run produced by a failure path
@@ -126,11 +126,18 @@ function lastRunTone(
   // can't claim green — match the runs-list "unknown" semantics.
   if (!lastRun.summary) return "gray";
   if (lastRun.summary.failed > 0) return "red";
+  // R3-B.1: mirror status-runs-list (R2-D.4). failed=0 alone is not
+  // enough for green — if some services were skipped (passed < total)
+  // render amber so the schedule view doesn't misread a partial run as
+  // fully green. The schedule table is the most-viewed surface, so the
+  // misread reintroduced here is the highest-impact one.
+  if (lastRun.summary.passed < lastRun.summary.total) return "amber";
   return "green";
 }
 
-const TONE_CLASS: Record<"green" | "red" | "gray", string> = {
+const TONE_CLASS: Record<Tone, string> = {
   green: "text-[var(--ok)]",
+  amber: "text-[var(--amber)]",
   red: "text-[var(--danger)]",
   gray: "text-[var(--text-muted)]",
 };
@@ -172,9 +179,17 @@ export function StatusTable({
             const lastStartMs = e.lastRun
               ? Date.parse(e.lastRun.startedAt)
               : null;
+            // R3-B.1: result-text mirrors lastRunTone — green = "N/N pass",
+            // red = "P/T pass (F fail)", amber = "P/T (S skipped)" so the
+            // operator can read the row without re-translating the tone.
+            const summary = e.lastRun?.summary;
             const result = e.lastRun
-              ? e.lastRun.summary
-                ? `${e.lastRun.summary.passed}/${e.lastRun.summary.total} pass`
+              ? summary
+                ? summary.failed > 0
+                  ? `${summary.passed}/${summary.total} pass (${summary.failed} fail)`
+                  : summary.passed < summary.total
+                    ? `${summary.passed}/${summary.total} (${summary.total - summary.passed} skipped)`
+                    : `${summary.total}/${summary.total} pass`
                 : "—"
               : "never run";
             const slugs = e.inflight?.services.map((s) => s.slug) ?? [];

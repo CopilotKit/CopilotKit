@@ -120,6 +120,32 @@ describe("StatusDetailPanel", () => {
     expect(mockUseProbeDetail).toHaveBeenCalledWith("deep");
   });
 
+  it("filters NaN/Infinity durations out of the sparkline (no NaN coords)", () => {
+    // R3-B.2: typeof NaN === "number" so a naive type guard admits NaN
+    // into the sparkline, which then computes Math.min(...durations) =
+    // NaN and renders "NaN,NaN" coordinates. Use Number.isFinite() so
+    // sparkline output never contains "NaN" in its polyline points.
+    mockUseProbeDetail.mockReturnValue({
+      data: {
+        probe: probe(),
+        runs: [
+          run({ id: "a", durationMs: 60_000 }),
+          run({ id: "b", durationMs: NaN }),
+          run({ id: "c", durationMs: Infinity }),
+          run({ id: "d", durationMs: 90_000 }),
+        ],
+      },
+      error: null,
+      loading: false,
+    });
+    const { getByTestId } = render(
+      <StatusDetailPanel probeId="smoke" onClose={() => {}} />,
+    );
+    const sparkline = getByTestId("status-sparkline");
+    expect(sparkline.outerHTML).not.toContain("NaN");
+    expect(sparkline.outerHTML).not.toContain("Infinity");
+  });
+
   it("invokes onClose when the close button is clicked", () => {
     mockUseProbeDetail.mockReturnValue({
       data: { probe: probe(), runs: [] },
