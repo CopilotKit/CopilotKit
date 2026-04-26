@@ -175,22 +175,12 @@ export function buildProbeInvoker(
     // up. Without this, the largest service (e.g. 38 demos) starting at
     // t=0 occupies a worker slot for the entire fan-out and small
     // services queue behind it — head-of-line blocking that delays
-    // useful signal. Sorting puts small services first so they complete
-    // and free slots while the big one chews through its demo list. Tie-
-    // break on `key` ascending so dispatch order is fully deterministic
-    // across ticks regardless of the discovery source's enumeration
-    // order. Gated strictly on `cfg.kind === "e2e_demos"`; other probe
-    // kinds keep their resolveInputs-order dispatch.
+    // useful signal under bounded concurrency. Sorting puts small
+    // services first so they complete and free slots while the big one
+    // chews through its demo list, reducing tail latency. Tie-break on
+    // `key` ascending so dispatch order is fully deterministic across
+    // ticks regardless of the discovery source's enumeration order.
     //
-    // Source of `demos` on the input: the `railway-services` discovery
-    // source reads `registry.json` once per `enumerate()` call and
-    // joins demos by slug onto every emitted record (see
-    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
-    // BEFORE we land here, so `demoCount(input)` returns a real count
-    // for production records. Static-target probe configs (no
-    // discovery) don't carry `demos`, but they also can't be
-    // `kind: e2e_demos` in practice — the gate below short-circuits
-    // anyway.
     // Gate is `kind === "e2e_demos" && "discovery" in cfg` — the second
     // half blocks a hypothetical static-targets `e2e_demos` config from
     // sorting alphabetically. A static config's records lack `demos`,
@@ -198,6 +188,13 @@ export function buildProbeInvoker(
     // on `key` would silently re-order the YAML. Tightening here keeps
     // the YAML's authored order authoritative for any non-discovery
     // shape that might land later.
+    //
+    // Source of `demos` on the input: the `railway-services` discovery
+    // source reads `registry.json` once per `enumerate()` call and
+    // joins demos by slug onto every emitted record (see
+    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
+    // BEFORE we land here, so `demoCount(input)` returns a real count
+    // for production records.
     if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
       // Skip the sort entirely when every input has demoCount=0 — the
       // tie-break on `key` would silently re-order discovery's natural
@@ -403,11 +400,18 @@ async function resolveInputs(
       // the success path. An unconditional `abort()` in the finally
       // signals timeout-on-success to any source listener that
       // snapshots `signal.reason` — exactly the inverse of what the
-      // signal is meant to represent. Listener-cleanup is not a real
-      // concern: the AbortController is local to this function call,
-      // nothing outside resolveInputs holds a reference, and any
-      // listeners attached by the source die with the controller as
-      // soon as this function returns and the controller is GC'd.
+      // signal is meant to represent.
+      //
+      // Listener-leak window: any `signal.addEventListener("abort", ...)`
+      // closures attached by the source remain reachable through
+      // `discoveryAbort.signal` until this function returns and the
+      // controller becomes unreachable. We have no API to remove them
+      // explicitly (the source owns the listener it registered, not
+      // us), so the window is bounded by GC of the controller after
+      // resolveInputs returns. For long-lived sources this is a slow
+      // leak per probe tick rather than per record; in practice GC
+      // reclaims it on the next major collection. Acceptable until/
+      // unless we measure it as a hot spot.
     }
     return records.map((record, idx) => {
       const key = interpolateTemplate(
@@ -802,11 +806,12 @@ function syntheticError(
  *     because Slack/Pocketbase render budgets are tight and a
  *     full-frame Node stack drowns the alert.
  *   - `logger.debug("<msg>.full-stack", ...)` carries the FULL stack
- *     alongside, every time. Production debug-level logs flow into the
+ *     alongside — only when one is available (string-thrown values have
+ *     no stack to preserve). Production debug-level logs flow into the
  *     orchestrator's structured log stream where storage is cheap and
- *     post-mortem operators can pull them on demand. Always emitting
- *     means the comment "the rest of the stack lives in the
- *     orchestrator's full log stream" is now load-bearing rather than
+ *     post-mortem operators can pull them on demand. When a stack is
+ *     present this also emits, so "the rest of the stack lives in the
+ *     orchestrator's full log stream" is load-bearing rather than
  *     aspirational.
  */
 function logErrorWithStack(
