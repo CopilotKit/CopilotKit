@@ -42,15 +42,38 @@ If you're unsure whether the snapshots are stale, run the D6 probe — captured-
 
 ## How to invoke
 
-The helper lives at `src/probes/helpers/reference-capture.ts` and exposes two entry points:
+The everyday operator path is the CLI script — it wires all deps (Playwright launcher, SSE interceptor, conversation runner, DOM serializer, file writer) for you:
+
+```sh
+# From showcase/ops/:
+LGP_BASE_URL=https://langgraph-python.up.railway.app \
+  npx tsx scripts/d6-capture-references.ts
+```
+
+The script (`showcase/ops/scripts/d6-capture-references.ts`) accepts:
+
+- `--integration <slug>` — default `langgraph-python`.
+- `--base-url <url>` — else falls back to the `LGP_BASE_URL` env.
+- `--feature <type>` — optional, target a single featureType.
+
+It exits `0` when every result is `captured` or `skipped`, and `1` when any result is `failed`. Production wiring (driver + scheduler) is integrated with B13.
+
+For programmatic / test callers, the helper lives at `src/probes/helpers/reference-capture.ts` and exposes two entry points:
 
 ```ts
 import {
   captureReferenceForFeature,
   captureAllReferences,
-} from "./reference-capture.js";
+  serializeRelevantDom,
+  defaultWriteSnapshot,
+} from "../../src/probes/helpers/reference-capture.js";
+import { attachSseInterceptor } from "../../src/probes/helpers/sse-interceptor.js";
+import { runConversation } from "../../src/probes/helpers/conversation-runner.js";
 
-// Capture all 10 featureTypes:
+// Production callers compose their own `launchBrowser` (real Playwright) and
+// pass the helper's defaults for the remaining slots. Tests inject scripted
+// fakes for ALL deps — there is no "default" launcher exported from the
+// helper module today; the CLI script above contains the canonical wiring.
 const results = await captureAllReferences(
   {
     baseUrl: "https://langgraph-python.up.railway.app",
@@ -58,23 +81,13 @@ const results = await captureAllReferences(
     outputDir: path.resolve(__dirname, "../../fixtures/d6-reference"),
   },
   {
-    launchBrowser: defaultLaunchBrowser,
-    attachSseInterceptor, // from sse-interceptor.ts
-    runConversation, // from conversation-runner.ts
+    launchBrowser: /* see scripts/d6-capture-references.ts for the wiring */,
+    attachSseInterceptor,
+    runConversation,
     serializeDom: serializeRelevantDom,
     writeSnapshot: defaultWriteSnapshot,
   },
 );
-
-// Or one feature:
-const result = await captureReferenceForFeature("agentic-chat", ctx, deps);
-```
-
-Operators capture or refresh snapshots via the CLI wrapper at `showcase/ops/scripts/d6-capture-references.ts`. The script accepts `--integration <slug>` (default `langgraph-python`), `--base-url <url>` (else `LGP_BASE_URL` env), and an optional `--feature <type>` to target a single featureType. Run it from `showcase/ops/`:
-
-```sh
-LGP_BASE_URL=https://langgraph-python.up.railway.app \
-  npx tsx scripts/d6-capture-references.ts
 ```
 
 It exits 0 when every result is `captured` or `skipped`, exits 1 when any result is `failed`. Production wiring (driver + scheduler) lands with B13.
