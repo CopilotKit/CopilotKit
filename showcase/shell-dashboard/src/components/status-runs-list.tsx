@@ -7,7 +7,11 @@
  * Tone of the State badge:
  *   - "running" — finishedAt is null (in-flight)
  *   - "red"     — summary.failed > 0 (any test failed) — represents a "failed" run
- *   - "green"   — finished and no failures — represents a "completed" run
+ *   - "amber"   — finished, no failures, but passed < total (partial pass:
+ *                 some services skipped/unknown). R2-D.4: previously rendered
+ *                 as green "completed" which misleads the operator.
+ *   - "green"   — finished and all targets passed
+ *   - "gray"    — finished but no summary (unknown coverage)
  *
  * Reuses `formatDuration` and `formatRelative` from status-table so the
  * dashboard's time/duration formatting stays consistent across views.
@@ -20,10 +24,11 @@ export interface StatusRunsListProps {
   runs: ProbeRun[];
 }
 
-type StateTone = "green" | "red" | "running" | "gray";
+type StateTone = "green" | "amber" | "red" | "running" | "gray";
 
 const TONE_CLASS: Record<StateTone, string> = {
   green: "text-[var(--ok)]",
+  amber: "text-[var(--amber)]",
   red: "text-[var(--danger)]",
   running: "text-[var(--accent)]",
   gray: "text-[var(--text-muted)]",
@@ -31,8 +36,15 @@ const TONE_CLASS: Record<StateTone, string> = {
 
 function runTone(run: ProbeRun): StateTone {
   if (!run.finishedAt) return "running";
-  if (run.summary && run.summary.failed > 0) return "red";
-  if (run.summary) return "green";
+  if (run.summary) {
+    if (run.summary.failed > 0) return "red";
+    // R2-D.4: failed=0 is necessary but not sufficient for green. If
+    // some services were skipped/unknown (passed < total) we render
+    // amber + "partial" so the operator doesn't misread an incomplete
+    // run as fully green.
+    if (run.summary.passed < run.summary.total) return "amber";
+    return "green";
+  }
   // Finished but no summary recorded — treat as gray (unknown) rather
   // than green so we don't mislead the operator about coverage.
   return "gray";
@@ -40,12 +52,18 @@ function runTone(run: ProbeRun): StateTone {
 
 function runStateLabel(run: ProbeRun): string {
   if (!run.finishedAt) return "running";
-  if (run.summary && run.summary.failed > 0) return "failed";
+  if (run.summary) {
+    if (run.summary.failed > 0) return "failed";
+    if (run.summary.passed < run.summary.total) {
+      const skipped = run.summary.total - run.summary.passed;
+      return `partial (${skipped} skipped)`;
+    }
+    return "completed";
+  }
   // Finished but no summary recorded — match runTone()'s "gray" tone
   // with an "unknown" label so the badge can't say "completed" when
   // we actually have no idea whether the run succeeded.
-  if (!run.summary) return "unknown";
-  return "completed";
+  return "unknown";
 }
 
 function useNowTick(): number {

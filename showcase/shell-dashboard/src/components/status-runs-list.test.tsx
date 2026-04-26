@@ -125,6 +125,22 @@ describe("StatusRunsList", () => {
     expect(cell.textContent?.toLowerCase()).not.toContain("manual");
   });
 
+  it("badges partial-pass runs (failed=0 but passed<total) with amber tone (R2-D.4)", () => {
+    // A run with no failures but where some services were skipped/unknown
+    // (passed < total) should NOT read as "completed" green — that misleads
+    // operators that all targets passed. Show partial-pass tone + label.
+    const r = run({
+      id: "a",
+      finishedAt: new Date(NOW).toISOString(),
+      summary: { total: 17, passed: 14, failed: 0 },
+    });
+    const { getByTestId } = render(<StatusRunsList runs={[r]} />);
+    const badge = getByTestId("status-run-row-a-state");
+    expect(badge.getAttribute("data-tone")).toBe("amber");
+    expect(badge.textContent?.toLowerCase()).toContain("partial");
+    expect(badge.textContent?.toLowerCase()).not.toBe("completed");
+  });
+
   it("uses unknown label and gray tone when finished but no summary", () => {
     // CR-B2.2: tone/label semantics must agree. A run with finishedAt
     // set but summary === null was previously rendering as a gray badge
