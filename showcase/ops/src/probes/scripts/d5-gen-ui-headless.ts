@@ -70,30 +70,19 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
         //    surface may grow content asynchronously, so the explicit
         //    follow-up check guards against a between-poll race where
         //    the cascade matched but children hadn't mounted yet.
-        const childCount = await page.evaluate(() => {
-          const win = globalThis as unknown as {
-            document: {
-              querySelector(sel: string): { childElementCount: number } | null;
-            };
-          };
-          // We re-resolve the cascade inside the browser to avoid a
-          // closure capture of `matchedSelector` (page.evaluate's
-          // function executes in the browser context — the Node-side
-          // string isn't directly available).
-          const selectors = [
-            '[data-testid="gen-ui-card"]',
-            '[data-testid="gen-ui-component"]',
-            "[data-tool-name]",
-            ".copilotkit-render-component",
-            '[role="article"] svg',
-            '[role="article"]',
-          ];
-          for (const selector of selectors) {
-            const node = win.document.querySelector(selector);
-            if (node) return node.childElementCount;
-          }
-          return 0;
-        });
+        //
+        //    We interpolate the resolved selector from the cascade
+        //    above directly into the page-side function source. This
+        //    avoids the prior pattern of re-running a duplicate (and
+        //    drift-prone) cascade in the browser, which could resolve
+        //    a different node than the one the cascade already
+        //    matched (e.g. a generic `[role="article"]` while the
+        //    cascade's actual match was the more-specific
+        //    `[data-testid="gen-ui-card"]`).
+        const childCount = await readChildCountForSelector(
+          page,
+          matchedSelector,
+        );
         if (childCount < MIN_CHILDREN) {
           throw new Error(
             `gen-ui-headless: matched component ${matchedSelector} has ${childCount} children (expected >= ${MIN_CHILDREN})`,
@@ -116,6 +105,36 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
       },
     },
   ];
+}
+
+/**
+ * Read the child element count of the node matching `selector`. The
+ * selector is interpolated into the page-evaluate source directly so
+ * the page-side query reads the SAME node the cascade matched on the
+ * Node side, eliminating a class of races where the in-page lookup
+ * resolved a different (more-generic) node than the cascade.
+ *
+ * `selector` is JSON-encoded before interpolation to defuse any
+ * embedded quotes — playwright cascade strings include both single
+ * and double quotes (e.g. `'[data-testid="gen-ui-card"]'`).
+ */
+async function readChildCountForSelector(
+  page: { evaluate<R>(fn: () => R): Promise<R> },
+  selector: string,
+): Promise<number> {
+  const encoded = JSON.stringify(selector);
+  // Build the source with selector pre-baked. We rely on `new Function`
+  // because the structural Page.evaluate signature is `() => R` — no
+  // arg-pass — and we still need the resolved selector to land in the
+  // browser context. The function returned from `new Function` is a
+  // plain function-source closure over no Node-side state, which is
+  // exactly what playwright will serialise + ship to the browser.
+  const fn = new Function(`
+    const win = globalThis;
+    const node = win.document.querySelector(${encoded});
+    return node ? node.childElementCount : 0;
+  `) as () => number;
+  return await page.evaluate(fn);
 }
 
 /**

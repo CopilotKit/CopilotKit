@@ -188,6 +188,49 @@ describe("d5-gen-ui-headless script", () => {
     await expect(turn.assertions!(page)).rejects.toThrow(/missing tokens/);
   });
 
+  it("childCount lookup interpolates the resolved cascade selector (no in-page re-cascade)", async () => {
+    // Per A11 — the original code re-ran the WHOLE selector cascade
+    // inside page.evaluate, which could resolve a different (more
+    // generic) node than the cascade just matched. The fix
+    // interpolates the resolved selector into the function source,
+    // so the page-side function only ever queries that single
+    // selector. We assert this by checking the function source
+    // shipped to evaluate against the resolved selector returned
+    // from the (Node-side) cascade.
+    const { script } = await loadFreshRegistry();
+    const turn = script.buildTurns({
+      integrationSlug: "langgraph-python",
+      featureType: "gen-ui-headless",
+      baseUrl: "https://example.com",
+    })[0]!;
+
+    let evalCount = 0;
+    const fnSources: string[] = [];
+    const page = makeAssertionPage({
+      evaluateImpl: (fn) => {
+        evalCount++;
+        fnSources.push(String(fn));
+        if (evalCount === 1) return { selector: '[data-testid="gen-ui-card"]' };
+        if (evalCount === 2) return 2; // childCount
+        return "Here is a card for Ada Lovelace — the rendered card above shows her biography.";
+      },
+    });
+
+    await turn.assertions!(page);
+
+    // The second evaluate call is the child-count lookup; its source
+    // MUST embed the resolved selector and MUST NOT contain the
+    // remaining selectors from the cascade (which would indicate the
+    // old "re-run cascade in browser" pattern).
+    const childCountSource = fnSources[1] ?? "";
+    expect(childCountSource).toContain("gen-ui-card");
+    // The selector NOT chosen by the Node-side cascade should not
+    // appear in the page-side source (the old code listed every
+    // cascade selector in the body).
+    expect(childCountSource).not.toContain("copilotkit-render-component");
+    expect(childCountSource).not.toContain("data-tool-name");
+  });
+
   it("assertion PASSES on a healthy render with full narration", async () => {
     const { script } = await loadFreshRegistry();
     const turn = script.buildTurns({
