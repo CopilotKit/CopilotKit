@@ -1067,13 +1067,15 @@ describe("railwayServicesSource", () => {
     expect(byName["showcase-mystery"]).toEqual([]);
   });
 
-  it("logs a warn and emits demos: [] for every service when the registry is unreadable", async () => {
+  it("emits demos: [] for every service when the registry is missing (info, not warn)", async () => {
     // Unreadable registry MUST NOT throw — sibling probes still need
-    // their service list. The source logs
-    // `discovery.railway-services.registry-read-failed` once and emits
-    // `demos: []` for every record.
+    // their service list. ENOENT downgrades from warn to info because
+    // non-demos consumers (image-drift, smoke, aimock-wiring) don't
+    // mount the registry path; treating their steady-state as a warn
+    // pulses every tick.
     const warn = vi.fn();
-    const ctxLogger = { ...logger, warn };
+    const info = vi.fn();
+    const ctxLogger = { ...logger, warn, info };
     const { fetchImpl } = makeFetch([
       {
         status: 200,
@@ -1099,10 +1101,102 @@ describe("railwayServicesSource", () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0].demos).toEqual([]);
-    const readFailed = warn.mock.calls.filter(
+    const warnReadFailed = warn.mock.calls.filter(
       (c) => c[0] === "discovery.railway-services.registry-read-failed",
     );
-    expect(readFailed).toHaveLength(1);
+    expect(warnReadFailed).toHaveLength(0);
+    const infoReadFailed = info.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(infoReadFailed).toHaveLength(1);
+  });
+
+  // -----------------------------------------------------------------
+  // Registry shape guards + log-key separation.
+  // -----------------------------------------------------------------
+
+  describe("loadDemosMap registry shape guards (A)", () => {
+    // Registry roots that aren't an integrations-bearing object — null,
+    // numeric, string, or array. Each must NOT crash enumerate(), MUST
+    // log `discovery.railway-services.registry-shape-invalid`, and the
+    // emitted records carry `demos: []`.
+    const cases: Array<{ name: string; raw: string }> = [
+      { name: "literal null", raw: "null" },
+      { name: "numeric", raw: "42" },
+      { name: "string", raw: '"a string"' },
+      { name: "array root", raw: "[]" },
+    ];
+    for (const { name, raw } of cases) {
+      it(`degrades + logs registry-shape-invalid on ${name} root`, async () => {
+        const registryPath = await writeRegistry(raw);
+        const warn = vi.fn();
+        const ctxLogger = { ...logger, warn };
+        const { fetchImpl } = makeFetch([
+          {
+            status: 200,
+            body: railwayProjectResponse([
+              {
+                id: "s-1",
+                name: "showcase-a",
+                image: "ghcr.io/c/a:v1",
+                domain: "a.up.railway.app",
+              },
+            ]),
+          },
+          { status: 200, body: { data: { variables: {} } } },
+        ]);
+        const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+        const out = await railwayServicesSource.enumerate(
+          { fetchImpl, logger: ctxLogger, env },
+          {},
+        );
+        expect(out).toHaveLength(1);
+        expect(out[0].demos).toEqual([]);
+        const shapeInvalid = warn.mock.calls.filter(
+          (c) =>
+            c[0] === "discovery.railway-services.registry-shape-invalid",
+        );
+        expect(shapeInvalid).toHaveLength(1);
+      });
+    }
+  });
+
+  describe("registry log-key separation (B)", () => {
+    it("logs registry-parse-failed (not registry-read-failed) on malformed JSON", async () => {
+      const registryPath = await writeRegistry("{not valid json");
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:v1",
+              domain: "a.up.railway.app",
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+      const out = await railwayServicesSource.enumerate(
+        { fetchImpl, logger: ctxLogger, env },
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].demos).toEqual([]);
+      const parseFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-parse-failed",
+      );
+      expect(parseFailed).toHaveLength(1);
+      const readFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-read-failed",
+      );
+      // Parse failure must NOT share the read-failure log key.
+      expect(readFailed).toHaveLength(0);
+    });
   });
 
   it("honours REGISTRY_JSON_PATH env override over the /app/data default", async () => {

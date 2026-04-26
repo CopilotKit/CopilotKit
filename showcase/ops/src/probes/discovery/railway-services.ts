@@ -307,27 +307,73 @@ async function loadDemosMap(
       signal: ctx.abortSignal,
     });
   } catch (err) {
-    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
+    // Bucket: ENOENT is the steady-state for non-demos consumers
+    // (image-drift, smoke, aimock-wiring) — they don't mount the
+    // registry. Treating that as a `warn` pulses the alert stream
+    // every tick. Downgrade ENOENT specifically to `info`; everything
+    // else (permission denied, abort, IO error) stays at `warn`.
+    const code =
+      err && typeof err === "object" && "code" in err
+        ? (err as { code?: unknown }).code
+        : undefined;
+    const meta = {
+      path: registryPath,
+      err: err instanceof Error ? err.message : String(err),
+    };
+    if (code === "ENOENT") {
+      ctx.logger.info(
+        "discovery.railway-services.registry-read-failed",
+        meta,
+      );
+    } else {
+      ctx.logger.warn(
+        "discovery.railway-services.registry-read-failed",
+        meta,
+      );
+    }
+    return new Map();
+  }
+  let parsedUnknown: unknown;
+  try {
+    parsedUnknown = JSON.parse(raw);
+  } catch (err) {
+    // Distinct log key from read failure so operators can tell
+    // "file is corrupt" from "file isn't there" without parsing
+    // error strings. Stays at `warn` — a corrupt registry is never
+    // expected steady-state.
+    ctx.logger.warn("discovery.railway-services.registry-parse-failed", {
       path: registryPath,
       err: err instanceof Error ? err.message : String(err),
     });
     return new Map();
   }
-  let parsed: {
+  // Shape guard: `JSON.parse("null")` returns null, `JSON.parse("42")`
+  // returns 42, `JSON.parse("[]")` returns an array. Any of these
+  // would crash the `for (const it of parsed.integrations ?? [])`
+  // loop with a TypeError on property access (`null.integrations`).
+  // Reject anything that isn't a plain object root and degrade to an
+  // empty map with a structurally-distinct log key.
+  if (
+    parsedUnknown === null ||
+    typeof parsedUnknown !== "object" ||
+    Array.isArray(parsedUnknown)
+  ) {
+    ctx.logger.warn(
+      "discovery.railway-services.registry-shape-invalid",
+      {
+        path: registryPath,
+        rootType: parsedUnknown === null ? "null" : typeof parsedUnknown,
+        isArray: Array.isArray(parsedUnknown),
+      },
+    );
+    return new Map();
+  }
+  const parsed = parsedUnknown as {
     integrations?: Array<{
       slug?: string;
       demos?: Array<{ id?: string }>;
     }>;
   };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch (err) {
-    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
-      path: registryPath,
-      err: err instanceof Error ? err.message : String(err),
-    });
-    return new Map();
-  }
   const map = new Map<string, string[]>();
   for (const it of parsed.integrations ?? []) {
     if (!it.slug) continue;
