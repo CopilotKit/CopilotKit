@@ -70,7 +70,14 @@ const results = await captureAllReferences(
 const result = await captureReferenceForFeature("agentic-chat", ctx, deps);
 ```
 
-Production wiring (driver + scheduler) lands with B13. Until then operators can drive the helper from a one-shot node script — see `scripts/d6-capture-references.ts` (added with B13).
+Operators capture or refresh snapshots via the CLI wrapper at `showcase/ops/scripts/d6-capture-references.ts`. The script accepts `--integration <slug>` (default `langgraph-python`), `--base-url <url>` (else `LGP_BASE_URL` env), and an optional `--feature <type>` to target a single featureType. Run it from `showcase/ops/`:
+
+```sh
+LGP_BASE_URL=https://langgraph-python.up.railway.app \
+  npx tsx scripts/d6-capture-references.ts
+```
+
+It exits 0 when every result is `captured` or `skipped`, exits 1 when any result is `failed`. Production wiring (driver + scheduler) lands with B13.
 
 ## What to verify after capture
 
