@@ -17,7 +17,14 @@ export interface StatusRunningPanelProps {
   entries: ProbeScheduleEntry[];
 }
 
-const STATE_ICON: Record<string, string> = {
+// Typed as Record<ServiceState, string> so removing or renaming a state
+// in ProbeScheduleEntry surfaces here at compile time rather than
+// silently rendering `undefined` in the per-service grid.
+type ServiceState = NonNullable<
+  ProbeScheduleEntry["inflight"]
+>["services"][number]["state"];
+
+const STATE_ICON: Record<ServiceState, string> = {
   completed: "✅",
   running: "⏳",
   queued: "⏸",
@@ -33,14 +40,25 @@ function useNowTick(): number {
   return now;
 }
 
+/**
+ * Find the soonest *future* nextRunAt across the schedule.
+ *
+ * We deliberately ignore entries whose nextRunAt is already in the past:
+ * those represent overdue probes (the scheduler hasn't ticked them yet)
+ * and reporting "Next: smoke 5m ago" reads as nonsensical to the
+ * operator. When no future entry exists we return null and the caller
+ * renders the "No upcoming runs scheduled" sentinel instead.
+ */
 function findNextScheduled(
   entries: ProbeScheduleEntry[],
+  nowMs: number,
 ): { entry: ProbeScheduleEntry; ms: number } | null {
   let best: { entry: ProbeScheduleEntry; ms: number } | null = null;
   for (const e of entries) {
     if (!e.nextRunAt) continue;
     const ms = Date.parse(e.nextRunAt);
     if (Number.isNaN(ms)) continue;
+    if (ms < nowMs) continue;
     if (!best || ms < best.ms) best = { entry: e, ms };
   }
   return best;
@@ -51,7 +69,7 @@ export function StatusRunningPanel({ entries }: StatusRunningPanelProps) {
   const inflight = entries.filter((e) => e.inflight);
 
   if (inflight.length === 0) {
-    const next = findNextScheduled(entries);
+    const next = findNextScheduled(entries, now);
     return (
       <div
         data-testid="status-running-panel"
