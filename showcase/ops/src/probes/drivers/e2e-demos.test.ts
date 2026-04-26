@@ -659,15 +659,21 @@ describe("shortest-service-first dispatch (integration)", () => {
     type SlugTimings = { firstGotoAt: number; lastGotoAt: number };
     const timings = new Map<string, SlugTimings>();
 
-    // Demo counts per slug. The msPerGoto multiplier equals the demo
-    // count, so total wall-clock per service is N*N ms (5→25ms,
-    // 20→400ms, 38→1444ms). The 38-demo service dominates wall-clock if
+    // Demo counts per slug. The per-goto sleep is `demoCount * 5` ms
+    // (so tiny=25ms, medium=100ms, huge=190ms) — the 5× multiplier
+    // gives total wall-clock 125 / 2000 / 7220ms per service, well
+    // separated so the `tiny.lastGotoAt < huge.firstGotoAt` assertion
+    // can never tie at millisecond resolution. Earlier values
+    // (5/20/38ms) cut it close — on a fast host a tiny finish could
+    // land in the same millisecond as a huge start, making the
+    // assertion flake. The 38-demo service dominates wall-clock if
     // dispatched first under bounded concurrency.
     const demoCounts: Record<string, number> = {
       tiny: 5,
       medium: 20,
       huge: 38,
     };
+    const MS_PER_GOTO_MULT = 5;
 
     // Single shared fake browser. The slug is recovered from the URL
     // each goto receives (`https://<slug>.example.com/demos/...`), which
@@ -681,7 +687,7 @@ describe("shortest-service-first dispatch (integration)", () => {
     const sharedPage: E2eDemosPage = {
       async goto(url) {
         const slug = slugFromUrl(url);
-        const ms = demoCounts[slug] ?? 1;
+        const ms = (demoCounts[slug] ?? 1) * MS_PER_GOTO_MULT;
         const t = Date.now();
         const existing = timings.get(slug);
         if (!existing) {
@@ -811,7 +817,9 @@ describe("shortest-service-first dispatch (integration)", () => {
     expect(tiny).toBeDefined();
     expect(huge).toBeDefined();
     expect(tiny!.lastGotoAt).toBeLessThan(huge!.firstGotoAt);
-  });
+  }, 15_000); // 5x multiplier widens wall-clock to ~7.3s under
+  // bounded concurrency=2 — bump per-test timeout from the 5s
+  // default so we don't trip vitest's outer cap on slow CI.
 
   it("records driver dispatch order ascending by demo count", async () => {
     // Companion assertion: the order in which run() is invoked across

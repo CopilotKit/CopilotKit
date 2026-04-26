@@ -1,7 +1,16 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import yaml from "js-yaml";
+
+// Resolve the configs dir relative to THIS test file rather than
+// `process.cwd()`. Earlier versions used `path.resolve(process.cwd(),
+// "config/probes")`, which silently broke when vitest was launched from
+// a parent directory (monorepo root, IDE runner, etc.) — the test would
+// throw ENOENT before reaching the parity assertion. import.meta.url is
+// stable regardless of cwd.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * Parity check between the three Railway-discovery probe YAMLs that share
@@ -24,11 +33,11 @@ import yaml from "js-yaml";
  */
 describe("probe-config nameExcludes parity", () => {
   function configsDir(): string {
-    // Resolve relative to this file so the test is portable across
-    // worktrees / CI checkouts. `import.meta.url` would also work but
-    // the existing probe-loader tests use `process.cwd()` resolution
-    // (see probe-loader.test.ts), so mirror that pattern.
-    return path.resolve(process.cwd(), "config/probes");
+    // Resolve relative to this file (probes/loader/) up to showcase/ops
+    // root, then into config/probes. cwd-relative resolution was wrong
+    // because vitest may be launched from any ancestor directory and
+    // would resolve config/probes against the wrong root.
+    return path.resolve(__dirname, "../../../config/probes");
   }
 
   async function readNameExcludes(file: string): Promise<string[]> {
