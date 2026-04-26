@@ -14,7 +14,8 @@ import { useMemo } from "react";
 import { DepthChip } from "./depth-chip";
 import { IntegrationHeader } from "./integration-header";
 import { useCollapsible, CategoryHeaderRow } from "./collapsible-category";
-import { deriveDepth, type CatalogCell } from "./depth-utils";
+import { deriveDepth } from "./depth-utils";
+import type { CatalogCell, DepthResult } from "./depth-utils";
 import type { ParityTier } from "./parity-badge";
 import type { LiveStatusMap } from "@/lib/live-status";
 import type { FeatureCategory } from "@/lib/registry";
@@ -113,7 +114,7 @@ function ParityCategorySection({
         cat.features.map((feature) => {
           const refCell = cellIndex.get(`${referenceSlug}/${feature.id}`);
           const refStatus = refCell?.status ?? "unshipped";
-          const refDepth = refCell
+          const refDepth: DepthResult = refCell
             ? deriveDepth(refCell, liveStatus)
             : { achieved: 0, isRegression: false };
 
@@ -129,7 +130,7 @@ function ParityCategorySection({
               </td>
               <td className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center bg-purple-900/5">
                 <DepthChip
-                  depth={refDepth.achieved as 0 | 1 | 2 | 3 | 4}
+                  depth={refDepth.achieved}
                   status={refStatus}
                   regression={refDepth.isRegression}
                 />
@@ -137,7 +138,7 @@ function ParityCategorySection({
               {nonRefIntegrations.map((int) => {
                 const cell = cellIndex.get(`${int.slug}/${feature.id}`);
                 const cellStatus = cell?.status ?? "unshipped";
-                const depth = cell
+                const depth: DepthResult = cell
                   ? deriveDepth(cell, liveStatus)
                   : { achieved: 0, isRegression: false };
 
@@ -147,7 +148,7 @@ function ParityCategorySection({
                     className="border-l border-[var(--border)] px-3 py-1.5 align-middle text-center"
                   >
                     <DepthChip
-                      depth={depth.achieved as 0 | 1 | 2 | 3 | 4}
+                      depth={depth.achieved}
                       status={cellStatus}
                       regression={depth.isRegression}
                     />
@@ -185,10 +186,15 @@ export function ParityMatrix({
     [sortedIntegrations, referenceSlug],
   );
 
-  // Index cells by integration+feature for O(1) lookup
+  // Index cells by integration+feature for O(1) lookup.
+  // Skip starter cells (feature === null) — they have no feature row to render
+  // and would otherwise produce a bogus "<slug>/null" key that orphans them.
   const cellIndex = useMemo(() => {
     const idx = new Map<string, CatalogCell>();
-    for (const c of cells) idx.set(`${c.integration}/${c.feature}`, c);
+    for (const c of cells) {
+      if (c.feature === null) continue;
+      idx.set(`${c.integration}/${c.feature}`, c);
+    }
     return idx;
   }, [cells]);
 
