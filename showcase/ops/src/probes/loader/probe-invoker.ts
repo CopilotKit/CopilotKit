@@ -734,7 +734,7 @@ function syntheticError(
  *     orchestrator's full log stream" is now load-bearing rather than
  *     aspirational.
  */
-function logErrorWithStack(
+export function logErrorWithStack(
   logger: Logger,
   msg: string,
   err: unknown,

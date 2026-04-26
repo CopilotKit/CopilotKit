@@ -40,6 +40,7 @@ import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
+import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
 export interface BootOptions {
@@ -207,7 +208,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   try {
     await reloadRules();
   } catch (err) {
-    logger.error("orchestrator.initial-rule-load-failed", { err: String(err) });
+    logErrorWithStack(logger, "orchestrator.initial-rule-load-failed", err);
     throw err;
   }
 
@@ -269,10 +270,14 @@ export async function boot(opts: BootOptions = {}): Promise<{
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
         scheduler.unregister(entry.id).catch((err) =>
-          logger.error("orchestrator.probe-unregister-failed", {
-            id: entry.id,
-            err: String(err),
-          }),
+          logErrorWithStack(
+            logger,
+            "orchestrator.probe-unregister-failed",
+            err,
+            {
+              id: entry.id,
+            },
+          ),
         );
       }
     }
@@ -324,11 +329,10 @@ export async function boot(opts: BootOptions = {}): Promise<{
           handler: invoker,
         });
       } catch (err) {
-        logger.error("orchestrator.probe-register-failed", {
+        logErrorWithStack(logger, "orchestrator.probe-register-failed", err, {
           id,
           kind: cfg.kind,
           schedule: cfg.schedule,
-          err: String(err),
         });
       }
     }
@@ -346,9 +350,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // Probe load failure must NOT take down the service — rules and other
     // probes (deploy-result webhook) still function. Surface on the bus so
     // operators can alert on `probes.reload.failed` without blocking boot.
-    logger.error("orchestrator.initial-probe-load-failed", {
-      err: String(err),
-    });
+    logErrorWithStack(logger, "orchestrator.initial-probe-load-failed", err);
     bus.emit("probes.reload.failed", {
       errors: [{ file: "(initial-load)", error: String(err) }],
     });
@@ -378,9 +380,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     bus.on("deploy.result", (event) => {
       const result = deployEventToProbeResult(event, deployCtx);
       writer.write(result).catch((err) =>
-        logger.error("orchestrator.deploy-writer-failed", {
-          err: String(err),
-        }),
+        logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
       );
     }),
   );
@@ -502,7 +502,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
       // only logged — the service booted green while backups silently
       // never ran. Alert rules can now subscribe to
       // `internal.backup.init-failed` to surface the degraded state.
-      logger.error("orchestrator.s3-backup-init-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.s3-backup-init-failed", err, {
+        bucket: s3Bucket,
+      });
       bus.emit("internal.backup.init-failed", {
         err: String(err),
         bucket: s3Bucket,
@@ -524,7 +526,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // to bump to debug saw the rule-reload log at the OLD level.
     reloadLogLevel();
     reloadRules().catch((err) => {
-      logger.error("orchestrator.reload-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.reload-failed", err);
       // R21 bucket-a: mirror the watch-path failure emission in
       // rule-loader.ts (~line 540). File-watch reload failures hit the
       // bus so the alert engine / dashboard can surface them; SIGHUP
@@ -689,10 +691,9 @@ export function diffCronSchedules(
               // a sentinel). The scheduler also logs its own handler-error
               // when the handler itself throws; this try/catch keeps the
               // handler green so that layer stays quiet for probe bugs.
-              logger.error("orchestrator.cron-probe-failed", {
+              logErrorWithStack(logger, "orchestrator.cron-probe-failed", err, {
                 ruleId,
                 dimension,
-                err: String(err),
               });
             }
           }
@@ -704,12 +705,11 @@ export function diffCronSchedules(
         },
       });
     } catch (err) {
-      logger.error("orchestrator.cron-register-failed", {
+      logErrorWithStack(logger, "orchestrator.cron-register-failed", err, {
         id,
         ruleId,
         dimension,
         schedule,
-        err: String(err),
       });
       // Continue the loop — other rules must still register.
     }
@@ -759,8 +759,7 @@ export function buildCronProbeResolver(
     // Railway and must stay up — but we log at error level so the
     // healthcheck or log-alerts pipeline catches it.
     adapter.listServices().catch((err) => {
-      logger.error("orchestrator.RAILWAY_AUTH_FAILED", {
-        err: String(err),
+      logErrorWithStack(logger, "orchestrator.RAILWAY_AUTH_FAILED", err, {
         hint: "aimock-wiring probe will fail on every cron tick — check RAILWAY_TOKEN / RAILWAY_PROJECT_ID",
       });
     });
@@ -929,7 +928,7 @@ function createRailwayAdapter(opts: {
 // so symlinks and cross-platform path normalization don't break the check.
 if (process.argv[1] && url.fileURLToPath(import.meta.url) === process.argv[1]) {
   boot().catch((err) => {
-    logger.error("showcase-ops.boot-failed", { err: String(err) });
+    logErrorWithStack(logger, "showcase-ops.boot-failed", err);
     process.exit(1);
   });
 }
