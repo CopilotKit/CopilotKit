@@ -28,6 +28,7 @@ import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
+import { createProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
 import { smokeDriver } from "./probes/drivers/smoke.js";
@@ -200,7 +201,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
     const next = await loader.load();
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister) —
+    // await the diff so rules.reloaded fires only after the diff settles.
+    await diffCronSchedules(scheduler, next, bus, cronProbeResolver);
     bus.emit("rules.reloaded", { count: next.length });
   }
 
@@ -229,6 +232,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
   //
   // Scheduler IDs use the `probe:` prefix so they never collide with the
   // rule-cron IDs (`<ruleId>:cron:<idx>`) or the internal IDs (`internal:`).
+  // F1: per-probe config map populated by `diffProbeSchedules` and consumed
+  // by the /api/probes router via `getProbeConfig(id)`. Keyed by the
+  // scheduler-id (`probe:<cfg.id>`) so a single lookup serves both the
+  // routes and any future call site that has the scheduler entry id in hand.
+  // Stays in sync with the loader output: each diff sweep clears the map of
+  // ids no longer desired and (re-)inserts the active set.
+  const probeConfigs = new Map<string, ProbeConfig>();
+  // F1: probe_runs writer reused by every per-probe invoker so each tick
+  // inserts a `running` row at start and finalizes it at finish. Constructed
+  // once at boot so the writer's PB client (and any internal state added
+  // later — caches, batching) is shared across invokers.
+  const runWriter = createProbeRunWriter(pb);
+
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
   probeRegistry.register(aimockWiringDriver);
@@ -257,7 +273,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     logger,
   });
 
-  function diffProbeSchedules(configs: ProbeConfig[]): void {
+  async function diffProbeSchedules(configs: ProbeConfig[]): Promise<void> {
     // Build desired map: scheduler-id → cfg. `probe:` prefix keeps us from
     // unregistering rule-cron or internal IDs in the same sweep.
     const desired = new Map<string, ProbeConfig>();
@@ -265,15 +281,37 @@ export async function boot(opts: BootOptions = {}): Promise<{
       desired.set(`probe:${cfg.id}`, cfg);
     }
     // Unregister probe IDs that are no longer desired (YAML deleted).
+    // CR-A2.2: await the unregister and only drop probeConfigs on
+    // success. Pre-fix the unregister was fire-and-forget and probeConfigs
+    // was deleted synchronously — so if unregister rejected, the scheduler
+    // still had the old entry but probeConfigs no longer had its config,
+    // causing the /api/probes router to surface a fully orphaned entry as
+    // `kind: "unknown"` with `config: { timeout_ms: null, ... }`. Keeping
+    // the config on rejection means the orphan stays VISIBLE with proper
+    // metadata — operators can still see what kind of probe was leaked,
+    // which is the better debugging surface than "unknown". The next
+    // successful diff sweep (after the YAML is restored or the operator
+    // restarts the service) cleans things up.
     for (const entry of scheduler.list()) {
       if (!entry.id.startsWith("probe:")) continue;
       if (!desired.has(entry.id)) {
-        scheduler.unregister(entry.id).catch((err) =>
+        try {
+          await scheduler.unregister(entry.id);
+          probeConfigs.delete(entry.id);
+        } catch (err) {
           logger.error("orchestrator.probe-unregister-failed", {
             id: entry.id,
             err: String(err),
-          }),
-        );
+          });
+          // R2-B.4: dedicated `scheduler_unregister_failures_total`
+          // counter would belong here, but adding it requires extending
+          // metrics.ts COUNTER_NAMES (out of scope for this fix). Defer
+          // to bucket-b follow-up; the structured log above is the
+          // first-class observability surface in the meantime.
+          // Intentionally do NOT delete from probeConfigs — see comment
+          // above. Orphan stays visible with proper config so /api/probes
+          // surfaces a useful `kind`/`config` rather than "unknown".
+        }
       }
     }
     // Register / re-register each desired probe. `scheduler.register` is
@@ -300,6 +338,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
         fetchImpl: globalThis.fetch,
         env: process.env as Readonly<Record<string, string | undefined>>,
         now: () => new Date(),
+        // F1: thread the live scheduler + runWriter through so the invoker's
+        // optional B7 hooks (ProbeRunTracker registration, probe_runs row
+        // start/finish) actually fire in production. Pre-fix both deps were
+        // unset and tracker + run-history were dead code.
+        scheduler,
+        // R3-A.2: pass the prefixed scheduler id so the invoker's
+        // getEntry/setEntryTracker calls actually find the scheduler entry
+        // we just registered (`probe:${cfg.id}`). Pre-fix the invoker used
+        // the bare cfg.id and tracker registration was a silent no-op
+        // against the live scheduler — /api/probes never surfaced inflight
+        // tracker data for cron-tick runs.
+        schedulerId: id,
+        runWriter,
       });
       try {
         scheduler.register({
@@ -307,6 +358,12 @@ export async function boot(opts: BootOptions = {}): Promise<{
           cron: cfg.schedule,
           handler: invoker,
         });
+        // F1: stamp the config map AFTER successful register so a thrown
+        // validateCron doesn't leave a probeConfigs entry pointing at no
+        // scheduler entry. The /api/probes router intersects scheduler.list()
+        // with this map; an orphaned config would still render as "unknown"
+        // but it's cleaner to keep the two collections in lockstep.
+        probeConfigs.set(id, cfg);
       } catch (err) {
         logger.error("orchestrator.probe-register-failed", {
           id,
@@ -320,7 +377,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   async function reloadProbes(): Promise<void> {
     const next = await probeLoader.load();
-    diffProbeSchedules(next);
+    await diffProbeSchedules(next);
     bus.emit("probes.reloaded", { count: next.length });
   }
 
@@ -339,17 +396,48 @@ export async function boot(opts: BootOptions = {}): Promise<{
   }
 
   const unwatchProbes = probeLoader.watch((next) => {
-    diffProbeSchedules(next);
-    bus.emit("probes.reloaded", { count: next.length });
+    // CR-A2.2: diffProbeSchedules is now async (awaits unregister). The
+    // file-watch callback signature is sync (void return), so we fire-and-
+    // forget the diff and route any uncaught rejection into the same
+    // log/emit channel as the initial-load path. A rejection here means
+    // both: (a) at least one probe entry could not be removed cleanly (the
+    // orphan stays visible in /api/probes per the design choice in the
+    // body of diffProbeSchedules), AND (b) the post-await `bus.emit` may
+    // not have fired — operators see a "probes.reload.failed" instead of
+    // a stale "probes.reloaded" claim.
+    diffProbeSchedules(next)
+      .then(() => bus.emit("probes.reloaded", { count: next.length }))
+      .catch((err) => {
+        logger.error("orchestrator.probe-watch-reload-failed", {
+          err: String(err),
+        });
+        bus.emit("probes.reload.failed", {
+          errors: [{ file: "(watch-reload)", error: String(err) }],
+        });
+      });
   });
 
   const unwatch = loader.watch((next) => {
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
-    // Emit rules.reloaded on file-watch reload too so the metric stays
-    // accurate regardless of reload source (SIGHUP vs file event).
-    bus.emit("rules.reloaded", { count: next.length });
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister).
+    // The file-watch callback signature is sync (void return), so we
+    // fire-and-forget the diff and route any uncaught rejection into a
+    // structured log + bus emit — same shape as the probe-watch path.
+    diffCronSchedules(scheduler, next, bus, cronProbeResolver)
+      .then(() =>
+        // Emit rules.reloaded on file-watch reload too so the metric stays
+        // accurate regardless of reload source (SIGHUP vs file event).
+        bus.emit("rules.reloaded", { count: next.length }),
+      )
+      .catch((err) => {
+        logger.error("orchestrator.rule-watch-reload-failed", {
+          err: String(err),
+        });
+        bus.emit("rules.reload.failed", {
+          errors: [{ file: "(watch-reload)", error: String(err) }],
+        });
+      });
   });
 
   // Route deploy.result webhook events through the writer so they emit status.changed.
@@ -382,6 +470,48 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // hasn't ticked yet. Flipped true immediately after start, flipped false
   // in stop() so post-shutdown probes also read correctly.
   let schedulerRunning = false;
+
+  // F1: only mount the /api/probes router when an OPS_TRIGGER_TOKEN is
+  // configured. The router's bearer-auth middleware is fail-loud at
+  // construction (MissingAuthTokenError) — wiring it unconditionally would
+  // break every test / dev boot that doesn't set the env var. When unset we
+  // log at info level so operators can see the routes were intentionally
+  // skipped, then flag it as a hardening concern in the boot summary.
+  //
+  // R2-B.3: distinguish "unset" (intentional disable) from "set-but-empty"
+  // (misconfiguration). An operator who mistypes `OPS_TRIGGER_TOKEN=`
+  // (no value) ships an empty string AND would otherwise see a silent-skip
+  // log instead of the load-bearing fail-loud error. Whitespace-only is
+  // treated identically: trim() then reject if zero-length.
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  // R3-A.5: trim defense-in-depth. The auth layer (auth.ts) also trims
+  // both sides at construction, but normalising here keeps the orchestrator
+  // contract honest — the value passed downstream is the same one the
+  // bearer-auth middleware will compare against. Pre-fix, a "  abc  "
+  // token boot'd successfully but the auth layer's asymmetric trimming
+  // (presented trimmed, expected verbatim) silently 401'd every request.
+  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
+  const probesDeps = triggerToken
+    ? {
+        scheduler,
+        writer: runWriter,
+        getProbeConfig: (id: string): ProbeConfig | undefined =>
+          probeConfigs.get(id),
+        triggerToken,
+        now: () => Date.now(),
+      }
+    : undefined;
+  if (!triggerToken) {
+    logger.info("orchestrator.probes-router-disabled", {
+      reason: "OPS_TRIGGER_TOKEN unset — /api/probes routes not mounted",
+    });
+  }
+
   const app = buildServer({
     pb,
     logger,
@@ -400,6 +530,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     bus,
     webhookSecrets,
     metrics,
+    probes: probesDeps,
   });
 
   // S3 backup — cron 0 3 * * * (daily 03:00 UTC). Retention handled via
@@ -495,9 +626,82 @@ export async function boot(opts: BootOptions = {}): Promise<{
   }
 
   const port = opts.port ?? Number(process.env.PORT ?? 8080);
-  const server = serve({ fetch: app.fetch, port });
+  // CR-A2.1: start the scheduler BEFORE binding the HTTP server. Pre-fix,
+  // `serve()` ran first and `scheduler.start()` second — if start() threw
+  // (a stopped-scheduler reentry, future precondition check, etc.) the
+  // bound socket was never closed. Boot rejected, but the http.Server kept
+  // listening, leaking one socket per restart loop. The HTTP server has
+  // no dependency on scheduler state at construction time (the /health
+  // probes accept callbacks that read scheduler liveness lazily), so the
+  // reorder is safe and obviates needing a try/catch around start() to
+  // close the server before rethrowing.
   scheduler.start();
   schedulerRunning = true;
+  // R2-B.2: wrap serve() so a synchronous throw (EADDRINUSE, etc.) doesn't
+  // leave the scheduler running with no stop handle. Pre-fix CR-A2.1
+  // reordered start() before serve() to avoid orphaning the HTTP socket on
+  // a scheduler.start() throw — but if serve() itself throws, the scheduler
+  // is up with no owner and cron tasks fire indefinitely. Tear it down
+  // before rethrowing so boot()'s rejection cleanly releases all resources.
+  let server: ReturnType<typeof serve>;
+  try {
+    server = serve({ fetch: app.fetch, port });
+  } catch (err) {
+    await scheduler.stop().catch((stopErr) =>
+      logger.error("orchestrator.stop-after-serve-failure", {
+        err: String(stopErr),
+      }),
+    );
+    schedulerRunning = false;
+    throw err;
+  }
+  // R4-A.3: serve() returns the http.Server SYNCHRONOUSLY but bind happens
+  // via server.listen() which emits 'error' ASYNCHRONOUSLY for conditions
+  // like EADDRINUSE. The R2-B.2 try/catch only catches synchronous throws —
+  // a real bind failure resolves boot() successfully with an orphaned
+  // scheduler still ticking. Race 'listening' vs 'error' so async bind
+  // errors propagate as boot() rejections AND tear down the scheduler.
+  //
+  // The returned object is a Node http.Server (or Http2Server) per
+  // @hono/node-server's `ServerType`; both extend EventEmitter and emit
+  // 'listening' on bind success and 'error' on bind failure. If the server
+  // is already in `listening` state by the time we get here (sync bind
+  // succeeded before we attached listeners), short-circuit to resolve.
+  await new Promise<void>((resolve, reject) => {
+    const srv = server as unknown as {
+      listening?: boolean;
+      once(event: string, cb: (...args: unknown[]) => void): unknown;
+      removeListener(event: string, cb: (...args: unknown[]) => void): unknown;
+    };
+    const onListen = (): void => {
+      srv.removeListener("error", onError);
+      resolve();
+    };
+    const onError = (err: unknown): void => {
+      srv.removeListener("listening", onListen);
+      // Fire the cleanup as a separate promise chain so the rejection
+      // below isn't gated on scheduler.stop() — operators see the original
+      // bind error, not a stop-failure shadow. schedulerRunning flips
+      // immediately so /health stops claiming "ok" before the stop awaits.
+      schedulerRunning = false;
+      scheduler.stop().catch((stopErr) =>
+        logger.error("orchestrator.stop-after-async-bind-failure", {
+          err: String(stopErr),
+        }),
+      );
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+    srv.once("listening", onListen);
+    srv.once("error", onError);
+    // If listen() resolved synchronously before we attached, the
+    // 'listening' event already fired and we'd hang forever. Guard with
+    // the `.listening` flag.
+    if (srv.listening === true) {
+      srv.removeListener("error", onError);
+      srv.removeListener("listening", onListen);
+      resolve();
+    }
+  });
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {
@@ -623,12 +827,12 @@ export type CronProbeResolver = (
  * Railway adapter (orchestrator-level config: RAILWAY_TOKEN,
  * RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, AIMOCK_URL).
  */
-export function diffCronSchedules(
+export async function diffCronSchedules(
   scheduler: ReturnType<typeof createScheduler>,
   rules: CompiledRule[],
   bus: ReturnType<typeof createEventBus>,
   cronProbeResolver: CronProbeResolver,
-): void {
+): Promise<void> {
   const desired = new Map<
     string,
     { schedule: string; ruleId: string; dimension: string }
@@ -645,7 +849,28 @@ export function diffCronSchedules(
   }
   const currentIds = scheduler.list().map((e) => e.id);
   for (const id of currentIds) {
-    if (!desired.has(id) && id.includes(":cron:")) scheduler.unregister(id);
+    if (!desired.has(id) && id.includes(":cron:")) {
+      // R2-B.1: await the unregister, mirroring the CR-A2.2 fix on the
+      // probe-rule path. Pre-fix this was fire-and-forget — a rejection
+      // became an unhandled rejection AND the orphan got no structured
+      // log. On rejection we log (operators get a first-class signal)
+      // and leave the entry in scheduler.list(); next diff sweep will
+      // retry. Same design choice as CR-A2.2: the orphan stays VISIBLE
+      // rather than being silently dropped from bookkeeping.
+      try {
+        await scheduler.unregister(id);
+      } catch (err) {
+        logger.error("orchestrator.cron-unregister-failed", {
+          id,
+          err: String(err),
+        });
+        // R2-B.4: dedicated `scheduler_unregister_failures_total` counter
+        // would belong here, but adding it requires extending metrics.ts
+        // COUNTER_NAMES (out of scope for this fix). Defer to bucket-b
+        // follow-up; the structured log above is the first-class
+        // observability surface in the meantime.
+      }
+    }
   }
   for (const [id, { schedule, ruleId, dimension }] of desired) {
     const invoker = cronProbeResolver(dimension);
