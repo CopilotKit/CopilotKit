@@ -380,7 +380,36 @@ const defaultRunConversation: E2eParityRunConversation = (page, turns) =>
  * degrades to "nothing selected, green aggregate" rather than
  * red-flapping every service.
  */
-export function createDefaultFleetResolver(): E2eParityFleetResolver {
+
+/** Cache entry (exported for testability of the resolver shape). */
+interface FleetCacheEntry {
+  slugs: string[];
+  /** mtime of the source registry.json at the time we read it. */
+  mtimeMs: number;
+  /** Wall-clock time we wrote this entry. Used by the TTL check. */
+  cachedAt: number;
+}
+
+/**
+ * Cache TTL for the in-process fleet snapshot. The resolver also
+ * invalidates on `registry.json` mtime change — TTL is an additional
+ * safety rail in case stat() ever lies (NFS / network mounts) or an
+ * operator atomically replaces the file with the same mtime through
+ * a clock skew.
+ */
+const FLEET_CACHE_TTL_MS = 60 * 1000;
+
+/**
+ * Resolver factory. Optional `now` and `stat` injection for tests:
+ * tests advance `now` past the TTL or change the stubbed mtime to
+ * verify cache invalidation.
+ */
+export function createDefaultFleetResolver(deps?: {
+  now?: () => number;
+  stat?: (filePath: string) => Promise<{ mtimeMs: number }>;
+}): E2eParityFleetResolver {
+  const now = deps?.now ?? Date.now;
+  const stat = deps?.stat ?? (async (p) => fs.stat(p));
   // Cache successful reads only. Caching a failure (the pre-fix
   // behaviour assigned `cache = []` on any error) permanently disabled
   // D6: a transient ENOENT during process startup or a stale fs cache
@@ -388,13 +417,40 @@ export function createDefaultFleetResolver(): E2eParityFleetResolver {
   // would always be empty. By leaving `cache` null on error we retry
   // on the next call, which is the same behaviour operators get from
   // a freshly-restarted process.
-  let cache: string[] | null = null;
+  //
+  // Cache is also invalidated when the source `registry.json` mtime
+  // changes OR after FLEET_CACHE_TTL_MS elapses — without this an
+  // operator editing registry.json (adding a new integration) would
+  // need a process restart to see the new fleet membership for D6
+  // rotation, which is exactly the "registry drift" mode the
+  // self-not-in-fleet warning is designed to eliminate.
+  let cache: FleetCacheEntry | null = null;
   return async (ctx) => {
-    if (cache !== null) return cache;
     const override = ctx.env.REGISTRY_JSON_PATH;
     const fallback = path.resolve("/app/data/registry.json");
     const registryPath = override ?? fallback;
+
+    if (cache !== null) {
+      const age = now() - cache.cachedAt;
+      if (age < FLEET_CACHE_TTL_MS) {
+        // Within the TTL — confirm mtime hasn't changed before
+        // serving the cached value. Stat failures fall through to a
+        // fresh read so we don't serve stale data when the source
+        // disappears.
+        try {
+          const st = await stat(registryPath);
+          if (st.mtimeMs === cache.mtimeMs) {
+            return cache.slugs;
+          }
+        } catch {
+          // Stat failed — fall through to fresh read which will
+          // retry and emit its own warning on failure.
+        }
+      }
+    }
+
     try {
+      const st = await stat(registryPath);
       const raw = await fs.readFile(registryPath, "utf-8");
       const parsed = JSON.parse(raw) as {
         integrations?: Array<{ slug?: string }>;
@@ -405,8 +461,8 @@ export function createDefaultFleetResolver(): E2eParityFleetResolver {
           slugs.push(it.slug);
         }
       }
-      cache = slugs;
-      return cache;
+      cache = { slugs, mtimeMs: st.mtimeMs, cachedAt: now() };
+      return slugs;
     } catch (err) {
       ctx.logger.warn("probe.e2e-parity.fleet-read-failed", {
         registryPath,
@@ -556,10 +612,43 @@ export function createE2eParityDriver(
       // green so the dashboard doesn't flap red on every non-target
       // slug; the `scopingReason` carries why so operators tailing
       // logs / dashboards can see the rotation cycle.
+      //
+      // Per-feature row refresh: we ALSO emit a green per-feature side
+      // row for every requested-and-known feature on this slug. Without
+      // this, an integration that was red on its previous selection
+      // tick stays red on the dashboard for the entire rotation cycle
+      // (up to a week) because no side emit ever overrides those
+      // d6:<slug>/<ft> cells. Emitting green-with-note keeps the cell
+      // accurate ("we're not running today, treat as green") while
+      // preserving the rotation-skipping invariant — the per-feature
+      // side rows clearly say "not selected this tick", they don't
+      // claim parity was actually verified.
       if (!selectedThisTick) {
         const note = selfMissingFromFleet
           ? "not selected this tick (scoping); slug missing from fleet (registry drift)"
           : "not selected this tick (scoping)";
+
+        const requestedKnown = (input.features ?? []).filter(isKnownFeatureType);
+        const sideObservedAt = ctx.now().toISOString();
+        for (const ft of requestedKnown) {
+          const script = D5_REGISTRY.get(ft);
+          const route = (script?.preNavigateRoute ?? defaultRoute)(ft);
+          const url = `${backendUrl}${route}`;
+          await sideEmit(ctx, {
+            key: `d6:${slug}/${ft}`,
+            state: "green",
+            signal: {
+              slug,
+              featureType: ft,
+              backendUrl,
+              url,
+              fixtureFile: script?.fixtureFile,
+              note,
+            },
+            observedAt: sideObservedAt,
+          });
+        }
+
         return {
           key: input.key,
           state: "green",
@@ -1088,11 +1177,20 @@ async function runFeatureCapture(
       perTurnCaptures.push(capture);
 
       if (turnResult.failure_turn !== undefined) {
+        // We slice the conversation per-turn so the interceptor sees
+        // exactly one request per attach. `runConversation` therefore
+        // always reports `failure_turn === 1` (its slice-local index),
+        // which would mislabel every failure as "turn 1" in dashboards.
+        // Translate to the OUTER 1-based turn index here so operators
+        // see which turn actually failed.
+        const outerTurnIndex = i + 1;
+        const innerError =
+          turnResult.error ?? "conversation failed without error message";
         return {
           ok: false,
           errorClass: "conversation-error",
           errorDesc: truncateUtf8(
-            turnResult.error ?? "conversation failed without error message",
+            `turn ${outerTurnIndex}: ${innerError}`,
             1200,
           ),
         };

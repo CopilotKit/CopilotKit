@@ -636,7 +636,21 @@ describe("e2e-parity driver", () => {
     const sig = result.signal as E2eParityAggregateSignal;
     expect(sig.selectedThisTick).toBe(false);
     expect(sig.note).toMatch(/not selected/);
-    expect(writes).toEqual([]);
+    // Bug fix R10: per-feature side rows are emitted (green, with note)
+    // for every requested-known feature so dashboard cells refresh
+    // instead of staying red on whatever the previous selection-tick
+    // produced. The aggregate stays green and the side rows clearly
+    // say "not selected this tick" so they don't claim parity was
+    // verified.
+    expect(writes).toHaveLength(1);
+    const sideRow = writes[0]!;
+    // Slug is "a" — derived from `e2e-parity:showcase-a` with the
+    // "showcase-" prefix stripped.
+    expect(sideRow.key).toBe("d6:a/agentic-chat");
+    expect(sideRow.state).toBe("green");
+    const sideSig = sideRow.signal as E2eParityFeatureSignal;
+    expect(sideSig.note).toMatch(/not selected/);
+    expect(sideSig.featureType).toBe("agentic-chat");
   });
 
   it("weekly-rotation mode runs the integration matching this week's index", async () => {
@@ -867,6 +881,78 @@ describe("e2e-parity driver", () => {
     expect(sideRow?.state).toBe("red");
     const fsig = sideRow?.signal as E2eParityFeatureSignal;
     expect(fsig.errorClass).toBe("conversation-error");
+  });
+
+  // Bug fix R7: per-turn capture slices the conversation, so
+  // `runConversation` always reports `failure_turn === 1`. The driver
+  // must translate to the OUTER 1-based index when constructing the
+  // error message — otherwise every per-turn failure looks like
+  // "turn 1 failed" no matter which turn actually failed.
+  it("conversation-error errorDesc reports the OUTER turn index, not the slice-local 1", async () => {
+    registerD5Script(
+      makeScript({
+        buildTurns: () => [
+          { input: "first" },
+          { input: "second" },
+          { input: "third" },
+        ],
+      }),
+    );
+
+    const reference = makeSnapshot();
+    const { browser } = makeBrowser();
+    const { attachInterceptor } = stubInterceptor(makeCapture());
+
+    let turnCount = 0;
+    const driver = createE2eParityDriver({
+      launcher: async () => browser,
+      attachInterceptor,
+      serializeDom: async () => reference.domElements,
+      loadReference: async () => ({
+        status: "ok",
+        snapshot: reference,
+        snapshotPath: "/fake/x.json",
+      }),
+      runConversation: async () => {
+        turnCount++;
+        if (turnCount < 3) {
+          return {
+            turns_completed: 1,
+            total_turns: 1,
+            turn_durations_ms: [100],
+          };
+        }
+        // Third call (outer turn 3) fails. The slice-local
+        // `failure_turn` is 1 because we always pass [turn].
+        return {
+          turns_completed: 0,
+          total_turns: 1,
+          failure_turn: 1,
+          error: "timed out on third turn",
+          turn_durations_ms: [],
+        };
+      },
+      fleetResolver: async () => ["langgraph-python"],
+    });
+    const { writer, writes } = mkWriter();
+
+    await driver.run(mkCtx(writer), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    const sideRow = writes.find(
+      (w) => w.key === "d6:langgraph-python/agentic-chat",
+    );
+    expect(sideRow?.state).toBe("red");
+    const fsig = sideRow?.signal as E2eParityFeatureSignal;
+    expect(fsig.errorClass).toBe("conversation-error");
+    expect(fsig.errorDesc).toMatch(/turn 3/);
+    expect(fsig.errorDesc).not.toMatch(/^turn 1:/);
+    expect(fsig.errorDesc).toMatch(/timed out on third turn/);
   });
 
   it("uses PB key shape `d6:<slug>/<featureType>`", async () => {
@@ -1130,6 +1216,95 @@ describe("createDefaultFleetResolver", () => {
     const ctx = mkCtx(undefined, { REGISTRY_JSON_PATH: registryPath });
     const slugs = await resolver(ctx);
     expect(slugs).toEqual(["valid", "another"]);
+
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  // Bug fix R8: cache must invalidate when the source file's mtime
+  // changes OR after the TTL elapses. Without this, an operator
+  // editing registry.json (adding a new integration) needs a process
+  // restart for D6 rotation to see the new fleet.
+  it("invalidates the cache when registry.json mtime changes", async () => {
+    let now = 1_000_000;
+    let mtime = 100;
+    const reads: string[] = [];
+
+    const fakeStat = async (
+      _filePath: string,
+    ): Promise<{ mtimeMs: number }> => ({ mtimeMs: mtime });
+
+    // Use a real on-disk file so the resolver's actual readFile path
+    // exercises end-to-end. We control mtime via the injected stat.
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "e2e-parity-fleet-mtime-"));
+    const registryPath = path.join(dir, "registry.json");
+    const writeRegistry = async (slugs: string[]): Promise<void> => {
+      reads.push(slugs.join(","));
+      await fs.writeFile(
+        registryPath,
+        JSON.stringify({ integrations: slugs.map((s) => ({ slug: s })) }),
+        "utf-8",
+      );
+    };
+
+    await writeRegistry(["initial"]);
+
+    const resolver = createDefaultFleetResolver({
+      now: () => now,
+      stat: fakeStat,
+    });
+    const ctx = mkCtx(undefined, { REGISTRY_JSON_PATH: registryPath });
+
+    // First read populates cache at mtime=100.
+    expect(await resolver(ctx)).toEqual(["initial"]);
+
+    // Same mtime, within TTL → cached value served (no re-read).
+    // Switching the on-disk file but keeping mtime=100 should NOT
+    // be observed by the resolver.
+    await writeRegistry(["sneaky"]);
+    expect(await resolver(ctx)).toEqual(["initial"]);
+
+    // Advance mtime to simulate a real edit. Cache must invalidate.
+    mtime = 200;
+    await writeRegistry(["fresh", "added"]);
+    expect(await resolver(ctx)).toEqual(["fresh", "added"]);
+
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("invalidates the cache after the TTL elapses even when mtime is unchanged", async () => {
+    let now = 1_000_000;
+    const fakeStat = async (
+      _filePath: string,
+    ): Promise<{ mtimeMs: number }> => ({ mtimeMs: 100 });
+
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "e2e-parity-fleet-ttl-"));
+    const registryPath = path.join(dir, "registry.json");
+    const writeRegistry = async (slugs: string[]): Promise<void> => {
+      await fs.writeFile(
+        registryPath,
+        JSON.stringify({ integrations: slugs.map((s) => ({ slug: s })) }),
+        "utf-8",
+      );
+    };
+    await writeRegistry(["initial"]);
+
+    const resolver = createDefaultFleetResolver({
+      now: () => now,
+      stat: fakeStat,
+    });
+    const ctx = mkCtx(undefined, { REGISTRY_JSON_PATH: registryPath });
+
+    expect(await resolver(ctx)).toEqual(["initial"]);
+
+    // Replace file content while mtime stays 100 (clock skew or
+    // atomic replace edge case). Within TTL → cache wins.
+    await writeRegistry(["replaced"]);
+    expect(await resolver(ctx)).toEqual(["initial"]);
+
+    // Advance "now" past the 60s TTL. Cache must invalidate even
+    // though the stub mtime is unchanged.
+    now += 61 * 1000;
+    expect(await resolver(ctx)).toEqual(["replaced"]);
 
     await fs.rm(dir, { recursive: true, force: true });
   });
