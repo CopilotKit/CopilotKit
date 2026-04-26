@@ -89,6 +89,16 @@ export function buildProbeInvoker(
     // across ticks regardless of the discovery source's enumeration
     // order. Gated strictly on `cfg.kind === "e2e_demos"`; other probe
     // kinds keep their resolveInputs-order dispatch.
+    //
+    // Source of `demos` on the input: the `railway-services` discovery
+    // source reads `registry.json` once per `enumerate()` call and
+    // joins demos by slug onto every emitted record (see
+    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
+    // BEFORE we land here, so `demoCount(input)` returns a real count
+    // for production records. Static-target probe configs (no
+    // discovery) don't carry `demos`, but they also can't be
+    // `kind: e2e_demos` in practice — the gate below short-circuits
+    // anyway.
     if (cfg.kind === "e2e_demos") {
       inputs.sort((a, b) => {
         const da = demoCount(a.input);
@@ -253,8 +263,9 @@ function interpolateTemplate(template: string, record: unknown): string {
 
 /**
  * Demo-count extractor for `e2e_demos` shortest-first dispatch sort. The
- * discovery source emits records carrying a `demos: string[]` field
- * (zod-validated by `e2e-demos.ts:inputSchema`); we read it without
+ * `railway-services` discovery source emits records carrying a
+ * `demos: string[]` field, joined from `registry.json` at enumerate-time
+ * (see `discovery/railway-services.ts:loadDemosMap`). We read it without
  * trusting the shape, returning 0 for any input that isn't an object or
  * whose `demos` isn't an array. Pre-validation: `resolveInputs` produces
  * these entries before `executeOne` runs `inputSchema.safeParse`, so a
