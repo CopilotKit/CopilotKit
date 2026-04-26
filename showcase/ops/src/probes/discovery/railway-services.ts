@@ -648,7 +648,9 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // escape the catch and propagate up, killing the whole enumerate.
     const PER_SERVICE_CONCURRENCY = 8;
     type EnrichedRecord = RailwayServiceInfo;
-    async function enrichOne(svc: typeof services[number]): Promise<EnrichedRecord> {
+    async function enrichOne(
+      svc: (typeof services)[number],
+    ): Promise<EnrichedRecord> {
       const instance = svc.serviceInstances.edges.find(
         (e) => e.node.environmentId === environmentId,
       );
