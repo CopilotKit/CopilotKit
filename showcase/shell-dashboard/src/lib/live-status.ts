@@ -74,6 +74,22 @@ export function keyFor(
   slug: string,
   featureId?: string,
 ): string {
+  // Defensive: `:` and `/` are the structural delimiters used to parse
+  // `<dimension>:<slug>` and `<slug>/<featureId>`. If callers smuggle them
+  // into a slug or featureId we silently produce ambiguous keys that
+  // collide in the lookup map (e.g. `smoke:a/b` vs `smoke:a` + `/b`).
+  // Throw loudly so the bug surfaces at the call site instead of via
+  // a phantom missing/duplicate badge downstream.
+  if (slug.includes(":") || slug.includes("/")) {
+    throw new Error(
+      `keyFor: slug must not contain ':' or '/' (got ${JSON.stringify(slug)})`,
+    );
+  }
+  if (featureId && (featureId.includes(":") || featureId.includes("/"))) {
+    throw new Error(
+      `keyFor: featureId must not contain ':' or '/' (got ${JSON.stringify(featureId)})`,
+    );
+  }
   return featureId
     ? `${dimension}:${slug}/${featureId}`
     : `${dimension}:${slug}`;
@@ -88,8 +104,16 @@ function rowTone(row: StatusRow | null): BadgeTone {
       return "amber";
     case "green":
       return "green";
-    default:
-      return "gray";
+    default: {
+      // Exhaustiveness check: if `State` gains a new variant the type
+      // checker fails this assignment, forcing every consumer (tone,
+      // label, tooltip) to update in lockstep. Falling through to a
+      // distinct `"error"` tone makes the unmapped state visually loud
+      // (operator sees something is wrong) instead of silently gray.
+      const _exhaustive: never = row.state;
+      void _exhaustive;
+      return "error";
+    }
   }
 }
 
@@ -109,16 +133,31 @@ function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (dim === "health") {
     if (row.state === "green") return "up";
     if (row.state === "red") return "down";
-    // degraded → "stale" matches the tooltip copy instead of rendering "?"
-    // which would read as "no data".
-    return "stale";
+    if (row.state === "degraded") return "stale";
+    // Exhaustiveness check for `health` dim — see rowTone() comment.
+    const _exhaustive: never = row.state;
+    void _exhaustive;
+    return "?";
   }
-  if (row.state === "red") return "✗";
-  // degraded must NOT render a green "✓" glyph — it contradicts the tooltip
-  // and misleads operators into thinking the signal is healthy. Use "~" to
-  // visually match the amber tone.
-  if (row.state === "degraded") return "~";
-  return "✓";
+  switch (row.state) {
+    case "red":
+      return "✗";
+    // degraded must NOT render a green "✓" glyph — it contradicts the
+    // tooltip and misleads operators into thinking the signal is healthy.
+    // Use "~" to visually match the amber tone.
+    case "degraded":
+      return "~";
+    case "green":
+      return "✓";
+    default: {
+      // Exhaustiveness check (mirrors rowTone). Returning "?" instead of
+      // a silent "✓" prevents an unmapped future state from being
+      // surfaced as green to operators.
+      const _exhaustive: never = row.state;
+      void _exhaustive;
+      return "?";
+    }
+  }
 }
 
 function formatTooltip(
