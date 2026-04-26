@@ -1757,6 +1757,51 @@ describe("railwayServicesSource", () => {
   });
 
   // -----------------------------------------------------------------
+  // B7 — classifyShape silent typo nudge. A name like
+  // `showcase-strater-ag2` is a transposition of `showcase-starter-`
+  // and is currently classified as "package" silently. Surface the
+  // suspicion via a `classify-typo-suspected` warn (without changing
+  // the classification).
+  // -----------------------------------------------------------------
+
+  describe("classifyShape typo nudge (B7)", () => {
+    it("emits classify-typo-suspected warn for 1-edit-distance typos of `starter-`", () => {
+      const warn = vi.fn();
+      const shape = classifyShape("showcase-strater-ag2", { logger: { warn } });
+      // Classification stays "package" — we don't change behaviour,
+      // we just surface the suspicion.
+      expect(shape).toBe("package");
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(1);
+      expect(typoWarns[0][1]).toMatchObject({
+        name: "showcase-strater-ag2",
+        suggested: "showcase-starter-ag2",
+      });
+    });
+
+    it("does not emit classify-typo-suspected warn for legitimate package names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-langgraph-python", { logger: { warn } });
+      classifyShape("showcase-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
+    });
+
+    it("does not emit classify-typo-suspected warn on well-formed starter names", () => {
+      const warn = vi.fn();
+      classifyShape("showcase-starter-ag2", { logger: { warn } });
+      const typoWarns = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.classify-typo-suspected",
+      );
+      expect(typoWarns).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
   // Starter slug contract (L): documents that
   // deriveSlugFromServiceName() strips only `showcase-`, so
   // `showcase-starter-ag2` becomes `starter-ag2` — which doesn't
