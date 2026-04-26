@@ -181,6 +181,37 @@ describe("useProbes", () => {
     expect(arg.baseUrl).toBe("http://ops.test");
   });
 
+  it("clears stale error on baseUrl change (R3-C.3)", async () => {
+    // baseUrl A errors → error set. Switch to baseUrl B (success) → error
+    // must be cleared before B's fetch resolves so consumers don't render
+    // a stale error against a fresh dep tuple.
+    fetchProbesMock.mockRejectedValueOnce(new Error("a failed"));
+    let resolveB: ((v: ProbesResponse) => void) | null = null;
+    fetchProbesMock.mockImplementationOnce(
+      () =>
+        new Promise<ProbesResponse>((r) => {
+          resolveB = r;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ baseUrl }: { baseUrl: string }) => useProbes({ baseUrl }),
+      { initialProps: { baseUrl: "http://a.test" } },
+    );
+    await waitFor(() => expect(result.current.error?.message).toBe("a failed"));
+
+    // Swap baseUrl — error must clear before B resolves.
+    rerender({ baseUrl: "http://b.test" });
+    await waitFor(() => expect(result.current.error).toBeNull());
+
+    // Resolve B — still no error.
+    await act(async () => {
+      resolveB!(emptyProbes());
+      await Promise.resolve();
+    });
+    expect(result.current.error).toBeNull();
+  });
+
   it("does not setData with stale data when deps change rapidly (CR-B1.3)", async () => {
     // Drive a sequence where the first effect's fetch resolves AFTER the
     // dep change has triggered a new effect. With the old aliveRef pattern,
@@ -339,6 +370,42 @@ describe("useProbeDetail", () => {
     await waitFor(() => expect(result.current.data?.probe.id).toBe("deep"));
   });
 
+  it("clears stale error on id change (R3-C.2)", async () => {
+    // First id errors → error populated. Switch id → error must clear before
+    // the new fetch resolves so the panel never renders a stale error
+    // beneath a different probe header.
+    fetchProbeDetailMock.mockRejectedValueOnce(new Error("first failed"));
+    let resolveSecond:
+      | ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void)
+      | null = null;
+    fetchProbeDetailMock.mockImplementationOnce(
+      () =>
+        new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
+          resolveSecond = r;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string | null }) => useProbeDetail(id),
+      { initialProps: { id: "smoke" as string | null } },
+    );
+    await waitFor(() =>
+      expect(result.current.error?.message).toBe("first failed"),
+    );
+
+    // Switch id — error must clear immediately (before the second fetch
+    // resolves).
+    rerender({ id: "deep" });
+    await waitFor(() => expect(result.current.error).toBeNull());
+
+    // Resolve second fetch — still no error.
+    await act(async () => {
+      resolveSecond!({ probe: entry("deep"), runs: [] });
+      await Promise.resolve();
+    });
+    expect(result.current.error).toBeNull();
+  });
+
   it("does not setData with stale data when id changes rapidly (CR-B1.3)", async () => {
     let resolveA:
       | ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void)
@@ -424,7 +491,7 @@ describe("useTriggerProbe", () => {
     );
     const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
     expect(result.current.pending).toBe(false);
-    let p: Promise<TriggerResponse>;
+    let p: Promise<TriggerResponse | null>;
     act(() => {
       p = result.current.trigger("smoke");
     });
@@ -490,10 +557,10 @@ describe("useTriggerProbe", () => {
     const { result, unmount } = renderHook(() =>
       useTriggerProbe({ token: "t" }),
     );
-    let triggerPromise: Promise<TriggerResponse> | null = null;
+    let triggerPromise: Promise<TriggerResponse | null> | null = null;
     act(() => {
       triggerPromise = result.current.trigger("smoke");
-      triggerPromise.catch(() => {});
+      triggerPromise?.catch(() => {});
     });
     await waitFor(() => expect(triggerProbeMock).toHaveBeenCalled());
     expect(capturedSignal).toBeDefined();
@@ -550,7 +617,7 @@ describe("useTriggerProbe", () => {
       },
     );
     const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
-    let firstPromise: Promise<TriggerResponse> | null = null;
+    let firstPromise: Promise<TriggerResponse | null> | null = null;
     act(() => {
       firstPromise = result.current.trigger("smoke");
       // Swallow potential rejection so unhandled-rejection guards don't
@@ -560,7 +627,7 @@ describe("useTriggerProbe", () => {
     await waitFor(() => expect(triggerProbeMock).toHaveBeenCalledTimes(1));
 
     // Fire second call — this aborts the first.
-    let secondPromise: Promise<TriggerResponse> | null = null;
+    let secondPromise: Promise<TriggerResponse | null> | null = null;
     act(() => {
       secondPromise = result.current.trigger("smoke");
     });
@@ -570,24 +637,89 @@ describe("useTriggerProbe", () => {
 
     // The first promise must NOT reject with AbortError surfaced — the
     // hook should swallow it. We resolve via the supersession path.
-    let firstResult: unknown = "pending";
+    let firstResult: TriggerResponse | null | undefined = undefined;
     let firstError: unknown = null;
-    firstPromise!
+    await firstPromise!
       .then((v) => {
         firstResult = v;
       })
       .catch((e) => {
         firstError = e;
       });
-    // Yield enough for any pending settlements.
-    await Promise.resolve();
-    await Promise.resolve();
-    // Per spec: first promise resolves silently (returns undefined) when
+    // Per spec: first promise resolves silently (returns null) when
     // superseded; AbortError must NOT be thrown to the caller.
     expect((firstError as { name?: string })?.name).not.toBe("AbortError");
-    void firstResult;
+    // R3-C.1: supersession resolves to null (typed), not undefined-cast.
+    expect(firstResult).toBeNull();
 
     // Error state must remain null.
     expect(result.current.error).toBeNull();
+  });
+
+  it("supersession path resolves to null and is discriminable (R3-C.1)", async () => {
+    // Caller-facing contract: a superseded trigger resolves to `null`, never
+    // to a fake TriggerResponse. The type system reflects this so callers
+    // can `if (r === null)` to detect supersession.
+    triggerProbeMock.mockImplementationOnce(
+      (_id: string, opts: { signal?: AbortSignal }) =>
+        new Promise<TriggerResponse>((_resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        }),
+    );
+    triggerProbeMock.mockImplementationOnce(() =>
+      Promise.resolve(triggerOk()),
+    );
+    const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
+
+    let firstPromise!: Promise<TriggerResponse | null>;
+    act(() => {
+      firstPromise = result.current.trigger("smoke");
+      firstPromise.catch(() => {});
+    });
+    await waitFor(() => expect(triggerProbeMock).toHaveBeenCalledTimes(1));
+
+    // Supersede with a second call.
+    let secondPromise!: Promise<TriggerResponse | null>;
+    act(() => {
+      secondPromise = result.current.trigger("smoke");
+    });
+    const secondValue = await act(async () => secondPromise);
+
+    // Second call returns a real response.
+    expect(secondValue).not.toBeNull();
+    expect(secondValue?.runId).toBe("run-1");
+
+    // First call resolves to null (the discriminator).
+    const firstValue = await firstPromise;
+    expect(firstValue).toBeNull();
+    // Discriminate via strict null check.
+    expect(firstValue === null).toBe(true);
+  });
+
+  it("clears error on next successful trigger (R3-C.4)", async () => {
+    // First call fails → error set. Second call succeeds → error cleared.
+    triggerProbeMock.mockRejectedValueOnce(new Error("forbidden"));
+    triggerProbeMock.mockResolvedValueOnce(triggerOk());
+
+    const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
+
+    await act(async () => {
+      try {
+        await result.current.trigger("smoke");
+      } catch {
+        // expected
+      }
+    });
+    await waitFor(() =>
+      expect(result.current.error?.message).toBe("forbidden"),
+    );
+
+    await act(async () => {
+      await result.current.trigger("smoke");
+    });
+    // Error must be cleared by the successful trigger.
+    await waitFor(() => expect(result.current.error).toBeNull());
   });
 });
