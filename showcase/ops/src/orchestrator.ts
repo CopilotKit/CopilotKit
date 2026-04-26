@@ -201,7 +201,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
     const next = await loader.load();
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister) —
+    // await the diff so rules.reloaded fires only after the diff settles.
+    await diffCronSchedules(scheduler, next, bus, cronProbeResolver);
     bus.emit("rules.reloaded", { count: next.length });
   }
 
@@ -301,6 +303,11 @@ export async function boot(opts: BootOptions = {}): Promise<{
             id: entry.id,
             err: String(err),
           });
+          // R2-B.4: dedicated `scheduler_unregister_failures_total`
+          // counter would belong here, but adding it requires extending
+          // metrics.ts COUNTER_NAMES (out of scope for this fix). Defer
+          // to bucket-b follow-up; the structured log above is the
+          // first-class observability surface in the meantime.
           // Intentionally do NOT delete from probeConfigs — see comment
           // above. Orphan stays visible with proper config so /api/probes
           // surfaces a useful `kind`/`config` rather than "unknown".
@@ -406,10 +413,24 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const unwatch = loader.watch((next) => {
     rules = next;
     engine.reload(next);
-    diffCronSchedules(scheduler, next, bus, cronProbeResolver);
-    // Emit rules.reloaded on file-watch reload too so the metric stays
-    // accurate regardless of reload source (SIGHUP vs file event).
-    bus.emit("rules.reloaded", { count: next.length });
+    // R2-B.1: diffCronSchedules is async (awaits scheduler.unregister).
+    // The file-watch callback signature is sync (void return), so we
+    // fire-and-forget the diff and route any uncaught rejection into a
+    // structured log + bus emit — same shape as the probe-watch path.
+    diffCronSchedules(scheduler, next, bus, cronProbeResolver)
+      .then(() =>
+        // Emit rules.reloaded on file-watch reload too so the metric stays
+        // accurate regardless of reload source (SIGHUP vs file event).
+        bus.emit("rules.reloaded", { count: next.length }),
+      )
+      .catch((err) => {
+        logger.error("orchestrator.rule-watch-reload-failed", {
+          err: String(err),
+        });
+        bus.emit("rules.reload.failed", {
+          errors: [{ file: "(watch-reload)", error: String(err) }],
+        });
+      });
   });
 
   // Route deploy.result webhook events through the writer so they emit status.changed.
@@ -603,7 +624,24 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // close the server before rethrowing.
   scheduler.start();
   schedulerRunning = true;
-  const server = serve({ fetch: app.fetch, port });
+  // R2-B.2: wrap serve() so a synchronous throw (EADDRINUSE, etc.) doesn't
+  // leave the scheduler running with no stop handle. Pre-fix CR-A2.1
+  // reordered start() before serve() to avoid orphaning the HTTP socket on
+  // a scheduler.start() throw — but if serve() itself throws, the scheduler
+  // is up with no owner and cron tasks fire indefinitely. Tear it down
+  // before rethrowing so boot()'s rejection cleanly releases all resources.
+  let server: ReturnType<typeof serve>;
+  try {
+    server = serve({ fetch: app.fetch, port });
+  } catch (err) {
+    await scheduler.stop().catch((stopErr) =>
+      logger.error("orchestrator.stop-after-serve-failure", {
+        err: String(stopErr),
+      }),
+    );
+    schedulerRunning = false;
+    throw err;
+  }
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {
@@ -729,12 +767,12 @@ export type CronProbeResolver = (
  * Railway adapter (orchestrator-level config: RAILWAY_TOKEN,
  * RAILWAY_PROJECT_ID, RAILWAY_ENVIRONMENT_ID, AIMOCK_URL).
  */
-export function diffCronSchedules(
+export async function diffCronSchedules(
   scheduler: ReturnType<typeof createScheduler>,
   rules: CompiledRule[],
   bus: ReturnType<typeof createEventBus>,
   cronProbeResolver: CronProbeResolver,
-): void {
+): Promise<void> {
   const desired = new Map<
     string,
     { schedule: string; ruleId: string; dimension: string }
@@ -751,7 +789,28 @@ export function diffCronSchedules(
   }
   const currentIds = scheduler.list().map((e) => e.id);
   for (const id of currentIds) {
-    if (!desired.has(id) && id.includes(":cron:")) scheduler.unregister(id);
+    if (!desired.has(id) && id.includes(":cron:")) {
+      // R2-B.1: await the unregister, mirroring the CR-A2.2 fix on the
+      // probe-rule path. Pre-fix this was fire-and-forget — a rejection
+      // became an unhandled rejection AND the orphan got no structured
+      // log. On rejection we log (operators get a first-class signal)
+      // and leave the entry in scheduler.list(); next diff sweep will
+      // retry. Same design choice as CR-A2.2: the orphan stays VISIBLE
+      // rather than being silently dropped from bookkeeping.
+      try {
+        await scheduler.unregister(id);
+      } catch (err) {
+        logger.error("orchestrator.cron-unregister-failed", {
+          id,
+          err: String(err),
+        });
+        // R2-B.4: dedicated `scheduler_unregister_failures_total` counter
+        // would belong here, but adding it requires extending metrics.ts
+        // COUNTER_NAMES (out of scope for this fix). Defer to bucket-b
+        // follow-up; the structured log above is the first-class
+        // observability surface in the meantime.
+      }
+    }
   }
   for (const [id, { schedule, ruleId, dimension }] of desired) {
     const invoker = cronProbeResolver(dimension);

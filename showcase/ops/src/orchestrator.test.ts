@@ -11,6 +11,7 @@ import {
 } from "./orchestrator.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
+import { logger } from "./logger.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
 
 /**
@@ -1185,6 +1186,161 @@ describe("orchestrator OPS_TRIGGER_TOKEN empty-string handling (R2-B.3)", () => 
     expect(res.status).toBe(200);
   });
 });
+
+/**
+ * R2-B.1: cron-rule unregister failure must NOT be fire-and-forget. Pre-fix,
+ * `diffCronSchedules` called `scheduler.unregister(id)` without awaiting the
+ * returned promise — a rejection became an unhandled rejection AND the
+ * orphan rule entry's bookkeeping got no structured log. This mirrors the
+ * CR-A2.2 fix on the probe-rule path: await the unregister, and on
+ * rejection emit a structured `orchestrator.cron-unregister-failed` log so
+ * operators have an explicit signal that a stale cron entry could not be
+ * cleaned up. The orphan stays visible in `scheduler.list()` (best
+ * debugging surface — same design choice as CR-A2.2).
+ */
+describe("orchestrator.diffCronSchedules unregister rejection (R2-B.1)", () => {
+  it("awaits scheduler.unregister and logs structured error on rejection (no unhandled rejection, orphan preserved)", async () => {
+    // Track which ids the stub ever saw register/unregister for.
+    const registeredIds = new Set<string>();
+    const unregisterCalls: string[] = [];
+    const stubEntries: Array<{ id: string; cron: string }> = [
+      { id: "stale-rule:cron:0", cron: "0 9 * * 1" },
+    ];
+
+    const stubScheduler = {
+      register: vi.fn((entry: { id: string; cron: string }) => {
+        registeredIds.add(entry.id);
+      }),
+      // R2-B.1: the rejection MUST be observed (awaited) by diffCronSchedules.
+      // If the function fire-and-forgets, this rejection becomes an unhandled
+      // rejection in node and the test runner flags it.
+      unregister: vi.fn(async (id: string) => {
+        unregisterCalls.push(id);
+        throw new Error(`simulated unregister rejection for ${id}`);
+      }),
+      hasEntry: (id: string) => registeredIds.has(id),
+      list: vi.fn(() =>
+        stubEntries.map((e) => ({
+          id: e.id,
+          cron: e.cron,
+          handler: async () => undefined,
+        })),
+      ),
+      start: vi.fn(),
+      stop: vi.fn(async () => undefined),
+      isStarted: () => false,
+      isStopped: () => false,
+      getJobCount: () => registeredIds.size,
+    } as unknown as ReturnType<typeof createScheduler>;
+
+    const bus = createEventBus();
+    const resolver: Parameters<typeof diffCronSchedules>[3] = () => null;
+
+    // Spy on logger.error so we can assert the structured failure log.
+    const errorSpy = vi.spyOn(logger, "error").mockImplementation(() => {});
+    let allCalls: unknown[][] = [];
+    try {
+      // diffCronSchedules is async post-fix; await it. Pre-fix it returns
+      // void synchronously (the void is awaitable as a no-op) and never
+      // emits the structured log, so the assertion below catches the bug.
+      await diffCronSchedules(stubScheduler, [], bus, resolver);
+      // Pump microtasks so any deferred error path settles.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      allCalls = errorSpy.mock.calls.map((c) => [...c]);
+    } finally {
+      errorSpy.mockRestore();
+    }
+
+    // 1. unregister was called exactly once for the stale rule.
+    expect(unregisterCalls).toEqual(["stale-rule:cron:0"]);
+    // 2. The structured log fired with the rule id surfaced. Pre-fix
+    //    (fire-and-forget), the rejection became an unhandled promise and
+    //    no `orchestrator.cron-unregister-failed` log was ever emitted.
+    const matchingCall = allCalls.find(
+      ([msg]) => msg === "orchestrator.cron-unregister-failed",
+    );
+    expect(matchingCall).toBeDefined();
+    expect(matchingCall![1]).toMatchObject({
+      id: "stale-rule:cron:0",
+    });
+  });
+});
+
+/**
+ * R2-B.2: boot must clean up the scheduler if `serve()` throws. CR-A2.1
+ * reordered scheduler.start() before serve(), but if serve() itself throws
+ * (e.g., EADDRINUSE), scheduler is left running with no stop handle —
+ * cron tasks fire indefinitely with no owner. Wrap serve() in try/catch;
+ * on throw, await scheduler.stop() and reset schedulerRunning before
+ * rethrowing.
+ */
+describe("orchestrator boot serve() failure cleanup (R2-B.2)", () => {
+  let tempDir: string;
+  let port = 0;
+
+  beforeEach(async () => {
+    tempDir = await mkTempConfigDir();
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects boot AND calls scheduler.stop() when serve() throws", async () => {
+    vi.resetModules();
+
+    // Spy on createScheduler so we can observe `stop()` after the serve()
+    // throw. All other methods delegate to the real scheduler.
+    const stopSpy = vi.fn(async () => undefined);
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            stop: async (...args: unknown[]) => {
+              stopSpy();
+              return (real.stop as (...a: unknown[]) => Promise<void>)(...args);
+            },
+          };
+        },
+      };
+    });
+
+    // Force `serve()` to throw synchronously when boot tries to bind.
+    vi.doMock("@hono/node-server", async () => {
+      const actual = await vi.importActual<typeof import("@hono/node-server")>(
+        "@hono/node-server",
+      );
+      return {
+        ...actual,
+        serve: () => {
+          throw new Error("simulated EADDRINUSE from serve()");
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    await expect(
+      orchMod.boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/simulated EADDRINUSE from serve\(\)/);
+
+    // Critical assertion: scheduler.stop() must have been called as part
+    // of cleanup. Pre-fix, the scheduler kept ticking with no stop handle.
+    expect(stopSpy).toHaveBeenCalled();
+  });
+});
+
 
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
