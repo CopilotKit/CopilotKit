@@ -1,5 +1,5 @@
 import React from "react";
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { AgentCapabilities } from "@ag-ui/core";
 import { useCapabilities } from "../use-capabilities";

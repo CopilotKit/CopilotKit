@@ -1,4 +1,6 @@
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 import type React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -427,19 +429,15 @@ describe("CopilotKitProvider", () => {
 
   describe("a2ui prop", () => {
     const originalFetch = global.fetch;
-    const originalWindow = (globalThis as { window?: unknown }).window;
+    let restoreLocation: () => void = () => {};
 
     beforeEach(() => {
-      (globalThis as { window?: unknown }).window = {};
+      restoreLocation = stubWindowLocation();
     });
 
     afterEach(() => {
       global.fetch = originalFetch;
-      if (originalWindow === undefined) {
-        delete (globalThis as { window?: unknown }).window;
-      } else {
-        (globalThis as { window?: unknown }).window = originalWindow;
-      }
+      restoreLocation();
     });
 
     it("does not register an a2ui-surface renderer by default", () => {

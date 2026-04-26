@@ -42,13 +42,33 @@ concurrency:
 
 jobs:
   unit:
-    name: "unit"
+    name: "Node ${{ matrix.node-version }}, React ${{ matrix.react-version }}"
     runs-on: depot-ubuntu-24.04-4
     timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         node-version: [20.x, 22.x, 24.x]
+        react-version: ["17", "18", "19"]
+        include:
+          - react-version: "17"
+            react: "17.0.2"
+            react-dom: "17.0.2"
+            types-react: "^17"
+            types-react-dom: "^17"
+            testing-library-react: "^12.1.5"
+          - react-version: "18"
+            react: "18.3.1"
+            react-dom: "18.3.1"
+            types-react: "^18"
+            types-react-dom: "^18"
+            testing-library-react: "^14.3.1"
+          - react-version: "19"
+            react: "19.2.3"
+            react-dom: "19.2.3"
+            types-react: "^19.1.0"
+            types-react-dom: "^19.0.2"
+            testing-library-react: "^16.3.0"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,11 +88,49 @@ jobs:
           cache-dependency-path: "**/pnpm-lock.yaml"
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        env:
+          REACT_VERSION: ${{ matrix.react }}
+          REACT_DOM_VERSION: ${{ matrix.react-dom }}
+          TYPES_REACT_VERSION: ${{ matrix.types-react }}
+          TYPES_REACT_DOM_VERSION: ${{ matrix.types-react-dom }}
+          TESTING_LIBRARY_REACT_VERSION: ${{ matrix.testing-library-react }}
+        run: |
+          if [ "${{ matrix.react-version }}" != "19" ]; then
+            node -e "
+              const fs = require('fs');
+              const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+              pkg.pnpm.overrides.react = process.env.REACT_VERSION;
+              pkg.pnpm.overrides['react-dom'] = process.env.REACT_DOM_VERSION;
+              pkg.pnpm.overrides['@types/react'] = process.env.TYPES_REACT_VERSION;
+              pkg.pnpm.overrides['@types/react-dom'] = process.env.TYPES_REACT_DOM_VERSION;
+              pkg.pnpm.overrides['@testing-library/react'] = process.env.TESTING_LIBRARY_REACT_VERSION;
+              pkg.pnpm.overrides['streamdown>react'] = process.env.REACT_VERSION;
+              fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            "
+            pnpm install --no-frozen-lockfile
+          else
+            pnpm install --frozen-lockfile
+          fi
+
+      - name: Verify installed React version matches matrix
+        env:
+          EXPECTED_REACT_VERSION: ${{ matrix.react }}
+        # Resolve from packages/react-core (which has react as a peerDep and
+        # therefore a node_modules/react symlink). The repo root doesn't
+        # declare react as a direct dep, so require('react') fails there.
+        working-directory: packages/react-core
+        run: |
+          INSTALLED=$(node -e "console.log(require('react/package.json').version)")
+          # matrix.react is an exact version ("17.0.2" etc.) — exact match is correct.
+          if [ "$INSTALLED" != "$EXPECTED_REACT_VERSION" ]; then
+            echo "::error::Expected React $EXPECTED_REACT_VERSION but got $INSTALLED"
+            exit 1
+          fi
+          echo "React $INSTALLED installed as expected."
 
       - name: Configure Nx Cloud environment
         run: |
-          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v1-${{ matrix.node-version }}" >> $GITHUB_ENV
+          echo "NX_CI_EXECUTION_ID=${{ github.run_id }}-${{ github.run_attempt }}-unit-v1-${{ matrix.node-version }}-react${{ matrix.react-version }}" >> $GITHUB_ENV
           echo "NX_CLOUD_NO_TIMEOUTS=true" >> $GITHUB_ENV
           echo "NX_CLOUD_DISTRIBUTED_EXECUTION=false" >> $GITHUB_ENV
           echo "NX_NO_CLOUD=true" >> $GITHUB_ENV

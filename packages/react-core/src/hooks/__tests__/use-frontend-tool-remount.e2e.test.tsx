@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import React, { useEffect } from "react";
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 import { render, waitFor } from "@testing-library/react";
 import { ToolCallStatus } from "@copilotkit/core";
 import { useFrontendTool } from "../use-frontend-tool";
@@ -30,7 +31,7 @@ const toolRenderModule = copilotKitV2React as unknown as {
 };
 
 function ToolRenderHost() {
-  const render = React.useSyncExternalStore(
+  const render = useSyncExternalStore(
     toolRenderModule.__subscribeRender,
     toolRenderModule.__getCurrentRender,
     toolRenderModule.__getCurrentRender,

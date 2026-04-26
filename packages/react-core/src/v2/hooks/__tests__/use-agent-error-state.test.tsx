@@ -3,14 +3,14 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { useAgent } from "../use-agent";
+import { stubWindowLocation } from "../../../test-helpers/stub-window-location";
 
 describe("useAgent error state", () => {
   const originalFetch = global.fetch;
-  const originalWindow = (globalThis as { window?: unknown }).window;
+  let restoreLocation: () => void = () => {};
 
   beforeEach(() => {
-    // Simulate browser environment
-    (globalThis as { window?: unknown }).window = {};
+    restoreLocation = stubWindowLocation();
     // Mock fetch to reject (simulates runtime unreachable)
     global.fetch = vi.fn().mockRejectedValue(new Error("network failure"));
   });
@@ -18,11 +18,7 @@ describe("useAgent error state", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     global.fetch = originalFetch;
-    if (originalWindow === undefined) {
-      delete (globalThis as { window?: unknown }).window;
-    } else {
-      (globalThis as { window?: unknown }).window = originalWindow;
-    }
+    restoreLocation();
   });
 
   it("returns a provisional agent instead of throwing when runtime is in error state", async () => {

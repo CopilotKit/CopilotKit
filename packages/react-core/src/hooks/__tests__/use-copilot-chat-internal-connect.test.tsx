@@ -1,6 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import React from "react";
-import { renderHook, act } from "@testing-library/react";
+import { act } from "@testing-library/react";
+import { renderHook } from "../../test-helpers/render-hook";
 import { useCopilotChatInternal } from "../use-copilot-chat_internal";
 import { CoAgentStateRendersProvider, CopilotContext } from "../../context";
 import { createTestCopilotContext } from "../../test-helpers/copilot-context";

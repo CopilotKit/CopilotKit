@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import { useRenderCustomMessages } from "../use-render-custom-messages";
 import { CopilotKitProvider } from "../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../providers/CopilotChatConfigurationProvider";

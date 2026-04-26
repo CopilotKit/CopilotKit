@@ -89,6 +89,7 @@
     "tw-animate-css": "^1.3.5",
     "untruncate-json": "^0.0.1",
     "use-stick-to-bottom": "^1.1.1",
+    "use-sync-external-store": "^1.2.2",
     "zod-to-json-schema": "^3.24.5"
   },
   "devDependencies": {
@@ -101,6 +102,7 @@
     "@testing-library/user-event": "^14.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.0.2",
+    "@types/use-sync-external-store": "^0.0.6",
     "@valibot/to-json-schema": "^1.5.0",
     "arktype": "^2.1.29",
     "autoprefixer": "^10.4.20",

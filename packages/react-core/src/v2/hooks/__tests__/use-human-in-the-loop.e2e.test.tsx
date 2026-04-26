@@ -124,12 +124,36 @@ describe("useHumanInTheLoop E2E - HITL Tool Rendering", () => {
         expect(screen.getByTestId("hitl-result").textContent).toContain(
           "approved",
         );
-        // Also wait for the useEffect to update statusHistory
-        expect(statusHistory).toEqual([
-          ToolCallStatus.InProgress,
-          ToolCallStatus.Executing,
-          ToolCallStatus.Complete,
-        ]);
+        const reactMajor = parseInt(React.version.split(".")[0], 10);
+        if (reactMajor >= 19) {
+          // React 19 collapses effect updates enough that the exact
+          // transition sequence is deterministic. Earlier majors can emit
+          // extra effect runs (including brief backwards transitions) so
+          // we assert the journey only there.
+          expect(statusHistory).toEqual([
+            ToolCallStatus.InProgress,
+            ToolCallStatus.Executing,
+            ToolCallStatus.Complete,
+          ]);
+        } else {
+          // React 17/18 can emit extra effect runs and briefly transition
+          // backwards (e.g. Executing → InProgress → Executing → Complete).
+          // Assert the journey: start InProgress, end Complete, pass
+          // through Executing, and never emit an unexpected status.
+          expect(statusHistory[0]).toBe(ToolCallStatus.InProgress);
+          expect(statusHistory[statusHistory.length - 1]).toBe(
+            ToolCallStatus.Complete,
+          );
+          expect(statusHistory).toContain(ToolCallStatus.Executing);
+          const allowed = new Set<ToolCallStatus>([
+            ToolCallStatus.InProgress,
+            ToolCallStatus.Executing,
+            ToolCallStatus.Complete,
+          ]);
+          for (const status of statusHistory) {
+            expect(allowed.has(status)).toBe(true);
+          }
+        }
       });
     });
   });
