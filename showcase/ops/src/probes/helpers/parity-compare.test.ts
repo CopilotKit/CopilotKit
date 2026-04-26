@@ -336,6 +336,8 @@ describe("compareParity — contract axis", () => {
     const report = compareParity(ref, cap);
     expect(report.axes.contract).toBe("fail");
     expect(report.details.contract?.missing_fields).toEqual(["b"]);
+    // Pure-absent field belongs in missing_fields, NOT type_mismatched.
+    expect(report.details.contract?.type_mismatched_fields).toEqual([]);
   });
 
   it("fails when a reference field has a mismatched type", () => {
@@ -349,7 +351,28 @@ describe("compareParity — contract axis", () => {
     };
     const report = compareParity(ref, cap);
     expect(report.axes.contract).toBe("fail");
-    expect(report.details.contract?.missing_fields).toEqual(["a"]);
+    // Type drift is its own bucket; missing_fields reserved for absent-only.
+    expect(report.details.contract?.missing_fields).toEqual([]);
+    expect(report.details.contract?.type_mismatched_fields).toEqual(["a"]);
+  });
+
+  it("splits absent and type-drifted fields into separate buckets", () => {
+    // One field absent, one field type-mismatched — buckets must NOT
+    // be conflated.
+    const ref: ParitySnapshot = {
+      ...baseSnapshot(),
+      contractShape: { absent: "string", drifted: "number" },
+    };
+    const cap: ParitySnapshot = {
+      ...baseSnapshot(),
+      contractShape: { drifted: "string" },
+    };
+    const report = compareParity(ref, cap);
+    expect(report.axes.contract).toBe("fail");
+    expect(report.details.contract?.missing_fields).toEqual(["absent"]);
+    expect(report.details.contract?.type_mismatched_fields).toEqual([
+      "drifted",
+    ]);
   });
 
   it("treats both-empty as a vacuous pass", () => {
