@@ -284,18 +284,26 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // Driver-singleton timeout threading: drivers are registered as
     // singletons at boot (BEFORE configs are loaded), so we can't pass
     // each YAML's `timeout_ms` straight into the driver factory. Instead
-    // we project the e2e-demos cfg.timeout_ms onto a process.env knob
-    // the driver reads per-`run()` call (see drivers/e2e-demos.ts —
-    // `TIMEOUT_ENV_VAR`). Without this, the driver's internal hard-cap
-    // (DEFAULT_TIMEOUT_MS = 5min) fires BEFORE the invoker's outer race
-    // (timeout_ms = 20min in production), contradicting the YAML's
-    // documented "driver iterates remaining demos and side-emits abort
-    // rows when the cap fires at 1200000ms" behaviour.
-    for (const cfg of desired.values()) {
-      if (cfg.kind === "e2e_demos" && "timeout_ms" in cfg) {
-        process.env.E2E_DEMOS_TIMEOUT_MS = String(cfg.timeout_ms);
-      }
-    }
+    // we compute a PER-CFG env overlay via `envForCfg(cfg, baseEnv)` and
+    // hand it to `buildProbeInvoker` as the invoker's `env`. Drivers
+    // read the timeout via `ctx.env.E2E_DEMOS_TIMEOUT_MS` (see
+    // drivers/e2e-demos.ts — `TIMEOUT_ENV_VAR`).
+    //
+    // Pre-fix this loop wrote `process.env.E2E_DEMOS_TIMEOUT_MS = ...`
+    // directly. Three problems with that:
+    //   1. Stale across YAML reloads — when the cfg removed timeout_ms,
+    //      the env var stayed set and leaked into every subsequent tick.
+    //   2. Last-write-wins silently across multiple e2e_demos configs.
+    //   3. Mutating shared global state from a diff function broke
+    //      parallel test isolation.
+    // The overlay pattern is fully isolated per-cfg and per-call.
+
+    // Snapshot process.env once at the top so every overlay derives from
+    // the same base — eliminates the read-after-write hazard if a future
+    // refactor accidentally mutates process.env between iterations.
+    const baseEnv: Readonly<Record<string, string | undefined>> = {
+      ...process.env,
+    };
 
     // Register / re-register each desired probe. `scheduler.register` is
     // idempotent — if the cron+handler combination is unchanged it's
@@ -319,7 +327,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
         writer,
         logger,
         fetchImpl: globalThis.fetch,
-        env: process.env as Readonly<Record<string, string | undefined>>,
+        env: envForCfg(cfg, baseEnv),
         now: () => new Date(),
       });
       try {
@@ -613,6 +621,43 @@ export function createStatusReader(pb: {
       return row?.state ?? null;
     },
   };
+}
+
+/**
+ * Project a per-cfg env overlay for `buildProbeInvoker`. Drivers that
+ * need YAML-derived knobs (e.g. `e2e_demos`'s `cfg.timeout_ms` —
+ * threaded through as `E2E_DEMOS_TIMEOUT_MS`) read them from
+ * `ctx.env`. Returning a FRESH overlay per cfg eliminates three classes
+ * of bugs the prior `process.env` mutation introduced:
+ *
+ *   1. **Stale across reloads** — when a YAML reload drops `timeout_ms`,
+ *      the previous value no longer leaks into subsequent ticks because
+ *      the overlay is derived from `baseEnv` only (which the orchestrator
+ *      snapshots once per `diffProbeSchedules`, untouched by prior probe
+ *      iterations).
+ *   2. **Last-write-wins across multiple configs** — two e2e_demos cfgs
+ *      with different `timeout_ms` each get their own overlay; neither
+ *      stomps the other.
+ *   3. **Test isolation** — `process.env` is never written, so parallel
+ *      tests don't see each other's bleed.
+ *
+ * Exported for unit-test access. Callers outside the orchestrator should
+ * NOT use this — drivers should accept their config via constructor deps
+ * (`createE2eDemosDriver({ timeoutMs })`) once the singleton-driver
+ * registration pattern is replaced by per-cfg factories.
+ */
+export function envForCfg(
+  cfg: ProbeConfig,
+  baseEnv: Readonly<Record<string, string | undefined>>,
+): Readonly<Record<string, string | undefined>> {
+  if (
+    cfg.kind === "e2e_demos" &&
+    "timeout_ms" in cfg &&
+    cfg.timeout_ms !== undefined
+  ) {
+    return { ...baseEnv, E2E_DEMOS_TIMEOUT_MS: String(cfg.timeout_ms) };
+  }
+  return baseEnv;
 }
 
 /**
