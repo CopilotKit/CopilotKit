@@ -482,7 +482,13 @@ export async function boot(opts: BootOptions = {}): Promise<{
       "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
     );
   }
-  const triggerToken = rawTriggerToken; // undefined or non-empty
+  // R3-A.5: trim defense-in-depth. The auth layer (auth.ts) also trims
+  // both sides at construction, but normalising here keeps the orchestrator
+  // contract honest — the value passed downstream is the same one the
+  // bearer-auth middleware will compare against. Pre-fix, a "  abc  "
+  // token boot'd successfully but the auth layer's asymmetric trimming
+  // (presented trimmed, expected verbatim) silently 401'd every request.
+  const triggerToken = rawTriggerToken?.trim(); // undefined or non-empty
   const probesDeps = triggerToken
     ? {
         scheduler,
