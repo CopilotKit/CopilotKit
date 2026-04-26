@@ -1111,6 +1111,81 @@ describe("orchestrator probe unregister failure preserves config (CR-A2.2)", () 
   });
 });
 
+/**
+ * R2-B.3: OPS_TRIGGER_TOKEN="" (empty-but-set) must be a fail-loud
+ * misconfiguration. Pre-fix, the boot path treated `triggerToken` as
+ * truthy-only — an operator who mistyped the env var (e.g. `OPS_TRIGGER_TOKEN=`)
+ * shipped an empty value AND got a silent-skip "probes-router-disabled" log
+ * instead of a clear error.
+ *
+ * Distinguish:
+ *   - unset (intentional disable) → boot succeeds, info log emitted.
+ *   - set-but-empty (misconfig)   → boot throws with explicit message.
+ *   - set-with-value              → boot succeeds, router mounted.
+ */
+describe("orchestrator OPS_TRIGGER_TOKEN empty-string handling (R2-B.3)", () => {
+  let tempDir: string;
+  let port = 0;
+  let stopFn: (() => Promise<void>) | null = null;
+  let prevToken: string | undefined;
+
+  beforeEach(async () => {
+    tempDir = await mkTempConfigDir();
+    port = await pickPort();
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+    if (prevToken === undefined) delete process.env.OPS_TRIGGER_TOKEN;
+    else process.env.OPS_TRIGGER_TOKEN = prevToken;
+  });
+
+  it('throws fail-loud when OPS_TRIGGER_TOKEN="" (empty string)', async () => {
+    process.env.OPS_TRIGGER_TOKEN = "";
+    await expect(
+      boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/OPS_TRIGGER_TOKEN.*empty/i);
+  });
+
+  it("throws fail-loud when OPS_TRIGGER_TOKEN is whitespace-only", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "   ";
+    await expect(
+      boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/OPS_TRIGGER_TOKEN.*empty/i);
+  });
+
+  it("succeeds with router disabled when OPS_TRIGGER_TOKEN is unset", async () => {
+    delete process.env.OPS_TRIGGER_TOKEN;
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+    // Router NOT mounted → /api/probes 404s.
+    const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(res.status).toBe(404);
+  });
+
+  it("succeeds with router mounted when OPS_TRIGGER_TOKEN is non-empty", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "real-token";
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+    // Router mounted → /api/probes 200s (no probes registered → empty list).
+    const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
+    expect(res.status).toBe(200);
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {

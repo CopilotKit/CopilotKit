@@ -449,7 +449,19 @@ export async function boot(opts: BootOptions = {}): Promise<{
   // break every test / dev boot that doesn't set the env var. When unset we
   // log at info level so operators can see the routes were intentionally
   // skipped, then flag it as a hardening concern in the boot summary.
-  const triggerToken = process.env.OPS_TRIGGER_TOKEN;
+  //
+  // R2-B.3: distinguish "unset" (intentional disable) from "set-but-empty"
+  // (misconfiguration). An operator who mistypes `OPS_TRIGGER_TOKEN=`
+  // (no value) ships an empty string AND would otherwise see a silent-skip
+  // log instead of the load-bearing fail-loud error. Whitespace-only is
+  // treated identically: trim() then reject if zero-length.
+  const rawTriggerToken = process.env.OPS_TRIGGER_TOKEN;
+  if (rawTriggerToken !== undefined && rawTriggerToken.trim() === "") {
+    throw new Error(
+      "OPS_TRIGGER_TOKEN is set but empty — refusing to mount probes router with insecure auth",
+    );
+  }
+  const triggerToken = rawTriggerToken; // undefined or non-empty
   const probesDeps = triggerToken
     ? {
         scheduler,
