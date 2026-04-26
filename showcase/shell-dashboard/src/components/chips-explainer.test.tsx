@@ -103,7 +103,9 @@ describe("ChipsExplainer — More detail link", () => {
     const { getByRole } = render(<ChipsExplainer />);
     const button = getByRole("button", { name: /what do these chips mean/i });
     fireEvent.click(button);
-    const link = getByRole("link", { name: /more detail/i }) as HTMLAnchorElement;
+    const link = getByRole("link", {
+      name: /more detail/i,
+    }) as HTMLAnchorElement;
     expect(link.getAttribute("href")).toBe(NOTION_URL);
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
