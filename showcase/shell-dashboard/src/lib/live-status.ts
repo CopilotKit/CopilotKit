@@ -160,22 +160,74 @@ function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   }
 }
 
+/**
+ * Stringify a `signal` field for tooltip suffix. Returns an empty string
+ * for null/undefined/empty objects so callers can blindly concat.
+ * Truncates at 80 chars to keep tooltips one-line-ish.
+ */
+function summarizeSignal(signal: unknown): string {
+  if (signal == null) return "";
+  if (typeof signal === "string") {
+    if (signal.length === 0) return "";
+    return signal.length > 80 ? `${signal.slice(0, 77)}...` : signal;
+  }
+  if (typeof signal === "object") {
+    // Skip empty objects/arrays — they're noise, not signal.
+    if (Array.isArray(signal) && signal.length === 0) return "";
+    if (!Array.isArray(signal) && Object.keys(signal as object).length === 0)
+      return "";
+    let json: string;
+    try {
+      json = JSON.stringify(signal);
+    } catch {
+      return "";
+    }
+    return json.length > 80 ? `${json.slice(0, 77)}...` : json;
+  }
+  const s = String(signal);
+  return s.length > 80 ? `${s.slice(0, 77)}...` : s;
+}
+
 function formatTooltip(
   dim: LiveDimension,
   row: StatusRow | null,
   connection: ConnectionStatus,
 ): string {
-  if (connection === "error") return "dashboard offline (§5.3)";
+  if (connection === "error") {
+    // When the SSE stream is dead AND we have a recent red/degraded row,
+    // surface the row's last-known state alongside the offline banner so
+    // operators can triage without waiting for reconnect.
+    if (row && (row.state === "red" || row.state === "degraded")) {
+      return `dashboard offline (§5.3) — last observed: ${dim} ${row.state} since ${row.transitioned_at}`;
+    }
+    return "dashboard offline (§5.3)";
+  }
   if (!row) return "no data — probe pending";
   switch (row.state) {
     case "green":
       return `${dim} green since ${row.observed_at}`;
-    case "red":
-      return `${dim} red since ${row.first_failure_at ?? row.transitioned_at}`;
-    case "degraded":
-      return `${dim} stale (>6h) — last pass @ ${row.observed_at}`;
-    default:
-      return "";
+    case "red": {
+      const base = `${dim} red since ${row.first_failure_at ?? row.transitioned_at}`;
+      const sig = summarizeSignal(row.signal);
+      return sig ? `${base} — ${sig}` : base;
+    }
+    case "degraded": {
+      // The hardcoded ">6h" was a lie — the threshold lives in the
+      // producer config and is not asserted in copy. Just say "stale".
+      const base = `${dim} stale — last pass @ ${row.observed_at}`;
+      const sig = summarizeSignal(row.signal);
+      return sig ? `${base} — ${sig}` : base;
+    }
+    default: {
+      // Exhaustiveness check: forces the switch to be updated when a
+      // new `State` variant lands. Returns a loud fallback instead of
+      // an empty tooltip so the unmapped state is visible. We capture
+      // the raw state via a runtime read so the message can include it
+      // without tripping the `never`-narrowed type.
+      const _exhaustive: never = row.state;
+      void _exhaustive;
+      return `${dim} unknown state: ${String((row as { state: unknown }).state)}`;
+    }
   }
 }
 

@@ -11,6 +11,7 @@ function row(
   key: string,
   dimension: string,
   state: StatusRow["state"],
+  overrides: Partial<StatusRow> = {},
 ): StatusRow {
   return {
     id: `id-${key}`,
@@ -22,6 +23,7 @@ function row(
     transitioned_at: "2026-04-20T00:00:00Z",
     fail_count: state === "red" ? 1 : 0,
     first_failure_at: state === "red" ? "2026-04-20T00:00:00Z" : null,
+    ...overrides,
   };
 }
 
@@ -272,5 +274,75 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
     const c = resolveCell(live, "agno", "ac");
     expect(c.d5.row).toBeNull();
     expect(c.d6.row).toBeNull();
+  });
+});
+
+describe("formatTooltip behaviour (via resolveCell)", () => {
+  it("degraded tooltip drops the hardcoded '>6h' threshold (LS2)", () => {
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "degraded", {
+        observed_at: "2026-04-22T08:00:00Z",
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.e2e.tooltip).not.toMatch(/>6h/);
+    expect(c.e2e.tooltip).toContain("stale");
+    expect(c.e2e.tooltip).toContain("2026-04-22T08:00:00Z");
+  });
+
+  it("red tooltip surfaces non-empty signal summary (LS8)", () => {
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "red", {
+        signal: { reason: "timeout", attempt: 3 },
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.e2e.tooltip).toContain("red since");
+    expect(c.e2e.tooltip).toContain("timeout");
+  });
+
+  it("red tooltip omits signal suffix when signal is empty object (LS8)", () => {
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "red", {
+        signal: {},
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b");
+    expect(c.e2e.tooltip).toMatch(/^e2e red since /);
+    expect(c.e2e.tooltip).not.toContain("—");
+  });
+
+  it("red tooltip truncates long signal summaries to 80 chars (LS8)", () => {
+    const long = "x".repeat(500);
+    const live = mapOf([row("e2e:a/b", "e2e", "red", { signal: long })]);
+    const c = resolveCell(live, "a", "b");
+    // Truncation marker present, total signal segment <= 80 chars.
+    expect(c.e2e.tooltip).toContain("...");
+    const sigPart = c.e2e.tooltip.split(" — ")[1] ?? "";
+    expect(sigPart.length).toBeLessThanOrEqual(80);
+  });
+
+  it("connection=error + red row: appends last-known-state context (LS9)", () => {
+    const live = mapOf([
+      row("e2e:a/b", "e2e", "red", {
+        transitioned_at: "2026-04-22T09:00:00Z",
+      }),
+    ]);
+    const c = resolveCell(live, "a", "b", { connection: "error" });
+    expect(c.e2e.tooltip).toContain("dashboard offline (§5.3)");
+    expect(c.e2e.tooltip).toContain("last observed");
+    expect(c.e2e.tooltip).toContain("e2e red");
+    expect(c.e2e.tooltip).toContain("2026-04-22T09:00:00Z");
+  });
+
+  it("connection=error + green row: plain offline tooltip (no last-observed context)", () => {
+    const live = mapOf([row("e2e:a/b", "e2e", "green")]);
+    const c = resolveCell(live, "a", "b", { connection: "error" });
+    expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
+  });
+
+  it("connection=error + null row: plain offline tooltip", () => {
+    const c = resolveCell(mapOf([]), "a", "b", { connection: "error" });
+    expect(c.e2e.tooltip).toBe("dashboard offline (§5.3)");
   });
 });
