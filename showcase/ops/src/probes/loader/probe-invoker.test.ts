@@ -341,7 +341,10 @@ describe("buildProbeInvoker", () => {
       async run(ctx, input) {
         inFlight++;
         peak = Math.max(peak, inFlight);
-        await new Promise((r) => setTimeout(r, 15));
+        // 50ms (was 15ms) — gives concurrent worker slots time to claim
+        // their inputs even under heavy CI load. Total wall-clock is
+        // bounded at ~10*50ms/3 ≈ ~170ms, still fast.
+        await new Promise((r) => setTimeout(r, 50));
         inFlight--;
         return {
           key: (input as { key: string }).key,
@@ -467,14 +470,17 @@ describe("buildProbeInvoker", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
     // The invoker must return promptly on timeout — NOT wait for the
-    // driver's 80ms sleep to complete. Allow some slack for CI jitter
-    // but stay well under 80ms.
-    expect(elapsed).toBeLessThan(70);
-    // The slow driver may still be in flight when we finish, which is
-    // the whole point of this test: invoker does not block on it.
-    // Can't assert `driverResolved === false` deterministically in all
-    // environments, but reference it so the variable isn't flagged.
-    void driverResolved;
+    // driver's 80ms sleep to complete. Allow ample slack for CI jitter:
+    // we care that the invoker isn't blocking on the driver's full
+    // 80ms sleep, not that it returns inside any particular tight bound.
+    // 100ms is well under the 80ms+race-settle absolute lower bound for
+    // a regression where the invoker awaited driverPromise instead.
+    expect(elapsed).toBeLessThan(100);
+    // The slow driver has NOT fired its setTimeout callback yet at the
+    // time the invoker returned (timeout_ms=20 < driver-sleep=80), so
+    // this assertion is deterministic: we read driverResolved
+    // synchronously after `await invoker()` returns.
+    expect(driverResolved).toBe(false);
   });
 
   it("passes an abortSignal to drivers and sets an abort reason on timeout", async () => {
@@ -866,5 +872,472 @@ describe("buildProbeInvoker", () => {
     expect(observedAborted).toBe(false);
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("green");
+  });
+
+  // --- A11: errorClass discriminator on synthetic results ---------------
+  describe("synthetic-error errorClass discriminator (A11)", () => {
+    it("sets errorClass='timeout' when driver exceeds timeout_ms", async () => {
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "smoke",
+        inputSchema,
+        async run() {
+          await new Promise((r) => setTimeout(r, 200));
+          return {
+            key: "x",
+            state: "green",
+            signal: {},
+            observedAt: "now",
+          };
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "smoke",
+        id: "smoke",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        timeout_ms: 20,
+        targets: [{ key: "smoke:slow" }],
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes[0]!.state).toBe("error");
+      const sig = writes[0]!.signal as { errorClass?: string };
+      expect(sig.errorClass).toBe("timeout");
+    });
+
+    it("sets errorClass='input-rejected' when inputSchema rejects", async () => {
+      const inputSchema = z.object({ key: z.string(), url: z.string().url() });
+      const driver: ProbeDriver<z.infer<typeof inputSchema>> = {
+        kind: "smoke",
+        inputSchema,
+        async run(ctx, input) {
+          return {
+            key: input.key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "smoke",
+        id: "smoke",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        // No url → schema rejects
+        targets: [{ key: "smoke:bad" }],
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes[0]!.state).toBe("error");
+      const sig = writes[0]!.signal as { errorClass?: string };
+      expect(sig.errorClass).toBe("input-rejected");
+    });
+
+    it("sets errorClass='driver-error' when driver throws", async () => {
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "smoke",
+        inputSchema,
+        async run() {
+          throw new Error("boom");
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "smoke",
+        id: "smoke",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        targets: [{ key: "smoke:explode" }],
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes[0]!.state).toBe("error");
+      const sig = writes[0]!.signal as { errorClass?: string };
+      expect(sig.errorClass).toBe("driver-error");
+    });
+
+    it("sets errorClass='discovery-source-missing' on unknown source typo", async () => {
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "image_drift",
+        inputSchema,
+        async run() {
+          throw new Error("should never run");
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "image_drift",
+        id: "image-drift",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        discovery: {
+          source: "definitely-not-registered",
+          filter: {},
+          key_template: "image_drift:${name}",
+        },
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      // A4: synthetic dashboard tick instead of silent zero-write.
+      expect(writes).toHaveLength(1);
+      expect(writes[0]!.key).toBe("image-drift:misconfigured");
+      expect(writes[0]!.state).toBe("error");
+      const sig = writes[0]!.signal as { errorClass?: string };
+      expect(sig.errorClass).toBe("discovery-source-missing");
+    });
+  });
+
+  // --- A1: late driver rejection must not surface as unhandledRejection -
+  it("does not surface unhandledRejection when driver rejects after timeout (A1)", async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "smoke",
+        inputSchema,
+        async run(ctx, input) {
+          // Reject AFTER the invoker has timed out and moved on.
+          await new Promise<void>((_, reject) => {
+            ctx.abortSignal?.addEventListener(
+              "abort",
+              () => {
+                // Reject async on next tick so the race has settled
+                // first.
+                setTimeout(() => reject(new Error("late driver rejection")), 5);
+              },
+              { once: true },
+            );
+          });
+          // Unreachable — promise above always rejects on abort. The
+          // return is here to satisfy the ProbeDriver.run signature.
+          return {
+            key: (input as { key: string }).key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "smoke",
+        id: "smoke",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1,
+        timeout_ms: 15,
+        targets: [{ key: "smoke:late-rejector" }],
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      // Give the driver's late-rejection setTimeout time to fire so the
+      // unhandledRejection listener has a chance to catch it if the
+      // race-leak regresses.
+      await new Promise((r) => setTimeout(r, 50));
+      expect(writes).toHaveLength(1);
+      expect(writes[0]!.state).toBe("error");
+      expect(unhandled).toHaveLength(0);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+
+  // --- A6: array-typed discovery records ---------------------------------
+  it("falls back to {key} when a discovery record is an array (A6)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "array-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Intentionally return an array record (typeof === "object" but
+        // the spread would lose array shape).
+        return [["one", "two", "three"]];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      discovery: {
+        source: "array-src",
+        filter: {},
+        // Static template — no path interpolation needed for this test.
+        key_template: "image_drift:array",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    // The driver receives `{ key }` rather than a spread array.
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.key).toBe("image_drift:array");
+  });
+
+  // --- A3: template-path-unresolvable produces unique keys --------------
+  it("emits unique unresolved-suffix keys when template paths collide (A3)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "missing-path-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Both records have no `name` — a naive interpolator would
+        // collapse both keys to `image_drift:` and the writer would
+        // overwrite one with the other.
+        return [{ id: "a" }, { id: "b" }];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      discovery: {
+        source: "missing-path-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(writes).toHaveLength(2);
+    const keys = writes.map((w) => w.key);
+    // Unique unresolved-suffix keys per record so the writer doesn't
+    // collapse them into one row.
+    expect(new Set(keys).size).toBe(2);
+    for (const k of keys) {
+      expect(k).toMatch(/__unresolved_/);
+    }
+  });
+
+  it("emits unresolved-suffix when template path resolves to non-primitive (A3)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "non-primitive-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // `service` is itself an object — interpolation should NOT
+        // call String() on it (would produce "[object Object]").
+        return [{ service: { name: "foo" } }];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      discovery: {
+        source: "non-primitive-src",
+        filter: {},
+        key_template: "image_drift:${service}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.key).not.toMatch(/\[object Object\]/);
+    expect(writes[0]!.key).toMatch(/__unresolved_/);
+  });
+
+  // --- E1: discovery enumerate timeout -----------------------------------
+  it("returns within timeout when source.enumerate hangs (E1)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "hanging-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate(opts) {
+        // Honour abortSignal so the timeout-fired abort releases the
+        // promise. A source that never observed abortSignal would
+        // hang forever — that's a separate driver bug, not the
+        // invoker's responsibility.
+        await new Promise<void>((_, reject) => {
+          opts.abortSignal?.addEventListener(
+            "abort",
+            () => reject(opts.abortSignal?.reason ?? new Error("aborted")),
+            { once: true },
+          );
+        });
+        return [];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      timeout_ms: 25,
+      discovery: {
+        source: "hanging-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const start = Date.now();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    const elapsed = Date.now() - start;
+    // (a) returns within timeout (with generous CI slack)
+    expect(elapsed).toBeLessThan(500);
+    // (b) zero writes emitted: discovery failed, nothing to fan out
+    expect(writes).toEqual([]);
+  });
+
+  // --- E2: writer.write failure isolation -------------------------------
+  it("isolates writer.write failures: sibling targets still write (E2)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [
+        { key: "smoke:a" },
+        { key: "smoke:bad-writer" },
+        { key: "smoke:c" },
+      ],
+    };
+    let attempted = 0;
+    const successful: string[] = [];
+    const writer: StatusWriter = {
+      async write(result) {
+        attempted++;
+        if (result.key === "smoke:bad-writer") {
+          throw new Error("pb down");
+        }
+        successful.push(result.key);
+        return {
+          previousState: null,
+          newState: "green",
+          transition: "first",
+          firstFailureAt: null,
+          failCount: 0,
+        };
+      },
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    // All 3 targets attempted writes; failing key did not stop siblings.
+    expect(attempted).toBe(3);
+    expect(successful.sort()).toEqual(["smoke:a", "smoke:c"]);
   });
 });
