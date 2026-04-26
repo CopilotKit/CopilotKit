@@ -4,12 +4,9 @@ import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import yaml from "js-yaml";
 
-// Resolve the configs dir relative to THIS test file rather than
-// `process.cwd()`. Earlier versions used `path.resolve(process.cwd(),
-// "config/probes")`, which silently broke when vitest was launched from
-// a parent directory (monorepo root, IDE runner, etc.) — the test would
-// throw ENOENT before reaching the parity assertion. import.meta.url is
-// stable regardless of cwd.
+// `import.meta.url` is stable regardless of cwd; see `configsDir()` for
+// the full rationale on why we resolve relative to this file rather
+// than `process.cwd()`.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
@@ -160,7 +157,11 @@ describe("probe-config nameExcludes parity", () => {
     // rationale.
     const dir = configsDir();
     const entries = await fs.readdir(dir);
-    const ymlFiles = entries.filter((f) => f.endsWith(".yml"));
+    // Match both `.yml` and `.yaml` — the loader accepts either, so the
+    // floor invariant must too. Filtering only `.yml` would let a probe
+    // authored as `<name>.yaml` silently bypass the railway-services
+    // floor check and flap infra services red.
+    const ymlFiles = entries.filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
 
     const smokeFloor = new Set(await readNameExcludes("smoke.yml"));
     expect(smokeFloor.size).toBeGreaterThan(0);
@@ -180,6 +181,34 @@ describe("probe-config nameExcludes parity", () => {
         // record-typed lookup makes this enforceable.
         const rationale = RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR[file];
         expect(rationale && rationale.length > 0).toBe(true);
+        // Guard against the exemption rationale rotting silently:
+        // every exempt probe must EITHER be more narrowly scoped than
+        // the broad `showcase-` floor (i.e. its `namePrefix` is a
+        // strict superset of `showcase-`, like `showcase-quizapp-`),
+        // OR carry a grep-able rationale phrase explicitly stating
+        // why it spans every service (current marker:
+        // `all services`, intentionally specific so an unrelated
+        // rationale tweak can't accidentally satisfy it).
+        //
+        // Why this matters: today qa.yml is scoped to
+        // `showcase-langgraph-python` so the floor doesn't apply.
+        // If a future maintainer relaxes its `namePrefix` to
+        // `showcase-` without removing the exemption, infra services
+        // (aimock/ops/pocketbase/shell*) would silently leak into qa
+        // discovery and flap red. This guard fires in that case and
+        // forces them to either drop the exemption (and add the
+        // smoke-floor `nameExcludes`) or update the rationale to
+        // explicitly justify spanning every service.
+        const prefix = parsed.discovery?.filter?.namePrefix;
+        const hasNarrowPrefix =
+          typeof prefix === "string" &&
+          prefix.startsWith("showcase-") &&
+          prefix.length > "showcase-".length;
+        const rationaleSpansEverything = /all services/i.test(rationale ?? "");
+        expect(
+          hasNarrowPrefix || rationaleSpansEverything,
+          `${file}: exempt probe must EITHER have a namePrefix narrower than "showcase-" (got ${JSON.stringify(prefix)}) OR carry an "all services" phrase in its RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR rationale. Without one, broadening this probe later would silently flap infra services red.`,
+        ).toBe(true);
         continue;
       }
       if (!Array.isArray(excludes)) {
