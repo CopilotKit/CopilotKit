@@ -30,10 +30,15 @@ export function StatusDurationSparkline({
   height = DEFAULT_HEIGHT,
   className,
 }: StatusDurationSparklineProps) {
-  // Fewer than 2 points: there's no trend to draw — render a flat dash so
-  // the layout doesn't collapse and the operator gets an obvious "no data
-  // yet" cue.
-  if (durations.length < 2) {
+  const innerW = width - PADDING * 2;
+  const innerH = height - PADDING * 2;
+
+  // Fewer than 2 points OR a viewport too small to draw inside —
+  // render a flat dash so the layout doesn't collapse and the
+  // operator gets an obvious "no data / not enough room" cue. The
+  // small-viewport guard prevents negative or zero inner dimensions
+  // from producing NaN / out-of-bounds coords downstream.
+  if (durations.length < 2 || innerW <= 0 || innerH <= 0) {
     return (
       <svg
         data-testid="status-sparkline"
@@ -47,7 +52,7 @@ export function StatusDurationSparkline({
           data-testid="status-sparkline-dash"
           x1={PADDING}
           y1={height / 2}
-          x2={width - PADDING}
+          x2={Math.max(PADDING, width - PADDING)}
           y2={height / 2}
           stroke="currentColor"
           strokeWidth={1}
@@ -61,12 +66,11 @@ export function StatusDurationSparkline({
   const max = Math.max(...durations);
   const range = max - min;
 
-  const innerW = width - PADDING * 2;
-  const innerH = height - PADDING * 2;
-
   const points = durations.map((d, i) => {
-    const xFrac =
-      durations.length === 1 ? 0 : i / (durations.length - 1);
+    // durations.length >= 2 here (early return covers <2), so the
+    // divisor is always positive — no need for the dead length===1
+    // branch the original code carried.
+    const xFrac = i / (durations.length - 1);
     const x = PADDING + xFrac * innerW;
     // Higher duration → lower y (visually "up"). When the input is flat
     // (range === 0) we center the line vertically rather than dividing

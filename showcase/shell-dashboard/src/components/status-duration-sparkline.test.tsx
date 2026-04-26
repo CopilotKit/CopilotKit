@@ -74,4 +74,32 @@ describe("StatusDurationSparkline", () => {
     const points = polyline.getAttribute("points") ?? "";
     expect(points).not.toContain("NaN");
   });
+
+  it("renders dash placeholder when width is zero (CR-B2.5)", () => {
+    // innerW would be -4, which previously produced negative x coords.
+    // Guard renders the flat-dash sentinel instead.
+    const { getByTestId, queryByTestId } = render(
+      <StatusDurationSparkline
+        durations={[100, 200, 150]}
+        width={0}
+        height={24}
+      />,
+    );
+    expect(getByTestId("status-sparkline-dash")).toBeDefined();
+    expect(queryByTestId("status-sparkline-polyline")).toBeNull();
+  });
+
+  it("renders dash placeholder when width is at the padding boundary (CR-B2.5)", () => {
+    // PADDING * 2 === 4 → innerW === 0 → must fall back to dash so
+    // we don't try to draw across a zero-width inner area.
+    const { getByTestId, queryByTestId } = render(
+      <StatusDurationSparkline
+        durations={[100, 200, 150]}
+        width={3}
+        height={24}
+      />,
+    );
+    expect(getByTestId("status-sparkline-dash")).toBeDefined();
+    expect(queryByTestId("status-sparkline-polyline")).toBeNull();
+  });
 });
