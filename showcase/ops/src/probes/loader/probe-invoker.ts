@@ -382,7 +382,16 @@ async function resolveInputs(
       // Arrays match `typeof === "object"` but spread-with-key would
       // strip array shape, so guard explicitly.
       let input: unknown;
-      if (record && typeof record === "object" && !Array.isArray(record)) {
+      // Object-shape gate: arrays match `typeof === "object"` but spread-
+      // with-key would strip array shape. Null/undefined/primitive records
+      // (string/number/boolean) all fall through to the `{ key }`-only
+      // input below and now carry a structured warn so silent zero-info
+      // inputs surface in the log.
+      if (
+        record !== null &&
+        typeof record === "object" &&
+        !Array.isArray(record)
+      ) {
         // If the discovery source already emitted a `key` field whose
         // value differs from the interpolated one, the spread+overwrite
         // below silently shadows it. Surface a structured warning so
@@ -406,13 +415,19 @@ async function resolveInputs(
         }
         input = { ...(record as Record<string, unknown>), key };
       } else {
-        if (Array.isArray(record)) {
-          logger.warn("probe.discovery-record-non-object", {
-            probeId: cfg.id,
-            recordIndex: idx,
-            recordKind: "array",
-          });
-        }
+        // Single warn key for every non-object record (array, null,
+        // primitive). The `recordKind` field discriminates so log
+        // consumers can branch without parsing free-form messages.
+        const recordKind = Array.isArray(record)
+          ? "array"
+          : record === null
+            ? "null"
+            : typeof record;
+        logger.warn("probe.discovery-record-non-object", {
+          probeId: cfg.id,
+          recordIndex: idx,
+          recordKind,
+        });
         input = { key };
       }
       return { input, key };
@@ -620,7 +635,9 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       ? setTimeout(() => {
           timedOut = true;
           if (resolveTimeout) {
-            resolveTimeout(syntheticError(key, timeoutReason, now, "timeout"));
+            resolveTimeout(
+              syntheticError(key, timeoutReason, now, "timeout", "TimeoutError"),
+            );
           }
           // Notify the driver via abort so a well-behaved driver can
           // stop in-flight work; this is decoupled from the timeout
@@ -680,7 +697,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // "AbortError" message. Otherwise fall through to the normal
     // error-to-synthetic path so siblings still proceed.
     if (timedOut) {
-      return syntheticError(key, timeoutReason, now, "timeout");
+      return syntheticError(
+        key,
+        timeoutReason,
+        now,
+        "timeout",
+        "TimeoutError",
+      );
     }
     const message = err instanceof Error ? err.message : String(err);
     const errName = err instanceof Error ? err.name : undefined;

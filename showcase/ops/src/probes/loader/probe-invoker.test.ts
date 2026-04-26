@@ -1975,6 +1975,117 @@ describe("buildProbeInvoker", () => {
     expect(lateRejection).toHaveLength(0);
   });
 
+  // Timeout path stamps `errName: "TimeoutError"` on the synthetic
+  // signal so operators can disambiguate timeout vs. driver-error
+  // without parsing free-form errorDesc.
+  it("populates signal.errName='TimeoutError' on timeout path", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        // Driver hangs past the timeout. The invoker wins the race and
+        // returns a synthetic-timeout result.
+        await new Promise((r) => setTimeout(r, 200));
+        return {
+          key: "x",
+          state: "green",
+          signal: {},
+          observedAt: "now",
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      timeout_ms: 15,
+      targets: [{ key: "smoke:hangs" }],
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      ...BASE_DEPS,
+    })();
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+    const sig = writes[0]!.signal as {
+      errorClass?: string;
+      errName?: string;
+    };
+    expect(sig.errorClass).toBe("timeout");
+    expect(sig.errName).toBe("TimeoutError");
+  });
+
+  // Discovery records that are null/undefined/primitive (not just
+  // arrays) must surface a single `probe.discovery-record-non-object`
+  // warn so silent zero-info inputs don't slip through.
+  it("warns probe.discovery-record-non-object on null and primitive records", async () => {
+    const warns: { msg: string; meta?: Record<string, unknown> }[] = [];
+    const captureLogger = {
+      debug: () => {},
+      info: () => {},
+      warn: (msg: string, meta?: Record<string, unknown>) => {
+        warns.push({ msg, meta });
+      },
+      error: () => {},
+    };
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "non-obj-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Mix of non-object record kinds: null, number, string, boolean.
+        return [null, 42, "hello", true];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      discovery: {
+        source: "non-obj-src",
+        filter: {},
+        key_template: "image_drift:rec",
+      },
+    };
+    const { writer } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+      logger: captureLogger,
+    })();
+    const nonObjectWarns = warns.filter(
+      (w) => w.msg === "probe.discovery-record-non-object",
+    );
+    // One warn per non-object record (4 total).
+    expect(nonObjectWarns).toHaveLength(4);
+    const kinds = nonObjectWarns
+      .map((w) => w.meta?.recordKind)
+      .sort();
+    expect(kinds).toEqual(["boolean", "null", "number", "string"]);
+  });
+
   it("does NOT warn key-shadowed when record's `key` matches interpolated key", async () => {
     const warns: { msg: string }[] = [];
     const captureLogger = {
