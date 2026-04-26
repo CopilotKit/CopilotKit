@@ -7,6 +7,34 @@ import type {
   ProbeResultWriter,
 } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import { ProbeRunTracker } from "../run-tracker.js";
+import type { ProbeRunWriter, ProbeRunSummary } from "../run-history.js";
+
+/**
+ * B7: minimal scheduler surface the invoker needs. Re-typed inline rather
+ * than imported from `../scheduler/scheduler.ts` to keep this module
+ * dependency-light (the full `Scheduler` interface owns cron + lifecycle
+ * concerns the invoker has no business touching). The orchestrator wires
+ * the real scheduler through; tests pass a fake.
+ */
+export interface InvokerScheduler {
+  getEntry(id: string): { triggeredRun: boolean } | undefined;
+  setEntryTracker(id: string, tracker: ProbeRunTracker | null): void;
+}
+
+/**
+ * B7: pass/fail summary returned by the handler. The scheduler picks this
+ * up via `runHandlerOnce` and stores it on the entry slot's
+ * `lastRunSummary` for `GET /api/probes` consumers. Mirrors the scheduler's
+ * own `RunSummary` shape (which we don't import to keep the dependency
+ * graph one-way: scheduler → invoker is OK; invoker → scheduler types is
+ * not — it would close a cycle).
+ */
+export interface RunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+}
 
 /**
  * Dependencies the invoker needs at build time. Kept as a single options
@@ -22,6 +50,23 @@ export interface ProbeInvokerDeps {
   fetchImpl: typeof fetch;
   env: Readonly<Record<string, string | undefined>>;
   now(): Date;
+  /**
+   * B7: optional scheduler reference. When supplied, the invoker registers
+   * a `ProbeRunTracker` on the matching entry for the duration of the run
+   * so `GET /api/probes` can surface inflight progress, and clears it
+   * (sets to null) when the run completes. Optional so legacy callers
+   * (and unit tests that don't care about scheduler-side bookkeeping)
+   * keep working without wiring a fake scheduler.
+   */
+  scheduler?: InvokerScheduler;
+  /**
+   * B7: optional probe-runs collection writer. When supplied, each
+   * invocation inserts a `running` row at start and updates it with
+   * `state: 'completed' | 'failed'` plus the RunSummary at finish. Failures
+   * inside the writer are caught + logged but never thrown — probe_runs is
+   * observability, not a load-bearing path.
+   */
+  runWriter?: ProbeRunWriter;
 }
 
 /**
@@ -54,13 +99,52 @@ export interface ProbeInvokerDeps {
 export function buildProbeInvoker(
   cfg: ProbeConfig,
   deps: ProbeInvokerDeps,
-): () => Promise<void> {
-  const { driver, discoveryRegistry, writer, logger, env, now, fetchImpl } =
-    deps;
+): () => Promise<RunSummary> {
+  const {
+    driver,
+    discoveryRegistry,
+    writer,
+    logger,
+    env,
+    now,
+    fetchImpl,
+    scheduler,
+    runWriter,
+  } = deps;
 
-  return async function invoke(): Promise<void> {
+  return async function invoke(): Promise<RunSummary> {
     const concurrency = cfg.max_concurrency;
     const timeoutMs = "timeout_ms" in cfg ? cfg.timeout_ms : undefined;
+
+    // B7: tracker registration. Read the slot's `triggeredRun` flag — set
+    // by scheduler.trigger() before the handler runs — so the snapshot the
+    // HTTP layer surfaces tells operators whether this run came from a
+    // manual trigger or a cron tick. Falling back to false keeps the
+    // behavior sane when no scheduler is wired (tests, future direct callers).
+    const triggered = scheduler?.getEntry(cfg.id)?.triggeredRun ?? false;
+    const tracker = new ProbeRunTracker({ probeId: cfg.id, triggered });
+    scheduler?.setEntryTracker(cfg.id, tracker);
+
+    // B7: probe_runs writer. Insert a `running` row up-front so the row's
+    // `started_at` matches the wall-clock the tracker captured. Failures
+    // here are best-effort — observability must never tank the probe.
+    let runRowId: string | null = null;
+    if (runWriter) {
+      try {
+        const created = await runWriter.start({
+          probeId: cfg.id,
+          startedAt: Date.now(),
+          triggered,
+        });
+        runRowId = created.id;
+      } catch (err) {
+        logger.error("probe.run-writer-start-failed", {
+          probeId: cfg.id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     // Discovery-level abort controller: fires if the enumerate() call
     // exceeds the per-probe `timeout_ms`, so a stalled upstream releases
     // its socket rather than orphaning past the tick. Sources that honor
@@ -78,6 +162,14 @@ export function buildProbeInvoker(
       timeoutMs,
     );
 
+    // B7: register every discovered service as queued before any of them
+    // run, so a snapshot taken between resolveInputs() and the first
+    // start() shows the full target roster.
+    for (const { key } of inputs) tracker.enqueue(key);
+
+    let passed = 0;
+    let failed = 0;
+
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
     // stampede even when M >> N.
@@ -86,6 +178,8 @@ export function buildProbeInvoker(
       while (cursor < inputs.length) {
         const idx = cursor++;
         const { input, key } = inputs[idx]!;
+        // B7: mark running just before handing the input to the driver.
+        tracker.start(key);
         const result = await executeOne({
           input,
           key,
@@ -98,6 +192,31 @@ export function buildProbeInvoker(
           writer,
           fetchImpl,
         });
+        // B7: classify the per-target outcome for the tracker. The
+        // ProbeState → tracker-result mapping:
+        //   green     → tracker.complete(slug, "green")  passed++
+        //   degraded  → tracker.complete(slug, "yellow") failed++  (degraded contributes to failure count for surfacing)
+        //   red       → tracker.complete(slug, "red")    failed++
+        //   error     → tracker.fail(slug, errorDesc)    failed++
+        // The summary's `failed` count rolls up degraded + red + error so
+        // the scheduler-side `lastRunSummary` reflects "anything not green".
+        if (result.state === "error") {
+          const errDesc =
+            (result.signal as { errorDesc?: string } | undefined)?.errorDesc ??
+            "unknown error";
+          tracker.fail(key, errDesc);
+          failed++;
+        } else if (result.state === "green") {
+          tracker.complete(key, "green");
+          passed++;
+        } else if (result.state === "degraded") {
+          tracker.complete(key, "yellow");
+          failed++;
+        } else {
+          // result.state === "red"
+          tracker.complete(key, "red");
+          failed++;
+        }
         try {
           await writer.write(result);
         } catch (err) {
@@ -115,11 +234,64 @@ export function buildProbeInvoker(
       }
     };
 
-    const workers = Array.from(
-      { length: Math.min(concurrency, Math.max(inputs.length, 1)) },
-      () => runOne(),
-    );
-    await Promise.all(workers);
+    let runState: "completed" | "failed" = "completed";
+    try {
+      const workers = Array.from(
+        { length: Math.min(concurrency, Math.max(inputs.length, 1)) },
+        () => runOne(),
+      );
+      await Promise.all(workers);
+    } catch (err) {
+      // Defensive: per-target executeOne already converts driver throws
+      // into synthetic ProbeResults so this branch is unreachable in
+      // practice. Wired anyway so a future refactor that surfaces a real
+      // throw still flips the run row to `failed` instead of silently
+      // pretending the run completed.
+      runState = "failed";
+      logger.error("probe.invoker-unhandled", {
+        probeId: cfg.id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      const summary: RunSummary = {
+        total: inputs.length,
+        passed,
+        failed,
+      };
+      // B7: finalize the run row. Best-effort: log + swallow on failure so
+      // a misbehaving PB never crashes the scheduler tick.
+      if (runWriter && runRowId !== null) {
+        const persistSummary: ProbeRunSummary = {
+          total: summary.total,
+          passed: summary.passed,
+          failed: summary.failed,
+        };
+        try {
+          await runWriter.finish({
+            id: runRowId,
+            finishedAt: Date.now(),
+            state: runState,
+            summary: persistSummary,
+          });
+        } catch (err) {
+          logger.error("probe.run-writer-finish-failed", {
+            probeId: cfg.id,
+            runId: runRowId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      // B7: clear the tracker so the next snapshot reports no inflight run.
+      // Done in `finally` so even an unexpected throw still leaves the
+      // scheduler's view clean.
+      scheduler?.setEntryTracker(cfg.id, null);
+    }
+
+    return {
+      total: inputs.length,
+      passed,
+      failed,
+    };
   };
 }
 

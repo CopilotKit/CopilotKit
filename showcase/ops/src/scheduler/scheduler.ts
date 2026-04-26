@@ -1,5 +1,13 @@
 import { Cron } from "croner";
 import type { Logger } from "../types/index.js";
+// B7: bind the in-flight tracker slot to the real ProbeRunTracker class
+// (was a structural placeholder until B2 landed). The scheduler still
+// never reads tracker fields itself — it just stores whatever the
+// trigger() caller / probe-invoker writes via `setEntryTracker(id, t)`
+// and surfaces it through `getEntry(id).tracker` for the HTTP layer.
+import type { ProbeRunTracker } from "../probes/run-tracker.js";
+
+export type { ProbeRunTracker };
 
 /**
  * Optional pass/fail summary surfaced by handlers that internally know how
@@ -23,19 +31,6 @@ export interface ScheduleEntry {
    * existing legacy invoker (`() => Promise<void>`) keeps working unchanged.
    */
   handler: () => Promise<RunSummary | void> | RunSummary | void;
-}
-
-/**
- * Placeholder for the in-flight ProbeRunTracker B2 will own. Kept structural
- * (and local to the scheduler module) so this slot does not depend on a
- * not-yet-existing file. The scheduler never reads tracker fields itself —
- * it stores whatever the trigger() caller / probe-invoker writes via
- * `setTracker(id, tracker)` and surfaces it through `getEntry(id).tracker`.
- */
-export interface ProbeRunTracker {
-  probeId: string;
-  startedAt: number;
-  services: Map<string, unknown>;
 }
 
 /**
@@ -105,6 +100,15 @@ export interface Scheduler {
    * subsequent calls observe newly-recorded run state.
    */
   getEntry(id: string): EntryStatus | undefined;
+  /**
+   * B7: install (or clear) the in-flight ProbeRunTracker for an entry.
+   * The probe-invoker calls this at run start to register a tracker so
+   * `GET /api/probes` can render per-service progress, and again with
+   * `null` once the run completes (success or failure). The scheduler
+   * never reads tracker fields itself — it forwards whatever the invoker
+   * writes here through `getEntry(id).tracker`. No-op if `id` is unknown.
+   */
+  setEntryTracker(id: string, tracker: ProbeRunTracker | null): void;
   /**
    * Manually invoke the handler associated with `id`, off the cron
    * schedule. Throws `InflightConflictError` if a tick (cron or trigger)
@@ -399,6 +403,11 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         triggeredRun: e.triggeredRun,
         tracker: e.tracker,
       };
+    },
+    setEntryTracker(id, tracker) {
+      const e = entries.get(id);
+      if (!e) return;
+      e.tracker = tracker;
     },
     async trigger(id, _opts) {
       const e = entries.get(id);
