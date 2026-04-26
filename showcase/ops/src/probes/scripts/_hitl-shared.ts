@@ -41,7 +41,11 @@
  * helper is invisible to the dynamic registry sweep.
  */
 
-import type { Page as ConversationPage } from "../helpers/conversation-runner.js";
+import {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  type Page as ConversationPage,
+} from "../helpers/conversation-runner.js";
 
 /**
  * Extended Page surface — the conversation-runner Page only exposes the
@@ -116,11 +120,17 @@ const TIME_PICKER_CARD_SELECTORS = [
  * first button in DOM order is always a slot. We use `>> nth=0` to pin
  * to the first match — playwright's selector engine supports this in
  * both `waitForSelector` and `click`.
+ *
+ * IMPORTANT: every entry here is a card-RELATIVE selector; the caller
+ * prefixes each one with the resolved `cardSelector` before clicking
+ * (see `pickTimeSlot`). Repeating the card-shaped prefix inside an
+ * entry would compose into a nested-card selector
+ * (e.g. `[data-testid="time-picker-card"] [data-testid="time-picker-card"] button`)
+ * that never matches because nested cards don't exist.
  */
 const TIME_PICKER_SLOT_SELECTORS = [
   '[data-testid="time-picker-slot"]',
-  '[data-testid="time-picker-card"] button >> nth=0',
-  '[role="dialog"] button >> nth=0',
+  "button >> nth=0",
 ] as const;
 
 /**
@@ -177,10 +187,11 @@ export async function pickTimeSlot(page: Page): Promise<void> {
   // a stray `[data-testid="time-picker-slot"]` (or a generic
   // `button >> nth=0`) cannot match elements outside the card —
   // e.g. a navbar button or a slot that lives in a different,
-  // already-rendered card. Some entries already include a card-shaped
-  // prefix, but composing under the resolved cardSelector is
-  // idempotent (duplicate prefixes still resolve correctly) and
-  // provides a stronger guarantee than per-selector inspection.
+  // already-rendered card. The cascade entries are deliberately
+  // CARD-RELATIVE (no card-shaped prefix baked in) so the composed
+  // selector is `<resolvedCard> <slotEntry>` rather than the historical
+  // `<resolvedCard> [data-testid="time-picker-card"] <button>` (a
+  // nested-card pattern that never matches).
   const scopedSlotSelectors = TIME_PICKER_SLOT_SELECTORS.map(
     (sel) => `${cardSelector} ${sel}`,
   );
@@ -250,25 +261,29 @@ export async function waitForNextAssistantMessage(
 
 /**
  * Read the current assistant-message count. Mirrors
- * `conversation-runner.ts::readMessageCount`. Two queries (canonical
- * testid → `[role="article"]` fallback) so custom composers without the
- * testid still register.
+ * `conversation-runner.ts::readMessageCount` — using the SAME
+ * canonical + fallback selectors so the helper here can never count
+ * user bubbles when the runner doesn't (a drift that previously made
+ * `waitForNextAssistantMessage` over-count user input bubbles toward
+ * the assistant total).
  */
 export async function readAssistantCount(page: Page): Promise<number> {
   try {
-    return await page.evaluate(() => {
-      const win = globalThis as unknown as {
-        document: {
-          querySelectorAll(sel: string): { length: number };
-        };
-      };
-      const canonical = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
-      if (canonical.length > 0) return canonical.length;
-      const fallback = win.document.querySelectorAll('[role="article"]');
-      return fallback.length;
-    });
+    const code = `
+      (() => {
+        const doc = globalThis.document;
+        const canonical = doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+        )});
+        if (canonical.length > 0) return canonical.length;
+        const fallback = doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+        )});
+        return fallback.length;
+      })()
+    `;
+    const fn = new Function(`return ${code};`) as () => number;
+    return await page.evaluate(fn);
   } catch {
     return 0;
   }
@@ -282,25 +297,24 @@ export async function readAssistantCount(page: Page): Promise<number> {
  */
 async function readLatestAssistantText(page: Page): Promise<string> {
   try {
-    return await page.evaluate(() => {
-      const win = globalThis as unknown as {
-        document: {
-          querySelectorAll(
-            sel: string,
-          ): ArrayLike<{ textContent: string | null }>;
-        };
-      };
-      const canonical = win.document.querySelectorAll(
-        '[data-testid="copilot-assistant-message"]',
-      );
-      const list =
-        canonical.length > 0
+    const code = `
+      (() => {
+        const doc = globalThis.document;
+        const canonical = doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+        )});
+        const list = canonical.length > 0
           ? canonical
-          : win.document.querySelectorAll('[role="article"]');
-      if (list.length === 0) return "";
-      const last = list[list.length - 1];
-      return (last?.textContent ?? "").trim();
-    });
+          : doc.querySelectorAll(${JSON.stringify(
+            ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+          )});
+        if (list.length === 0) return "";
+        const last = list[list.length - 1];
+        return (last && last.textContent ? last.textContent : "").trim();
+      })()
+    `;
+    const fn = new Function(`return ${code};`) as () => string;
+    return await page.evaluate(fn);
   } catch {
     return "";
   }
