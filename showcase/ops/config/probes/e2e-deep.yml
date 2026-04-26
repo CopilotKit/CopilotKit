@@ -26,7 +26,7 @@
 #                                   featureType yet — coverage gap, not
 #                                   regression.
 #
-# ── Cadence: */60 (every 60 minutes) ────────────────────────────────────
+# ── Cadence: hourly, on the hour ────────────────────────────────────────
 #
 # D5 is the slowest probe in the fleet — multi-turn conversations against
 # real Playwright + real (mocked) LLM. A single conversation can span 1-3
@@ -37,8 +37,10 @@
 # window without flooding the scheduler. Speed up only after observing
 # headroom in production for a full cycle.
 #
-# Cron string: `*/60 * * * *` (every 60 minutes, on the hour). Matches
-# the spec D5 cadence directive.
+# Cron string: `0 * * * *` (every hour, on the hour). The previous form
+# `*/60 * * * *` is non-canonical — the divisor equals the field range
+# (0-59), and some cron parsers reject it as invalid stepping. The
+# canonical "every hour at minute 0" expression is `0 * * * *`.
 #
 # ── timeout_ms: 300_000 (5 min) ─────────────────────────────────────────
 #
@@ -66,7 +68,7 @@
 # Starters short-circuit green inside the driver (no /demos routing).
 kind: e2e_deep
 id: e2e-deep
-schedule: "*/60 * * * *"
+schedule: "0 * * * *"
 timeout_ms: 300000
 max_concurrency: 2
 discovery:
