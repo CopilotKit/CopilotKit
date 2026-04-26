@@ -322,29 +322,59 @@ async function readLatestAssistantText(page: Page): Promise<string> {
 
 /**
  * Race a list of selectors and return the first one that resolves
- * within `SELECTOR_PROBE_TIMEOUT_MS` per probe. On full miss, throws an
- * Error with the supplied label so the caller's failure surfaces what
- * was being looked for (e.g. "approval dialog not found").
+ * within `SELECTOR_PROBE_TIMEOUT_MS`. ALL selectors are probed
+ * concurrently via `Promise.race`; whichever resolves first wins. On
+ * full miss (every probe rejects within the shared timeout), throws an
+ * Error with the supplied label and a consolidated reason listing each
+ * tried selector's failure detail so the caller's failure surfaces
+ * what was being looked for (e.g. "approval dialog not found").
+ *
+ * Concurrent probing matters: with N selectors and per-probe timeout
+ * T, sequential probing wastes N*T on a full miss (12s for 4 selectors
+ * at 3s each). True race caps total wait at T regardless of N — the
+ * docstring's promise.
  */
 export async function selectorCascade(
   page: Page,
   selectors: ReadonlyArray<string>,
   label: string,
 ): Promise<string> {
-  let lastError: unknown;
-  for (const selector of selectors) {
-    try {
-      await page.waitForSelector(selector, {
-        state: "visible",
-        timeout: SELECTOR_PROBE_TIMEOUT_MS,
-      });
-      return selector;
-    } catch (err) {
-      lastError = err;
-    }
+  if (selectors.length === 0) {
+    throw new Error(`${label} not found: no selectors provided`);
   }
-  const detail = lastError instanceof Error ? lastError.message : "";
-  throw new Error(`${label} not found${detail ? `: ${detail}` : ""}`);
+  // Track per-probe outcome for the consolidated error on full miss.
+  const failures: Array<{ selector: string; reason: string }> = [];
+  const probes = selectors.map(
+    (selector) =>
+      new Promise<string>((resolve, reject) => {
+        page
+          .waitForSelector(selector, {
+            state: "visible",
+            timeout: SELECTOR_PROBE_TIMEOUT_MS,
+          })
+          .then(() => resolve(selector))
+          .catch((err: unknown) => {
+            failures.push({
+              selector,
+              reason: err instanceof Error ? err.message : String(err),
+            });
+            reject(err);
+          });
+      }),
+  );
+  try {
+    // `Promise.any` resolves with the first probe that resolves; if
+    // every probe rejects, throws an `AggregateError`. This is the
+    // canonical "first-to-resolve" race for arrays of fallible
+    // promises (`Promise.race` would resolve/reject on the first
+    // settle, including a fast rejection).
+    return await Promise.any(probes);
+  } catch {
+    const detail = failures
+      .map((f) => `${f.selector} (${f.reason})`)
+      .join("; ");
+    throw new Error(`${label} not found${detail ? `: tried ${detail}` : ""}`);
+  }
 }
 
 function sleep(ms: number): Promise<void> {

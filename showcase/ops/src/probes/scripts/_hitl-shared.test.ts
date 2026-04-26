@@ -15,7 +15,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { pickTimeSlot, type Page } from "./_hitl-shared.js";
+import { pickTimeSlot, selectorCascade, type Page } from "./_hitl-shared.js";
 
 interface SeenSelector {
   method: "waitForSelector" | "click";
@@ -116,5 +116,103 @@ describe("pickTimeSlot — selector composition", () => {
       /\[data-testid="time-picker-card"\]/g,
     );
     expect(cardOccurrences?.length).toBe(1);
+  });
+});
+
+describe("selectorCascade — true Promise race", () => {
+  it("probes ALL selectors concurrently (call timestamps cluster, not 3s apart)", async () => {
+    // Per docstring: selectorCascade RACES selectors. Sequential probing
+    // would space out waitForSelector calls by SELECTOR_PROBE_TIMEOUT_MS
+    // (~3s) on each miss; concurrent probing dispatches all of them in
+    // the same microtask tick. We assert the call timestamps are
+    // clustered within a small window (~50ms allowance for scheduler
+    // jitter) regardless of how many of them eventually reject.
+    const callTimes: number[] = [];
+    const start = Date.now();
+    // Three selectors: the third resolves, the first two reject after
+    // a short delay. If the cascade is sequential, the third selector's
+    // call wouldn't fire until after the first two finished rejecting;
+    // if it's a true race, all three calls are dispatched ~immediately.
+    const page: Page = {
+      async waitForSelector(selector: string): Promise<unknown> {
+        callTimes.push(Date.now() - start);
+        if (selector === "third") {
+          return new Promise((resolve) => setTimeout(resolve, 20));
+        }
+        return new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error(`miss: ${selector}`)), 50),
+        );
+      },
+      async fill() {},
+      async press() {},
+      async click() {},
+      async evaluate<R>(_fn: () => R): Promise<R> {
+        return undefined as unknown as R;
+      },
+    };
+
+    const winner = await selectorCascade(
+      page,
+      ["first", "second", "third"],
+      "test",
+    );
+    expect(winner).toBe("third");
+    expect(callTimes).toHaveLength(3);
+    const spread = Math.max(...callTimes) - Math.min(...callTimes);
+    // Concurrent dispatch: all calls inside the same tick → spread is
+    // tiny (~few ms). Sequential dispatch with 50ms rejects would
+    // produce a spread well over 50ms. 50ms tolerates scheduler jitter
+    // while still failing loudly on accidental sequential probing.
+    expect(
+      spread,
+      `expected concurrent dispatch (spread <50ms), got ${spread}ms`,
+    ).toBeLessThan(50);
+  });
+
+  it("throws with consolidated detail listing every tried selector when all reject", async () => {
+    const page: Page = {
+      async waitForSelector(selector: string): Promise<unknown> {
+        throw new Error(`no match: ${selector}`);
+      },
+      async fill() {},
+      async press() {},
+      async click() {},
+      async evaluate<R>(_fn: () => R): Promise<R> {
+        return undefined as unknown as R;
+      },
+    };
+    await expect(selectorCascade(page, ["a", "b"], "thing")).rejects.toThrow(
+      /thing not found/,
+    );
+    await expect(selectorCascade(page, ["a", "b"], "thing")).rejects.toThrow(
+      /a/,
+    );
+    await expect(selectorCascade(page, ["a", "b"], "thing")).rejects.toThrow(
+      /b/,
+    );
+  });
+
+  it("returns the fast-resolving selector even when slower probes would also resolve", async () => {
+    // Fast resolution wins regardless of cascade order — this is the
+    // race semantic the docstring promises.
+    const page: Page = {
+      async waitForSelector(selector: string): Promise<unknown> {
+        if (selector === "slow") {
+          return new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        if (selector === "fast") {
+          return new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        throw new Error(`unexpected selector: ${selector}`);
+      },
+      async fill() {},
+      async press() {},
+      async click() {},
+      async evaluate<R>(_fn: () => R): Promise<R> {
+        return undefined as unknown as R;
+      },
+    };
+    const winner = await selectorCascade(page, ["slow", "fast"], "test");
+    expect(winner).toBe("fast");
   });
 });
