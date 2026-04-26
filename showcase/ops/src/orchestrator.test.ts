@@ -9,6 +9,7 @@ import {
   createStatusReader,
   diffCronSchedules,
   envForCfg,
+  createRailwayAdapter,
 } from "./orchestrator.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
@@ -885,6 +886,58 @@ describe("orchestrator.envForCfg per-cfg env overlay (R5-G4 D1)", () => {
     // pin_drift's timeout_ms is the invoker outer race, NOT a driver-internal
     // env knob — overlay must NOT inject E2E_DEMOS_TIMEOUT_MS.
     expect(overlay.E2E_DEMOS_TIMEOUT_MS).toBeUndefined();
+  });
+});
+
+/**
+ * R5-G4 D2/D3: createRailwayAdapter must use the shared `makeGql` helper
+ * so error taxonomy (Auth / Backend / Schema / Transport classes) and
+ * partial-success envelope handling stay aligned with the discovery
+ * source. Pre-fix the orchestrator's inline gql diverged on two axes:
+ *   - non-JSON response bodies (HTML edge-proxy 5xx pages) surfaced as
+ *     raw `SyntaxError` from `res.json()` instead of a schema-class
+ *     classification.
+ *   - any non-empty `errors[]` threw even when `data` was present,
+ *     where makeGql instead returns the partial data and logs the
+ *     errors.
+ */
+describe("createRailwayAdapter via shared makeGql (R5-G4 D2/D3)", () => {
+  it("classifies non-JSON response bodies as a schema-class error (D3)", async () => {
+    const fetchImpl = (async () =>
+      new Response("<html>503 Bad Gateway</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      })) as unknown as typeof fetch;
+    const adapter = createRailwayAdapter(
+      {
+        token: "tok",
+        projectId: "proj",
+        environmentId: "env",
+      },
+      { fetchImpl },
+    );
+    // makeGql throws DiscoverySourceSchemaError with a clear "response
+    // body was not JSON" message — the inline gql would throw a raw
+    // `SyntaxError: Unexpected token` from res.json().
+    await expect(adapter.listServices()).rejects.toThrow(
+      /response body was not JSON|JSON|Schema/i,
+    );
+  });
+
+  it("surfaces 401 as an auth-class error (D2 taxonomy alignment)", async () => {
+    const fetchImpl = (async () =>
+      new Response("unauthorized", {
+        status: 401,
+      })) as unknown as typeof fetch;
+    const adapter = createRailwayAdapter(
+      {
+        token: "tok",
+        projectId: "proj",
+        environmentId: "env",
+      },
+      { fetchImpl },
+    );
+    await expect(adapter.listServices()).rejects.toThrow(/401|auth/i);
   });
 });
 

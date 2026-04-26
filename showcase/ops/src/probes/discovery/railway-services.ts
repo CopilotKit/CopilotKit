@@ -601,7 +601,9 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
  * share identical error semantics — an operator reading the log stream
  * sees the same class regardless of which sub-query failed.
  */
-function makeGql(opts: {
+export const RAILWAY_GRAPHQL_ENDPOINT = ENDPOINT;
+
+export function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
   sourceName: string;

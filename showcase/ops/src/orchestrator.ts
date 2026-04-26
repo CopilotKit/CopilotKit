@@ -41,6 +41,7 @@ import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
 import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
+import { makeGql } from "./probes/discovery/railway-services.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
 export interface BootOptions {
@@ -843,63 +844,48 @@ export function buildCronProbeResolver(
  * Lists services in a project and fetches per-service env-var values
  * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
  *
- * Kept in-file (rather than spun out into a module) because this is the
- * only consumer today — if pin_drift or version_drift ever grow in-process
- * probes that also need Railway, promote this to `src/adapters/railway.ts`.
+ * Routes through the shared `makeGql` helper exported from
+ * `probes/discovery/railway-services.ts` so error taxonomy (Auth /
+ * Backend / Schema / Transport class hierarchy) and partial-success
+ * envelope handling stay aligned with the discovery source. Pre-fix,
+ * the orchestrator's inline gql threw on any non-empty `errors[]` even
+ * when `data` was present, and surfaced raw `SyntaxError` from
+ * `res.json()` on HTML edge-proxy error pages — both diverged from
+ * makeGql's behaviour.
+ *
+ * Per-tick: each `listServices()` issues one fresh GraphQL roundtrip,
+ * so renamed/added Railway services surface on the next cron tick
+ * without orchestrator restart. (The prior in-adapter cache survived
+ * across ticks and would silently miss service-list changes.)
+ *
+ * Exported for unit-test access. Production callers go through
+ * `buildCronProbeResolver`.
  */
-function createRailwayAdapter(opts: {
-  token: string;
-  projectId: string;
-  environmentId: string;
-}): {
+export function createRailwayAdapter(
+  opts: {
+    token: string;
+    projectId: string;
+    environmentId: string;
+  },
+  deps: { fetchImpl?: typeof fetch } = {},
+): {
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
 } {
-  const endpoint = "https://backboard.railway.com/graphql/v2";
-
-  async function gql<T>(
-    query: string,
-    variables: Record<string, unknown>,
-  ): Promise<T> {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${opts.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`railway gql ${res.status}: ${text}`);
-    }
-    const json = (await res.json()) as {
-      data?: T;
-      errors?: Array<{ message: string }>;
-    };
-    if (json.errors?.length) {
-      throw new Error(
-        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
-      );
-    }
-    return json.data as T;
-  }
-
-  // Cache services by name so getServiceEnv doesn't refetch the service
-  // list on every call. A cron tick on `aimock_wiring` calls listServices
-  // once and getServiceEnv once per service — keeping the mapping around
-  // shaves one extra GraphQL round-trip per invocation.
-  let cachedServices: { name: string; id: string }[] | null = null;
+  const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  const gql = makeGql({
+    fetchImpl,
+    token: opts.token,
+    sourceName: "orchestrator-railway-adapter",
+    abortSignal: undefined,
+    logger,
+  });
 
   // `listServices` is pulled into a plain binding so `getServiceEnv`
   // can call it regardless of how it's invoked. The previous `this.listServices()`
   // form broke the moment a caller destructured the adapter
   // (`const { getServiceEnv } = adapter`) or bound `getServiceEnv` as a
-  // property of another object (`input.getServiceEnv`) — both patterns
-  // already in use (see buildCronProbeResolver passing `adapter.getServiceEnv`
-  // into `aimockWiringProbe.run` as `input.getServiceEnv`). Pre-fix the
-  // fallback path would throw `TypeError: Cannot read properties of
-  // undefined (reading 'listServices')` as soon as the cache was cold.
+  // property of another object (`input.getServiceEnv`).
   const listServices = async (): Promise<{ name: string; id: string }[]> => {
     const data = await gql<{
       project: {
@@ -913,21 +899,20 @@ function createRailwayAdapter(opts: {
       }`,
       { id: opts.projectId },
     );
-    const out = data.project.services.edges.map((e) => e.node);
-    cachedServices = out;
-    return out;
+    return data.project.services.edges.map((e) => e.node);
   };
 
   const getServiceEnv = async (
     name: string,
   ): Promise<Record<string, string | undefined>> => {
-    if (!cachedServices) {
-      // Fallback path for callers that skip listServices — still fetch.
-      // Uses the lexically-captured binding instead of `this.listServices`,
-      // which would be undefined when this method is passed as a callback.
-      await listServices();
-    }
-    const match = cachedServices!.find((s) => s.name === name);
+    // No cross-tick cache: the aimock-wiring probe always calls
+    // `listServices` first (see buildCronProbeResolver), and per-tick
+    // refetch costs one GraphQL round-trip but ensures
+    // newly-renamed/added Railway services are visible without a
+    // restart. If a future caller invokes `getServiceEnv` directly
+    // without `listServices`, fetch the list here too.
+    const services = await listServices();
+    const match = services.find((s) => s.name === name);
     if (!match) {
       throw new Error(`railway service not found: ${name}`);
     }
