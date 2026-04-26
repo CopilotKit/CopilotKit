@@ -501,6 +501,50 @@ export function createE2eParityDriver(
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
 
+      // Hard gate: D6_ENABLED must be the literal string "true"
+      // (case-insensitive). Anything else — unset, empty, "false", "0",
+      // arbitrary garbage — disables D6 entirely. The driver
+      // short-circuits with an aggregate green carrying a clear
+      // disabled-note signal and emits NO per-feature side rows. This
+      // supersedes the cron schedule: even when the schedule fires the
+      // driver no-ops unless an operator has flipped the flag.
+      //
+      // Why a hard env-var gate vs the soft `D6_MODE`-required throw:
+      // the latter fails-loud as RED on every tick, which is the wrong
+      // signal for "intentionally deferred". Green-with-note matches
+      // the existing skipped semantics elsewhere in the driver
+      // (starter shape, no-features, not-selected-this-tick).
+      const d6EnabledRaw = ctx.env.D6_ENABLED;
+      const d6Enabled =
+        typeof d6EnabledRaw === "string" &&
+        d6EnabledRaw.toLowerCase() === "true";
+      if (!d6Enabled) {
+        ctx.logger.info("probe.e2e-parity.disabled", {
+          slug,
+          reason: "D6_ENABLED is not set to 'true'",
+        });
+        return {
+          key: input.key,
+          state: "green",
+          signal: {
+            shape: input.shape ?? "package",
+            slug,
+            backendUrl,
+            mode: "weekly-rotation",
+            selectedThisTick: false,
+            scopingReason: "D6 disabled",
+            total: 0,
+            passed: 0,
+            amber: 0,
+            red: 0,
+            skipped: [],
+            axisFailures: 0,
+            note: "D6 disabled — set D6_ENABLED=true to enable",
+          },
+          observedAt,
+        };
+      }
+
       // Populate the D5 script registry up front. Without this the
       // driver could be invoked standalone (without `e2e-deep` having
       // run first in the same process) and find an empty registry —

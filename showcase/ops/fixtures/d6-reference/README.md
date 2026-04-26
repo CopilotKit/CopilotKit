@@ -1,5 +1,7 @@
 # D6 reference snapshots
 
+> **D6 is disabled by default.** Set `D6_ENABLED=true` on the showcase-ops Railway service to enable. The other env vars below (`D6_MODE`, `LGP_BASE_URL`, etc.) only matter once `D6_ENABLED` is true. Without the flag the driver short-circuits with an aggregate green "D6 disabled" signal on every tick and emits no per-feature rows.
+
 Per-feature `ParitySnapshot` JSON files captured against the LangGraph-Python (LGP) showcase — the reference implementation the D6 probe compares every other showcase against.
 
 ## What lives here

@@ -1,5 +1,18 @@
 # Probe: e2e-parity (D6 — multi-turn parity vs reference)
 #
+# ── HARD GATE: D6_ENABLED ───────────────────────────────────────────────
+#
+# D6 is disabled by default. The driver reads `D6_ENABLED` from the
+# showcase-ops env at the very top of run(); when it is anything other
+# than the literal string "true" (case-insensitive) the driver
+# short-circuits with an aggregate green "D6 disabled" signal and emits
+# no per-feature side rows. This gate SUPERSEDES the cron schedule below:
+# even with the cron firing on the configured cadence, the driver
+# no-ops unless an operator has explicitly set `D6_ENABLED=true` on the
+# Railway service. To turn D6 on: set `D6_ENABLED=true` (and `D6_MODE`
+# / target if running on-demand). To turn it off again: unset the flag
+# or set it to anything else (`false`, `0`, empty).
+#
 # Drives a Playwright multi-turn conversation through every D5 feature
 # type for ONE integration per tick, captures a `ParitySnapshot`, and
 # compares it against the on-disk reference snapshot under

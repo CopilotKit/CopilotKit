@@ -118,10 +118,17 @@ function mkCtx(
   env: Record<string, string | undefined> = {},
   now: Date = new Date("2026-04-25T00:00:00Z"),
 ): ProbeContext {
+  // Default existing tests to D6_ENABLED=true so they exercise the
+  // post-gate behaviour. Tests that specifically cover the gate
+  // (disabled / case-insensitive / falsy) override this explicitly.
+  const mergedEnv: Record<string, string | undefined> = {
+    D6_ENABLED: "true",
+    ...env,
+  };
   return {
     now: () => now,
     logger,
-    env,
+    env: mergedEnv,
     writer,
   };
 }
@@ -194,6 +201,240 @@ describe("e2e-parity driver", () => {
 
   it("exposes kind === 'e2e_parity'", () => {
     expect(e2eParityDriver.kind).toBe("e2e_parity");
+  });
+
+  // ── D6_ENABLED hard gate ─────────────────────────────────────────────
+  //
+  // The driver short-circuits with aggregate green + disabled-note when
+  // D6_ENABLED is anything other than the literal string "true"
+  // (case-insensitive). All collaborators (scoping, fleet, scriptLoader,
+  // launcher, attachInterceptor, serializeDom, runConversation,
+  // loadReference, fleetResolver) must NEVER be called when the flag
+  // is off — proven via mock call counts.
+
+  it("D6_ENABLED unset → aggregate green disabled-note, no side rows, no collaborators called", async () => {
+    let scriptLoaderCalls = 0;
+    let launcherCalls = 0;
+    let attachCalls = 0;
+    let serializeCalls = 0;
+    let loadReferenceCalls = 0;
+    let runConversationCalls = 0;
+    let fleetResolverCalls = 0;
+
+    const driver = createE2eParityDriver({
+      launcher: async () => {
+        launcherCalls++;
+        return makeBrowser().browser;
+      },
+      attachInterceptor: async () => {
+        attachCalls++;
+        return {
+          async stop() {
+            return makeCapture();
+          },
+        };
+      },
+      serializeDom: async () => {
+        serializeCalls++;
+        return [];
+      },
+      loadReference: async () => {
+        loadReferenceCalls++;
+        return {
+          status: "ok",
+          snapshot: makeSnapshot(),
+          snapshotPath: "/fake/x.json",
+        };
+      },
+      runConversation: async () => {
+        runConversationCalls++;
+        return {
+          turns_completed: 1,
+          total_turns: 1,
+          turn_durations_ms: [100],
+        };
+      },
+      fleetResolver: async () => {
+        fleetResolverCalls++;
+        return ["langgraph-python"];
+      },
+      scriptLoader: async () => {
+        scriptLoaderCalls++;
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    // Explicitly override env to be empty (mkCtx defaults D6_ENABLED to
+    // "true"; this test wants the disabled path so we override it).
+    const result = await driver.run(mkCtx(writer, { D6_ENABLED: undefined }), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eParityAggregateSignal;
+    expect(sig.note).toMatch(/D6 disabled/);
+    expect(sig.note).toMatch(/D6_ENABLED=true/);
+    expect(sig.selectedThisTick).toBe(false);
+    expect(sig.total).toBe(0);
+    expect(sig.passed).toBe(0);
+    expect(sig.amber).toBe(0);
+    expect(sig.red).toBe(0);
+
+    // No side rows emitted.
+    expect(writes).toHaveLength(0);
+
+    // No collaborators called — driver exits before any work.
+    expect(scriptLoaderCalls).toBe(0);
+    expect(launcherCalls).toBe(0);
+    expect(attachCalls).toBe(0);
+    expect(serializeCalls).toBe(0);
+    expect(loadReferenceCalls).toBe(0);
+    expect(runConversationCalls).toBe(0);
+    expect(fleetResolverCalls).toBe(0);
+  });
+
+  it("D6_ENABLED='true' → driver proceeds (scoping/fleet collaborators ARE called)", async () => {
+    registerD5Script(makeScript());
+    let fleetResolverCalls = 0;
+    let scriptLoaderCalls = 0;
+
+    const reference = makeSnapshot();
+    const { browser } = makeBrowser();
+    const { attachInterceptor } = stubInterceptor(makeCapture());
+
+    const driver = createE2eParityDriver({
+      launcher: async () => browser,
+      attachInterceptor,
+      serializeDom: async () => reference.domElements,
+      loadReference: async () => ({
+        status: "ok",
+        snapshot: reference,
+        snapshotPath: "/fake/x.json",
+      }),
+      runConversation: async () => ({
+        turns_completed: 1,
+        total_turns: 1,
+        turn_durations_ms: [100],
+      }),
+      fleetResolver: async () => {
+        fleetResolverCalls++;
+        return ["langgraph-python"];
+      },
+      scriptLoader: async () => {
+        scriptLoaderCalls++;
+      },
+    });
+    const { writer } = mkWriter();
+
+    await driver.run(mkCtx(writer, { D6_ENABLED: "true" }), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    // Both collaborators MUST be called when the flag is on.
+    expect(scriptLoaderCalls).toBe(1);
+    expect(fleetResolverCalls).toBe(1);
+  });
+
+  it("D6_ENABLED='TRUE' → enabled (case-insensitive)", async () => {
+    registerD5Script(makeScript());
+    let fleetResolverCalls = 0;
+
+    const reference = makeSnapshot();
+    const { browser } = makeBrowser();
+    const { attachInterceptor } = stubInterceptor(makeCapture());
+
+    const driver = createE2eParityDriver({
+      launcher: async () => browser,
+      attachInterceptor,
+      serializeDom: async () => reference.domElements,
+      loadReference: async () => ({
+        status: "ok",
+        snapshot: reference,
+        snapshotPath: "/fake/x.json",
+      }),
+      runConversation: async () => ({
+        turns_completed: 1,
+        total_turns: 1,
+        turn_durations_ms: [100],
+      }),
+      fleetResolver: async () => {
+        fleetResolverCalls++;
+        return ["langgraph-python"];
+      },
+    });
+    const { writer } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer, { D6_ENABLED: "TRUE" }), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(fleetResolverCalls).toBe(1);
+    // Driver proceeded past the gate; no disabled note on the
+    // aggregate signal.
+    const sig = result.signal as E2eParityAggregateSignal;
+    expect(sig.note ?? "").not.toMatch(/D6 disabled/);
+  });
+
+  it("D6_ENABLED='false' → disabled", async () => {
+    let fleetResolverCalls = 0;
+    const driver = createE2eParityDriver({
+      fleetResolver: async () => {
+        fleetResolverCalls++;
+        return ["langgraph-python"];
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer, { D6_ENABLED: "false" }), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eParityAggregateSignal;
+    expect(sig.note).toMatch(/D6 disabled/);
+    expect(fleetResolverCalls).toBe(0);
+    expect(writes).toHaveLength(0);
+  });
+
+  it("D6_ENABLED='' (empty string) → disabled", async () => {
+    let fleetResolverCalls = 0;
+    const driver = createE2eParityDriver({
+      fleetResolver: async () => {
+        fleetResolverCalls++;
+        return ["langgraph-python"];
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer, { D6_ENABLED: "" }), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eParityAggregateSignal;
+    expect(sig.note).toMatch(/D6 disabled/);
+    expect(fleetResolverCalls).toBe(0);
+    expect(writes).toHaveLength(0);
   });
 
   it("emits aggregate green and one green side row when parity passes on all axes", async () => {
