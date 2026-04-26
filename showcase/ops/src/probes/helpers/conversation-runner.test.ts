@@ -71,18 +71,60 @@ describe("runConversation", () => {
     // the settle window without the tests caring about exact timing.
     const page = makePage({
       evaluateValues: [
-        0, 0, 1, 1, 1, 1, 1, 1, 1, 1, // turn 1 settle
-        1, 1, 2, 2, 2, 2, 2, 2, 2, 2, // turn 2 settle
-        2, 2, 3, 3, 3, 3, 3, 3, 3, 3, // turn 3 settle
+        0,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1, // turn 1 settle
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2, // turn 2 settle
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3, // turn 3 settle
       ],
       recorded,
     });
 
     const order: number[] = [];
     const turns: ConversationTurn[] = [
-      { input: "first", assertions: async () => { order.push(1); } },
-      { input: "second", assertions: async () => { order.push(2); } },
-      { input: "third", assertions: async () => { order.push(3); } },
+      {
+        input: "first",
+        assertions: async () => {
+          order.push(1);
+        },
+      },
+      {
+        input: "second",
+        assertions: async () => {
+          order.push(2);
+        },
+      },
+      {
+        input: "third",
+        assertions: async () => {
+          order.push(3);
+        },
+      },
     ];
 
     const result = await runConversation(page, turns, {
@@ -103,8 +145,7 @@ describe("runConversation", () => {
     const recorded = { fills: [] as string[], presses: [] as string[] };
     const page = makePage({
       evaluateValues: [
-        0, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-        1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
+        0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2,
         // turn 3 should never run
       ],
       recorded,
@@ -205,11 +246,9 @@ describe("runConversation", () => {
       },
     };
 
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(1);
     expect(triedSelectors.length).toBeGreaterThanOrEqual(3);
@@ -233,11 +272,10 @@ describe("runConversation", () => {
       },
     };
 
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { chatInputSelector: "#custom-input", assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      chatInputSelector: "#custom-input",
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(1);
     expect(triedSelectors).toEqual(["#custom-input"]);
@@ -261,11 +299,9 @@ describe("runConversation", () => {
 
   it("propagates errors thrown during fill() as a turn failure", async () => {
     const page = makePage({ throwOnFill: new Error("input not editable") });
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
 
     expect(result.turns_completed).toBe(0);
     expect(result.failure_turn).toBe(1);
@@ -312,12 +348,131 @@ describe("runConversation", () => {
         return 1 as never;
       },
     };
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
     expect(result.turns_completed).toBe(1);
+  });
+
+  it("readMessageCount narrows fallback to assistant-only articles", async () => {
+    // Stand up a fake document.querySelectorAll that records the
+    // selector strings the runner asks for, and returns counts based
+    // on a per-selector script. We need the count to grow past
+    // baseline so the conversation actually settles (otherwise we
+    // hit the test timeout); a tiny call counter ramps the assistant
+    // count from 0 to 2 across consecutive evaluate() invocations.
+    const queriedSelectors: string[] = [];
+    let evalCount = 0;
+    const fakeDocument = {
+      querySelectorAll: (sel: string): { length: number } => {
+        queriedSelectors.push(sel);
+        // Canonical testid: 0 (forces fallback path).
+        if (sel === '[data-testid="copilot-assistant-message"]') {
+          return { length: 0 };
+        }
+        // Tagged-assistant articles: 0 (forces last-resort path).
+        if (sel === '[role="article"][data-message-role="assistant"]') {
+          return { length: 0 };
+        }
+        // Last-resort selector excludes user-tagged articles.
+        // First call (baseline) → 0; subsequent calls → 2 (settled).
+        if (sel === '[role="article"]:not([data-message-role="user"])') {
+          return { length: evalCount === 0 ? 0 : 2 };
+        }
+        // ANY other [role="article"] selector means we leaked the
+        // unscoped fallback that this fix was supposed to remove.
+        return { length: 999 };
+      },
+    };
+
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(fn) {
+        // Patch globalThis.document with our fake for the duration
+        // of the evaluate call. The selector-fn closes over
+        // globalThis at runtime, mirroring the browser-side execution.
+        const originalDoc = (globalThis as { document?: unknown }).document;
+        (globalThis as { document?: unknown }).document = fakeDocument;
+        try {
+          const r = fn();
+          evalCount++;
+          return r as never;
+        } finally {
+          (globalThis as { document?: unknown }).document = originalDoc;
+        }
+      },
+    };
+
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
+
+    // Conversation completed without timing out.
+    expect(result.turns_completed).toBe(1);
+    // The narrowed fallback selector MUST appear in the queried set.
+    expect(queriedSelectors).toContain(
+      '[role="article"]:not([data-message-role="user"])',
+    );
+    // The unscoped selector that this fix was supposed to remove
+    // MUST NOT appear.
+    expect(queriedSelectors).not.toContain('[role="article"]');
+  });
+
+  it("readMessageCount prefers an explicit assistant-tagged article", async () => {
+    // When the canonical testid is absent but the page DOES tag
+    // articles with `data-message-role="assistant"`, that branch
+    // wins — the unscoped fallback is never queried. We ramp
+    // tagged-assistant from 1 to 2 across calls so baseline=1 and
+    // settled-count=2 (count grew past baseline, then stable). The
+    // fallback selector is unreachable on every call because
+    // tagged.length > 0 short-circuits the function.
+    const queriedSelectors: string[] = [];
+    let evalCount = 0;
+    const fakeDocument = {
+      querySelectorAll: (sel: string): { length: number } => {
+        queriedSelectors.push(sel);
+        if (sel === '[data-testid="copilot-assistant-message"]') {
+          return { length: 0 };
+        }
+        if (sel === '[role="article"][data-message-role="assistant"]') {
+          return { length: evalCount === 0 ? 1 : 2 };
+        }
+        return { length: 999 };
+      },
+    };
+
+    const page: Page = {
+      async waitForSelector() {},
+      async fill() {},
+      async press() {},
+      async evaluate(fn) {
+        const originalDoc = (globalThis as { document?: unknown }).document;
+        (globalThis as { document?: unknown }).document = fakeDocument;
+        try {
+          const r = fn();
+          evalCount++;
+          return r as never;
+        } finally {
+          (globalThis as { document?: unknown }).document = originalDoc;
+        }
+      },
+    };
+
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
+
+    expect(result.turns_completed).toBe(1);
+    expect(queriedSelectors).toContain(
+      '[role="article"][data-message-role="assistant"]',
+    );
+    expect(queriedSelectors).not.toContain(
+      '[role="article"]:not([data-message-role="user"])',
+    );
+    // 999 sentinel never returned (the fallback path was never taken).
+    expect(queriedSelectors).not.toContain('[role="article"]');
   });
 
   it("stringifies non-Error throws (e.g. a thrown string) into result.error", async () => {
@@ -335,11 +490,9 @@ describe("runConversation", () => {
         return 0 as never;
       },
     };
-    const result = await runConversation(
-      page,
-      [{ input: "hi" }],
-      { assistantSettleMs: 30 },
-    );
+    const result = await runConversation(page, [{ input: "hi" }], {
+      assistantSettleMs: 30,
+    });
     expect(result.failure_turn).toBe(1);
     expect(result.error).toContain("non-error string boom");
   });
