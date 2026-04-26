@@ -48,6 +48,13 @@ export const DIMENSIONS = [
   // `keyFor("e2e", slug, featureId)` lookup in live-status.ts#resolveCell.
   "e2e_demos",
   "e2e",
+  // D5 — multi-turn conversation driver. The `e2e_deep` dimension is the
+  // primary `kind:` literal in `config/probes/e2e-deep.yml`; the driver
+  // emits per-feature side rows under `d5:<slug>/<featureType>` keys so
+  // both the YAML kind and the side-row dimension need closed-enum slots
+  // here for probe-config + rule-YAML validation at load time.
+  "e2e_deep",
+  "d5",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
