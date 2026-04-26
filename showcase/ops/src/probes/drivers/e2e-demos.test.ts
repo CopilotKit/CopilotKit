@@ -610,17 +610,12 @@ describe("e2e-demos driver", () => {
 // --- Integration: shortest-service-first dispatch ------------------------
 //
 // Drives the WHOLE invoker → e2e-demos driver path against multiple fake
-// services with varying demo counts. PD1 is implementing the sort inside
+// services with varying demo counts. The sort lives inside
 // `buildProbeInvoker`'s discovery path so that a tick with services of
 // length [5, 20, 38] dispatches the smallest first under bounded
 // concurrency. This integration test catches regressions where the sort
 // is bypassed (e.g. moved into the driver instead of the invoker, or
 // short-circuited for static targets).
-//
-// Until PD1 lands the sort, this block is RED — the assertions on the
-// 5-demo service finishing before the 38-demo service starts will fail
-// because FIFO dispatch under max_concurrency=2 puts the 38-demo
-// service in one of the first two slots.
 
 describe("shortest-service-first dispatch (integration)", () => {
   it("dispatches small services before large ones via the invoker", async () => {
