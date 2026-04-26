@@ -365,10 +365,20 @@ export async function boot(opts: BootOptions = {}): Promise<{
     });
   }
 
-  const unwatchProbes = probeLoader.watch((next) => {
-    diffProbeSchedules(next);
-    bus.emit("probes.reloaded", { count: next.length });
-  });
+  // R5-G4 D7: initialize as a no-op BEFORE the watch() call so a
+  // synchronous throw inside `probeLoader.watch(...)` cannot leave
+  // `unwatchProbes` undefined. Pre-fix, a stop() invoked after a
+  // failed watch() init would throw `ReferenceError: unwatchProbes is
+  // not defined` and orphan the engine + scheduler.
+  let unwatchProbes: () => void = () => {};
+  try {
+    unwatchProbes = probeLoader.watch((next) => {
+      diffProbeSchedules(next);
+      bus.emit("probes.reloaded", { count: next.length });
+    });
+  } catch (err) {
+    logErrorWithStack(logger, "orchestrator.probe-watch-init-failed", err);
+  }
 
   const unwatch = loader.watch((next) => {
     rules = next;
