@@ -15,6 +15,11 @@ import type { ProbeScheduleEntry } from "./status-tab";
 export interface StatusTableProps {
   entries: ProbeScheduleEntry[];
   onTrigger: (probeId: string, slugs?: string[]) => Promise<void>;
+  /**
+   * Optional handler invoked when the operator clicks a probe row (outside
+   * the trigger button). Used by the parent to open the drilldown panel.
+   */
+  onSelect?: (probeId: string) => void;
 }
 
 /** Humanize a 5-field cron expression into a short label. */
@@ -125,7 +130,7 @@ function useNowTick(): number {
   return now;
 }
 
-export function StatusTable({ entries, onTrigger }: StatusTableProps) {
+export function StatusTable({ entries, onTrigger, onSelect }: StatusTableProps) {
   const now = useNowTick();
 
   return (
@@ -157,7 +162,10 @@ export function StatusTable({ entries, onTrigger }: StatusTableProps) {
               <tr
                 key={e.id}
                 data-testid={`status-row-${e.id}`}
-                className="border-b border-[var(--border)] hover:bg-[var(--surface-hover)]"
+                onClick={onSelect ? () => onSelect(e.id) : undefined}
+                className={`border-b border-[var(--border)] hover:bg-[var(--surface-hover)] ${
+                  onSelect ? "cursor-pointer" : ""
+                }`}
               >
                 <td className="py-2 pr-4 font-mono text-xs">{e.id}</td>
                 <td className="py-2 pr-4 text-xs text-[var(--text-secondary)]">
@@ -181,7 +189,12 @@ export function StatusTable({ entries, onTrigger }: StatusTableProps) {
                 >
                   {result}
                 </td>
-                <td className="py-2">
+                <td
+                  className="py-2"
+                  onClick={
+                    onSelect ? (ev) => ev.stopPropagation() : undefined
+                  }
+                >
                   <StatusTriggerButton
                     probeId={e.id}
                     serviceSlugs={slugs}

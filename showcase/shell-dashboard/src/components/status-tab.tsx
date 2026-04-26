@@ -8,8 +8,10 @@
  * `ProbeScheduleEntry` interface below with the canonical export from
  * that module, and have page.tsx wire the `useProbes()` hook.
  */
+import { useState } from "react";
 import { StatusTable } from "./status-table";
 import { StatusRunningPanel } from "./status-running-panel";
+import { StatusDetailPanel } from "./status-detail-panel";
 
 // TODO(B4b integration): replace with import from lib/ops-api
 export interface ProbeScheduleEntry {
@@ -47,10 +49,21 @@ export interface StatusTabProps {
 }
 
 export function StatusTab({ entries, onTrigger }: StatusTabProps) {
+  // Drilldown selection lives at the StatusTab level so the table and the
+  // detail panel can stay decoupled — table emits an id, panel consumes it.
+  const [selectedProbeId, setSelectedProbeId] = useState<string | null>(null);
   return (
     <div data-testid="status-tab" className="flex flex-col">
-      <StatusTable entries={entries} onTrigger={onTrigger} />
+      <StatusTable
+        entries={entries}
+        onTrigger={onTrigger}
+        onSelect={setSelectedProbeId}
+      />
       <StatusRunningPanel entries={entries} />
+      <StatusDetailPanel
+        probeId={selectedProbeId}
+        onClose={() => setSelectedProbeId(null)}
+      />
     </div>
   );
 }
