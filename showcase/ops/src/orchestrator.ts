@@ -655,6 +655,53 @@ export async function boot(opts: BootOptions = {}): Promise<{
     schedulerRunning = false;
     throw err;
   }
+  // R4-A.3: serve() returns the http.Server SYNCHRONOUSLY but bind happens
+  // via server.listen() which emits 'error' ASYNCHRONOUSLY for conditions
+  // like EADDRINUSE. The R2-B.2 try/catch only catches synchronous throws —
+  // a real bind failure resolves boot() successfully with an orphaned
+  // scheduler still ticking. Race 'listening' vs 'error' so async bind
+  // errors propagate as boot() rejections AND tear down the scheduler.
+  //
+  // The returned object is a Node http.Server (or Http2Server) per
+  // @hono/node-server's `ServerType`; both extend EventEmitter and emit
+  // 'listening' on bind success and 'error' on bind failure. If the server
+  // is already in `listening` state by the time we get here (sync bind
+  // succeeded before we attached listeners), short-circuit to resolve.
+  await new Promise<void>((resolve, reject) => {
+    const srv = server as unknown as {
+      listening?: boolean;
+      once(event: string, cb: (...args: unknown[]) => void): unknown;
+      removeListener(event: string, cb: (...args: unknown[]) => void): unknown;
+    };
+    const onListen = (): void => {
+      srv.removeListener("error", onError);
+      resolve();
+    };
+    const onError = (err: unknown): void => {
+      srv.removeListener("listening", onListen);
+      // Fire the cleanup as a separate promise chain so the rejection
+      // below isn't gated on scheduler.stop() — operators see the original
+      // bind error, not a stop-failure shadow. schedulerRunning flips
+      // immediately so /health stops claiming "ok" before the stop awaits.
+      schedulerRunning = false;
+      scheduler.stop().catch((stopErr) =>
+        logger.error("orchestrator.stop-after-async-bind-failure", {
+          err: String(stopErr),
+        }),
+      );
+      reject(err instanceof Error ? err : new Error(String(err)));
+    };
+    srv.once("listening", onListen);
+    srv.once("error", onError);
+    // If listen() resolved synchronously before we attached, the
+    // 'listening' event already fired and we'd hang forever. Guard with
+    // the `.listening` flag.
+    if (srv.listening === true) {
+      srv.removeListener("error", onError);
+      srv.removeListener("listening", onListen);
+      resolve();
+    }
+  });
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {

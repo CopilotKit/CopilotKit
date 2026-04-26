@@ -1392,6 +1392,128 @@ describe("orchestrator boot serve() failure cleanup (R2-B.2)", () => {
   });
 });
 
+/**
+ * R4-A.3: serve() async bind error escapes try/catch.
+ *
+ * `serve()` from @hono/node-server returns the http.Server SYNCHRONOUSLY but
+ * the bind happens via server.listen() which emits 'error' ASYNCHRONOUSLY for
+ * conditions like EADDRINUSE. The R2-B.2 try/catch only catches synchronous
+ * throws — a real bind failure resolves boot() successfully with an orphaned
+ * scheduler still ticking.
+ *
+ * Fix: attach a listener to the returned server's 'error' event and race it
+ * against 'listening'. On 'error', stop the scheduler and reject boot().
+ */
+describe("orchestrator boot serve() async bind error cleanup (R4-A.3)", () => {
+  let tempDir: string;
+  let port = 0;
+
+  beforeEach(async () => {
+    tempDir = await mkTempConfigDir();
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects boot AND calls scheduler.stop() when serve() returns a server that emits 'error' asynchronously", async () => {
+    vi.resetModules();
+
+    // Spy on createScheduler so we can observe `stop()` after the async
+    // bind error. All other methods delegate to the real scheduler.
+    const stopSpy = vi.fn(async () => undefined);
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (
+          deps: Parameters<typeof actual.createScheduler>[0],
+        ) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            stop: async (...args: unknown[]) => {
+              stopSpy();
+              return (real.stop as (...a: unknown[]) => Promise<void>)(...args);
+            },
+          };
+        },
+      };
+    });
+
+    // Mock `serve()` to return a server stub that emits 'error'
+    // asynchronously (mimicking real EADDRINUSE behaviour where the
+    // returned server's listen() schedules the bind on next tick).
+    vi.doMock("@hono/node-server", async () => {
+      const actual =
+        await vi.importActual<typeof import("@hono/node-server")>(
+          "@hono/node-server",
+        );
+      // Build a minimal EventEmitter-like stub that satisfies the
+      // surface boot() touches (once/removeListener for the race,
+      // close for stop()).
+      return {
+        ...actual,
+        serve: () => {
+          const listeners: Record<string, Array<(...a: unknown[]) => void>> = {
+            error: [],
+            listening: [],
+          };
+          const stub = {
+            listening: false,
+            once(event: string, cb: (...a: unknown[]) => void) {
+              listeners[event] ??= [];
+              listeners[event].push(cb);
+              return stub;
+            },
+            on(event: string, cb: (...a: unknown[]) => void) {
+              listeners[event] ??= [];
+              listeners[event].push(cb);
+              return stub;
+            },
+            removeListener(event: string, cb: (...a: unknown[]) => void) {
+              const arr = listeners[event];
+              if (arr) {
+                const i = arr.indexOf(cb);
+                if (i >= 0) arr.splice(i, 1);
+              }
+              return stub;
+            },
+            close(cb?: (err?: Error) => void) {
+              if (cb) cb();
+              return stub;
+            },
+          };
+          // Schedule the async error AFTER the current tick so boot()
+          // has time to attach its listeners.
+          setTimeout(() => {
+            const errs = listeners.error.slice();
+            for (const cb of errs)
+              cb(new Error("simulated EADDRINUSE from async listen()"));
+          }, 0);
+          return stub as unknown as ReturnType<typeof actual.serve>;
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    await expect(
+      orchMod.boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/simulated EADDRINUSE from async listen\(\)/);
+
+    // Critical assertion: scheduler.stop() must have been called as part
+    // of cleanup. Pre-fix, the async bind error was unobserved by the
+    // R2-B.2 try/catch and boot() resolved with the scheduler running.
+    expect(stopSpy).toHaveBeenCalled();
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {
