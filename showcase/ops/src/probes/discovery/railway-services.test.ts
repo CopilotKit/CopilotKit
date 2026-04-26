@@ -1052,9 +1052,7 @@ describe("railwayServicesSource", () => {
     // as "no demos" rather than poisoning the tick.
     const registryPath = await writeRegistry(
       JSON.stringify({
-        integrations: [
-          { slug: "ag2", demos: [{ id: "agentic-chat" }] },
-        ],
+        integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
       }),
     );
     const { fetchImpl } = makeFetch([
@@ -1175,8 +1173,7 @@ describe("railwayServicesSource", () => {
         expect(out).toHaveLength(1);
         expect(out[0].demos).toEqual([]);
         const shapeInvalid = warn.mock.calls.filter(
-          (c) =>
-            c[0] === "discovery.railway-services.registry-shape-invalid",
+          (c) => c[0] === "discovery.railway-services.registry-shape-invalid",
         );
         expect(shapeInvalid).toHaveLength(1);
       });
@@ -1266,9 +1263,7 @@ describe("railwayServicesSource", () => {
     // empty demos map (NOT an exception that aborts the whole tick).
     const registryPath = await writeRegistry(
       JSON.stringify({
-        integrations: [
-          { slug: "ag2", demos: [{ id: "agentic-chat" }] },
-        ],
+        integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
       }),
     );
     const { fetchImpl } = makeFetch([
@@ -1745,10 +1740,7 @@ describe("railwayServicesSource", () => {
         },
         { status: 200, body: { data: { variables: {} } } },
       ]);
-      const out = await railwayServicesSource.enumerate(
-        makeCtx(fetchImpl),
-        {},
-      );
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
       expect(out[0].deployedDigest).toBe(
         "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
       );
@@ -1770,10 +1762,7 @@ describe("railwayServicesSource", () => {
         },
         { status: 200, body: { data: { variables: {} } } },
       ]);
-      const out = await railwayServicesSource.enumerate(
-        makeCtx(fetchImpl),
-        {},
-      );
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
       expect(out[0].deployedDigest).toBe("");
     });
 
@@ -1793,10 +1782,7 @@ describe("railwayServicesSource", () => {
         },
         { status: 200, body: { data: { variables: {} } } },
       ]);
-      const out = await railwayServicesSource.enumerate(
-        makeCtx(fetchImpl),
-        {},
-      );
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
       expect(out[0].deployedDigest).toBe("");
     });
 
@@ -1816,10 +1802,7 @@ describe("railwayServicesSource", () => {
         },
         { status: 200, body: { data: { variables: {} } } },
       ]);
-      const out = await railwayServicesSource.enumerate(
-        makeCtx(fetchImpl),
-        {},
-      );
+      const out = await railwayServicesSource.enumerate(makeCtx(fetchImpl), {});
       expect(out[0].deployedDigest).toBe("");
     });
   });
@@ -1906,9 +1889,7 @@ describe("railwayServicesSource", () => {
     it("starter service slug strips only `showcase-` prefix; demos lookup misses gracefully", async () => {
       const registryPath = await writeRegistry(
         JSON.stringify({
-          integrations: [
-            { slug: "ag2", demos: [{ id: "agentic-chat" }] },
-          ],
+          integrations: [{ slug: "ag2", demos: [{ id: "agentic-chat" }] }],
         }),
       );
       const { fetchImpl } = makeFetch([

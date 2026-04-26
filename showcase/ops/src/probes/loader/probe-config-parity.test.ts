@@ -62,11 +62,13 @@ const RAILWAY_PROBES_EXEMPT_FROM_EXCLUDES_FLOOR: Record<string, string> = {
   // image-drift checks GHCR digest pinning across ALL railway services
   // (including infra), so the floor would actively break it — infra
   // drift is real signal here.
-  "image-drift.yml": "image-drift checks digest pinning across all services (including infra)",
+  "image-drift.yml":
+    "image-drift checks digest pinning across all services (including infra)",
   // qa is scoped to a single service today (`showcase-langgraph-python`)
   // via a precise `namePrefix`, so the floor doesn't apply — there's
   // no infra leakage to exclude.
-  "qa.yml": "qa is scoped to one service via precise namePrefix; no infra leakage",
+  "qa.yml":
+    "qa is scoped to one service via precise namePrefix; no infra leakage",
 };
 
 describe("probe-config nameExcludes parity", () => {
@@ -161,7 +163,9 @@ describe("probe-config nameExcludes parity", () => {
     // floor invariant must too. Filtering only `.yml` would let a probe
     // authored as `<name>.yaml` silently bypass the railway-services
     // floor check and flap infra services red.
-    const ymlFiles = entries.filter((f) => f.endsWith(".yml") || f.endsWith(".yaml"));
+    const ymlFiles = entries.filter(
+      (f) => f.endsWith(".yml") || f.endsWith(".yaml"),
+    );
 
     const smokeFloor = new Set(await readNameExcludes("smoke.yml"));
     expect(smokeFloor.size).toBeGreaterThan(0);

@@ -829,7 +829,10 @@ describe("buildProbeInvoker", () => {
       const records = [
         { name: "huge", demos: Array.from({ length: 38 }, (_, i) => `d${i}`) },
         { name: "small", demos: ["a"] },
-        { name: "medium", demos: Array.from({ length: 20 }, (_, i) => `d${i}`) },
+        {
+          name: "medium",
+          demos: Array.from({ length: 20 }, (_, i) => `d${i}`),
+        },
       ];
       const source: DiscoverySource = {
         name: "noop-src",
@@ -1064,7 +1067,10 @@ describe("buildProbeInvoker", () => {
       // Filter to only this test's tagged rejection — siblings'
       // late rejections (if any leaked through process isolation)
       // get ignored rather than failing this test.
-      if (reason instanceof Error && reason.message.includes(REJECTION_MARKER)) {
+      if (
+        reason instanceof Error &&
+        reason.message.includes(REJECTION_MARKER)
+      ) {
         unhandled.push(reason);
       }
     };
@@ -1458,7 +1464,10 @@ describe("buildProbeInvoker", () => {
     //     — the source IS registered, it just threw at runtime).
     expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
     expect(writes[0]!.state).toBe("error");
-    const sig = writes[0]!.signal as { errorClass?: string; errorDesc?: string };
+    const sig = writes[0]!.signal as {
+      errorClass?: string;
+      errorDesc?: string;
+    };
     expect(sig.errorClass).toBe("discovery-error");
     expect(sig.errorDesc).toContain("synthetic-failure");
   });
@@ -1856,10 +1865,7 @@ describe("buildProbeInvoker", () => {
         // First record carries an inherent `key` that the interpolation
         // will override; the warning must fire for it but NOT for the
         // second record (which has no `key` field).
-        return [
-          { name: "alpha", key: "stale-from-source" },
-          { name: "beta" },
-        ];
+        return [{ name: "alpha", key: "stale-from-source" }, { name: "beta" }];
       },
     };
     const discoveryRegistry = createDiscoveryRegistry();
@@ -2069,9 +2075,7 @@ describe("buildProbeInvoker", () => {
     );
     // One warn per non-object record (4 total).
     expect(nonObjectWarns).toHaveLength(4);
-    const kinds = nonObjectWarns
-      .map((w) => w.meta?.recordKind)
-      .sort();
+    const kinds = nonObjectWarns.map((w) => w.meta?.recordKind).sort();
     expect(kinds).toEqual(["boolean", "null", "number", "string"]);
   });
 
@@ -2107,11 +2111,7 @@ describe("buildProbeInvoker", () => {
     // dispatch (and thus write) order matches enumeration order
     // verbatim. Without the short-circuit, the tie-break on `key`
     // would re-order to alpha, mike, zulu.
-    const records = [
-      { name: "zulu" },
-      { name: "alpha" },
-      { name: "mike" },
-    ];
+    const records = [{ name: "zulu" }, { name: "alpha" }, { name: "mike" }];
     const source: DiscoverySource = {
       name: "no-demos-src",
       configSchema: z.object({}).passthrough(),

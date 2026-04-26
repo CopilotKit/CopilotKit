@@ -34,7 +34,8 @@ interface LogEntry {
 }
 function mkSpyLogger(): { logger: Logger; entries: LogEntry[] } {
   const entries: LogEntry[] = [];
-  const log = (level: LogEntry["level"]) =>
+  const log =
+    (level: LogEntry["level"]) =>
     (msg: string, meta?: Record<string, unknown>) => {
       entries.push({ level, msg, meta });
     };
@@ -1186,9 +1187,7 @@ describe("e2e-demos driver", () => {
     const { browser } = makeBrowser([]);
     const driver = createE2eDemosDriver({
       launcher: async () => browser,
-      demosResolver: async () => [
-        { id: "broken-demo", route: "" },
-      ],
+      demosResolver: async () => [{ id: "broken-demo", route: "" }],
     });
     const { writer, writes } = mkWriter();
 
@@ -1205,7 +1204,10 @@ describe("e2e-demos driver", () => {
 
     const sideRow = writes.find((w) => w.key === "e2e:foo/broken-demo");
     expect(sideRow?.state).toBe("red");
-    const rowSig = sideRow?.signal as { errorClass?: string; errorDesc?: string };
+    const rowSig = sideRow?.signal as {
+      errorClass?: string;
+      errorDesc?: string;
+    };
     expect(rowSig?.errorClass).toBe("config-invalid");
     expect(rowSig?.errorDesc).toBe("route is empty string");
   });
@@ -1289,16 +1291,13 @@ describe("e2e-demos driver", () => {
     const driver = createE2eDemosDriver({ launcher: async () => browser });
 
     // No writer plumbed.
-    const result = await driver.run(
-      mkCtxWithLogger(undefined, {}, spy),
-      {
-        key: "e2e-demos:no-writer",
-        name: "showcase-no-writer",
-        publicUrl: "https://showcase-no-writer.example.com",
-        demos: ["d1", "d2", "d3", "d4", "d5"],
-        shape: "package",
-      },
-    );
+    const result = await driver.run(mkCtxWithLogger(undefined, {}, spy), {
+      key: "e2e-demos:no-writer",
+      name: "showcase-no-writer",
+      publicUrl: "https://showcase-no-writer.example.com",
+      demos: ["d1", "d2", "d3", "d4", "d5"],
+      shape: "package",
+    });
 
     expect(result.state).toBe("green");
     const warns = entries.filter(
@@ -1326,7 +1325,7 @@ describe("e2e-demos driver", () => {
         // pageTimeoutMs to every selector, this sleep would multiply
         // up; if it passed a remaining-budget timeout, we'd see a
         // strictly decreasing series of sleeps that sum to <= budget.
-        const t = (opts && typeof opts.timeout === "number" ? opts.timeout : 50);
+        const t = opts && typeof opts.timeout === "number" ? opts.timeout : 50;
         await new Promise((r) => setTimeout(r, t));
         throw new Error(`Timeout waiting for ${sel}`);
       },
@@ -1388,24 +1387,22 @@ describe("e2e-demos driver", () => {
     const { writer, writes } = mkWriter();
     const { logger: spy, entries } = mkSpyLogger();
 
-    const result = await driver.run(
-      mkCtxWithLogger(writer, {}, spy),
-      {
-        key: "e2e-demos:exploded",
-        name: "showcase-exploded",
-        publicUrl: "https://showcase-exploded.example.com",
-        shape: "package",
-      },
-    );
+    const result = await driver.run(mkCtxWithLogger(writer, {}, spy), {
+      key: "e2e-demos:exploded",
+      name: "showcase-exploded",
+      publicUrl: "https://showcase-exploded.example.com",
+      shape: "package",
+    });
 
     // A synthetic side row surfaces the configuration mistake distinctly
     // from a green-aggregate-with-empty-demos masquerade.
-    const synthetic = writes.find(
-      (w) => w.key === "e2e:exploded/__resolver",
-    );
+    const synthetic = writes.find((w) => w.key === "e2e:exploded/__resolver");
     expect(synthetic).toBeDefined();
     expect(synthetic?.state).toBe("red");
-    const sig = synthetic?.signal as { errorClass?: string; errorDesc?: string };
+    const sig = synthetic?.signal as {
+      errorClass?: string;
+      errorDesc?: string;
+    };
     expect(sig?.errorClass).toBe("resolver-error");
     expect(sig?.errorDesc).toMatch(/exploded/);
 
@@ -1421,7 +1418,6 @@ describe("e2e-demos driver", () => {
     expect(failLogs).toHaveLength(1);
     expect(failLogs[0]?.meta?.errName).toBe("Error");
   });
-
 });
 
 // --- Integration: shortest-service-first dispatch ------------------------

@@ -3,11 +3,7 @@ import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
-import type {
-  Logger,
-  ProbeContext,
-  ProbeResult,
-} from "../../types/index.js";
+import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 
 /**
  * Phase 4B.1 — e2e-demos driver.
@@ -455,8 +451,7 @@ export function createE2eDemosDriver(
       // filesystem. Logger is threaded so the resolver's read/parse/shape
       // errors emit through the same logger as the rest of the driver.
       const demosResolver =
-        deps.demosResolver ??
-        createDefaultDemosResolver(ctx.env, ctx.logger);
+        deps.demosResolver ?? createDefaultDemosResolver(ctx.env, ctx.logger);
 
       // Demos resolution: (1) in-band `input.demos`, (2) registry lookup.
       // In-band ids synthesise a canonical `/demos/<id>` route so existing
@@ -895,9 +890,7 @@ async function runDemo(opts: {
  * Writer throws stay swallowed at error-level — a side-emit hiccup
  * must not take the aggregate tick down with it.
  */
-type SideEmit = (
-  result: ProbeResult<E2eDemosFeatureSignal>,
-) => Promise<void>;
+type SideEmit = (result: ProbeResult<E2eDemosFeatureSignal>) => Promise<void>;
 
 function makeSideEmit(ctx: ProbeContext): SideEmit {
   let warnedNoWriter = false;
