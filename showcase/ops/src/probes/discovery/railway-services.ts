@@ -394,6 +394,16 @@ async function loadDemosMap(
  * Mirrors the driver's `deriveSlug` for consistency. Names without the
  * prefix pass through unchanged so unrelated workloads simply don't
  * match a registry slug and end up with `demos: []`.
+ *
+ * Strip behaviour for starter services: `showcase-starter-ag2` becomes
+ * `starter-ag2` (only the leading `showcase-` segment is removed). The
+ * registry uses bare integration slugs (e.g. `ag2`) for package
+ * services, so starter slugs don't match a registry entry and end up
+ * with `demos: []`. This is the documented contract — the e2e-demos
+ * driver doesn't fan out for starters anyway (shape-gated), so the
+ * intentional miss is harmless. Adding a starter-specific demos slug
+ * scheme would require a coordinated change in the driver, the
+ * resolver, and `registry.json`'s `integrations` shape.
  */
 function deriveSlugFromServiceName(name: string): string {
   return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;

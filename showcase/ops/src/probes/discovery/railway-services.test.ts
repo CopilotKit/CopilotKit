@@ -101,11 +101,22 @@ const BASE_ENV = {
   RAILWAY_ENVIRONMENT_ID: "env-1",
 };
 
+/**
+ * Build a `DiscoveryContext` for tests. Defaults `abortSignal` to a fresh
+ * `AbortController().signal` (never aborted) rather than `undefined` so
+ * regressions that drop the signal forwarding fail loudly — every fetch
+ * stub in the suite sees a real signal object and can assert identity.
+ * Pass `abortSignal: undefined` explicitly to recover the legacy
+ * "no signal" behaviour for a specific test.
+ */
 function makeCtx(
   fetchImpl: typeof fetch,
   env: Record<string, string | undefined> = BASE_ENV,
+  opts: { abortSignal?: AbortSignal } = {},
 ): DiscoveryContext {
-  return { fetchImpl, logger, env };
+  const abortSignal =
+    "abortSignal" in opts ? opts.abortSignal : new AbortController().signal;
+  return { fetchImpl, logger, env, abortSignal };
 }
 
 // Tests ---------------------------------------------------------------------
@@ -1478,6 +1489,171 @@ describe("railwayServicesSource", () => {
       // Confidence check that abort actually fired.
       expect(controller.signal.aborted).toBe(true);
       void threw;
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Stronger abort propagation coverage (J): the existing identity
+  // assertion never fires the controller, so a regression that
+  // forwards a different (never-aborted) signal would still pass.
+  // This block aborts mid-flight and asserts the next fetch sees
+  // aborted state.
+  // -----------------------------------------------------------------
+
+  describe("abort propagation actually fires (J)", () => {
+    it("aborts mid-flight: subsequent gql() calls see aborted signal", async () => {
+      const controller = new AbortController();
+      const seenSignals: AbortSignal[] = [];
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        const sig = (init as RequestInit | undefined)?.signal;
+        if (sig) seenSignals.push(sig);
+        if (sig?.aborted) {
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          // Fire abort BEFORE returning so the next gql() call sees
+          // aborted state.
+          controller.abort(new Error("tick timeout"));
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({ data: { variables: {} } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      let threw = false;
+      try {
+        await railwayServicesSource.enumerate(ctx, {});
+      } catch {
+        threw = true;
+      }
+      // The first call's signal must have been live (not aborted at
+      // call time), the second must be aborted.
+      expect(seenSignals.length).toBeGreaterThanOrEqual(1);
+      if (seenSignals.length >= 2) {
+        expect(seenSignals[1].aborted).toBe(true);
+      }
+      void threw;
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Concurrent-test noise isolation (H): the legacy concurrent test
+  // fell through to the production /app/data/registry.json fallback
+  // and emitted an info log per call into CI. This block uses a tmp
+  // registry path so no production-fallback log fires; asserts no
+  // registry-read-failed warns leak.
+  // -----------------------------------------------------------------
+
+  describe("registry path tmp-isolation in concurrent test (H)", () => {
+    it("concurrent enumerate() calls don't emit ENOENT noise on /app/data", async () => {
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const registryPath = await writeRegistry(
+        JSON.stringify({ integrations: [] }),
+      );
+      const runs = Array.from({ length: 5 }, (_, i) => {
+        const { fetchImpl } = makeFetch([
+          {
+            status: 200,
+            body: railwayProjectResponse([
+              {
+                id: `s-${i}`,
+                name: `showcase-${i}`,
+                image: `ghcr.io/c/showcase-${i}:v1`,
+                domain: `showcase-${i}.up.railway.app`,
+              },
+            ]),
+          },
+          { status: 200, body: { data: { variables: { RUN: String(i) } } } },
+        ]);
+        const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+        return railwayServicesSource.enumerate(
+          {
+            fetchImpl,
+            logger: ctxLogger,
+            env,
+            abortSignal: new AbortController().signal,
+          },
+          {},
+        );
+      });
+      const results = await Promise.all(runs);
+      expect(results).toHaveLength(5);
+      const readFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.registry-read-failed",
+      );
+      expect(readFailed).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // Starter slug contract (L): documents that
+  // deriveSlugFromServiceName() strips only `showcase-`, so
+  // `showcase-starter-ag2` becomes `starter-ag2` — which doesn't
+  // match registry slugs (which use bare integration names like
+  // `ag2`). Starters intentionally end up with `demos: []`.
+  // -----------------------------------------------------------------
+
+  describe("starter slug contract (L)", () => {
+    it("starter service slug strips only `showcase-` prefix; demos lookup misses gracefully", async () => {
+      const registryPath = await writeRegistry(
+        JSON.stringify({
+          integrations: [
+            { slug: "ag2", demos: [{ id: "agentic-chat" }] },
+          ],
+        }),
+      );
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-starter-ag2",
+              image: "ghcr.io/c/showcase-starter-ag2:v1",
+              domain: "showcase-starter-ag2-production.up.railway.app",
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl, env),
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].name).toBe("showcase-starter-ag2");
+      // The slug becomes `starter-ag2`, which is NOT in the registry,
+      // so demos resolves to [] — documented contract for starters.
+      expect(out[0].demos).toEqual([]);
     });
   });
 });
