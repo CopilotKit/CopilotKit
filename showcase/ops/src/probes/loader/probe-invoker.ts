@@ -179,7 +179,14 @@ export function buildProbeInvoker(
     // discovery) don't carry `demos`, but they also can't be
     // `kind: e2e_demos` in practice — the gate below short-circuits
     // anyway.
-    if (cfg.kind === "e2e_demos") {
+    // Gate is `kind === "e2e_demos" && "discovery" in cfg` — the second
+    // half blocks a hypothetical static-targets `e2e_demos` config from
+    // sorting alphabetically. A static config's records lack `demos`,
+    // so `demoCount(input)` returns 0 for every entry and the tie-break
+    // on `key` would silently re-order the YAML. Tightening here keeps
+    // the YAML's authored order authoritative for any non-discovery
+    // shape that might land later.
+    if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
       inputs.sort((a, b) => {
         const da = demoCount(a.input);
         const db = demoCount(b.input);
@@ -376,6 +383,27 @@ async function resolveInputs(
       // strip array shape, so guard explicitly.
       let input: unknown;
       if (record && typeof record === "object" && !Array.isArray(record)) {
+        // If the discovery source already emitted a `key` field whose
+        // value differs from the interpolated one, the spread+overwrite
+        // below silently shadows it. Surface a structured warning so
+        // operators discover when a source's natural payload happens
+        // to carry `key` (e.g. a service whose env exports `key=...`)
+        // — the interpolated value remains authoritative (it's the one
+        // the writer dedupes on), but invisible mutation of caller
+        // payloads is the kind of foot-gun that bites long after
+        // shipping.
+        const recordKey = (record as Record<string, unknown>).key;
+        if (recordKey !== undefined && recordKey !== key) {
+          logger.warn("probe.discovery-record-key-shadowed", {
+            probeId: cfg.id,
+            recordIndex: idx,
+            interpolatedKey: key,
+            recordKey:
+              typeof recordKey === "string"
+                ? recordKey
+                : typeof recordKey,
+          });
+        }
         input = { ...(record as Record<string, unknown>), key };
       } else {
         if (Array.isArray(record)) {
