@@ -63,7 +63,13 @@ const script: D5Script = {
       input: "Book a 30-minute onboarding call for Alice",
       responseTimeoutMs: 60_000,
       assertions: async (page: ConversationPage) => {
-        const hitlPage = page as HitlPage;
+        // Runtime guard: see d5-hitl-approve-deny for rationale.
+        const hitlPage = page as unknown as HitlPage;
+        if (typeof (hitlPage as { click?: unknown }).click !== "function") {
+          throw new Error(
+            "d5-hitl-text-input: page is missing click() — cannot drive HITL time-picker",
+          );
+        }
         const baselineCount = await readAssistantCount(hitlPage);
         await pickTimeSlot(hitlPage);
         const followup = await waitForNextAssistantMessage(
