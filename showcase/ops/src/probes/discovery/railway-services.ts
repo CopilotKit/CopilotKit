@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 import type { DiscoveryContext, DiscoverySource } from "../types.js";
 import {
@@ -89,6 +91,16 @@ export interface RailwayServiceInfo {
    * Empty string when no deployment exists or the field is absent.
    */
   deployedDigest: string;
+  /**
+   * Demo IDs declared for this service in `registry.json`, joined by
+   * slug at enumerate-time. Empty when the slug is missing from the
+   * registry, when the registry is unreadable, or when the service has
+   * no `demos[]` declared. The `e2e_demos` probe-invoker reads this
+   * field to sort services shortest-first BEFORE the worker pool picks
+   * them up — see `loader/probe-invoker.ts:demoCount`. Other consumers
+   * that don't care about demos can simply ignore the field.
+   */
+  demos: readonly string[];
 }
 
 /**
@@ -260,6 +272,75 @@ const VariablesSchema = z.object({
   variables: z.record(z.string()).nullable().optional(),
 });
 
+/**
+ * Read `registry.json` and build a `slug -> demos[].id[]` map. Mirrors
+ * the parsing logic in `drivers/e2e-demos.ts`'s `defaultDemosResolver`
+ * so behaviour stays consistent across the two readers — the discovery
+ * source feeds the invoker's pre-dispatch sort while the driver's
+ * resolver feeds the per-service fan-out at execute time.
+ *
+ * Path resolution: honours `env.REGISTRY_JSON_PATH` for tests/dev,
+ * falling back to the production runtime path `/app/data/registry.json`
+ * (mirrors the driver's default). Read failures are non-fatal: we log
+ * `discovery.railway-services.registry-read-failed` once and return an
+ * empty Map so every service emits with `demos: []`. A missing registry
+ * must NEVER abort the tick — sibling probes (smoke, image-drift, ...)
+ * still need their service list even when the registry isn't mounted.
+ */
+async function loadDemosMap(
+  ctx: DiscoveryContext,
+): Promise<Map<string, string[]>> {
+  const override = ctx.env.REGISTRY_JSON_PATH;
+  const fallback = path.resolve("/app/data/registry.json");
+  const registryPath = override ?? fallback;
+  let raw: string;
+  try {
+    raw = await fs.readFile(registryPath, "utf-8");
+  } catch (err) {
+    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
+      path: registryPath,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return new Map();
+  }
+  let parsed: {
+    integrations?: Array<{
+      slug?: string;
+      demos?: Array<{ id?: string }>;
+    }>;
+  };
+  try {
+    parsed = JSON.parse(raw) as typeof parsed;
+  } catch (err) {
+    ctx.logger.warn("discovery.railway-services.registry-read-failed", {
+      path: registryPath,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return new Map();
+  }
+  const map = new Map<string, string[]>();
+  for (const it of parsed.integrations ?? []) {
+    if (!it.slug) continue;
+    const demos: string[] = [];
+    for (const d of it.demos ?? []) {
+      if (typeof d.id === "string") demos.push(d.id);
+    }
+    map.set(it.slug, demos);
+  }
+  return map;
+}
+
+/**
+ * Strip the `showcase-` prefix from a Railway service name to derive
+ * the slug used in `registry.json`'s `integrations[].slug` field.
+ * Mirrors the driver's `deriveSlug` for consistency. Names without the
+ * prefix pass through unchanged so unrelated workloads simply don't
+ * match a registry slug and end up with `demos: []`.
+ */
+function deriveSlugFromServiceName(name: string): string {
+  return name.startsWith("showcase-") ? name.slice("showcase-".length) : name;
+}
+
 export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
   name: "railway-services",
   configSchema: ConfigSchema,
@@ -268,6 +349,13 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // see ConfigSchema docstring above for why this is flat, not a
     // `{filter: {...}}` wrapper.
     const filter = ConfigSchema.parse(rawConfig ?? {});
+
+    // Load registry-derived demos map once per enumerate(). The map is
+    // the source of truth for the invoker's `e2e_demos` shortest-first
+    // sort (see `loader/probe-invoker.ts:demoCount`); without this the
+    // sort sees `demos === undefined` for every service and degrades
+    // to key-only ordering, defeating the documented behaviour.
+    const demosMap = await loadDemosMap(ctx);
     const token = ctx.env.RAILWAY_TOKEN;
     const projectId = ctx.env.RAILWAY_PROJECT_ID;
     const environmentId = ctx.env.RAILWAY_ENVIRONMENT_ID;
@@ -411,6 +499,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         publicUrl,
         env,
         shape: classifyShape(svc.name, { logger: ctx.logger }),
+        demos: demosMap.get(deriveSlugFromServiceName(svc.name)) ?? [],
       });
     }
     return out;
