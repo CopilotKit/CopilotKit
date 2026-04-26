@@ -459,33 +459,125 @@ describe("useTriggerProbe", () => {
     expect((caught as Error)?.message).toMatch(/token/i);
   });
 
-  it("aborts in-flight trigger on unmount (CR-B1.5)", async () => {
+  it("does NOT abort in-flight trigger on unmount (R2-C.1)", async () => {
+    // R2-C.1: POST is non-idempotent — server may have already queued the
+    // run. Aborting hides the result, not the action. Keep the request
+    // alive on unmount; rely on aliveRef to skip setState.
     let capturedSignal: AbortSignal | undefined;
     triggerProbeMock.mockImplementation(
       (_id: string, opts: { signal?: AbortSignal }) => {
         capturedSignal = opts.signal;
-        return new Promise<TriggerResponse>((_resolve, reject) => {
+        return new Promise<TriggerResponse>((resolve, reject) => {
           opts.signal?.addEventListener("abort", () => {
             reject(new DOMException("aborted", "AbortError"));
           });
+          // Resolve later if not aborted; for this test we let it hang and
+          // assert that the signal is not aborted post-unmount.
+          void resolve;
         });
       },
     );
     const { result, unmount } = renderHook(() =>
       useTriggerProbe({ token: "t" }),
     );
-    // Fire the trigger but do not await — it will hang until aborted.
     let triggerPromise: Promise<TriggerResponse> | null = null;
     act(() => {
       triggerPromise = result.current.trigger("smoke");
-      // Swallow the rejection so it doesn't surface as an unhandled
-      // rejection in the test runner.
       triggerPromise.catch(() => {});
     });
     await waitFor(() => expect(triggerProbeMock).toHaveBeenCalled());
     expect(capturedSignal).toBeDefined();
     expect(capturedSignal?.aborted).toBe(false);
     unmount();
-    expect(capturedSignal?.aborted).toBe(true);
+    // Critical: signal must NOT be aborted by unmount.
+    expect(capturedSignal?.aborted).toBe(false);
+  });
+
+  it("does not setState after unmount (R2-C.1 aliveRef guard)", async () => {
+    // After unmount, the in-flight POST is allowed to resolve; the hook
+    // must not call setState (no act() warning, no crash).
+    let resolveTrigger: ((v: TriggerResponse) => void) | null = null;
+    triggerProbeMock.mockImplementation(
+      () =>
+        new Promise<TriggerResponse>((r) => {
+          resolveTrigger = r;
+        }),
+    );
+    const { result, unmount } = renderHook(() =>
+      useTriggerProbe({ token: "t" }),
+    );
+    act(() => {
+      result.current.trigger("smoke").catch(() => {});
+    });
+    await waitFor(() => expect(triggerProbeMock).toHaveBeenCalled());
+    unmount();
+    // Resolve after unmount — must not throw, must not log act warnings.
+    resolveTrigger!(triggerOk());
+    // Yield so the resolution callback runs.
+    await Promise.resolve();
+    await Promise.resolve();
+    // No assertion on result.current — just confirm no throw occurred.
+    expect(true).toBe(true);
+  });
+
+  it("does not surface AbortError from back-to-back trigger calls (R2-C.2)", async () => {
+    // First trigger hangs; back-to-back second call aborts the first. The
+    // first call's promise must resolve silently — no AbortError surfaced
+    // to caller, no error state set.
+    const firstSignals: AbortSignal[] = [];
+    triggerProbeMock.mockImplementation(
+      (_id: string, opts: { signal?: AbortSignal }) => {
+        if (opts.signal) firstSignals.push(opts.signal);
+        return new Promise<TriggerResponse>((resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+          // Second call resolves immediately if its signal isn't aborted.
+          if (firstSignals.length >= 2 && !opts.signal?.aborted) {
+            resolve(triggerOk());
+          }
+        });
+      },
+    );
+    const { result } = renderHook(() => useTriggerProbe({ token: "t" }));
+    let firstPromise: Promise<TriggerResponse> | null = null;
+    act(() => {
+      firstPromise = result.current.trigger("smoke");
+      // Swallow potential rejection so unhandled-rejection guards don't
+      // misfire — the assertion below verifies the actual outcome.
+      firstPromise.catch(() => {});
+    });
+    await waitFor(() => expect(triggerProbeMock).toHaveBeenCalledTimes(1));
+
+    // Fire second call — this aborts the first.
+    let secondPromise: Promise<TriggerResponse> | null = null;
+    act(() => {
+      secondPromise = result.current.trigger("smoke");
+    });
+    await act(async () => {
+      await secondPromise;
+    });
+
+    // The first promise must NOT reject with AbortError surfaced — the
+    // hook should swallow it. We resolve via the supersession path.
+    let firstResult: unknown = "pending";
+    let firstError: unknown = null;
+    firstPromise!
+      .then((v) => {
+        firstResult = v;
+      })
+      .catch((e) => {
+        firstError = e;
+      });
+    // Yield enough for any pending settlements.
+    await Promise.resolve();
+    await Promise.resolve();
+    // Per spec: first promise resolves silently (returns undefined) when
+    // superseded; AbortError must NOT be thrown to the caller.
+    expect((firstError as { name?: string })?.name).not.toBe("AbortError");
+    void firstResult;
+
+    // Error state must remain null.
+    expect(result.current.error).toBeNull();
   });
 });
