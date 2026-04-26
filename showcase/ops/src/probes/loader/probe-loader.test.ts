@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -279,14 +279,26 @@ describe("createProbeLoader", () => {
       discoveryRegistry: createDiscoveryRegistry(),
       bus,
       logger,
+      // Force polling for this test only. chokidar's native FSEvents
+      // backend on macOS (and inotify under some Linux configs) does not
+      // reliably emit events for files written into a fresh mkdtemp dir
+      // on Node 22+ — the parent path isn't pre-watched by the kernel, so
+      // the event stream silently drops the first add. Polling is the
+      // documented chokidar workaround and is what the upstream test
+      // suite uses for the same reason.
+      watcherOptionsOverride: { usePolling: true, interval: 50 },
     });
 
     let lastConfigs: unknown[] = [];
+    let callbackFired = 0;
     const unwatch = loader.watch((configs) => {
       lastConfigs = configs;
+      callbackFired += 1;
     });
 
-    // Give chokidar a moment to set up.
+    // Give the polling watcher one tick to take its initial snapshot
+    // before we write the new file — without this, the snapshot can race
+    // with the write and miss the first add.
     await new Promise((r) => setTimeout(r, 200));
 
     await fs.writeFile(
@@ -300,11 +312,23 @@ describe("createProbeLoader", () => {
       "utf-8",
     );
 
-    // Wait for chokidar event + debounce.
-    await new Promise((r) => setTimeout(r, 500));
-    unwatch();
-    expect(
-      (lastConfigs as { id: string }[]).some((c) => c.id === "smoke-new"),
-    ).toBe(true);
-  }, 10_000);
+    // Poll for the watch callback to fire and reflect the new file.
+    // Replaces a fixed setTimeout(500) which raced chokidar's debounce on
+    // macOS APFS where mtime resolution + FSEvents latency can push the
+    // first event past 500ms. waitFor keeps the assertion deterministic
+    // without inflating the happy-path runtime.
+    try {
+      await vi.waitFor(
+        () => {
+          expect(callbackFired).toBeGreaterThan(0);
+          expect(
+            (lastConfigs as { id: string }[]).some((c) => c.id === "smoke-new"),
+          ).toBe(true);
+        },
+        { timeout: 8_000, interval: 50 },
+      );
+    } finally {
+      unwatch();
+    }
+  }, 15_000);
 });
