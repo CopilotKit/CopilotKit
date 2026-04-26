@@ -87,13 +87,16 @@ export function buildProbeInvoker(
     // its socket rather than orphaning past the tick. Sources that honor
     // the signal (railway-services, etc.) abort their in-flight GraphQL
     // request; sources that don't still observe the natural completion
-    // path. Note on total wall-clock: the upper bound is bounded by the
-    // SLOWEST single phase, not the sum of phases. Discovery uses one
-    // `timeout_ms` budget; per-target executor uses another. With
-    // bounded concurrency `c` over `n` inputs, worst-case wall-clock is
-    // `timeout_ms × (1 + ⌈n/c⌉)` — i.e. one discovery slot plus the
-    // longest possible serialized-per-worker chain. In practice probes
-    // complete well before any single timeout fires.
+    // path.
+    //
+    // Worst-case wall-clock: discovery is budgeted at `timeout_ms` and
+    // is followed by the bounded-pool fan-out which serialises
+    // `⌈n/c⌉` "rounds" of per-target executors, each capped at
+    // `timeout_ms`. That gives an absolute upper bound of roughly
+    // `timeout_ms × (1 + ⌈n/c⌉)` — discovery + the longest possible
+    // chain of per-worker rounds. In practice probes complete well
+    // before any single timeout fires; this is the absolute ceiling
+    // a stalled upstream could push the tick to.
     const inputs = await resolveInputs(
       cfg,
       discoveryRegistry,
@@ -109,24 +112,38 @@ export function buildProbeInvoker(
     // input is `MISCONFIGURED_DISCOVERY_INPUT` when the YAML names a
     // discovery source the registry doesn't know — without this branch
     // operators only see the `probe.discovery-source-missing` log line.
-    const misconfigured = inputs.find(
-      (i) => i.input === MISCONFIGURED_DISCOVERY_INPUT,
+    //
+    // Same shape for `ENUMERATE_FAILED_INPUT`: when the discovery source
+    // throws (network blip, schema drift, etc.), `resolveInputs`
+    // collapses the failure into one sentinel entry so the operator
+    // sees a single red tick rather than a silent zero-write
+    // (indistinguishable from "no services matched the filter"). The
+    // `errorClass` discriminates the two — alert rules / dashboard
+    // branch on the discriminator instead of the free-form errorDesc.
+    const sentinel = inputs.find(
+      (i) =>
+        i.input === MISCONFIGURED_DISCOVERY_INPUT ||
+        i.input === ENUMERATE_FAILED_INPUT,
     );
-    if (misconfigured) {
+    if (sentinel) {
+      const errorClass: ProbeInvokerErrorClass =
+        sentinel.input === ENUMERATE_FAILED_INPUT
+          ? "discovery-error"
+          : "discovery-source-missing";
       try {
         await writer.write(
           syntheticError(
-            misconfigured.key,
-            misconfigured.errorDesc ?? "discovery source missing",
+            sentinel.key,
+            sentinel.errorDesc ?? "discovery sentinel",
             now,
-            "discovery-source-missing",
+            errorClass,
           ),
         );
       } catch (err) {
         logErrorWithStack(logger, "probe.writer-failed", err, {
           probeId: cfg.id,
           kind: cfg.kind,
-          key: misconfigured.key,
+          key: sentinel.key,
         });
       }
       return;
@@ -230,6 +247,17 @@ interface ResolvedInput {
  */
 const MISCONFIGURED_DISCOVERY_INPUT = Symbol("misconfigured-discovery-input");
 
+/**
+ * Sentinel value used to flag a discovery enumerate() failure (network
+ * blip, schema mismatch, transport rejection, etc.). Returning a single
+ * sentinel ResolvedInput — identity-checked by the invoker — lets the
+ * top-level write path emit a synthetic `state: "error"` ProbeResult
+ * with `errorClass: "discovery-error"`, instead of silently returning
+ * zero inputs (which is indistinguishable on the dashboard from "no
+ * services matched the filter"). Mirrors `MISCONFIGURED_DISCOVERY_INPUT`.
+ */
+const ENUMERATE_FAILED_INPUT = Symbol("enumerate-failed-input");
+
 async function resolveInputs(
   cfg: ProbeConfig,
   discoveryRegistry: DiscoveryRegistry,
@@ -291,28 +319,38 @@ async function resolveInputs(
       );
     } catch (err) {
       // A discovery failure is load-bearing: returning 0 inputs silently
-      // would look identical to "no services matched the filter". Emit
-      // a structured log with the source name so operators can tell them
-      // apart in the log stream. The invoker callers sees an empty
-      // `inputs` array and the tick writes nothing — that's deliberate:
-      // the next tick retries, and the surrounding alert rule's
-      // `cron_only` trigger (if any) still fires a synthetic tick.
+      // looks identical on the dashboard to "no services matched the
+      // filter" — operators get no signal that anything's wrong. Emit
+      // both a structured log AND a sentinel ResolvedInput so the
+      // invoker writes a single red tick keyed on `${probeId}:enumerate-
+      // failed`. The invoker's top-level sentinel-handling path
+      // (identity-checks `ENUMERATE_FAILED_INPUT`) writes a synthetic
+      // `state: "error"` ProbeResult with `errorClass: "discovery-
+      // error"`. Sibling probes are unaffected: this branch only
+      // collapses the current probe's tick.
       logErrorWithStack(logger, "probe.discovery-enumerate-failed", err, {
         probeId: cfg.id,
         source: cfg.discovery.source,
       });
-      return [];
+      const message = err instanceof Error ? err.message : String(err);
+      return [
+        {
+          input: ENUMERATE_FAILED_INPUT,
+          key: `${cfg.id}:enumerate-failed`,
+          errorDesc: `discovery enumerate failed: ${message}`,
+        },
+      ];
     } finally {
       if (discoveryTimer !== null) clearTimeout(discoveryTimer);
-      // Ensure the abort controller is fired so any listeners attached
-      // by the source (or the surrounding fetch implementation) clear
-      // out promptly on the success path. AbortController is
-      // idempotent — second call is a no-op when already aborted.
-      try {
-        discoveryAbort.abort();
-      } catch {
-        /* ignore — already aborted */
-      }
+      // NOTE: deliberately DO NOT call `discoveryAbort.abort()` here on
+      // the success path. An unconditional `abort()` in the finally
+      // signals timeout-on-success to any source listener that
+      // snapshots `signal.reason` — exactly the inverse of what the
+      // signal is meant to represent. Listener-cleanup is not a real
+      // concern: the AbortController is local to this function call,
+      // nothing outside resolveInputs holds a reference, and any
+      // listeners attached by the source die with the controller as
+      // soon as this function returns and the controller is GC'd.
     }
     return records.map((record, idx) => {
       const key = interpolateTemplate(
