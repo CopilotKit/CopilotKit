@@ -5,7 +5,10 @@
  * PB row keys: `<dimension>:<slug>` for integration-level dimensions
  * (e.g. `health`, `agent`, `chat`, `tools`), or
  * `<dimension>:<slug>/<featureId>` for per-feature dimensions
- * (e.g. `smoke`, `e2e`).
+ * (e.g. `smoke`, `e2e`, `d5`, `d6`). The `d5:` / `d6:` per-feature rows
+ * are emitted by the `e2e-deep` and `e2e-parity` drivers respectively
+ * (D5/D6 spec) — featureId here is the D5 featureType (e.g.
+ * `agentic-chat`) so the existing per-cell lookup pattern stays uniform.
  */
 
 export type State = "green" | "red" | "degraded";
@@ -39,6 +42,22 @@ export interface CellState {
   e2e: BadgeRender;
   smoke: BadgeRender;
   health: BadgeRender;
+  /**
+   * D5 (deep / multi-turn conversation) per-feature badge. Sourced from
+   * `d5:<slug>/<featureId>` rows emitted by the `e2e-deep` driver. Stays
+   * `gray` / `?` until the driver has ticked for this (slug, featureType)
+   * pair. Does NOT contribute to the rollup — D5 is informational only,
+   * the alert engine routes D5 rows independently.
+   */
+  d5: BadgeRender;
+  /**
+   * D6 (parity-vs-reference) per-feature badge. Sourced from
+   * `d6:<slug>/<featureId>` rows emitted by the `e2e-parity` driver. D6
+   * runs on a weekly rotation per integration so most cells stay `gray` /
+   * `?` between rotations — that's expected, NOT a signal of stale data.
+   * Does NOT contribute to the rollup for the same reason as D5.
+   */
+  d6: BadgeRender;
   /** Rollup tone for the cell, by precedence red > degraded > green > error > unknown. */
   rollup: BadgeTone;
 }
@@ -81,7 +100,9 @@ export type LiveDimension =
   | "health"
   | "agent"
   | "chat"
-  | "tools";
+  | "tools"
+  | "d5"
+  | "d6";
 
 function formatLabel(dim: LiveDimension, row: StatusRow | null): string {
   if (!row) return "?";
@@ -152,6 +173,14 @@ export function resolveCell(
   const healthRow = live.get(keyFor("health", slug)) ?? null;
   const e2eRow = live.get(keyFor("e2e", slug, featureId)) ?? null;
   const smokeRow = live.get(keyFor("smoke", slug, featureId)) ?? null;
+  // D5 / D6 per-feature rows (`d5:<slug>/<featureType>` /
+  // `d6:<slug>/<featureType>`) emitted by the e2e-deep / e2e-parity
+  // drivers. Informational — they do NOT contribute to the rollup
+  // (alert engine routes them independently, same model as smoke). A
+  // missing row resolves to a gray "?" badge, which is the expected
+  // resting state for D6 cells outside their weekly-rotation slot.
+  const d5Row = live.get(keyFor("d5", slug, featureId)) ?? null;
+  const d6Row = live.get(keyFor("d6", slug, featureId)) ?? null;
 
   // Rollup contributors: health + e2e (Decision #7: smokeRow dropped).
   const contributors: Array<StatusRow | null> = [healthRow, e2eRow];
@@ -203,6 +232,18 @@ export function resolveCell(
       label: formatLabel("health", healthRow),
       tooltip: formatTooltip("health", healthRow, connection),
       row: healthRow,
+    },
+    d5: {
+      tone: rowTone(d5Row),
+      label: formatLabel("d5", d5Row),
+      tooltip: formatTooltip("d5", d5Row, connection),
+      row: d5Row,
+    },
+    d6: {
+      tone: rowTone(d6Row),
+      label: formatLabel("d6", d6Row),
+      tooltip: formatTooltip("d6", d6Row, connection),
+      row: d6Row,
     },
     rollup,
   };

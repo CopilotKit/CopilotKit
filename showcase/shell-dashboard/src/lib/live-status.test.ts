@@ -41,6 +41,14 @@ describe("keyFor", () => {
     );
     expect(keyFor("e2e", "agno", "agentic-chat")).toBe("e2e:agno/agentic-chat");
   });
+  it("d5 / d6 dimensions follow the same per-feature key shape", () => {
+    // Drivers `e2e-deep` (B2) and `e2e-parity` (B13) emit side rows under
+    // exactly these keys — the dashboard MUST match the producer shape.
+    expect(keyFor("d5", "agno", "agentic-chat")).toBe("d5:agno/agentic-chat");
+    expect(keyFor("d6", "agno", "tool-rendering")).toBe(
+      "d6:agno/tool-rendering",
+    );
+  });
 });
 
 describe("upsertByKey", () => {
@@ -197,5 +205,62 @@ describe("resolveCell — post-Phase 3 (rollup uses health + e2e only)", () => {
   it("CellState no longer has qa property", () => {
     const c = resolveCell(mapOf([]), "a", "b");
     expect(c).not.toHaveProperty("qa");
+  });
+
+  it("resolves d5 / d6 per-feature rows when present", () => {
+    const live = mapOf([
+      row("d5:agno/agentic-chat", "d5", "green"),
+      row("d6:agno/agentic-chat", "d6", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "agentic-chat");
+    expect(c.d5.tone).toBe("green");
+    expect(c.d5.label).toBe("✓");
+    expect(c.d5.row?.key).toBe("d5:agno/agentic-chat");
+    expect(c.d6.tone).toBe("red");
+    expect(c.d6.label).toBe("✗");
+    expect(c.d6.row?.key).toBe("d6:agno/agentic-chat");
+  });
+
+  it("falls through to gray '?' when d5 / d6 rows are absent", () => {
+    // Resting state for D6 cells outside their weekly-rotation slot — the
+    // missing row must NOT panic-render or shift the rollup tone.
+    const c = resolveCell(mapOf([]), "agno", "agentic-chat");
+    expect(c.d5.tone).toBe("gray");
+    expect(c.d5.label).toBe("?");
+    expect(c.d6.tone).toBe("gray");
+    expect(c.d6.label).toBe("?");
+    expect(c.d5.row).toBeNull();
+    expect(c.d6.row).toBeNull();
+  });
+
+  it("d5 / d6 do NOT contribute to the rollup (informational only)", () => {
+    // Mirrors smoke's post-Phase-3 behaviour: a red d5/d6 row alone must
+    // not flip the cell's rollup to red — the alert engine routes those
+    // dimensions independently. Only health + e2e drive the rollup.
+    const live = mapOf([
+      row("health:agno", "health", "green"),
+      row("d5:agno/ac", "d5", "red"),
+      row("d6:agno/ac", "d6", "red"),
+    ]);
+    const c = resolveCell(live, "agno", "ac");
+    expect(c.rollup).toBe("green");
+    expect(c.d5.tone).toBe("red");
+    expect(c.d6.tone).toBe("red");
+  });
+
+  it("d5 degraded renders amber tone with '~' label (not green check)", () => {
+    const live = mapOf([row("d5:agno/ac", "d5", "degraded")]);
+    const c = resolveCell(live, "agno", "ac");
+    expect(c.d5.tone).toBe("amber");
+    expect(c.d5.label).toBe("~");
+  });
+
+  it("d5 / d6 lookups ignore unrelated keys", () => {
+    // Defensive: an `e2e:slug/feature` row must not be visible through
+    // the d5 / d6 slots even if a key resolver bug confused dimensions.
+    const live = mapOf([row("e2e:agno/ac", "e2e", "red")]);
+    const c = resolveCell(live, "agno", "ac");
+    expect(c.d5.row).toBeNull();
+    expect(c.d6.row).toBeNull();
   });
 });
