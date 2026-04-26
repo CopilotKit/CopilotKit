@@ -28,10 +28,11 @@ export function humanizeCron(expr: string): string {
   if (parts.length !== 5) return expr;
   const [min, hour, dom, mon, dow] = parts;
 
-  // Every Nh: "0 */N * * *"
+  // Every Nh: "0 */N * * *". Reject `*/0` — that's not a valid step.
   const everyHourMatch = hour.match(/^\*\/(\d+)$/);
   if (
     everyHourMatch &&
+    Number(everyHourMatch[1]) > 0 &&
     min === "0" &&
     dom === "*" &&
     mon === "*" &&
@@ -40,10 +41,11 @@ export function humanizeCron(expr: string): string {
     return `Every ${everyHourMatch[1]}h`;
   }
 
-  // Every Nm: "*/N * * * *"
+  // Every Nm: "*/N * * * *". Reject `*/0`.
   const everyMinMatch = min.match(/^\*\/(\d+)$/);
   if (
     everyMinMatch &&
+    Number(everyMinMatch[1]) > 0 &&
     hour === "*" &&
     dom === "*" &&
     mon === "*" &&
@@ -63,15 +65,15 @@ export function humanizeCron(expr: string): string {
     return "Every 1h";
   }
 
-  // Daily at HH:00: "0 H * * *"
+  // Daily at HH:MM: "M H * * *" — accept any literal minute, not just 0.
   if (
     /^\d+$/.test(hour) &&
-    min === "0" &&
+    /^\d+$/.test(min) &&
     dom === "*" &&
     mon === "*" &&
     dow === "*"
   ) {
-    return `Daily at ${hour.padStart(2, "0")}:00`;
+    return `Daily at ${hour.padStart(2, "0")}:${min.padStart(2, "0")}`;
   }
 
   return expr;
