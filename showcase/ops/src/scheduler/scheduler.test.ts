@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { createScheduler, SchedulerStoppedError } from "./scheduler.js";
+import {
+  createScheduler,
+  SchedulerStoppedError,
+  InflightConflictError,
+} from "./scheduler.js";
 import { logger } from "../logger.js";
 
 describe("scheduler", () => {
@@ -212,6 +216,198 @@ describe("scheduler", () => {
     expect(order).toContain("old-done");
     expect(order).toContain("new-ran");
     expect(order.indexOf("old-done")).toBeLessThan(order.indexOf("new-ran"));
+    await s.stop();
+  }, 10_000);
+
+  it("populates lastRunFinishedAt + lastRunDurationMs after a scheduled run completes", async () => {
+    const s = createScheduler({ logger });
+    let finishHandler!: () => void;
+    s.register({
+      id: "introspect-finished",
+      cron: "* * * * * *",
+      handler: () =>
+        new Promise<void>((resolve) => {
+          finishHandler = resolve;
+        }),
+    });
+    s.start();
+    // Wait for the first tick to start.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 2500 && finishHandler === undefined) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(typeof finishHandler).toBe("function");
+    // Before completion, finishedAt + durationMs are still null.
+    const beforeStatus = s.getEntry("introspect-finished")!;
+    expect(beforeStatus.lastRunFinishedAt).toBeNull();
+    expect(beforeStatus.lastRunDurationMs).toBeNull();
+    // Complete the run.
+    finishHandler();
+    // Give the wrapper one microtask + a small tick to record finish state.
+    await new Promise((r) => setTimeout(r, 50));
+    const afterStatus = s.getEntry("introspect-finished")!;
+    expect(afterStatus.lastRunFinishedAt).not.toBeNull();
+    expect(typeof afterStatus.lastRunFinishedAt).toBe("number");
+    expect(afterStatus.lastRunDurationMs).not.toBeNull();
+    expect(afterStatus.lastRunDurationMs!).toBeGreaterThanOrEqual(0);
+    await s.stop();
+  }, 10_000);
+
+  it("getEntry returns the live slot state and undefined for unknown ids", async () => {
+    const s = createScheduler({ logger });
+    expect(s.getEntry("nope")).toBeUndefined();
+    s.register({ id: "ge", cron: "* * * * *", handler: () => {} });
+    const status = s.getEntry("ge");
+    expect(status).toBeDefined();
+    expect(status!.id).toBe("ge");
+    expect(status!.lastRunStartedAt).toBeNull();
+    expect(status!.lastRunFinishedAt).toBeNull();
+    expect(status!.lastRunDurationMs).toBeNull();
+    expect(status!.lastRunSummary).toBeNull();
+    expect(status!.triggeredRun).toBe(false);
+    expect(status!.tracker).toBeNull();
+    expect(status!.inflight).toBe(0);
+    await s.unregister("ge");
+    expect(s.getEntry("ge")).toBeUndefined();
+  });
+
+  it("trigger() invokes the handler outside the cron schedule and returns a runId", async () => {
+    const s = createScheduler({ logger });
+    let invocations = 0;
+    let resolveHandler: (() => void) | null = null;
+    s.register({
+      // Far-future cron so the handler will not fire on its own during the test.
+      id: "trig",
+      cron: "0 0 1 1 *",
+      handler: () =>
+        new Promise<void>((resolve) => {
+          invocations += 1;
+          resolveHandler = resolve;
+        }),
+    });
+    s.start();
+    const result = await s.trigger("trig");
+    expect(result.runId).toMatch(/.+/);
+    expect(result.probe).toBe("trig");
+    expect(["queued", "running"]).toContain(result.status);
+    // Wait for the handler to enter.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 1500 && resolveHandler === null) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    expect(invocations).toBe(1);
+    resolveHandler!();
+    await new Promise((r) => setTimeout(r, 50));
+    await s.stop();
+  }, 10_000);
+
+  it("trigger() throws InflightConflictError when the entry is already inflight", async () => {
+    const s = createScheduler({ logger });
+    let resolveHandler!: () => void;
+    s.register({
+      id: "busy",
+      cron: "0 0 1 1 *",
+      handler: () =>
+        new Promise<void>((resolve) => {
+          resolveHandler = resolve;
+        }),
+    });
+    s.start();
+    const first = await s.trigger("busy");
+    expect(first.runId).toMatch(/.+/);
+    // Wait for handler to start.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 1500 && resolveHandler === undefined) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    expect(typeof resolveHandler).toBe("function");
+    await expect(s.trigger("busy")).rejects.toBeInstanceOf(
+      InflightConflictError,
+    );
+    resolveHandler();
+    await new Promise((r) => setTimeout(r, 50));
+    await s.stop();
+  }, 10_000);
+
+  it("nextRunAt returns a Date for a scheduled entry and null for unknown ids", async () => {
+    const s = createScheduler({ logger });
+    s.register({ id: "nr", cron: "0 9 * * 1", handler: () => {} });
+    s.start();
+    const next = s.nextRunAt("nr");
+    expect(next).toBeInstanceOf(Date);
+    expect(next!.getTime()).toBeGreaterThan(Date.now());
+    expect(s.nextRunAt("does-not-exist")).toBeNull();
+    await s.stop();
+  });
+
+  it("triggeredRun is true during a manual trigger and false during a scheduled run", async () => {
+    const s = createScheduler({ logger });
+    let resolveScheduled: (() => void) | null = null;
+    let scheduledTriggeredFlag: boolean | null = null;
+    s.register({
+      id: "flag-sched",
+      cron: "* * * * * *",
+      handler: () =>
+        new Promise<void>((resolve) => {
+          scheduledTriggeredFlag = s.getEntry("flag-sched")?.triggeredRun ?? null;
+          resolveScheduled = resolve;
+        }),
+    });
+    s.start();
+    // Wait for scheduled tick to start.
+    const t0 = Date.now();
+    while (Date.now() - t0 < 2500 && resolveScheduled === null) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(scheduledTriggeredFlag).toBe(false);
+    resolveScheduled!();
+    await new Promise((r) => setTimeout(r, 50));
+    await s.stop();
+
+    // New scheduler for the manual-trigger flag check (avoid cron interleaving).
+    const s2 = createScheduler({ logger });
+    let resolveManual: (() => void) | null = null;
+    let manualTriggeredFlag: boolean | null = null;
+    s2.register({
+      id: "flag-manual",
+      cron: "0 0 1 1 *",
+      handler: () =>
+        new Promise<void>((resolve) => {
+          manualTriggeredFlag = s2.getEntry("flag-manual")?.triggeredRun ?? null;
+          resolveManual = resolve;
+        }),
+    });
+    s2.start();
+    await s2.trigger("flag-manual");
+    const t1 = Date.now();
+    while (Date.now() - t1 < 1500 && resolveManual === null) {
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    expect(manualTriggeredFlag).toBe(true);
+    resolveManual!();
+    await new Promise((r) => setTimeout(r, 50));
+    // After the manual run finishes, triggeredRun must be restored to false.
+    expect(s2.getEntry("flag-manual")!.triggeredRun).toBe(false);
+    await s2.stop();
+  }, 15_000);
+
+  it("populates lastRunSummary from a handler that returns a summary", async () => {
+    const s = createScheduler({ logger });
+    s.register({
+      id: "summary",
+      cron: "* * * * * *",
+      handler: async () => ({ total: 10, passed: 7, failed: 3 }),
+    });
+    s.start();
+    const t0 = Date.now();
+    while (
+      Date.now() - t0 < 3000 &&
+      s.getEntry("summary")?.lastRunSummary === null
+    ) {
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    const status = s.getEntry("summary")!;
+    expect(status.lastRunSummary).toEqual({ total: 10, passed: 7, failed: 3 });
     await s.stop();
   }, 10_000);
 
