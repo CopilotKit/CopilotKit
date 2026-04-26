@@ -70,14 +70,23 @@ export class ProbeRunTracker {
   }
 
   /** Mark service running. Sets startedAt to now(). Auto-registers
-   *  the service if it wasn't enqueued first. */
+   *  the service if it wasn't enqueued first.
+   *
+   *  R2-A.10: when start() is called on a slug that previously
+   *  transitioned through complete/fail (defensive case — retry path,
+   *  out-of-order calls), the spread of `existing` would carry
+   *  finishedAt/result/error into the new running entry. A "running"
+   *  service with terminal-state metadata is incoherent in the
+   *  snapshot, so explicitly clear those fields here. */
   start(slug: string): void {
-    const existing = this.services.get(slug);
     const startedAt = this.nowFn();
     this.services.set(slug, {
-      ...existing,
       state: "running",
       startedAt,
+      // Explicitly drop terminal-state fields. We intentionally do NOT
+      // spread `existing` — start() resets the per-service entry to its
+      // running shape so a re-started slug can't show stale finishedAt
+      // / result / error from a prior terminal transition.
     });
   }
 

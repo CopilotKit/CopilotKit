@@ -252,6 +252,57 @@ describe("ProbeRunTracker", () => {
     });
   });
 
+  // ---------------------------------------------------------------------
+  // R2-A.10: start() must drop terminal-state fields. When defensively
+  // called on a slug that previously transitioned through complete/fail,
+  // the spread of `existing` carries finishedAt/result/error into the
+  // new running entry — surfacing a service that's "running" but with
+  // terminal-state metadata, which is incoherent on the snapshot.
+  // ---------------------------------------------------------------------
+  it("start() clears terminal fields when transitioning back from completed", () => {
+    const clock = mkClock(0);
+    const tracker = new ProbeRunTracker({
+      probeId: "smoke",
+      now: clock.now,
+    });
+    tracker.enqueue("smoke:a");
+    clock.advance(5);
+    tracker.start("smoke:a");
+    clock.advance(10);
+    tracker.complete("smoke:a", "green");
+    // Defensive: re-start the same slug (e.g. retry path).
+    clock.advance(10);
+    tracker.start("smoke:a");
+    const snap = tracker.snapshot();
+    expect(snap.services).toHaveLength(1);
+    const svc = snap.services[0]!;
+    expect(svc.state).toBe("running");
+    // The running entry must not carry terminal-state metadata.
+    expect(svc.finishedAt).toBeUndefined();
+    expect(svc.result).toBeUndefined();
+    expect(svc.error).toBeUndefined();
+  });
+
+  it("start() clears terminal fields when transitioning back from failed", () => {
+    const clock = mkClock(0);
+    const tracker = new ProbeRunTracker({
+      probeId: "smoke",
+      now: clock.now,
+    });
+    tracker.enqueue("smoke:a");
+    clock.advance(5);
+    tracker.start("smoke:a");
+    clock.advance(10);
+    tracker.fail("smoke:a", "boom");
+    clock.advance(10);
+    tracker.start("smoke:a");
+    const svc = tracker.snapshot().services[0]!;
+    expect(svc.state).toBe("running");
+    expect(svc.finishedAt).toBeUndefined();
+    expect(svc.result).toBeUndefined();
+    expect(svc.error).toBeUndefined();
+  });
+
   it("complete after complete overwrites the result without throwing", () => {
     const clock = mkClock(0);
     const tracker = new ProbeRunTracker({
