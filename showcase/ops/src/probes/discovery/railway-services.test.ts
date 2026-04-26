@@ -1140,4 +1140,85 @@ describe("railwayServicesSource", () => {
     );
     expect(out[0].demos).toEqual(["demo-from-override"]);
   });
+
+  it("honours ctx.abortSignal during loadDemosMap and degrades to demos: [] when aborted (A2)", async () => {
+    // Discovery context can carry an abortSignal that fires when the
+    // probe-invoker's `timeout_ms` elapses. `fs.readFile` previously
+    // ignored it, so a stalled volume mount could orphan past the
+    // tick. After A2 readFile honours the signal — pre-aborted reads
+    // reject with AbortError, the warn fires, and we degrade to an
+    // empty demos map (NOT an exception that aborts the whole tick).
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          { slug: "ag2", demos: [{ id: "agentic-chat" }] },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+
+    // Pre-aborted signal — readFile sees a fired signal at call time
+    // and rejects synchronously with AbortError. Mimics the case
+    // where the per-tick timer fired while another phase was still
+    // resolving.
+    const abortCtrl = new AbortController();
+    abortCtrl.abort(new Error("simulated tick timeout"));
+
+    const warn = vi.fn();
+    const ctxLogger = { ...logger, warn };
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const ctx: DiscoveryContext = {
+      fetchImpl,
+      logger: ctxLogger,
+      env,
+      abortSignal: abortCtrl.signal,
+    };
+    // The aborted signal is also what the GraphQL fetch sees, so the
+    // overall enumerate() either:
+    //   (a) completes with `demos: []` and a warn from the registry
+    //       read failure; OR
+    //   (b) throws because the GraphQL call rejected with AbortError.
+    // Both branches confirm the readFile honours the signal — we
+    // assert via the warn-was-called path which is the load-bearing
+    // contract for A2 (registry-read-failed with empty map).
+    let outOrError: unknown;
+    try {
+      outOrError = await railwayServicesSource.enumerate(ctx, {});
+    } catch (err) {
+      outOrError = err;
+    }
+
+    // Either way, the readFile MUST have observed the abort and
+    // logged the registry-read-failed warn. That's the
+    // observable-contract assertion for A2.
+    const readFailed = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(readFailed).toHaveLength(1);
+    // Should mention the abort in the err string.
+    const meta = readFailed[0][1] as { err?: string };
+    expect(meta.err).toBeTruthy();
+
+    // If enumerate() returned (i.e. the GraphQL fetch wasn't aborted
+    // — happens because makeFetch ignores AbortSignal), every record
+    // MUST have demos: [] since the registry read collapsed.
+    if (Array.isArray(outOrError)) {
+      for (const record of outOrError) {
+        expect(record.demos).toEqual([]);
+      }
+    }
+  });
 });

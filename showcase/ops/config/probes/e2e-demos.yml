@@ -31,16 +31,19 @@
 # ── Cadence: every 6 hours ────────────────────────────────────────────
 #
 # Chromium cost scales as demos × services per tick. With 17 framework
-# packages and ~32 demos each, total page loads per tick can reach
-# ~544 in aggregate. Wall-clock per tick is NOT aggregate-divided-by-
-# concurrency: under bounded `max_concurrency: 6`, the wall-clock floor
-# is dominated by the SLOWEST single service plus its serial per-demo
-# fan-out (the driver visits each demo sequentially within a single
-# service invocation). For a typical 38-demo service at ~3-5s per
-# goto+selector, that's ~2-3 minutes alone. Smaller services interleave
-# in parallel slots and don't extend wall-clock past the slowest. So
-# expected per-tick wall-clock is ~3 minutes (slowest single service)
-# under happy conditions, capped at the 20-min outer timeout below.
+# packages averaging ~32 demos each, total page loads per tick are
+# ~544 in aggregate. The largest service today carries ~38 demos —
+# that is the wall-clock-dominating service under bounded concurrency.
+# Wall-clock per tick is NOT aggregate-divided-by-concurrency: with
+# `max_concurrency: 6` the wall-clock floor is set by the SLOWEST
+# single service's serial per-demo fan-out (the driver visits each
+# demo sequentially within a single service invocation). For the
+# largest 38-demo service at the driver's 30s per-page timeout, the
+# absolute worst case is ~38 × 30s ≈ ~19 min — close to the 20-min
+# outer cap below. Typical pages finish in ~3-5s so the realistic
+# wall-clock is ~2-3 minutes (the slowest single service). Smaller
+# services interleave in parallel slots and don't extend wall-clock
+# past the slowest, so the bound holds regardless of service count.
 # Every 6 hours gives us:
 #   - 4 ticks/day: catches regressions within a half-deploy window
 #     while leaving ~90% of the scheduler's wall time to sibling

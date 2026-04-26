@@ -373,7 +373,12 @@ describe("buildProbeInvoker", () => {
     })();
     expect(writes).toHaveLength(10);
     expect(peak).toBeLessThanOrEqual(3);
-    expect(peak).toBeGreaterThanOrEqual(2); // Sanity: some concurrency.
+    // Tighter than `>= 2`: with 10 50ms tasks and concurrency=3 the
+    // pool MUST observe peak === 3 — anything less means the pool
+    // didn't fully saturate, which would let a half-broken
+    // implementation pass. If this ever flakes, bump the per-task
+    // delay; do NOT relax back to `>= 2`.
+    expect(peak).toBe(3);
   });
 
   it("enforces per-target timeout_ms via synthetic timeout ProbeResult", async () => {
@@ -1018,6 +1023,15 @@ describe("buildProbeInvoker", () => {
     process.on("unhandledRejection", onUnhandled);
     try {
       const inputSchema = z.object({ key: z.string() }).passthrough();
+      // Promise we resolve from inside the driver right AFTER it
+      // schedules its late rejection — the test awaits this to
+      // deterministically observe the rejection rather than relying on
+      // wall-clock alone. Belt-and-suspenders: the wall-clock wait
+      // below is also bumped to 250ms for slow CI hosts.
+      let signalRejected: () => void;
+      const whenRejected = new Promise<void>((resolve) => {
+        signalRejected = resolve;
+      });
       const driver: ProbeDriver = {
         kind: "smoke",
         inputSchema,
@@ -1028,8 +1042,13 @@ describe("buildProbeInvoker", () => {
               "abort",
               () => {
                 // Reject async on next tick so the race has settled
-                // first.
-                setTimeout(() => reject(new Error("late driver rejection")), 5);
+                // first. Resolve `whenRejected` immediately AFTER
+                // scheduling reject so the test observes that the
+                // late-rejection actually occurred.
+                setTimeout(() => {
+                  reject(new Error("late driver rejection"));
+                  signalRejected();
+                }, 5);
               },
               { once: true },
             );
@@ -1059,10 +1078,13 @@ describe("buildProbeInvoker", () => {
         writer,
         ...BASE_DEPS,
       })();
-      // Give the driver's late-rejection setTimeout time to fire so the
-      // unhandledRejection listener has a chance to catch it if the
-      // race-leak regresses.
-      await new Promise((r) => setTimeout(r, 50));
+      // Deterministically wait for the driver's late rejection to fire
+      // before checking the unhandledRejection listener — relying on
+      // wall-clock alone could pass vacuously on slow CI hosts. Then
+      // give the event-loop another 250ms so any unhandledRejection
+      // that *would* fire has time to land in the listener queue.
+      await whenRejected;
+      await new Promise((r) => setTimeout(r, 250));
       expect(writes).toHaveLength(1);
       expect(writes[0]!.state).toBe("error");
       expect(unhandled).toHaveLength(0);
@@ -1282,8 +1304,16 @@ describe("buildProbeInvoker", () => {
     const elapsed = Date.now() - start;
     // (a) returns within timeout (with generous CI slack)
     expect(elapsed).toBeLessThan(500);
-    // (b) zero writes emitted: discovery failed, nothing to fan out
-    expect(writes).toEqual([]);
+    // (b) ONE synthetic ProbeResult emitted with `errorClass:
+    // "discovery-error"`. Earlier behaviour was zero writes (silently
+    // indistinguishable from "no services matched the filter"); A1
+    // changed the catch path to surface a sentinel ResolvedInput so
+    // operators see a red tick instead.
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(writes[0]!.state).toBe("error");
+    const sig = writes[0]!.signal as { errorClass?: string };
+    expect(sig.errorClass).toBe("discovery-error");
   });
 
   // --- E2: writer.write failure isolation -------------------------------
@@ -1339,5 +1369,130 @@ describe("buildProbeInvoker", () => {
     // All 3 targets attempted writes; failing key did not stop siblings.
     expect(attempted).toBe(3);
     expect(successful.sort()).toEqual(["smoke:a", "smoke:c"]);
+  });
+
+  // --- A1: enumerate-throw emits synthetic discovery-error tick ----------
+  it("emits one synthetic discovery-error tick when source.enumerate throws (A1)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run() {
+        throw new Error("driver should not run when discovery throws");
+      },
+    };
+    const throwingSource: DiscoverySource = {
+      name: "throwing-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        throw new Error("railway gql 500: synthetic-failure");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(throwingSource);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "throwing-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })();
+    // (a) Exactly one tick written for the failed enumerate.
+    expect(writes).toHaveLength(1);
+    // (b) errorClass is discovery-error (NOT discovery-source-missing
+    //     — the source IS registered, it just threw at runtime).
+    expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(writes[0]!.state).toBe("error");
+    const sig = writes[0]!.signal as { errorClass?: string; errorDesc?: string };
+    expect(sig.errorClass).toBe("discovery-error");
+    expect(sig.errorDesc).toContain("synthetic-failure");
+  });
+
+  it("isolates discovery-error from sibling probes' invocations (A1)", async () => {
+    // Two probes share the same writer in production: one with a
+    // throwing discovery source, the other with a working static
+    // target. The throwing one must NOT prevent the working one from
+    // emitting normal ticks. We invoke them sequentially against the
+    // same writer to mimic two probe-invoker calls from the
+    // orchestrator.
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const goodDriver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const badDriver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run() {
+        throw new Error("never");
+      },
+    };
+    const throwingSource: DiscoverySource = {
+      name: "throwing-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        throw new Error("railway gql 500");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(throwingSource);
+
+    const { writer, writes } = mkWriter();
+
+    // Bad probe — should write one synthetic discovery-error tick.
+    await buildProbeInvoker(
+      {
+        kind: "image_drift",
+        id: "image-drift",
+        schedule: "*/15 * * * *",
+        max_concurrency: 4,
+        discovery: {
+          source: "throwing-src",
+          filter: {},
+          key_template: "image_drift:${name}",
+        },
+      },
+      { driver: badDriver, discoveryRegistry, writer, ...BASE_DEPS },
+    )();
+
+    // Good probe — should write its 2 normal ticks, untouched.
+    await buildProbeInvoker(
+      {
+        kind: "smoke",
+        id: "smoke",
+        schedule: "*/15 * * * *",
+        max_concurrency: 4,
+        targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+      },
+      { driver: goodDriver, discoveryRegistry, writer, ...BASE_DEPS },
+    )();
+
+    expect(writes).toHaveLength(3);
+    // The synthetic discovery-error tick exists alongside the two
+    // green sibling-probe ticks.
+    const errors = writes.filter((w) => w.state === "error");
+    const greens = writes.filter((w) => w.state === "green");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(greens.map((w) => w.key).sort()).toEqual(["smoke:a", "smoke:b"]);
   });
 });
