@@ -1,10 +1,79 @@
 import { Cron } from "croner";
 import type { Logger } from "../types/index.js";
 
+/**
+ * Optional pass/fail summary surfaced by handlers that internally know how
+ * many sub-units (probe targets, etc.) ran. Scheduler-side typing only —
+ * the actual ProbeRunTracker construction lives in the probe-invoker side
+ * (B2). Handlers that don't return a summary leave `lastRunSummary` null.
+ */
+export interface RunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+}
+
 export interface ScheduleEntry {
   id: string;
   cron: string;
-  handler: () => Promise<void> | void;
+  /**
+   * Per-tick callback. May return void (legacy) or a `RunSummary` so the
+   * scheduler can surface pass/fail counts via `getEntry(id).lastRunSummary`.
+   * Returning a non-RunSummary value is tolerated (treated as void) so the
+   * existing legacy invoker (`() => Promise<void>`) keeps working unchanged.
+   */
+  handler: () => Promise<RunSummary | void> | RunSummary | void;
+}
+
+/**
+ * Placeholder for the in-flight ProbeRunTracker B2 will own. Kept structural
+ * (and local to the scheduler module) so this slot does not depend on a
+ * not-yet-existing file. The scheduler never reads tracker fields itself —
+ * it stores whatever the trigger() caller / probe-invoker writes via
+ * `setTracker(id, tracker)` and surfaces it through `getEntry(id).tracker`.
+ */
+export interface ProbeRunTracker {
+  probeId: string;
+  startedAt: number;
+  services: Map<string, unknown>;
+}
+
+/**
+ * Public, read-only snapshot of an entry's bookkeeping. Exposed via
+ * `getEntry(id)` for the `/api/probes` HTTP routes (peer slot consumes
+ * this) and for in-process orchestrator diagnostics.
+ */
+export interface EntryStatus {
+  id: string;
+  cron: string;
+  /** Number of currently-inflight handler invocations (0 or 1 in normal use). */
+  inflight: number;
+  /** ms-since-epoch of the last tick start, null if the handler has never run. */
+  lastRunStartedAt: number | null;
+  /** ms-since-epoch of the last tick completion, null if no run has finished. */
+  lastRunFinishedAt: number | null;
+  /** Wall-clock duration of the last completed run, null until one finishes. */
+  lastRunDurationMs: number | null;
+  /** Last completed run's summary, when the handler returned one. */
+  lastRunSummary: RunSummary | null;
+  /** True while a trigger()-initiated run is executing; false during cron ticks. */
+  triggeredRun: boolean;
+  /** Live ProbeRunTracker, surfaced by trigger()/probe-invoker. Null otherwise. */
+  tracker: ProbeRunTracker | null;
+}
+
+/**
+ * Result of a successful `trigger(id, opts?)` call. The run executes
+ * asynchronously; consumers correlate ticks via `runId`.
+ */
+export interface TriggerResult {
+  runId: string;
+  status: "queued" | "running";
+  probe: string;
+}
+
+export interface TriggerOptions {
+  filter?: { slugs?: string[] };
 }
 
 export interface Scheduler {
@@ -29,6 +98,28 @@ export interface Scheduler {
   isStopped(): boolean;
   /** Current number of registered entries; `/health` uses this as a liveness check. */
   getJobCount(): number;
+  /**
+   * Read-only snapshot of an entry's bookkeeping. Returns `undefined` if
+   * the entry was never registered (or was unregistered). Consumers MUST
+   * NOT mutate the returned object — it's a fresh snapshot per call so
+   * subsequent calls observe newly-recorded run state.
+   */
+  getEntry(id: string): EntryStatus | undefined;
+  /**
+   * Manually invoke the handler associated with `id`, off the cron
+   * schedule. Throws `InflightConflictError` if a tick (cron or trigger)
+   * is already running for that id. Returns immediately with a generated
+   * `runId`; the run executes asynchronously and observes the same
+   * `max_concurrency` / `timeout_ms` constraints the scheduled path uses
+   * (those bounds live inside the handler the probe-invoker built).
+   */
+  trigger(id: string, opts?: TriggerOptions): Promise<TriggerResult>;
+  /**
+   * Croner's next-fire timestamp for the entry, or null if the entry is
+   * unknown / not yet started / has no future fire (croner returns null
+   * once a one-shot rule has fired its single tick).
+   */
+  nextRunAt(id: string): Date | null;
 }
 
 export interface SchedulerOptions {
@@ -42,6 +133,18 @@ export class SchedulerStoppedError extends Error {
   }
 }
 
+/**
+ * Thrown by `trigger(id)` when a handler invocation is already in flight
+ * for the same id. Callers (e.g. `/api/probes/:id/trigger`) typically
+ * translate this into HTTP 409.
+ */
+export class InflightConflictError extends Error {
+  constructor(id: string) {
+    super(`scheduler: trigger refused, ${id} is already inflight`);
+    this.name = "InflightConflictError";
+  }
+}
+
 interface EntrySlot {
   entry: ScheduleEntry;
   job: Cron | null;
@@ -49,6 +152,34 @@ interface EntrySlot {
   inflight: Set<Promise<void>>;
   /** Wall-clock start of the last tick; used for skip-log diagnostics. */
   lastRunStartedAt: number | null;
+  /** Wall-clock finish of the last tick; populated once the wrapper resolves. */
+  lastRunFinishedAt: number | null;
+  /** Last tick's wall-clock duration; pairs with lastRunFinishedAt. */
+  lastRunDurationMs: number | null;
+  /** Last tick's pass/fail summary if the handler returned one. */
+  lastRunSummary: RunSummary | null;
+  /** True while a manual trigger run is executing. */
+  triggeredRun: boolean;
+  /** Optional live tracker stashed by the trigger / invoker layer. */
+  tracker: ProbeRunTracker | null;
+}
+
+function isRunSummary(v: unknown): v is RunSummary {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as Record<string, unknown>).total === "number" &&
+    typeof (v as Record<string, unknown>).passed === "number" &&
+    typeof (v as Record<string, unknown>).failed === "number"
+  );
+}
+
+let runIdCounter = 0;
+function nextRunId(): string {
+  runIdCounter += 1;
+  // Composite of timestamp + monotonic counter avoids collisions for two
+  // triggers that land in the same ms (test harness common case).
+  return `run_${Date.now().toString(36)}_${runIdCounter.toString(36)}`;
 }
 
 export function createScheduler(opts: SchedulerOptions): Scheduler {
@@ -76,6 +207,43 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
       const msg = err instanceof Error ? err.message : String(err);
       opts.logger.error("scheduler.invalid-cron", { id, cron, err: msg });
       throw new Error(`invalid cron for ${id}: ${cron} (${msg})`);
+    }
+  }
+
+  /**
+   * Run the entry's handler with finish-state bookkeeping (lastRunFinishedAt,
+   * lastRunDurationMs, lastRunSummary) and the standard try/finally that
+   * removes the inflight promise. Shared by both the cron-tick wrapper and
+   * the manual `trigger()` path so the bookkeeping shape is identical
+   * regardless of how the run was initiated.
+   */
+  async function runHandlerOnce(e: EntrySlot, id: string): Promise<void> {
+    const startedAt = Date.now();
+    e.lastRunStartedAt = startedAt;
+    let summary: RunSummary | null = null;
+    const p = (async () => {
+      try {
+        const ret = await e.entry.handler();
+        if (isRunSummary(ret)) summary = ret;
+      } catch (err) {
+        opts.logger.error("scheduler.handler-error", {
+          id,
+          err: String(err),
+        });
+      }
+    })();
+    e.inflight.add(p);
+    try {
+      await p;
+    } finally {
+      e.inflight.delete(p);
+      const finishedAt = Date.now();
+      e.lastRunFinishedAt = finishedAt;
+      e.lastRunDurationMs = finishedAt - startedAt;
+      // Only overwrite lastRunSummary when the handler explicitly returned
+      // one — preserves the previous summary across handlers that emit
+      // void (e.g. an error path that never produced a summary).
+      if (summary !== null) e.lastRunSummary = summary;
     }
   }
 
@@ -109,31 +277,12 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         });
         return;
       }
-      e.lastRunStartedAt = Date.now();
-      // A6: previously `p.finally(() => e.inflight.delete(p)).catch(() => {})`
-      // ran as a detached microtask. On a tight cron (`* * * * * *`), the
-      // next tick could observe `e.inflight.size > 0` at a microtask
-      // boundary where `p` had resolved but the `.finally` callback hadn't
-      // drained yet, producing a spurious `scheduler.skip-overlap` warn.
-      // Replace with structured try/finally so `inflight.delete(p)` runs
-      // synchronously in the same microtask as `p`'s settle, before the
-      // wrapper awaits return (and before croner can re-enter).
-      const p = (async () => {
-        try {
-          await e.entry.handler();
-        } catch (err) {
-          opts.logger.error("scheduler.handler-error", {
-            id,
-            err: String(err),
-          });
-        }
-      })();
-      e.inflight.add(p);
-      try {
-        await p;
-      } finally {
-        e.inflight.delete(p);
-      }
+      // Scheduled tick: triggeredRun stays false. (A prior manual trigger
+      // restored the flag in its own finally clause; we only assert false
+      // explicitly to be defensive against handler logic that read+mutated
+      // the slot mid-run via getEntry.)
+      e.triggeredRun = false;
+      await runHandlerOnce(e, id);
     });
   }
 
@@ -166,6 +315,11 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
         job: null,
         inflight: new Set(),
         lastRunStartedAt: null,
+        lastRunFinishedAt: null,
+        lastRunDurationMs: null,
+        lastRunSummary: null,
+        triggeredRun: false,
+        tracker: null,
       });
       if (started) startEntry(entry.id);
     },
@@ -230,6 +384,60 @@ export function createScheduler(opts: SchedulerOptions): Scheduler {
     },
     getJobCount() {
       return entries.size;
+    },
+    getEntry(id) {
+      const e = entries.get(id);
+      if (!e) return undefined;
+      return {
+        id: e.entry.id,
+        cron: e.entry.cron,
+        inflight: e.inflight.size,
+        lastRunStartedAt: e.lastRunStartedAt,
+        lastRunFinishedAt: e.lastRunFinishedAt,
+        lastRunDurationMs: e.lastRunDurationMs,
+        lastRunSummary: e.lastRunSummary,
+        triggeredRun: e.triggeredRun,
+        tracker: e.tracker,
+      };
+    },
+    async trigger(id, _opts) {
+      const e = entries.get(id);
+      if (!e) {
+        // Surface as InflightConflict's neighbour: a separate error type
+        // would balloon the API surface and HTTP-routes can already turn
+        // an unknown id into 404 by checking `getEntry(id)` first.
+        throw new Error(`scheduler: unknown entry ${id}`);
+      }
+      if (e.inflight.size > 0) {
+        throw new InflightConflictError(id);
+      }
+      const runId = nextRunId();
+      // Mark the run as triggered and kick off the handler; do NOT await
+      // the run before returning so HTTP callers get an immediate 202.
+      e.triggeredRun = true;
+      const runPromise = (async () => {
+        try {
+          await runHandlerOnce(e, id);
+        } finally {
+          // Restore the flag once the manual run drains, so subsequent
+          // scheduled ticks don't keep mis-reporting `triggeredRun: true`.
+          e.triggeredRun = false;
+        }
+      })();
+      // We don't add runPromise itself to e.inflight — runHandlerOnce
+      // already does that for the inner handler promise. Instead we
+      // attach a no-op .catch so the harness doesn't see an unhandled
+      // rejection if the handler throws; runHandlerOnce already logs
+      // handler errors via scheduler.handler-error.
+      runPromise.catch(() => {});
+      return { runId, status: "queued", probe: id };
+    },
+    nextRunAt(id) {
+      const e = entries.get(id);
+      if (!e || !e.job) return null;
+      const next = e.job.nextRun();
+      // Croner returns Date | null — pass through.
+      return next ?? null;
     },
   };
 
