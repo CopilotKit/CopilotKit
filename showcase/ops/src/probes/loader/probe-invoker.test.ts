@@ -86,6 +86,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invoker = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -132,6 +133,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invoker = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -181,6 +183,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -215,6 +218,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -254,6 +258,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -291,6 +296,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -343,6 +349,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -387,6 +394,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -437,6 +445,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -482,6 +491,7 @@ describe("buildProbeInvoker", () => {
     const start = Date.now();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -540,6 +550,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -583,6 +594,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -711,6 +723,7 @@ describe("buildProbeInvoker", () => {
     const runWriter = fakeRunWriter().writer;
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -783,6 +796,7 @@ describe("buildProbeInvoker", () => {
     };
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -828,6 +842,7 @@ describe("buildProbeInvoker", () => {
     const runWriter = fakeRunWriter().writer;
     const summary = await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -864,6 +879,7 @@ describe("buildProbeInvoker", () => {
     const rw = fakeRunWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -917,6 +933,7 @@ describe("buildProbeInvoker", () => {
     };
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -1041,6 +1058,7 @@ describe("buildProbeInvoker", () => {
     await expect(
       buildProbeInvoker(cfg, {
         driver,
+        schedulerId: cfg.id,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
         scheduler: sched.scheduler,
@@ -1083,6 +1101,7 @@ describe("buildProbeInvoker", () => {
     await expect(
       buildProbeInvoker(cfg, {
         driver,
+        schedulerId: cfg.id,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
         scheduler: sched.scheduler,
@@ -1136,6 +1155,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invoker = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -1198,6 +1218,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -1260,6 +1281,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -1388,6 +1410,7 @@ describe("buildProbeInvoker", () => {
     const sched = fakeScheduler();
     const summary = await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       scheduler: sched.scheduler,
@@ -1458,6 +1481,7 @@ describe("buildProbeInvoker", () => {
     const rw = fakeRunWriter();
     const summary = await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       scheduler: sched.scheduler,
@@ -1527,6 +1551,7 @@ describe("buildProbeInvoker", () => {
     try {
       await buildProbeInvoker(cfg, {
         driver,
+        schedulerId: cfg.id,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
         ...BASE_DEPS,
@@ -1584,6 +1609,7 @@ describe("buildProbeInvoker", () => {
     try {
       await buildProbeInvoker(cfg, {
         driver,
+        schedulerId: cfg.id,
         discoveryRegistry,
         writer,
         ...BASE_DEPS,
@@ -1635,6 +1661,7 @@ describe("buildProbeInvoker", () => {
     const start = Date.now();
     const summary = await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       scheduler: sched.scheduler,
@@ -1682,6 +1709,7 @@ describe("buildProbeInvoker", () => {
     const rw = fakeRunWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       scheduler: sched.scheduler,
@@ -1695,5 +1723,210 @@ describe("buildProbeInvoker", () => {
     expect(captured).toBeInstanceOf(ProbeRunTracker);
     expect(typeof captured.startedAt).toBe("number");
     expect(Number.isFinite(captured.startedAt)).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // R4-A.2: schedulerId is REQUIRED in ProbeInvokerDeps (no fallback)
+  // ---------------------------------------------------------------------
+  // R3-A.2 originally added `schedulerEntryId ?? cfg.id` as a "backwards-
+  // compat" default. That re-introduced the exact silent-no-op bug it was
+  // meant to fix: any caller that forgot the prefixed id (`probe:<cfg.id>`)
+  // would fall back to the bare id, which doesn't match the live
+  // scheduler entry → setEntryTracker silently no-ops in production.
+  //
+  // Per fail-loud discipline: the field is required at the type level, and
+  // the runtime must use the supplied value verbatim (not a fallback).
+  // This test pins both behaviors.
+  it("R4-A.2: schedulerId is required — typecheck fails if omitted, runtime uses it verbatim", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "bare-id",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const setTrackerIds: string[] = [];
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (id: string, _tracker: ProbeRunTracker | null) => {
+        setTrackerIds.push(id);
+      },
+    };
+    // Runtime check: the invoker must use the supplied schedulerId
+    // verbatim — NOT silently fall back to cfg.id when something
+    // unexpected happens (the old `?? cfg.id` path).
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:bare-id",
+      ...BASE_DEPS,
+    })();
+    expect(setTrackerIds).toContain("probe:bare-id");
+    expect(setTrackerIds).not.toContain("bare-id");
+
+    // Typecheck check: omitting schedulerId must be a TS error. We can't
+    // assert tsc behavior at runtime, but we CAN encode the contract via
+    // a `@ts-expect-error` directive — if the field becomes optional
+    // again (or grows a fallback), TS will refuse to allow the directive
+    // and CI's `tsc --noEmit` will fail. That's the fail-loud signal.
+    // The runtime call below is fenced behind `false` so the missing-id
+    // invoker is constructed only at typecheck time, not at test time.
+    if (false as boolean) {
+      // @ts-expect-error schedulerId is required (R4-A.2). If this directive
+      // becomes "unused", tsc will complain — that's the signal that the
+      // field was made optional or grew a fallback again.
+      buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler,
+        ...BASE_DEPS,
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // R4-A.7: outer fan-out catch synthesizes a failed tile + bumps counter
+  // ---------------------------------------------------------------------
+  // Pre-fix the outer "unreachable" catch only logged. If an invariant
+  // inside the fan-out broke, the run reported `failed: 0` and
+  // `state: "completed"` while a real defect occurred — silently green.
+  //
+  // Post-fix: synthesize a `__internal_invariant__` synthetic-error tile
+  // (writer.write), bump `failed`, flip `runState` to "failed", and
+  // adjust the summary so `total === passed + failed` still holds.
+  it("R4-A.7: outer fan-out catch synthesizes a failed tile, bumps counter, flips runState", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    // Driver itself never executes — we throw from inside the fan-out by
+    // way of a writer that explodes on the very first write so the
+    // per-target catch can't swallow it. Instead, simpler approach:
+    // rig the discoveryRegistry.get to return a source whose enumerate
+    // returns OK, but then make the per-target writer throw a non-Error
+    // value that the inner catch swallows; we still need the OUTER
+    // catch to fire. The cleanest way: throw from the inner runOne by
+    // monkey-patching the tracker. tracker.start is called inside
+    // runOne BEFORE the per-target try/catch — make it throw, that
+    // surfaces past Promise.all into the outer catch.
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "invariant-broken",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer, writes } = mkWriter();
+    // Wire a fake scheduler whose setEntryTracker installs a tracker
+    // whose `start()` throws synchronously. start() is invoked from
+    // INSIDE runOne() (which is awaited by Promise.all inside the
+    // outer try/catch), so the throw escapes Promise.all and lands in
+    // the outer "unreachable" catch — the exact path R4-A.7 hardens.
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+        if (tracker) {
+          tracker.start = () => {
+            throw new Error("invariant-broken: tracker.start exploded");
+          };
+        }
+      },
+    };
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:invariant-broken",
+      ...BASE_DEPS,
+    })();
+    // Synthetic-error tile must be present in the writer stream and
+    // keyed off the `__internal_invariant__` sentinel.
+    const internalTile = writes.find((w) =>
+      w.key.endsWith(":__internal_invariant__"),
+    );
+    expect(internalTile).toBeDefined();
+    expect(internalTile?.state).toBe("error");
+    // Summary invariant: total === passed + failed, with failed >= 1.
+    expect(summary.failed).toBeGreaterThanOrEqual(1);
+    expect(summary.total).toBe(summary.passed + summary.failed);
+  });
+
+  it("R4-A.7: outer-catch run is persisted with state='failed' via runWriter.finish", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "invariant-broken-2",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+        if (tracker) {
+          tracker.start = () => {
+            throw new Error("invariant-broken: start threw");
+          };
+        }
+      },
+    };
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:invariant-broken-2",
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    // The persisted run row must reflect state="failed" so dashboards
+    // surface the tick as a real failure rather than fake-green.
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]!.state).toBe("failed");
+    // Persisted summary must also satisfy the invariant.
+    const persisted = rw.finishes[0]!.summary!;
+    expect(persisted.total).toBe(persisted.passed + persisted.failed);
+    expect(persisted.failed).toBeGreaterThanOrEqual(1);
   });
 });

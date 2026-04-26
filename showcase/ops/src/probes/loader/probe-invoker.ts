@@ -93,12 +93,15 @@ export interface ProbeInvokerDeps {
    * undefined and setEntryTracker was a silent no-op against the live
    * scheduler — tracker registration was dead in production.
    *
-   * Optional for backwards-compat: tests that pass a fakeScheduler ignore
-   * the id parameter, so they keep working without changes. Production
-   * callers (orchestrator) MUST pass the prefixed id. Defaults to `cfg.id`
-   * when omitted to preserve existing test fixtures.
+   * R4-A.2: REQUIRED (no fallback). An earlier iteration defaulted this
+   * to `cfg.id` for "backwards-compat," but that re-introduced the exact
+   * silent no-op bug for any caller that forgot to pass the prefixed id.
+   * Per fail-loud discipline, the orchestrator (production) and every
+   * test must pass it explicitly — typecheck enforces it. Tests that
+   * supply a fakeScheduler ignore the id arg anyway; passing `cfg.id`
+   * costs them one line and removes a class of silent regressions.
    */
-  schedulerId?: string;
+  schedulerId: string;
   /**
    * B7: optional probe-runs collection writer. When supplied, each
    * invocation inserts a `running` row at start and updates it with
@@ -151,11 +154,12 @@ export function buildProbeInvoker(
     scheduler,
     runWriter,
   } = deps;
-  // R3-A.2: resolve the canonical scheduler entry id ONCE at handler-build
-  // time. Production callers (orchestrator) supply the prefixed form
-  // (`probe:<cfg.id>`); test fixtures that don't supply it fall back to
-  // the bare cfg.id (their fakeScheduler ignores the id arg anyway).
-  const schedulerEntryId = deps.schedulerId ?? cfg.id;
+  // R3-A.2 / R4-A.2: canonical scheduler entry id, REQUIRED at build time.
+  // Production callers (orchestrator) supply the prefixed form
+  // (`probe:<cfg.id>`). The earlier `?? cfg.id` fallback masked the bug
+  // it was meant to fix — the field is now required so a typecheck
+  // failure surfaces forgotten id-prefixing instead of a silent no-op.
+  const schedulerEntryId = deps.schedulerId;
 
   return async function invoke(
     invokeOpts?: InvokerTriggerOptions,
@@ -379,6 +383,11 @@ export function buildProbeInvoker(
     // failures don't escalate the run state (they're captured in the
     // failed counter); discovery failure is structural.
     let runState: "completed" | "failed" = resolved.ok ? "completed" : "failed";
+    // R4-A.7: when the outer catch fires, we synthesize an internal-
+    // invariant tile and bump `failed`. Track that with a flag so the
+    // RunSummary.total below adds 1 for the synthetic tile (preserving
+    // the `total === passed + failed` invariant).
+    let outerInvariantFailure = false;
     try {
       // Skip fan-out when discovery failed — there are no inputs to fan
       // out across, and the synthetic-error tile is already emitted.
@@ -390,24 +399,62 @@ export function buildProbeInvoker(
         await Promise.all(workers);
       }
     } catch (err) {
-      // Defensive: per-target executeOne already converts driver throws
-      // into synthetic ProbeResults so this branch is unreachable in
-      // practice. Wired anyway so a future refactor that surfaces a real
-      // throw still flips the run row to `failed` instead of silently
-      // pretending the run completed.
+      // R4-A.7: should be unreachable — per-target executeOne already
+      // converts driver throws into synthetic ProbeResults. If it ever
+      // fires, an invariant in the inner fan-out broke. Don't silently
+      // log-and-continue: synthesize a fail-loud tile keyed on a
+      // sentinel slug, bump the failed counter, and flip runState so
+      // the run summary reports `state: "failed"` with `failed >= 1`.
+      // Logged at error (not warn) — this is a real defect surface.
       runState = "failed";
+      outerInvariantFailure = true;
+      failed += 1;
+      const message = err instanceof Error ? err.message : String(err);
       logger.error("probe.invoker-unhandled", {
         probeId: cfg.id,
-        err: err instanceof Error ? err.message : String(err),
+        err: message,
       });
+      const internalKey = `${cfg.id}:__internal_invariant__`;
+      const errResult = syntheticError(
+        internalKey,
+        `invoker invariant broken: ${message}`,
+        now,
+      );
+      try {
+        await writer.write(errResult);
+      } catch (writeErr) {
+        // Even the writer failed — log and move on; the run is already
+        // marked failed and finally-block bookkeeping must still run.
+        logger.error("probe.writer-failed", {
+          probeId: cfg.id,
+          kind: cfg.kind,
+          key: internalKey,
+          err:
+            writeErr instanceof Error ? writeErr.message : String(writeErr),
+        });
+      }
     } finally {
       // R2-A.1: when discovery failed, treat the discovery itself as a
       // single failed unit so the RunSummary invariant
       // (total === passed + failed) holds. inputs.length is 0 in that
       // case (no per-target fan-out), and `failed` was bumped by 1
       // above for the synthetic-error tile, so total must be 1 too.
+      //
+      // R4-A.7: when the outer invariant catch fires, fan-out aborted
+      // partway — `inputs.length` may not equal what was actually
+      // processed (some targets may have completed before the throw,
+      // others never started). Use the partial passed/failed tally
+      // (which already includes the +1 synthetic invariant tile) so
+      // `total === passed + failed` holds by construction. The
+      // discoveryFailed and happy-path branches keep their existing
+      // `total` semantics.
+      const baseTotal = outerInvariantFailure
+        ? passed + failed
+        : resolved.ok
+          ? inputs.length
+          : 1;
       const summary: RunSummary = {
-        total: resolved.ok ? inputs.length : 1,
+        total: baseTotal,
         passed,
         failed,
         ...(resolved.ok ? {} : { discoveryFailed: true }),
@@ -443,8 +490,17 @@ export function buildProbeInvoker(
 
     // R2-A.1: same total-vs-(passed+failed) invariant in the return —
     // mirror the persisted summary above.
+    // R4-A.7: when the outer catch fired, fall back to the partial
+    // passed+failed sum (which already includes the +1 synthetic
+    // invariant tile) so the returned summary matches what was
+    // persisted by the finally block above.
+    const returnTotal = outerInvariantFailure
+      ? passed + failed
+      : resolved.ok
+        ? inputs.length
+        : 1;
     return {
-      total: resolved.ok ? inputs.length : 1,
+      total: returnTotal,
       passed,
       failed,
       ...(resolved.ok ? {} : { discoveryFailed: true }),
