@@ -64,31 +64,42 @@ function railwayProjectResponse(
     image: string | null;
     domain?: string | null;
     variables?: Record<string, string>;
+    /**
+     * Optional `latestDeployment.meta` payload threaded into the project
+     * GraphQL response. Pass `null` to simulate "no deployment yet"
+     * (Railway returns `latestDeployment: null` for a service that has
+     * never deployed). Pass an object to populate the meta scalar (the
+     * source extracts `imageDigest` from this object). Omit to leave
+     * `latestDeployment` field absent from the node entirely.
+     */
+    latestDeployment?: { meta?: Record<string, unknown> | null } | null;
   }>,
 ) {
   return {
     data: {
       project: {
         services: {
-          edges: services.map((s) => ({
-            node: {
-              id: s.id,
-              name: s.name,
-              serviceInstances: {
-                edges: [
-                  {
-                    node: {
-                      environmentId: "env-1",
-                      source: { image: s.image },
-                      domains: {
-                        serviceDomains: s.domain ? [{ domain: s.domain }] : [],
-                      },
-                    },
-                  },
-                ],
+          edges: services.map((s) => {
+            const node: Record<string, unknown> = {
+              environmentId: "env-1",
+              source: { image: s.image },
+              domains: {
+                serviceDomains: s.domain ? [{ domain: s.domain }] : [],
               },
-            },
-          })),
+            };
+            if ("latestDeployment" in s) {
+              node["latestDeployment"] = s.latestDeployment;
+            }
+            return {
+              node: {
+                id: s.id,
+                name: s.name,
+                serviceInstances: {
+                  edges: [{ node }],
+                },
+              },
+            };
+          }),
         },
       },
     },
@@ -1610,6 +1621,138 @@ describe("railwayServicesSource", () => {
         (c) => c[0] === "discovery.railway-services.registry-read-failed",
       );
       expect(readFailed).toHaveLength(0);
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B5 — `deployedDigest` extraction needs explicit unit coverage.
+  // The fixture used to discard `latestDeployment` entirely, leaving
+  // the digest extraction path uncovered.
+  // -----------------------------------------------------------------
+
+  describe("deployedDigest extraction (B5)", () => {
+    it("extracts imageDigest from latestDeployment.meta", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: {
+                meta: {
+                  imageDigest:
+                    "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                },
+              },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe(
+        "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      );
+    });
+
+    it("emits deployedDigest === '' when latestDeployment is null", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: null,
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when latestDeployment.meta is missing", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: null },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+
+    it("emits deployedDigest === '' when imageDigest is non-string (defensive)", async () => {
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:latest",
+              domain: "a.up.railway.app",
+              latestDeployment: { meta: { imageDigest: 12345 } },
+            },
+          ]),
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        makeCtx(fetchImpl),
+        {},
+      );
+      expect(out[0].deployedDigest).toBe("");
+    });
+  });
+
+  // -----------------------------------------------------------------
+  // B6 — resolveShape mismatch-throw path coverage.
+  // -----------------------------------------------------------------
+
+  describe("resolveShape mismatch (B6)", () => {
+    it("throws when classifier disagrees with caller-supplied shape", () => {
+      // `showcase-starter-ag2` classifies as "starter"; pass shape
+      // "package" — the resolver must throw rather than silently pick
+      // one. Inverting that fix is the exact regression this test
+      // guards against.
+      expect(() =>
+        resolveShape({ name: "showcase-starter-ag2", shape: "package" }),
+      ).toThrow(/Shape mismatch/);
+    });
+
+    it("throws with both classifier value and input value in the message", () => {
+      // `showcase-ag2` classifies as "package"; passing shape "starter"
+      // mismatches. The error message must include both values for
+      // operator triage.
+      expect(() =>
+        resolveShape({ name: "showcase-ag2", shape: "starter" }),
+      ).toThrow(/classifier="package".*input="starter"/);
     });
   });
 
