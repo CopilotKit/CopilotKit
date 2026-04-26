@@ -25,6 +25,21 @@ export function StatusTriggerButton({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  // R2-D.3: when the parent re-renders with a different slug list (e.g.
+  // a probe finished and inflight transitions), drop any selected slug
+  // that is no longer present. Otherwise we'd POST stale slugs the
+  // parent no longer believes are in scope.
+  useEffect(() => {
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set<string>();
+      for (const s of prev) if (serviceSlugs.includes(s)) next.add(s);
+      // Preserve identity when no change so we don't trigger a stray render.
+      if (next.size === prev.size) return prev;
+      return next;
+    });
+  }, [serviceSlugs]);
+
   useEffect(() => {
     if (!open) return;
     function onDocClick(e: MouseEvent) {
@@ -34,12 +49,16 @@ export function StatusTriggerButton({
       ) {
         setOpen(false);
         setPickerOpen(false);
+        // R2-D.3: clear selection on outside-click close so reopening the
+        // menu doesn't show ghost checks from a prior session.
+        setSelected(new Set());
       }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         setOpen(false);
         setPickerOpen(false);
+        setSelected(new Set());
       }
     }
     document.addEventListener("mousedown", onDocClick);
@@ -51,10 +70,10 @@ export function StatusTriggerButton({
   }, [open]);
 
   // Local error surface so an async rejection from onTrigger doesn't
-  // bubble up as an unhandled promise rejection. The dashboard owns
-  // the higher-level toast/log surface; here we just keep the menu
-  // sane and avoid noisy console errors during tests.
-  const [, setLastError] = useState<Error | null>(null);
+  // bubble up as an unhandled promise rejection. R2-D.2: render the
+  // error inline below the trigger so operators see fail-loud feedback
+  // rather than a silent no-op.
+  const [lastError, setLastError] = useState<Error | null>(null);
 
   const handleRunAll = async () => {
     setOpen(false);
@@ -136,26 +155,26 @@ export function StatusTriggerButton({
           )}
           {pickerOpen && serviceSlugs.length > 0 && (
             <div className="border-t border-[var(--border)] max-h-48 overflow-auto p-2">
-              {serviceSlugs.length === 0 ? (
-                <div className="text-[var(--text-muted)] px-1 py-1">
-                  No services
-                </div>
-              ) : (
-                serviceSlugs.map((slug) => (
-                  <label
-                    key={slug}
-                    className="flex items-center gap-2 px-1 py-1 cursor-pointer hover:bg-[var(--surface-hover)]"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(slug)}
-                      onChange={() => toggleSlug(slug)}
-                      data-testid={`status-trigger-${probeId}-slug-${slug}`}
-                    />
-                    <span className="font-mono text-[11px]">{slug}</span>
-                  </label>
-                ))
-              )}
+              {/*
+                R2-D.5: outer guard already ensures serviceSlugs.length > 0,
+                so the previous `length === 0` ternary was unreachable. The
+                "no slugs" case is handled by hiding "Run specific..." entirely
+                in the surrounding block.
+              */}
+              {serviceSlugs.map((slug) => (
+                <label
+                  key={slug}
+                  className="flex items-center gap-2 px-1 py-1 cursor-pointer hover:bg-[var(--surface-hover)]"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(slug)}
+                    onChange={() => toggleSlug(slug)}
+                    data-testid={`status-trigger-${probeId}-slug-${slug}`}
+                  />
+                  <span className="font-mono text-[11px]">{slug}</span>
+                </label>
+              ))}
               <button
                 type="button"
                 onClick={handleRunSpecific}
@@ -166,6 +185,14 @@ export function StatusTriggerButton({
               </button>
             </div>
           )}
+        </div>
+      )}
+      {lastError && (
+        <div
+          data-testid="status-trigger-error"
+          className="text-[11px] text-[var(--danger)] mt-1 max-w-xs"
+        >
+          {lastError.message}
         </div>
       )}
     </div>

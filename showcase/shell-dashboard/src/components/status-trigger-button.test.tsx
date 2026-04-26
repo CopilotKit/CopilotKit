@@ -7,7 +7,13 @@
  * from the onTrigger callback.
  */
 import { describe, it, expect, vi } from "vitest";
-import { render, fireEvent, act } from "@testing-library/react";
+import {
+  render,
+  fireEvent,
+  act,
+  waitFor,
+  cleanup,
+} from "@testing-library/react";
 import { StatusTriggerButton } from "./status-trigger-button";
 
 describe("StatusTriggerButton", () => {
@@ -84,5 +90,86 @@ describe("StatusTriggerButton", () => {
       fireEvent.click(getByText("Run all"));
     });
     expect(onTrigger).toHaveBeenCalled();
+  });
+
+  it("renders error message when onTrigger rejects (R2-D.2)", async () => {
+    // The dead state slot was discarded — operators got a silent no-op when
+    // onTrigger threw. Now setLastError is read and rendered inline so the
+    // error is observable in the UI rather than vanishing into a write-only
+    // setter.
+    const onTrigger = vi.fn().mockRejectedValue(new Error("network down"));
+    const { getByTestId, getByText } = render(
+      <StatusTriggerButton
+        probeId="smoke"
+        serviceSlugs={["a"]}
+        onTrigger={onTrigger}
+      />,
+    );
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    await act(async () => {
+      fireEvent.click(getByText("Run all"));
+    });
+    await waitFor(() => {
+      expect(getByTestId("status-trigger-error")).toBeDefined();
+    });
+    expect(getByTestId("status-trigger-error").textContent).toContain(
+      "network down",
+    );
+  });
+
+  it("intersects selected slugs when serviceSlugs prop shrinks (R2-D.3)", () => {
+    // When the parent re-renders with a different slug list, any previously-
+    // checked slug not in the new list must be dropped from `selected` so we
+    // never POST stale slugs the parent no longer thinks are live.
+    const { getByTestId, getByText, rerender } = render(
+      <StatusTriggerButton
+        probeId="smoke"
+        serviceSlugs={["a", "b", "c"]}
+        onTrigger={async () => {}}
+      />,
+    );
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    fireEvent.click(getByText(/Run specific/i));
+    fireEvent.click(getByTestId("status-trigger-smoke-slug-b"));
+    fireEvent.click(getByTestId("status-trigger-smoke-slug-c"));
+    expect(getByText(/Run selected \(2\)/)).toBeDefined();
+    // Parent shrinks slug list — selected should drop b and c, leaving zero.
+    rerender(
+      <StatusTriggerButton
+        probeId="smoke"
+        serviceSlugs={["a"]}
+        onTrigger={async () => {}}
+      />,
+    );
+    expect(getByText(/Run selected \(0\)/)).toBeDefined();
+  });
+
+  it("resets selected when menu closes via outside click (R2-D.3)", () => {
+    cleanup();
+    const { getByTestId, getByText, queryByText } = render(
+      <div>
+        <div data-testid="outside">outside</div>
+        <StatusTriggerButton
+          probeId="smoke"
+          serviceSlugs={["a", "b"]}
+          onTrigger={async () => {}}
+        />
+      </div>,
+    );
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    fireEvent.click(getByText(/Run specific/i));
+    fireEvent.click(getByTestId("status-trigger-smoke-slug-a"));
+    expect(
+      (getByTestId("status-trigger-smoke-slug-a") as HTMLInputElement).checked,
+    ).toBe(true);
+    // Click outside — menu closes AND selection resets.
+    fireEvent.mouseDown(getByTestId("outside"));
+    expect(queryByText(/Run all/i)).toBeNull();
+    // Reopen — slug-a should not be checked.
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    fireEvent.click(getByText(/Run specific/i));
+    expect(
+      (getByTestId("status-trigger-smoke-slug-a") as HTMLInputElement).checked,
+    ).toBe(false);
   });
 });
