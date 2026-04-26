@@ -8,6 +8,7 @@
 import { useMemo, useState } from "react";
 import { StatsBar } from "./stats-bar";
 import { CoverageBar } from "./coverage-bar";
+import { ChipsExplainer } from "./chips-explainer";
 import { FilterChips, type FilterMode } from "./filter-chips";
 import {
   CellMatrix,
@@ -139,6 +140,7 @@ export function CellsView({ catalog, liveStatus, connection }: CellsViewProps) {
 
   return (
     <div data-testid="cells-view" className="p-8">
+      <ChipsExplainer />
       <StatsBar
         wired={stats.wired}
         stub={stats.stub}
