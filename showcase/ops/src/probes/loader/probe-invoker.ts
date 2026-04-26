@@ -78,6 +78,26 @@ export function buildProbeInvoker(
       timeoutMs,
     );
 
+    // Shortest-service-first dispatch for `e2e_demos`: sort the resolved
+    // inputs ascending by demo count BEFORE the worker pool picks them
+    // up. Without this, the largest service (e.g. 38 demos) starting at
+    // t=0 occupies a worker slot for the entire fan-out and small
+    // services queue behind it — head-of-line blocking that delays
+    // useful signal. Sorting puts small services first so they complete
+    // and free slots while the big one chews through its demo list. Tie-
+    // break on `key` ascending so dispatch order is fully deterministic
+    // across ticks regardless of the discovery source's enumeration
+    // order. Gated strictly on `cfg.kind === "e2e_demos"`; other probe
+    // kinds keep their resolveInputs-order dispatch.
+    if (cfg.kind === "e2e_demos") {
+      inputs.sort((a, b) => {
+        const da = demoCount(a.input);
+        const db = demoCount(b.input);
+        if (da !== db) return da - db;
+        return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+      });
+    }
+
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
     // stampede even when M >> N.
@@ -229,6 +249,23 @@ function interpolateTemplate(template: string, record: unknown): string {
     const value = resolvePath(record, path.trim());
     return value === undefined || value === null ? "" : String(value);
   });
+}
+
+/**
+ * Demo-count extractor for `e2e_demos` shortest-first dispatch sort. The
+ * discovery source emits records carrying a `demos: string[]` field
+ * (zod-validated by `e2e-demos.ts:inputSchema`); we read it without
+ * trusting the shape, returning 0 for any input that isn't an object or
+ * whose `demos` isn't an array. Pre-validation: `resolveInputs` produces
+ * these entries before `executeOne` runs `inputSchema.safeParse`, so a
+ * malformed record's count contributes 0 and it sorts to the front
+ * (where it'll fail input validation immediately and free the slot for
+ * the next sibling).
+ */
+function demoCount(input: unknown): number {
+  if (input === null || typeof input !== "object") return 0;
+  const demos = (input as Record<string, unknown>).demos;
+  return Array.isArray(demos) ? demos.length : 0;
 }
 
 function resolvePath(obj: unknown, path: string): unknown {

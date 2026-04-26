@@ -532,6 +532,305 @@ describe("buildProbeInvoker", () => {
     expect(writes[0]!.state).toBe("error");
   });
 
+  describe("e2e_demos shortest-service-first dispatch", () => {
+    // Shortest-service-first dispatch (the de-facto spec lives in
+    // `config/probes/e2e-demos.yml`'s top comment): when `cfg.kind ===
+    // "e2e_demos"` the resolved discovery inputs MUST be sorted ascending
+    // by `(input.demos?.length ?? 0)` before the bounded worker pool
+    // consumes them. This prevents head-of-line blocking — the largest
+    // services (e.g. 38 demos) starting at t=0 occupy a slot for the
+    // entire fan-out, making small services queue behind them.
+    //
+    // Tie-breaks on `key` ascending so the order is fully deterministic
+    // across ticks regardless of discovery enumeration order.
+    function mkDemosDriver(opts?: {
+      onStart?: (key: string) => void;
+      delayFor?: (key: string) => number;
+    }): ProbeDriver {
+      const inputSchema = z
+        .object({ key: z.string(), demos: z.array(z.string()).optional() })
+        .passthrough();
+      return {
+        kind: "e2e_demos",
+        inputSchema,
+        async run(ctx, input) {
+          const key = (input as { key: string }).key;
+          opts?.onStart?.(key);
+          const delay = opts?.delayFor?.(key) ?? 0;
+          if (delay > 0) {
+            await new Promise((r) => setTimeout(r, delay));
+          }
+          return {
+            key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+    }
+
+    it("sorts e2e_demos discovery inputs ascending by demo count", async () => {
+      // Inputs intentionally enumerated out of demo-count order: 38, 5,
+      // 20, 0. The dispatch order (== writes order with concurrency=1)
+      // must come out ascending: 0, 5, 20, 38.
+      const records = [
+        {
+          name: "huge",
+          demos: Array.from({ length: 38 }, (_, i) => `d${i}`),
+        },
+        {
+          name: "small",
+          demos: Array.from({ length: 5 }, (_, i) => `d${i}`),
+        },
+        {
+          name: "medium",
+          demos: Array.from({ length: 20 }, (_, i) => `d${i}`),
+        },
+        { name: "empty", demos: [] },
+      ];
+      const source: DiscoverySource = {
+        name: "demos-src",
+        configSchema: z.object({}).passthrough(),
+        async enumerate() {
+          return records;
+        },
+      };
+      const discoveryRegistry = createDiscoveryRegistry();
+      discoveryRegistry.register(source);
+      const cfg: ProbeConfig = {
+        kind: "e2e_demos",
+        id: "e2e-demos",
+        schedule: "0 */6 * * *",
+        max_concurrency: 1, // serialize so writes order == dispatch order
+        discovery: {
+          source: "demos-src",
+          filter: {},
+          key_template: "e2e-demos:${name}",
+        },
+      };
+      const { writer, writes } = mkWriter();
+      const driver = mkDemosDriver();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes.map((w) => w.key)).toEqual([
+        "e2e-demos:empty",
+        "e2e-demos:small",
+        "e2e-demos:medium",
+        "e2e-demos:huge",
+      ]);
+    });
+
+    it("breaks ties by key ascending when demo counts are equal", async () => {
+      // Two records with identical demo count (3) and different names —
+      // the one whose interpolated key sorts lower must dispatch first.
+      const records = [
+        { name: "zulu", demos: ["a", "b", "c"] },
+        { name: "alpha", demos: ["a", "b", "c"] },
+        { name: "mike", demos: ["a", "b", "c"] },
+      ];
+      const source: DiscoverySource = {
+        name: "ties-src",
+        configSchema: z.object({}).passthrough(),
+        async enumerate() {
+          return records;
+        },
+      };
+      const discoveryRegistry = createDiscoveryRegistry();
+      discoveryRegistry.register(source);
+      const cfg: ProbeConfig = {
+        kind: "e2e_demos",
+        id: "e2e-demos",
+        schedule: "0 */6 * * *",
+        max_concurrency: 1,
+        discovery: {
+          source: "ties-src",
+          filter: {},
+          key_template: "e2e-demos:${name}",
+        },
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver: mkDemosDriver(),
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes.map((w) => w.key)).toEqual([
+        "e2e-demos:alpha",
+        "e2e-demos:mike",
+        "e2e-demos:zulu",
+      ]);
+    });
+
+    it("prevents head-of-line blocking: small services finish before a large hung one even starts", async () => {
+      // Construct a fan-out where the LARGE service (38 demos) hangs for
+      // 500ms inside its driver call, and three small services (3 demos
+      // each) resolve immediately. With max_concurrency=2, sorting
+      // ascending means the two slots open up on the small services
+      // first; the large service is the LAST to start. So all small
+      // services finish before the large service starts.
+      //
+      // Without the sort, the large service occupies one slot from t=0
+      // and small services queue behind in original enumeration order —
+      // and the test below would fail because small finishes would land
+      // AFTER large started.
+      const startedAt: Record<string, number> = {};
+      const finishedAt: Record<string, number> = {};
+      let startCounter = 0;
+      const records = [
+        // Intentionally enumerated large-first so the unsorted path
+        // would dispatch large at t=0.
+        {
+          name: "big",
+          demos: Array.from({ length: 38 }, (_, i) => `d${i}`),
+        },
+        { name: "s1", demos: ["a", "b", "c"] },
+        { name: "s2", demos: ["a", "b", "c"] },
+        { name: "s3", demos: ["a", "b", "c"] },
+      ];
+      const source: DiscoverySource = {
+        name: "starvation-src",
+        configSchema: z.object({}).passthrough(),
+        async enumerate() {
+          return records;
+        },
+      };
+      const discoveryRegistry = createDiscoveryRegistry();
+      discoveryRegistry.register(source);
+      const cfg: ProbeConfig = {
+        kind: "e2e_demos",
+        id: "e2e-demos",
+        schedule: "0 */6 * * *",
+        max_concurrency: 2,
+        discovery: {
+          source: "starvation-src",
+          filter: {},
+          key_template: "e2e-demos:${name}",
+        },
+      };
+      const inputSchema = z
+        .object({ key: z.string(), demos: z.array(z.string()).optional() })
+        .passthrough();
+      const driver: ProbeDriver = {
+        kind: "e2e_demos",
+        inputSchema,
+        async run(ctx, input) {
+          const key = (input as { key: string; demos?: string[] }).key;
+          const demos = (input as { demos?: string[] }).demos ?? [];
+          // Use a monotonic counter so start ordering is unambiguous
+          // independent of Date.now() millisecond resolution. (Tests
+          // running fast enough can produce identical Date.now() reads
+          // for sequentially-dispatched workers.)
+          startedAt[key] = startCounter++;
+          // Big hangs 500ms; smalls take ~10ms so the post-dispatch
+          // ordering is observable in real-time too.
+          if (demos.length > 10) {
+            await new Promise((r) => setTimeout(r, 500));
+          } else {
+            await new Promise((r) => setTimeout(r, 10));
+          }
+          finishedAt[key] = Date.now();
+          return {
+            key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      expect(writes).toHaveLength(4);
+      // The big service must have STARTED strictly AFTER all three
+      // small services have STARTED — only possible if the sort placed
+      // big at the very end of the dispatch queue.
+      //
+      // Without the sort, big is enumerated first and worker-1 starts
+      // it at t=0; worker-2 picks up s1 at t=0; s2/s3 then queue
+      // behind worker-2 (since worker-1 is hung on big for 500ms). So
+      // unsorted, big starts at-or-before s2/s3.
+      //
+      // With the sort, dispatch order is s1, s2, s3, big (key tiebreak):
+      // workers 1+2 run s1+s2 in parallel at t=0; s3 picks up the slot
+      // freed by s1; big picks up the next freed slot. So big starts
+      // AFTER all three smalls.
+      const bigStart = startedAt["e2e-demos:big"];
+      expect(bigStart).toBeDefined();
+      for (const small of ["e2e-demos:s1", "e2e-demos:s2", "e2e-demos:s3"]) {
+        const smallStart = startedAt[small];
+        expect(smallStart).toBeDefined();
+        expect(smallStart!).toBeLessThan(bigStart!);
+      }
+    });
+
+    it("does NOT sort inputs for non-e2e_demos kinds (preserves resolveInputs order)", async () => {
+      // For a different kind (image_drift here), discovery enumeration
+      // order must be preserved verbatim — the sort is gated on
+      // cfg.kind === "e2e_demos" alone.
+      const records = [
+        { name: "huge", demos: Array.from({ length: 38 }, (_, i) => `d${i}`) },
+        { name: "small", demos: ["a"] },
+        { name: "medium", demos: Array.from({ length: 20 }, (_, i) => `d${i}`) },
+      ];
+      const source: DiscoverySource = {
+        name: "noop-src",
+        configSchema: z.object({}).passthrough(),
+        async enumerate() {
+          return records;
+        },
+      };
+      const discoveryRegistry = createDiscoveryRegistry();
+      discoveryRegistry.register(source);
+      const inputSchema = z.object({ key: z.string() }).passthrough();
+      const driver: ProbeDriver = {
+        kind: "image_drift",
+        inputSchema,
+        async run(ctx, input) {
+          return {
+            key: (input as { key: string }).key,
+            state: "green",
+            signal: {},
+            observedAt: ctx.now().toISOString(),
+          };
+        },
+      };
+      const cfg: ProbeConfig = {
+        kind: "image_drift",
+        id: "image-drift",
+        schedule: "*/15 * * * *",
+        max_concurrency: 1, // serialize so write order == dispatch order
+        discovery: {
+          source: "noop-src",
+          filter: {},
+          key_template: "image_drift:${name}",
+        },
+      };
+      const { writer, writes } = mkWriter();
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      // Enumeration order preserved: huge, small, medium.
+      expect(writes.map((w) => w.key)).toEqual([
+        "image_drift:huge",
+        "image_drift:small",
+        "image_drift:medium",
+      ]);
+    });
+  });
+
   it("does not abort when driver completes before timeout", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     let observedAborted: boolean | undefined;
