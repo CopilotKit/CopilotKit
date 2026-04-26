@@ -118,7 +118,12 @@ function lastRunTone(
   lastRun: ProbeScheduleEntry["lastRun"],
 ): "green" | "red" | "gray" {
   if (!lastRun) return "gray";
-  if (lastRun.summary.failed > 0 || lastRun.state === "failed") return "red";
+  if (lastRun.state === "failed") return "red";
+  // summary may be null on a "completed" run produced by a failure path
+  // (see ops-api ProbeLastRun contract). Without per-service counts we
+  // can't claim green — match the runs-list "unknown" semantics.
+  if (!lastRun.summary) return "gray";
+  if (lastRun.summary.failed > 0) return "red";
   return "green";
 }
 
@@ -162,7 +167,9 @@ export function StatusTable({ entries, onTrigger, onSelect }: StatusTableProps) 
               ? Date.parse(e.lastRun.startedAt)
               : null;
             const result = e.lastRun
-              ? `${e.lastRun.summary.passed}/${e.lastRun.summary.total} pass`
+              ? e.lastRun.summary
+                ? `${e.lastRun.summary.passed}/${e.lastRun.summary.total} pass`
+                : "—"
               : "never run";
             const slugs = e.inflight?.services.map((s) => s.slug) ?? [];
             return (

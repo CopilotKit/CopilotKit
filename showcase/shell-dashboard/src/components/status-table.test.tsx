@@ -112,6 +112,42 @@ describe("StatusTable", () => {
     ).toBe("gray");
   });
 
+  it("color-codes completed run with null summary as gray and shows em-dash", () => {
+    const e = entry({
+      lastRun: {
+        startedAt: new Date(NOW - 60_000).toISOString(),
+        finishedAt: new Date(NOW - 30_000).toISOString(),
+        durationMs: 30_000,
+        state: "completed",
+        summary: null,
+      },
+    });
+    const { getByTestId } = render(
+      <StatusTable entries={[e]} onTrigger={async () => {}} />,
+    );
+    const cell = getByTestId("status-row-smoke-result");
+    expect(cell.getAttribute("data-tone")).toBe("gray");
+    expect(cell.textContent).toBe("—");
+  });
+
+  it("color-codes failed run with null summary as red", () => {
+    const e = entry({
+      lastRun: {
+        startedAt: new Date(NOW - 60_000).toISOString(),
+        finishedAt: new Date(NOW - 30_000).toISOString(),
+        durationMs: 30_000,
+        state: "failed",
+        summary: null,
+      },
+    });
+    const { getByTestId } = render(
+      <StatusTable entries={[e]} onTrigger={async () => {}} />,
+    );
+    const cell = getByTestId("status-row-smoke-result");
+    expect(cell.getAttribute("data-tone")).toBe("red");
+    expect(cell.textContent).toBe("—");
+  });
+
   it("renders pass/total summary text", () => {
     const { getByTestId } = render(
       <StatusTable entries={[entry()]} onTrigger={async () => {}} />,
