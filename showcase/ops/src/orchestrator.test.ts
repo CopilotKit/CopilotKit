@@ -338,22 +338,6 @@ describe("orchestrator /health wiring (F1.1)", () => {
  *      guards is "ruleC never registers because ruleB threw".
  */
 describe("orchestrator.diffCronSchedules per-rule isolation (R25-slot3-A1)", () => {
-  function makeCronRule(id: string, cron: string): CompiledRule {
-    return {
-      id,
-      name: id,
-      owner: "@test",
-      severity: "warn",
-      signal: { dimension: "aimock_wiring" },
-      stringTriggers: [],
-      cronTriggers: [{ schedule: cron }],
-      conditions: { guards: [], escalations: [] },
-      targets: [{ kind: "slack_webhook", webhook: "oss_alerts" }],
-      template: { text: "x" },
-      actions: [],
-    };
-  }
-
   it("continues registering subsequent rules when one rule's register throws", () => {
     // Build a stub scheduler satisfying only the surface `diffCronSchedules`
     // touches: register / unregister / list. register() throws for ruleB,
@@ -792,7 +776,13 @@ describe("orchestrator /api/probes wiring (F1)", () => {
   let probeDir: string;
   let stopFn: (() => Promise<void>) | null = null;
   let port = 0;
-  const prevToken = process.env.OPS_TRIGGER_TOKEN;
+  // T-A2 (CR-A2 bonus): capture `prevToken` per-test in beforeEach instead
+  // of at module load. Pre-fix, the binding was taken once at file-import
+  // time — if any earlier test mutated OPS_TRIGGER_TOKEN and didn't restore
+  // it before this describe ran, this block's afterEach would reset to the
+  // wrong value. Per-test capture isolates this describe from cross-test
+  // pollution.
+  let prevToken: string | undefined;
 
   beforeEach(async () => {
     // Mirror the boot path's expected layout: configDir is the alerts dir,
@@ -803,6 +793,7 @@ describe("orchestrator /api/probes wiring (F1)", () => {
     await fs.mkdir(tempDir, { recursive: true });
     await fs.mkdir(probeDir, { recursive: true });
     port = await pickPort();
+    prevToken = process.env.OPS_TRIGGER_TOKEN;
     // The probes router's bearer-auth middleware fails loud on construction
     // if no OPS_TRIGGER_TOKEN is configured. Set one for the duration of the
     // test so boot can mount the routes.
