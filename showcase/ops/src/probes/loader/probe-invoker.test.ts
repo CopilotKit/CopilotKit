@@ -940,6 +940,76 @@ describe("buildProbeInvoker", () => {
     });
   });
 
+  // ---------------------------------------------------------------------
+  // R3-A.3: orphan-risk warn log when runWriter.start fails
+  // ---------------------------------------------------------------------
+  // When PB's `start()` fails after the row may have been created at the PB
+  // side (network blip on the response), runRowId is null and the row is
+  // orphaned. The probe-invoker must emit a structured `probe.run-row-orphan-risk`
+  // warn log so operators can find and clean up orphans, in ADDITION to the
+  // existing `probe.run-writer-start-failed` error log. Run continues
+  // normally (best-effort observability), and finish() is short-circuited
+  // because runRowId is null.
+  it("R3-A.3: emits probe.run-row-orphan-risk warn when runWriter.start throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "orphan-risk",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingWriter: ProbeRunWriter = {
+      start: vi.fn().mockRejectedValue(new Error("network blip")),
+      finish: vi.fn().mockResolvedValue(undefined),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    // Capture logger.warn calls. The fix emits an orphan-risk warn under
+    // the canonical key `probe.run-row-orphan-risk` so operators have an
+    // explicit signal beyond the existing error log.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    let orphan: unknown[] | undefined;
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        schedulerId: "probe:orphan-risk",
+        runWriter: failingWriter,
+        ...BASE_DEPS,
+      })();
+      // Snapshot the matching call BEFORE mockRestore — vitest's
+      // `mockRestore()` clears `mock.calls` along with restoring the
+      // original implementation, so reading the array after restore
+      // returns an empty list and the assertion below would always fail.
+      orphan = warnSpy.mock.calls.find(
+        ([msg]) => msg === "probe.run-row-orphan-risk",
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+    expect(orphan).toBeDefined();
+    expect(orphan![1]).toMatchObject({ probeId: "orphan-risk" });
+    // finish() must NOT have been called when start() failed — the row id
+    // was never set, so any update would either throw or write junk.
+    expect(failingWriter.finish).not.toHaveBeenCalled();
+  });
+
   it("does NOT throw when runWriter.start fails — observability must be best-effort", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
@@ -1135,6 +1205,142 @@ describe("buildProbeInvoker", () => {
     expect(enumerateInvocations).toBe(1);
     expect(enumerateRecordCount).toBe(3);
     expect(writes.map((w) => w.key)).toEqual(["smoke:b"]);
+  });
+
+  // ---------------------------------------------------------------------
+  // R3-A.1: preError entries MUST NOT be silently dropped under filter.slugs
+  // ---------------------------------------------------------------------
+  // Pre-fix, the trigger filter ran `inputs = allInputs.filter(r => wanted.has(r.key))`
+  // — preError entries (synthetic `<probeId>:invalid-key-template:N` keys)
+  // got dropped because their keys never match operator-supplied slugs.
+  // Discovery-time key_template errors that would surface on a cron tick
+  // were HIDDEN under a manual filter — exactly the path operators use to
+  // INVESTIGATE problems silently swallowed them.
+  it("R3-A.1: retains preError synthetic entries even when filter.slugs is supplied", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "filter-prerror-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // One record with a missing template field (yields preError
+        // synthetic key) and two records with valid `name` fields so
+        // the operator's slug filter can target one of them.
+        return [
+          { kind: "x" }, // missing `name` → preError
+          { name: "alpha" },
+          { name: "beta" },
+        ];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "missing-and-filtered",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "filter-prerror-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })({ filter: { slugs: ["smoke:alpha"] } });
+    // Operator asked for ONE specific slug, but the preError MUST also
+    // surface — otherwise the operator's manual investigation can't see
+    // the misconfigured record at all. Expect the alpha tile + the
+    // preError synthetic-error tile.
+    const keys = writes.map((w) => w.key).sort();
+    expect(keys).toContain("smoke:alpha");
+    const preErrorKey = keys.find((k) => k.startsWith("missing-and-filtered:"));
+    expect(preErrorKey).toBeDefined();
+    expect(preErrorKey).toMatch(/invalid-key-template/);
+    // The pre-error entry must be a synthetic-error.
+    const preErrorTile = writes.find((w) => w.key === preErrorKey);
+    expect(preErrorTile?.state).toBe("error");
+    // Beta was NOT requested → must NOT appear.
+    expect(keys).not.toContain("smoke:beta");
+  });
+
+  // ---------------------------------------------------------------------
+  // R3-A.2: invoker uses prefixed scheduler-id (probe:<cfg.id>)
+  // ---------------------------------------------------------------------
+  // Orchestrator registers entries as `probe:${cfg.id}`. Pre-fix the invoker
+  // called `scheduler.getEntry(cfg.id)` and `scheduler.setEntryTracker(cfg.id, ...)`
+  // with the BARE id, so getEntry returned undefined and setEntryTracker
+  // was a silent no-op against the live scheduler. Tracker registration was
+  // dead in production. Fix: thread `schedulerId` through ProbeInvokerDeps so
+  // the invoker uses the same id the orchestrator registered.
+  it("R3-A.2: invoker calls scheduler.getEntry/setEntryTracker with the schedulerId (not bare cfg.id)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "my-probe",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    // Capture all id arguments getEntry/setEntryTracker were called with.
+    const getEntryIds: string[] = [];
+    const setTrackerIds: string[] = [];
+    const scheduler = {
+      getEntry: (id: string) => {
+        getEntryIds.push(id);
+        return { triggeredRun: false };
+      },
+      setEntryTracker: (id: string, _tracker: ProbeRunTracker | null) => {
+        setTrackerIds.push(id);
+      },
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      // Caller (orchestrator) supplies the prefixed scheduler id. This
+      // is the canonical scheduler entry id (`probe:<cfg.id>`).
+      schedulerId: "probe:my-probe",
+      ...BASE_DEPS,
+    })();
+    // Pre-fix: these arrays would contain "my-probe" (bare). Post-fix:
+    // they must contain "probe:my-probe" (matching the orchestrator's
+    // scheduler.register call site).
+    expect(getEntryIds).toContain("probe:my-probe");
+    expect(setTrackerIds).toContain("probe:my-probe");
+    // And — defensively — must NOT contain the bare cfg.id.
+    expect(getEntryIds).not.toContain("my-probe");
+    expect(setTrackerIds).not.toContain("my-probe");
   });
 
   // ---------------------------------------------------------------------
