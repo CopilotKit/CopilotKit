@@ -1,0 +1,24 @@
+data: {"type":"RUN_STARTED","threadId":"t-2","runId":"r-2"}
+
+data: {"type":"TOOL_CALL_START","parentMessageId":"m-1","toolCallId":"tc-1","toolCallName":"search_flights"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc-1","delta":"{\"from\":\"SFO\""}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc-1","delta":",\"to\":\"JFK\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc-1"}
+
+data: {"type":"TOOL_CALL_START","parentMessageId":"m-1","toolCallId":"tc-2","toolCallName":"book_hotel"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc-2","delta":"{\"city\":\"NYC\"}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc-2"}
+
+data: {"type":"TOOL_CALL_START","parentMessageId":"m-1","toolCallId":"tc-3","toolCallName":"send_confirmation"}
+
+data: {"type":"TOOL_CALL_ARGS","toolCallId":"tc-3","delta":"{}"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc-3"}
+
+data: {"type":"RUN_FINISHED","threadId":"t-2","runId":"r-2"}
+
