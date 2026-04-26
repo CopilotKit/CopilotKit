@@ -1,4 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
+import { promises as fsp } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
   classifyShape,
   railwayServicesSource,
@@ -933,5 +936,208 @@ describe("railwayServicesSource", () => {
     for (const sig of captured) {
       expect(sig).toBe(controller.signal);
     }
+  });
+
+  // -----------------------------------------------------------------
+  // Demos enrichment from registry.json
+  //
+  // The `e2e_demos` probe sorts services by demo count BEFORE the
+  // worker pool picks them up — that sort lives in the probe-invoker
+  // and reads `input.demos`. The driver's lazy `demosResolver` runs
+  // INSIDE the driver, AFTER dispatch, so it cannot feed the sort. To
+  // make the documented "shortest-first" behaviour actually trigger in
+  // production, the discovery source reads `registry.json` once per
+  // enumerate() call and joins demos by slug onto every emitted record.
+  //
+  // Resilience: if the registry is unreadable, the source MUST log a
+  // structured warning and emit `demos: []` for every record (siblings
+  // need to keep working even when the registry is missing).
+  // -----------------------------------------------------------------
+
+  /**
+   * Write a registry.json to a temp dir and return the path. Tests pass
+   * the path through `REGISTRY_JSON_PATH` so the source overrides the
+   * default `/app/data/registry.json` location.
+   */
+  async function writeRegistry(content: string): Promise<string> {
+    const dir = await fsp.mkdtemp(
+      path.join(os.tmpdir(), "railway-services-test-"),
+    );
+    const file = path.join(dir, "registry.json");
+    await fsp.writeFile(file, content, "utf-8");
+    return file;
+  }
+
+  it("joins demos by slug from registry.json (happy path)", async () => {
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          {
+            slug: "ag2",
+            demos: [
+              { id: "agentic-chat" },
+              { id: "human-in-the-loop" },
+              { id: "tool-based-generative-ui" },
+            ],
+          },
+          {
+            slug: "langgraph-python",
+            demos: [{ id: "agentic-chat" }],
+          },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-langgraph-python",
+            image: "ghcr.io/copilotkit/showcase-langgraph-python:latest",
+            domain: "showcase-langgraph-python.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out).toHaveLength(2);
+    const byName = Object.fromEntries(out.map((r) => [r.name, r.demos]));
+    expect(byName["showcase-ag2"]).toEqual([
+      "agentic-chat",
+      "human-in-the-loop",
+      "tool-based-generative-ui",
+    ]);
+    expect(byName["showcase-langgraph-python"]).toEqual(["agentic-chat"]);
+  });
+
+  it("emits demos: [] for services whose slug is missing from the registry", async () => {
+    // Slug derived from `showcase-` prefix strip — `showcase-ag2` →
+    // `ag2`. A service whose slug is not in the registry must still be
+    // enumerated, but with `demos: []` so the invoker's sort treats it
+    // as "no demos" rather than poisoning the tick.
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          { slug: "ag2", demos: [{ id: "agentic-chat" }] },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+          {
+            id: "s-2",
+            name: "showcase-mystery",
+            image: "ghcr.io/copilotkit/showcase-mystery:latest",
+            domain: "showcase-mystery.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out).toHaveLength(2);
+    const byName = Object.fromEntries(out.map((r) => [r.name, r.demos]));
+    expect(byName["showcase-ag2"]).toEqual(["agentic-chat"]);
+    expect(byName["showcase-mystery"]).toEqual([]);
+  });
+
+  it("logs a warn and emits demos: [] for every service when the registry is unreadable", async () => {
+    // Unreadable registry MUST NOT throw — sibling probes still need
+    // their service list. The source logs
+    // `discovery.railway-services.registry-read-failed` once and emits
+    // `demos: []` for every record.
+    const warn = vi.fn();
+    const ctxLogger = { ...logger, warn };
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const missingPath = path.join(
+      os.tmpdir(),
+      `does-not-exist-${Date.now()}-${Math.random()}.json`,
+    );
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: missingPath };
+    const out = await railwayServicesSource.enumerate(
+      { fetchImpl, logger: ctxLogger, env },
+      {},
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].demos).toEqual([]);
+    const readFailed = warn.mock.calls.filter(
+      (c) => c[0] === "discovery.railway-services.registry-read-failed",
+    );
+    expect(readFailed).toHaveLength(1);
+  });
+
+  it("honours REGISTRY_JSON_PATH env override over the /app/data default", async () => {
+    // Env override is the test/dev hook — production reads
+    // /app/data/registry.json (mounted by the Dockerfile). When the env
+    // var is set the source MUST read that path verbatim.
+    const registryPath = await writeRegistry(
+      JSON.stringify({
+        integrations: [
+          {
+            slug: "ag2",
+            demos: [{ id: "demo-from-override" }],
+          },
+        ],
+      }),
+    );
+    const { fetchImpl } = makeFetch([
+      {
+        status: 200,
+        body: railwayProjectResponse([
+          {
+            id: "s-1",
+            name: "showcase-ag2",
+            image: "ghcr.io/copilotkit/showcase-ag2:latest",
+            domain: "showcase-ag2.up.railway.app",
+          },
+        ]),
+      },
+      { status: 200, body: { data: { variables: {} } } },
+    ]);
+    const env = { ...BASE_ENV, REGISTRY_JSON_PATH: registryPath };
+    const out = await railwayServicesSource.enumerate(
+      makeCtx(fetchImpl, env),
+      {},
+    );
+    expect(out[0].demos).toEqual(["demo-from-override"]);
   });
 });
