@@ -188,9 +188,13 @@ export async function fetchProbes(
   } = {},
 ): Promise<ProbesResponse> {
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes`;
+  // R3-D.1: opt out of browser + Next.js fetch caching. Status data is
+  // polled every ~10s and must reflect the current backend state, not a
+  // cached response from a prior poll.
   const response = await fetch(url, {
     method: "GET",
     signal: opts.signal,
+    cache: "no-store",
     headers: { accept: "application/json" },
   });
   await ensureOk(response, url);
@@ -202,9 +206,11 @@ export async function fetchProbeDetail(
   opts: { signal?: AbortSignal; baseUrl?: string } = {},
 ): Promise<ProbeDetailResponse> {
   const url = `${resolveBaseUrl(opts.baseUrl)}/probes/${encodeURIComponent(id)}`;
+  // R3-D.1: see fetchProbes — same no-store rationale for live detail data.
   const response = await fetch(url, {
     method: "GET",
     signal: opts.signal,
+    cache: "no-store",
     headers: { accept: "application/json" },
   });
   await ensureOk(response, url);
