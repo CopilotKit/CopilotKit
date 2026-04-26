@@ -28,6 +28,7 @@ import { createDiscoveryRegistry } from "./probes/discovery/index.js";
 import { createProbeLoader } from "./probes/loader/probe-loader.js";
 import { buildProbeInvoker } from "./probes/loader/probe-invoker.js";
 import type { ProbeConfig } from "./probes/loader/schema.js";
+import type { ProbeRegistry } from "./probes/types.js";
 import { createProbeRunWriter } from "./probes/run-history.js";
 import { aimockWiringDriver } from "./probes/drivers/aimock-wiring.js";
 import { pinDriftDriver } from "./probes/drivers/pin-drift.js";
@@ -37,6 +38,8 @@ import { versionDriftDriver } from "./probes/drivers/version-drift.js";
 import { redirectDecommissionDriver } from "./probes/drivers/redirect-decommission.js";
 import { e2eSmokeDriver } from "./probes/drivers/e2e-smoke.js";
 import { e2eDemosDriver } from "./probes/drivers/e2e-demos.js";
+import { e2eDeepDriver } from "./probes/drivers/e2e-deep.js";
+import { e2eParityDriver } from "./probes/drivers/e2e-parity.js";
 import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
@@ -249,15 +252,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
 
   const probeRegistry = createProbeRegistry();
   const discoveryRegistry = createDiscoveryRegistry();
-  probeRegistry.register(aimockWiringDriver);
-  probeRegistry.register(pinDriftDriver);
-  probeRegistry.register(smokeDriver);
-  probeRegistry.register(imageDriftDriver);
-  probeRegistry.register(versionDriftDriver);
-  probeRegistry.register(redirectDecommissionDriver);
-  probeRegistry.register(e2eSmokeDriver);
-  probeRegistry.register(e2eDemosDriver);
-  probeRegistry.register(qaDriver);
+  registerAllProbeDrivers(probeRegistry);
   discoveryRegistry.register(railwayServicesSource);
   discoveryRegistry.register(pnpmPackagesDiscoverySource);
   const probeConfigDir =
@@ -825,6 +820,33 @@ export async function boot(opts: BootOptions = {}): Promise<{
       });
     },
   };
+}
+
+/**
+ * Register every probe driver this orchestrator knows about onto the
+ * given registry. Single source of truth for the registered probe-kind
+ * set so YAML probe configs (`config/probes/*.yml`) and orchestrator
+ * boot can never drift: if a driver file ships without a registration
+ * call here, the probe-loader rejects its YAML at boot with
+ * `no driver registered for kind 'X'` — which is exactly the
+ * production failure that motivated extracting this helper. Exported
+ * so unit tests can lock the registered set without spinning up the
+ * full boot path (PB, scheduler, http server, ...).
+ */
+export function registerAllProbeDrivers(
+  probeRegistry: Pick<ProbeRegistry, "register">,
+): void {
+  probeRegistry.register(aimockWiringDriver);
+  probeRegistry.register(pinDriftDriver);
+  probeRegistry.register(smokeDriver);
+  probeRegistry.register(imageDriftDriver);
+  probeRegistry.register(versionDriftDriver);
+  probeRegistry.register(redirectDecommissionDriver);
+  probeRegistry.register(e2eSmokeDriver);
+  probeRegistry.register(e2eDemosDriver);
+  probeRegistry.register(e2eDeepDriver);
+  probeRegistry.register(e2eParityDriver);
+  probeRegistry.register(qaDriver);
 }
 
 /**
