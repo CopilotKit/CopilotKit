@@ -295,7 +295,17 @@ async function loadDemosMap(
   const registryPath = override ?? fallback;
   let raw: string;
   try {
-    raw = await fs.readFile(registryPath, "utf-8");
+    // Honour the discovery-level abort signal so a stalled fs.readFile
+    // (e.g. an unresponsive volume mount) doesn't orphan past the
+    // probe's `timeout_ms`. AbortError lands in the same catch as
+    // other fs failures and degrades to an empty map — sibling probes
+    // and downstream consumers still get a service list, just without
+    // demo enrichment. A missing/aborted registry must NEVER abort
+    // the tick.
+    raw = await fs.readFile(registryPath, {
+      encoding: "utf-8",
+      signal: ctx.abortSignal,
+    });
   } catch (err) {
     ctx.logger.warn("discovery.railway-services.registry-read-failed", {
       path: registryPath,
