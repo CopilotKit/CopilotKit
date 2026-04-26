@@ -1004,19 +1004,16 @@ describe("POST /api/probes/:id/trigger — R4-A.5 early bail on oversize stream"
         controller.close();
       },
     });
-    const res = await app.request(
-      "/api/probes/smoke/trigger",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: stream,
-        // duplex: "half" required for streaming bodies in undici/Node 18+
-        duplex: "half",
-      } as RequestInit & { duplex?: "half" },
-    );
+    const res = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: stream,
+      // duplex: "half" required for streaming bodies in undici/Node 18+
+      duplex: "half",
+    } as RequestInit & { duplex?: "half" });
     expect(res.status).toBe(413);
   });
 });

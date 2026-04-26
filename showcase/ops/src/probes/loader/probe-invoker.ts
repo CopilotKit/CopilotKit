@@ -429,8 +429,7 @@ export function buildProbeInvoker(
           probeId: cfg.id,
           kind: cfg.kind,
           key: internalKey,
-          err:
-            writeErr instanceof Error ? writeErr.message : String(writeErr),
+          err: writeErr instanceof Error ? writeErr.message : String(writeErr),
         });
       }
     } finally {
