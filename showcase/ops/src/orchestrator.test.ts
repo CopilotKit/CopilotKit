@@ -10,7 +10,9 @@ import {
   diffCronSchedules,
   envForCfg,
   createRailwayAdapter,
+  registerAllProbeDrivers,
 } from "./orchestrator.js";
+import { createProbeRegistry } from "./probes/drivers/index.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
@@ -1764,6 +1766,59 @@ describe("orchestrator boot serve() async bind error cleanup (R4-A.3)", () => {
     // of cleanup. Pre-fix, the async bind error was unobserved by the
     // R2-B.2 try/catch and boot() resolved with the scheduler running.
     expect(stopSpy).toHaveBeenCalled();
+  });
+});
+
+/**
+ * Post-#4292 hotfix regression guard.
+ *
+ * Production symptom: probe-loader emitted `probe-loader.file-failed`
+ *   `no driver registered for kind 'e2e_deep'`
+ *   `no driver registered for kind 'e2e_parity'`
+ * on every showcase-ops boot after #4292 merged. The D5 (`e2e_deep`)
+ * and D6 (`e2e_parity`) drivers shipped as exports but the
+ * orchestrator never registered them — so the probe-loader rejected
+ * their YAML at boot, the drivers never ran, and no D5/D6 PB rows
+ * were ever written. This test locks every required probe-kind into
+ * the orchestrator's canonical registration set so a future driver
+ * landing without a registration call fails CI instead of prod.
+ */
+describe("orchestrator.registerAllProbeDrivers (post-#4292 hotfix guard)", () => {
+  it("registers every probe-kind referenced by config/probes/*.yml", () => {
+    const registry = createProbeRegistry();
+    registerAllProbeDrivers(registry);
+    const kinds = registry.list();
+    // Every kind below is referenced by a YAML in showcase/ops/config/probes
+    // — drift between this set and the YAMLs is exactly the
+    // probe-loader.file-failed bug we're guarding against.
+    expect(kinds).toEqual(
+      [
+        "aimock_wiring",
+        "e2e_deep",
+        "e2e_demos",
+        "e2e_parity",
+        "e2e_smoke",
+        "image_drift",
+        "pin_drift",
+        "qa",
+        "redirect_decommission",
+        "smoke",
+        "version_drift",
+      ].sort(),
+    );
+  });
+
+  it("includes e2e_deep and e2e_parity (the #4292 regressors)", () => {
+    // Tighter assertion narrowed to the two kinds that triggered the
+    // production probe-loader.file-failed alert. If a future refactor
+    // accidentally drops just these two registrations, the broader
+    // equality check above still catches it — but this test names the
+    // exact regression for whoever finds it red in CI.
+    const registry = createProbeRegistry();
+    registerAllProbeDrivers(registry);
+    const kinds = registry.list();
+    expect(kinds).toContain("e2e_deep");
+    expect(kinds).toContain("e2e_parity");
   });
 });
 
