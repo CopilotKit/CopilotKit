@@ -10,9 +10,12 @@ import type { LiveStatusMap, StatusRow } from "@/lib/live-status";
 interface CatalogCell {
   id: string;
   integration: string;
+  integration_name: string;
   feature: string;
+  feature_name: string;
   status: "wired" | "stub" | "unshipped";
   category: string;
+  category_name: string;
 }
 
 function row(
@@ -46,9 +49,12 @@ const cell = (
 ): CatalogCell => ({
   id: `${slug}/${featureId}`,
   integration: slug,
+  integration_name: slug,
   feature: featureId,
+  feature_name: featureId,
   status,
   category: "dev-ex",
+  category_name: "Dev Ex",
 });
 
 describe("deriveDepth", () => {

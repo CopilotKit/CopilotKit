@@ -63,16 +63,22 @@ const cells: CatalogCell[] = [
   {
     id: "lgp/agentic-chat",
     integration: "lgp",
+    integration_name: "LangGraph Python",
     feature: "agentic-chat",
+    feature_name: "Agentic Chat",
     status: "wired",
     category: "chat-ui",
+    category_name: "Chat & UI",
   },
   {
     id: "crewai/agentic-chat",
     integration: "crewai",
+    integration_name: "CrewAI",
     feature: "agentic-chat",
+    feature_name: "Agentic Chat",
     status: "wired",
     category: "chat-ui",
+    category_name: "Chat & UI",
   },
 ];
 
