@@ -402,11 +402,12 @@ describe("POST /api/probes/:id/trigger", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-cache");
     const body = await res.json();
+    // R4-A.1: scope is null when no filter was provided in the body.
     expect(body).toEqual({
       runId: "run_xyz",
       status: "queued",
       probe: "smoke",
-      scope: [],
+      scope: null,
     });
   });
 
@@ -868,6 +869,202 @@ describe("GET /api/probes/:id — R2-A.9 graceful degradation", () => {
 async function res2Body(r: Response): Promise<Record<string, unknown>> {
   return (await r.json()) as Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------
+// R4-A.1: scope semantics — null when no filter sent, array when filter
+// provided. Operators must be able to distinguish "no filter" from
+// "empty scope" in the response envelope.
+// ---------------------------------------------------------------------
+describe("POST /api/probes/:id/trigger — R4-A.1 scope null vs []", () => {
+  let sched: FakeScheduler;
+  let writer: ReturnType<typeof makeFakeWriter>;
+  let configs: Map<string, ProbeConfig>;
+
+  beforeEach(() => {
+    sched = makeFakeScheduler();
+    writer = makeFakeWriter();
+    configs = new Map<string, ProbeConfig>([["smoke", baseConfig("smoke")]]);
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+    sched.setTriggerBehavior({
+      result: { runId: "run_xyz", status: "queued", probe: "smoke" },
+    });
+  });
+
+  it("scope is null when no body is sent", async () => {
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.scope).toBeNull();
+  });
+
+  it("scope is null when body is empty object (no filter)", async () => {
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.scope).toBeNull();
+  });
+
+  it("scope echoes filter.slugs when provided as array", async () => {
+    const app = buildApp(sched, writer, configs);
+    const res = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ filter: { slugs: ["a"] } }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.scope).toEqual(["a"]);
+  });
+});
+
+// ---------------------------------------------------------------------
+// R4-A.4: body cap must be measured in BYTES (UTF-8) not characters.
+// A multibyte payload (emoji = 4 bytes) can pass `raw.length` while
+// exceeding the byte limit.
+// ---------------------------------------------------------------------
+describe("POST /api/probes/:id/trigger — R4-A.4 byte-count vs char-count", () => {
+  it("returns 413 when UTF-8 byte length exceeds cap even if char length doesn't", async () => {
+    const sched = makeFakeScheduler();
+    const writer = makeFakeWriter();
+    const configs = new Map<string, ProbeConfig>([
+      ["smoke", baseConfig("smoke")],
+    ]);
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+    const app = buildApp(sched, writer, configs);
+    // 4-byte emoji: each "🙂" is 4 bytes in UTF-8 but 2 UTF-16 code units.
+    // 5000 emojis = 10000 chars = 20000 bytes (> 16 KiB) — char count
+    // (10000) is below the 16384 cap but byte count is above.
+    const emoji = "🙂";
+    const payload = emoji.repeat(5000);
+    expect(payload.length).toBeLessThan(16 * 1024); // char-count under cap
+    expect(Buffer.byteLength(payload, "utf8")).toBeGreaterThan(16 * 1024);
+    const res = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json",
+        // Omit Content-Length so the post-read check fires (not the
+        // pre-flight CL check, which would catch this trivially).
+      },
+      body: payload,
+    });
+    expect(res.status).toBe(413);
+  });
+});
+
+// ---------------------------------------------------------------------
+// R4-A.5: body cap must bail EARLY (streaming) for chunked/CL-less
+// payloads — not buffer the entire body before checking size.
+// ---------------------------------------------------------------------
+describe("POST /api/probes/:id/trigger — R4-A.5 early bail on oversize stream", () => {
+  it("returns 413 when oversize payload arrives without Content-Length", async () => {
+    const sched = makeFakeScheduler();
+    const writer = makeFakeWriter();
+    const configs = new Map<string, ProbeConfig>([
+      ["smoke", baseConfig("smoke")],
+    ]);
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+    const app = buildApp(sched, writer, configs);
+    // Build a ReadableStream so Hono treats this as a chunked body
+    // (no Content-Length). Stream emits 1 KiB chunks until > 16 KiB.
+    const oneK = "x".repeat(1024);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        const encoder = new TextEncoder();
+        for (let i = 0; i < 32; i++) {
+          controller.enqueue(encoder.encode(oneK));
+        }
+        controller.close();
+      },
+    });
+    const res = await app.request(
+      "/api/probes/smoke/trigger",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: stream,
+        // duplex: "half" required for streaming bodies in undici/Node 18+
+        duplex: "half",
+      } as RequestInit & { duplex?: "half" },
+    );
+    expect(res.status).toBe(413);
+  });
+});
+
+// ---------------------------------------------------------------------
+// R4-A.6: rate-limit rollback must fire on ALL non-success paths from
+// scheduler.trigger, not just InflightConflictError. Otherwise a
+// transient 5xx burns the operator's 5-min window.
+// ---------------------------------------------------------------------
+describe("POST /api/probes/:id/trigger — R4-A.6 rollback on generic errors", () => {
+  let sched: FakeScheduler;
+  let writer: ReturnType<typeof makeFakeWriter>;
+  let configs: Map<string, ProbeConfig>;
+
+  beforeEach(() => {
+    sched = makeFakeScheduler();
+    writer = makeFakeWriter();
+    configs = new Map<string, ProbeConfig>([["smoke", baseConfig("smoke")]]);
+    sched.setEntry({
+      entry: { id: "smoke", cron: "*/5 * * * *", handler: async () => {} },
+      status: baseStatus({ id: "smoke", cron: "*/5 * * * *" }),
+      nextRunAt: null,
+    });
+  });
+
+  it("generic Error from scheduler.trigger rolls back rate-limit (follow-up succeeds 1ms later)", async () => {
+    sched.setTriggerBehavior({ throw: new Error("scheduler boom") });
+    let nowMs = 1_000_000_000_000;
+    const app = buildApp(sched, writer, configs, { now: () => nowMs });
+    // First call: scheduler throws a non-InflightConflict error.
+    // Hono's default error handler turns the rethrow into a 500.
+    const first = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(first.status).toBe(500);
+    // Now flip to success. The window must NOT have been consumed.
+    sched.setTriggerBehavior({
+      result: { runId: "run_2", status: "queued", probe: "smoke" },
+    });
+    nowMs += 1;
+    const second = await app.request("/api/probes/smoke/trigger", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+    expect(second.status).toBe(200);
+  });
+});
 
 // ---------------------------------------------------------------------
 // CR-A1.4: trigger rate-limit TOCTOU + 409 rollback
