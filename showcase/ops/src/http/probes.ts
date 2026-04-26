@@ -22,6 +22,15 @@ import type { ProbeConfig } from "../probes/loader/schema.js";
 export const TRIGGER_RATE_LIMIT_MS = 5 * 60 * 1000;
 
 /**
+ * R2-A.8: hard ceiling on the trigger POST body. Operators sending a
+ * filter list never need more than a few KB; cap at 16 KiB so a hostile
+ * caller can't push `c.req.text()` into unbounded memory consumption.
+ * 413 is returned when Content-Length exceeds this OR when the actual
+ * read overshoots (Hono's body lengths can be lied about by clients).
+ */
+export const TRIGGER_BODY_LIMIT_BYTES = 16 * 1024;
+
+/**
  * Dependencies for the /api/probes router. Wired by `buildServer` (and
  * therefore the orchestrator) so the route layer never reaches into a
  * module-scoped scheduler / writer / config table.
@@ -242,9 +251,29 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
     const probe = buildEntryDto(status, cfg, nextRunAt);
     // Hard-coded limit per spec ("last 10 runs"). If we surface a query
     // param later, validate it before passing through to PB.
-    const runs = await writer.recent(id, 10);
+    //
+    // R2-A.9: graceful degradation. A transient PB outage on writer.recent
+    // must not 500 the probe-detail page — operators still need to see
+    // schedule + inflight + config + lastRun even when run history is
+    // unavailable. Surface an empty `runs` plus a `runsError` indicator
+    // so the dashboard can render a small "history offline" banner
+    // alongside the rest of the probe metadata.
+    let runs: Awaited<ReturnType<typeof writer.recent>> = [];
+    let runsError: string | undefined;
+    try {
+      runs = await writer.recent(id, 10);
+    } catch (err) {
+      runsError = "history_unavailable";
+      // Best-effort logging — without a route-level logger, fall back to
+      // console.warn so CI logs surface the underlying PB outage.
+      // eslint-disable-next-line no-console
+      console.warn("probes.recent-failed", {
+        probeId: id,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
     c.header("Cache-Control", "no-cache");
-    return c.json({ probe, runs });
+    return c.json(runsError ? { probe, runs, runsError } : { probe, runs });
   });
 
   app.post("/api/probes/:id/trigger", auth, async (c) => {
@@ -260,13 +289,74 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
       return c.json({ error: "not_found" }, 404);
     }
 
-    // Rate-limit BEFORE invoking trigger() so an overzealous caller can't
-    // pile up scheduler.trigger calls inside the window. CR-A1.4: stamp
-    // the window IMMEDIATELY on pass so two near-simultaneous requests
-    // can't both clear the check before either records a timestamp
-    // (TOCTOU). On `InflightConflictError` we roll the stamp back so a
-    // 409 doesn't lock out the operator for 5 minutes; any other failure
-    // path also rolls back since it didn't actually consume a slot.
+    // R2-A.8: enforce body-size limit BEFORE reading. Content-Length is
+    // the only signal Hono surfaces synchronously — a hostile client can
+    // lie, but the actual `c.req.text()` will read up to whatever the
+    // platform allows, so this is a soft cap. Pair with the post-read
+    // length check below to catch chunked uploads that omit the header.
+    const contentLengthRaw = c.req.header("content-length");
+    if (contentLengthRaw !== undefined) {
+      const declared = Number.parseInt(contentLengthRaw, 10);
+      if (
+        Number.isFinite(declared) &&
+        declared > TRIGGER_BODY_LIMIT_BYTES
+      ) {
+        return c.json({ error: "payload_too_large" }, 413);
+      }
+    }
+
+    // R2-A.5: read + parse the body BEFORE stamping the rate-limit
+    // window. A malformed body must NOT consume the operator's 5-minute
+    // hold — that punished users for our own validation rejecting their
+    // request. Sequence: auth → 404 → body read → JSON parse → filter
+    // shape → rate-limit check → STAMP → scheduler.trigger.
+    let raw: string;
+    try {
+      raw = await c.req.text();
+    } catch {
+      return c.json({ error: "invalid_body" }, 400);
+    }
+    // R2-A.8 (post-read): catch chunked uploads that hid behind a
+    // missing/lying Content-Length header.
+    if (raw.length > TRIGGER_BODY_LIMIT_BYTES) {
+      return c.json({ error: "payload_too_large" }, 413);
+    }
+
+    // R2-A.4: validate filter.slugs is a string array before forwarding
+    // to the scheduler. Without this, the invoker constructs
+    // `new Set(filterSlugs)` on a string → per-character set membership
+    // (`new Set("foo")` === `Set{"f","o"}`), silently broken.
+    let filterSlugs: string[] = [];
+    let opts: { filter?: { slugs?: string[] } } | undefined;
+    if (raw.length > 0) {
+      let parsed: { filter?: { slugs?: unknown } };
+      try {
+        parsed = JSON.parse(raw) as { filter?: { slugs?: unknown } };
+      } catch {
+        return c.json({ error: "invalid_json" }, 400);
+      }
+      if (parsed && typeof parsed === "object" && parsed.filter) {
+        const slugs = (parsed.filter as { slugs?: unknown }).slugs;
+        if (slugs !== undefined) {
+          // Must be string[]. Reject string-where-array (R2-A.4) and
+          // mixed-type arrays.
+          if (
+            !Array.isArray(slugs) ||
+            !slugs.every((s): s is string => typeof s === "string")
+          ) {
+            return c.json({ error: "invalid_filter" }, 400);
+          }
+          filterSlugs = slugs;
+          opts = { filter: { slugs } };
+        }
+      }
+    }
+
+    // CR-A1.4: stamp the window IMMEDIATELY after the check passes so two
+    // near-simultaneous requests can't both clear the check before either
+    // records a timestamp (TOCTOU). R2-A.5: this stamp now happens AFTER
+    // body parse + filter validation, so a 400 path doesn't burn the
+    // operator's window.
     const last = lastTriggerAt.get(id);
     const t = now();
     if (last !== undefined && t - last < TRIGGER_RATE_LIMIT_MS) {
@@ -278,41 +368,16 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
         429,
       );
     }
-    // Stamp BEFORE awaiting the trigger so a parallel request can't
-    // race past the check. Captured `last` (above) is used to roll back
-    // exactly to the prior value if the trigger fails — important so
-    // back-to-back 409 → success doesn't leak a stale timestamp from
-    // an earlier successful trigger.
     lastTriggerAt.set(id, t);
+    // R2-A.6: rollback uses a compare-and-swap on `t`. Without this, two
+    // concurrent triggers (A stamps t=100, B stamps t=101) could have A
+    // throw and roll back to `last` — which would DELETE B's stamp.
+    // Only roll back when the current stored value is still our own t.
     const rollbackRateLimit = (): void => {
+      if (lastTriggerAt.get(id) !== t) return; // someone else stamped after us
       if (last === undefined) lastTriggerAt.delete(id);
       else lastTriggerAt.set(id, last);
     };
-
-    // Body is optional — tolerate empty / non-JSON bodies so a curl with
-    // no -d still works. Guard the parse so a malformed JSON body becomes
-    // a clean 400 rather than a 500.
-    let filterSlugs: string[] = [];
-    let opts: { filter?: { slugs?: string[] } } | undefined;
-    const raw = await c.req.text();
-    if (raw.length > 0) {
-      try {
-        const parsed = JSON.parse(raw) as {
-          filter?: { slugs?: string[] };
-        };
-        if (parsed && typeof parsed === "object" && parsed.filter) {
-          opts = { filter: parsed.filter };
-          if (Array.isArray(parsed.filter.slugs)) {
-            filterSlugs = parsed.filter.slugs;
-          }
-        }
-      } catch {
-        // Body parse failure: roll back the stamp — caller never
-        // actually consumed a trigger slot.
-        rollbackRateLimit();
-        return c.json({ error: "invalid_json" }, 400);
-      }
-    }
 
     try {
       const result = await scheduler.trigger(id, opts);
@@ -327,7 +392,7 @@ export function registerProbesRoutes(app: Hono, deps: ProbesRouteDeps): void {
       if (err instanceof InflightConflictError) {
         // CR-A1.4: 409 inflight didn't actually start a new run; roll
         // back the rate-limit stamp so a follow-up trigger isn't locked
-        // out of the 5-min window.
+        // out of the 5-min window. R2-A.6 CAS guards races.
         rollbackRateLimit();
         return c.json({ error: "inflight" }, 409);
       }
