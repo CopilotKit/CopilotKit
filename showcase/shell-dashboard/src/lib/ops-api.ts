@@ -173,7 +173,12 @@ async function parseJson<T>(response: Response, url: string): Promise<T> {
       throw parseErr;
     }
     const msg = (parseErr as Error)?.message ?? "unknown";
-    throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`);
+    // R3-C bonus: preserve the original error as `cause` so debuggers can
+    // walk back to the SyntaxError name/stack without re-parsing the
+    // wrapped message string.
+    throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`, {
+      cause: parseErr,
+    });
   }
 }
 

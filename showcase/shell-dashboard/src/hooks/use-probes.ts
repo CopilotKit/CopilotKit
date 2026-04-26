@@ -92,6 +92,10 @@ export function useProbes(opts?: {
     // Surface a "refreshing" indicator across dep changes (baseUrl swap)
     // so consumers can render a loading state instead of stale data.
     setLoading(true);
+    // R3-C.3: clear any error from the prior dep tuple (e.g. previous
+    // baseUrl). Otherwise an error from a stale baseUrl persists under the
+    // new one until a fresh failure or successful fetch overwrites it.
+    setError(null);
     void run();
     const timer = setInterval(() => {
       void run();
@@ -154,6 +158,11 @@ export function useProbeDetail(
     // the panel header (driven by the prop) is never out of sync with the
     // data body. The new fetch will repopulate this on resolution.
     setData(null);
+    // R3-C.2: also clear any error from the prior probe so the detail panel
+    // doesn't render a stale error message under the new probe header. Set
+    // before flipping `loading` so the UI never shows error+loading at once
+    // for the new id.
+    setError(null);
     setLoading(true);
 
     async function run(): Promise<void> {
@@ -200,7 +209,18 @@ export function useProbeDetail(
 // ─────────────────────────────────────────────────────────────────────────
 
 export interface UseTriggerProbeResult {
-  trigger: (probeId: string, slugs?: string[]) => Promise<TriggerResponse>;
+  /**
+   * Trigger a probe run.
+   *
+   * Resolves to a `TriggerResponse` on success. Resolves to `null` when the
+   * call is superseded by a back-to-back trigger (the AbortError is swallowed
+   * — see R2-C.2). Callers that care about the response must null-check.
+   * Throws on real failures (missing token, server error, etc.).
+   */
+  trigger: (
+    probeId: string,
+    slugs?: string[],
+  ) => Promise<TriggerResponse | null>;
   pending: boolean;
   error: Error | null;
 }
@@ -235,7 +255,10 @@ export function useTriggerProbe(opts?: {
   }, []);
 
   const trigger = useCallback(
-    async (probeId: string, slugs?: string[]): Promise<TriggerResponse> => {
+    async (
+      probeId: string,
+      slugs?: string[],
+    ): Promise<TriggerResponse | null> => {
       if (!token) {
         const err = new Error(
           "useTriggerProbe: token is required to trigger a probe run",
@@ -245,6 +268,8 @@ export function useTriggerProbe(opts?: {
       }
       if (aliveRef.current) {
         setPending(true);
+        // R3-C.4: clear any prior trigger error eagerly so a successful
+        // call doesn't leave a stale error hanging on the result object.
         setError(null);
       }
       // Replace any prior in-flight controller — back-to-back triggers
@@ -268,10 +293,11 @@ export function useTriggerProbe(opts?: {
           (err as { name?: string })?.name === "AbortError" ||
           controller.signal.aborted;
         if (isAbort) {
-          // Caller's promise resolves with `undefined as TriggerResponse`.
-          // Real callers either await the new trigger or ignore the old
-          // promise; none should consume undefined as a TriggerResponse.
-          return undefined as unknown as TriggerResponse;
+          // R3-C.1: resolve with `null` (typed in the signature) so callers
+          // can discriminate supersession without a type-system lie. The
+          // previous `undefined as unknown as TriggerResponse` violated the
+          // declared contract.
+          return null;
         }
         const e = err instanceof Error ? err : new Error(String(err));
         if (aliveRef.current) setError(e);
