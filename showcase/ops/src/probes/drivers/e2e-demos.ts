@@ -186,6 +186,31 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 
 /**
+ * Env-var override for the driver's internal hard-cap. Read PER `run()`
+ * call against `ctx.env` so the orchestrator can thread the per-probe
+ * `cfg.timeout_ms` from `e2e-demos.yml` into the singleton driver
+ * registration without rebuilding the driver.
+ *
+ * Why this knob exists: drivers are registered as singletons at
+ * orchestrator boot (BEFORE probe configs are loaded), so we can't pass
+ * `cfg.timeout_ms` straight into `createE2eDemosDriver({ timeoutMs: ... })`
+ * — by the time the loader knows the YAML's `timeout_ms`, the singleton
+ * is already wired into the registry. Reading from `ctx.env` per-call
+ * lets the orchestrator set `process.env.E2E_DEMOS_TIMEOUT_MS` from the
+ * loaded probe config so the driver's internal cap aligns with the
+ * invoker's outer race (1_200_000ms in production today).
+ *
+ * Resolution order (highest precedence first):
+ *   1. `ctx.env.E2E_DEMOS_TIMEOUT_MS` — orchestrator-threaded YAML value.
+ *   2. `deps.timeoutMs` — explicit per-driver override (used by tests).
+ *   3. `DEFAULT_TIMEOUT_MS` — fallback (5 min).
+ *
+ * Env values that don't parse as positive integers fall through to the
+ * dep / default — a typo'd env var must NOT silently disable the cap.
+ */
+const TIMEOUT_ENV_VAR = "E2E_DEMOS_TIMEOUT_MS";
+
+/**
  * Structural-ready selectors tried in order. First match wins; a demo is
  * considered green if any one resolves within the page timeout. Kept as a
  * const array so the production config and the unit tests agree on the
@@ -289,7 +314,7 @@ export function createE2eDemosDriver(
   deps: E2eDemosDriverDeps = {},
 ): ProbeDriver<E2eDemosDriverInput, E2eDemosAggregateSignal> {
   const launcher = deps.launcher ?? defaultLauncher;
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const depTimeoutMs = deps.timeoutMs;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
 
   return {
@@ -302,6 +327,20 @@ export function createE2eDemosDriver(
       const observedAt = ctx.now().toISOString();
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+
+      // Resolve the internal cap per `run()` against env first so a
+      // singleton-driver registration can still align with the per-probe
+      // `cfg.timeout_ms` in `e2e-demos.yml`. See `TIMEOUT_ENV_VAR` block
+      // for the resolution-order rationale.
+      const envRaw = ctx.env[TIMEOUT_ENV_VAR];
+      const envParsed =
+        typeof envRaw === "string" && /^\d+$/.test(envRaw.trim())
+          ? Number.parseInt(envRaw.trim(), 10)
+          : NaN;
+      const timeoutMs =
+        Number.isFinite(envParsed) && envParsed > 0
+          ? envParsed
+          : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
 
       // Starter short-circuit — runs BEFORE chromium launch AND BEFORE
       // demos resolution. Starters have no /demos/* routing, so every row
