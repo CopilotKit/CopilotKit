@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   keyFor,
+  mergeRowsToMap,
   resolveCell,
   upsertByKey,
   type LiveStatusMap,
@@ -75,6 +76,59 @@ describe("upsertByKey", () => {
     const out = upsertByKey([a], b);
     expect(out).toHaveLength(1);
     expect(out[0]!.state).toBe("red");
+  });
+  it("returns the same array reference for a no-op update (React short-circuit)", () => {
+    // Producer re-emits the same row at every poll tick when nothing
+    // changed; reducing through upsertByKey must NOT allocate a new
+    // array or React will re-render every memoised consumer downstream.
+    const a = row("k:noop", "smoke", "green");
+    const aPrime = row("k:noop", "smoke", "green");
+    const before = [a];
+    const after = upsertByKey(before, aPrime);
+    expect(after).toBe(before);
+  });
+  it("allocates a new array when state changes", () => {
+    const a = row("k:1", "smoke", "green");
+    const b = row("k:1", "smoke", "degraded");
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.state).toBe("degraded");
+  });
+  it("allocates a new array when observed_at changes (heartbeat-with-update)", () => {
+    const a = row("k:1", "smoke", "green");
+    const b = row("k:1", "smoke", "green", {
+      observed_at: "2026-04-21T00:00:00Z",
+    });
+    const before = [a];
+    const after = upsertByKey(before, b);
+    expect(after).not.toBe(before);
+    expect(after[0]!.observed_at).toBe("2026-04-21T00:00:00Z");
+  });
+});
+
+describe("mergeRowsToMap", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("merges disjoint key sets without warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const map = mergeRowsToMap(
+      [row("health:a", "health", "green")],
+      [row("e2e:a/b", "e2e", "red")],
+    );
+    expect(map.size).toBe(2);
+    expect(warn).not.toHaveBeenCalled();
+  });
+  it("warns on collision but still applies last-wins (disjoint-key invariant guard)", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const first = row("dup:k", "smoke", "green");
+    const second = row("dup:k", "smoke", "red");
+    const map = mergeRowsToMap([first], [second]);
+    expect(map.get("dup:k")?.state).toBe("red");
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[0]).toMatch(/disjoint-key invariant violated/);
   });
 });
 
