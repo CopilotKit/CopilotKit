@@ -40,6 +40,15 @@ export type ProbeInvokerErrorClass =
 export interface ProbeInvokerSyntheticSignal {
   errorDesc: string;
   errorClass: ProbeInvokerErrorClass;
+  /**
+   * `err.name` from the originating exception (e.g. "TypeError",
+   * "AbortError", "ZodError"). Operators triaging a timeout vs. a
+   * TypeError need to distinguish the two without parsing the free-form
+   * `errorDesc`. Optional: synthetic results that don't originate from
+   * an Error (e.g. the misconfigured-discovery sentinel) leave it
+   * undefined.
+   */
+  errName?: string;
 }
 
 /**
@@ -525,6 +534,7 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       `inputSchema rejected: ${parsed.error.message}`,
       now,
       "input-rejected",
+      parsed.error.name,
     );
   }
   // Drivers that emit paired results (e.g. smoke → smoke+health) push the
@@ -587,12 +597,25 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // surface as an `unhandledRejection`. The original promise still
     // throws into the outer `try/catch` for the non-timeout path.
     const driverPromise = driver.run(ctx, parsed.data);
-    // Attach a no-op rejection handler so a late driver rejection is
-    // observed and doesn't bubble up to `process.on('unhandledRejection')`.
-    // The original promise is what we race; catching from a separate
-    // .catch() chain doesn't consume the original.
-    void driverPromise.catch(() => {
-      /* swallow late rejections — primary result already settled */
+    // Attach a rejection observer so a late driver rejection is
+    // surfaced — without it (or with a `.catch(() => {})` no-op) a
+    // post-timeout chromium SIGSEGV / TypeError lands silently and
+    // operators see only "timeout" with no underlying signal. We log at
+    // debug rather than warn/error because the primary result has
+    // already settled (operators have a timeout tick to act on); the
+    // late signal is correlation-fuel for post-mortem, not an alertable
+    // event of its own. Critically: this observer does NOT consume the
+    // original `driverPromise` — it's a sibling chain, so the race path
+    // still observes the rejection and routes it through the catch
+    // block when `timedOut === false`.
+    void driverPromise.catch((err) => {
+      logger.debug("probe.driver-late-rejection", {
+        probeId,
+        kind: driver.kind,
+        key,
+        errName: err instanceof Error ? err.name : "unknown",
+        err: err instanceof Error ? err.message : String(err),
+      });
     });
     return await Promise.race([driverPromise, timeoutPromise]);
   } catch (err) {
@@ -604,12 +627,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       return syntheticError(key, timeoutReason, now, "timeout");
     }
     const message = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.name : undefined;
     logErrorWithStack(logger, "probe.run-failed", err, {
       probeId,
       kind: driver.kind,
       key,
     });
-    return syntheticError(key, message, now, "driver-error");
+    return syntheticError(key, message, now, "driver-error", errName);
   } finally {
     if (timer !== null) clearTimeout(timer);
   }
@@ -620,11 +644,24 @@ function syntheticError(
   message: string,
   now: () => Date,
   errorClass: ProbeInvokerErrorClass,
+  errName?: string,
 ): ProbeResult<ProbeInvokerSyntheticSignal> {
+  const signal: ProbeInvokerSyntheticSignal = {
+    errorDesc: message,
+    errorClass,
+  };
+  // Only attach `errName` when present — keeps the wire shape minimal
+  // for sentinel paths that don't originate from a real Error
+  // (e.g. misconfigured-discovery / enumerate-failed sentinels), and
+  // avoids forcing every existing test that asserts the exact signal
+  // shape to add an undefined field.
+  if (errName !== undefined) {
+    signal.errName = errName;
+  }
   return {
     key,
     state: "error",
-    signal: { errorDesc: message, errorClass },
+    signal,
     observedAt: now().toISOString(),
   };
 }
@@ -633,10 +670,20 @@ function syntheticError(
  * Standardise the shape of `logger.error` calls so the structured-log
  * payload always carries `errName` + a truncated `stack` alongside the
  * message. Without this, `err.message` alone strips the type and stack —
- * making post-mortem on production logs much harder. Stack is truncated
- * to the first 5 lines because Slack/Pocketbase render budgets are
- * tight; the rest of the stack lives in the orchestrator's full log
- * stream if needed.
+ * making post-mortem on production logs much harder.
+ *
+ * Stack handling is two-tier:
+ *
+ *   - `logger.error(msg, ...)` carries a TRUNCATED stack (first 5 lines)
+ *     because Slack/Pocketbase render budgets are tight and a
+ *     full-frame Node stack drowns the alert.
+ *   - `logger.debug("<msg>.full-stack", ...)` carries the FULL stack
+ *     alongside, every time. Production debug-level logs flow into the
+ *     orchestrator's structured log stream where storage is cheap and
+ *     post-mortem operators can pull them on demand. Always emitting
+ *     means the comment "the rest of the stack lives in the
+ *     orchestrator's full log stream" is now load-bearing rather than
+ *     aspirational.
  */
 function logErrorWithStack(
   logger: Logger,
@@ -645,15 +692,23 @@ function logErrorWithStack(
   extra: Record<string, unknown> = {},
 ): void {
   const meta: Record<string, unknown> = { ...extra };
+  let fullStack: string | undefined;
   if (err instanceof Error) {
     meta.err = err.message;
     meta.errName = err.name;
     if (err.stack) {
       meta.stack = err.stack.split("\n").slice(0, 5).join("\n");
+      fullStack = err.stack;
     }
   } else {
     meta.err = String(err);
     meta.errName = "unknown";
   }
   logger.error(msg, meta);
+  // Parallel debug emission carrying the full stack; only when we have
+  // one (string-thrown values have no stack to preserve). Reuses the
+  // same `extra` keys so log-aggregation can correlate the two.
+  if (fullStack !== undefined) {
+    logger.debug(`${msg}.full-stack`, { ...extra, stack: fullStack });
+  }
 }
