@@ -120,6 +120,21 @@ function mkCtx(
 // --- Core emission behaviour --------------------------------------------
 
 describe("e2e-demos driver", () => {
+  // Track tmp dirs / disposables for cleanup across tests in this block.
+  // Hoisted to the TOP of the describe so any `cleanups.push(...)` call
+  // inside a setup-throwy `it()` (e.g. a writeFileSync that throws after
+  // mkdtempSync) doesn't leak the tmp dir — the push runs immediately
+  // after mkdtempSync and the afterEach reaper drains the queue regardless
+  // of test outcome. Earlier versions placed this declaration AT THE
+  // BOTTOM of the describe (via Vitest's hoisting it still worked at
+  // runtime, but the source-ordering smell was load-bearing fragile —
+  // a test that pushed BEFORE the array initializer line would hit a
+  // ReferenceError. Hoist eliminates that footgun.).
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const c of cleanups.splice(0)) c();
+  });
+
   it("exposes kind === 'e2e_demos'", () => {
     expect(e2eDemosDriver.kind).toBe("e2e_demos");
   });
@@ -303,6 +318,12 @@ describe("e2e-demos driver", () => {
     // End-to-end exercise of the default demosResolver: write a fixture
     // registry.json and set REGISTRY_JSON_PATH so the default path reads it.
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-demos-"));
+    // Register cleanup IMMEDIATELY after mkdtempSync — before any
+    // writeFileSync that could throw and leak the tmp dir. Earlier
+    // versions registered cleanup AFTER writeFileSync, so a disk-full
+    // / permission throw in writeFileSync would orphan the tmp dir
+    // for the rest of the test process's lifetime.
+    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
     const registryPath = path.join(tmp, "registry.json");
     fs.writeFileSync(
       registryPath,
@@ -318,7 +339,6 @@ describe("e2e-demos driver", () => {
         ],
       }),
     );
-    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
     const { browser } = makeBrowser([{}, {}]);
     const driver = createE2eDemosDriver({ launcher: async () => browser });
@@ -400,7 +420,7 @@ describe("e2e-demos driver", () => {
       async write(r: ProbeResult<unknown>) {
         this.writes++;
         if (r.key === "e2e:foo/agentic-chat") throw new Error("pb down");
-        return {};
+        return undefined;
       },
     };
     const driver = createE2eDemosDriver({ launcher: async () => browser });
@@ -635,11 +655,6 @@ describe("e2e-demos driver", () => {
     expect(rowSig?.errorClass).toBe("selector-error");
   });
 
-  // Track tmp dirs for cleanup across fixture-backed tests.
-  const cleanups: Array<() => void> = [];
-  afterEach(() => {
-    for (const c of cleanups.splice(0)) c();
-  });
 });
 
 // --- Integration: shortest-service-first dispatch ------------------------
