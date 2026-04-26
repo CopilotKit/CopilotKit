@@ -1315,4 +1315,127 @@ describe("railwayServicesSource", () => {
       }
     }
   });
+
+  // -----------------------------------------------------------------
+  // Per-service variables loop error bucketing.
+  // -----------------------------------------------------------------
+
+  describe("per-service variables loop error bucketing (C, D)", () => {
+    it("rethrows AuthError mid-loop instead of silently degrading", async () => {
+      // Token rotation race: every per-service call returns 401. The
+      // pre-fix code degraded all of them to `env: {}` and emitted a
+      // green discovery — operators never saw the auth break.
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: railwayProjectResponse([
+            {
+              id: "s-1",
+              name: "showcase-a",
+              image: "ghcr.io/c/a:v1",
+              domain: "a.up.railway.app",
+            },
+            {
+              id: "s-2",
+              name: "showcase-b",
+              image: "ghcr.io/c/b:v1",
+              domain: "b.up.railway.app",
+            },
+          ]),
+        },
+        // First per-service call: 401 — must propagate, not degrade.
+        { status: 401, body: { errors: [{ message: "token expired" }] } },
+      ]);
+      await expect(
+        railwayServicesSource.enumerate(makeCtx(fetchImpl), {}),
+      ).rejects.toBeInstanceOf(DiscoverySourceAuthError);
+    });
+
+    it("on abort mid-loop, breaks out cleanly (one log, not N)", async () => {
+      // 3-service project, abort fires before service #2's variables
+      // call resolves. Every remaining gql() rejects with AbortError.
+      // Pre-fix: N variables-failed warns. Post-fix: at most one (or
+      // zero — the loop exits before logging at all, depending on
+      // whether the abort wins the race).
+      const controller = new AbortController();
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      let callIdx = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        callIdx += 1;
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+                {
+                  id: "s-2",
+                  name: "showcase-b",
+                  image: "ghcr.io/c/b:v1",
+                  domain: "b.up.railway.app",
+                },
+                {
+                  id: "s-3",
+                  name: "showcase-c",
+                  image: "ghcr.io/c/c:v1",
+                  domain: "c.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // After the first variables call, abort. Subsequent gql() calls
+        // see signal.aborted at fetch-time and reject with AbortError.
+        if (callIdx === 2) {
+          controller.abort(new Error("tick timeout"));
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        if (init?.signal?.aborted) {
+          const err: Error & { name: string } = new Error("aborted");
+          err.name = "AbortError";
+          throw err;
+        }
+        return new Response(JSON.stringify({ data: { variables: {} } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger: ctxLogger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      let threw = false;
+      try {
+        await railwayServicesSource.enumerate(ctx, {});
+      } catch {
+        threw = true;
+      }
+      // Either throws (preferred) or completes cleanly. Either way,
+      // `variables-failed` warns must be at most 1 — never one per
+      // remaining service.
+      const variablesFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.variables-failed",
+      );
+      expect(variablesFailed.length).toBeLessThanOrEqual(1);
+      // Confidence check that abort actually fired.
+      expect(controller.signal.aborted).toBe(true);
+      void threw;
+    });
+  });
 });

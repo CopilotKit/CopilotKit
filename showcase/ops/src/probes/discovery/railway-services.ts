@@ -538,10 +538,27 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
           }
         }
       } catch (err) {
-        // Single-service variable fetch failure: log + continue with
-        // empty env. A global 401 would have already aborted the tick
-        // via the project-level query above, so reaching this branch
-        // means transient per-service trouble — not a blanket outage.
+        // Tick-wide concerns must escape the per-service loop:
+        //   1. AbortError — the invoker fired the per-tick timeout
+        //      mid-loop. Continuing to spin up N more gql() calls
+        //      that will all reject is pure noise; rethrow and let
+        //      the invoker take a single keyed synthetic-error
+        //      ProbeResult instead of N variables-failed warns.
+        //   2. AuthError — a 401/403 mid-loop means the token rotated
+        //      (or was revoked) BETWEEN the project-level query and
+        //      this per-service call. Every remaining call will also
+        //      401, and silently degrading every env to {} produces a
+        //      green discovery while operators are blind to the auth
+        //      break. Rethrow so the invoker surfaces the failure.
+        // Other errors (transport flakes, backend 5xx, schema drift on
+        // a single service) keep the documented per-service-degraded
+        // behaviour: log + continue with empty env.
+        const aborted =
+          ctx.abortSignal?.aborted === true ||
+          (err instanceof Error && err.name === "AbortError");
+        if (aborted || err instanceof DiscoverySourceAuthError) {
+          throw err;
+        }
         ctx.logger.warn("discovery.railway-services.variables-failed", {
           service: svc.name,
           err: err instanceof Error ? err.message : String(err),
