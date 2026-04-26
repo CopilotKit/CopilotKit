@@ -28,13 +28,16 @@ export interface ServerDeps {
    */
   schedulerStarted?: () => boolean;
   /**
-   * Number of entries currently registered with the scheduler. When
-   * supplied, /health treats zero as a hard 503 — a running HTTP server
-   * with no cron jobs means the rule loader silently crashed (or loaded
-   * zero rules) and no probes will tick. Without this callback the
-   * endpoint still reports 200 in that pathological state.
+   * Number of entries currently registered with the scheduler. /health
+   * treats zero as a hard 503 — a running HTTP server with no cron jobs
+   * means the rule loader silently crashed (or loaded zero rules) and no
+   * probes will tick. REQUIRED (fail-loud): the previous optional
+   * signature defaulted to "OK by default" when callers forgot to wire
+   * the callback, masking exactly the misconfiguration this signal exists
+   * to surface. Production wires it in `boot()` (orchestrator.ts); test
+   * harnesses must supply a stub (e.g. `() => 1`).
    */
-  schedulerJobCount?: () => number;
+  schedulerJobCount: () => number;
   /**
    * `true` once `scheduler.stop()` has completed. When supplied, /health
    * returns 503 with `loop: "stopped"` rather than relying on the weaker
@@ -60,6 +63,20 @@ export interface ServerDeps {
 }
 
 export function buildServer(deps: ServerDeps): Hono {
+  // Fail-loud guard: the type signature already requires
+  // `schedulerJobCount`, but callers compiled with looser settings (or
+  // dynamic call sites built from `unknown`/`any`) can still pass
+  // undefined at runtime. Throwing here is preferable to falling back to
+  // a default-OK — that's exactly the misconfiguration that previously
+  // shipped /health: 200 with zero cron jobs.
+  if (typeof deps.schedulerJobCount !== "function") {
+    throw new Error(
+      "buildServer: schedulerJobCount callback is required. " +
+        "Wire it from the scheduler (e.g. () => scheduler.getJobCount()) " +
+        "so /health can fail loud when the rule loader produces zero entries.",
+    );
+  }
+
   const app = new Hono();
 
   if (deps.bus && deps.webhookSecrets && deps.webhookSecrets.length > 0) {
@@ -99,17 +116,18 @@ export function buildServer(deps: ServerDeps): Hono {
     //   - `schedulerIsStopped` (optional): true once stop() completed —
     //     takes priority over `loopAlive` so post-shutdown responses are
     //     accurate.
-    //   - `schedulerJobCount` (optional): if supplied AND zero, /health
-    //     returns 503. An HTTP server up with no cron entries means the
-    //     scheduler is ticking nothing — a silent outage we previously
-    //     reported as healthy.
+    //   - `schedulerJobCount` (REQUIRED): if zero, /health returns 503.
+    //     An HTTP server up with no cron entries means the scheduler is
+    //     ticking nothing — a silent outage we previously reported as
+    //     healthy. Fail-loud: callback is required at the type level and
+    //     guarded at boot, so jobCount is always defined here.
     //   - `loopAlive`: legacy flag flipped by orchestrator.stop().
     // Order: stopped > !started > !alive > jobCount==0 > alive.
     const alive = deps.loopAlive?.() ?? true;
     const started = deps.schedulerStarted?.() ?? true;
     const schedulerStopped = deps.schedulerIsStopped?.() ?? false;
-    const jobCount = deps.schedulerJobCount?.();
-    const jobCountOk = jobCount === undefined ? true : jobCount > 0;
+    const jobCount = deps.schedulerJobCount();
+    const jobCountOk = jobCount > 0;
     const loopOk = !schedulerStopped && started && alive && jobCountOk;
     const loopLabel = schedulerStopped
       ? "stopped"
@@ -127,7 +145,7 @@ export function buildServer(deps: ServerDeps): Hono {
         pb: pbOk ? "ok" : "down",
         loop: loopLabel,
         rules: ruleCount,
-        ...(jobCount !== undefined ? { schedulerJobs: jobCount } : {}),
+        schedulerJobs: jobCount,
       },
       ok ? 200 : 503,
     );
