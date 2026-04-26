@@ -550,9 +550,18 @@ export async function boot(opts: BootOptions = {}): Promise<{
   }
 
   const port = opts.port ?? Number(process.env.PORT ?? 8080);
-  const server = serve({ fetch: app.fetch, port });
+  // CR-A2.1: start the scheduler BEFORE binding the HTTP server. Pre-fix,
+  // `serve()` ran first and `scheduler.start()` second — if start() threw
+  // (a stopped-scheduler reentry, future precondition check, etc.) the
+  // bound socket was never closed. Boot rejected, but the http.Server kept
+  // listening, leaking one socket per restart loop. The HTTP server has
+  // no dependency on scheduler state at construction time (the /health
+  // probes accept callbacks that read scheduler liveness lazily), so the
+  // reorder is safe and obviates needing a try/catch around start() to
+  // close the server before rethrowing.
   scheduler.start();
   schedulerRunning = true;
+  const server = serve({ fetch: app.fetch, port });
   logger.info("showcase-ops.boot", { port, pbUrl, rules: rules.length });
 
   const sigHup = (): void => {

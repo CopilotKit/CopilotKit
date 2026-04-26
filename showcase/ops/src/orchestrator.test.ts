@@ -861,6 +861,96 @@ describe("orchestrator /api/probes wiring (F1)", () => {
   });
 });
 
+/**
+ * CR-A2.1: boot must NOT orphan the HTTP server when scheduler.start() throws.
+ *
+ * Pre-fix sequence in orchestrator.boot():
+ *   1. const server = serve({ ... port })   // HTTP socket bound
+ *   2. scheduler.start()                    // throws synchronously
+ *   3. (boot's try wrapping is upstream — start() throw propagates out)
+ *
+ * Result pre-fix: boot rejects but `server` keeps the port bound. The next
+ * boot attempt on the same port hits EADDRINUSE; CI runs that pick a fresh
+ * port mask the bug, but in production a Railway restart loop leaks
+ * one socket per crash until OOM. Fix: reorder so scheduler.start() runs
+ * BEFORE serve() (option B), or close the server before rethrowing.
+ *
+ * Test: doMock createScheduler so scheduler.start() throws. Boot must reject
+ * AND the chosen port must NOT be left in LISTEN state.
+ */
+describe("orchestrator boot start() failure cleanup (CR-A2.1)", () => {
+  let tempDir: string;
+  let port = 0;
+
+  beforeEach(async () => {
+    tempDir = await mkTempConfigDir();
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tempDir, { recursive: true, force: true });
+    vi.resetModules();
+    vi.restoreAllMocks();
+  });
+
+  it("rejects boot AND does not leave the HTTP port bound when scheduler.start() throws", async () => {
+    vi.resetModules();
+
+    // Wrap createScheduler so the returned scheduler.start throws on first
+    // invocation. All other methods delegate to the real scheduler so
+    // boot() can register entries / call list() etc. before start().
+    vi.doMock("./scheduler/scheduler.js", async () => {
+      const actual = await vi.importActual<
+        typeof import("./scheduler/scheduler.js")
+      >("./scheduler/scheduler.js");
+      return {
+        ...actual,
+        createScheduler: (deps: Parameters<typeof actual.createScheduler>[0]) => {
+          const real = actual.createScheduler(deps);
+          return {
+            ...real,
+            start: () => {
+              throw new Error("simulated scheduler.start() failure");
+            },
+          };
+        },
+      };
+    });
+
+    const orchMod = await import("./orchestrator.js");
+
+    await expect(
+      orchMod.boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+    ).rejects.toThrow(/simulated scheduler\.start\(\) failure/);
+
+    // Wait long enough for any deferred listen() callback to fire — pre-fix,
+    // serve() schedules the actual socket bind on next tick, so a synchronous
+    // port-probe could miss the orphan window.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // Critical assertion: a fetch to the port must NOT succeed. Pre-fix
+    // the orphaned http.Server stays listening on `port` even after boot
+    // rejects, so /health (or even /) responds. Post-fix the server was
+    // either never bound (option B: scheduler.start before serve) or
+    // closed before rethrow (option A). NOTE: net.createServer().listen()
+    // can succeed for a still-bound orphan because Node sets SO_REUSEADDR
+    // by default on macOS — the probe-bind cannot detect the orphan.
+    // Only an actual fetch can prove the port is silent.
+    let fetchSucceeded = false;
+    let fetchErr = "";
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/health`);
+      fetchSucceeded = res.status >= 200 && res.status < 600;
+    } catch (err) {
+      fetchErr = err instanceof Error ? err.message : String(err);
+    }
+    expect(
+      fetchSucceeded,
+      `port should NOT serve after rejected boot; fetchErr=${fetchErr}`,
+    ).toBe(false);
+  });
+});
+
 // Shared helper used by both the R25 and R28 describe blocks.
 function makeCronRule(id: string, cron: string): CompiledRule {
   return {
