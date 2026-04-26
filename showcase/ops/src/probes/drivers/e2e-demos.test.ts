@@ -103,11 +103,17 @@ function mkCtx(
   writer?: ProbeResultWriter,
   env: Record<string, string | undefined> = {},
 ): ProbeContext {
+  // C1: provide stubs for fetchImpl + abortSignal so the driver's
+  // ProbeContext consumption surface is fully populated. ProbeContext
+  // declares both as optional, but a complete stub catches future
+  // changes that make them required without rewriting every test.
   return {
     now: () => new Date("2026-04-23T00:00:00Z"),
     logger,
     env,
     writer,
+    fetchImpl: globalThis.fetch,
+    abortSignal: new AbortController().signal,
   };
 }
 
@@ -160,7 +166,7 @@ describe("e2e-demos driver", () => {
   });
 
   it("emits red for demos whose page.goto fails", async () => {
-    const { browser } = makeBrowser([
+    const { browser, state } = makeBrowser([
       {}, // agentic-chat → green
       { throwOnGoto: new Error("net::ERR_CONNECTION_REFUSED") }, // tool-rendering → red
       {}, // gen-ui-agent → green
@@ -190,6 +196,11 @@ describe("e2e-demos driver", () => {
     const toolRow = byKey.get("e2e:langgraph-python/tool-rendering");
     const toolSig = toolRow?.signal as { errorDesc?: string };
     expect(toolSig?.errorDesc).toMatch(/ERR_CONNECTION_REFUSED/);
+
+    // C3: every opened context must have been closed even on the
+    // goto-failure code path — catches browser-context leaks where a
+    // throw inside runDemo() bypasses context.close() in the finally.
+    expect(state.contextsClosed).toBe(state.contextsOpened);
   });
 
   it("emits red for demos whose selector check times out", async () => {
@@ -218,7 +229,18 @@ describe("e2e-demos driver", () => {
 
   it("skips shape=starter entirely: no side rows, aggregate green, no chromium", async () => {
     const { browser, state } = makeBrowser([]);
-    const driver = createE2eDemosDriver({ launcher: async () => browser });
+    // C2: track whether the driver invoked the launcher at all. The
+    // starter short-circuit must return BEFORE the launcher is awaited;
+    // `state.closed === false` was a weaker proxy that could pass even
+    // if the driver had launched but not closed (which would itself be
+    // a bug we wouldn't catch).
+    let launched = false;
+    const driver = createE2eDemosDriver({
+      launcher: async () => {
+        launched = true;
+        return browser;
+      },
+    });
     const { writer, writes } = mkWriter();
 
     const result = await driver.run(mkCtx(writer), {
@@ -236,9 +258,11 @@ describe("e2e-demos driver", () => {
     expect(sig.total).toBe(0);
     expect(sig.passed).toBe(0);
     expect(writes).toHaveLength(0);
-    // Chromium must not have been touched.
+    // Chromium must not have been touched: launcher never invoked AND
+    // no contexts ever opened. Both assertions hold together as the
+    // starter short-circuit's semantic contract.
+    expect(launched).toBe(false);
     expect(state.contextsOpened).toBe(0);
-    expect(state.closed).toBe(false);
   });
 
   it("resolves demos from registry when input lacks demos field", async () => {
@@ -399,6 +423,17 @@ describe("e2e-demos driver", () => {
     // Mixed set: `cli-start` is an informational command-cell with no
     // route; `agentic-chat` is a normal navigable demo. Only the
     // navigable demo should consume a page script.
+    //
+    // C4 coupling note: pageScripts.length === 1 (only agentic-chat,
+    // not cli-start) is load-bearing. The driver's "skip newContext for
+    // routeless demos" behaviour means cli-start does NOT consume a
+    // page script. If pageScripts grew to 2 here the second entry
+    // would be silently ignored (makePage() falls back to {} when the
+    // index is out of range), but if the driver REGRESSED and started
+    // calling newPage() for the routeless cell, it would consume the
+    // second pageScripts entry instead of throwing. The gotoCalls
+    // assertion below is the load-bearing check that catches that
+    // regression — the array length is documentary, not enforcing.
     const pageScripts: PageScript[] = [{} /* agentic-chat only */];
     const { browser, state } = makeBrowser(pageScripts);
     let gotoCalls = 0;

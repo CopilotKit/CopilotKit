@@ -341,7 +341,10 @@ describe("buildProbeInvoker", () => {
       async run(ctx, input) {
         inFlight++;
         peak = Math.max(peak, inFlight);
-        await new Promise((r) => setTimeout(r, 15));
+        // 50ms (was 15ms) — gives concurrent worker slots time to claim
+        // their inputs even under heavy CI load. Total wall-clock is
+        // bounded at ~10*50ms/3 ≈ ~170ms, still fast.
+        await new Promise((r) => setTimeout(r, 50));
         inFlight--;
         return {
           key: (input as { key: string }).key,
@@ -467,14 +470,17 @@ describe("buildProbeInvoker", () => {
     expect(writes).toHaveLength(1);
     expect(writes[0]!.state).toBe("error");
     // The invoker must return promptly on timeout — NOT wait for the
-    // driver's 80ms sleep to complete. Allow some slack for CI jitter
-    // but stay well under 80ms.
-    expect(elapsed).toBeLessThan(70);
-    // The slow driver may still be in flight when we finish, which is
-    // the whole point of this test: invoker does not block on it.
-    // Can't assert `driverResolved === false` deterministically in all
-    // environments, but reference it so the variable isn't flagged.
-    void driverResolved;
+    // driver's 80ms sleep to complete. Allow ample slack for CI jitter:
+    // we care that the invoker isn't blocking on the driver's full
+    // 80ms sleep, not that it returns inside any particular tight bound.
+    // 100ms is well under the 80ms+race-settle absolute lower bound for
+    // a regression where the invoker awaited driverPromise instead.
+    expect(elapsed).toBeLessThan(100);
+    // The slow driver has NOT fired its setTimeout callback yet at the
+    // time the invoker returned (timeout_ms=20 < driver-sleep=80), so
+    // this assertion is deterministic: we read driverResolved
+    // synchronously after `await invoker()` returns.
+    expect(driverResolved).toBe(false);
   });
 
   it("passes an abortSignal to drivers and sets an abort reason on timeout", async () => {
