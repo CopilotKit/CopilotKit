@@ -47,6 +47,30 @@ const CHAT_INPUT_SELECTORS = [
   '[role="textbox"]',
 ] as const;
 
+/**
+ * Canonical assistant-message selector. Used by `readMessageCount`
+ * and re-exported so sibling helpers / scripts (`_hitl-shared`,
+ * `_gen-ui-shared`, `d5-agentic-chat`, `d5-shared-state`) all read
+ * the same DOM nodes the runner uses to detect "response settled".
+ *
+ * Drift between this and any sibling reader meant the runner could
+ * settle on N messages while a sibling read N+M (counting user
+ * bubbles toward the assistant total). Pinning the selector here is
+ * the single-source-of-truth fix.
+ *
+ * The cascade has two preferences:
+ *   1. `[data-testid="copilot-assistant-message"]` — canonical CopilotKit testid.
+ *   2. `[role="article"]:not([data-message-role="user"])` — generic
+ *      ARIA + explicit user-bubble exclusion. This last clause is
+ *      load-bearing: some composers tag their bubbles
+ *      `[role="article"][data-message-role="user"]` and a bare
+ *      `[role="article"]` would over-count.
+ */
+export const ASSISTANT_MESSAGE_PRIMARY_SELECTOR =
+  '[data-testid="copilot-assistant-message"]';
+export const ASSISTANT_MESSAGE_FALLBACK_SELECTOR =
+  '[role="article"]:not([data-message-role="user"])';
+
 const DEFAULT_RESPONSE_TIMEOUT_MS = 30_000;
 const DEFAULT_SETTLE_MS = 1500;
 const SELECTOR_PROBE_TIMEOUT_MS = 2_000;

@@ -37,7 +37,12 @@ import {
   type D5BuildContext,
   type D5FeatureType,
 } from "../helpers/d5-registry.js";
-import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
+import {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  type ConversationTurn,
+  type Page,
+} from "../helpers/conversation-runner.js";
 
 /**
  * Turn 1 user message — verbatim copy of the fixture's `userMessage`
@@ -83,27 +88,30 @@ export function preNavigateRoute(featureType: D5FeatureType): string {
  * the assertion throwing on an unexpected null/undefined.
  */
 async function readLatestAssistantText(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const win = globalThis as unknown as {
-      document: {
-        querySelectorAll(sel: string): {
-          length: number;
-          item(i: number): { textContent: string | null } | null;
-        };
-      };
-    };
-    const canonical = win.document.querySelectorAll(
-      '[data-testid="copilot-assistant-message"]',
-    );
-    const list =
-      canonical.length > 0
+  // String-templated `new Function` lets us reference the shared
+  // selector constants without dragging a `dom` lib dependency into the
+  // helper module's tsconfig. JSON.stringify guarantees the embedded
+  // selector strings are quoted correctly even if a future selector
+  // contains awkward characters.
+  const code = `
+    (() => {
+      const doc = globalThis.document;
+      const canonical = doc.querySelectorAll(${JSON.stringify(
+        ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+      )});
+      const list = canonical.length > 0
         ? canonical
-        : win.document.querySelectorAll('[role="article"]');
-    if (list.length === 0) return "";
-    const last = list.item(list.length - 1);
-    const text = last?.textContent ?? "";
-    return text.toLowerCase();
-  });
+        : doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+        )});
+      if (list.length === 0) return "";
+      const last = list[list.length - 1];
+      const text = (last && last.textContent) ? last.textContent : "";
+      return text.toLowerCase();
+    })()
+  `;
+  const fn = new Function(`return ${code};`) as () => string;
+  return page.evaluate(fn);
 }
 
 /**

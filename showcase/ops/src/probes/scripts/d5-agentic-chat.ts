@@ -38,7 +38,12 @@
  */
 
 import { registerD5Script } from "../helpers/d5-registry.js";
-import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
+import {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  type ConversationTurn,
+  type Page,
+} from "../helpers/conversation-runner.js";
 
 /**
  * Read all visible assistant-message text from the page. Mirrors the
@@ -51,29 +56,33 @@ import type { ConversationTurn, Page } from "../helpers/conversation-runner.js";
  * tool / state events are interleaved).
  */
 async function readAssistantTranscript(page: Page): Promise<string> {
-  return page.evaluate(() => {
-    const win = globalThis as unknown as {
-      document: {
-        querySelectorAll(sel: string): {
-          length: number;
-          [index: number]: { textContent?: string | null };
-        };
-      };
-    };
-    const canonical = win.document.querySelectorAll(
-      '[data-testid="copilot-assistant-message"]',
-    );
-    const nodes =
-      canonical.length > 0
+  // Use the same canonical + user-bubble-excluding fallback selectors
+  // as `conversation-runner.ts::readMessageCount`. A bare
+  // `[role="article"]` would scoop up user input bubbles into the
+  // transcript and let turn 1's "good name for a goldfish" substring
+  // accidentally match the user's own message instead of the
+  // assistant's reply.
+  const code = `
+    (() => {
+      const doc = globalThis.document;
+      const canonical = doc.querySelectorAll(${JSON.stringify(
+        ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+      )});
+      const nodes = canonical.length > 0
         ? canonical
-        : win.document.querySelectorAll('[role="article"]');
-    let out = "";
-    for (let i = 0; i < nodes.length; i++) {
-      const text = nodes[i]?.textContent ?? "";
-      out += " " + text;
-    }
-    return out.toLowerCase();
-  });
+        : doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+        )});
+      let out = "";
+      for (let i = 0; i < nodes.length; i++) {
+        const text = (nodes[i] && nodes[i].textContent) ? nodes[i].textContent : "";
+        out += " " + text;
+      }
+      return out.toLowerCase();
+    })()
+  `;
+  const fn = new Function(`return ${code};`) as () => string;
+  return page.evaluate(fn);
 }
 
 /**

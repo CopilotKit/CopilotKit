@@ -26,7 +26,11 @@
  * through `globalThis`. Same pattern as `conversation-runner.ts`.
  */
 
-import type { Page } from "../helpers/conversation-runner.js";
+import {
+  ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+  type Page,
+} from "../helpers/conversation-runner.js";
 
 /**
  * Selector cascade used to find a rendered gen-UI component in the
@@ -220,27 +224,30 @@ export async function readSvgChartShape(page: Page): Promise<SvgChartShape> {
  * no assistant text is present.
  */
 export async function readLastAssistantText(page: Page): Promise<string> {
-  return await page.evaluate(() => {
-    const win = globalThis as unknown as {
-      document: {
-        querySelectorAll(
-          sel: string,
-        ): ArrayLike<{ textContent: string | null }>;
-      };
-    };
-    // Mirror the message-count probe in conversation-runner.ts: prefer
-    // the canonical CopilotKit testid, fall back to [role="article"].
-    const canonical = win.document.querySelectorAll(
-      '[data-testid="copilot-assistant-message"]',
-    );
-    const list: ArrayLike<{ textContent: string | null }> =
-      canonical.length > 0
+  // Mirror the message-count probe in conversation-runner.ts: prefer
+  // the canonical CopilotKit testid, fall back to a `[role="article"]`
+  // selector that explicitly EXCLUDES user-tagged bubbles. The
+  // exclusion is load-bearing — composers that tag their user bubbles
+  // `data-message-role="user"` would otherwise have their input
+  // counted as the "last assistant message".
+  const code = `
+    (() => {
+      const doc = globalThis.document;
+      const canonical = doc.querySelectorAll(${JSON.stringify(
+        ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
+      )});
+      const list = canonical.length > 0
         ? canonical
-        : win.document.querySelectorAll('[role="article"]');
-    if (list.length === 0) return "";
-    const last = list[list.length - 1];
-    return (last?.textContent ?? "").trim();
-  });
+        : doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+        )});
+      if (list.length === 0) return "";
+      const last = list[list.length - 1];
+      return (last && last.textContent ? last.textContent : "").trim();
+    })()
+  `;
+  const fn = new Function(`return ${code};`) as () => string;
+  return await page.evaluate(fn);
 }
 
 function sleep(ms: number): Promise<void> {
