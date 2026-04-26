@@ -55,6 +55,14 @@ export const DIMENSIONS = [
   // here for probe-config + rule-YAML validation at load time.
   "e2e_deep",
   "d5",
+  // D6 — parity-vs-reference driver. The `e2e_parity` dimension is the
+  // primary `kind:` literal in `config/probes/e2e-parity.yml`; the driver
+  // emits per-feature side rows under `d6:<slug>/<featureType>` keys
+  // (same `status` collection as D5, distinguished only by the `d6:`
+  // prefix per Q5 of the D5-D6 spec) so both the YAML kind and the
+  // side-row dimension need closed-enum slots here.
+  "e2e_parity",
+  "d6",
 ] as const;
 export type Dimension = (typeof DIMENSIONS)[number];
 
