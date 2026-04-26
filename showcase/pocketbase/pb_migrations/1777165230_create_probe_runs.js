@@ -32,11 +32,20 @@ migrate(
     // Idempotency: re-running the migration after a partial apply (the
     // exact failure mode that motivated the 1776789100 reconcile pattern)
     // must be a no-op. Skip when the collection already exists.
+    //
+    // R2-A.11: PB JSVM does NOT expose typed error discrimination
+    // (no ErrCollectionNotFound), so we have to catch broadly here.
+    // The cost is low: a real permission/IO error against the dao
+    // would fall through to createCollection, which would surface its
+    // own error. The down-migration is narrowed (it operates on a
+    // resolved-or-skip path).
     try {
       dao.findCollectionByNameOrId("probe_runs");
       return;
     } catch (e) {
-      // Not present — fall through to create.
+      // Not present (or PB JSVM threw something equivalent) — fall
+      // through to create. We can't tighten further without typed
+      // errors from the runtime.
     }
     const c = new Collection({
       name: "probe_runs",
@@ -78,10 +87,16 @@ migrate(
         // for probe X", served directly by this composite index without
         // a sort step. Mirrors the status_history pattern in
         // 1776789000.
-        "CREATE INDEX idx_probe_runs_probe_started ON probe_runs (probe_id, started_at DESC)",
+        //
+        // R2-A.11: IF NOT EXISTS so a partial-apply on the indexes step
+        // doesn't trip the next migration run. The collection-presence
+        // gate above already covers the saveCollection idempotency; this
+        // covers the per-index path in case PB ever runs index DDL
+        // separately from the schema commit.
+        "CREATE INDEX IF NOT EXISTS idx_probe_runs_probe_started ON probe_runs (probe_id, started_at DESC)",
         // Standalone started_at index covers cross-probe time-range
         // queries (retention sweeps, "last 24h across all probes").
-        "CREATE INDEX idx_probe_runs_started ON probe_runs (started_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_probe_runs_started ON probe_runs (started_at DESC)",
       ],
       // Public read mirrors `status` / `status_history` — the dashboard
       // pulls run history without an authenticated session. Writes stay

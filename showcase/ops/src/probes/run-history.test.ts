@@ -315,4 +315,28 @@ describe("run-history", () => {
       expect(recent).toEqual([]);
     });
   });
+
+  // ---------------------------------------------------------------------
+  // R2-A.7: finish() must NOT call pb.update on a row that doesn't exist.
+  // Previously, getOne returning null fell through with NaN duration and
+  // updated a non-existent row, which either threw or wrote junk.
+  // ---------------------------------------------------------------------
+  describe("finish() — R2-A.7 missing-row guard", () => {
+    it("returns early without calling pb.update when getOne returns null", async () => {
+      const fake = fakePb();
+      const writer = createProbeRunWriter(fake.pb);
+      // No row exists for "ghost-id".
+      await writer.finish({
+        id: "ghost-id",
+        finishedAt: 5_000,
+        state: "completed",
+        summary: { total: 1, passed: 1, failed: 0 },
+      });
+      // Critical assertion: pb.update is NEVER called when the row is
+      // missing. Previously the code would call update and either throw
+      // (fakePb's `missing row` error) or silently update a non-existent
+      // record on the real client.
+      expect(fake.updateCalls).toHaveLength(0);
+    });
+  });
 });

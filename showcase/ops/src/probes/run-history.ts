@@ -130,11 +130,27 @@ export function createProbeRunWriter(pb: PbClient): ProbeRunWriter {
       // Read the persisted started_at so duration is always defined off
       // the row — see the JSDoc on `finish()` for why we don't trust a
       // caller-supplied startedAt.
+      //
+      // R2-A.7: when the row is missing (returns null), do NOT call
+      // pb.update on a non-existent id. The previous code fell through
+      // with NaN duration and either threw on the underlying client or
+      // silently wrote a junk row. Log a warning so the missing-row
+      // case is observable, then return early. This is best-effort
+      // observability — never throw, never block the caller (the
+      // probe-invoker already swallows runWriter failures, but make
+      // the writer itself behave gracefully too).
       const existing = await pb.getOne<ProbeRunRow>(
         PROBE_RUNS_COLLECTION,
         opts.id,
       );
-      const startedAtMs = existing?.started_at
+      if (!existing) {
+        // eslint-disable-next-line no-console
+        console.warn("run-history.finish: row missing", {
+          runId: opts.id,
+        });
+        return;
+      }
+      const startedAtMs = existing.started_at
         ? Date.parse(existing.started_at)
         : Number.NaN;
       const durationMs = Number.isFinite(startedAtMs)

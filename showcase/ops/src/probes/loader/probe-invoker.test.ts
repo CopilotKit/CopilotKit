@@ -1273,11 +1273,125 @@ describe("buildProbeInvoker", () => {
     // Summary distinguishes "discovery broke" from "no targets matched."
     expect(summary.discoveryFailed).toBe(true);
     expect(summary.failed).toBeGreaterThanOrEqual(1);
+    // R2-A.1: RunSummary invariant — total must equal passed + failed.
+    // Previously total=0 + failed=1 violated this.
+    expect(summary.total).toBe(summary.passed + summary.failed);
+    // R2-A.1: tracker.snapshot().services MUST NOT contain a fake entry
+    // keyed by the probe id (cfg.id="discovery-broken"). The discovery
+    // failure is signalled by `discoveryFailed: true` in the snapshot,
+    // not by polluting the per-service inflight list with a synthetic
+    // probe-id entry.
+    const captured = sched.trackerHistory[0];
+    expect(captured).toBeInstanceOf(ProbeRunTracker);
+    const snap = (captured as ProbeRunTracker).snapshot();
+    const slugs = snap.services.map((s) => s.slug);
+    expect(slugs).not.toContain("discovery-broken");
   });
 
   // ---------------------------------------------------------------------
   // CR-A1.8: discovery enumerate timeout race
   // ---------------------------------------------------------------------
+  // ---------------------------------------------------------------------
+  // R2-A.2 / R2-A.3: Promise.race must absorb late driver/enumerate
+  // rejections so an --unhandled-rejections=throw process doesn't crash
+  // when the timeout wins the race against a misbehaving promise.
+  // ---------------------------------------------------------------------
+  it("does not emit UnhandledRejection when driver rejects late after timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        // Ignore abortSignal entirely; reject AFTER timeout has fired.
+        await new Promise((r) => setTimeout(r, 50));
+        throw new Error("driver late rejection");
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 10,
+      targets: [{ key: "smoke:late-reject" }],
+    };
+    const { writer, writes } = mkWriter();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      // Wait one extra tick AFTER the late rejection would have fired
+      // so any unhandled rejection has time to surface on the process.
+      await new Promise((r) => setTimeout(r, 80));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    // Must not have observed any unhandled rejection.
+    expect(unhandled).toEqual([]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+  }, 5000);
+
+  it("does not emit UnhandledRejection when enumerate() rejects late after timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        throw new Error("driver should not run; discovery timed out");
+      },
+    };
+    const source: DiscoverySource = {
+      name: "late-reject-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Ignore abort, reject AFTER timeout.
+        await new Promise((r) => setTimeout(r, 50));
+        throw new Error("enumerate late rejection");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "discovery-late-reject",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 10,
+      discovery: {
+        source: "late-reject-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer } = mkWriter();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      await new Promise((r) => setTimeout(r, 80));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toEqual([]);
+  }, 5000);
+
   it("times out at the invoker level when enumerate() ignores abortSignal", async () => {
     const inputSchema = z.object({ key: z.string() }).passthrough();
     const driver: ProbeDriver = {
