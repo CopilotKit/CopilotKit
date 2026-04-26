@@ -33,6 +33,7 @@ configure_aimock()
 
 import asyncio
 import json
+import sys
 from typing import Any
 
 from ag_ui_crewai.endpoint import add_crewai_crew_fastapi_endpoint
@@ -308,6 +309,7 @@ class ForwardedPropsASGIMiddleware:
                 print(
                     f"[ForwardedPropsASGIMiddleware] JSON parse failed for "
                     f"{method} {path}: {exc!r}",
+                    file=sys.stderr,
                     flush=True,
                 )
                 body = None
@@ -363,6 +365,7 @@ class ForwardedPropsASGIMiddleware:
                 print(
                     f"[ForwardedPropsASGIMiddleware] receive() raised "
                     f"{type(exc).__name__}: {exc!r} — treating as disconnect",
+                    file=sys.stderr,
                     flush=True,
                 )
                 sent_disconnect = True

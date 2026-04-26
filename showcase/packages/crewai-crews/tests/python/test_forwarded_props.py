@@ -117,8 +117,11 @@ def _splice_forwarded_props(body):
     forwarded = body.get("forwardedProps")
     if not _has_agent_config_props(forwarded):
         return body
-    # _has_agent_config_props guarantees forwarded is a dict — narrow for type checker.
-    assert isinstance(forwarded, dict)
+    # _has_agent_config_props guarantees forwarded is a dict, but narrow for the
+    # type checker without using `assert` (which is stripped under `python -O`).
+    # Mirrors the production-side pattern in agent_server.py.
+    if not isinstance(forwarded, dict):
+        return body
     existing_state = body.get("state")
     state: dict[str, Any] = existing_state if isinstance(existing_state, dict) else {}
     raw_inputs = state.get("inputs")
@@ -142,10 +145,14 @@ def _splice_forwarded_props(body):
 
 # --------------------------------------------------------------------------- #
 # Fixture: stub heavy modules + (re)import agent_server for every test that  #
-# needs the real module. Module-scoped + autouse so any of the real-module   #
+# needs the real module. Function-scoped + autouse so any of the real-module #
 # tests can run standalone or in any order (e.g. -k filters, pytest-xdist,   #
-# pytest-randomly). The stub install is idempotent and the stale            #
-# `agent_server` entry is purged so re-imports pick up our stubs.            #
+# pytest-randomly). Function scope is REQUIRED — the teardown purges        #
+# `agent_server` from sys.modules so the next test re-binds against fresh   #
+# stubs; module/session scope would only run teardown once per module and   #
+# break ordering independence (sibling tests would share stale module state). #
+# The stub install is idempotent and the stale `agent_server` entry is      #
+# purged so re-imports pick up our stubs.                                   #
 # --------------------------------------------------------------------------- #
 
 
@@ -344,9 +351,20 @@ def test_real_agent_server_streams_post_root_without_runtimeerror():
         text = response.text
         assert "RUN_STARTED" in text
         assert "RUN_FINISHED" in text
-        # Splice landed in state.inputs (this is the agent-config contract):
-        assert "casual" in text
-        assert "agent_config_guidance" in text
+        # Splice landed in state.inputs (this is the agent-config contract).
+        # Parse the STATE event JSON rather than relying on bare substring
+        # checks — substring checks pass even if the props land in the wrong
+        # place (e.g. echoed in headers, or under a sibling key).
+        state_payload = None
+        for line in text.splitlines():
+            if line.startswith("data: ") and "inputs" in line:
+                state_payload = json.loads(line[len("data: ") :])
+                break
+        assert state_payload is not None, f"No STATE event with inputs found in: {text!r}"
+        assert state_payload["inputs"]["tone"] == "casual"
+        # `agent_config_guidance` expands enums to prose rules — assert the
+        # well-known prefix shape rather than the raw enum value.
+        assert "TONE:" in state_payload["inputs"]["agent_config_guidance"]
 
 
 def test_health_endpoint_short_circuits():
