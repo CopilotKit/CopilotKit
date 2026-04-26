@@ -120,6 +120,21 @@ function mkCtx(
 // --- Core emission behaviour --------------------------------------------
 
 describe("e2e-demos driver", () => {
+  // Track tmp dirs / disposables for cleanup across tests in this block.
+  // Hoisted to the TOP of the describe so any `cleanups.push(...)` call
+  // inside a setup-throwy `it()` (e.g. a writeFileSync that throws after
+  // mkdtempSync) doesn't leak the tmp dir — the push runs immediately
+  // after mkdtempSync and the afterEach reaper drains the queue regardless
+  // of test outcome. Earlier versions placed this declaration AT THE
+  // BOTTOM of the describe (via Vitest's hoisting it still worked at
+  // runtime, but the source-ordering smell was load-bearing fragile —
+  // a test that pushed BEFORE the array initializer line would hit a
+  // ReferenceError. Hoist eliminates that footgun.).
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const c of cleanups.splice(0)) c();
+  });
+
   it("exposes kind === 'e2e_demos'", () => {
     expect(e2eDemosDriver.kind).toBe("e2e_demos");
   });
@@ -303,6 +318,12 @@ describe("e2e-demos driver", () => {
     // End-to-end exercise of the default demosResolver: write a fixture
     // registry.json and set REGISTRY_JSON_PATH so the default path reads it.
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "e2e-demos-"));
+    // Register cleanup IMMEDIATELY after mkdtempSync — before any
+    // writeFileSync that could throw and leak the tmp dir. Earlier
+    // versions registered cleanup AFTER writeFileSync, so a disk-full
+    // / permission throw in writeFileSync would orphan the tmp dir
+    // for the rest of the test process's lifetime.
+    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
     const registryPath = path.join(tmp, "registry.json");
     fs.writeFileSync(
       registryPath,
@@ -318,7 +339,6 @@ describe("e2e-demos driver", () => {
         ],
       }),
     );
-    cleanups.push(() => fs.rmSync(tmp, { recursive: true, force: true }));
 
     const { browser } = makeBrowser([{}, {}]);
     const driver = createE2eDemosDriver({ launcher: async () => browser });
@@ -400,7 +420,7 @@ describe("e2e-demos driver", () => {
       async write(r: ProbeResult<unknown>) {
         this.writes++;
         if (r.key === "e2e:foo/agentic-chat") throw new Error("pb down");
-        return {};
+        return undefined;
       },
     };
     const driver = createE2eDemosDriver({ launcher: async () => browser });
@@ -635,11 +655,220 @@ describe("e2e-demos driver", () => {
     expect(rowSig?.errorClass).toBe("selector-error");
   });
 
-  // Track tmp dirs for cleanup across fixture-backed tests.
-  const cleanups: Array<() => void> = [];
-  afterEach(() => {
-    for (const c of cleanups.splice(0)) c();
+  // --- Env-threaded internal cap (E2E_DEMOS_TIMEOUT_MS) ------------------
+  //
+  // The driver is registered at orchestrator boot as a SINGLETON before
+  // probe configs are loaded, so per-probe `cfg.timeout_ms` cannot be
+  // wired via constructor injection. Instead the orchestrator sets
+  // `process.env.E2E_DEMOS_TIMEOUT_MS = String(cfg.timeout_ms)` at config-
+  // diff time, and the driver reads it per-`run()` so the YAML's 20-min
+  // cap takes effect regardless of registration order. The default
+  // `deps.timeoutMs` (5 min) only applies if the env var is missing or
+  // invalid. These tests pin the resolution order: env > deps > default.
+
+  it("env override (E2E_DEMOS_TIMEOUT_MS) wins over the deps default", async () => {
+    // A slow launcher that NEVER resolves: if the env override (5000ms)
+    // is honored, the driver's internal race resolves the run within a
+    // few hundred ms and the test passes; if the deps default (10ms)
+    // wins, the driver aborts almost instantly and emits an "abort"
+    // side row — which is exactly what we DON'T want here.
+    let gotoStarted = false;
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        gotoStarted = true;
+        // Resolve quickly so the test doesn't hang; the assertion is
+        // about whether the driver-internal cap fired, not wall-clock.
+        await new Promise((r) => setTimeout(r, 20));
+      },
+      async waitForSelector() {
+        /* match immediately */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      // Tiny deps default — env override at 5000ms must trump this.
+      timeoutMs: 10,
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtx(writer, { E2E_DEMOS_TIMEOUT_MS: "5000" }),
+      {
+        key: "e2e-demos:env-test",
+        name: "showcase-env-test",
+        publicUrl: "https://showcase-env-test.example.com",
+        demos: ["d1"],
+        shape: "package",
+      },
+    );
+
+    expect(gotoStarted).toBe(true);
+    expect(result.state).toBe("green");
+    // No "abort" side rows — the env-threaded cap was generous enough
+    // that the per-demo work completed before it fired.
+    const aborts = writes.filter(
+      (w) => (w.signal as { errorClass?: string })?.errorClass === "abort",
+    );
+    expect(aborts).toHaveLength(0);
   });
+
+  it("invalid env value (non-numeric / zero) falls back to deps.timeoutMs", async () => {
+    // If E2E_DEMOS_TIMEOUT_MS is set to something parseInt rejects
+    // (or a non-positive number), the driver MUST ignore it and fall
+    // back to the deps.timeoutMs (5 min default if absent). Verify by
+    // setting the env to garbage, the deps to 50ms, and a slow goto:
+    // the driver's 50ms cap should fire and side-emit "abort" rows.
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        // Sleep longer than the deps cap so the abort race fires.
+        await new Promise((r) => setTimeout(r, 200));
+      },
+      async waitForSelector() {
+        /* never gets here */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      timeoutMs: 50,
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(
+      mkCtx(writer, { E2E_DEMOS_TIMEOUT_MS: "not-a-number" }),
+      {
+        key: "e2e-demos:env-invalid",
+        name: "showcase-env-invalid",
+        publicUrl: "https://showcase-env-invalid.example.com",
+        demos: ["d1", "d2", "d3"],
+        shape: "package",
+      },
+    );
+
+    // Aggregate must be red — at least one demo aborted.
+    expect(result.state).toBe("red");
+    // At least one abort side row: the deps cap was honored.
+    const aborts = writes.filter(
+      (w) => (w.signal as { errorClass?: string })?.errorClass === "abort",
+    );
+    expect(aborts.length).toBeGreaterThan(0);
+  });
+
+  // --- L: Driver fires internal cap mid-fan-out, side-emits abort rows ---
+
+  it("driver fires the internal cap mid-fan-out and side-emits errorClass: 'abort' rows for remaining demos", async () => {
+    // Drive 5 demos at 30ms each through a driver capped at 50ms. The
+    // driver fans out demos serially within a service, so after the
+    // first ~2 demos finish the abort fires; the remaining 3+ demos
+    // must each receive a side row with errorClass="abort" rather
+    // than being silently skipped (or all coalesced into a single
+    // aggregate row). The dashboard relies on per-demo dots — silent
+    // skip would leave half the cells gray rather than red.
+    const slowPage: E2eDemosPage = {
+      async goto() {
+        await new Promise((r) => setTimeout(r, 30));
+      },
+      async waitForSelector() {
+        /* match immediately */
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+    const slowBrowser: E2eDemosBrowser = {
+      async newContext() {
+        return {
+          async newPage() {
+            return slowPage;
+          },
+          async close() {
+            /* no-op */
+          },
+        };
+      },
+      async close() {
+        /* no-op */
+      },
+    };
+
+    const driver = createE2eDemosDriver({
+      launcher: async () => slowBrowser,
+      timeoutMs: 50,
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-demos:abort-fanout",
+      name: "showcase-abort-fanout",
+      publicUrl: "https://showcase-abort-fanout.example.com",
+      demos: ["d1", "d2", "d3", "d4", "d5"],
+      shape: "package",
+    });
+
+    // Aggregate red — at least one abort.
+    expect(result.state).toBe("red");
+
+    // Every demo must have a side row (per-demo dot semantics).
+    const sideKeys = writes.map((w) => w.key).sort();
+    expect(sideKeys).toEqual([
+      "e2e:abort-fanout/d1",
+      "e2e:abort-fanout/d2",
+      "e2e:abort-fanout/d3",
+      "e2e:abort-fanout/d4",
+      "e2e:abort-fanout/d5",
+    ]);
+
+    // At least one row carries errorClass="abort" (the post-cap demos).
+    const aborts = writes.filter(
+      (w) => (w.signal as { errorClass?: string })?.errorClass === "abort",
+    );
+    expect(aborts.length).toBeGreaterThan(0);
+    // Each abort row must carry an errorDesc mentioning the timeout
+    // value so dashboard tooltips render a useful message.
+    for (const a of aborts) {
+      const sig = a.signal as { errorDesc?: string };
+      expect(typeof sig?.errorDesc).toBe("string");
+      expect(sig.errorDesc).toMatch(/timeout/i);
+    }
+  });
+
 });
 
 // --- Integration: shortest-service-first dispatch ------------------------
@@ -656,24 +885,23 @@ describe("shortest-service-first dispatch (integration)", () => {
   it("dispatches small services before large ones via the invoker", async () => {
     // Per-slug bookkeeping so the assertion can compare finished(small)
     // against started(large) without relying on driver internals.
-    type SlugTimings = { firstGotoAt: number; lastGotoAt: number };
+    //
+    // Earlier versions of this test used `Date.now()` + per-goto sleeps
+    // to space out goto-events across services, then asserted on
+    // millisecond timestamps. That approach was flaky in two ways:
+    //   - on a fast host the tiny service's last goto could land in the
+    //     same millisecond as the huge service's first goto, making the
+    //     assertion tie/flip;
+    //   - the per-goto sleep added wall-clock slack (~7s typical) that
+    //     bloated the test runtime for no semantic reason.
+    // A monotonic ordinal counter trivially eliminates BOTH issues:
+    // ordinals are strictly increasing per goto, ties are impossible,
+    // and the test no longer needs to sleep at all — the assertion is
+    // about dispatch ORDER, not wall-clock timing.
+    type SlugTimings = { firstOrd: number; lastOrd: number };
     const timings = new Map<string, SlugTimings>();
-
-    // Demo counts per slug. The per-goto sleep is `demoCount * 5` ms
-    // (so tiny=25ms, medium=100ms, huge=190ms) — the 5× multiplier
-    // gives total wall-clock 125 / 2000 / 7220ms per service, well
-    // separated so the `tiny.lastGotoAt < huge.firstGotoAt` assertion
-    // can never tie at millisecond resolution. Earlier values
-    // (5/20/38ms) cut it close — on a fast host a tiny finish could
-    // land in the same millisecond as a huge start, making the
-    // assertion flake. The 38-demo service dominates wall-clock if
-    // dispatched first under bounded concurrency.
-    const demoCounts: Record<string, number> = {
-      tiny: 5,
-      medium: 20,
-      huge: 38,
-    };
-    const MS_PER_GOTO_MULT = 5;
+    let order = 0;
+    const nextOrd = (): number => order++;
 
     // Single shared fake browser. The slug is recovered from the URL
     // each goto receives (`https://<slug>.example.com/demos/...`), which
@@ -687,15 +915,13 @@ describe("shortest-service-first dispatch (integration)", () => {
     const sharedPage: E2eDemosPage = {
       async goto(url) {
         const slug = slugFromUrl(url);
-        const ms = (demoCounts[slug] ?? 1) * MS_PER_GOTO_MULT;
-        const t = Date.now();
+        const t = nextOrd();
         const existing = timings.get(slug);
         if (!existing) {
-          timings.set(slug, { firstGotoAt: t, lastGotoAt: t });
+          timings.set(slug, { firstOrd: t, lastOrd: t });
         } else {
-          existing.lastGotoAt = t;
+          existing.lastOrd = t;
         }
-        await new Promise((r) => setTimeout(r, ms));
       },
       async waitForSelector() {
         /* match immediately */
@@ -816,10 +1042,8 @@ describe("shortest-service-first dispatch (integration)", () => {
     const huge = timings.get("huge");
     expect(tiny).toBeDefined();
     expect(huge).toBeDefined();
-    expect(tiny!.lastGotoAt).toBeLessThan(huge!.firstGotoAt);
-  }, 15_000); // 5x multiplier widens wall-clock to ~7.3s under
-  // bounded concurrency=2 — bump per-test timeout from the 5s
-  // default so we don't trip vitest's outer cap on slow CI.
+    expect(tiny!.lastOrd).toBeLessThan(huge!.firstOrd);
+  });
 
   it("records driver dispatch order ascending by demo count", async () => {
     // Companion assertion: the order in which run() is invoked across

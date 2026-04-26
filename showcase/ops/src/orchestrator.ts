@@ -276,6 +276,22 @@ export async function boot(opts: BootOptions = {}): Promise<{
         );
       }
     }
+    // Driver-singleton timeout threading: drivers are registered as
+    // singletons at boot (BEFORE configs are loaded), so we can't pass
+    // each YAML's `timeout_ms` straight into the driver factory. Instead
+    // we project the e2e-demos cfg.timeout_ms onto a process.env knob
+    // the driver reads per-`run()` call (see drivers/e2e-demos.ts —
+    // `TIMEOUT_ENV_VAR`). Without this, the driver's internal hard-cap
+    // (DEFAULT_TIMEOUT_MS = 5min) fires BEFORE the invoker's outer race
+    // (timeout_ms = 20min in production), contradicting the YAML's
+    // documented "driver iterates remaining demos and side-emits abort
+    // rows when the cap fires at 1200000ms" behaviour.
+    for (const cfg of desired.values()) {
+      if (cfg.kind === "e2e_demos" && "timeout_ms" in cfg) {
+        process.env.E2E_DEMOS_TIMEOUT_MS = String(cfg.timeout_ms);
+      }
+    }
+
     // Register / re-register each desired probe. `scheduler.register` is
     // idempotent — if the cron+handler combination is unchanged it's
     // effectively a no-op; otherwise it replaces the prior entry.
