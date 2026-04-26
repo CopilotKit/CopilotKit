@@ -59,7 +59,8 @@ export function useProbes(opts?: {
   // the effect closure below) handles the dep-change / unmount case.
   const controllerRef = useRef<AbortController | null>(null);
   // `cancelledRef` mirrors the active effect's `cancelled` flag so the
-  // imperative `refetch` callback can honor it too.
+  // imperative `refetch` callback can honor it too. Each effect run resets
+  // this to false on entry; cleanup flips to true.
   const cancelledRef = useRef<boolean>(false);
 
   const run = useCallback(async (): Promise<void> => {
@@ -88,6 +89,9 @@ export function useProbes(opts?: {
 
   useEffect(() => {
     cancelledRef.current = false;
+    // Surface a "refreshing" indicator across dep changes (baseUrl swap)
+    // so consumers can render a loading state instead of stale data.
+    setLoading(true);
     void run();
     const timer = setInterval(() => {
       void run();
@@ -215,15 +219,18 @@ export function useTriggerProbe(opts?: {
   // imperatively, not from an effect, so the per-effect `cancelled` pattern
   // doesn't apply here. Flip on unmount only.
   const aliveRef = useRef(true);
-  // Track the in-flight trigger's controller so unmount can abort it.
+  // Track the in-flight trigger's controller so back-to-back triggers can
+  // cancel each other. Note: we do NOT abort this on unmount — see below.
   const triggerControllerRef = useRef<AbortController | null>(null);
   useEffect(() => {
     aliveRef.current = true;
     return () => {
       aliveRef.current = false;
-      // CR-B1.5: abort any in-flight POST so we don't fire duplicate runs
-      // after the user navigates away.
-      triggerControllerRef.current?.abort();
+      // R2-C.1: intentionally do NOT abort triggerControllerRef on unmount.
+      // POST is non-idempotent — the server may have already received the
+      // request and queued the run. Aborting client-side does NOT unfire
+      // the server-side action, it just hides the result. Allow the POST
+      // to complete; aliveRef gates any setState after unmount.
     };
   }, []);
 
@@ -254,11 +261,28 @@ export function useTriggerProbe(opts?: {
         });
         return result;
       } catch (err) {
+        // R2-C.2: AbortError here means this call was superseded by a
+        // newer trigger (back-to-back). It's not a user-facing error —
+        // swallow it instead of surfacing on `error` or rethrowing.
+        const isAbort =
+          (err as { name?: string })?.name === "AbortError" ||
+          controller.signal.aborted;
+        if (isAbort) {
+          // Caller's promise resolves with `undefined as TriggerResponse`.
+          // Real callers either await the new trigger or ignore the old
+          // promise; none should consume undefined as a TriggerResponse.
+          return undefined as unknown as TriggerResponse;
+        }
         const e = err instanceof Error ? err : new Error(String(err));
         if (aliveRef.current) setError(e);
         throw e;
       } finally {
-        if (aliveRef.current) setPending(false);
+        // Only the controller that "owns" the latest trigger should clear
+        // pending — a superseded controller's finally still runs but must
+        // not flip pending off while a newer call is in flight.
+        if (aliveRef.current && triggerControllerRef.current === controller) {
+          setPending(false);
+        }
       }
     },
     [token, baseUrl],
