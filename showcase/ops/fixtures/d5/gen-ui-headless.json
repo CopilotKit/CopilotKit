@@ -1,0 +1,28 @@
+{
+  "_comment": "D5 fixture for /demos/headless-simple against LangGraph Python (LGP). Headless gen-UI via the frontend-defined `show_card` tool (useComponent — see src/app/demos/headless-simple/page.tsx). The backend agent (src/agents/main.py) has no backend tools; the frontend injects show_card at runtime. The agent calls show_card with title+body; the frontend's headless chat surface renders the ShowCard component. After the tool result is appended (the headless surface synthesizes a tool result), the agent re-invokes the LLM — second-leg fixture matches by toolCallId. ORDER: toolCallId fixture above userMessage fixture to avoid infinite-loop re-matching.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_show_card_001" },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace — the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_show_card_001",
+            "name": "show_card",
+            "arguments": {
+              "title": "Ada Lovelace",
+              "body": "English mathematician (1815–1852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine — including what is now recognized as the first algorithm intended to be carried out by a machine."
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

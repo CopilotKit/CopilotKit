@@ -1,0 +1,56 @@
+{
+  "_comment": "D5 fixture for /demos/subagents against LangGraph Python (LGP). The supervisor agent in src/agents/subagents.py exposes three sub-agents as tools — research_agent, writing_agent, critique_agent — with a delegations log in shared state. A typical chained run: supervisor calls research_agent → gets facts → calls writing_agent → gets a draft → calls critique_agent → gets a review → composes a final reply. Each delegation appends a Delegation entry to shared state which the UI renders live in DelegationLog. We model the chain as three sequential tool calls (one per turn through the agent loop). The user message does not change between turns, so the supervisor's second/third tool-call decisions are routed by toolCallId on the LAST tool message — which always carries the id of the most recently completed sub-agent. A final text reply fires after the critique tool result is appended. ORDER MATTERS: toolCallId fixtures must precede the userMessage fixture so they win on every loop iteration; the chain is also ordered critique → writing → research so that 'last tool result is critique' resolves to the final text rather than re-firing writing_agent. NOTE on naming: the spec calls this 'mcp-subagents' but LGP's canonical multi-agent demo is /demos/subagents (subagents-as-tools); the LGP /demos/mcp-apps demo points at a public Excalidraw MCP server which would require that external server to be reachable to record realistically. Subagents is the closer real-on-LGP fit.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_critique_agent_001" },
+      "response": {
+        "content": "Here is the summary, after research → drafting → critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "match": { "toolCallId": "call_d5_writing_agent_001" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_critique_agent_001",
+            "name": "critique_agent",
+            "arguments": {
+              "draft": "Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": { "toolCallId": "call_d5_research_agent_001" },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_writing_agent_001",
+            "name": "writing_agent",
+            "arguments": {
+              "brief": "One-paragraph summary on the benefits of remote work, grounded in the research facts.",
+              "facts": "- Eliminates commute, returning ~10 hours per week\n- Higher reported job satisfaction in repeated surveys\n- Wider talent pool for employers, no geographic limit\n- Reduced office overhead\n- Trade-offs: collaboration, mentorship, cultural cohesion"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_research_agent_001",
+            "name": "research_agent",
+            "arguments": {
+              "topic": "Benefits of remote work"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
