@@ -311,9 +311,15 @@ async function loadDemosMap(
   } catch (err) {
     // Bucket: ENOENT is the steady-state for non-demos consumers
     // (image-drift, smoke, aimock-wiring) — they don't mount the
-    // registry. Treating that as a `warn` pulses the alert stream
-    // every tick. Downgrade ENOENT specifically to `info`; everything
-    // else (permission denied, abort, IO error) stays at `warn`.
+    // registry. In dev/test treating that as `warn` pulses the alert
+    // stream every tick, so we downgrade ENOENT specifically to
+    // `info`. In production a missing registry is genuinely an
+    // operational concern — the volume mount may have failed, or the
+    // image was built without the registry — so we promote ENOENT
+    // back to `warn` only when `NODE_ENV === "production"`. Other
+    // read errors (EACCES, EIO, AbortError) always log at `warn`
+    // regardless of environment because they signal an active fault,
+    // not steady-state.
     const code =
       err && typeof err === "object" && "code" in err
         ? (err as { code?: unknown }).code
@@ -322,7 +328,7 @@ async function loadDemosMap(
       path: registryPath,
       err: err instanceof Error ? err.message : String(err),
     };
-    if (code === "ENOENT") {
+    if (code === "ENOENT" && process.env.NODE_ENV !== "production") {
       ctx.logger.info(
         "discovery.railway-services.registry-read-failed",
         meta,
