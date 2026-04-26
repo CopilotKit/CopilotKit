@@ -140,9 +140,32 @@ describe("StatusTable", () => {
     expect(after).not.toBe(before);
   });
 
-  it("clicking trigger button opens menu with Run all and Run specific", () => {
-    const { getByTestId, getByText } = render(
+  it("clicking trigger button opens menu with Run all (idle probe hides Run specific)", () => {
+    // CR-B2.3 Option C: the default fixture has inflight: null, so
+    // there are no service slugs to populate the picker with. The
+    // menu should show "Run all" only — "Run specific" is hidden
+    // until inflight.services makes slugs available.
+    const { getByTestId, getByText, queryByText } = render(
       <StatusTable entries={[entry()]} onTrigger={async () => {}} />,
+    );
+    fireEvent.click(getByTestId("status-trigger-smoke"));
+    expect(getByText("Run all")).toBeDefined();
+    expect(queryByText(/Run specific/i)).toBeNull();
+  });
+
+  it("Run specific... appears when probe is inflight with services", () => {
+    const inflight = entry({
+      inflight: {
+        startedAt: new Date(NOW - 30_000).toISOString(),
+        elapsedMs: 30_000,
+        services: [
+          { slug: "next-langgraph-py", state: "running" },
+          { slug: "next-langgraph-js", state: "queued" },
+        ],
+      },
+    });
+    const { getByTestId, getByText } = render(
+      <StatusTable entries={[inflight]} onTrigger={async () => {}} />,
     );
     fireEvent.click(getByTestId("status-trigger-smoke"));
     expect(getByText("Run all")).toBeDefined();

@@ -91,9 +91,16 @@ export function formatDuration(ms: number): string {
 
 /** Relative-time formatter ("in 4h 23m" / "1h 37m ago"). */
 export function formatRelative(targetMs: number, nowMs: number): string {
+  if (!Number.isFinite(targetMs) || !Number.isFinite(nowMs)) return "—";
   const deltaMs = targetMs - nowMs;
-  const future = deltaMs >= 0;
   const absMs = Math.abs(deltaMs);
+
+  // Sub-second deltas read awkwardly as "in 0s" / "0s ago" — collapse
+  // to a single "now" sentinel so the dashboard doesn't flicker
+  // between sides of the boundary on every tick.
+  if (absMs < 1000) return "now";
+
+  const future = deltaMs >= 0;
   const totalSec = Math.floor(absMs / 1000);
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);

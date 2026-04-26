@@ -50,17 +50,37 @@ export function StatusTriggerButton({
     };
   }, [open]);
 
+  // Local error surface so an async rejection from onTrigger doesn't
+  // bubble up as an unhandled promise rejection. The dashboard owns
+  // the higher-level toast/log surface; here we just keep the menu
+  // sane and avoid noisy console errors during tests.
+  const [, setLastError] = useState<Error | null>(null);
+
   const handleRunAll = async () => {
     setOpen(false);
     setPickerOpen(false);
-    await onTrigger(probeId, undefined);
+    try {
+      await onTrigger(probeId, undefined);
+      setLastError(null);
+    } catch (err) {
+      setLastError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setSelected(new Set());
+    }
   };
 
   const handleRunSpecific = async () => {
     if (selected.size === 0) return;
     setOpen(false);
     setPickerOpen(false);
-    await onTrigger(probeId, Array.from(selected));
+    try {
+      await onTrigger(probeId, Array.from(selected));
+      setLastError(null);
+    } catch (err) {
+      setLastError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setSelected(new Set());
+    }
   };
 
   const toggleSlug = (slug: string) => {
@@ -94,14 +114,27 @@ export function StatusTriggerButton({
           >
             Run all
           </button>
-          <button
-            type="button"
-            onClick={() => setPickerOpen((v) => !v)}
-            className="block w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] border-t border-[var(--border)]"
-          >
-            Run specific...
-          </button>
-          {pickerOpen && (
+          {/*
+            CR-B2.3 Option C: hide "Run specific..." entirely when no
+            slugs are known. The current ProbeScheduleEntry contract
+            only surfaces service slugs via inflight.services, so
+            during the typical idle case (the manual-trigger case)
+            we have nothing to populate the picker with. Showing an
+            empty picker would be worse than offering "Run all" only.
+            See CONCERNS in CR-B2 fix list — we may need a richer
+            ProbeScheduleEntry contract to surface targets for idle
+            probes.
+          */}
+          {serviceSlugs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen((v) => !v)}
+              className="block w-full text-left px-3 py-2 hover:bg-[var(--surface-hover)] border-t border-[var(--border)]"
+            >
+              Run specific...
+            </button>
+          )}
+          {pickerOpen && serviceSlugs.length > 0 && (
             <div className="border-t border-[var(--border)] max-h-48 overflow-auto p-2">
               {serviceSlugs.length === 0 ? (
                 <div className="text-[var(--text-muted)] px-1 py-1">

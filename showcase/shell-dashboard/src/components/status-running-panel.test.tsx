@@ -117,4 +117,23 @@ describe("StatusRunningPanel", () => {
     const { getByTestId } = render(<StatusRunningPanel entries={[]} />);
     expect(getByTestId("running-idle")).toBeDefined();
   });
+
+  it("idle message ignores past nextRunAt and shows no-upcoming sentinel", () => {
+    // CR-B2.1: when only entry has a past nextRunAt, banner must NOT
+    // say "5m ago" — it should fall back to the "no upcoming runs"
+    // sentinel rather than reporting a nonsensical past time.
+    const past: ProbeScheduleEntry = {
+      id: "smoke",
+      kind: "smoke",
+      schedule: "0 */6 * * *",
+      nextRunAt: new Date(NOW - 5 * 60_000).toISOString(),
+      lastRun: null,
+      inflight: null,
+      config: { timeout_ms: 30000, max_concurrency: 4, discovery: null },
+    };
+    const { getByTestId } = render(<StatusRunningPanel entries={[past]} />);
+    const idle = getByTestId("running-idle");
+    expect(idle.textContent).not.toMatch(/ago/);
+    expect(idle.textContent).toContain("No upcoming runs scheduled");
+  });
 });

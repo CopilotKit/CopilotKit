@@ -41,6 +41,10 @@ function runTone(run: ProbeRun): StateTone {
 function runStateLabel(run: ProbeRun): string {
   if (!run.finishedAt) return "running";
   if (run.summary && run.summary.failed > 0) return "failed";
+  // Finished but no summary recorded — match runTone()'s "gray" tone
+  // with an "unknown" label so the badge can't say "completed" when
+  // we actually have no idea whether the run succeeded.
+  if (!run.summary) return "unknown";
   return "completed";
 }
 

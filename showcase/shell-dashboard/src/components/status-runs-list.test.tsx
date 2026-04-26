@@ -124,4 +124,21 @@ describe("StatusRunsList", () => {
     // Empty cell — no "manual" text
     expect(cell.textContent?.toLowerCase()).not.toContain("manual");
   });
+
+  it("uses unknown label and gray tone when finished but no summary", () => {
+    // CR-B2.2: tone/label semantics must agree. A run with finishedAt
+    // set but summary === null was previously rendering as a gray badge
+    // labeled "completed" — exactly the misleading combo runTone() was
+    // designed to avoid. Both must say "unknown" together.
+    const r = run({
+      id: "a",
+      finishedAt: new Date(NOW).toISOString(),
+      summary: null,
+    });
+    const { getByTestId } = render(<StatusRunsList runs={[r]} />);
+    const badge = getByTestId("status-run-row-a-state");
+    expect(badge.getAttribute("data-tone")).toBe("gray");
+    expect(badge.textContent?.toLowerCase()).toContain("unknown");
+    expect(badge.textContent?.toLowerCase()).not.toContain("completed");
+  });
 });
