@@ -99,10 +99,13 @@ export function StatusRunningPanel({ entries }: StatusRunningPanelProps) {
           : e.inflight!.elapsedMs;
         const services = e.inflight!.services;
         const total = services.length;
-        const completed = services.filter(
+        // `finished` covers both completed-pass and completed-fail — the
+        // progress bar measures "no longer in flight" rather than "passed",
+        // which the previous `completed` name misleadingly implied.
+        const finished = services.filter(
           (s) => s.state === "completed" || s.state === "failed",
         ).length;
-        const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const pct = total > 0 ? Math.round((finished / total) * 100) : 0;
 
         return (
           <div
@@ -121,7 +124,7 @@ export function StatusRunningPanel({ entries }: StatusRunningPanelProps) {
 
             <div
               data-testid={`running-progress-${e.id}`}
-              data-completed={completed}
+              data-completed={finished}
               data-total={total}
               className="h-1.5 w-full bg-[var(--border)] rounded overflow-hidden mb-3"
             >
