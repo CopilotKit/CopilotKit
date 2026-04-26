@@ -289,6 +289,13 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
     },
   );
 
+  // CP3: `cell.smoke` is computed by `resolveCell` for backwards-compat but
+  // intentionally NOT rendered here — smoke is integration-scoped and lives
+  // in the per-integration strip (Phase 3 Decision #7), not in the per-cell
+  // status row. The `smoke` field is a candidate for removal from
+  // `CellState`; that narrowing must happen in `live-status.ts` (separate
+  // worktree) and is tracked in the cross-worktree concerns of this fix.
+
   return (
     <>
       {!isTesting && (
@@ -304,16 +311,34 @@ export function CellStatus({ ctx }: { ctx: CellContext }) {
           badge={cell.e2e}
           dimensionKey={keyFor("e2e", ctx.integration.slug, ctx.feature.id)}
         />
-        <LiveBadge
-          name="D5"
-          badge={cell.d5}
-          dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
-        />
-        <LiveBadge
-          name="D6"
-          badge={cell.d6}
-          dimensionKey={keyFor("d6", ctx.integration.slug, ctx.feature.id)}
-        />
+        {/*
+          CP8: D5/D6 producers (`e2e-deep`, `e2e-parity`) only emit rows for
+          primary features per spec; testing-kind features never get a D5 or
+          D6 row, so the badge would render a perpetual gray "?" that adds
+          noise without information. Hide for `isTesting` to mirror the
+          docs-row visibility rule.
+
+          CP9: D5/D6 chips intentionally have no `href` — there is no
+          per-feature drilldown URL convention in shell-dashboard today.
+          When a drilldown route exists (e.g. a per-(slug, feature) D5 run
+          history page), wire the URL through `keyFor` here.
+          TODO(showcase-dashboard): D5/D6 drilldown URL — see
+          docs/spec §5.6 follow-up.
+        */}
+        {!isTesting && (
+          <>
+            <LiveBadge
+              name="D5"
+              badge={cell.d5}
+              dimensionKey={keyFor("d5", ctx.integration.slug, ctx.feature.id)}
+            />
+            <LiveBadge
+              name="D6"
+              badge={cell.d6}
+              dimensionKey={keyFor("d6", ctx.integration.slug, ctx.feature.id)}
+            />
+          </>
+        )}
       </div>
     </>
   );
