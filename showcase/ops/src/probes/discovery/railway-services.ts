@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 import type { DiscoveryContext, DiscoverySource } from "../types.js";
 import {
@@ -291,7 +290,10 @@ async function loadDemosMap(
   ctx: DiscoveryContext,
 ): Promise<Map<string, string[]>> {
   const override = ctx.env.REGISTRY_JSON_PATH;
-  const fallback = path.resolve("/app/data/registry.json");
+  // Production fallback path. Previously wrapped in `path.resolve()`,
+  // which is a no-op for an absolute path; dropped the wrap to keep
+  // the constant greppable.
+  const fallback = "/app/data/registry.json";
   const registryPath = override ?? fallback;
   let raw: string;
   try {
@@ -531,9 +533,11 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
             service: svc.name,
             err: parsedVars.error.message,
           });
+          // `env` already initialised to {} above; no reassignment
+          // needed. The schema-rejection path leaves the empty default
+          // in place — that's the documented degraded behaviour.
         } else {
           const vars = parsedVars.data.variables ?? {};
-          env = {};
           for (const [k, v] of Object.entries(vars)) {
             env[k] = v === "*****" ? "__SEALED__" : v;
           }
