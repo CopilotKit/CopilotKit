@@ -73,10 +73,17 @@ class HealthMiddleware(BaseHTTPMiddleware):
 # Scope: only mutate when `forwardedProps.tone` / `expertise` / `responseLength`
 # is present, so non-agent-config demos keep their exact request bytes.
 #
-# This is Starlette middleware (not FastAPI `Depends`) because we need to
-# rewrite the ASGI `receive` callable before the FastAPI body parser reads
-# it — `Depends` runs after the body has already been bound to the Pydantic
-# `RunAgentInput` model.
+# IMPLEMENTATION NOTE — why this is a *raw* ASGI middleware, not a
+# `BaseHTTPMiddleware` subclass: an earlier version of this splice was a
+# `BaseHTTPMiddleware` that called `await request.body()` and reinstalled
+# `request._receive` with a one-shot replay. That layered on top of
+# `HealthMiddleware` (also `BaseHTTPMiddleware`) and race-conditioned with
+# Starlette's inner anyio TaskGroup `wrapped_receive`
+# (starlette/middleware/base.py:54), throwing
+# `RuntimeError: Unexpected message received: http.request` mid-stream and
+# aborting AG-UI SSE streams (`RUN_STARTED` then `RUN_ERROR:
+# INCOMPLETE_STREAM`, no `RUN_FINISHED`). Raw ASGI sidesteps that machinery
+# entirely — we own the receive stream from the outset, no replay surgery.
 _AGENT_CONFIG_KEYS = ("tone", "expertise", "responseLength")
 
 _TONE_RULES = {
@@ -139,98 +146,178 @@ def _has_agent_config_props(props: Any) -> bool:
     return any(k in props for k in _AGENT_CONFIG_KEYS)
 
 
-class ForwardedPropsMiddleware(BaseHTTPMiddleware):
-    """Merges AG-UI `forwardedProps` into `state.inputs` for agent-config demos.
+def _splice_forwarded_props(body: Any) -> Any:
+    """Splice agent-config `forwardedProps` into `body.state.inputs`.
 
-    See block comment above for the full rationale. Keeps all other POSTs
-    byte-identical by only rewriting bodies that carry agent-config props.
+    Pure dict-in / dict-out helper — no ASGI surgery. Returns the body
+    unchanged when no agent-config props are present, so non-config demos
+    keep their exact request bytes.
+    """
+    if not isinstance(body, dict):
+        return body
+    forwarded = body.get("forwardedProps")
+    if not _has_agent_config_props(forwarded):
+        return body
+
+    existing_state = body.get("state")
+    state = existing_state if isinstance(existing_state, dict) else {}
+
+    inputs = state.get("inputs") if isinstance(state.get("inputs"), dict) else {}
+    inputs = dict(inputs)  # copy
+    # Build a prose guidance string the LLM can actually follow. The upstream
+    # flow appends `Current inputs: {json}` verbatim to the system prompt —
+    # raw enum values ("casual", "intermediate", "concise") are ambiguous,
+    # so we expand them into explicit behavior rules here and stash them
+    # under a well-named key. The original enums are also retained so the
+    # demo can verify the forwarded props reached the backend.
+    tone = forwarded.get("tone")
+    expertise = forwarded.get("expertise")
+    response_length = forwarded.get("responseLength")
+    if tone is not None:
+        inputs["tone"] = tone
+    if expertise is not None:
+        inputs["expertise"] = expertise
+    if response_length is not None:
+        inputs["response_length"] = response_length
+    inputs["agent_config_guidance"] = _build_agent_config_guidance(
+        tone=tone,
+        expertise=expertise,
+        response_length=response_length,
+    )
+    state["inputs"] = inputs
+    body["state"] = state
+    return body
+
+
+class ForwardedPropsASGIMiddleware:
+    """Raw ASGI middleware that splices `forwardedProps` into `state.inputs`.
+
+    Why raw ASGI (and not `BaseHTTPMiddleware`):
+    `BaseHTTPMiddleware` wraps the request in an inner anyio TaskGroup that
+    owns the `receive` callable. Reading `await request.body()` and then
+    reinstalling `request._receive` with a one-shot replay (the previous
+    approach) races with that TaskGroup's `wrapped_receive` — Starlette
+    fires `RuntimeError: Unexpected message received: http.request` mid
+    streaming response. AG-UI clients saw `RUN_STARTED` and then the SSE
+    stream aborted (`RUN_ERROR: INCOMPLETE_STREAM`), no `RUN_FINISHED` ever
+    emitted. See the agent_config block-comment above.
+
+    A raw ASGI middleware (this class) buffers the request body BEFORE
+    handing the inner ASGI app a fresh `receive` that re-emits the
+    (possibly rewritten) bytes — it does this once, at the boundary, with
+    no `BaseHTTPMiddleware` machinery in the way.
+
+    Scope guard: only POST `/` with `application/json` and an
+    `forwardedProps` carrying `tone` / `expertise` / `responseLength` is
+    rewritten; everything else is a straight pass-through.
     """
 
-    async def dispatch(self, request, call_next):
-        if request.method != "POST" or request.url.path not in ("/", ""):
-            return await call_next(request)
+    def __init__(self, app):
+        self.app = app
 
-        content_type = request.headers.get("content-type", "")
-        if "application/json" not in content_type:
-            return await call_next(request)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        try:
-            raw = await request.body()
-        except Exception:
-            return await call_next(request)
+        method = scope.get("method", "")
+        path = scope.get("path", "")
+        if method != "POST" or path not in ("/", ""):
+            await self.app(scope, receive, send)
+            return
 
-        if not raw:
-            return await call_next(request)
+        # `headers` is a list of (bytes, bytes) — find content-type.
+        headers = scope.get("headers") or []
+        content_type = b""
+        for k, v in headers:
+            if k == b"content-type":
+                content_type = v
+                break
+        if b"application/json" not in content_type:
+            await self.app(scope, receive, send)
+            return
 
-        try:
-            body = json.loads(raw)
-        except (ValueError, TypeError):
-            return await call_next(request)
+        # Buffer the body. ASGI delivers it as N `http.request` messages
+        # with `more_body=True` until the last one (`more_body=False`).
+        chunks: list[bytes] = []
+        more_body = True
+        while more_body:
+            message = await receive()
+            if message["type"] != "http.request":
+                # Unexpected (e.g. http.disconnect before body fully sent):
+                # replay what we already have and propagate the early
+                # disconnect so the inner app can handle it.
+                async def _replay_disconnect(msg=message):
+                    return msg
 
-        forwarded = body.get("forwardedProps") if isinstance(body, dict) else None
-        if not _has_agent_config_props(forwarded):
-            # Restore body unchanged (our .body() read consumed the receive
-            # queue, so we must put it back for downstream handlers).
-            return await _call_with_body(request, call_next, raw)
+                await self.app(scope, _replay_disconnect, send)
+                return
+            chunks.append(message.get("body") or b"")
+            more_body = message.get("more_body", False)
 
-        existing_state = body.get("state") if isinstance(body, dict) else None
-        state = existing_state if isinstance(existing_state, dict) else {}
+        raw = b"".join(chunks)
 
-        inputs = state.get("inputs") if isinstance(state.get("inputs"), dict) else {}
-        inputs = dict(inputs)  # copy
-        # Build a prose guidance string the LLM can actually follow. The upstream
-        # flow appends `Current inputs: {json}` verbatim to the system prompt —
-        # raw enum values ("casual", "intermediate", "concise") are ambiguous,
-        # so we expand them into explicit behavior rules here and stash them
-        # under a well-named key. The original enums are also retained so the
-        # demo can verify the forwarded props reached the backend.
-        tone = forwarded.get("tone")
-        expertise = forwarded.get("expertise")
-        response_length = forwarded.get("responseLength")
-        if tone is not None:
-            inputs["tone"] = tone
-        if expertise is not None:
-            inputs["expertise"] = expertise
-        if response_length is not None:
-            inputs["response_length"] = response_length
-        inputs["agent_config_guidance"] = _build_agent_config_guidance(
-            tone=tone,
-            expertise=expertise,
-            response_length=response_length,
-        )
-        state["inputs"] = inputs
-        body["state"] = state
+        # Try to splice. On any parse failure, replay original bytes verbatim.
+        # `_splice_forwarded_props` returns the same dict if no agent-config
+        # props are present, OR a mutated dict if it spliced — we detect
+        # "no-op" by checking `_has_agent_config_props` on `forwardedProps`
+        # directly (the splice only fires when that returns True).
+        new_raw = raw
+        if raw:
+            try:
+                body = json.loads(raw)
+            except (ValueError, TypeError):
+                body = None
+            if isinstance(body, dict) and _has_agent_config_props(
+                body.get("forwardedProps")
+            ):
+                spliced = _splice_forwarded_props(body)
+                new_raw = json.dumps(spliced).encode("utf-8")
 
-        new_raw = json.dumps(body).encode("utf-8")
-        return await _call_with_body(request, call_next, new_raw)
+        # If we rewrote the body, content-length in headers is stale.
+        # Strip it from the scope copy — the inner ASGI app reads bytes
+        # from `receive`, not from content-length, so this is safe and
+        # avoids tripping any downstream length-validating layer.
+        if new_raw is not raw:
+            new_headers = [
+                (k, v) for k, v in headers if k.lower() != b"content-length"
+            ]
+            new_headers.append((b"content-length", str(len(new_raw)).encode()))
+            scope = dict(scope)
+            scope["headers"] = new_headers
 
+        # Replay the (possibly rewritten) body as a single message.
+        sent_body = False
+        sent_disconnect = False
 
-async def _call_with_body(request, call_next, body_bytes: bytes):
-    """Replay ``body_bytes`` as the ASGI ``receive`` stream, then delegate.
+        async def replay_receive():
+            nonlocal sent_body, sent_disconnect
+            if not sent_body:
+                sent_body = True
+                return {
+                    "type": "http.request",
+                    "body": new_raw,
+                    "more_body": False,
+                }
+            # After the body is consumed, forward any further events from
+            # the original receive (e.g. http.disconnect). This is what
+            # streaming responses need to detect client disconnects.
+            if sent_disconnect:
+                return {"type": "http.disconnect"}
+            try:
+                msg = await receive()
+            except Exception:
+                sent_disconnect = True
+                return {"type": "http.disconnect"}
+            if msg.get("type") == "http.disconnect":
+                sent_disconnect = True
+            return msg
 
-    Starlette consumes the ASGI ``receive`` callable when ``request.body()``
-    runs, so downstream handlers would otherwise see an empty body. We rebuild
-    a one-shot ``receive`` that emits our (possibly rewritten) bytes.
-    """
-    sent = False
-
-    async def receive():
-        nonlocal sent
-        if sent:
-            return {"type": "http.disconnect"}
-        sent = True
-        return {
-            "type": "http.request",
-            "body": body_bytes,
-            "more_body": False,
-        }
-
-    request._receive = receive  # type: ignore[attr-defined]
-    return await call_next(request)
+        await self.app(scope, replay_receive, send)
 
 
 app.add_middleware(HealthMiddleware)
-app.add_middleware(ForwardedPropsMiddleware)
+app.add_middleware(ForwardedPropsASGIMiddleware)
 
 # CORS: `allow_origins=["*"]` is intentional for this LOCAL DEMO / SHOWCASE
 # STARTER package. The agent server binds to localhost:8000 during `pnpm dev`
