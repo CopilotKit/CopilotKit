@@ -1576,6 +1576,7 @@ describe("shortest-service-first dispatch (integration)", () => {
       fetchImpl: globalThis.fetch,
       env: {} as Readonly<Record<string, string | undefined>>,
       now: () => new Date("2026-04-25T00:00:00Z"),
+      schedulerId: "test-scheduler-id",
     });
 
     await invoker();
@@ -1712,6 +1713,7 @@ describe("shortest-service-first dispatch (integration)", () => {
       fetchImpl: globalThis.fetch,
       env: {} as Readonly<Record<string, string | undefined>>,
       now: () => new Date("2026-04-25T00:00:00Z"),
+      schedulerId: "test-scheduler-id",
     })();
 
     expect(dispatchOrder).toEqual(["tiny", "medium", "huge"]);

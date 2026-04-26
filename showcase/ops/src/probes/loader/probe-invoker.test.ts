@@ -1,4 +1,4 @@
-import { describe, it, expect, onTestFinished } from "vitest";
+import { describe, it, expect, vi, onTestFinished } from "vitest";
 import { z } from "zod";
 import { buildProbeInvoker } from "./probe-invoker.js";
 import type { ProbeConfig } from "./schema.js";
@@ -6,6 +6,8 @@ import { createDiscoveryRegistry } from "../discovery/index.js";
 import type { DiscoverySource, ProbeDriver } from "../types.js";
 import type { ProbeResult } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import type { ProbeRunWriter } from "../run-history.js";
+import { ProbeRunTracker } from "../run-tracker.js";
 import { logger } from "../../logger.js";
 
 function mkWriter(): {
@@ -28,11 +30,32 @@ function mkWriter(): {
   return { writer, writes };
 }
 
+// CR-A1.9: stable test clock. The `ProbeInvokerDeps.now` contract is
+// `() => Date` (driver-facing — drivers call `ctx.now().toISOString()`).
+// Internally the invoker also uses `Date.now()` for tracker.startedAt
+// and runWriter.start({startedAt}) — those are numeric ms. Keep both
+// representations available to tests via shared constants so assertions
+// against tracker / writer values can compare to the SAME instant the
+// drivers see, instead of drifting against wall-clock.
+const FIXED_TEST_INSTANT = "2026-04-22T00:00:00Z";
+const FIXED_TEST_MS: number = Date.parse(FIXED_TEST_INSTANT);
+const FIXED_TEST_DATE: Date = new Date(FIXED_TEST_MS);
+// Sanity: when this drift'd in earlier iterations, tracker.startedAt
+// would be `Date.now()` (real clock) while drivers got the fixed test
+// Date — making time-relative assertions unstable. Verify here that
+// the two stay aligned.
+if (FIXED_TEST_DATE.getTime() !== FIXED_TEST_MS) {
+  throw new Error("test fixture: Date / ms representations drifted");
+}
+
 const BASE_DEPS = {
   fetchImpl: globalThis.fetch,
   env: {} as Readonly<Record<string, string | undefined>>,
   logger,
-  now: () => new Date("2026-04-22T00:00:00Z"),
+  // Drivers see Date (matches ProbeContext.now). The numeric ms form
+  // (FIXED_TEST_MS) is the same instant — tests that assert on tracker
+  // startedAt / runWriter.start({startedAt}) can compare against it.
+  now: (): Date => FIXED_TEST_DATE,
 };
 
 describe("buildProbeInvoker", () => {
@@ -63,6 +86,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invoker = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -109,6 +133,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invoker = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -158,6 +183,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -192,6 +218,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -231,6 +258,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -268,6 +296,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -320,6 +349,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry,
       writer,
       ...BASE_DEPS,
@@ -396,6 +426,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const invocation = buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -460,6 +491,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -505,6 +537,7 @@ describe("buildProbeInvoker", () => {
     const start = Date.now();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -566,6 +599,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -661,6 +695,7 @@ describe("buildProbeInvoker", () => {
       const { writer, writes } = mkWriter();
       const driver = mkDemosDriver();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry,
         writer,
@@ -704,6 +739,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver: mkDemosDriver(),
         discoveryRegistry,
         writer,
@@ -794,6 +830,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry,
         writer,
@@ -866,6 +903,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry,
         writer,
@@ -908,6 +946,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
       driver,
+      schedulerId: cfg.id,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
       ...BASE_DEPS,
@@ -943,6 +982,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
@@ -977,6 +1017,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
@@ -1005,6 +1046,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
@@ -1037,6 +1079,7 @@ describe("buildProbeInvoker", () => {
       };
       const { writer, writes } = mkWriter();
       await buildProbeInvoker(cfg, {
+        schedulerId: cfg.id,
         driver,
         discoveryRegistry: createDiscoveryRegistry(),
         writer,
@@ -1123,6 +1166,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1181,6 +1225,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1230,6 +1275,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1237,11 +1283,11 @@ describe("buildProbeInvoker", () => {
     })();
     expect(writes).toHaveLength(2);
     const keys = writes.map((w) => w.key);
-    // Unique unresolved-suffix keys per record so the writer doesn't
-    // collapse them into one row.
+    // Unique invalid-key-template keys per record so the writer doesn't
+    // collapse them into one row (CR-A1.2 strict-interpolator semantics).
     expect(new Set(keys).size).toBe(2);
     for (const k of keys) {
-      expect(k).toMatch(/__unresolved_/);
+      expect(k).toMatch(/:invalid-key-template:/);
     }
   });
 
@@ -1283,6 +1329,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1290,7 +1337,7 @@ describe("buildProbeInvoker", () => {
     })();
     expect(writes).toHaveLength(1);
     expect(writes[0]!.key).not.toMatch(/\[object Object\]/);
-    expect(writes[0]!.key).toMatch(/__unresolved_/);
+    expect(writes[0]!.key).toMatch(/:invalid-key-template:/);
   });
 
   it("returns within timeout when source.enumerate hangs", async () => {
@@ -1342,6 +1389,7 @@ describe("buildProbeInvoker", () => {
     const { writer, writes } = mkWriter();
     const start = Date.now();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1406,6 +1454,7 @@ describe("buildProbeInvoker", () => {
       },
     };
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1447,6 +1496,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1515,7 +1565,13 @@ describe("buildProbeInvoker", () => {
           key_template: "image_drift:${name}",
         },
       },
-      { driver: badDriver, discoveryRegistry, writer, ...BASE_DEPS },
+      {
+        driver: badDriver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+        schedulerId: "image_drift",
+      },
     )();
 
     // Good probe — should write its 2 normal ticks, untouched.
@@ -1527,7 +1583,13 @@ describe("buildProbeInvoker", () => {
         max_concurrency: 4,
         targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
       },
-      { driver: goodDriver, discoveryRegistry, writer, ...BASE_DEPS },
+      {
+        driver: goodDriver,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+        schedulerId: "smoke",
+      },
     )();
 
     expect(writes).toHaveLength(3);
@@ -1583,6 +1645,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1592,7 +1655,7 @@ describe("buildProbeInvoker", () => {
     const keys = writes.map((w) => w.key);
     expect(new Set(keys).size).toBe(2);
     for (const k of keys) {
-      expect(k).toMatch(/__unresolved_/);
+      expect(k).toMatch(/:invalid-key-template:/);
     }
   });
 
@@ -1634,6 +1697,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1692,6 +1756,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1734,6 +1799,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1772,6 +1838,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1818,6 +1885,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1877,6 +1945,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -1942,6 +2011,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -1994,6 +2064,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -2058,6 +2129,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -2134,6 +2206,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -2177,6 +2250,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry: createDiscoveryRegistry(),
       writer,
@@ -2234,6 +2308,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer, writes } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -2294,6 +2369,7 @@ describe("buildProbeInvoker", () => {
     };
     const { writer } = mkWriter();
     await buildProbeInvoker(cfg, {
+      schedulerId: cfg.id,
       driver,
       discoveryRegistry,
       writer,
@@ -2303,5 +2379,1331 @@ describe("buildProbeInvoker", () => {
     expect(
       warns.filter((w) => w.msg === "probe.discovery-record-key-shadowed"),
     ).toHaveLength(0);
+  });
+
+  // ---------------------------------------------------------------------
+  // B7: ProbeRunTracker registration + RunSummary + probe_runs writer
+  // ---------------------------------------------------------------------
+  //
+  // The invoker must (1) register a ProbeRunTracker on the scheduler entry
+  // for the duration of the run so `GET /api/probes` can surface inflight
+  // progress, (2) call enqueue/start/complete/fail in the right order for
+  // each fan-out target, (3) clear the tracker (set null) on completion,
+  // (4) return a RunSummary so the scheduler populates lastRunSummary, and
+  // (5) start/finish a row in the `probe_runs` collection via the writer.
+
+  /**
+   * Tiny fake scheduler-like surface exposing only the methods the
+   * invoker uses. Mirrors the real shape on purpose: getEntry returns a
+   * snapshot whose `triggeredRun` flag the invoker reads, and
+   * setEntryTracker mutates the underlying slot.
+   */
+  function fakeScheduler(): {
+    scheduler: {
+      getEntry: (id: string) => { triggeredRun: boolean } | undefined;
+      setEntryTracker: (id: string, tracker: ProbeRunTracker | null) => void;
+    };
+    trackerHistory: Array<ProbeRunTracker | null>;
+    triggered: boolean;
+  } {
+    const trackerHistory: Array<ProbeRunTracker | null> = [];
+    const state = { triggered: false };
+    return {
+      scheduler: {
+        getEntry: (_id: string) => ({ triggeredRun: state.triggered }),
+        setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+          trackerHistory.push(tracker);
+        },
+      },
+      trackerHistory,
+      get triggered() {
+        return state.triggered;
+      },
+      set triggered(v: boolean) {
+        state.triggered = v;
+      },
+    };
+  }
+
+  function fakeRunWriter(): {
+    writer: ProbeRunWriter;
+    starts: Array<{ probeId: string; startedAt: number; triggered: boolean }>;
+    finishes: Array<{
+      id: string;
+      finishedAt: number;
+      state: "completed" | "failed";
+      summary: { total: number; passed: number; failed: number } | null;
+    }>;
+  } {
+    const starts: Array<{
+      probeId: string;
+      startedAt: number;
+      triggered: boolean;
+    }> = [];
+    const finishes: Array<{
+      id: string;
+      finishedAt: number;
+      state: "completed" | "failed";
+      summary: { total: number; passed: number; failed: number } | null;
+    }> = [];
+    let nextId = 1;
+    const writer: ProbeRunWriter = {
+      async start(opts) {
+        starts.push(opts);
+        return { id: `run-${nextId++}` };
+      },
+      async finish(opts) {
+        finishes.push({
+          id: opts.id,
+          finishedAt: opts.finishedAt,
+          state: opts.state,
+          summary:
+            opts.summary === null
+              ? null
+              : {
+                  total: opts.summary.total,
+                  passed: opts.summary.passed,
+                  failed: opts.summary.failed,
+                },
+        });
+      },
+      async recent() {
+        return [];
+      },
+    };
+    return { writer, starts, finishes };
+  }
+
+  it("registers a ProbeRunTracker on the scheduler entry while the handler runs and clears it after", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    // First setEntryTracker call assigns a real tracker; second clears it.
+    expect(sched.trackerHistory).toHaveLength(2);
+    expect(sched.trackerHistory[0]).toBeInstanceOf(ProbeRunTracker);
+    expect(sched.trackerHistory[1]).toBeNull();
+  });
+
+  it("calls tracker.enqueue/start/complete in order for each discovered service", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      // Single concurrency so call order is deterministic across both targets.
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    // Capture method calls on the tracker the invoker will create. We
+    // can't intercept the constructor here, so spy via setEntryTracker:
+    // when the invoker calls setEntryTracker(id, tracker), wrap each
+    // method on that tracker before the invoker invokes them.
+    const calls: string[] = [];
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker) {
+        const orig = {
+          enqueue: tracker.enqueue.bind(tracker),
+          start: tracker.start.bind(tracker),
+          complete: tracker.complete.bind(tracker),
+          fail: tracker.fail.bind(tracker),
+        };
+        tracker.enqueue = (slug: string) => {
+          calls.push(`enqueue:${slug}`);
+          return orig.enqueue(slug);
+        };
+        tracker.start = (slug: string) => {
+          calls.push(`start:${slug}`);
+          return orig.start(slug);
+        };
+        tracker.complete = (slug, result) => {
+          calls.push(`complete:${slug}:${result}`);
+          return orig.complete(slug, result);
+        };
+        tracker.fail = (slug, err) => {
+          calls.push(`fail:${slug}:${err}`);
+          return orig.fail(slug, err);
+        };
+      }
+      origSet(id, tracker);
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    // Both services enqueue first; then per-service start → complete in
+    // order. With concurrency=1 the relative order is deterministic.
+    expect(calls).toEqual([
+      "enqueue:smoke:a",
+      "enqueue:smoke:b",
+      "start:smoke:a",
+      "complete:smoke:a:green",
+      "start:smoke:b",
+      "complete:smoke:b:green",
+    ]);
+  });
+
+  it("returns a RunSummary with total/passed/failed counts", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        return {
+          key,
+          state: key.endsWith("bad") ? "red" : "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }, { key: "smoke:bad" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const runWriter = fakeRunWriter().writer;
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter,
+      ...BASE_DEPS,
+    })();
+    expect(summary).toEqual({ total: 3, passed: 2, failed: 1 });
+  });
+
+  it("invokes runWriter.start at run start and runWriter.finish with state='completed' on success", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }, { key: "smoke:b" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    sched.triggered = true; // simulate a manually-triggered run
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    expect(rw.starts).toHaveLength(1);
+    expect(rw.starts[0]).toMatchObject({
+      probeId: "smoke",
+      triggered: true,
+    });
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]).toMatchObject({
+      id: "run-1",
+      state: "completed",
+      summary: { total: 2, passed: 2, failed: 0 },
+    });
+  });
+
+  it("calls tracker.fail and runWriter.finish(state='failed') when a driver throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(_ctx, input) {
+        const key = (input as { key: string }).key;
+        if (key === "smoke:bad") throw new Error("driver exploded");
+        return {
+          key,
+          state: "green",
+          signal: {},
+          observedAt: _ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:bad" }, { key: "smoke:ok" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    let capturedTracker: ProbeRunTracker | null = null;
+    const origSet = sched.scheduler.setEntryTracker;
+    sched.scheduler.setEntryTracker = (id, tracker) => {
+      if (tracker && capturedTracker === null) capturedTracker = tracker;
+      origSet(id, tracker);
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    expect(capturedTracker).not.toBeNull();
+    const snap = capturedTracker!.snapshot();
+    const bad = snap.services.find((s) => s.slug === "smoke:bad");
+    expect(bad?.state).toBe("failed");
+    expect(bad?.error).toContain("driver exploded");
+    // The whole run still "completes" from the scheduler's perspective —
+    // the per-target failure is captured in the summary as one failed.
+    // Per-service errors don't escalate the overall run to 'failed' (the
+    // probe handler itself didn't throw); the summary's `failed` counter
+    // is the right surface.
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]).toMatchObject({
+      state: "completed",
+      summary: { total: 2, passed: 1, failed: 1 },
+    });
+  });
+
+  // ---------------------------------------------------------------------
+  // R3-A.3: orphan-risk warn log when runWriter.start fails
+  // ---------------------------------------------------------------------
+  // When PB's `start()` fails after the row may have been created at the PB
+  // side (network blip on the response), runRowId is null and the row is
+  // orphaned. The probe-invoker must emit a structured `probe.run-row-orphan-risk`
+  // warn log so operators can find and clean up orphans, in ADDITION to the
+  // existing `probe.run-writer-start-failed` error log. Run continues
+  // normally (best-effort observability), and finish() is short-circuited
+  // because runRowId is null.
+  it("R3-A.3: emits probe.run-row-orphan-risk warn when runWriter.start throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "orphan-risk",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingWriter: ProbeRunWriter = {
+      start: vi.fn().mockRejectedValue(new Error("network blip")),
+      finish: vi.fn().mockResolvedValue(undefined),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    // Capture logger.warn calls. The fix emits an orphan-risk warn under
+    // the canonical key `probe.run-row-orphan-risk` so operators have an
+    // explicit signal beyond the existing error log.
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => {});
+    let orphan: unknown[] | undefined;
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        schedulerId: "probe:orphan-risk",
+        runWriter: failingWriter,
+        ...BASE_DEPS,
+      })();
+      // Snapshot the matching call BEFORE mockRestore — vitest's
+      // `mockRestore()` clears `mock.calls` along with restoring the
+      // original implementation, so reading the array after restore
+      // returns an empty list and the assertion below would always fail.
+      orphan = warnSpy.mock.calls.find(
+        ([msg]) => msg === "probe.run-row-orphan-risk",
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+    expect(orphan).toBeDefined();
+    expect(orphan![1]).toMatchObject({ probeId: "orphan-risk" });
+    // finish() must NOT have been called when start() failed — the row id
+    // was never set, so any update would either throw or write junk.
+    expect(failingWriter.finish).not.toHaveBeenCalled();
+  });
+
+  it("does NOT throw when runWriter.start fails — observability must be best-effort", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingWriter: ProbeRunWriter = {
+      start: vi.fn().mockRejectedValue(new Error("PB down")),
+      finish: vi.fn().mockResolvedValue(undefined),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    await expect(
+      buildProbeInvoker(cfg, {
+        driver,
+        schedulerId: cfg.id,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        runWriter: failingWriter,
+        ...BASE_DEPS,
+      })(),
+    ).resolves.toBeDefined();
+    // finish() not called when start() failed — no row id to update.
+    expect(failingWriter.finish).not.toHaveBeenCalled();
+  });
+
+  it("does NOT throw when runWriter.finish fails", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const failingFinish: ProbeRunWriter = {
+      start: vi.fn().mockResolvedValue({ id: "run-x" }),
+      finish: vi.fn().mockRejectedValue(new Error("PB down")),
+      recent: vi.fn().mockResolvedValue([]),
+    };
+    await expect(
+      buildProbeInvoker(cfg, {
+        driver,
+        schedulerId: cfg.id,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler: sched.scheduler,
+        runWriter: failingFinish,
+        ...BASE_DEPS,
+      })(),
+    ).resolves.toBeDefined();
+    expect(failingFinish.finish).toHaveBeenCalledTimes(1);
+  });
+
+  // ---------------------------------------------------------------------
+  // CR-A1.1: trigger filter.slugs threads through to the invoker
+  // ---------------------------------------------------------------------
+  it("filters discovered inputs to opts.filter.slugs when supplied", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const seenKeys: string[] = [];
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        const key = (input as { key: string }).key;
+        seenKeys.push(key);
+        return {
+          key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "filter-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return [{ name: "alpha" }, { name: "beta" }, { name: "gamma" }];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "filter-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const invoker = buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    });
+    const summary = await invoker({
+      filter: { slugs: ["image_drift:alpha", "image_drift:gamma"] },
+    });
+    // Only the requested slugs ran AND were written. Beta — discovered
+    // but unfiltered — must not appear in the writer or driver call list.
+    expect(seenKeys.sort()).toEqual(["image_drift:alpha", "image_drift:gamma"]);
+    expect(writes.map((w) => w.key).sort()).toEqual([
+      "image_drift:alpha",
+      "image_drift:gamma",
+    ]);
+    expect(summary.total).toBe(2);
+  });
+
+  it("filters discovered inputs against the FULL roster (filter doesn't change discovery output)", async () => {
+    // The source's enumerate() must still see the unfiltered request —
+    // filtering happens AFTER discovery so logs / metrics still reflect
+    // what the source actually returned.
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    let enumerateInvocations = 0;
+    let enumerateRecordCount = 0;
+    const source: DiscoverySource = {
+      name: "filter-roster",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        enumerateInvocations++;
+        const all = [{ name: "a" }, { name: "b" }, { name: "c" }];
+        enumerateRecordCount = all.length;
+        return all;
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "filter-roster",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })({ filter: { slugs: ["smoke:b"] } });
+    expect(enumerateInvocations).toBe(1);
+    expect(enumerateRecordCount).toBe(3);
+    expect(writes.map((w) => w.key)).toEqual(["smoke:b"]);
+  });
+
+  // ---------------------------------------------------------------------
+  // R3-A.1: preError entries MUST NOT be silently dropped under filter.slugs
+  // ---------------------------------------------------------------------
+  // Pre-fix, the trigger filter ran `inputs = allInputs.filter(r => wanted.has(r.key))`
+  // — preError entries (synthetic `<probeId>:invalid-key-template:N` keys)
+  // got dropped because their keys never match operator-supplied slugs.
+  // Discovery-time key_template errors that would surface on a cron tick
+  // were HIDDEN under a manual filter — exactly the path operators use to
+  // INVESTIGATE problems silently swallowed them.
+  it("R3-A.1: retains preError synthetic entries even when filter.slugs is supplied", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "filter-prerror-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // One record with a missing template field (yields preError
+        // synthetic key) and two records with valid `name` fields so
+        // the operator's slug filter can target one of them.
+        return [
+          { kind: "x" }, // missing `name` → preError
+          { name: "alpha" },
+          { name: "beta" },
+        ];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "missing-and-filtered",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "filter-prerror-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+    })({ filter: { slugs: ["smoke:alpha"] } });
+    // Operator asked for ONE specific slug, but the preError MUST also
+    // surface — otherwise the operator's manual investigation can't see
+    // the misconfigured record at all. Expect the alpha tile + the
+    // preError synthetic-error tile.
+    const keys = writes.map((w) => w.key).sort();
+    expect(keys).toContain("smoke:alpha");
+    const preErrorKey = keys.find((k) => k.startsWith("missing-and-filtered:"));
+    expect(preErrorKey).toBeDefined();
+    expect(preErrorKey).toMatch(/invalid-key-template/);
+    // The pre-error entry must be a synthetic-error.
+    const preErrorTile = writes.find((w) => w.key === preErrorKey);
+    expect(preErrorTile?.state).toBe("error");
+    // Beta was NOT requested → must NOT appear.
+    expect(keys).not.toContain("smoke:beta");
+  });
+
+  // ---------------------------------------------------------------------
+  // R3-A.2: invoker uses prefixed scheduler-id (probe:<cfg.id>)
+  // ---------------------------------------------------------------------
+  // Orchestrator registers entries as `probe:${cfg.id}`. Pre-fix the invoker
+  // called `scheduler.getEntry(cfg.id)` and `scheduler.setEntryTracker(cfg.id, ...)`
+  // with the BARE id, so getEntry returned undefined and setEntryTracker
+  // was a silent no-op against the live scheduler. Tracker registration was
+  // dead in production. Fix: thread `schedulerId` through ProbeInvokerDeps so
+  // the invoker uses the same id the orchestrator registered.
+  it("R3-A.2: invoker calls scheduler.getEntry/setEntryTracker with the schedulerId (not bare cfg.id)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "my-probe",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    // Capture all id arguments getEntry/setEntryTracker were called with.
+    const getEntryIds: string[] = [];
+    const setTrackerIds: string[] = [];
+    const scheduler = {
+      getEntry: (id: string) => {
+        getEntryIds.push(id);
+        return { triggeredRun: false };
+      },
+      setEntryTracker: (id: string, _tracker: ProbeRunTracker | null) => {
+        setTrackerIds.push(id);
+      },
+    };
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      // Caller (orchestrator) supplies the prefixed scheduler id. This
+      // is the canonical scheduler entry id (`probe:<cfg.id>`).
+      schedulerId: "probe:my-probe",
+      ...BASE_DEPS,
+    })();
+    // Pre-fix: these arrays would contain "my-probe" (bare). Post-fix:
+    // they must contain "probe:my-probe" (matching the orchestrator's
+    // scheduler.register call site).
+    expect(getEntryIds).toContain("probe:my-probe");
+    expect(setTrackerIds).toContain("probe:my-probe");
+    // And — defensively — must NOT contain the bare cfg.id.
+    expect(getEntryIds).not.toContain("my-probe");
+    expect(setTrackerIds).not.toContain("my-probe");
+  });
+
+  // ---------------------------------------------------------------------
+  // CR-A1.2: interpolateTemplate empty-key collapse fail-loud
+  // ---------------------------------------------------------------------
+  it("emits a synthetic-error result and does NOT collapse empty keys when key_template fields are missing", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        // The driver should NOT see records with missing template fields.
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const source: DiscoverySource = {
+      name: "missing-field-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Two records, BOTH missing the templated `name` field. Without
+        // strict interpolation they would both render an empty key and
+        // collide in the tracker.services Map.
+        return [{ kind: "x" }, { kind: "y" }];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "missing",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "missing-field-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const sched = fakeScheduler();
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      scheduler: sched.scheduler,
+      ...BASE_DEPS,
+    })();
+    // Each record must surface its own synthetic-error result with a
+    // distinct, non-empty key. No empty-string keys in the writer.
+    expect(writes).toHaveLength(2);
+    for (const w of writes) {
+      expect(w.state).toBe("error");
+      expect(w.key).not.toBe("");
+      expect(w.key).not.toBe("smoke:");
+      expect(
+        (w.signal as { errorDesc?: string } | undefined)?.errorDesc,
+      ).toContain("key_template missing field: name");
+    }
+    // Distinct keys (no collapse).
+    expect(new Set(writes.map((w) => w.key)).size).toBe(2);
+    // Tracker must have both as distinct services.
+    const captured = sched.trackerHistory[0];
+    expect(captured).toBeInstanceOf(ProbeRunTracker);
+    const snap = (captured as ProbeRunTracker).snapshot();
+    expect(snap.services).toHaveLength(2);
+    // Neither service has an empty slug.
+    for (const svc of snap.services) {
+      expect(svc.slug).not.toBe("");
+      expect(svc.slug).not.toBe("smoke:");
+    }
+    // Summary reflects two failures, no successes.
+    expect(summary.passed).toBe(0);
+    expect(summary.failed).toBe(2);
+  });
+
+  // ---------------------------------------------------------------------
+  // CR-A1.5: discovery enumerate failure → state="failed"
+  // ---------------------------------------------------------------------
+  it("flips runState to 'failed' and surfaces discoveryFailed when enumerate() throws", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        throw new Error("driver should not be called when discovery fails");
+      },
+    };
+    const source: DiscoverySource = {
+      name: "broken-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        throw new Error("upstream is down");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "discovery-broken",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      discovery: {
+        source: "broken-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    // Synthetic-error tile written for the probe-as-a-whole.
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+    expect((writes[0]!.signal as { errorDesc?: string }).errorDesc).toContain(
+      "upstream is down",
+    );
+    // Run row marked as failed (not completed).
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]!.state).toBe("failed");
+    // Summary distinguishes "discovery broke" from "no targets matched."
+    expect(summary.discoveryFailed).toBe(true);
+    expect(summary.failed).toBeGreaterThanOrEqual(1);
+    // R2-A.1: RunSummary invariant — total must equal passed + failed.
+    // Previously total=0 + failed=1 violated this.
+    expect(summary.total).toBe(summary.passed + summary.failed);
+    // R2-A.1: tracker.snapshot().services MUST NOT contain a fake entry
+    // keyed by the probe id (cfg.id="discovery-broken"). The discovery
+    // failure is signalled by `discoveryFailed: true` in the snapshot,
+    // not by polluting the per-service inflight list with a synthetic
+    // probe-id entry.
+    const captured = sched.trackerHistory[0];
+    expect(captured).toBeInstanceOf(ProbeRunTracker);
+    const snap = (captured as ProbeRunTracker).snapshot();
+    const slugs = snap.services.map((s) => s.slug);
+    expect(slugs).not.toContain("discovery-broken");
+  });
+
+  // ---------------------------------------------------------------------
+  // CR-A1.8: discovery enumerate timeout race
+  // ---------------------------------------------------------------------
+  // ---------------------------------------------------------------------
+  // R2-A.2 / R2-A.3: Promise.race must absorb late driver/enumerate
+  // rejections so an --unhandled-rejections=throw process doesn't crash
+  // when the timeout wins the race against a misbehaving promise.
+  // ---------------------------------------------------------------------
+  it("does not emit UnhandledRejection when driver rejects late after timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        // Ignore abortSignal entirely; reject AFTER timeout has fired.
+        await new Promise((r) => setTimeout(r, 50));
+        throw new Error("driver late rejection");
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 10,
+      targets: [{ key: "smoke:late-reject" }],
+    };
+    const { writer, writes } = mkWriter();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        schedulerId: cfg.id,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        ...BASE_DEPS,
+      })();
+      // Wait one extra tick AFTER the late rejection would have fired
+      // so any unhandled rejection has time to surface on the process.
+      await new Promise((r) => setTimeout(r, 80));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    // Must not have observed any unhandled rejection.
+    expect(unhandled).toEqual([]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+  }, 5000);
+
+  it("does not emit UnhandledRejection when enumerate() rejects late after timeout", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        throw new Error("driver should not run; discovery timed out");
+      },
+    };
+    const source: DiscoverySource = {
+      name: "late-reject-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Ignore abort, reject AFTER timeout.
+        await new Promise((r) => setTimeout(r, 50));
+        throw new Error("enumerate late rejection");
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "discovery-late-reject",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 10,
+      discovery: {
+        source: "late-reject-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer } = mkWriter();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      await buildProbeInvoker(cfg, {
+        driver,
+        schedulerId: cfg.id,
+        discoveryRegistry,
+        writer,
+        ...BASE_DEPS,
+      })();
+      await new Promise((r) => setTimeout(r, 80));
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+    expect(unhandled).toEqual([]);
+  }, 5000);
+
+  it("times out at the invoker level when enumerate() ignores abortSignal", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run() {
+        throw new Error("should not run; discovery timed out");
+      },
+    };
+    let enumerateResolved = false;
+    const source: DiscoverySource = {
+      name: "ignores-abort-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        // Sleep WAY past timeout, ignoring abortSignal entirely.
+        await new Promise((r) => setTimeout(r, 200));
+        enumerateResolved = true;
+        return [{ name: "x" }];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "discovery-timeout",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      timeout_ms: 25,
+      discovery: {
+        source: "ignores-abort-src",
+        filter: {},
+        key_template: "smoke:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    const start = Date.now();
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry,
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    const elapsed = Date.now() - start;
+    // Must not have waited for the 200ms enumerate to resolve.
+    expect(elapsed).toBeLessThan(150);
+    // Treated as discovery failure (per CR-A1.5).
+    expect(summary.discoveryFailed).toBe(true);
+    expect(rw.finishes[0]!.state).toBe("failed");
+    expect(writes).toHaveLength(1);
+    expect(writes[0]!.state).toBe("error");
+    // Suppress the unused-flag lint complaint; intentional reference.
+    void enumerateResolved;
+  }, 5000);
+
+  // ---------------------------------------------------------------------
+  // CR-A1.9: tracker.startedAt and runWriter.start receive numeric ms
+  // ---------------------------------------------------------------------
+  it("tracker.startedAt and runWriter.start({startedAt}) are numeric (ms)", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "smoke",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const sched = fakeScheduler();
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      schedulerId: cfg.id,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler: sched.scheduler,
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    expect(rw.starts).toHaveLength(1);
+    expect(typeof rw.starts[0]!.startedAt).toBe("number");
+    expect(Number.isFinite(rw.starts[0]!.startedAt)).toBe(true);
+    const captured = sched.trackerHistory[0] as ProbeRunTracker;
+    expect(captured).toBeInstanceOf(ProbeRunTracker);
+    expect(typeof captured.startedAt).toBe("number");
+    expect(Number.isFinite(captured.startedAt)).toBe(true);
+  });
+
+  // ---------------------------------------------------------------------
+  // R4-A.2: schedulerId is REQUIRED in ProbeInvokerDeps (no fallback)
+  // ---------------------------------------------------------------------
+  // R3-A.2 originally added `schedulerEntryId ?? cfg.id` as a "backwards-
+  // compat" default. That re-introduced the exact silent-no-op bug it was
+  // meant to fix: any caller that forgot the prefixed id (`probe:<cfg.id>`)
+  // would fall back to the bare id, which doesn't match the live
+  // scheduler entry → setEntryTracker silently no-ops in production.
+  //
+  // Per fail-loud discipline: the field is required at the type level, and
+  // the runtime must use the supplied value verbatim (not a fallback).
+  // This test pins both behaviors.
+  it("R4-A.2: schedulerId is required — typecheck fails if omitted, runtime uses it verbatim", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "bare-id",
+      schedule: "*/15 * * * *",
+      max_concurrency: 4,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const setTrackerIds: string[] = [];
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (id: string, _tracker: ProbeRunTracker | null) => {
+        setTrackerIds.push(id);
+      },
+    };
+    // Runtime check: the invoker must use the supplied schedulerId
+    // verbatim — NOT silently fall back to cfg.id when something
+    // unexpected happens (the old `?? cfg.id` path).
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:bare-id",
+      ...BASE_DEPS,
+    })();
+    expect(setTrackerIds).toContain("probe:bare-id");
+    expect(setTrackerIds).not.toContain("bare-id");
+
+    // Typecheck check: omitting schedulerId must be a TS error. We can't
+    // assert tsc behavior at runtime, but we CAN encode the contract via
+    // a `@ts-expect-error` directive — if the field becomes optional
+    // again (or grows a fallback), TS will refuse to allow the directive
+    // and CI's `tsc --noEmit` will fail. That's the fail-loud signal.
+    // The runtime call below is fenced behind `false` so the missing-id
+    // invoker is constructed only at typecheck time, not at test time.
+    if (false as boolean) {
+      // @ts-expect-error schedulerId is required (R4-A.2). If this directive
+      // becomes "unused", tsc will complain — that's the signal that the
+      // field was made optional or grew a fallback again.
+      buildProbeInvoker(cfg, {
+        driver,
+        discoveryRegistry: createDiscoveryRegistry(),
+        writer,
+        scheduler,
+        ...BASE_DEPS,
+      });
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // R4-A.7: outer fan-out catch synthesizes a failed tile + bumps counter
+  // ---------------------------------------------------------------------
+  // Pre-fix the outer "unreachable" catch only logged. If an invariant
+  // inside the fan-out broke, the run reported `failed: 0` and
+  // `state: "completed"` while a real defect occurred — silently green.
+  //
+  // Post-fix: synthesize a `__internal_invariant__` synthetic-error tile
+  // (writer.write), bump `failed`, flip `runState` to "failed", and
+  // adjust the summary so `total === passed + failed` still holds.
+  it("R4-A.7: outer fan-out catch synthesizes a failed tile, bumps counter, flips runState", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    // Driver itself never executes — we throw from inside the fan-out by
+    // way of a writer that explodes on the very first write so the
+    // per-target catch can't swallow it. Instead, simpler approach:
+    // rig the discoveryRegistry.get to return a source whose enumerate
+    // returns OK, but then make the per-target writer throw a non-Error
+    // value that the inner catch swallows; we still need the OUTER
+    // catch to fire. The cleanest way: throw from the inner runOne by
+    // monkey-patching the tracker. tracker.start is called inside
+    // runOne BEFORE the per-target try/catch — make it throw, that
+    // surfaces past Promise.all into the outer catch.
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "invariant-broken",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer, writes } = mkWriter();
+    // Wire a fake scheduler whose setEntryTracker installs a tracker
+    // whose `start()` throws synchronously. start() is invoked from
+    // INSIDE runOne() (which is awaited by Promise.all inside the
+    // outer try/catch), so the throw escapes Promise.all and lands in
+    // the outer "unreachable" catch — the exact path R4-A.7 hardens.
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+        if (tracker) {
+          tracker.start = () => {
+            throw new Error("invariant-broken: tracker.start exploded");
+          };
+        }
+      },
+    };
+    const summary = await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:invariant-broken",
+      ...BASE_DEPS,
+    })();
+    // Synthetic-error tile must be present in the writer stream and
+    // keyed off the `__internal_invariant__` sentinel.
+    const internalTile = writes.find((w) =>
+      w.key.endsWith(":__internal_invariant__"),
+    );
+    expect(internalTile).toBeDefined();
+    expect(internalTile?.state).toBe("error");
+    // Summary invariant: total === passed + failed, with failed >= 1.
+    expect(summary.failed).toBeGreaterThanOrEqual(1);
+    expect(summary.total).toBe(summary.passed + summary.failed);
+  });
+
+  it("R4-A.7: outer-catch run is persisted with state='failed' via runWriter.finish", async () => {
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "smoke",
+      inputSchema,
+      async run(ctx, input) {
+        return {
+          key: (input as { key: string }).key,
+          state: "green",
+          signal: {},
+          observedAt: ctx.now().toISOString(),
+        };
+      },
+    };
+    const cfg: ProbeConfig = {
+      kind: "smoke",
+      id: "invariant-broken-2",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      targets: [{ key: "smoke:a" }],
+    };
+    const { writer } = mkWriter();
+    const scheduler = {
+      getEntry: (_id: string) => ({ triggeredRun: false }),
+      setEntryTracker: (_id: string, tracker: ProbeRunTracker | null) => {
+        if (tracker) {
+          tracker.start = () => {
+            throw new Error("invariant-broken: start threw");
+          };
+        }
+      },
+    };
+    const rw = fakeRunWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry: createDiscoveryRegistry(),
+      writer,
+      scheduler,
+      schedulerId: "probe:invariant-broken-2",
+      runWriter: rw.writer,
+      ...BASE_DEPS,
+    })();
+    // The persisted run row must reflect state="failed" so dashboards
+    // surface the tick as a real failure rather than fake-green.
+    expect(rw.finishes).toHaveLength(1);
+    expect(rw.finishes[0]!.state).toBe("failed");
+    // Persisted summary must also satisfy the invariant.
+    const persisted = rw.finishes[0]!.summary!;
+    expect(persisted.total).toBe(persisted.passed + persisted.failed);
+    expect(persisted.failed).toBeGreaterThanOrEqual(1);
   });
 });
