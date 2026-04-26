@@ -1187,6 +1187,40 @@ describe("orchestrator OPS_TRIGGER_TOKEN empty-string handling (R2-B.3)", () => 
     const res = await fetch(`http://127.0.0.1:${port}/api/probes`);
     expect(res.status).toBe(200);
   });
+
+  // R3-A.5: a token padded with surrounding whitespace must boot and
+  // accept Bearer requests using the trimmed value. Pre-fix, R2-B.3
+  // only rejected zero-trim-length tokens — a "  abc  " token boot'd
+  // but auth-layer trimming on the presented side made the effective
+  // expected literal contain the spaces, silently rejecting all real
+  // requests. Trim at boot AND trim the expected token in auth.ts so
+  // the comparison is symmetric.
+  it("R3-A.5: boots with whitespace-padded OPS_TRIGGER_TOKEN and accepts trimmed Bearer", async () => {
+    process.env.OPS_TRIGGER_TOKEN = "  abc  ";
+    const booted = await boot({
+      configDir: tempDir,
+      port,
+      bootstrapWindowMs: 0,
+    });
+    stopFn = booted.stop;
+    // GET /api/probes is unauthenticated (the bearer-auth middleware only
+    // mounts on the trigger sub-routes), so 200 there only proves the
+    // router was mounted. Hit a trigger endpoint with the trimmed value
+    // and assert a non-401 response — the body may be 404 (no such probe)
+    // but it MUST NOT be 401, which is the symptom the fix prevents.
+    const res = await fetch(
+      `http://127.0.0.1:${port}/api/probes/probe:does-not-exist/trigger`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer abc",
+          "Content-Type": "application/json",
+        },
+        body: "{}",
+      },
+    );
+    expect(res.status).not.toBe(401);
+  });
 });
 
 /**

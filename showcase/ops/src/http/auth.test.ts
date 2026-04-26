@@ -172,4 +172,36 @@ describe("bearerAuth middleware", () => {
     });
     expect(res.status).toBe(200);
   });
+
+  // R3-A.4: presented-token whitespace was trimmed but expected token was
+  // compared verbatim. An OPS_TRIGGER_TOKEN env var that was copy-pasted
+  // with surrounding whitespace would silently 401 every well-formed
+  // request. Trim BOTH sides at construction so the comparison is symmetric.
+  it("R3-A.4: accepts a Bearer token when expectedToken has leading/trailing whitespace", async () => {
+    // expectedToken padded with spaces — common env-var copy-paste mistake.
+    const padded = "  abc  ";
+    const app = new Hono();
+    app.use("/protected/*", bearerAuth({ expectedToken: padded }));
+    app.post("/protected/trigger", (c) => c.json({ ok: true }));
+    const res = await app.request("/protected/trigger", {
+      method: "POST",
+      headers: { Authorization: "Bearer abc" },
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it("R3-A.4: accepts a Bearer token presented with extra whitespace when expected token is clean", async () => {
+    // Clean expectedToken; presented header has extra whitespace around the
+    // token portion. The regex captures anything after `Bearer\s+` up to the
+    // header end so trailing spaces show up in the captured group; .trim()
+    // normalises them.
+    const app = new Hono();
+    app.use("/protected/*", bearerAuth({ expectedToken: "abc" }));
+    app.post("/protected/trigger", (c) => c.json({ ok: true }));
+    const res = await app.request("/protected/trigger", {
+      method: "POST",
+      headers: { Authorization: "Bearer  abc  " },
+    });
+    expect(res.status).toBe(200);
+  });
 });

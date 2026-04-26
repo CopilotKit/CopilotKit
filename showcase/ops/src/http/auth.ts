@@ -78,11 +78,21 @@ const DEFAULT_ENV_VAR = "OPS_TRIGGER_TOKEN";
  */
 export function bearerAuth(opts: BearerAuthOptions = {}): MiddlewareHandler {
   const envVar = opts.envVar ?? DEFAULT_ENV_VAR;
-  const expectedToken =
+  const rawExpected =
     opts.expectedToken !== undefined ? opts.expectedToken : process.env[envVar];
 
+  // R3-A.4: trim BOTH sides at construction so the comparison is symmetric
+  // with the trimmed presented token below. Pre-fix, an OPS_TRIGGER_TOKEN
+  // env var copy-pasted with surrounding whitespace would silently 401
+  // every well-formed Bearer request — the presented side was trimmed but
+  // the expected side held the leading/trailing spaces verbatim. Trim
+  // here normalises both sides; an all-whitespace expected token is then
+  // caught by the empty-string fail-loud guard below.
+  const expectedToken = rawExpected?.trim() ?? "";
+
   if (!expectedToken) {
-    // Fail-loud: empty string and undefined both treated as misconfig.
+    // Fail-loud: empty string, undefined, AND whitespace-only are all
+    // treated as misconfig (whitespace-only collapses to "" after trim).
     throw new MissingAuthTokenError(envVar);
   }
 
