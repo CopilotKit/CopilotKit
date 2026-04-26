@@ -194,15 +194,20 @@ function isRunSummary(v: unknown): v is RunSummary {
   );
 }
 
-let runIdCounter = 0;
-function nextRunId(): string {
-  runIdCounter += 1;
-  // Composite of timestamp + monotonic counter avoids collisions for two
-  // triggers that land in the same ms (test harness common case).
-  return `run_${Date.now().toString(36)}_${runIdCounter.toString(36)}`;
-}
-
 export function createScheduler(opts: SchedulerOptions): Scheduler {
+  // CR-C-sched.1: per-instance run-id counter. Previously this lived at
+  // module scope so two `createScheduler()` calls (test fixtures, future
+  // multi-tenant deployments) shared a counter and observed leaked,
+  // monotonically-increasing IDs across schedulers. Closing it inside the
+  // factory gives each Scheduler an independent sequence starting at 1.
+  let runIdCounter = 0;
+  function nextRunId(): string {
+    runIdCounter += 1;
+    // Composite of timestamp + monotonic counter avoids collisions for two
+    // triggers that land in the same ms (test harness common case).
+    return `run_${Date.now().toString(36)}_${runIdCounter.toString(36)}`;
+  }
+
   const entries = new Map<string, EntrySlot>();
   /**
    * Per-id drain promises left behind by a prior `unregister(id)`. When

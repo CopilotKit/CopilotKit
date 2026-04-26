@@ -523,4 +523,39 @@ describe("scheduler", () => {
     expect(peak).toBe(1); // no overlap
     expect(entered).toBeGreaterThanOrEqual(1);
   }, 10_000);
+
+  // CR-C-sched.1: runId counter must be per-instance, not module-scoped.
+  // Two independent Scheduler instances must each start their counter at 1
+  // so test fixtures (and any future multi-instance use case) get isolated
+  // run-id sequences instead of leaking IDs across schedulers.
+  it("runId counter is isolated per Scheduler instance", async () => {
+    const sA = createScheduler({ logger });
+    const sB = createScheduler({ logger });
+    sA.register({
+      id: "iso",
+      cron: "0 0 1 1 *",
+      handler: () => {},
+    });
+    sB.register({
+      id: "iso",
+      cron: "0 0 1 1 *",
+      handler: () => {},
+    });
+    sA.start();
+    sB.start();
+    const a = await sA.trigger("iso");
+    const b = await sB.trigger("iso");
+    // runId format: run_<timestamp36>_<counter36>. Extract the counter
+    // suffix (last underscore-delimited segment) and assert both first
+    // triggers see counter "1" — i.e. neither instance inherits the
+    // other's counter state.
+    const counterA = a.runId.split("_").pop();
+    const counterB = b.runId.split("_").pop();
+    expect(counterA).toBe("1");
+    expect(counterB).toBe("1");
+    // Settle the in-flight runs so stop() doesn't race the handler.
+    await new Promise((r) => setTimeout(r, 50));
+    await sA.stop();
+    await sB.stop();
+  }, 10_000);
 });
