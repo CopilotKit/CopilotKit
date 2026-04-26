@@ -770,7 +770,9 @@ interface GqlResult<T> {
   partialData: boolean;
 }
 
-function makeGql(opts: {
+export const RAILWAY_GRAPHQL_ENDPOINT = ENDPOINT;
+
+export function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
   sourceName: string;
