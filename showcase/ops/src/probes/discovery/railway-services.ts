@@ -633,11 +633,24 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         return true;
       });
 
-    // Per-service detail enrichment. Failures here degrade the single
-    // service (empty env) rather than aborting the whole tick — mirrors
-    // aimock-wiring's per-service try/catch pattern.
-    const out: RailwayServiceInfo[] = [];
-    for (const svc of services) {
+    // Per-service detail enrichment. Bounded-parallel fan-out — the
+    // serial `for-of` loop scaled linearly with service count and
+    // routinely hit the discovery `timeout_ms` cap once the fleet grew
+    // past ~30 services (each per-service variables() round-trip is
+    // ~1s; 41 services serially = >30s, blowing past the 30s cap on
+    // image-drift / aimock-wiring). Concurrency 8 puts wall-clock at
+    // ~ceil(N/8) round-trips while still keeping the throttle low
+    // enough to not look like an abuse pattern to Railway's edge.
+    //
+    // Failures still degrade the SINGLE service (empty env) rather
+    // than aborting the whole tick — same per-service try/catch the
+    // serial path used. Tick-wide errors (AbortError, AuthError) still
+    // escape the catch and propagate up, killing the whole enumerate.
+    const PER_SERVICE_CONCURRENCY = 8;
+    type EnrichedRecord = RailwayServiceInfo;
+    async function enrichOne(
+      svc: (typeof services)[number],
+    ): Promise<EnrichedRecord> {
       const instance = svc.serviceInstances.edges.find(
         (e) => e.node.environmentId === environmentId,
       );
@@ -658,22 +671,11 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         );
         const parsedVars = VariablesSchema.safeParse(varsResult.data);
         if (!parsedVars.success) {
-          // Correlation marker: when the partial-errors warn already
-          // fired for THIS request (gql() returned `partialData: true`),
-          // tag the schema-failure log so operators can tell "Railway
-          // schema drifted" from "we got partial data and the partial
-          // payload tripped the shape guard". Otherwise the two log
-          // keys (partial-errors vs variables-schema) look unrelated
-          // even though they share a root cause. See B2 in the CR
-          // notes.
           ctx.logger.warn("discovery.railway-services.variables-schema", {
             service: svc.name,
             err: parsedVars.error.message,
             ...(varsResult.partialData ? { cause: "partial-data" } : {}),
           });
-          // `env` already initialised to {} above; no reassignment
-          // needed. The schema-rejection path leaves the empty default
-          // in place — that's the documented degraded behaviour.
         } else {
           const vars = parsedVars.data.variables ?? {};
           for (const [k, v] of Object.entries(vars)) {
@@ -681,38 +683,8 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
           }
         }
       } catch (err) {
-        // Tick-wide concerns must escape the per-service loop:
-        //   1. AbortError — the invoker fired the per-tick timeout
-        //      mid-loop. Continuing to spin up N more gql() calls
-        //      that will all reject is pure noise; rethrow and let
-        //      the invoker take a single keyed synthetic-error
-        //      ProbeResult instead of N variables-failed warns.
-        //   2. AuthError — a 401/403 mid-loop means the token rotated
-        //      (or was revoked) BETWEEN the project-level query and
-        //      this per-service call. Every remaining call will also
-        //      401, and silently degrading every env to {} produces a
-        //      green discovery while operators are blind to the auth
-        //      break. Rethrow so the invoker surfaces the failure.
-        // Other errors (transport flakes, backend 5xx, schema drift on
-        // a single service) keep the documented per-service-degraded
-        // behaviour: log + continue with empty env.
-        //
-        // Narrow contract: ONLY a real AbortError (a fetch rejection
-        // wired to the controller's signal) qualifies as "abort". The
-        // earlier check that also tripped on `ctx.abortSignal.aborted`
-        // over-rethrew unrelated mid-loop failures — once an external
-        // tick-timer fires, every subsequent iteration sees
-        // `signal.aborted === true`, so a plain Railway 500 on the
-        // next service would also escape this catch and kill the
-        // whole tick. The catch must distinguish "fetch was aborted"
-        // from "controller fired but this error is unrelated".
-        //
-        // We check `err.name === "AbortError"` directly AND walk the
-        // `cause` chain because the gql() helper wraps fetch
-        // rejections in DiscoverySourceTransportError; the underlying
-        // AbortError lives on `err.cause`. Walking the chain catches
-        // that case without re-tripping on unrelated transport
-        // errors that happened to fire while the signal was aborted.
+        // AbortError + AuthError escape the catch (see comment block on
+        // the original serial path; behaviour preserved here).
         const aborted = isAbortError(err);
         if (aborted || err instanceof DiscoverySourceAuthError) {
           throw err;
@@ -723,11 +695,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         });
       }
 
-      out.push({
-        // Property order mirrors `RailwayServiceInfo` declaration
-        // order so a reviewer can grep the interface and the emit
-        // site side by side without re-shuffling fields. Behaviour
-        // unchanged.
+      return {
         name: svc.name,
         imageRef,
         publicUrl,
@@ -735,8 +703,30 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         shape: classifyShape(svc.name, { logger: ctx.logger }),
         deployedDigest,
         demos: demosMap.get(deriveSlugFromServiceName(svc.name)) ?? [],
-      });
+      };
     }
+
+    // Bounded-pool worker pattern (mirrors probe-invoker's pool):
+    // shared cursor across N workers, each pulls the next index until
+    // exhausted. Single failed enrichment (one that throws Auth/Abort)
+    // rejects the Promise.all, which propagates up to the caller.
+    const out: RailwayServiceInfo[] = new Array(services.length);
+    let cursor = 0;
+    const workers: Promise<void>[] = [];
+    const workerCount = Math.min(PER_SERVICE_CONCURRENCY, services.length);
+    for (let i = 0; i < workerCount; i++) {
+      workers.push(
+        (async () => {
+          while (cursor < services.length) {
+            const idx = cursor++;
+            const svc = services[idx];
+            if (!svc) break;
+            out[idx] = await enrichOne(svc);
+          }
+        })(),
+      );
+    }
+    await Promise.all(workers);
     return out;
   },
 };
