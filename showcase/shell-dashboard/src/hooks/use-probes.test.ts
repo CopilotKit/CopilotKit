@@ -182,6 +182,51 @@ describe("useProbes", () => {
     const arg = fetchProbesMock.mock.calls[0]![0] as { baseUrl?: string };
     expect(arg.baseUrl).toBe("http://ops.test");
   });
+
+  it("does not setData with stale data when deps change rapidly (CR-B1.3)", async () => {
+    // Drive a sequence where the first effect's fetch resolves AFTER the
+    // dep change has triggered a new effect. With the old aliveRef pattern,
+    // aliveRef.current was reset to true at the start of the new effect,
+    // so the prior fetch would slip its setData past the alive check.
+    let resolveA: ((v: ProbesResponse) => void) | null = null;
+    let resolveB: ((v: ProbesResponse) => void) | null = null;
+    const aData: ProbesResponse = { probes: [entry("A")] };
+    const bData: ProbesResponse = { probes: [entry("B")] };
+
+    fetchProbesMock.mockImplementationOnce(
+      () => new Promise<ProbesResponse>((r) => { resolveA = r; }),
+    );
+    fetchProbesMock.mockImplementationOnce(
+      () => new Promise<ProbesResponse>((r) => { resolveB = r; }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ baseUrl }: { baseUrl: string }) => useProbes({ baseUrl }),
+      { initialProps: { baseUrl: "http://a.test" } },
+    );
+    await waitFor(() => expect(fetchProbesMock).toHaveBeenCalledTimes(1));
+
+    // Force a deps change → cleanup + new effect.
+    rerender({ baseUrl: "http://b.test" });
+    await waitFor(() => expect(fetchProbesMock).toHaveBeenCalledTimes(2));
+
+    // Resolve the FIRST (now-cancelled) fetch with A-data. With cancelled
+    // closure pattern the hook must not setData(A).
+    await act(async () => {
+      resolveA!(aData);
+      await Promise.resolve();
+    });
+    expect(result.current.data).toBeNull();
+
+    // Resolve B normally — now we expect to see B-data.
+    await act(async () => {
+      resolveB!(bData);
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(result.current.data?.probes[0]?.id).toBe("B"),
+    );
+  });
 });
 
 describe("useProbeDetail", () => {
@@ -254,6 +299,80 @@ describe("useProbeDetail", () => {
     await waitFor(() => expect(result.current.error).not.toBeNull());
     expect(result.current.error?.message).toBe("nope");
   });
+
+  it("clears data immediately on id change (CR-B1.4)", async () => {
+    // First id: smoke. Resolve immediately, capture data.
+    fetchProbeDetailMock.mockResolvedValueOnce({
+      probe: entry("smoke"),
+      runs: [],
+    });
+    // Second id: deep — never resolves so we can observe the in-between
+    // state.
+    let resolveDeep: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
+    fetchProbeDetailMock.mockImplementationOnce(
+      () =>
+        new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
+          resolveDeep = r;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string | null }) => useProbeDetail(id),
+      { initialProps: { id: "smoke" as string | null } },
+    );
+    await waitFor(() => expect(result.current.data?.probe.id).toBe("smoke"));
+
+    rerender({ id: "deep" });
+    // Data must be null until the deep fetch resolves — operator must not
+    // see "smoke" data behind a "deep" header.
+    await waitFor(() => expect(result.current.data).toBeNull());
+
+    // Sanity: after deep resolves, we get deep data.
+    await act(async () => {
+      resolveDeep!({ probe: entry("deep"), runs: [] });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.data?.probe.id).toBe("deep"));
+  });
+
+  it("does not setData with stale data when id changes rapidly (CR-B1.3)", async () => {
+    let resolveA: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
+    let resolveB: ((v: { probe: ProbeScheduleEntry; runs: ProbeRun[] }) => void) | null = null;
+    fetchProbeDetailMock.mockImplementationOnce(
+      () =>
+        new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
+          resolveA = r;
+        }),
+    );
+    fetchProbeDetailMock.mockImplementationOnce(
+      () =>
+        new Promise<{ probe: ProbeScheduleEntry; runs: ProbeRun[] }>((r) => {
+          resolveB = r;
+        }),
+    );
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string | null }) => useProbeDetail(id),
+      { initialProps: { id: "smoke" as string | null } },
+    );
+    await waitFor(() => expect(fetchProbeDetailMock).toHaveBeenCalledTimes(1));
+
+    rerender({ id: "deep" });
+    await waitFor(() => expect(fetchProbeDetailMock).toHaveBeenCalledTimes(2));
+
+    // Resolve A AFTER cleanup — must NOT update state with smoke data.
+    await act(async () => {
+      resolveA!({ probe: entry("smoke"), runs: [] });
+      await Promise.resolve();
+    });
+    expect(result.current.data?.probe.id).not.toBe("smoke");
+
+    await act(async () => {
+      resolveB!({ probe: entry("deep"), runs: [] });
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(result.current.data?.probe.id).toBe("deep"));
+  });
 });
 
 describe("useTriggerProbe", () => {
@@ -276,11 +395,15 @@ describe("useTriggerProbe", () => {
       captured.value = await result.current.trigger("smoke", ["agno"]);
     });
     expect(captured.value?.runId).toBe("run-1");
-    expect(triggerProbeMock).toHaveBeenCalledWith("smoke", {
-      slugs: ["agno"],
-      token: "secret",
-      baseUrl: "http://ops.test",
-    });
+    expect(triggerProbeMock).toHaveBeenCalledWith(
+      "smoke",
+      expect.objectContaining({
+        slugs: ["agno"],
+        token: "secret",
+        baseUrl: "http://ops.test",
+        signal: expect.any(AbortSignal),
+      }),
+    );
   });
 
   it("tracks pending state across the call", async () => {
@@ -338,5 +461,35 @@ describe("useTriggerProbe", () => {
       }
     });
     expect((caught as Error)?.message).toMatch(/token/i);
+  });
+
+  it("aborts in-flight trigger on unmount (CR-B1.5)", async () => {
+    let capturedSignal: AbortSignal | undefined;
+    triggerProbeMock.mockImplementation(
+      (_id: string, opts: { signal?: AbortSignal }) => {
+        capturedSignal = opts.signal;
+        return new Promise<TriggerResponse>((_resolve, reject) => {
+          opts.signal?.addEventListener("abort", () => {
+            reject(new DOMException("aborted", "AbortError"));
+          });
+        });
+      },
+    );
+    const { result, unmount } = renderHook(() =>
+      useTriggerProbe({ token: "t" }),
+    );
+    // Fire the trigger but do not await — it will hang until aborted.
+    let triggerPromise: Promise<TriggerResponse> | null = null;
+    act(() => {
+      triggerPromise = result.current.trigger("smoke");
+      // Swallow the rejection so it doesn't surface as an unhandled
+      // rejection in the test runner.
+      triggerPromise.catch(() => {});
+    });
+    await waitFor(() => expect(triggerProbeMock).toHaveBeenCalled());
+    expect(capturedSignal).toBeDefined();
+    expect(capturedSignal?.aborted).toBe(false);
+    unmount();
+    expect(capturedSignal?.aborted).toBe(true);
   });
 });

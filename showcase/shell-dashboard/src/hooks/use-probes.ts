@@ -9,6 +9,13 @@
  * when polling intervals tick over, so a slow API call never lands a
  * setState into a torn-down component (and never lands stale data on top
  * of fresh data when the user changes selection rapidly).
+ *
+ * Cancellation pattern: each `useEffect` declares a local `let cancelled =
+ * false;` closure that the cleanup flips to true. We do NOT re-use a single
+ * `aliveRef` for this purpose: aliveRef would be reset to true on every
+ * effect run, defeating the guard against stale data from a prior cycle's
+ * fetch resolving after cleanup. The component-lifetime aliveRef remains
+ * for the trigger callback (which lives outside any effect).
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -46,12 +53,14 @@ export function useProbes(opts?: {
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // `aliveRef` guards setState calls against post-unmount fetches that
-  // resolve after cleanup ran. `controllerRef` holds the current
-  // AbortController so that interval ticks and refetch calls can cancel
-  // the previous in-flight request before kicking off a new one.
-  const aliveRef = useRef(true);
+  // `controllerRef` holds the current AbortController so that interval
+  // ticks and refetch calls can cancel the previous in-flight request
+  // before kicking off a new one. The per-effect `cancelled` flag (set in
+  // the effect closure below) handles the dep-change / unmount case.
   const controllerRef = useRef<AbortController | null>(null);
+  // `cancelledRef` mirrors the active effect's `cancelled` flag so the
+  // imperative `refetch` callback can honor it too.
+  const cancelledRef = useRef<boolean>(false);
 
   const run = useCallback(async (): Promise<void> => {
     // Cancel any in-flight request before starting a new one. This is
@@ -61,30 +70,30 @@ export function useProbes(opts?: {
     controllerRef.current = controller;
     try {
       const result = await fetchProbes({ signal: controller.signal, baseUrl });
-      if (!aliveRef.current || controller.signal.aborted) return;
+      if (cancelledRef.current || controller.signal.aborted) return;
       setData(result);
       setError(null);
     } catch (err) {
-      if (!aliveRef.current || controller.signal.aborted) return;
+      if (cancelledRef.current || controller.signal.aborted) return;
       // AbortError is expected during teardown / interval rollover and
       // must not surface as a user-facing error.
       if ((err as { name?: string })?.name === "AbortError") return;
       setError(err instanceof Error ? err : new Error(String(err)));
     } finally {
-      if (aliveRef.current && !controller.signal.aborted) {
+      if (!cancelledRef.current && !controller.signal.aborted) {
         setLoading(false);
       }
     }
   }, [baseUrl]);
 
   useEffect(() => {
-    aliveRef.current = true;
+    cancelledRef.current = false;
     void run();
     const timer = setInterval(() => {
       void run();
     }, intervalMs);
     return () => {
-      aliveRef.current = false;
+      cancelledRef.current = true;
       clearInterval(timer);
       controllerRef.current?.abort();
     };
@@ -118,20 +127,29 @@ export function useProbeDetail(
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
 
-  const aliveRef = useRef(true);
   const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    aliveRef.current = true;
+    // Per-effect cancellation flag: scoped to THIS effect run only. A new
+    // effect (e.g. id change) gets its own `cancelled` closure, so a stale
+    // fetch from the prior cycle that resolves after cleanup cannot slip
+    // its setData past this guard.
+    let cancelled = false;
     if (!id) {
       // Clear stale data when the caller deselects the drilldown — keeping
       // an old probe visible behind a null id would mislead the operator.
       setData(null);
       setError(null);
       setLoading(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
+    // CR-B1.4: clear the previous probe's data immediately on id change so
+    // the panel header (driven by the prop) is never out of sync with the
+    // data body. The new fetch will repopulate this on resolution.
+    setData(null);
     setLoading(true);
 
     async function run(): Promise<void> {
@@ -145,15 +163,15 @@ export function useProbeDetail(
           signal: controller.signal,
           baseUrl,
         });
-        if (!aliveRef.current || controller.signal.aborted) return;
+        if (cancelled || controller.signal.aborted) return;
         setData(result);
         setError(null);
       } catch (err) {
-        if (!aliveRef.current || controller.signal.aborted) return;
+        if (cancelled || controller.signal.aborted) return;
         if ((err as { name?: string })?.name === "AbortError") return;
         setError(err instanceof Error ? err : new Error(String(err)));
       } finally {
-        if (aliveRef.current && !controller.signal.aborted) {
+        if (!cancelled && !controller.signal.aborted) {
           setLoading(false);
         }
       }
@@ -164,7 +182,7 @@ export function useProbeDetail(
       void run();
     }, intervalMs);
     return () => {
-      aliveRef.current = false;
+      cancelled = true;
       clearInterval(timer);
       controllerRef.current?.abort();
     };
@@ -193,11 +211,19 @@ export function useTriggerProbe(opts?: {
   const [pending, setPending] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
 
+  // Component-lifetime alive flag — the trigger callback is invoked
+  // imperatively, not from an effect, so the per-effect `cancelled` pattern
+  // doesn't apply here. Flip on unmount only.
   const aliveRef = useRef(true);
+  // Track the in-flight trigger's controller so unmount can abort it.
+  const triggerControllerRef = useRef<AbortController | null>(null);
   useEffect(() => {
     aliveRef.current = true;
     return () => {
       aliveRef.current = false;
+      // CR-B1.5: abort any in-flight POST so we don't fire duplicate runs
+      // after the user navigates away.
+      triggerControllerRef.current?.abort();
     };
   }, []);
 
@@ -214,8 +240,18 @@ export function useTriggerProbe(opts?: {
         setPending(true);
         setError(null);
       }
+      // Replace any prior in-flight controller — back-to-back triggers
+      // should cancel the previous attempt rather than race it.
+      triggerControllerRef.current?.abort();
+      const controller = new AbortController();
+      triggerControllerRef.current = controller;
       try {
-        const result = await triggerProbe(probeId, { slugs, token, baseUrl });
+        const result = await triggerProbe(probeId, {
+          slugs,
+          token,
+          baseUrl,
+          signal: controller.signal,
+        });
         return result;
       } catch (err) {
         const e = err instanceof Error ? err : new Error(String(err));
