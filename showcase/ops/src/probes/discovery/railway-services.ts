@@ -436,6 +436,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       // large project — one stuck call could otherwise orphan a socket
       // for many minutes.
       abortSignal: ctx.abortSignal,
+      logger: ctx.logger,
     });
 
     // Project-level query: fetch all services with their instance image
@@ -591,8 +592,10 @@ function makeGql(opts: {
   token: string;
   sourceName: string;
   abortSignal: AbortSignal | undefined;
+  logger: DiscoveryContext["logger"];
 }): <T>(query: string, variables: Record<string, unknown>) => Promise<T> {
-  const { fetchImpl, token, sourceName, abortSignal } = opts;
+  const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } =
+    opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,
@@ -645,16 +648,33 @@ function makeGql(opts: {
         err,
       );
     }
-    if (json.errors?.length) {
-      // GraphQL errors with a 200 envelope still class as backend errors —
-      // the transport was fine but Railway rejected the query. 500 is a
-      // synthetic status on this class; schema-shape errors above would
-      // reach here if the GraphQL layer surfaced them as `errors[]`.
+    const hasErrors = (json.errors?.length ?? 0) > 0;
+    const hasData = json.data !== undefined && json.data !== null;
+    if (hasErrors && !hasData) {
+      // No `data` payload AND non-empty `errors[]` — the query failed
+      // outright. 500 is a synthetic status on this class; schema-shape
+      // errors above would reach here if the GraphQL layer surfaced
+      // them as `errors[]`.
       throw new DiscoverySourceBackendError(
         sourceName,
-        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
+        `railway gql errors: ${json.errors!.map((e) => e.message).join("; ")}`,
         500,
       );
+    }
+    if (hasErrors && hasData) {
+      // GraphQL "partial success" envelope: Railway populated `data`
+      // but also surfaced non-fatal `errors[]` (e.g. soft-deprecation
+      // warnings on a sub-field, or a permission gap on an optional
+      // nested field). Discarding `data` here would force every
+      // downstream caller into the synthetic-error branch even though
+      // the payload they asked for is right there. Log a structured
+      // warn so operators can audit the partial-error stream, then
+      // hand `data` back. Schema validation downstream catches any
+      // shape rot the partial payload introduced.
+      gqlLogger.warn("discovery.railway-services.partial-errors", {
+        source: sourceName,
+        errors: json.errors!.map((e) => e.message),
+      });
     }
     return json.data as T;
   };

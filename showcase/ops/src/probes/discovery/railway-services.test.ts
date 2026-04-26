@@ -1320,6 +1320,48 @@ describe("railwayServicesSource", () => {
   // Per-service variables loop error bucketing.
   // -----------------------------------------------------------------
 
+  // -----------------------------------------------------------------
+  // GraphQL partial-data envelope handling.
+  // -----------------------------------------------------------------
+
+  describe("graphql partial-data handling (F)", () => {
+    it("returns data when both data and errors[] are present (200 envelope)", async () => {
+      // Railway can surface non-fatal graphql errors[] alongside a
+      // populated `data` field — e.g. soft-deprecation warnings on a
+      // nested field. The previous gql() helper threw on any non-empty
+      // errors[], discarding the populated `data` payload.
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      const { fetchImpl } = makeFetch([
+        {
+          status: 200,
+          body: {
+            data: railwayProjectResponse([
+              {
+                id: "s-1",
+                name: "showcase-a",
+                image: "ghcr.io/c/a:v1",
+                domain: "a.up.railway.app",
+              },
+            ]).data,
+            errors: [{ message: "deprecation: foo will be removed" }],
+          },
+        },
+        { status: 200, body: { data: { variables: {} } } },
+      ]);
+      const out = await railwayServicesSource.enumerate(
+        { fetchImpl, logger: ctxLogger, env: BASE_ENV },
+        {},
+      );
+      expect(out).toHaveLength(1);
+      expect(out[0].name).toBe("showcase-a");
+      const partial = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.partial-errors",
+      );
+      expect(partial).toHaveLength(1);
+    });
+  });
+
   describe("per-service variables loop error bucketing (C, D)", () => {
     it("rethrows AuthError mid-loop instead of silently degrading", async () => {
       // Token rotation race: every per-service call returns 401. The
