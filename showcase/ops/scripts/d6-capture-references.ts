@@ -35,6 +35,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Page as PlaywrightPage } from "playwright";
+import { findPackageRoot } from "../src/probes/helpers/package-root.js";
 import {
   captureAllReferences,
   captureReferenceForFeature,
@@ -108,14 +109,25 @@ function parseArgs(argv: string[]): Args {
   }
   const outputDir =
     process.env.D6_REFERENCE_DIR ??
-    path.resolve(
-      path.dirname(fileURLToPath(import.meta.url)),
-      "..",
-      "fixtures",
-      "d6-reference",
-    );
+    path.resolve(resolvePackageRoot(), "fixtures", "d6-reference");
 
   return { integration, baseUrl, feature, outputDir };
+}
+
+/**
+ * Resolve the showcase-ops package root via `findPackageRoot`. Handles
+ * both source and compiled locations:
+ *
+ *   - source:    `<package>/scripts/d6-capture-references.ts`  → `<package>`
+ *   - compiled:  `<package>/dist/scripts/d6-capture-references.js` → `<package>`
+ *
+ * Without this, `path.dirname(import.meta.url) + ".."` resolves to
+ * `<package>` from source but `<package>/dist` after build, so the
+ * default `outputDir` becomes `<package>/dist/fixtures/d6-reference`
+ * — wrong destination. The shared helper is source/dist-symmetric.
+ */
+function resolvePackageRoot(): string {
+  return findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 }
 
 /**
