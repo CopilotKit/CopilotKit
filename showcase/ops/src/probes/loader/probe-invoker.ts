@@ -7,8 +7,20 @@ import type {
   ProbeResultWriter,
 } from "../../types/index.js";
 import type { StatusWriter } from "../../writers/status-writer.js";
+import { truncateUtf8 } from "../../render/filters.js";
 import { ProbeRunTracker } from "../run-tracker.js";
 import type { ProbeRunWriter, ProbeRunSummary } from "../run-history.js";
+
+/**
+ * Bound the size of any string flowing into a synthetic-error ProbeResult.
+ * Driver throws can carry multi-MB Playwright stack traces or browser
+ * console dumps; without truncation those propagate untouched into
+ * Pocketbase rows and Slack alerts, blowing past render budgets and
+ * making the dashboard unreadable. Same budget the e2e drivers use
+ * (`drivers/e2e-demos.ts`, `drivers/e2e-smoke.ts` — both at 1200) so the
+ * synthetic path matches what drivers self-truncate to.
+ */
+const SYNTHETIC_ERROR_MSG_BUDGET = 1200;
 
 /**
  * B7: minimal scheduler surface the invoker needs. Re-typed inline rather
@@ -113,6 +125,33 @@ export interface ProbeInvokerDeps {
 }
 
 /**
+ * Keyed taxonomy on synthetic-error ProbeResults. Alert rules and the
+ * dashboard branch on this discriminator instead of string-matching the
+ * free-form `errorDesc`. Keep the union closed so a typo at a call site
+ * surfaces as a TS error, not a silently-unmatched alert rule.
+ */
+export type ProbeInvokerErrorClass =
+  | "timeout"
+  | "input-rejected"
+  | "driver-error"
+  | "discovery-error"
+  | "discovery-source-missing";
+
+export interface ProbeInvokerSyntheticSignal {
+  errorDesc: string;
+  errorClass: ProbeInvokerErrorClass;
+  /**
+   * `err.name` from the originating exception (e.g. "TypeError",
+   * "AbortError", "ZodError"). Operators triaging a timeout vs. a
+   * TypeError need to distinguish the two without parsing the free-form
+   * `errorDesc`. Optional: synthetic results that don't originate from
+   * an Error (e.g. the misconfigured-discovery sentinel) leave it
+   * undefined.
+   */
+  errName?: string;
+}
+
+/**
  * Build the per-probe handler the scheduler will invoke on each cron tick.
  * Three fan-out modes map to the three probe-config shapes:
  *
@@ -164,7 +203,10 @@ export function buildProbeInvoker(
   return async function invoke(
     invokeOpts?: InvokerTriggerOptions,
   ): Promise<RunSummary> {
-    const concurrency = cfg.max_concurrency;
+    // Defensive `Math.max(_, 1)` even though the schema guarantees
+    // `max_concurrency >= 1` — a future schema relaxation must NOT silently
+    // produce zero workers and drop every input on the floor.
+    const concurrency = Math.max(cfg.max_concurrency, 1);
     const timeoutMs = "timeout_ms" in cfg ? cfg.timeout_ms : undefined;
 
     // B7: tracker registration. Read the slot's `triggeredRun` flag — set
@@ -218,9 +260,16 @@ export function buildProbeInvoker(
     // its socket rather than orphaning past the tick. Sources that honor
     // the signal (railway-services, etc.) abort their in-flight GraphQL
     // request; sources that don't still observe the natural completion
-    // path. Sharing `timeout_ms` with the per-target executor keeps the
-    // tick's total wall-clock bounded to roughly 2×timeout (one for
-    // discovery, one for the slowest target's run).
+    // path.
+    //
+    // Worst-case wall-clock: discovery is budgeted at `timeout_ms` and
+    // is followed by the bounded-pool fan-out which serialises
+    // `⌈n/c⌉` "rounds" of per-target executors, each capped at
+    // `timeout_ms`. That gives an absolute upper bound of roughly
+    // `timeout_ms × (1 + ⌈n/c⌉)` — discovery + the longest possible
+    // chain of per-worker rounds. In practice probes complete well
+    // before any single timeout fires; this is the absolute ceiling
+    // a stalled upstream could push the tick to.
     //
     // CR-A1.5/A1.8: resolveInputs returns a discriminated result so the
     // invoker can tell "no targets matched" (success, ok=true, empty)
@@ -234,6 +283,7 @@ export function buildProbeInvoker(
       fetchImpl,
       env,
       timeoutMs,
+      now,
     );
     // When discovery failed (`ok: false`), the inputs roster is empty —
     // the synthetic-error tile is emitted below and there's nothing to
@@ -290,6 +340,7 @@ export function buildProbeInvoker(
         cfg.id,
         `discovery enumerate failed: ${resolved.error}`,
         now,
+        "discovery-error",
       );
       failed++;
       try {
@@ -308,12 +359,151 @@ export function buildProbeInvoker(
     // discovered" logging.
     void allInputs;
 
+    // Surface a misconfigured-discovery synthetic ProbeResult on the
+    // dashboard. resolveInputs returns a single sentinel entry whose
+    // input is `MISCONFIGURED_DISCOVERY_INPUT` when the YAML names a
+    // discovery source the registry doesn't know — without this branch
+    // operators only see the `probe.discovery-source-missing` log line.
+    //
+    // Same shape for `ENUMERATE_FAILED_INPUT`: when the discovery source
+    // throws (network blip, schema drift, etc.), `resolveInputs`
+    // collapses the failure into one sentinel entry so the operator
+    // sees a single red tick rather than a silent zero-write
+    // (indistinguishable from "no services matched the filter"). The
+    // `errorClass` discriminates the two — alert rules / dashboard
+    // branch on the discriminator instead of the free-form errorDesc.
+    const sentinel = inputs.find(
+      (i) =>
+        i.input === MISCONFIGURED_DISCOVERY_INPUT ||
+        i.input === ENUMERATE_FAILED_INPUT,
+    );
+    if (sentinel) {
+      const errorClass: ProbeInvokerErrorClass =
+        sentinel.input === ENUMERATE_FAILED_INPUT
+          ? "discovery-error"
+          : "discovery-source-missing";
+      try {
+        await writer.write(
+          syntheticError(
+            sentinel.key,
+            sentinel.errorDesc ?? "discovery sentinel",
+            now,
+            errorClass,
+          ),
+        );
+      } catch (err) {
+        logErrorWithStack(logger, "probe.writer-failed", err, {
+          probeId: cfg.id,
+          kind: cfg.kind,
+          key: sentinel.key,
+        });
+      }
+      // The sentinel itself counts as the single failure unit so the
+      // RunSummary invariant (total === passed + failed) holds.
+      // Finalize the run row + clear the tracker so we don't leak the
+      // observability state we set up at the top of invoke().
+      tracker.fail(sentinel.key, sentinel.errorDesc ?? "discovery sentinel");
+      const sentinelSummary: RunSummary = {
+        total: 1,
+        passed: 0,
+        failed: 1,
+        discoveryFailed: true,
+      };
+      if (runWriter && runRowId !== null) {
+        try {
+          await runWriter.finish({
+            id: runRowId,
+            finishedAt: Date.now(),
+            state: "failed",
+            summary: {
+              total: sentinelSummary.total,
+              passed: sentinelSummary.passed,
+              failed: sentinelSummary.failed,
+            } satisfies ProbeRunSummary,
+          });
+        } catch (err) {
+          logger.error("probe.run-writer-finish-failed", {
+            probeId: cfg.id,
+            runId: runRowId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      scheduler?.setEntryTracker(schedulerEntryId, null);
+      return sentinelSummary;
+    }
+
+    // Shortest-service-first dispatch for `e2e_demos`: sort the resolved
+    // inputs ascending by demo count BEFORE the worker pool picks them
+    // up. Without this, the largest service (e.g. 38 demos) starting at
+    // t=0 occupies a worker slot for the entire fan-out and small
+    // services queue behind it — head-of-line blocking that delays
+    // useful signal under bounded concurrency. Sorting puts small
+    // services first so they complete and free slots while the big one
+    // chews through its demo list, reducing tail latency. Tie-break on
+    // `key` ascending so dispatch order is fully deterministic across
+    // ticks regardless of the discovery source's enumeration order.
+    //
+    // Gate is `kind === "e2e_demos" && "discovery" in cfg` — the second
+    // half blocks a hypothetical static-targets `e2e_demos` config from
+    // sorting alphabetically. A static config's records lack `demos`,
+    // so `demoCount(input)` returns 0 for every entry and the tie-break
+    // on `key` would silently re-order the YAML. Tightening here keeps
+    // the YAML's authored order authoritative for any non-discovery
+    // shape that might land later.
+    //
+    // Source of `demos` on the input: the `railway-services` discovery
+    // source reads `registry.json` once per `enumerate()` call and
+    // joins demos by slug onto every emitted record (see
+    // `discovery/railway-services.ts:loadDemosMap`). That feed runs
+    // BEFORE we land here, so `demoCount(input)` returns a real count
+    // for production records.
+    if (cfg.kind === "e2e_demos" && "discovery" in cfg) {
+      // Skip the sort entirely when every input has demoCount=0 — the
+      // tie-break on `key` would silently re-order discovery's natural
+      // emission order without operator signal. The most common cause
+      // is `registry.json` missing/corrupt at the discovery source, so
+      // emit a structured warn so the operator can correlate.
+      const anyDemos = inputs.some((i) => demoCount(i.input) > 0);
+      if (!anyDemos) {
+        logger.warn("probe.e2e-demos.sort-no-demos", {
+          probeId: cfg.id,
+          inputCount: inputs.length,
+          hint: "every record has demoCount=0; registry.json may be missing/corrupt",
+        });
+      } else {
+        inputs.sort((a, b) => {
+          const da = demoCount(a.input);
+          const db = demoCount(b.input);
+          if (da !== db) return da - db;
+          return a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
+        });
+      }
+    }
+
+    // Discovery returned zero records (or every record was filtered out
+    // by `nameExcludes` upstream). Static / single-target probes can't
+    // hit this path — the schema requires `min(1)` for both. Emit a
+    // structured info log so operators can correlate "no signal" against
+    // "discovery returned empty"; without this the tick is silent.
+    // Behaviour is unchanged: zero inputs still mean zero writes for
+    // this tick.
+    if (inputs.length === 0) {
+      logger.info("probe.no-inputs", {
+        probeId: cfg.id,
+        kind: cfg.kind,
+      });
+    }
+
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
     // stampede even when M >> N.
     let cursor = 0;
     const runOne = async (): Promise<void> => {
       while (cursor < inputs.length) {
+        // Invariant: `idx < inputs.length` from the loop precondition,
+        // so `inputs[idx]` is always defined. Non-null assertion avoids
+        // a dead defensive guard.
         const idx = cursor++;
         const { input, key, preError } = inputs[idx]!;
         // B7: mark running just before handing the input to the driver.
@@ -323,7 +513,7 @@ export function buildProbeInvoker(
         // never sees them — emit the synthetic error and move on.
         const result =
           preError !== undefined
-            ? syntheticError(key, preError, now)
+            ? syntheticError(key, preError, now, "input-rejected")
             : await executeOne({
                 input,
                 key,
@@ -333,8 +523,8 @@ export function buildProbeInvoker(
                 now,
                 logger,
                 probeId: cfg.id,
-                writer,
                 fetchImpl,
+                parentWriter: writer,
               });
         // B7: classify the per-target outcome for the tracker. The
         // ProbeState → tracker-result mapping:
@@ -368,11 +558,10 @@ export function buildProbeInvoker(
           // `writer.failed` bus emission. We log here for probe-side
           // correlation — don't re-throw, one writer hiccup mustn't
           // take down sibling targets in the same tick.
-          logger.error("probe.writer-failed", {
+          logErrorWithStack(logger, "probe.writer-failed", err, {
             probeId: cfg.id,
             kind: cfg.kind,
             key,
-            err: err instanceof Error ? err.message : String(err),
           });
         }
       }
@@ -419,6 +608,7 @@ export function buildProbeInvoker(
         internalKey,
         `invoker invariant broken: ${message}`,
         now,
+        "driver-error",
       );
       try {
         await writer.write(errResult);
@@ -523,8 +713,30 @@ export function buildProbeInvoker(
 interface ResolvedInput {
   input: unknown;
   key: string;
+  /** Optional pre-canned errorDesc for sentinel inputs (misconfigured-discovery). */
+  errorDesc?: string;
   preError?: string;
 }
+
+/**
+ * Sentinel value used to flag a misconfigured-discovery resolution
+ * (the YAML named a source the registry doesn't know). The invoker
+ * checks identity-equality against this constant so it can emit a
+ * synthetic `state: "error"` ProbeResult on the dashboard rather than
+ * silently dropping the whole tick.
+ */
+const MISCONFIGURED_DISCOVERY_INPUT = Symbol("misconfigured-discovery-input");
+
+/**
+ * Sentinel value used to flag a discovery enumerate() failure (network
+ * blip, schema mismatch, transport rejection, etc.). Returning a single
+ * sentinel ResolvedInput — identity-checked by the invoker — lets the
+ * top-level write path emit a synthetic `state: "error"` ProbeResult
+ * with `errorClass: "discovery-error"`, instead of silently returning
+ * zero inputs (which is indistinguishable on the dashboard from "no
+ * services matched the filter"). Mirrors `MISCONFIGURED_DISCOVERY_INPUT`.
+ */
+const ENUMERATE_FAILED_INPUT = Symbol("enumerate-failed-input");
 
 /**
  * Discriminated result of `resolveInputs`. `ok: true` carries the
@@ -545,6 +757,7 @@ async function resolveInputs(
   fetchImpl: typeof fetch,
   env: Readonly<Record<string, string | undefined>>,
   timeoutMs: number | undefined,
+  _now: () => Date,
 ): Promise<ResolvedInputs> {
   if ("targets" in cfg) {
     // Static: the YAML target object IS the driver input. `.key` is
@@ -561,9 +774,21 @@ async function resolveInputs(
         probeId: cfg.id,
         source: cfg.discovery.source,
       });
+      // Emit a synthetic-error sentinel input so the invoker writes a
+      // visible error tick to the dashboard. Without this, an operator
+      // typo'd `source:` produces a silent permanently-zero probe. Wrap
+      // in the discriminated `ok: true` shape so the upstream sentinel
+      // branch (errorClass: "discovery-source-missing") fires; the
+      // distinct `ok: false` path is reserved for enumerate() failures.
       return {
-        ok: false,
-        error: `discovery source not registered: ${cfg.discovery.source}`,
+        ok: true,
+        inputs: [
+          {
+            input: MISCONFIGURED_DISCOVERY_INPUT,
+            key: `${cfg.id}:misconfigured`,
+            errorDesc: `discovery source missing: ${cfg.discovery.source}`,
+          },
+        ],
       };
     }
     // Pass the invoker's injected fetchImpl + env snapshot into the
@@ -629,24 +854,54 @@ async function resolveInputs(
       }
     } catch (err) {
       // A discovery failure is load-bearing: returning 0 inputs silently
-      // would look identical to "no services matched the filter". Emit
-      // a structured log with the source name so operators can tell them
-      // apart in the log stream. CR-A1.5: surface as `ok: false` so the
-      // caller flips the run state to "failed" and writes a synthetic-
-      // error ProbeResult; "fake green" was the original bug.
+      // looks identical on the dashboard to "no services matched the
+      // filter" — operators get no signal that anything's wrong. Emit
+      // both a structured log AND a sentinel ResolvedInput so the
+      // invoker writes a single red tick keyed on `${probeId}:enumerate-
+      // failed`. The invoker's top-level sentinel-handling path
+      // (identity-checks `ENUMERATE_FAILED_INPUT`) writes a synthetic
+      // `state: "error"` ProbeResult with `errorClass: "discovery-
+      // error"`. Sibling probes are unaffected: this branch only
+      // collapses the current probe's tick.
       const message = err instanceof Error ? err.message : String(err);
-      logger.error("probe.discovery-enumerate-failed", {
+      logErrorWithStack(logger, "probe.discovery-enumerate-failed", err, {
         probeId: cfg.id,
         source: cfg.discovery.source,
-        err: message,
       });
-      return { ok: false, error: message };
+      return {
+        ok: true,
+        inputs: [
+          {
+            input: ENUMERATE_FAILED_INPUT,
+            key: `${cfg.id}:enumerate-failed`,
+            errorDesc: `discovery enumerate failed: ${message}`,
+          },
+        ],
+      };
     } finally {
       if (discoveryTimer !== null) clearTimeout(discoveryTimer);
+      // NOTE: deliberately DO NOT call `discoveryAbort.abort()` here on
+      // the success path. An unconditional `abort()` in the finally
+      // signals timeout-on-success to any source listener that
+      // snapshots `signal.reason` — exactly the inverse of what the
+      // signal is meant to represent.
+      //
+      // Listener-leak window: any `signal.addEventListener("abort", ...)`
+      // closures attached by the source remain reachable through
+      // `discoveryAbort.signal` until this function returns and the
+      // controller becomes unreachable. We have no API to remove them
+      // explicitly (the source owns the listener it registered, not
+      // us), so the window is bounded by GC of the controller after
+      // resolveInputs returns. For long-lived sources this is a slow
+      // leak per probe tick rather than per record; in practice GC
+      // reclaims it on the next major collection. Acceptable until/
+      // unless we measure it as a hot spot.
     }
     const resolvedInputs: ResolvedInput[] = [];
     let dupSerial = 0;
+    let idx = -1;
     for (const record of records) {
+      idx += 1;
       const interp = interpolateTemplateStrict(
         cfg.discovery.key_template,
         record,
@@ -660,11 +915,17 @@ async function resolveInputs(
         // bad record surfaces independently in the writer + tracker.
         dupSerial += 1;
         const safeKey = `${cfg.id}:invalid-key-template:${dupSerial}`;
-        const errMsg = `key_template missing field: ${interp.missingPath}`;
+        const errMsg =
+          interp.reason === "missing"
+            ? `key_template missing field: ${interp.missingPath}`
+            : interp.reason === "empty-path"
+              ? `key_template empty path`
+              : `key_template ${interp.reason}: ${interp.missingPath}`;
         logger.error("probe.key-template-missing-field", {
           probeId: cfg.id,
           template: cfg.discovery.key_template,
           missingPath: interp.missingPath,
+          reason: interp.reason,
         });
         resolvedInputs.push({
           input:
@@ -680,10 +941,55 @@ async function resolveInputs(
       // Fold the resolved `key` into the input object so drivers can
       // emit ProbeResults keyed the same way the writer will look them
       // up. Record-as-input keeps discovery outputs self-describing.
-      const input =
-        record && typeof record === "object"
-          ? { ...(record as Record<string, unknown>), key }
-          : { key };
+      // Arrays match `typeof === "object"` but spread-with-key would
+      // strip array shape, so guard explicitly.
+      let input: unknown;
+      // Object-shape gate: arrays match `typeof === "object"` but spread-
+      // with-key would strip array shape. Null/undefined/primitive records
+      // (string/number/boolean) all fall through to the `{ key }`-only
+      // input below and now carry a structured warn so silent zero-info
+      // inputs surface in the log.
+      if (
+        record !== null &&
+        typeof record === "object" &&
+        !Array.isArray(record)
+      ) {
+        // If the discovery source already emitted a `key` field whose
+        // value differs from the interpolated one, the spread+overwrite
+        // below silently shadows it. Surface a structured warning so
+        // operators discover when a source's natural payload happens
+        // to carry `key` (e.g. a service whose env exports `key=...`)
+        // — the interpolated value remains authoritative (it's the one
+        // the writer dedupes on), but invisible mutation of caller
+        // payloads is the kind of foot-gun that bites long after
+        // shipping.
+        const recordKey = (record as Record<string, unknown>).key;
+        if (recordKey !== undefined && recordKey !== key) {
+          logger.warn("probe.discovery-record-key-shadowed", {
+            probeId: cfg.id,
+            recordIndex: idx,
+            interpolatedKey: key,
+            recordKey:
+              typeof recordKey === "string" ? recordKey : typeof recordKey,
+          });
+        }
+        input = { ...(record as Record<string, unknown>), key };
+      } else {
+        // Single warn key for every non-object record (array, null,
+        // primitive). The `recordKind` field discriminates so log
+        // consumers can branch without parsing free-form messages.
+        const recordKind = Array.isArray(record)
+          ? "array"
+          : record === null
+            ? "null"
+            : typeof record;
+        logger.warn("probe.discovery-record-non-object", {
+          probeId: cfg.id,
+          recordIndex: idx,
+          recordKind,
+        });
+        input = { key };
+      }
       resolvedInputs.push({ input, key });
     }
     return { ok: true, inputs: resolvedInputs };
@@ -693,11 +999,15 @@ async function resolveInputs(
 }
 
 /**
- * CR-A1.2: strict interpolation — returns a discriminated result so
- * callers can tell "all paths resolved" from "one or more were missing"
- * without silently emitting empty-key results that would collide. The
- * non-strict `interpolateTemplate` below is retained for any caller that
- * genuinely wants empty-on-missing (none, currently).
+ * Strict interpolation (CR-A1.2): walk the template and short-circuit on
+ * the first missing/null path, returning a discriminated result so callers
+ * can emit a per-record synthetic-error and skip the driver. Pre-fix, the
+ * non-strict variant rendered missing paths as empty strings and every
+ * such record collapsed to the same writer key, silently overwriting
+ * siblings. The non-strict `interpolateTemplate` below is retained as
+ * deprecated/unused — its rich __unresolved_<idx>_<n> suffix logic and
+ * structured warnings (empty-path, missing, non-primitive, empty-string)
+ * remain available for any caller that wants empty-on-missing semantics.
  */
 interface InterpResult {
   ok: true;
@@ -706,6 +1016,7 @@ interface InterpResult {
 interface InterpFail {
   ok: false;
   missingPath: string;
+  reason: "missing" | "non-primitive" | "empty-string" | "empty-path";
 }
 
 function interpolateTemplateStrict(
@@ -730,9 +1041,24 @@ function interpolateTemplateStrict(
       break;
     }
     const path = template.slice(open + 2, close).trim();
+    if (path.length === 0) {
+      return { ok: false, missingPath: "", reason: "empty-path" };
+    }
     const value = resolvePath(record, path);
     if (value === undefined || value === null) {
-      return { ok: false, missingPath: path };
+      return { ok: false, missingPath: path, reason: "missing" };
+    }
+    // Non-primitive: stringifying an object yields `[object Object]` which
+    // collapses every record at this slot into one writer key — fail loud
+    // (HEAD's load-bearing branch from the deprecated non-strict variant).
+    if (typeof value === "object") {
+      return { ok: false, missingPath: path, reason: "non-primitive" };
+    }
+    // Empty-string primitive: same collision risk as missing — every record
+    // with `""` here collapses to the same prefix. `0` and `false` are real
+    // primitives and stringify normally.
+    if (typeof value === "string" && value.length === 0) {
+      return { ok: false, missingPath: path, reason: "empty-string" };
     }
     out += String(value);
     i = close + 1;
@@ -741,20 +1067,95 @@ function interpolateTemplateStrict(
 }
 
 /**
- * @deprecated Retained for backwards-compat in case any external caller
- * still imports it. New code should use `interpolateTemplateStrict` so
- * missing fields fail loud (CR-A1.2). Empty-string fallback was the
- * original silent-collapse bug.
+ * @deprecated Retained for backwards-compat. New code should use
+ * `interpolateTemplateStrict` so missing fields fail loud (CR-A1.2). HEAD's
+ * unique `__unresolved_<idx>_<n>` suffix branch keeps this variant useful
+ * for any future caller that wants empty-on-missing semantics without
+ * silent collisions.
  */
-function interpolateTemplate(template: string, record: unknown): string {
-  return template.replace(/\$\{([^}]+)\}/g, (_match, path: string) => {
-    const value = resolvePath(record, path.trim());
-    return value === undefined || value === null ? "" : String(value);
+function interpolateTemplate(
+  template: string,
+  record: unknown,
+  logger: Logger,
+  probeId: string,
+  recordIndex: number,
+): string {
+  let unresolvedCounter = 0;
+  return template.replace(/\$\{([^}]*)\}/g, (_match, rawPath: string) => {
+    const path = rawPath.trim();
+    if (path.length === 0) {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path: "",
+        recordIndex,
+        reason: "empty-path",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    const value = resolvePath(record, path);
+    if (value === undefined || value === null) {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path,
+        recordIndex,
+        reason: "missing",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    if (typeof value === "object") {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path,
+        recordIndex,
+        reason: "non-primitive",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    // Empty-string primitive: same collision risk as a missing path —
+    // every record with `""` at this slot collapses to the same prefix
+    // and the writer overwrites earlier siblings. `0` and `false` are
+    // real primitives and stringify normally below.
+    if (typeof value === "string" && value.length === 0) {
+      logger.warn("probe.template-path-unresolvable", {
+        probeId,
+        template,
+        path,
+        recordIndex,
+        reason: "empty-string",
+      });
+      const suffix = unresolvedCounter++;
+      return `__unresolved_${recordIndex}_${suffix}`;
+    }
+    return String(value);
   });
 }
 // Suppress unused-warning so the deprecated helper survives without an
 // `// eslint-disable` line cluttering the export.
 void interpolateTemplate;
+
+/**
+ * Demo-count extractor for `e2e_demos` shortest-first dispatch sort. The
+ * `railway-services` discovery source emits records carrying a
+ * `demos: string[]` field, joined from `registry.json` at enumerate-time
+ * (see `discovery/railway-services.ts:loadDemosMap`). We read it without
+ * trusting the shape, returning 0 for any input that isn't an object or
+ * whose `demos` isn't an array. Pre-validation: `resolveInputs` produces
+ * these entries before `executeOne` runs `inputSchema.safeParse`, so a
+ * malformed record's count contributes 0 and it sorts to the front
+ * (where it'll fail input validation immediately and free the slot for
+ * the next sibling).
+ */
+function demoCount(input: unknown): number {
+  if (input === null || typeof input !== "object") return 0;
+  const demos = (input as Record<string, unknown>).demos;
+  return Array.isArray(demos) ? demos.length : 0;
+}
 
 function resolvePath(obj: unknown, path: string): unknown {
   const segments = path.split(".");
@@ -776,8 +1177,13 @@ interface ExecuteOneOpts {
   now: () => Date;
   logger: Logger;
   probeId: string;
-  writer: ProbeResultWriter;
   fetchImpl: typeof fetch;
+  /**
+   * Writer the invoker hands to ctx.writer for driver side-emits. Named
+   * `parentWriter` so it can't be confused with the local result-write
+   * the invoker performs one level up.
+   */
+  parentWriter: ProbeResultWriter;
 }
 
 /**
@@ -796,8 +1202,8 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     now,
     logger,
     probeId,
-    writer,
     fetchImpl,
+    parentWriter,
   } = opts;
   const parsed = driver.inputSchema.safeParse(input);
   if (!parsed.success) {
@@ -806,11 +1212,14 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
       kind: driver.kind,
       key,
       err: parsed.error.message,
+      issues: parsed.error.issues,
     });
     return syntheticError(
       key,
       `inputSchema rejected: ${parsed.error.message}`,
       now,
+      "input-rejected",
+      parsed.error.name,
     );
   }
   // Drivers that emit paired results (e.g. smoke → smoke+health) push the
@@ -830,10 +1239,36 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
   const abortCtrl = new AbortController();
   const timeoutReason = `driver timeout after ${timeoutMs}ms`;
   let timedOut = false;
+  // The timeoutPromise is wired to resolve directly from the timer
+  // callback (no intermediate abort-listener hop). Anything else that
+  // aborts the controller in the future cannot starve the timeout
+  // promise, and a well-behaved driver that rejects on abort still
+  // races against this promise and loses.
+  let resolveTimeout: ((value: ProbeResult<unknown>) => void) | undefined;
+  const timeoutPromise =
+    timeoutMs !== undefined
+      ? new Promise<ProbeResult<unknown>>((resolve) => {
+          resolveTimeout = resolve;
+        })
+      : null;
   const timer: ReturnType<typeof setTimeout> | null =
     timeoutMs !== undefined
       ? setTimeout(() => {
           timedOut = true;
+          if (resolveTimeout) {
+            resolveTimeout(
+              syntheticError(
+                key,
+                timeoutReason,
+                now,
+                "timeout",
+                "TimeoutError",
+              ),
+            );
+          }
+          // Notify the driver via abort so a well-behaved driver can
+          // stop in-flight work; this is decoupled from the timeout
+          // resolution above.
           abortCtrl.abort(new Error(timeoutReason));
         }, timeoutMs)
       : null;
@@ -841,41 +1276,47 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     now,
     logger,
     env,
-    writer,
+    writer: parentWriter,
     fetchImpl,
     abortSignal: abortCtrl.signal,
   };
   try {
-    if (timeoutMs === undefined) {
+    if (timeoutMs === undefined || timeoutPromise === null) {
       return await driver.run(ctx, parsed.data);
     }
-    // Race the driver promise against a timeout promise. On timeout the
-    // race resolves to a synthetic-error ProbeResult even if the driver
-    // ignored abortSignal — the abort still fires so a well-behaved
-    // driver can stop its real work. A driver that observes abortSignal
-    // will typically reject; we catch that below and return the same
-    // synthetic-error.
-    const timeoutPromise = new Promise<ProbeResult<unknown>>((resolve) => {
-      abortCtrl.signal.addEventListener(
-        "abort",
-        () => {
-          if (timedOut) {
-            resolve(syntheticError(key, timeoutReason, now));
-          }
-        },
-        { once: true },
-      );
-    });
-    // R2-A.2: when the timeoutPromise wins the race, the driver promise
-    // is left dangling. Without a catch handler, a late rejection from
-    // the driver (e.g. a misbehaved driver that ignored abortSignal)
-    // surfaces as an UnhandledRejection — fatal under Node's
-    // `--unhandled-rejections=throw` default. Attach a no-op catch
-    // BEFORE the race so the late rejection has a handler regardless
-    // of which side wins. The race outcome is decided by whoever
-    // settles first; the catch only swallows the orphaned tail.
+    // Race the driver promise against the timeout promise. The driver
+    // promise is detached with a `.catch(() => {})` clone so a driver
+    // that rejects AFTER the timeout has already won the race doesn't
+    // surface as an `unhandledRejection`. The original promise still
+    // throws into the outer `try/catch` for the non-timeout path.
     const driverPromise = driver.run(ctx, parsed.data);
-    driverPromise.catch(() => {});
+    // Attach a rejection observer so a late driver rejection is
+    // surfaced — without it (or with a `.catch(() => {})` no-op) a
+    // post-timeout chromium SIGSEGV / TypeError lands silently and
+    // operators see only "timeout" with no underlying signal. We log at
+    // debug rather than warn/error because the primary result has
+    // already settled (operators have a timeout tick to act on); the
+    // late signal is correlation-fuel for post-mortem, not an alertable
+    // event of its own. Critically: this observer does NOT consume the
+    // original `driverPromise` — it's a sibling chain, so the race path
+    // still observes the rejection and routes it through the catch
+    // block when `timedOut === false`.
+    void driverPromise.catch((err) => {
+      // Guard: a driver rejection BEFORE the timeout fires reaches both
+      // this detached observer AND the outer `try/catch` (which logs
+      // `probe.run-failed` and emits the `driver-error` synthetic). Without
+      // this guard we'd double-log on every normal rejection. Only fire
+      // for true late rejections — i.e. the timeout path won the race
+      // and the driver rejected afterwards.
+      if (!timedOut) return;
+      logger.debug("probe.driver-late-rejection", {
+        probeId,
+        kind: driver.kind,
+        key,
+        errName: err instanceof Error ? err.name : "unknown",
+        err: err instanceof Error ? err.message : String(err),
+      });
+    });
     return await Promise.race([driverPromise, timeoutPromise]);
   } catch (err) {
     // If the driver rejected *because* it observed our abort, surface
@@ -883,16 +1324,16 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // "AbortError" message. Otherwise fall through to the normal
     // error-to-synthetic path so siblings still proceed.
     if (timedOut) {
-      return syntheticError(key, timeoutReason, now);
+      return syntheticError(key, timeoutReason, now, "timeout", "TimeoutError");
     }
     const message = err instanceof Error ? err.message : String(err);
-    logger.error("probe.run-failed", {
+    const errName = err instanceof Error ? err.name : undefined;
+    logErrorWithStack(logger, "probe.run-failed", err, {
       probeId,
       kind: driver.kind,
       key,
-      err: message,
     });
-    return syntheticError(key, message, now);
+    return syntheticError(key, message, now, "driver-error", errName);
   } finally {
     if (timer !== null) clearTimeout(timer);
   }
@@ -902,11 +1343,77 @@ function syntheticError(
   key: string,
   message: string,
   now: () => Date,
-): ProbeResult<unknown> {
+  errorClass: ProbeInvokerErrorClass,
+  errName?: string,
+): ProbeResult<ProbeInvokerSyntheticSignal> {
+  // Bound the errorDesc — a driver throw or sentinel message can be a
+  // multi-MB Playwright stack; without truncation it lands verbatim in
+  // PB rows / Slack alerts and blows past render budgets. See
+  // SYNTHETIC_ERROR_MSG_BUDGET above for why 1200.
+  const signal: ProbeInvokerSyntheticSignal = {
+    errorDesc: truncateUtf8(message, SYNTHETIC_ERROR_MSG_BUDGET),
+    errorClass,
+  };
+  // Only attach `errName` when present — keeps the wire shape minimal
+  // for sentinel paths that don't originate from a real Error
+  // (e.g. misconfigured-discovery / enumerate-failed sentinels), and
+  // avoids forcing every existing test that asserts the exact signal
+  // shape to add an undefined field.
+  if (errName !== undefined) {
+    signal.errName = errName;
+  }
   return {
     key,
     state: "error",
-    signal: { errorDesc: message },
+    signal,
     observedAt: now().toISOString(),
   };
+}
+
+/**
+ * Standardise the shape of `logger.error` calls so the structured-log
+ * payload always carries `errName` + a truncated `stack` alongside the
+ * message. Without this, `err.message` alone strips the type and stack —
+ * making post-mortem on production logs much harder.
+ *
+ * Stack handling is two-tier:
+ *
+ *   - `logger.error(msg, ...)` carries a TRUNCATED stack (first 5 lines)
+ *     because Slack/Pocketbase render budgets are tight and a
+ *     full-frame Node stack drowns the alert.
+ *   - `logger.debug("<msg>.full-stack", ...)` carries the FULL stack
+ *     alongside — only when one is available (string-thrown values have
+ *     no stack to preserve). Production debug-level logs flow into the
+ *     orchestrator's structured log stream where storage is cheap and
+ *     post-mortem operators can pull them on demand. When a stack is
+ *     present this also emits, so "the rest of the stack lives in the
+ *     orchestrator's full log stream" is load-bearing rather than
+ *     aspirational.
+ */
+export function logErrorWithStack(
+  logger: Logger,
+  msg: string,
+  err: unknown,
+  extra: Record<string, unknown> = {},
+): void {
+  const meta: Record<string, unknown> = { ...extra };
+  let fullStack: string | undefined;
+  if (err instanceof Error) {
+    meta.err = err.message;
+    meta.errName = err.name;
+    if (err.stack) {
+      meta.stack = err.stack.split("\n").slice(0, 5).join("\n");
+      fullStack = err.stack;
+    }
+  } else {
+    meta.err = String(err);
+    meta.errName = "unknown";
+  }
+  logger.error(msg, meta);
+  // Parallel debug emission carrying the full stack; only when we have
+  // one (string-thrown values have no stack to preserve). Reuses the
+  // same `extra` keys so log-aggregation can correlate the two.
+  if (fullStack !== undefined) {
+    logger.debug(`${msg}.full-stack`, { ...extra, stack: fullStack });
+  }
 }

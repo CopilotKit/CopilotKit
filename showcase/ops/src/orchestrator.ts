@@ -41,6 +41,8 @@ import { qaDriver } from "./probes/drivers/qa.js";
 import { railwayServicesSource } from "./probes/discovery/railway-services.js";
 import { pnpmPackagesDiscoverySource } from "./probes/discovery/pnpm-packages.js";
 import { logger, reloadLogLevel } from "./logger.js";
+import { logErrorWithStack } from "./probes/loader/probe-invoker.js";
+import { makeGql } from "./probes/discovery/railway-services.js";
 import type { State, StatusRecord, Target } from "./types/index.js";
 
 export interface BootOptions {
@@ -210,7 +212,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
   try {
     await reloadRules();
   } catch (err) {
-    logger.error("orchestrator.initial-rule-load-failed", { err: String(err) });
+    logErrorWithStack(logger, "orchestrator.initial-rule-load-failed", err);
     throw err;
   }
 
@@ -299,10 +301,14 @@ export async function boot(opts: BootOptions = {}): Promise<{
           await scheduler.unregister(entry.id);
           probeConfigs.delete(entry.id);
         } catch (err) {
-          logger.error("orchestrator.probe-unregister-failed", {
-            id: entry.id,
-            err: String(err),
-          });
+          logErrorWithStack(
+            logger,
+            "orchestrator.probe-unregister-failed",
+            err,
+            {
+              id: entry.id,
+            },
+          );
           // R2-B.4: dedicated `scheduler_unregister_failures_total`
           // counter would belong here, but adding it requires extending
           // metrics.ts COUNTER_NAMES (out of scope for this fix). Defer
@@ -314,6 +320,30 @@ export async function boot(opts: BootOptions = {}): Promise<{
         }
       }
     }
+    // Driver-singleton timeout threading: drivers are registered as
+    // singletons at boot (BEFORE configs are loaded), so we can't pass
+    // each YAML's `timeout_ms` straight into the driver factory. Instead
+    // we compute a PER-CFG env overlay via `envForCfg(cfg, baseEnv)` and
+    // hand it to `buildProbeInvoker` as the invoker's `env`. Drivers
+    // read the timeout via `ctx.env.E2E_DEMOS_TIMEOUT_MS` (see
+    // drivers/e2e-demos.ts — `TIMEOUT_ENV_VAR`).
+    //
+    // Pre-fix this loop wrote `process.env.E2E_DEMOS_TIMEOUT_MS = ...`
+    // directly. Three problems with that:
+    //   1. Stale across YAML reloads — when the cfg removed timeout_ms,
+    //      the env var stayed set and leaked into every subsequent tick.
+    //   2. Last-write-wins silently across multiple e2e_demos configs.
+    //   3. Mutating shared global state from a diff function broke
+    //      parallel test isolation.
+    // The overlay pattern is fully isolated per-cfg and per-call.
+
+    // Snapshot process.env once at the top so every overlay derives from
+    // the same base — eliminates the read-after-write hazard if a future
+    // refactor accidentally mutates process.env between iterations.
+    const baseEnv: Readonly<Record<string, string | undefined>> = {
+      ...process.env,
+    };
+
     // Register / re-register each desired probe. `scheduler.register` is
     // idempotent — if the cron+handler combination is unchanged it's
     // effectively a no-op; otherwise it replaces the prior entry.
@@ -336,7 +366,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
         writer,
         logger,
         fetchImpl: globalThis.fetch,
-        env: process.env as Readonly<Record<string, string | undefined>>,
+        env: envForCfg(cfg, baseEnv),
         now: () => new Date(),
         // F1: thread the live scheduler + runWriter through so the invoker's
         // optional B7 hooks (ProbeRunTracker registration, probe_runs row
@@ -365,11 +395,10 @@ export async function boot(opts: BootOptions = {}): Promise<{
         // but it's cleaner to keep the two collections in lockstep.
         probeConfigs.set(id, cfg);
       } catch (err) {
-        logger.error("orchestrator.probe-register-failed", {
+        logErrorWithStack(logger, "orchestrator.probe-register-failed", err, {
           id,
           kind: cfg.kind,
           schedule: cfg.schedule,
-          err: String(err),
         });
       }
     }
@@ -387,35 +416,45 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // Probe load failure must NOT take down the service — rules and other
     // probes (deploy-result webhook) still function. Surface on the bus so
     // operators can alert on `probes.reload.failed` without blocking boot.
-    logger.error("orchestrator.initial-probe-load-failed", {
-      err: String(err),
-    });
+    logErrorWithStack(logger, "orchestrator.initial-probe-load-failed", err);
     bus.emit("probes.reload.failed", {
       errors: [{ file: "(initial-load)", error: String(err) }],
     });
   }
 
-  const unwatchProbes = probeLoader.watch((next) => {
-    // CR-A2.2: diffProbeSchedules is now async (awaits unregister). The
-    // file-watch callback signature is sync (void return), so we fire-and-
-    // forget the diff and route any uncaught rejection into the same
-    // log/emit channel as the initial-load path. A rejection here means
-    // both: (a) at least one probe entry could not be removed cleanly (the
-    // orphan stays visible in /api/probes per the design choice in the
-    // body of diffProbeSchedules), AND (b) the post-await `bus.emit` may
-    // not have fired — operators see a "probes.reload.failed" instead of
-    // a stale "probes.reloaded" claim.
-    diffProbeSchedules(next)
-      .then(() => bus.emit("probes.reloaded", { count: next.length }))
-      .catch((err) => {
-        logger.error("orchestrator.probe-watch-reload-failed", {
-          err: String(err),
+  // R5-G4 D7: initialize as a no-op BEFORE the watch() call so a
+  // synchronous throw inside `probeLoader.watch(...)` cannot leave
+  // `unwatchProbes` undefined. Pre-fix, a stop() invoked after a
+  // failed watch() init would throw `ReferenceError: unwatchProbes is
+  // not defined` and orphan the engine + scheduler.
+  let unwatchProbes: () => void = () => {};
+  try {
+    unwatchProbes = probeLoader.watch((next) => {
+      // CR-A2.2: diffProbeSchedules is now async (awaits unregister). The
+      // file-watch callback signature is sync (void return), so we fire-and-
+      // forget the diff and route any uncaught rejection into the same
+      // log/emit channel as the initial-load path. A rejection here means
+      // both: (a) at least one probe entry could not be removed cleanly (the
+      // orphan stays visible in /api/probes per the design choice in the
+      // body of diffProbeSchedules), AND (b) the post-await `bus.emit` may
+      // not have fired — operators see a "probes.reload.failed" instead of
+      // a stale "probes.reloaded" claim.
+      diffProbeSchedules(next)
+        .then(() => bus.emit("probes.reloaded", { count: next.length }))
+        .catch((err) => {
+          logErrorWithStack(
+            logger,
+            "orchestrator.probe-watch-reload-failed",
+            err,
+          );
+          bus.emit("probes.reload.failed", {
+            errors: [{ file: "(watch-reload)", error: String(err) }],
+          });
         });
-        bus.emit("probes.reload.failed", {
-          errors: [{ file: "(watch-reload)", error: String(err) }],
-        });
-      });
-  });
+    });
+  } catch (err) {
+    logErrorWithStack(logger, "orchestrator.probe-watch-init-failed", err);
+  }
 
   const unwatch = loader.watch((next) => {
     rules = next;
@@ -449,11 +488,11 @@ export async function boot(opts: BootOptions = {}): Promise<{
   busUnsubs.push(
     bus.on("deploy.result", (event) => {
       const result = deployEventToProbeResult(event, deployCtx);
-      writer.write(result).catch((err) =>
-        logger.error("orchestrator.deploy-writer-failed", {
-          err: String(err),
-        }),
-      );
+      writer
+        .write(result)
+        .catch((err) =>
+          logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
+        );
     }),
   );
 
@@ -462,6 +501,26 @@ export async function boot(opts: BootOptions = {}): Promise<{
   const webhookSecrets = [sharedSecret, sharedSecretPrev].filter(
     (s): s is string => typeof s === "string" && s.length > 0,
   );
+  // R5-G4 D5: empty webhookSecrets silently disables auth on the
+  // deploy.result webhook — anyone who knows the URL can POST. Mirror
+  // the POCKETBASE_URL fail-loud pattern: in production the missing
+  // config is a deploy bug that must surface immediately. In dev/test
+  // emit an info log so developers see the bypass.
+  if (webhookSecrets.length === 0) {
+    if (process.env.NODE_ENV === "production") {
+      logger.error("orchestrator.FATAL-CONFIG", {
+        msg: "SHARED_SECRET required in production",
+        nodeEnv: process.env.NODE_ENV,
+      });
+      throw new Error(
+        "FATAL-CONFIG: SHARED_SECRET required in production (NODE_ENV=production)",
+      );
+    }
+    logger.info("orchestrator.webhook-auth-bypass", {
+      msg: "webhook auth disabled — neither SHARED_SECRET nor SHARED_SECRET_PREV is set",
+      nodeEnv: process.env.NODE_ENV ?? "(unset)",
+    });
+  }
 
   let loopAlive = true;
   // `schedulerRunning` closes the boot-window honesty gap in /health: the
@@ -617,7 +676,9 @@ export async function boot(opts: BootOptions = {}): Promise<{
       // only logged — the service booted green while backups silently
       // never ran. Alert rules can now subscribe to
       // `internal.backup.init-failed` to surface the degraded state.
-      logger.error("orchestrator.s3-backup-init-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.s3-backup-init-failed", err, {
+        bucket: s3Bucket,
+      });
       bus.emit("internal.backup.init-failed", {
         err: String(err),
         bucket: s3Bucket,
@@ -712,7 +773,7 @@ export async function boot(opts: BootOptions = {}): Promise<{
     // to bump to debug saw the rule-reload log at the OLD level.
     reloadLogLevel();
     reloadRules().catch((err) => {
-      logger.error("orchestrator.reload-failed", { err: String(err) });
+      logErrorWithStack(logger, "orchestrator.reload-failed", err);
       // R21 bucket-a: mirror the watch-path failure emission in
       // rule-loader.ts (~line 540). File-watch reload failures hit the
       // bus so the alert engine / dashboard can surface them; SIGHUP
@@ -799,6 +860,43 @@ export function createStatusReader(pb: {
       return row?.state ?? null;
     },
   };
+}
+
+/**
+ * Project a per-cfg env overlay for `buildProbeInvoker`. Drivers that
+ * need YAML-derived knobs (e.g. `e2e_demos`'s `cfg.timeout_ms` —
+ * threaded through as `E2E_DEMOS_TIMEOUT_MS`) read them from
+ * `ctx.env`. Returning a FRESH overlay per cfg eliminates three classes
+ * of bugs the prior `process.env` mutation introduced:
+ *
+ *   1. **Stale across reloads** — when a YAML reload drops `timeout_ms`,
+ *      the previous value no longer leaks into subsequent ticks because
+ *      the overlay is derived from `baseEnv` only (which the orchestrator
+ *      snapshots once per `diffProbeSchedules`, untouched by prior probe
+ *      iterations).
+ *   2. **Last-write-wins across multiple configs** — two e2e_demos cfgs
+ *      with different `timeout_ms` each get their own overlay; neither
+ *      stomps the other.
+ *   3. **Test isolation** — `process.env` is never written, so parallel
+ *      tests don't see each other's bleed.
+ *
+ * Exported for unit-test access. Callers outside the orchestrator should
+ * NOT use this — drivers should accept their config via constructor deps
+ * (`createE2eDemosDriver({ timeoutMs })`) once the singleton-driver
+ * registration pattern is replaced by per-cfg factories.
+ */
+export function envForCfg(
+  cfg: ProbeConfig,
+  baseEnv: Readonly<Record<string, string | undefined>>,
+): Readonly<Record<string, string | undefined>> {
+  if (
+    cfg.kind === "e2e_demos" &&
+    "timeout_ms" in cfg &&
+    cfg.timeout_ms !== undefined
+  ) {
+    return { ...baseEnv, E2E_DEMOS_TIMEOUT_MS: String(cfg.timeout_ms) };
+  }
+  return baseEnv;
 }
 
 /**
@@ -898,10 +996,9 @@ export async function diffCronSchedules(
               // a sentinel). The scheduler also logs its own handler-error
               // when the handler itself throws; this try/catch keeps the
               // handler green so that layer stays quiet for probe bugs.
-              logger.error("orchestrator.cron-probe-failed", {
+              logErrorWithStack(logger, "orchestrator.cron-probe-failed", err, {
                 ruleId,
                 dimension,
-                err: String(err),
               });
             }
           }
@@ -913,12 +1010,11 @@ export async function diffCronSchedules(
         },
       });
     } catch (err) {
-      logger.error("orchestrator.cron-register-failed", {
+      logErrorWithStack(logger, "orchestrator.cron-register-failed", err, {
         id,
         ruleId,
         dimension,
         schedule,
-        err: String(err),
       });
       // Continue the loop — other rules must still register.
     }
@@ -968,8 +1064,7 @@ export function buildCronProbeResolver(
     // Railway and must stay up — but we log at error level so the
     // healthcheck or log-alerts pipeline catches it.
     adapter.listServices().catch((err) => {
-      logger.error("orchestrator.RAILWAY_AUTH_FAILED", {
-        err: String(err),
+      logErrorWithStack(logger, "orchestrator.RAILWAY_AUTH_FAILED", err, {
         hint: "aimock-wiring probe will fail on every cron tick — check RAILWAY_TOKEN / RAILWAY_PROJECT_ID",
       });
     });
@@ -1008,65 +1103,50 @@ export function buildCronProbeResolver(
  * Lists services in a project and fetches per-service env-var values
  * for a given environment. Endpoint: https://backboard.railway.com/graphql/v2.
  *
- * Kept in-file (rather than spun out into a module) because this is the
- * only consumer today — if pin_drift or version_drift ever grow in-process
- * probes that also need Railway, promote this to `src/adapters/railway.ts`.
+ * Routes through the shared `makeGql` helper exported from
+ * `probes/discovery/railway-services.ts` so error taxonomy (Auth /
+ * Backend / Schema / Transport class hierarchy) and partial-success
+ * envelope handling stay aligned with the discovery source. Pre-fix,
+ * the orchestrator's inline gql threw on any non-empty `errors[]` even
+ * when `data` was present, and surfaced raw `SyntaxError` from
+ * `res.json()` on HTML edge-proxy error pages — both diverged from
+ * makeGql's behaviour.
+ *
+ * Per-tick: each `listServices()` issues one fresh GraphQL roundtrip,
+ * so renamed/added Railway services surface on the next cron tick
+ * without orchestrator restart. (The prior in-adapter cache survived
+ * across ticks and would silently miss service-list changes.)
+ *
+ * Exported for unit-test access. Production callers go through
+ * `buildCronProbeResolver`.
  */
-function createRailwayAdapter(opts: {
-  token: string;
-  projectId: string;
-  environmentId: string;
-}): {
+export function createRailwayAdapter(
+  opts: {
+    token: string;
+    projectId: string;
+    environmentId: string;
+  },
+  deps: { fetchImpl?: typeof fetch } = {},
+): {
   listServices: () => Promise<{ name: string; id: string }[]>;
   getServiceEnv: (name: string) => Promise<Record<string, string | undefined>>;
 } {
-  const endpoint = "https://backboard.railway.com/graphql/v2";
-
-  async function gql<T>(
-    query: string,
-    variables: Record<string, unknown>,
-  ): Promise<T> {
-    const res = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${opts.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables }),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(`railway gql ${res.status}: ${text}`);
-    }
-    const json = (await res.json()) as {
-      data?: T;
-      errors?: Array<{ message: string }>;
-    };
-    if (json.errors?.length) {
-      throw new Error(
-        `railway gql errors: ${json.errors.map((e) => e.message).join("; ")}`,
-      );
-    }
-    return json.data as T;
-  }
-
-  // Cache services by name so getServiceEnv doesn't refetch the service
-  // list on every call. A cron tick on `aimock_wiring` calls listServices
-  // once and getServiceEnv once per service — keeping the mapping around
-  // shaves one extra GraphQL round-trip per invocation.
-  let cachedServices: { name: string; id: string }[] | null = null;
+  const fetchImpl = deps.fetchImpl ?? globalThis.fetch;
+  const gql = makeGql({
+    fetchImpl,
+    token: opts.token,
+    sourceName: "orchestrator-railway-adapter",
+    abortSignal: undefined,
+    logger,
+  });
 
   // `listServices` is pulled into a plain binding so `getServiceEnv`
   // can call it regardless of how it's invoked. The previous `this.listServices()`
   // form broke the moment a caller destructured the adapter
   // (`const { getServiceEnv } = adapter`) or bound `getServiceEnv` as a
-  // property of another object (`input.getServiceEnv`) — both patterns
-  // already in use (see buildCronProbeResolver passing `adapter.getServiceEnv`
-  // into `aimockWiringProbe.run` as `input.getServiceEnv`). Pre-fix the
-  // fallback path would throw `TypeError: Cannot read properties of
-  // undefined (reading 'listServices')` as soon as the cache was cold.
+  // property of another object (`input.getServiceEnv`).
   const listServices = async (): Promise<{ name: string; id: string }[]> => {
-    const data = await gql<{
+    const { data } = await gql<{
       project: {
         services: { edges: { node: { id: string; name: string } }[] };
       };
@@ -1078,25 +1158,24 @@ function createRailwayAdapter(opts: {
       }`,
       { id: opts.projectId },
     );
-    const out = data.project.services.edges.map((e) => e.node);
-    cachedServices = out;
-    return out;
+    return data.project.services.edges.map((e) => e.node);
   };
 
   const getServiceEnv = async (
     name: string,
   ): Promise<Record<string, string | undefined>> => {
-    if (!cachedServices) {
-      // Fallback path for callers that skip listServices — still fetch.
-      // Uses the lexically-captured binding instead of `this.listServices`,
-      // which would be undefined when this method is passed as a callback.
-      await listServices();
-    }
-    const match = cachedServices!.find((s) => s.name === name);
+    // No cross-tick cache: the aimock-wiring probe always calls
+    // `listServices` first (see buildCronProbeResolver), and per-tick
+    // refetch costs one GraphQL round-trip but ensures
+    // newly-renamed/added Railway services are visible without a
+    // restart. If a future caller invokes `getServiceEnv` directly
+    // without `listServices`, fetch the list here too.
+    const services = await listServices();
+    const match = services.find((s) => s.name === name);
     if (!match) {
       throw new Error(`railway service not found: ${name}`);
     }
-    const data = await gql<{ variables: Record<string, string> }>(
+    const { data } = await gql<{ variables: Record<string, string> }>(
       `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
         variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
       }`,
@@ -1138,7 +1217,7 @@ function createRailwayAdapter(opts: {
 // so symlinks and cross-platform path normalization don't break the check.
 if (process.argv[1] && url.fileURLToPath(import.meta.url) === process.argv[1]) {
   boot().catch((err) => {
-    logger.error("showcase-ops.boot-failed", { err: String(err) });
+    logErrorWithStack(logger, "showcase-ops.boot-failed", err);
     process.exit(1);
   });
 }

@@ -30,11 +30,34 @@
 #
 # ── Cadence: every 6 hours ────────────────────────────────────────────
 #
-# Chromium cost scales as demos × services per tick. With 15 framework
-# packages and ~32 demos each, total page loads per tick can reach
-# ~480. With `max_concurrency: 6` and a ~3-5s realistic goto+selector
-# budget per demo, one tick takes ~3-5 minutes of wall time on the
-# happy path. Every 6 hours gives us:
+# Chromium cost scales as demos × services per tick. The 17 framework
+# packages each carry ~32 demos on average; the largest single service
+# carries ~38 demos and is the wall-clock-dominating service under
+# bounded concurrency. Aggregate page loads per tick are
+# 17 × ~32 ≈ 544 typical (~32 average per service, capped by the
+# ~38-demo largest).
+#
+# Wall-clock per tick is NOT aggregate-divided-by-concurrency: with
+# `max_concurrency: 6` the wall-clock floor is set by the SLOWEST
+# single service's serial per-demo fan-out (the driver visits each
+# demo sequentially within a single service invocation).
+#
+# Per-demo wall-clock is bounded by `pageTimeoutMs` (30s) — the
+# driver's runDemo() shares one 30s budget across goto + all 5
+# fallback selector waits, so a single demo cannot exceed 30s
+# regardless of how many selectors it tries (enforced via a single
+# wall-clock deadline in `drivers/e2e-demos.ts`'s runDemo()). For
+# the largest 38-demo service the
+# absolute worst case is therefore ~38 × 30s ≈ ~19 min — bounded by
+# the 20-min outer cap below (which the driver's internal hard-cap is
+# now aligned to via the orchestrator's `E2E_DEMOS_TIMEOUT_MS`
+# threading; see the `timeout_ms` block).
+#
+# Typical pages finish in ~3-5s so the realistic wall-clock is ~2-3
+# minutes (the slowest single service). Smaller services interleave
+# in parallel slots and don't extend wall-clock past the slowest, so
+# the bound holds regardless of service count.
+# Every 6 hours gives us:
 #   - 4 ticks/day: catches regressions within a half-deploy window
 #     while leaving ~90% of the scheduler's wall time to sibling
 #     probes.
@@ -51,27 +74,49 @@
 #
 # Outer driver-invocation cap. The driver subdivides internally with a
 # 30s per-page timeout (DEFAULT_PAGE_TIMEOUT_MS in e2e-demos.ts) — the
-# largest services now have 38 demos and could exceed 15 min on cold
-# starts, so the outer cap is set to 20 min. When the cap fires the
-# driver sets `timedOut = true` on the AbortController and side-emits
-# `errorClass: "abort"` / `errorDesc: "timeout after 1200000ms"` for
-# every remaining demo — the dashboard keeps rendering red dots rather
+# largest 38-demo service could exceed 15 min on cold starts, so the
+# outer cap is set to 20 min. The driver's internal hard-cap is
+# threaded from this YAML value at orchestrator boot (see
+# orchestrator.ts: `process.env.E2E_DEMOS_TIMEOUT_MS = cfg.timeout_ms`,
+# read per-`run()` by drivers/e2e-demos.ts), so the driver's own timer
+# fires at exactly the same wall-clock as the invoker's outer race —
+# no premature internal-cap edge that would short-circuit the YAML's
+# documented behaviour at the driver's pre-threading default of 5 min.
+# When the cap fires inside the driver, the driver itself iterates the
+# remaining demos and side-emits `errorClass: "abort"` /
+# `errorDesc: "timeout after 1200000ms"` rows for each — the per-demo
+# fan-out loop in `e2e-demos.ts` checks `abort.signal.aborted` at the
+# top of every iteration and writes a red side-row before continuing
+# to the next demo. The dashboard keeps rendering red dots rather
 # than going gray, which is the right signal for operator triage
-# ("this whole service is wedged").
+# ("this whole service is wedged"). Note: this behaviour is the
+# driver's, not the invoker's — the invoker only emits one AGGREGATE
+# synthetic-error ProbeResult on its own outer timeout race, not
+# per-demo side rows.
 #
 # ── max_concurrency: 6 ────────────────────────────────────────────────
 #
 # 6 concurrent chromium instances = ~1.8GB RAM + 6 vCPU, well within
-# the 24GB/24vCPU Railway allocation. Shortest-service-first dispatch
-# ordering is a future optimization. The driver itself is serial across
-# demos within a single invocation (fresh context per demo, awaited
-# sequentially). The concurrency knob here governs how many discovered
-# SERVICES run in parallel.
+# the 24GB/24vCPU Railway allocation. Discovered services are sorted
+# ascending by demo count BEFORE entering the bounded worker pool, so
+# small services clear first and free slots for the larger ones. The
+# demo count comes from `registry.json`, joined onto each Railway
+# service record by slug at discovery-enumerate time
+# (`railway-services` source reads the registry once per tick and
+# attaches `demos: string[]` to every emitted record). The sort is
+# stable, tie-broken by service key, and fully deterministic across
+# ticks. The 20-min outer `timeout_ms` above still caps any single
+# service regardless of dispatch position. This ordering only applies
+# to `kind: e2e_demos` — sibling probes (smoke, e2e-smoke, qa) are
+# unaffected. The driver itself is serial across demos within a
+# single invocation (fresh context per demo, awaited sequentially).
+# The concurrency knob here governs how many discovered SERVICES run
+# in parallel.
 #
 # ── Scope: all showcase packages ───────────────────────────────────────
 #
 # Discovery matches all `showcase-*` Railway services via `namePrefix`.
-# All 15 framework packages now have demo routes wired with the
+# All 17 framework packages now have demo routes wired with the
 # `[data-testid="copilot-chat-input"]` structural marker after the
 # omnibus parity merge.
 #
@@ -105,9 +150,13 @@ discovery:
       - showcase-shell-dashboard
       - showcase-shell-docs
       - showcase-shell-dojo
-  # Primary row key uses the Railway service name (not the stripped
-  # slug) to stay consistent with sibling `smoke:showcase-*` /
-  # `e2e-smoke:showcase-*` / `qa:showcase-*` keys. Alert rules that
-  # dedupe on `e2e-demos:*` or pattern-match `e2e-demos:showcase-*`
-  # work identically across driver families.
+  #
+  # `key_template` lives at the `discovery:` level (sibling of `source`
+  # / `filter`), per `loader/schema.ts:DiscoveryBlockSchema`. The
+  # 2-space indent below matches that. Primary row key uses the Railway
+  # service name (not the stripped slug) to stay consistent with
+  # sibling `smoke:showcase-*` / `e2e-smoke:showcase-*` /
+  # `qa:showcase-*` keys. Alert rules that dedupe on `e2e-demos:*` or
+  # pattern-match `e2e-demos:showcase-*` work identically across driver
+  # families.
   key_template: "e2e-demos:${name}"

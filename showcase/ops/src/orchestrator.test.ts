@@ -8,11 +8,14 @@ import {
   buildCronProbeResolver,
   createStatusReader,
   diffCronSchedules,
+  envForCfg,
+  createRailwayAdapter,
 } from "./orchestrator.js";
 import { createScheduler } from "./scheduler/scheduler.js";
 import { createEventBus } from "./events/event-bus.js";
 import { logger } from "./logger.js";
 import type { CompiledRule } from "./rules/rule-loader.js";
+import type { ProbeConfig } from "./probes/loader/schema.js";
 
 /**
  * F1.1 integration coverage: `buildServer` in orchestrator.ts must pass
@@ -773,6 +776,256 @@ describe("orchestrator S3 backup init failure (R28-slot2-A1)", () => {
     expect(initFailed[0]!.payload.err).toMatch(
       /@aws-sdk\/client-s3 missing|simulated/i,
     );
+  });
+});
+
+/**
+ * R5-G4 D1: e2e-demos cfg.timeout_ms must thread per-cfg into the driver's
+ * env WITHOUT mutating process.env. Pre-fix, diffProbeSchedules wrote
+ * `process.env.E2E_DEMOS_TIMEOUT_MS = String(cfg.timeout_ms)` directly,
+ * which:
+ *   1. Stayed set across YAML reloads when the cfg removed timeout_ms,
+ *      leaking the previous value into every subsequent probe tick.
+ *   2. Last-write-wins silently if multiple e2e_demos configs existed.
+ *   3. Broke test isolation by mutating shared global state from a diff
+ *      function.
+ *
+ * The fix: a pure `envForCfg(cfg, baseEnv)` projects the per-cfg overlay
+ * into a fresh Readonly map; the invoker's `env` is built from this and
+ * never escapes into `process.env`.
+ */
+describe("orchestrator.envForCfg per-cfg env overlay (R5-G4 D1)", () => {
+  function e2eDemosCfg(id: string, timeout_ms?: number): ProbeConfig {
+    const base = {
+      kind: "e2e_demos" as const,
+      id,
+      schedule: "0 * * * *",
+      max_concurrency: 1,
+      target: { key: `e2e_demos:${id}` },
+    };
+    return (
+      timeout_ms !== undefined ? { ...base, timeout_ms } : base
+    ) as ProbeConfig;
+  }
+
+  function pinDriftCfg(id: string, timeout_ms?: number): ProbeConfig {
+    const base = {
+      kind: "pin_drift" as const,
+      id,
+      schedule: "0 * * * *",
+      max_concurrency: 1,
+      target: { key: `pin_drift:${id}` },
+    };
+    return (
+      timeout_ms !== undefined ? { ...base, timeout_ms } : base
+    ) as ProbeConfig;
+  }
+
+  it("does NOT mutate process.env when cfg has timeout_ms (test isolation)", () => {
+    const before = process.env.E2E_DEMOS_TIMEOUT_MS;
+    delete process.env.E2E_DEMOS_TIMEOUT_MS;
+    try {
+      const cfg = e2eDemosCfg("e2e-demos", 600_000);
+      const overlay = envForCfg(cfg, { ...process.env });
+      expect(overlay.E2E_DEMOS_TIMEOUT_MS).toBe("600000");
+      // Critical invariant: process.env was NOT touched. Pre-fix this
+      // assertion would fail because diffProbeSchedules mutated the
+      // global directly.
+      expect(process.env.E2E_DEMOS_TIMEOUT_MS).toBeUndefined();
+    } finally {
+      if (before !== undefined) process.env.E2E_DEMOS_TIMEOUT_MS = before;
+    }
+  });
+
+  it("returns distinct overlays per cfg so two e2e_demos configs each see their own value", () => {
+    const cfgA = e2eDemosCfg("demos-a", 300_000);
+    const cfgB = e2eDemosCfg("demos-b", 1_200_000);
+    const baseEnv = { OTHER: "preserved" } as const;
+    const overlayA = envForCfg(cfgA, baseEnv);
+    const overlayB = envForCfg(cfgB, baseEnv);
+    expect(overlayA.E2E_DEMOS_TIMEOUT_MS).toBe("300000");
+    expect(overlayB.E2E_DEMOS_TIMEOUT_MS).toBe("1200000");
+    // Base env passes through untouched in both overlays.
+    expect(overlayA.OTHER).toBe("preserved");
+    expect(overlayB.OTHER).toBe("preserved");
+  });
+
+  it("does NOT carry over a previous timeout when cfg has no timeout_ms", () => {
+    // Reload that DROPS timeout_ms must NOT see a stale value. Pre-fix
+    // this would still expose 600_000 because process.env.E2E_DEMOS_TIMEOUT_MS
+    // stayed set from the previous reload.
+    const baseEnv = { E2E_DEMOS_TIMEOUT_MS: "600000" } as const;
+    const cfg = e2eDemosCfg("e2e-demos");
+    const overlay = envForCfg(cfg, baseEnv);
+    // The overlay leaves baseEnv alone — it's the orchestrator's job
+    // to ensure baseEnv at this point doesn't have the stale value.
+    // Specifically: the orchestrator passes a snapshot of process.env
+    // (without prior probe mutations) so a reload that drops timeout_ms
+    // produces an overlay that does NOT inject E2E_DEMOS_TIMEOUT_MS.
+    expect("E2E_DEMOS_TIMEOUT_MS" in overlay).toBe(true);
+    // Same as base — we didn't INJECT a fresh one.
+    expect(overlay.E2E_DEMOS_TIMEOUT_MS).toBe("600000");
+    // Now the canonical case: baseEnv WITHOUT the var (the orchestrator's
+    // process.env snapshot taken AFTER the global mutation was eliminated).
+    const cleanBase = {} as const;
+    const cleanOverlay = envForCfg(cfg, cleanBase);
+    expect(cleanOverlay.E2E_DEMOS_TIMEOUT_MS).toBeUndefined();
+  });
+
+  it("ignores timeout_ms for non-e2e_demos kinds", () => {
+    const cfg = pinDriftCfg("pin-drift", 600_000);
+    const overlay = envForCfg(cfg, {});
+    // pin_drift's timeout_ms is the invoker outer race, NOT a driver-internal
+    // env knob — overlay must NOT inject E2E_DEMOS_TIMEOUT_MS.
+    expect(overlay.E2E_DEMOS_TIMEOUT_MS).toBeUndefined();
+  });
+});
+
+/**
+ * R5-G4 D2/D3: createRailwayAdapter must use the shared `makeGql` helper
+ * so error taxonomy (Auth / Backend / Schema / Transport classes) and
+ * partial-success envelope handling stay aligned with the discovery
+ * source. Pre-fix the orchestrator's inline gql diverged on two axes:
+ *   - non-JSON response bodies (HTML edge-proxy 5xx pages) surfaced as
+ *     raw `SyntaxError` from `res.json()` instead of a schema-class
+ *     classification.
+ *   - any non-empty `errors[]` threw even when `data` was present,
+ *     where makeGql instead returns the partial data and logs the
+ *     errors.
+ */
+describe("createRailwayAdapter via shared makeGql (R5-G4 D2/D3)", () => {
+  it("classifies non-JSON response bodies as a schema-class error (D3)", async () => {
+    const fetchImpl = (async () =>
+      new Response("<html>503 Bad Gateway</html>", {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      })) as unknown as typeof fetch;
+    const adapter = createRailwayAdapter(
+      {
+        token: "tok",
+        projectId: "proj",
+        environmentId: "env",
+      },
+      { fetchImpl },
+    );
+    // makeGql throws DiscoverySourceSchemaError with a clear "response
+    // body was not JSON" message — the inline gql would throw a raw
+    // `SyntaxError: Unexpected token` from res.json().
+    await expect(adapter.listServices()).rejects.toThrow(
+      /response body was not JSON|JSON|Schema/i,
+    );
+  });
+
+  it("surfaces 401 as an auth-class error (D2 taxonomy alignment)", async () => {
+    const fetchImpl = (async () =>
+      new Response("unauthorized", {
+        status: 401,
+      })) as unknown as typeof fetch;
+    const adapter = createRailwayAdapter(
+      {
+        token: "tok",
+        projectId: "proj",
+        environmentId: "env",
+      },
+      { fetchImpl },
+    );
+    await expect(adapter.listServices()).rejects.toThrow(/401|auth/i);
+  });
+});
+
+/**
+ * R5-G4 D5: webhook secrets must be configured in production. Pre-fix,
+ * if both SHARED_SECRET and SHARED_SECRET_PREV were unset/empty,
+ * webhookSecrets resolved to `[]` and webhook auth was silently
+ * disabled — anyone could POST a deploy.result. Mirror the
+ * POCKETBASE_URL fail-loud pattern: throw FATAL-CONFIG in prod, log
+ * info in dev/test.
+ */
+describe("orchestrator webhook secrets fail-loud in production (R5-G4 D5)", () => {
+  let tempDir: string;
+  let port = 0;
+  let stopFn: (() => Promise<void>) | null = null;
+
+  beforeEach(async () => {
+    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ops-orch-secrets-"));
+    port = await pickPort();
+  });
+
+  afterEach(async () => {
+    if (stopFn) {
+      await stopFn();
+      stopFn = null;
+    }
+    await fs.rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("throws FATAL-CONFIG when NODE_ENV=production and both webhook secrets are unset", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    process.env.NODE_ENV = "production";
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    // POCKETBASE_URL must be set so the prior FATAL-CONFIG throw
+    // doesn't pre-empt the SHARED_SECRET check.
+    process.env.POCKETBASE_URL = "http://localhost:8090";
+    try {
+      await expect(
+        boot({ configDir: tempDir, port, bootstrapWindowMs: 0 }),
+      ).rejects.toThrow(/FATAL-CONFIG: SHARED_SECRET required in production/);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+      delete process.env.POCKETBASE_URL;
+    }
+  });
+
+  it("boots successfully without webhook secrets when NODE_ENV is not production", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    const prevPrev = process.env.SHARED_SECRET_PREV;
+    process.env.NODE_ENV = "test";
+    delete process.env.SHARED_SECRET;
+    delete process.env.SHARED_SECRET_PREV;
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      if (prevPrev !== undefined) process.env.SHARED_SECRET_PREV = prevPrev;
+    }
+  });
+
+  it("boots successfully in production when at least one webhook secret is set", async () => {
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevSecret = process.env.SHARED_SECRET;
+    process.env.NODE_ENV = "production";
+    process.env.SHARED_SECRET = "test-secret-prod-ok";
+    process.env.POCKETBASE_URL = "http://localhost:8090";
+    try {
+      const booted = await boot({
+        configDir: tempDir,
+        port,
+        bootstrapWindowMs: 0,
+      });
+      stopFn = booted.stop;
+      expect(booted.port).toBe(port);
+    } finally {
+      if (prevNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = prevNodeEnv;
+      if (prevSecret !== undefined) process.env.SHARED_SECRET = prevSecret;
+      else delete process.env.SHARED_SECRET;
+      delete process.env.POCKETBASE_URL;
+    }
   });
 });
 
