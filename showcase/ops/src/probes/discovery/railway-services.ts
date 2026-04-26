@@ -114,6 +114,24 @@ interface ShapeLogger {
 }
 
 /**
+ * True iff the thrown value is (or wraps) a real `AbortError`. The
+ * gql() helper wraps fetch rejections in `DiscoverySourceTransportError`,
+ * so a fetch-level abort surfaces as a TransportError whose `cause` is
+ * the original AbortError. Walking up to two cause links keeps the
+ * check honest without unbounded recursion. Anything that isn't an
+ * AbortError (transport flakes, schema violations, backend 5xxs) falls
+ * through to the per-service degradation path.
+ */
+function isAbortError(err: unknown): boolean {
+  let cur: unknown = err;
+  for (let depth = 0; depth < 3 && cur instanceof Error; depth++) {
+    if (cur.name === "AbortError") return true;
+    cur = (cur as Error & { cause?: unknown }).cause;
+  }
+  return false;
+}
+
+/**
  * True iff `a` and `b` are exactly one single-character edit apart
  * (insertion, deletion, substitution, OR adjacent transposition).
  * Used by `classifyShape` to surface suspected typos of `starter-`.
@@ -562,7 +580,7 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
     // and 400s the whole tick. We fetch every instance and filter by
     // environment client-side below (the loop that finds
     // `environmentId === environmentId`).
-    const projectRaw = await gql<unknown>(
+    const projectResult = await gql<unknown>(
       `query project($id: String!) {
         project(id: $id) {
           services {
@@ -583,11 +601,20 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
       }`,
       { id: projectId },
     );
-    const parsedProject = ProjectServicesSchema.safeParse(projectRaw);
+    const parsedProject = ProjectServicesSchema.safeParse(projectResult.data);
     if (!parsedProject.success) {
+      // Correlate downstream schema failures with the partial-errors
+      // warn that already fired in `gql()` for the same request — see
+      // B2 in the CR notes. When the partial-data envelope fires, we
+      // tag the schema-failure log with `cause: "partial-data"` so an
+      // operator scanning the alert stream can tell "Railway changed
+      // their schema" from "Railway returned partial data and the
+      // partial payload tripped our shape guard".
       throw new DiscoverySourceSchemaError(
         "railway-services",
-        `project response did not match expected shape: ${parsedProject.error.message}`,
+        projectResult.partialData
+          ? `project response did not match expected shape (cause: partial-data): ${parsedProject.error.message}`
+          : `project response did not match expected shape: ${parsedProject.error.message}`,
         undefined,
         parsedProject.error,
       );
@@ -632,17 +659,26 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
 
       let env: Record<string, string> = {};
       try {
-        const varsRaw = await gql<unknown>(
+        const varsResult = await gql<unknown>(
           `query variables($projectId: String!, $environmentId: String!, $serviceId: String!) {
             variables(projectId: $projectId, environmentId: $environmentId, serviceId: $serviceId)
           }`,
           { projectId, environmentId, serviceId: svc.id },
         );
-        const parsedVars = VariablesSchema.safeParse(varsRaw);
+        const parsedVars = VariablesSchema.safeParse(varsResult.data);
         if (!parsedVars.success) {
+          // Correlation marker: when the partial-errors warn already
+          // fired for THIS request (gql() returned `partialData: true`),
+          // tag the schema-failure log so operators can tell "Railway
+          // schema drifted" from "we got partial data and the partial
+          // payload tripped the shape guard". Otherwise the two log
+          // keys (partial-errors vs variables-schema) look unrelated
+          // even though they share a root cause. See B2 in the CR
+          // notes.
           ctx.logger.warn("discovery.railway-services.variables-schema", {
             service: svc.name,
             err: parsedVars.error.message,
+            ...(varsResult.partialData ? { cause: "partial-data" } : {}),
           });
           // `env` already initialised to {} above; no reassignment
           // needed. The schema-rejection path leaves the empty default
@@ -669,9 +705,24 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
         // Other errors (transport flakes, backend 5xx, schema drift on
         // a single service) keep the documented per-service-degraded
         // behaviour: log + continue with empty env.
-        const aborted =
-          ctx.abortSignal?.aborted === true ||
-          (err instanceof Error && err.name === "AbortError");
+        //
+        // Narrow contract: ONLY a real AbortError (a fetch rejection
+        // wired to the controller's signal) qualifies as "abort". The
+        // earlier check that also tripped on `ctx.abortSignal.aborted`
+        // over-rethrew unrelated mid-loop failures — once an external
+        // tick-timer fires, every subsequent iteration sees
+        // `signal.aborted === true`, so a plain Railway 500 on the
+        // next service would also escape this catch and kill the
+        // whole tick. The catch must distinguish "fetch was aborted"
+        // from "controller fired but this error is unrelated".
+        //
+        // We check `err.name === "AbortError"` directly AND walk the
+        // `cause` chain because the gql() helper wraps fetch
+        // rejections in DiscoverySourceTransportError; the underlying
+        // AbortError lives on `err.cause`. Walking the chain catches
+        // that case without re-tripping on unrelated transport
+        // errors that happened to fire while the signal was aborted.
+        const aborted = isAbortError(err);
         if (aborted || err instanceof DiscoverySourceAuthError) {
           throw err;
         }
@@ -706,19 +757,35 @@ export const railwayServicesSource: DiscoverySource<RailwayServiceInfo> = {
  * share identical error semantics — an operator reading the log stream
  * sees the same class regardless of which sub-query failed.
  */
+/**
+ * Result envelope from a `gql()` call. `partialData` is true iff
+ * Railway returned both a populated `data` payload AND non-empty
+ * `errors[]` — the helper logs `partial-errors` and hands `data`
+ * back, so callers should propagate the flag onto any downstream
+ * schema-failure log to correlate "partial response" with "shape
+ * rejection". See B2 in the discovery probe CR notes.
+ */
+interface GqlResult<T> {
+  data: T;
+  partialData: boolean;
+}
+
 function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
   sourceName: string;
   abortSignal: AbortSignal | undefined;
   logger: DiscoveryContext["logger"];
-}): <T>(query: string, variables: Record<string, unknown>) => Promise<T> {
+}): <T>(
+  query: string,
+  variables: Record<string, unknown>,
+) => Promise<GqlResult<T>> {
   const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } =
     opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,
-  ): Promise<T> {
+  ): Promise<GqlResult<T>> {
     let res: Response;
     try {
       res = await fetchImpl(ENDPOINT, {
@@ -795,6 +862,6 @@ function makeGql(opts: {
         errors: json.errors!.map((e) => e.message),
       });
     }
-    return json.data as T;
+    return { data: json.data as T, partialData: hasErrors && hasData };
   };
 }

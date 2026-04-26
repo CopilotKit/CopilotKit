@@ -1625,6 +1625,99 @@ describe("railwayServicesSource", () => {
   });
 
   // -----------------------------------------------------------------
+  // B1 — abort detection mid-loop must NOT over-rethrow unrelated
+  // errors. The narrow contract: only AbortError (a real
+  // signal-aborted fetch rejection) gets re-thrown out of the
+  // per-service catch. A 500 from Railway in a later iteration —
+  // even when ctx.abortSignal.aborted is already true — must be
+  // treated as a per-service degradation (env: {}) so an external
+  // abort doesn't poison the rest of the loop.
+  // -----------------------------------------------------------------
+
+  describe("per-service variables loop abort regression (B1)", () => {
+    it("after abort fires, a 500 on a subsequent service degrades to env: {} (not rethrown)", async () => {
+      // Sequence: project query OK; service-1's variables OK; abort
+      // signal fires before service-2; service-2's variables 500s.
+      // Pre-fix: the 500 catch saw `ctx.abortSignal.aborted === true`
+      // and rethrew the (non-AbortError) backend error, killing the
+      // whole tick. Post-fix: only AbortError-name errors rethrow,
+      // so the 500 records as a `variables-failed` warn + env: {}.
+      const controller = new AbortController();
+      const warn = vi.fn();
+      const ctxLogger = { ...logger, warn };
+      let callIdx = 0;
+      const fetchImpl: typeof fetch = async (_url, init) => {
+        callIdx += 1;
+        const raw = (init as RequestInit | undefined)?.body as
+          | string
+          | undefined;
+        const parsed = raw
+          ? (JSON.parse(raw) as { query: string })
+          : { query: "" };
+        if (parsed.query.includes("query project")) {
+          return new Response(
+            JSON.stringify(
+              railwayProjectResponse([
+                {
+                  id: "s-1",
+                  name: "showcase-a",
+                  image: "ghcr.io/c/a:v1",
+                  domain: "a.up.railway.app",
+                },
+                {
+                  id: "s-2",
+                  name: "showcase-b",
+                  image: "ghcr.io/c/b:v1",
+                  domain: "b.up.railway.app",
+                },
+              ]),
+            ),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Service-1 variables: succeed.
+        if (callIdx === 2) {
+          return new Response(
+            JSON.stringify({ data: { variables: { OK: "yes" } } }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          );
+        }
+        // Between service-1 and service-2, abort fires (e.g. tick
+        // timer expired). The signal flag flips to aborted but the
+        // underlying fetch resolves normally — Railway returns 500
+        // for some unrelated reason on this iteration.
+        controller.abort(new Error("tick timeout"));
+        return new Response("internal error", {
+          status: 500,
+          headers: { "content-type": "text/plain" },
+        });
+      };
+      const ctx: DiscoveryContext = {
+        fetchImpl,
+        logger: ctxLogger,
+        env: BASE_ENV,
+        abortSignal: controller.signal,
+      };
+      // The 500 must NOT escape — it should land in the catch as a
+      // DiscoverySourceBackendError, see that name !== "AbortError",
+      // log a `variables-failed` warn, and continue.
+      const out = await railwayServicesSource.enumerate(ctx, {});
+      expect(out).toHaveLength(2);
+      expect(out[0].name).toBe("showcase-a");
+      expect(out[0].env).toEqual({ OK: "yes" });
+      expect(out[1].name).toBe("showcase-b");
+      expect(out[1].env).toEqual({});
+      // Confidence: the abort actually fired AND the 500 was logged
+      // as a per-service degradation rather than crashing the loop.
+      expect(controller.signal.aborted).toBe(true);
+      const variablesFailed = warn.mock.calls.filter(
+        (c) => c[0] === "discovery.railway-services.variables-failed",
+      );
+      expect(variablesFailed).toHaveLength(1);
+    });
+  });
+
+  // -----------------------------------------------------------------
   // B5 — `deployedDigest` extraction needs explicit unit coverage.
   // The fixture used to discard `latestDeployment` entirely, leaving
   // the digest extraction path uncovered.
