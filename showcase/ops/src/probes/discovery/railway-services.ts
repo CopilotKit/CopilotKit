@@ -442,15 +442,9 @@ async function loadDemosMap(
       err: err instanceof Error ? err.message : String(err),
     };
     if (code === "ENOENT" && process.env.NODE_ENV !== "production") {
-      ctx.logger.info(
-        "discovery.railway-services.registry-read-failed",
-        meta,
-      );
+      ctx.logger.info("discovery.railway-services.registry-read-failed", meta);
     } else {
-      ctx.logger.warn(
-        "discovery.railway-services.registry-read-failed",
-        meta,
-      );
+      ctx.logger.warn("discovery.railway-services.registry-read-failed", meta);
     }
     return new Map();
   }
@@ -479,14 +473,11 @@ async function loadDemosMap(
     typeof parsedUnknown !== "object" ||
     Array.isArray(parsedUnknown)
   ) {
-    ctx.logger.warn(
-      "discovery.railway-services.registry-shape-invalid",
-      {
-        path: registryPath,
-        rootType: parsedUnknown === null ? "null" : typeof parsedUnknown,
-        isArray: Array.isArray(parsedUnknown),
-      },
-    );
+    ctx.logger.warn("discovery.railway-services.registry-shape-invalid", {
+      path: registryPath,
+      rootType: parsedUnknown === null ? "null" : typeof parsedUnknown,
+      isArray: Array.isArray(parsedUnknown),
+    });
     return new Map();
   }
   const parsed = parsedUnknown as {
@@ -782,8 +773,7 @@ export function makeGql(opts: {
   query: string,
   variables: Record<string, unknown>,
 ) => Promise<GqlResult<T>> {
-  const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } =
-    opts;
+  const { fetchImpl, token, sourceName, abortSignal, logger: gqlLogger } = opts;
   return async function gql<T>(
     query: string,
     variables: Record<string, unknown>,

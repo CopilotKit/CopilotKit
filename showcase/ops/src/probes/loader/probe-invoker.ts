@@ -971,9 +971,7 @@ async function resolveInputs(
             recordIndex: idx,
             interpolatedKey: key,
             recordKey:
-              typeof recordKey === "string"
-                ? recordKey
-                : typeof recordKey,
+              typeof recordKey === "string" ? recordKey : typeof recordKey,
           });
         }
         input = { ...(record as Record<string, unknown>), key };
@@ -1260,7 +1258,13 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
           timedOut = true;
           if (resolveTimeout) {
             resolveTimeout(
-              syntheticError(key, timeoutReason, now, "timeout", "TimeoutError"),
+              syntheticError(
+                key,
+                timeoutReason,
+                now,
+                "timeout",
+                "TimeoutError",
+              ),
             );
           }
           // Notify the driver via abort so a well-behaved driver can
@@ -1321,13 +1325,7 @@ async function executeOne(opts: ExecuteOneOpts): Promise<ProbeResult<unknown>> {
     // "AbortError" message. Otherwise fall through to the normal
     // error-to-synthetic path so siblings still proceed.
     if (timedOut) {
-      return syntheticError(
-        key,
-        timeoutReason,
-        now,
-        "timeout",
-        "TimeoutError",
-      );
+      return syntheticError(key, timeoutReason, now, "timeout", "TimeoutError");
     }
     const message = err instanceof Error ? err.message : String(err);
     const errName = err instanceof Error ? err.name : undefined;

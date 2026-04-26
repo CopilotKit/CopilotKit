@@ -488,9 +488,11 @@ export async function boot(opts: BootOptions = {}): Promise<{
   busUnsubs.push(
     bus.on("deploy.result", (event) => {
       const result = deployEventToProbeResult(event, deployCtx);
-      writer.write(result).catch((err) =>
-        logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
-      );
+      writer
+        .write(result)
+        .catch((err) =>
+          logErrorWithStack(logger, "orchestrator.deploy-writer-failed", err),
+        );
     }),
   );
 

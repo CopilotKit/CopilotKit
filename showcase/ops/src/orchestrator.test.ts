@@ -795,10 +795,7 @@ describe("orchestrator S3 backup init failure (R28-slot2-A1)", () => {
  * never escapes into `process.env`.
  */
 describe("orchestrator.envForCfg per-cfg env overlay (R5-G4 D1)", () => {
-  function e2eDemosCfg(
-    id: string,
-    timeout_ms?: number,
-  ): ProbeConfig {
+  function e2eDemosCfg(id: string, timeout_ms?: number): ProbeConfig {
     const base = {
       kind: "e2e_demos" as const,
       id,
@@ -807,9 +804,7 @@ describe("orchestrator.envForCfg per-cfg env overlay (R5-G4 D1)", () => {
       target: { key: `e2e_demos:${id}` },
     };
     return (
-      timeout_ms !== undefined
-        ? { ...base, timeout_ms }
-        : base
+      timeout_ms !== undefined ? { ...base, timeout_ms } : base
     ) as ProbeConfig;
   }
 
@@ -822,9 +817,7 @@ describe("orchestrator.envForCfg per-cfg env overlay (R5-G4 D1)", () => {
       target: { key: `pin_drift:${id}` },
     };
     return (
-      timeout_ms !== undefined
-        ? { ...base, timeout_ms }
-        : base
+      timeout_ms !== undefined ? { ...base, timeout_ms } : base
     ) as ProbeConfig;
   }
 
