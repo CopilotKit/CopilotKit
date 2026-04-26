@@ -40,12 +40,11 @@
 # is refreshed against LGP. Aligning the comparison cadence with the
 # reference-refresh cadence keeps both sides on the same drift clock.
 #
-# The ACTUAL cron string lives on Railway (the showcase-ops scheduler
-# reads cadence from there, not from this YAML); the value below documents
-# the intended schedule and is what the loader will surface to operators
-# inspecting the config. Mondays 04:00 UTC = early morning before the
-# US business day so a fresh red is on the dashboard when on-call
-# arrives.
+# The `schedule` field below IS the source of truth — the orchestrator
+# (`src/orchestrator.ts`) reads it directly via `cfg.schedule` and
+# registers a Croner job with that exact cron string. Mondays 04:00 UTC
+# = early morning before the US business day so a fresh red is on the
+# dashboard when on-call arrives.
 #
 # ── On-demand mode (out-of-band, NOT cron) ──────────────────────────────
 #
