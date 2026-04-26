@@ -221,16 +221,31 @@ export function buildProbeInvoker(
       }
     }
 
+    // Discovery returned zero records (or every record was filtered out
+    // by `nameExcludes` upstream). Static / single-target probes can't
+    // hit this path — the schema requires `min(1)` for both. Emit a
+    // structured info log so operators can correlate "no signal" against
+    // "discovery returned empty"; without this the tick is silent.
+    // Behaviour is unchanged: zero inputs still mean zero writes for
+    // this tick.
+    if (inputs.length === 0) {
+      logger.info("probe.no-inputs", {
+        probeId: cfg.id,
+        kind: cfg.kind,
+      });
+    }
+
     // Hand-rolled bounded pool. Each worker pulls from a shared index so
     // N workers process the M inputs cooperatively — no Promise.all
     // stampede even when M >> N.
     let cursor = 0;
     const runOne = async (): Promise<void> => {
       while (cursor < inputs.length) {
+        // Invariant: `idx < inputs.length` from the loop precondition,
+        // so `inputs[idx]` is always defined. Non-null assertion avoids
+        // a dead defensive guard.
         const idx = cursor++;
-        const item = inputs[idx];
-        if (!item) break;
-        const { input, key } = item;
+        const { input, key } = inputs[idx]!;
         const result = await executeOne({
           input,
           key,

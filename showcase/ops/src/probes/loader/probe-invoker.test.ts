@@ -2201,6 +2201,65 @@ describe("buildProbeInvoker", () => {
     expect(sig.errorDesc!.length).toBeLessThanOrEqual(1200);
   });
 
+  // Discovery returning zero records (everything filtered out) must
+  // emit a `probe.no-inputs` info log so operators can correlate "no
+  // signal" against "discovery returned empty". Behaviour unchanged —
+  // observability only.
+  it("emits probe.no-inputs info log when discovery returns zero records", async () => {
+    const infos: { msg: string; meta?: Record<string, unknown> }[] = [];
+    const captureLogger = {
+      debug: () => {},
+      info: (msg: string, meta?: Record<string, unknown>) => {
+        infos.push({ msg, meta });
+      },
+      warn: () => {},
+      error: () => {},
+    };
+    const inputSchema = z.object({ key: z.string() }).passthrough();
+    const driver: ProbeDriver = {
+      kind: "image_drift",
+      inputSchema,
+      async run() {
+        throw new Error("must not run");
+      },
+    };
+    const source: DiscoverySource = {
+      name: "empty-after-filter-src",
+      configSchema: z.object({}).passthrough(),
+      async enumerate() {
+        return [];
+      },
+    };
+    const discoveryRegistry = createDiscoveryRegistry();
+    discoveryRegistry.register(source);
+    const cfg: ProbeConfig = {
+      kind: "image_drift",
+      id: "image-drift",
+      schedule: "*/15 * * * *",
+      max_concurrency: 1,
+      discovery: {
+        source: "empty-after-filter-src",
+        filter: {},
+        key_template: "image_drift:${name}",
+      },
+    };
+    const { writer, writes } = mkWriter();
+    await buildProbeInvoker(cfg, {
+      driver,
+      discoveryRegistry,
+      writer,
+      ...BASE_DEPS,
+      logger: captureLogger,
+    })();
+    expect(writes).toHaveLength(0);
+    const noInputs = infos.filter((c) => c.msg === "probe.no-inputs");
+    expect(noInputs).toHaveLength(1);
+    expect(noInputs[0]!.meta).toMatchObject({
+      probeId: "image-drift",
+      kind: "image_drift",
+    });
+  });
+
   it("does NOT warn key-shadowed when record's `key` matches interpolated key", async () => {
     const warns: { msg: string }[] = [];
     const captureLogger = {
