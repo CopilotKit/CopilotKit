@@ -241,10 +241,24 @@ describe("orchestrator /health wiring (F1.1)", () => {
     await fs.rm(tempDir, { recursive: true, force: true });
 
     // Fire SIGHUP. sigHup handler is synchronous up to the reloadRules
-    // promise; the .catch runs on the microtask queue. Await one tick
-    // past that.
+    // promise; the .catch runs on the microtask queue. Pre-fix this just
+    // slept 100ms — but on macOS the rule-loader load() chain (loadDefaults
+    // readFile ENOENT → fs.readdir ENOENT) settles 2-3s later under load,
+    // so the test failed even though the production path was correct.
+    // Poll for the synthetic `<sighup>` emission with a 15s ceiling so a
+    // genuine regression (no emission ever fires) still surfaces clearly.
+    // Empirically the SIGHUP reload chain (loader.load → loadDefaults
+    // readFile ENOENT → fs.readdir ENOENT → reloadRules .catch) settles
+    // in 2-5s on macOS under test load — well under the ceiling but well
+    // over the prior 100ms budget.
     process.emit("SIGHUP");
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    const sigHupDeadline = Date.now() + 15_000;
+    while (
+      !emissions.some((e) => e.file === "<sighup>") &&
+      Date.now() < sigHupDeadline
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 
     const sigHupEmission = emissions.find((e) => e.file === "<sighup>");
     expect(sigHupEmission).toBeDefined();
