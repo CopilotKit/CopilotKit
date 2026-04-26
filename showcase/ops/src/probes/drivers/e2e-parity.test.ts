@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { promises as fs } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
+  createDefaultFleetResolver,
   createE2eParityDriver,
   e2eParityDriver,
   type E2eParityAggregateSignal,
@@ -207,9 +211,7 @@ describe("e2e-parity driver", () => {
     const driver = createE2eParityDriver({
       launcher: async () => browser,
       attachInterceptor,
-      serializeDom: async () => [
-        { tag: "div", classes: ["copilotkit-chat"] },
-      ],
+      serializeDom: async () => [{ tag: "div", classes: ["copilotkit-chat"] }],
       loadReference: async (): Promise<LoadReferenceResult> => ({
         status: "ok",
         snapshot: reference,
@@ -332,9 +334,7 @@ describe("e2e-parity driver", () => {
     const driver = createE2eParityDriver({
       launcher: async () => browser,
       attachInterceptor,
-      serializeDom: async () => [
-        { tag: "div", classes: ["copilotkit-chat"] },
-      ],
+      serializeDom: async () => [{ tag: "div", classes: ["copilotkit-chat"] }],
       loadReference: async () => ({
         status: "ok",
         snapshot: reference,
@@ -723,6 +723,7 @@ describe("e2e-parity driver", () => {
 
   it("emits red with launcher-error when chromium fails to launch", async () => {
     registerD5Script(makeScript());
+    const { writer, writes } = mkWriter();
 
     const driver = createE2eParityDriver({
       launcher: async () => {
@@ -747,7 +748,7 @@ describe("e2e-parity driver", () => {
       fleetResolver: async () => ["langgraph-python"],
     });
 
-    const result = await driver.run(mkCtx(), {
+    const result = await driver.run(mkCtx(writer), {
       key: "e2e-parity:showcase-langgraph-python",
       publicUrl: "https://showcase-langgraph-python.example.com",
       name: "showcase-langgraph-python",
@@ -759,6 +760,21 @@ describe("e2e-parity driver", () => {
     const sig = result.signal as E2eParityAggregateSignal;
     expect(sig.errorDesc).toBe("launcher-error");
     expect(sig.failureSummary).toMatch(/chromium launch failed/);
+
+    // Per A13 — side rows MUST be emitted for every runnable feature
+    // so the per-feature dashboard cells reflect the launcher failure
+    // instead of going stale.
+    const sideRows = writes.filter((w) => w.key.startsWith("d6:"));
+    expect(sideRows.length).toBe(1);
+    const sideRow = sideRows[0]!;
+    expect(sideRow.state).toBe("red");
+    expect(sideRow.key).toBe("d6:langgraph-python/agentic-chat");
+    const sideSignal = sideRow.signal as {
+      errorClass?: string;
+      errorDesc?: string;
+    };
+    expect(sideSignal.errorClass).toBe("launcher-error");
+    expect(sideSignal.errorDesc).toMatch(/chromium launch failed/);
   });
 
   it("emits red when goto fails", async () => {
@@ -942,5 +958,179 @@ describe("e2e-parity driver", () => {
 
     // 3 turns × 1 feature = 3 attaches.
     expect(stub.attachCount()).toBe(3);
+  });
+
+  it("invokes the injected scriptLoader exactly once per run()", async () => {
+    // Without a scriptLoader injection point, the driver couldn't be
+    // run standalone — the registry would be empty and every feature
+    // would skip. Wave-2b drivers populate the registry via this
+    // loader; tests assert wiring (call count) without hitting disk.
+    let loaderCalls = 0;
+    const reference = makeSnapshot();
+    const { browser } = makeBrowser();
+    const { attachInterceptor } = stubInterceptor(makeCapture());
+
+    const driver = createE2eParityDriver({
+      launcher: async () => browser,
+      attachInterceptor,
+      serializeDom: async () => reference.domElements,
+      loadReference: async () => ({
+        status: "ok",
+        snapshot: reference,
+        snapshotPath: "/fake/x.json",
+      }),
+      runConversation: async () => ({
+        turns_completed: 1,
+        total_turns: 1,
+        turn_durations_ms: [100],
+      }),
+      fleetResolver: async () => ["langgraph-python"],
+      scriptLoader: async () => {
+        loaderCalls++;
+        // The loader's job is to populate D5_REGISTRY via side-effect
+        // imports. The test pre-populates the registry directly.
+        registerD5Script(makeScript());
+      },
+    });
+
+    const result = await driver.run(mkCtx(), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    // Loader must be called exactly once: at the top of run() so the
+    // registry is populated before fleet/feature partitioning.
+    expect(loaderCalls).toBe(1);
+    // And the registered script must be picked up — aggregate green
+    // proves the partition saw a runnable feature.
+    expect(result.state).toBe("green");
+  });
+
+  it("uses fleetSlugs verbatim when self-slug missing from fleet (no defensive append)", async () => {
+    // A3 fix: per-invocation appending of `slug` to fleet broke
+    // rotation determinism — different invocations produce different
+    // fleet sizes. With the fix, a slug not in the fleet simply sits
+    // out the rotation. Aggregate stays green; the note flags drift.
+    registerD5Script(makeScript());
+
+    const driver = createE2eParityDriver({
+      // Fleet does NOT include `langgraph-python` — registry drift.
+      fleetResolver: async () => ["mastra", "ag2", "pydantic-ai"],
+      launcher: async () => makeBrowser().browser,
+      // Use weekly-rotation default (no env). With fleet of 3 the
+      // rotation picks one of them — but never our slug, so we sit out.
+    });
+
+    const result = await driver.run(mkCtx(), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eParityAggregateSignal;
+    expect(sig.selectedThisTick).toBe(false);
+    // The note must call out the registry-drift case so operators
+    // aren't left wondering why the slug never runs.
+    expect(sig.note).toMatch(/missing from fleet/);
+  });
+
+  it("survives a throwing scriptLoader (logs, doesn't throw out)", async () => {
+    // Per A1 spec: a thrown loader must not crash the driver; it logs
+    // a warning and continues. The featureType then ends up in
+    // skippedScript because the registry is empty.
+    const { browser } = makeBrowser();
+    const driver = createE2eParityDriver({
+      launcher: async () => browser,
+      fleetResolver: async () => ["langgraph-python"],
+      scriptLoader: async () => {
+        throw new Error("loader-blew-up");
+      },
+      loadReference: async () => ({
+        status: "ok",
+        snapshot: makeSnapshot(),
+        snapshotPath: "/fake/x.json",
+      }),
+    });
+
+    const result = await driver.run(mkCtx(), {
+      key: "e2e-parity:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      shape: "package",
+    });
+
+    // The driver returns a normal result; nothing throws out.
+    expect(result.state).toBe("green");
+  });
+});
+
+describe("createDefaultFleetResolver", () => {
+  it("retries the file read after a transient failure (does not cache failures)", async () => {
+    // A4 fix: pre-fix code cached `[]` permanently after any read
+    // error, so a transient ENOENT during process startup would
+    // disable D6 forever. Caching only successful reads means the
+    // resolver self-heals on the next call.
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "e2e-parity-fleet-"));
+    const registryPath = path.join(dir, "registry.json");
+
+    const resolver = createDefaultFleetResolver();
+
+    // First call: file does NOT exist yet → read fails → resolver
+    // returns [] but does NOT cache.
+    const ctx = mkCtx(undefined, { REGISTRY_JSON_PATH: registryPath });
+    const first = await resolver(ctx);
+    expect(first).toEqual([]);
+
+    // Now write a valid registry.
+    await fs.writeFile(
+      registryPath,
+      JSON.stringify({
+        integrations: [{ slug: "langgraph-python" }, { slug: "mastra" }],
+      }),
+      "utf-8",
+    );
+
+    // Second call: read succeeds → resolver returns the parsed list.
+    // If the failure had been cached this would still be [].
+    const second = await resolver(ctx);
+    expect(second).toEqual(["langgraph-python", "mastra"]);
+
+    // Third call: cached success → same list, no re-read.
+    const third = await resolver(ctx);
+    expect(third).toEqual(["langgraph-python", "mastra"]);
+
+    await fs.rm(dir, { recursive: true, force: true });
+  });
+
+  it("ignores non-string slug entries", async () => {
+    const dir = await fs.mkdtemp(path.join(tmpdir(), "e2e-parity-fleet-"));
+    const registryPath = path.join(dir, "registry.json");
+    await fs.writeFile(
+      registryPath,
+      JSON.stringify({
+        integrations: [
+          { slug: "valid" },
+          { slug: 42 }, // non-string — must be skipped
+          { slug: "" }, // empty — must be skipped
+          {}, // missing slug — must be skipped
+          { slug: "another" },
+        ],
+      }),
+      "utf-8",
+    );
+
+    const resolver = createDefaultFleetResolver();
+    const ctx = mkCtx(undefined, { REGISTRY_JSON_PATH: registryPath });
+    const slugs = await resolver(ctx);
+    expect(slugs).toEqual(["valid", "another"]);
+
+    await fs.rm(dir, { recursive: true, force: true });
   });
 });
