@@ -278,15 +278,45 @@ function matchesElement(refEl: DomElement, capEl: DomElement): boolean {
     return capEl.testId === refEl.testId;
   }
 
-  // No testId on the reference side — fall back to set-equal classes.
-  return classesEqual(refEl.classes, capEl.classes);
+  // No testId on the reference side — fall back to "every reference
+  // class is present in captured" (captured is a superset). This
+  // matches the module docstring's "captured is superset of reference"
+  // rule for the DOM axis: a captured element with EXTRA classes
+  // beyond what the reference declared is still a valid match.
+  return capturedClassesIncludeReference(refEl.classes, capEl.classes);
 }
 
-function classesEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const setA = new Set(a);
-  for (const cls of b) {
-    if (!setA.has(cls)) return false;
+/**
+ * Multiset-aware "captured is a superset of reference" check.
+ *
+ * Returns true iff every class in `referenceClasses` appears in
+ * `capturedClasses` AT LEAST as many times. Duplicates count: if the
+ * reference declares the class `"item"` twice, captured must declare
+ * it twice too. Captured may have additional classes beyond the
+ * reference set; those are tolerated (the DOM axis treats captured
+ * extras as a non-failure per the module docstring).
+ *
+ * Multiset semantics fix the historical bug where set-membership +
+ * length-equality would erroneously declare `["a","a","b"]` ≡
+ * `["a","b","b"]` (same length, same set `{a,b}`) — and the relaxed
+ * length pre-filter contradicted the "captured is superset" doc.
+ */
+function capturedClassesIncludeReference(
+  referenceClasses: string[],
+  capturedClasses: string[],
+): boolean {
+  if (referenceClasses.length === 0) return true;
+  // Build a multiset (count map) of the captured classes; decrement as
+  // we consume each reference class. If any reference class can't be
+  // satisfied (count <= 0 or absent), it's not a superset.
+  const capturedCounts = new Map<string, number>();
+  for (const cls of capturedClasses) {
+    capturedCounts.set(cls, (capturedCounts.get(cls) ?? 0) + 1);
+  }
+  for (const cls of referenceClasses) {
+    const remaining = capturedCounts.get(cls);
+    if (remaining === undefined || remaining <= 0) return false;
+    capturedCounts.set(cls, remaining - 1);
   }
   return true;
 }
@@ -333,6 +363,25 @@ function compareStream(
   verdict: AxisVerdict;
   details: NonNullable<ParityReport["details"]["stream"]>;
 } {
+  // Fail-loud guard: a captured stream that produced ZERO chunks (5xx
+  // response, network dead, CDP detached mid-flight) emits a
+  // total_chunks=0 / ttft=0 / p50=0 profile from `computeStreamProfile`.
+  // Without this guard, `computeRatio(0, refTtft)` returns 0, which is
+  // ≤ the default 2.0/3.0 tolerances, so the axis would PASS while
+  // masking total stream failure. Surface zero-chunk captures as a
+  // dedicated reason so dashboards / Slack readers see "captured
+  // produced no chunks" instead of an inscrutable "ratio 0.0".
+  if (captured.total_chunks === 0 && reference.total_chunks > 0) {
+    return {
+      verdict: "fail",
+      details: {
+        ttft_ratio: Number.POSITIVE_INFINITY,
+        p50_chunk_ratio: Number.POSITIVE_INFINITY,
+        reason: "captured stream produced zero chunks",
+      },
+    };
+  }
+
   const { ttftRatio, ttftReason } = computeRatio(
     captured.ttft_ms,
     reference.ttft_ms,

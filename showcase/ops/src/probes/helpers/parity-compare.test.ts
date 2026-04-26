@@ -101,7 +101,8 @@ describe("compareParity — DOM axis", () => {
       ...baseSnapshot(),
       domElements: [{ tag: "div", classes: ["a", "b"] }],
     };
-    // Order shouldn't matter — class match is set-equal.
+    // Order shouldn't matter — captured-includes-reference is
+    // order-independent.
     const capSameSet: ParitySnapshot = {
       ...baseSnapshot(),
       domElements: [{ tag: "div", classes: ["b", "a"] }],
@@ -113,6 +114,37 @@ describe("compareParity — DOM axis", () => {
       domElements: [{ tag: "div", classes: ["a", "c"] }],
     };
     expect(compareParity(ref, capDifferentSet).axes.dom).toBe("fail");
+  });
+
+  it("class match treats captured as a superset (extra captured classes ok)", () => {
+    // Module docstring says DOM comparison is "captured is superset of
+    // reference" — extra captured classes on a matched element should
+    // NOT cause the axis to fail. The historical strict length-equality
+    // pre-filter contradicted that rule.
+    const ref: ParitySnapshot = {
+      ...baseSnapshot(),
+      domElements: [{ tag: "div", classes: ["primary"] }],
+    };
+    const cap: ParitySnapshot = {
+      ...baseSnapshot(),
+      domElements: [{ tag: "div", classes: ["primary", "active", "rounded"] }],
+    };
+    expect(compareParity(ref, cap).axes.dom).toBe("pass");
+  });
+
+  it("class match distinguishes duplicates as a multiset (a,a,b ≠ a,b,b)", () => {
+    // The pre-fix `Set`-based comparison erroneously declared these
+    // equal because they share the same set {a,b} and same length.
+    // Multiset semantics correctly reject the mismatch.
+    const ref: ParitySnapshot = {
+      ...baseSnapshot(),
+      domElements: [{ tag: "li", classes: ["a", "a", "b"] }],
+    };
+    const cap: ParitySnapshot = {
+      ...baseSnapshot(),
+      domElements: [{ tag: "li", classes: ["a", "b", "b"] }],
+    };
+    expect(compareParity(ref, cap).axes.dom).toBe("fail");
   });
 
   it("does not double-claim a single captured element for two reference elements", () => {
@@ -306,6 +338,53 @@ describe("compareParity — stream axis", () => {
   it("uses spec-default tolerances when none are supplied", () => {
     expect(DEFAULT_PARITY_TOLERANCES.ttft_ratio).toBe(2.0);
     expect(DEFAULT_PARITY_TOLERANCES.p50_chunk_ratio).toBe(3.0);
+  });
+
+  it("fails when captured produced zero chunks but reference had chunks", () => {
+    // A 5xx response / dead network / detached CDP yields a captured
+    // profile of all zeros. Without the explicit zero-chunk guard,
+    // computeRatio(0, refTtft) = 0 ≤ 2.0 so the axis would PASS while
+    // masking total stream failure. The guard surfaces this loudly.
+    const ref: ParitySnapshot = {
+      ...baseSnapshot(),
+      streamProfile: { ttft_ms: 100, p50_chunk_ms: 50, total_chunks: 10 },
+    };
+    const cap: ParitySnapshot = {
+      ...baseSnapshot(),
+      streamProfile: { ttft_ms: 0, p50_chunk_ms: 0, total_chunks: 0 },
+    };
+    const report = compareParity(ref, cap);
+    expect(report.axes.stream).toBe("fail");
+    expect(report.details.stream?.reason).toMatch(/zero chunks/);
+    expect(report.details.stream?.ttft_ratio).toBe(Number.POSITIVE_INFINITY);
+    expect(report.details.stream?.p50_chunk_ratio).toBe(
+      Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("vacuously passes when both reference and captured have zero chunks", () => {
+    // A featureType where the reference itself never produced a stream
+    // (rare but possible — e.g. frontend-only flow) shouldn't be
+    // penalised when captured also has zero. The guard only fires when
+    // reference > 0 and captured == 0; the underlying ratio path then
+    // handles the symmetric-zero case via the existing reference-side
+    // "must be > 0" reason.
+    const ref: ParitySnapshot = {
+      ...baseSnapshot(),
+      streamProfile: { ttft_ms: 0, p50_chunk_ms: 0, total_chunks: 0 },
+    };
+    const cap: ParitySnapshot = {
+      ...baseSnapshot(),
+      streamProfile: { ttft_ms: 0, p50_chunk_ms: 0, total_chunks: 0 },
+    };
+    const report = compareParity(ref, cap);
+    // Reference has ttft=0 so the existing ratio path fires its own
+    // "reference must be > 0" reason; the axis still fails (correctly,
+    // because we can't compute a meaningful ratio against a zero
+    // reference). We assert on the reason source — this is NOT the
+    // zero-chunk branch.
+    expect(report.axes.stream).toBe("fail");
+    expect(report.details.stream?.reason).not.toMatch(/zero chunks/);
   });
 });
 
