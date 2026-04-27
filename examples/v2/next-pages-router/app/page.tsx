@@ -8,7 +8,7 @@ const runtimeUrl =
 
 export default function Home() {
   return (
-    <CopilotKitProvider runtimeUrl={runtimeUrl} useSingleEndpoint>
+    <CopilotKitProvider runtimeUrl={runtimeUrl} useLegacyRuntime>
       <div className="page">
         <main className="content">
           <h1>CopilotKit v2 + Express (Single Route)</h1>

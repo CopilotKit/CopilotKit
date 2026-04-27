@@ -68,8 +68,12 @@ If you need direct control over the v2 provider (e.g. for custom integrations), 
   Runtime metadata payload.
 </PropertyReference>
 
-<PropertyReference name="useSingleEndpoint" type="boolean">
-  When enabled, all runtime calls use a single endpoint.
+<PropertyReference name="useLegacyRuntime" type="boolean" default="false">
+  When `true`, uses the legacy single-endpoint transport. When `false` or omitted, the modern multi-endpoint REST transport is used.
+</PropertyReference>
+
+<PropertyReference name="useSingleEndpoint" type="boolean" deprecated>
+  **Deprecated since v1.57.0.** Use `useLegacyRuntime` instead.
 </PropertyReference>
 
 <PropertyReference

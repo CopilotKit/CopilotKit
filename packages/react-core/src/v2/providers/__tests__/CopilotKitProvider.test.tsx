@@ -573,8 +573,42 @@ describe("CopilotKitProvider", () => {
     });
   });
 
-  describe("useSingleEndpoint → runtimeTransport mapping", () => {
-    it("maps useSingleEndpoint=true to 'single' transport", () => {
+  describe("runtimeTransport mapping", () => {
+    it("defaults to 'rest' transport when no props are set", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider>{children}</CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("rest");
+    });
+
+    it("maps useLegacyRuntime=true to 'single' transport", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider useLegacyRuntime={true}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("single");
+    });
+
+    it("maps useLegacyRuntime=false to 'rest' transport", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider useLegacyRuntime={false}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("rest");
+    });
+
+    it("maps deprecated useSingleEndpoint=true to 'single' transport", () => {
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
           <CopilotKitProvider useSingleEndpoint={true}>
@@ -586,7 +620,7 @@ describe("CopilotKitProvider", () => {
       expect(result.current.copilotkit.runtimeTransport).toBe("single");
     });
 
-    it("maps useSingleEndpoint=false to 'rest' transport", () => {
+    it("maps deprecated useSingleEndpoint=false to 'rest' transport", () => {
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
           <CopilotKitProvider useSingleEndpoint={false}>
@@ -598,17 +632,26 @@ describe("CopilotKitProvider", () => {
       expect(result.current.copilotkit.runtimeTransport).toBe("rest");
     });
 
-    it("maps omitted useSingleEndpoint to 'auto' transport", () => {
+    it("useLegacyRuntime takes precedence over useSingleEndpoint", () => {
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
-          <CopilotKitProvider>{children}</CopilotKitProvider>
+          <CopilotKitProvider useLegacyRuntime={true} useSingleEndpoint={false}>
+            {children}
+          </CopilotKitProvider>
         ),
       });
 
-      expect(result.current.copilotkit.runtimeTransport).toBe("auto");
+      expect(result.current.copilotkit.runtimeTransport).toBe("single");
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Both `useLegacyRuntime` and `useSingleEndpoint` are set"),
+      );
+
+      warnSpy.mockRestore();
     });
 
-    it("updates transport when useSingleEndpoint prop changes", () => {
+    it("updates transport when useLegacyRuntime prop changes", () => {
       let capturedCopilotkit: ReturnType<typeof useCopilotKit>["copilotkit"];
 
       function Collector({ children }: { children?: React.ReactNode }) {
@@ -618,7 +661,7 @@ describe("CopilotKitProvider", () => {
       }
 
       const { rerender } = render(
-        <CopilotKitProvider useSingleEndpoint={false}>
+        <CopilotKitProvider useLegacyRuntime={false}>
           <Collector />
         </CopilotKitProvider>,
       );
@@ -626,7 +669,7 @@ describe("CopilotKitProvider", () => {
       expect(capturedCopilotkit!.runtimeTransport).toBe("rest");
 
       rerender(
-        <CopilotKitProvider useSingleEndpoint={true}>
+        <CopilotKitProvider useLegacyRuntime={true}>
           <Collector />
         </CopilotKitProvider>,
       );
@@ -639,7 +682,7 @@ describe("CopilotKitProvider", () => {
         </CopilotKitProvider>,
       );
 
-      expect(capturedCopilotkit!.runtimeTransport).toBe("auto");
+      expect(capturedCopilotkit!.runtimeTransport).toBe("rest");
     });
   });
 

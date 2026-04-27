@@ -37,4 +37,4 @@ pnpm -C ../../ --filter next-pages-router example-build
 ## Notes
 
 - This example uses the Next.js App Router (`app/` directory).
-- The client sets `useSingleEndpoint` to match the Express runtime.
+- The client sets `useLegacyRuntime` to match the Express single-route runtime.
