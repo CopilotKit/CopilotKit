@@ -432,7 +432,7 @@ export async function serializeRelevantDom(
   // conversation-runner's type-erased indirection, only this one
   // captures local constants via string interpolation rather than via
   // closure (closures don't survive the evaluate boundary).
-  const fn = new Function(`return ${code};`) as () => {
+  const fn = new Function(`return ${code.trim()};`) as () => {
     fallback: boolean;
     elements: Array<{ tag: string; classes: string[]; testId?: string }>;
   };
