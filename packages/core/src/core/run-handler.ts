@@ -3,6 +3,7 @@ import {
   AgentSubscriber,
   HttpAgent,
   Message,
+  RunAgentInput,
   RunAgentResult,
   Tool,
   ToolCall,
@@ -91,7 +92,48 @@ export class RunHandler {
    */
   private _runDepth = 0;
 
+  /**
+   * Tracks agents that already have the CopilotKit tool-injection middleware
+   * installed via `ensureToolMiddleware`. Prevents double-installation.
+   */
+  private _agentsWithMiddleware = new WeakSet<AbstractAgent>();
+
   constructor(private core: CopilotKitCore) {}
+
+  /**
+   * Installs an AG-UI middleware on the agent that injects frontend tools,
+   * context, and forwarded properties into `RunAgentInput` when they are
+   * not already present.
+   *
+   * This is a **fallback** for direct `agent.runAgent()` calls that bypass
+   * `RunHandler.runAgent()`. When going through RunHandler, tools/context
+   * are already provided via `RunAgentParameters` and the middleware is a
+   * no-op (guards skip injection when values are present).
+   *
+   * Idempotent — safe to call multiple times on the same agent.
+   */
+  ensureToolMiddleware(agent: AbstractAgent): void {
+    if (this._agentsWithMiddleware.has(agent)) return;
+    if (typeof agent.use !== "function") return;
+    // Capture `this` so the middleware can read current tools/context/properties
+    // at call time (not installation time).
+    const rh = this;
+    agent.use((input: RunAgentInput, next: AbstractAgent) => {
+      const enriched = { ...input };
+      if (!enriched.tools?.length) {
+        enriched.tools = rh.buildFrontendTools(agent.agentId);
+      }
+      if (!enriched.context?.length) {
+        enriched.context = Object.values(rh._internal.context);
+      }
+      enriched.forwardedProps = {
+        ...rh._internal.properties,
+        ...(enriched.forwardedProps ?? {}),
+      };
+      return next.run(enriched);
+    });
+    this._agentsWithMiddleware.add(agent);
+  }
 
   /**
    * Abort the current run. Called by `CopilotKitCore.stopAgent()` to signal
@@ -194,6 +236,7 @@ export class RunHandler {
   async connectAgent({
     agent,
   }: CopilotKitCoreConnectAgentParams): Promise<RunAgentResult> {
+    this.ensureToolMiddleware(agent);
     try {
       // Detach any active run before connecting to avoid previous runs interfering
       await agent.detachActiveRun();
@@ -259,6 +302,7 @@ export class RunHandler {
     agent,
     forwardedProps,
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
+    this.ensureToolMiddleware(agent);
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
       void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
