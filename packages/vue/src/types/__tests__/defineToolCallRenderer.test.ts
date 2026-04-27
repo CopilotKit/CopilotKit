@@ -25,12 +25,14 @@ describe("defineToolCallRenderer", () => {
     const rendered = (
       wildcardRenderer.render as (props: {
         name: string;
+        toolCallId: string;
         args: Record<string, unknown>;
         status: ToolCallStatus;
         result: string | undefined;
       }) => ReturnType<typeof h>
     )({
       name: "customTool",
+      toolCallId: "tc-wildcard-1",
       args: { x: 1 },
       status: ToolCallStatus.Executing,
       result: undefined,
@@ -38,6 +40,36 @@ describe("defineToolCallRenderer", () => {
 
     expect(rendered.children).toContain("customTool");
     expect(rendered.children).not.toContain("*:");
+  });
+
+  it("exposes toolCallId to wildcard renderers", () => {
+    const wildcardRenderer = defineToolCallRenderer({
+      name: "*",
+      render: ({ name, toolCallId, status }) =>
+        h(
+          "div",
+          { "data-testid": "wildcard" },
+          `${name}:${toolCallId}:${status}`,
+        ),
+    });
+
+    const rendered = (
+      wildcardRenderer.render as (props: {
+        name: string;
+        toolCallId: string;
+        args: Record<string, unknown>;
+        status: ToolCallStatus;
+        result: string | undefined;
+      }) => ReturnType<typeof h>
+    )({
+      name: "customTool",
+      toolCallId: "tc-123",
+      args: {},
+      status: ToolCallStatus.InProgress,
+      result: undefined,
+    });
+
+    expect(rendered.children).toContain("tc-123");
   });
 
   it("supports mixed renderer arrays without type casts", () => {
@@ -91,33 +123,35 @@ describe("defineToolCallRenderer", () => {
         location: z.string(),
         units: z.enum(["celsius", "fahrenheit"]).optional(),
       }),
-      render: ({ args, status, result }) => {
+      render: ({ args, toolCallId, status, result }) => {
         if (status === ToolCallStatus.InProgress) {
           const locationMaybe: string | undefined = args.location;
-          return h("div", `loading:${locationMaybe ?? ""}`);
+          return h("div", `loading:${toolCallId}:${locationMaybe ?? ""}`);
         }
         if (status === ToolCallStatus.Executing) {
           const location: string = args.location;
-          return h("div", `executing:${location}`);
+          return h("div", `executing:${toolCallId}:${location}`);
         }
-        return h("div", `complete:${args.location}:${result}`);
+        return h("div", `complete:${toolCallId}:${args.location}:${result}`);
       },
     });
 
     const rendered = (
       typedRenderer.render as (props: {
         name: string;
+        toolCallId: string;
         args: { location: string; units?: "celsius" | "fahrenheit" };
         status: ToolCallStatus;
         result: string | undefined;
       }) => ReturnType<typeof h>
     )({
       name: "get_weather",
+      toolCallId: "tc-weather-1",
       args: { location: "Paris", units: "celsius" },
       status: ToolCallStatus.Executing,
       result: undefined,
     });
 
-    expect(rendered.children).toContain("executing:Paris");
+    expect(rendered.children).toContain("executing:tc-weather-1:Paris");
   });
 });

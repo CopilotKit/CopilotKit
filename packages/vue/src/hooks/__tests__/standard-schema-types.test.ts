@@ -24,12 +24,18 @@ describe("RenderToolProps type inference", () => {
       >().toEqualTypeOf<
         Partial<{ query: string; limit?: number | undefined }>
       >();
+      expectTypeOf<
+        RenderToolInProgressProps<ZodSchema>["toolCallId"]
+      >().toBeString();
     });
 
     it("RenderToolExecutingProps has full parameters", () => {
       expectTypeOf<
         RenderToolExecutingProps<ZodSchema>["parameters"]
       >().toEqualTypeOf<{ query: string; limit?: number | undefined }>();
+      expectTypeOf<
+        RenderToolExecutingProps<ZodSchema>["toolCallId"]
+      >().toBeString();
     });
 
     it("RenderToolCompleteProps has full parameters and string result", () => {
@@ -40,11 +46,15 @@ describe("RenderToolProps type inference", () => {
       }>();
       expectTypeOf<Complete["result"]>().toBeString();
       expectTypeOf<Complete["status"]>().toEqualTypeOf<"complete">();
+      expectTypeOf<Complete["toolCallId"]>().toBeString();
     });
 
     it("RenderToolProps is a discriminated union", () => {
       type Props = RenderToolProps<ZodSchema>;
-      expectTypeOf<Props>().toMatchTypeOf<{ name: string }>();
+      expectTypeOf<Props>().toMatchTypeOf<{
+        name: string;
+        toolCallId: string;
+      }>();
     });
   });
 

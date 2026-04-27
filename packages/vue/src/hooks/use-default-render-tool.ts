@@ -5,6 +5,7 @@ import { useRenderTool } from "./use-render-tool";
 
 type DefaultRenderProps = {
   name: string;
+  toolCallId: string;
   parameters: unknown;
   status: "inProgress" | "executing" | "complete";
   result: string | undefined;
@@ -13,6 +14,10 @@ type DefaultRenderProps = {
 const DefaultToolCallRenderer = defineComponent({
   props: {
     name: {
+      type: String,
+      required: true,
+    },
+    toolCallId: {
       type: String,
       required: true,
     },
@@ -114,6 +119,7 @@ export function useDefaultRenderTool(
         ((props: DefaultRenderProps) =>
           h(DefaultToolCallRenderer, {
             name: props.name,
+            toolCallId: props.toolCallId,
             parameters: props.parameters,
             status: props.status,
             result: props.result,

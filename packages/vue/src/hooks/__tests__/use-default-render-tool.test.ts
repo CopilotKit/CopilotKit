@@ -32,6 +32,7 @@ describe("useDefaultRenderTool", () => {
         name: string;
         render: (props: {
           name: string;
+          toolCallId: string;
           parameters: unknown;
           status: string;
           result: string | undefined;
@@ -71,6 +72,46 @@ describe("useDefaultRenderTool", () => {
     expect(config.name).toBe("*");
     expect(config.render).toBe(customRender);
     expect(forwardedDeps).toBe(deps);
+  });
+
+  it("forwards toolCallId to custom wildcard render function", () => {
+    const customRender = vi.fn(() => "custom");
+
+    const Harness = defineComponent({
+      setup() {
+        useDefaultRenderTool({ render: customRender });
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    render(Harness);
+
+    const [config] = mockUseRenderTool.mock.calls[0] as [
+      {
+        name: string;
+        render: (props: {
+          name: string;
+          toolCallId: string;
+          parameters: unknown;
+          status: "inProgress" | "executing" | "complete";
+          result: string | undefined;
+        }) => unknown;
+      },
+    ];
+
+    config.render({
+      name: "searchDocs",
+      toolCallId: "tc-forwarded-1",
+      parameters: { query: "copilot" },
+      status: "executing",
+      result: undefined,
+    });
+
+    expect(customRender).toHaveBeenCalledTimes(1);
+    expect(customRender.mock.calls[0]?.[0]).toMatchObject({
+      toolCallId: "tc-forwarded-1",
+    });
   });
 
   it("forwards custom render component", () => {
@@ -122,6 +163,7 @@ describe("useDefaultRenderTool", () => {
     render(DefaultRenderer as any, {
       props: {
         name: "searchDocs",
+        toolCallId: "tc-default-executing",
         parameters: { query: "copilot" },
         status: "executing",
         result: undefined,
@@ -157,6 +199,7 @@ describe("useDefaultRenderTool", () => {
     render(DefaultRenderer as any, {
       props: {
         name: "searchDocs",
+        toolCallId: "tc-default-complete",
         parameters: { query: "copilot" },
         status: "complete",
         result: "done",

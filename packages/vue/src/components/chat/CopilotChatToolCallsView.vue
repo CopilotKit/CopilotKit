@@ -91,6 +91,7 @@ function getCoreRenderProps(
   if (toolMessage) {
     return {
       name: toolCall.function.name,
+      toolCallId: toolCall.id,
       args: parsedArgs,
       status: ToolCallStatus.Complete,
       result: toolMessage.content,
@@ -101,6 +102,7 @@ function getCoreRenderProps(
   if (isExecuting) {
     return {
       name: toolCall.function.name,
+      toolCallId: toolCall.id,
       args: parsedArgs,
       status: ToolCallStatus.Executing,
       result: undefined,
@@ -109,6 +111,7 @@ function getCoreRenderProps(
 
   return {
     name: toolCall.function.name,
+    toolCallId: toolCall.id,
     args: parsedArgs && typeof parsedArgs === "object" ? parsedArgs : {},
     status: ToolCallStatus.InProgress,
     result: undefined,

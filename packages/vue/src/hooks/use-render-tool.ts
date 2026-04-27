@@ -12,6 +12,7 @@ const EMPTY_DEPS: WatchSource<unknown>[] = [];
 
 export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: Partial<InferSchemaOutput<S>>;
   status: "inProgress";
   result: undefined;
@@ -19,6 +20,7 @@ export interface RenderToolInProgressProps<S extends StandardSchemaV1> {
 
 export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: InferSchemaOutput<S>;
   status: "executing";
   result: undefined;
@@ -26,6 +28,7 @@ export interface RenderToolExecutingProps<S extends StandardSchemaV1> {
 
 export interface RenderToolCompleteProps<S extends StandardSchemaV1> {
   name: string;
+  toolCallId: string;
   parameters: InferSchemaOutput<S>;
   status: "complete";
   result: string;

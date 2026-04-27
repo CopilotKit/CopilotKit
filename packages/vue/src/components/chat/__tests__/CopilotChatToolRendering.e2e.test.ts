@@ -808,6 +808,143 @@ describe("Partial Args Accumulation", () => {
   });
 });
 
+describe("toolCallId parity for registered renderers", () => {
+  const ToolCallIdStatusRenderer = defineComponent({
+    props: {
+      name: { type: String, required: true },
+      toolCallId: { type: String, required: true },
+      status: { type: String, required: true },
+      args: {
+        type: Object as PropType<Record<string, unknown>>,
+        required: true,
+      },
+      result: { type: null as unknown as PropType<unknown>, required: false },
+    },
+    setup(props: VueToolCallRendererRenderProps<{ value: string }>) {
+      const text = computed(
+        () =>
+          `id:${props.toolCallId}|status:${props.status}|result:${props.result ? "Complete" : "Pending"}`,
+      );
+      return { text };
+    },
+    template: `<div data-testid="tool-call-id-status">{{ text }}</div>`,
+  });
+
+  const WildcardToolCallIdRenderer = defineComponent({
+    props: {
+      name: { type: String, required: true },
+      toolCallId: { type: String, required: true },
+      status: { type: String, required: true },
+      args: {
+        type: Object as PropType<Record<string, unknown>>,
+        required: true,
+      },
+      result: { type: null as unknown as PropType<unknown>, required: false },
+    },
+    setup(props: VueToolCallRendererRenderProps<unknown>) {
+      const text = computed(
+        () => `wildcard|id:${props.toolCallId}|name:${props.name}`,
+      );
+      return { text };
+    },
+    template: `<div data-testid="wildcard-tool-call-id">{{ text }}</div>`,
+  });
+
+  it("forwards the same toolCallId in inProgress, executing, and complete", async () => {
+    const agent = new MockStepwiseAgent();
+    let resolveHandler: (() => void) | undefined;
+
+    const ToolWithDeferredHandler = defineComponent({
+      setup() {
+        const tool: VueFrontendTool<{ value: string }> = {
+          name: "idTrackedTool",
+          parameters: z.object({ value: z.string() }),
+          handler: async () =>
+            new Promise((resolve) => {
+              resolveHandler = () => resolve({ result: "done" });
+            }),
+          render: ToolCallIdStatusRenderer,
+        };
+
+        useFrontendTool(tool);
+        return {};
+      },
+      template: `<div />`,
+    });
+
+    renderChatHarness({
+      agent,
+      registrar: ToolWithDeferredHandler,
+    });
+
+    await submitMessage("Track tool id");
+    await waitFor(() => {
+      expect(screen.getByText("Track tool id")).toBeDefined();
+    });
+
+    const messageId = "m_id";
+    const toolCallId = "tc_id_parity";
+
+    await agent.emit({ type: EventType.RUN_STARTED } as BaseEvent);
+    await agent.emit({
+      type: EventType.TOOL_CALL_CHUNK,
+      toolCallId,
+      toolCallName: "idTrackedTool",
+      parentMessageId: messageId,
+      delta: '{"value":"go"}',
+    } as BaseEvent);
+
+    await waitFor(() => {
+      const el = screen.getByTestId("tool-call-id-status");
+      expect(el.textContent).toMatch(/status:inProgress/);
+      expect(el.textContent).toContain(`id:${toolCallId}`);
+    });
+
+    await agent.emit({ type: EventType.RUN_FINISHED } as BaseEvent);
+    await agent.complete();
+
+    await waitFor(() => {
+      const el = screen.getByTestId("tool-call-id-status");
+      expect(el.textContent).toMatch(/status:executing/);
+      expect(el.textContent).toContain(`id:${toolCallId}`);
+      expect(resolveHandler).toBeTruthy();
+    });
+
+    resolveHandler?.();
+
+    await waitFor(() => {
+      const el = screen.getByTestId("tool-call-id-status");
+      expect(el.textContent).toMatch(/status:complete/);
+      expect(el.textContent).toContain(`id:${toolCallId}`);
+      expect(el.textContent).toMatch(/result:Complete/);
+    });
+  });
+
+  it("passes toolCallId to the wildcard fallback renderer", async () => {
+    const toolCallId = "tc_parity_id_wildcard";
+    const assistantMessage = createAssistantMessage([
+      { id: toolCallId, name: "unknownTool", argsJson: "{}" },
+    ]);
+
+    renderToolCallsHarness({
+      message: assistantMessage,
+      messages: [],
+      frontendTools: [
+        {
+          name: "*",
+          render: WildcardToolCallIdRenderer,
+        } as unknown as VueFrontendTool,
+      ],
+    });
+
+    await waitFor(() => {
+      const el = screen.getByTestId("wildcard-tool-call-id");
+      expect(el.textContent).toContain(`id:${toolCallId}`);
+      expect(el.textContent).toContain("name:unknownTool");
+    });
+  });
+});
+
 describe("Status Persistence After Agent Stops", () => {
   it("should remain in InProgress status after agent stops if no result", async () => {
     const agent = new MockStepwiseAgent();
