@@ -23,7 +23,7 @@
 const TELEMETRY_SINK_URL =
   (typeof process !== "undefined" &&
     process.env?.COPILOTKIT_TELEMETRY_URL) ||
-  "https://telemetry-sink.copilotkit.cloud/ingest";
+  "https://telemetry.copilotkit.ai/ingest";
 
 const FETCH_TIMEOUT_MS = 3000;
 
