@@ -102,9 +102,7 @@ describe("CopilotChat message queue e2e", () => {
 
     await waitFor(() => {
       // Pill gone, queue UI disappears (no pills left)
-      expect(
-        screen.queryByTestId("copilot-chat-message-queue"),
-      ).toBeNull();
+      expect(screen.queryByTestId("copilot-chat-message-queue")).toBeNull();
     });
   });
 
@@ -128,8 +126,6 @@ describe("CopilotChat message queue e2e", () => {
     // Queue feature is off — even if user tries to send, nothing queues
     fireEvent.change(input, { target: { value: "not-queueable" } });
 
-    expect(
-      screen.queryByTestId("copilot-chat-message-queue"),
-    ).toBeNull();
+    expect(screen.queryByTestId("copilot-chat-message-queue")).toBeNull();
   });
 });

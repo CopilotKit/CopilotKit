@@ -519,12 +519,9 @@ export function CopilotChatInput({
   });
 
   const hasInputContent = resolvedValue.trim().length > 0;
-  const canSend =
-    (hasInputContent || hasDrainableQueue) && !!onSubmitMessage;
+  const canSend = (hasInputContent || hasDrainableQueue) && !!onSubmitMessage;
   const isProcessing =
-    mode !== "transcribe" &&
-    isRunning &&
-    !(queueEnabled && hasInputContent);
+    mode !== "transcribe" && isRunning && !(queueEnabled && hasInputContent);
   const canStop = !!onStop;
 
   const handleSendButtonClick = () => {

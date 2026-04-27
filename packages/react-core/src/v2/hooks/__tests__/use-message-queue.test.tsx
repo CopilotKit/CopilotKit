@@ -37,7 +37,9 @@ describe("useMessageQueue", () => {
       expect(result.current.items).toHaveLength(2);
       expect(result.current.items[0].content).toEqual(textContent("first"));
       expect(result.current.items[1].content).toEqual(textContent("second"));
-      expect(result.current.items[0].id).not.toEqual(result.current.items[1].id);
+      expect(result.current.items[0].id).not.toEqual(
+        result.current.items[1].id,
+      );
     });
 
     it("enqueue is a no-op when !enabled", () => {
@@ -76,9 +78,7 @@ describe("useMessageQueue", () => {
       });
 
       expect(result.current.items).toHaveLength(2);
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("max size"),
-      );
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("max size"));
       warnSpy.mockRestore();
     });
 

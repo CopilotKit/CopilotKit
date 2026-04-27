@@ -12,8 +12,10 @@ import {
 import { cn } from "../../lib/utils";
 import type { QueuedMessage } from "../../hooks/use-message-queue";
 
-export interface CopilotChatMessageQueueProps
-  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onEdit"> {
+export interface CopilotChatMessageQueueProps extends Omit<
+  React.HTMLAttributes<HTMLDivElement>,
+  "onEdit"
+> {
   messages: QueuedMessage[];
   onEdit: (id: string, content: InputContent[]) => void;
   onRemove: (id: string) => void;
@@ -172,10 +174,7 @@ const QueuePill: React.FC<QueuePillProps> = ({
           </span>
         )}
         <div className="cpk:flex cpk:items-center cpk:gap-0.5 cpk:shrink-0 cpk:-mr-1">
-          <IconButton
-            label="Save edit"
-            onClick={() => onCommitEdit(draft)}
-          >
+          <IconButton label="Save edit" onClick={() => onCommitEdit(draft)}>
             <Check className="cpk:h-3.5 cpk:w-3.5" aria-hidden="true" />
           </IconButton>
           <IconButton label="Cancel edit" onClick={onCancelEdit}>
@@ -245,8 +244,7 @@ export const CopilotChatMessageQueue: React.FC<
 
   if (messages.length === 0) return null;
 
-  const shouldCollapse =
-    messages.length > COLLAPSE_THRESHOLD && !expanded;
+  const shouldCollapse = messages.length > COLLAPSE_THRESHOLD && !expanded;
   // When collapsed, show the head (first N) — those drain first in sequential
   // mode, so users care most about editing/removing them before they send.
   const visible = shouldCollapse
@@ -305,11 +303,7 @@ export const CopilotChatMessageQueue: React.FC<
           )}
         >
           <ChevronsUpDown className="cpk:h-3 cpk:w-3" aria-hidden="true" />
-          <span>
-            {expanded
-              ? "Show fewer"
-              : `Show ${hiddenCount} more`}
-          </span>
+          <span>{expanded ? "Show fewer" : `Show ${hiddenCount} more`}</span>
         </button>
       )}
     </div>

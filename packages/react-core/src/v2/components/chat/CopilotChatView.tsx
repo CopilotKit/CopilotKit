@@ -22,7 +22,10 @@ import type { Message } from "@ag-ui/core";
 import type { Attachment, InputContent } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
 import { CopilotChatMessageQueue } from "./CopilotChatMessageQueue";
-import type { QueuedMessage, MessageQueueDispatchMode } from "../../hooks/use-message-queue";
+import type {
+  QueuedMessage,
+  MessageQueueDispatchMode,
+} from "../../hooks/use-message-queue";
 import { twMerge } from "tailwind-merge";
 import {
   StickToBottom,
@@ -436,8 +439,7 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
-        {(BoundMessageQueue ||
-          (attachments && attachments.length > 0)) && (
+        {(BoundMessageQueue || (attachments && attachments.length > 0)) && (
           <div className="cpk:bg-background cpk:w-full cpk:pointer-events-auto">
             <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
               {BoundMessageQueue}
