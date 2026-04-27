@@ -14,6 +14,15 @@ import {
   cloneGitHubSubdirectory,
   isValidGitHubUrl,
 } from "../lib/init/scaffold/github.js";
+import {
+  createTipEngine,
+  WeightedRandomStrategy,
+  MarkdownTipRenderer,
+  JsonFileTipStore,
+} from "../tips/index.js";
+import { loadRemoteTips } from "../tips/loaders/remote.js";
+import { renderAlert } from "../tips/renderers/alert.js";
+import { AnalyticsService } from "../services/analytics.service.js";
 
 const streamPipeline = promisify(pipeline);
 
@@ -315,6 +324,32 @@ export default class Create extends BaseCommand {
         theme.command(FRAMEWORK_DOCUMENTATION[options.agentFramework]),
     );
     this.log(theme.bottomPadding);
+
+    const analytics = new AnalyticsService();
+    const { tips, alert } = await loadRemoteTips("post-create");
+
+    if (alert) {
+      renderAlert(alert, this.log.bind(this));
+    }
+
+    const tipEngine = createTipEngine({
+      tips,
+      strategy: new WeightedRandomStrategy({ noRepeatCount: 3 }),
+      renderer: new MarkdownTipRenderer(),
+      store: new JsonFileTipStore(),
+      onTipShown: (tip) => {
+        analytics.track({
+          event: "cli.tip.shown",
+          properties: {
+            tip_id: tip.id,
+            category: tip.category,
+            command: "create",
+            source: "remote",
+          },
+        });
+      },
+    });
+    await tipEngine.show(this.log.bind(this));
   }
 
   private async promptProjectName(): Promise<string> {

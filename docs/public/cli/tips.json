@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "alert": null,
+  "tips": {
+    "post-create": [
+      {
+        "id": "activation-license-key",
+        "message": "Add license key to code and get **1000 free MAUs** for three months: [copilotkit.ai/keys](https://copilotkit.ai/keys?utm_source=cli-tip-license-key)",
+        "category": "activation",
+        "weight": 2
+      },
+      {
+        "id": "activation-unlock-features",
+        "message": "Unlock features and limits when you add the license key to your code: [copilotkit.ai/keys](https://copilotkit.ai/keys?utm_source=cli-tip-unlock-features)",
+        "category": "activation",
+        "weight": 2
+      },
+      {
+        "id": "conversion-build-session",
+        "message": "Free build session with CopilotKit engineer, enter license key into your code and book here: [copilotkit.ai/meet](https://copilotkit.ai/meet?utm_source=cli-tip-build-session)",
+        "category": "conversion"
+      },
+      {
+        "id": "conversion-help-session",
+        "message": "Need help? Don't wander around in the dark, book a free CopilotKit engineer session: [copilotkit.ai/meet](https://copilotkit.ai/meet?utm_source=cli-tip-help-session)",
+        "category": "conversion"
+      },
+      {
+        "id": "engagement-mcp",
+        "message": "CopilotKit MCP makes your code soar: [docs.copilotkit.ai/mcp](https://docs.copilotkit.ai/mcp?utm_source=cli-tip-mcp)",
+        "category": "engagement"
+      }
+    ],
+    "dev": [
+      {
+        "id": "activation-license-key",
+        "message": "Add license key to code and get **1000 free MAUs** for three months: [copilotkit.ai/keys](https://copilotkit.ai/keys?utm_source=cli-tip-license-key)",
+        "category": "activation",
+        "weight": 2
+      },
+      {
+        "id": "activation-unlock-features",
+        "message": "Unlock features and limits when you add the license key to your code: [copilotkit.ai/keys](https://copilotkit.ai/keys?utm_source=cli-tip-unlock-features)",
+        "category": "activation",
+        "weight": 2
+      },
+      {
+        "id": "conversion-build-session",
+        "message": "Free build session with CopilotKit engineer, enter license key into your code and book here: [copilotkit.ai/meet](https://copilotkit.ai/meet?utm_source=cli-tip-build-session)",
+        "category": "conversion"
+      },
+      {
+        "id": "conversion-help-session",
+        "message": "Need help? Don't wander around in the dark, book a free CopilotKit engineer session: [copilotkit.ai/meet](https://copilotkit.ai/meet?utm_source=cli-tip-help-session)",
+        "category": "conversion"
+      },
+      {
+        "id": "engagement-mcp",
+        "message": "CopilotKit MCP makes your code soar: [docs.copilotkit.ai/mcp](https://docs.copilotkit.ai/mcp?utm_source=cli-tip-mcp)",
+        "category": "engagement"
+      }
+    ]
+  }
+}
