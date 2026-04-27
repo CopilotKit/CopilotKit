@@ -169,6 +169,7 @@ export interface E2eDeepPage extends Page {
     },
   ): Promise<unknown>;
   close(): Promise<void>;
+  click(selector: string, opts?: { timeout?: number }): Promise<void>;
   /**
    * Returns browser-side diagnostic data captured since page creation.
    * Optional because tests inject scripted fakes that don't track
@@ -291,11 +292,9 @@ const defaultLauncher: E2eDeepBrowserLauncher =
               press: (s, k, o) => page.press(s, k, o),
               evaluate: <R>(fn: () => R) => page.evaluate(fn),
               goto: (url, opts) =>
-                page.goto(
-                  url,
-                  opts as Parameters<typeof page.goto>[1],
-                ),
+                page.goto(url, opts as Parameters<typeof page.goto>[1]),
               close: () => page.close(),
+              click: (s, o) => page.click(s, o),
               getDiagnostics: () => ({
                 consoleLogs: consoleLogs.slice(-20),
                 requestFailures: requestFailures.slice(-10),

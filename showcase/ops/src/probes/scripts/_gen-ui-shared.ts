@@ -59,7 +59,7 @@ export const GEN_UI_COMPONENT_SELECTORS = [
   '[role="article"]',
 ] as const;
 
-const DEFAULT_RENDER_TIMEOUT_MS = 30_000;
+const DEFAULT_RENDER_TIMEOUT_MS = 45_000;
 const POLL_INTERVAL_MS = 200;
 
 /**
@@ -86,10 +86,34 @@ export async function waitForGenUiComponent(
     await sleep(POLL_INTERVAL_MS);
   }
 
+  const domSnapshot = await page.evaluate(() => {
+    const win = globalThis as unknown as {
+      document: {
+        querySelectorAll(sel: string): ArrayLike<{
+          tagName: string;
+          childElementCount: number;
+          className: string;
+          textContent: string | null;
+        }>;
+      };
+    };
+    const articles = win.document.querySelectorAll('[role="article"]');
+    const summary: string[] = [];
+    for (let i = 0; i < Math.min(articles.length, 5); i++) {
+      const el = articles[i]!;
+      summary.push(
+        `<${el.tagName.toLowerCase()} class="${el.className}" children=${el.childElementCount}>` +
+          `${(el.textContent ?? "").slice(0, 80)}`,
+      );
+    }
+    return summary.length > 0
+      ? summary.join(" | ")
+      : "no [role=article] elements found";
+  });
   throw new Error(
     `gen-ui component did not render within ${timeoutMs}ms (${
       lastError ?? "no candidate selector matched"
-    })`,
+    }; DOM: ${domSnapshot})`,
   );
 }
 

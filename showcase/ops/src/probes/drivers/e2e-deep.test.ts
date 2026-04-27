@@ -82,6 +82,9 @@ function makePage(script: PageScript = {}): E2eDeepPage {
       void fn;
       return messageCount as unknown as R;
     },
+    async click() {
+      /* no-op */
+    },
     async close() {
       /* no-op */
     },
