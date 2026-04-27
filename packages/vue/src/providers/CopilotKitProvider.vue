@@ -344,6 +344,7 @@ const createCopilotKit = () => {
     renderToolCalls: allRenderToolCalls.value,
     renderActivityMessages: allRenderActivityMessages.value,
     renderCustomMessages: allRenderCustomMessages.value,
+    debug: props.debug,
   });
   // Initialize synchronously so child hooks can read the value on first render.
   applyDefaultThrottleMs(core);
@@ -453,6 +454,7 @@ function syncRuntimeConfig() {
   copilotkit.value.setCredentials(props.credentials);
   copilotkit.value.setProperties(props.properties);
   copilotkit.value.setAgents__unsafe_dev_only(mergedAgents.value);
+  copilotkit.value.setDebug(props.debug);
   applyDefaultThrottleMs(copilotkit.value);
 }
 
@@ -464,6 +466,7 @@ watch(
     () => props.properties,
     () => mergedAgents.value,
     () => props.useSingleEndpoint,
+    () => props.debug,
   ],
   () => {
     if (!didMountRef.value) return;

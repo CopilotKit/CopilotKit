@@ -88,6 +88,31 @@ Notes:
 - `onError` receives provider-scope core errors and is independent from chat-level `CopilotChat.onError`.
 - `a2ui.theme` customizes the built-in `a2ui-surface` fallback renderer when the runtime reports `a2uiEnabled: true`.
 
+### Provider `debug` logging
+
+`CopilotKitProvider` accepts a `debug` prop that mirrors the React `debug` surface. It toggles client-side debug logging on the underlying core and is kept in sync at runtime as the prop changes.
+
+Supported values match React parity:
+
+- `true` / `false` — enables or disables event + lifecycle logging (verbose payloads stay off).
+- `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` — granular control; `verbose` opts into full event payloads.
+
+```vue
+<script setup lang="ts">
+import { CopilotKitProvider, type DebugConfig } from "@copilotkitnext/vue";
+
+const debug: DebugConfig = { events: true, lifecycle: true, verbose: false };
+</script>
+
+<template>
+  <CopilotKitProvider runtime-url="/api/copilotkit" :debug="debug">
+    <slot />
+  </CopilotKitProvider>
+</template>
+```
+
+Prop updates are forwarded to the stable `CopilotKitCoreVue` instance via `setDebug(...)`, so changing `debug` at runtime does not recreate the provider or the core instance.
+
 ## Chat Error Parity: `CopilotChat.onError`
 
 `CopilotChat` also exposes an `onError` callback with React-parity filtering semantics.

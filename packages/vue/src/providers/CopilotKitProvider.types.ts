@@ -1,5 +1,6 @@
 import type { AbstractAgent } from "@ag-ui/client";
 import type { CopilotKitCoreErrorCode } from "@copilotkit/core";
+import type { DebugConfig } from "@copilotkit/shared";
 import type {
   A2UITheme,
   SandboxFunction,
@@ -41,4 +42,12 @@ export interface CopilotKitProviderProps {
     loadingComponent?: Component;
     includeSchema?: boolean;
   };
+  /**
+   * Enable debug logging for the client-side event pipeline.
+   *
+   * Accepts:
+   * - `true` / `false` to toggle events + lifecycle logging (verbose off).
+   * - `{ events?: boolean; lifecycle?: boolean; verbose?: boolean }` for granular control.
+   */
+  debug?: DebugConfig;
 }
