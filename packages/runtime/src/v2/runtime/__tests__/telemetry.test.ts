@@ -1,19 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TelemetryClient } from "../telemetry/telemetry-client";
 import scarfClient from "../telemetry/scarf-client";
+import { lambdaClient } from "@copilotkit/shared";
 
 describe("TelemetryClient", () => {
-  let scarfSpy: ReturnType<typeof vi.spyOn>;
+  let lambdaSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    scarfSpy = vi.spyOn(scarfClient, "logEvent").mockResolvedValue(undefined);
+    lambdaSpy = vi.spyOn(lambdaClient, "send").mockResolvedValue(undefined);
   });
 
   afterEach(() => {
-    scarfSpy.mockRestore();
+    lambdaSpy.mockRestore();
   });
 
-  it("sends event to scarf when sampled in", async () => {
+  it("sends event to telemetry sink when sampled in", async () => {
     vi.spyOn(Math, "random").mockReturnValue(0);
     const client = new TelemetryClient({
       telemetryDisabled: false,
@@ -27,12 +28,13 @@ describe("TelemetryClient", () => {
       "cloud.api_key_provided": false,
     });
 
-    expect(scarfSpy).toHaveBeenCalledWith({
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    expect(lambdaSpy.mock.calls[0][0]).toMatchObject({
       event: "oss.runtime.instance_created",
     });
   });
 
-  it("only sends event name to scarf, not properties", async () => {
+  it("forwards event properties (including cloud api key extraction) to the sink", async () => {
     const client = new TelemetryClient({
       telemetryDisabled: false,
       sampleRate: 1,
@@ -42,15 +44,17 @@ describe("TelemetryClient", () => {
       "cloud.guardrails.enabled": true,
       requestType: "run",
       "cloud.api_key_provided": true,
-      "cloud.public_api_key": "pk_test_123",
+      "cloud.public_api_key": "ck_live_abc123def456ghij.secret-blob",
     });
 
-    expect(scarfSpy).toHaveBeenCalledWith({
-      event: "oss.runtime.copilot_request_created",
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.event).toBe("oss.runtime.copilot_request_created");
+    expect(arg.apiKey).toBe("ck_live_abc123def456ghij.secret-blob");
+    expect(arg.properties).toMatchObject({
+      requestType: "run",
+      "cloud.api_key_provided": true,
     });
-    // Properties should NOT be forwarded to scarf
-    const callArg = scarfSpy.mock.calls[0][0];
-    expect(Object.keys(callArg)).toEqual(["event"]);
   });
 
   it("does not send events when telemetryDisabled is true", async () => {
@@ -66,7 +70,7 @@ describe("TelemetryClient", () => {
       "cloud.api_key_provided": false,
     });
 
-    expect(scarfSpy).not.toHaveBeenCalled();
+    expect(lambdaSpy).not.toHaveBeenCalled();
   });
 
   it("does not send events when sampled out", async () => {
@@ -83,7 +87,7 @@ describe("TelemetryClient", () => {
       "cloud.api_key_provided": false,
     });
 
-    expect(scarfSpy).not.toHaveBeenCalled();
+    expect(lambdaSpy).not.toHaveBeenCalled();
   });
 
   it("respects sample rate boundary", async () => {
@@ -95,7 +99,7 @@ describe("TelemetryClient", () => {
 
     await client.capture("oss.runtime.agent_execution_stream_started", {});
 
-    expect(scarfSpy).toHaveBeenCalled();
+    expect(lambdaSpy).toHaveBeenCalled();
   });
 
   it("throws when sample rate is out of range", () => {

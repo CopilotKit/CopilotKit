@@ -1,5 +1,6 @@
 import { AnalyticsEvents } from "./events";
-import scarfClient from "./scarf-client";
+import { lambdaClient } from "@copilotkit/shared";
+import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {
   return (
@@ -15,7 +16,10 @@ export function isTelemetryDisabled(): boolean {
 
 export class TelemetryClient {
   private telemetryDisabled: boolean = false;
-  private sampleRate: number = 0.05;
+  // Sampling now runs server-side at the telemetry-sink Lambda. The client
+  // sends 100% by default; customers who want to cap egress bandwidth can
+  // set COPILOTKIT_TELEMETRY_SAMPLE_RATE explicitly.
+  private sampleRate: number = 1.0;
 
   constructor({
     telemetryDisabled,
@@ -29,30 +33,36 @@ export class TelemetryClient {
   }
 
   private shouldSendEvent() {
-    if (this.telemetryDisabled) {
-      return false;
-    }
-    const randomNumber = Math.random();
-    return randomNumber < this.sampleRate;
+    if (this.telemetryDisabled) return false;
+    if (this.sampleRate >= 1) return true;
+    return Math.random() < this.sampleRate;
   }
 
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
-    _properties: AnalyticsEvents[K],
+    properties: AnalyticsEvents[K],
   ) {
-    if (!this.shouldSendEvent()) {
-      return;
-    }
+    if (!this.shouldSendEvent()) return;
 
-    await scarfClient.logEvent({
+    const props = properties as Record<string, unknown>;
+    const apiKey =
+      typeof props?.["cloud.public_api_key"] === "string"
+        ? (props["cloud.public_api_key"] as string)
+        : undefined;
+
+    await lambdaClient.send({
       event,
+      properties: props,
+      packageName: packageJson.name,
+      packageVersion: packageJson.version,
+      apiKey,
     });
   }
 
   private setSampleRate(sampleRate: number | undefined) {
     let _sampleRate: number;
 
-    _sampleRate = sampleRate ?? 0.05;
+    _sampleRate = sampleRate ?? 1.0;
 
     if (process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE) {
       _sampleRate = parseFloat(process.env.COPILOTKIT_TELEMETRY_SAMPLE_RATE);

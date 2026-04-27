@@ -2,7 +2,7 @@ import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import scarfClient from "./scarf-client";
+import lambdaClient from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -29,6 +29,9 @@ export class TelemetryClient {
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
+  // Sample rate gates the Segment path only. The telemetry-sink Lambda
+  // handles sampling for the Scarf / Reo / future-vendor fan-out
+  // server-side, so the Lambda call always fires (subject to telemetryDisabled).
   private sampleRate: number = 0.05;
   private anonymousId = `anon_${uuidv4()}`;
 
@@ -79,7 +82,7 @@ export class TelemetryClient {
     event: K,
     properties: AnalyticsEvents[K],
   ) {
-    if (!this.shouldSendEvent() || !this.segment) {
+    if (this.telemetryDisabled) {
       return;
     }
 
@@ -98,15 +101,27 @@ export class TelemetryClient {
         {} as Record<string, any>,
       );
 
-    this.segment.track({
-      anonymousId: this.anonymousId,
+    // Always send to the telemetry-sink Lambda — sampling happens
+    // server-side. The Lambda fans out to Scarf, Reo, and any future
+    // vendor sinks.
+    await lambdaClient.send({
       event,
-      properties: { ...orderedPropertiesWithGlobal },
+      properties: flattenedProperties,
+      globalProperties: this.globalProperties,
+      packageName: this.packageName,
+      packageVersion: this.packageVersion,
+      apiKey: this.cloudConfiguration?.publicApiKey,
     });
 
-    await scarfClient.logEvent({
-      event,
-    });
+    // Segment path retained for CopilotCloud-specific user analytics that
+    // pre-date the Lambda. Keeps its existing 5% client-side sampling.
+    if (this.shouldSendEvent() && this.segment) {
+      this.segment.track({
+        anonymousId: this.anonymousId,
+        event,
+        properties: { ...orderedPropertiesWithGlobal },
+      });
+    }
   }
 
   setGlobalProperties(properties: Record<string, any>) {
