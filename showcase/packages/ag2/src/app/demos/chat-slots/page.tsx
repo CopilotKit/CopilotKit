@@ -13,7 +13,11 @@ import { CustomDisclaimer } from "./custom-disclaimer";
 
 export default function ChatSlotsDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="chat-slots">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="chat-slots"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

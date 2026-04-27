@@ -11,7 +11,11 @@ import { z } from "zod";
 
 export default function ToolRenderingDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="tool-rendering">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="tool-rendering"
+    >
       <Chat />
     </CopilotKit>
   );

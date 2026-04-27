@@ -18,7 +18,11 @@ import { useAgentConfig } from "./use-agent-config";
 
 export default function AgentConfigDemoPage() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="agent-config">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="agent-config"
+    >
       <Inner />
     </CopilotKit>
   );

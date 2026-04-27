@@ -25,7 +25,11 @@ export default function RootLayout({
       <body
         className={`${spaceMono.className} antialiased bg-[var(--bg-primary)] text-[var(--fg-primary)]`}
       >
-        <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="sample_agent">
+        <CopilotKit
+          useLegacyRuntime
+          runtimeUrl="/api/copilotkit"
+          agent="sample_agent"
+        >
           {children}
         </CopilotKit>
       </body>

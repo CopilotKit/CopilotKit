@@ -18,7 +18,11 @@ interface Haiku {
 
 export default function GenUiToolBasedDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="gen-ui-tool-based">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-tool-based"
+    >
       <SidebarWithSuggestions />
       <HaikuDisplay />
     </CopilotKit>

@@ -13,7 +13,11 @@ import { z } from "zod";
 
 export default function AgenticChatDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="agentic_chat">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="agentic_chat"
+    >
       <Chat />
     </CopilotKit>
   );

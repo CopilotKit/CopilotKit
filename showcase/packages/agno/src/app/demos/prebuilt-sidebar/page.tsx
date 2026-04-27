@@ -10,7 +10,11 @@ import {
 // Outer layer — provider + main content + sidebar.
 export default function PrebuiltSidebarDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="prebuilt-sidebar">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="prebuilt-sidebar"
+    >
       <MainContent />
       <CopilotSidebar agentId="prebuilt-sidebar" defaultOpen={true} />
       <Suggestions />

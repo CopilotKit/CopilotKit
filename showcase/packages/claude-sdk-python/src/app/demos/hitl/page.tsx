@@ -16,7 +16,11 @@ interface Step {
 
 export default function HitlDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="human_in_the_loop">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="human_in_the_loop"
+    >
       <DemoContent />
     </CopilotKit>
   );

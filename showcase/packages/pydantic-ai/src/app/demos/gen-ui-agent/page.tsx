@@ -18,7 +18,11 @@ interface AgentState {
 
 export default function GenUiAgentDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="gen-ui-agent">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-agent"
+    >
       <Chat />
     </CopilotKit>
   );

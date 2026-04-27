@@ -41,7 +41,11 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="interrupt-headless">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="interrupt-headless"
+    >
       <Layout />
     </CopilotKit>
   );

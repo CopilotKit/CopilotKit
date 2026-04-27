@@ -12,7 +12,11 @@ import { z } from "zod";
 
 export default function HeadlessSimpleDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="headless-simple">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="headless-simple"
+    >
       <div className="flex justify-center items-start min-h-screen w-full p-6 bg-gray-50">
         <div className="w-full max-w-4xl">
           <HeadlessChat />

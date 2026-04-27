@@ -36,7 +36,11 @@ const SUPPORT_TICKETS = [
 
 export default function HitlInAppDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="hitl-in-app">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="hitl-in-app"
+    >
       <Layout />
     </CopilotKit>
   );

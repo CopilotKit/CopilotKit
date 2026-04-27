@@ -9,7 +9,11 @@ import {
 
 export default function PrebuiltPopupDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="prebuilt-popup">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="prebuilt-popup"
+    >
       <MainContent />
       <CopilotPopup
         agentId="prebuilt-popup"

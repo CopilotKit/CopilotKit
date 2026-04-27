@@ -35,7 +35,11 @@ type PickerResult =
 
 export default function GenUiInterruptDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="gen-ui-interrupt">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="gen-ui-interrupt"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

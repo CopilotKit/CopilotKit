@@ -11,7 +11,11 @@ const AGENT_ID = "agent-config-demo";
 
 export default function AgentConfigDemoPage() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit-agent-config" agent={AGENT_ID}>
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit-agent-config"
+      agent={AGENT_ID}
+    >
       <AgentConfigInner />
     </CopilotKit>
   );

@@ -21,7 +21,11 @@ const DEFAULT_SLOTS: TimeSlot[] = [
 
 export default function HitlInChatDemo() {
   return (
-    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="hitl-in-chat">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="hitl-in-chat"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
