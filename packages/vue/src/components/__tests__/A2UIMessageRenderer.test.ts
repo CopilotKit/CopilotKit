@@ -35,6 +35,41 @@ describe("createA2UIMessageRenderer", () => {
     expect(getByTestId("a2ui-loading")).not.toBeNull();
   });
 
+  it("default loading fallback renders header dot, 'Generating UI...' label, and three pulsing skeleton bars", () => {
+    const renderer = createA2UIMessageRenderer({ theme: {} });
+    const { getByTestId, getAllByTestId, container } = render(renderer.render, {
+      props: {
+        activityType: "a2ui-surface",
+        content: {},
+        message: {},
+        agent: {},
+      },
+    });
+
+    const root = getByTestId("a2ui-loading");
+    expect(root).not.toBeNull();
+    expect((root as HTMLElement).textContent ?? "").toContain(
+      "Generating UI...",
+    );
+
+    const dot = getByTestId("a2ui-loading-dot") as HTMLElement;
+    expect(dot.getAttribute("style") ?? "").toMatch(/cpk-a2ui-pulse/);
+
+    const bars = getAllByTestId("a2ui-loading-bar") as HTMLElement[];
+    expect(bars).toHaveLength(3);
+
+    const widthMatches = bars.map((bar) => {
+      const style = bar.getAttribute("style") ?? "";
+      const match = style.match(/width:\s*([\d.]+)%/);
+      expect(style).toMatch(/cpk-a2ui-pulse/);
+      return match ? Number(match[1]) : null;
+    });
+    expect(widthMatches).toEqual([80, 60, 40]);
+
+    const styleTag = container.querySelector("style");
+    expect(styleTag?.textContent ?? "").toContain("@keyframes cpk-a2ui-pulse");
+  });
+
   it("renders custom loading component when provided", () => {
     const CustomLoading = defineComponent({
       name: "CustomLoading",
