@@ -33,7 +33,7 @@ crewai = { version = ">=0.118.0", optional = true, python = ">=3.10,<3.13" }
 ag-ui-langgraph = { version = ">=0.0.29", extras = ["fastapi"] }
 ag-ui-protocol = ">=0.1.15"
 fastapi = ">=0.115.0,<1.0.0"
-partialjson = "^0.0.8"
+partialjson = ">=0.0.8,<2.0.0"
 toml = "^0.10.2"
 
 [tool.poetry.extras]
