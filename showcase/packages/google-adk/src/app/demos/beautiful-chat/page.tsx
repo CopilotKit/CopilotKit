@@ -2,7 +2,10 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function BeautifulChatDemo() {
   return (
@@ -16,8 +19,14 @@ function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Sales pulse", message: "Show me Q3 revenue split by region." },
-      { title: "Find flights", message: "Find flights from SFO to JFK next Friday." },
-      { title: "Book a sync", message: "Book me a 30-minute sync with our designer." },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK next Friday.",
+      },
+      {
+        title: "Book a sync",
+        message: "Book me a 30-minute sync with our designer.",
+      },
     ],
     available: "always",
   });
@@ -34,8 +43,8 @@ function DemoContent() {
         </h1>
         <p className="mt-2 text-slate-600 max-w-2xl">
           Brand fonts, theme tokens, suggestion pills, and live charts —
-          delivered by a Gemini 2.5 Flash agent with the canonical sales-pipeline
-          tools wired up on the backend.
+          delivered by a Gemini 2.5 Flash agent with the canonical
+          sales-pipeline tools wired up on the backend.
         </p>
       </header>
       <main className="max-w-5xl mx-auto px-8 pb-12">

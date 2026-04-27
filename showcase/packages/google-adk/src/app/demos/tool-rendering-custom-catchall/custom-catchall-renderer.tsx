@@ -17,11 +17,12 @@ export function CustomCatchallRenderer({
   result,
   status,
 }: CustomCatchallRendererProps) {
-  const formatted = result === undefined || result === null
-    ? FALLBACK_RESULT_LABEL
-    : typeof result === "string"
-      ? result
-      : JSON.stringify(result, null, 2);
+  const formatted =
+    result === undefined || result === null
+      ? FALLBACK_RESULT_LABEL
+      : typeof result === "string"
+        ? result
+        : JSON.stringify(result, null, 2);
 
   return (
     <div

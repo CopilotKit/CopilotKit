@@ -10,7 +10,10 @@ import {
 
 export default function ReadonlyStateAgentContextDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="readonly_state_agent_context">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="readonly_state_agent_context"
+    >
       <DemoContent />
     </CopilotKit>
   );
@@ -54,7 +57,11 @@ function DemoContent() {
           </div>
           <Field label="Name" value={userName} onChange={setUserName} />
           <Field label="Role" value={role} onChange={setRole} />
-          <Field label="Current project" value={project} onChange={setProject} />
+          <Field
+            label="Current project"
+            value={project}
+            onChange={setProject}
+          />
         </div>
       </aside>
       <main className="flex-1 flex flex-col min-h-0">

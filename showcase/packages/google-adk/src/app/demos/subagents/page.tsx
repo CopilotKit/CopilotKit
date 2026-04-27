@@ -33,11 +33,13 @@ function DemoContent() {
     suggestions: [
       {
         title: "Quick brief",
-        message: "Plan a 1-paragraph brief on the benefits of pair programming.",
+        message:
+          "Plan a 1-paragraph brief on the benefits of pair programming.",
       },
       {
         title: "Marketing post",
-        message: "Draft and critique a LinkedIn post announcing CopilotKit 2.0.",
+        message:
+          "Draft and critique a LinkedIn post announcing CopilotKit 2.0.",
       },
     ],
     available: "always",

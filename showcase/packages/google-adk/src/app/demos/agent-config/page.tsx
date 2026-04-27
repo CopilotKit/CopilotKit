@@ -63,7 +63,9 @@ function DemoContent() {
         <CopilotChat
           agentId="agent_config"
           className="flex-1 min-h-0"
-          labels={{ chatInputPlaceholder: "Try the agent under different configs..." }}
+          labels={{
+            chatInputPlaceholder: "Try the agent under different configs...",
+          }}
         />
       </main>
     </div>

@@ -44,9 +44,12 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
       className="w-full max-w-md p-6 bg-white rounded-2xl shadow-sm border border-[#DBDBE5] space-y-5"
     >
       <div>
-        <h2 className="text-xl font-semibold text-[#010507]">Your preferences</h2>
+        <h2 className="text-xl font-semibold text-[#010507]">
+          Your preferences
+        </h2>
         <p className="text-xs text-[#57575B] mt-1">
-          These are written into agent state. The agent reads them on every turn.
+          These are written into agent state. The agent reads them on every
+          turn.
         </p>
       </div>
 

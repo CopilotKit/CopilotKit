@@ -33,7 +33,10 @@ function Chat() {
     }),
     handler: async ({ background }: { background: string }) => {
       setBackground(background);
-      return { status: "success", message: `Background changed to ${background}` };
+      return {
+        status: "success",
+        message: `Background changed to ${background}`,
+      };
     },
   });
 

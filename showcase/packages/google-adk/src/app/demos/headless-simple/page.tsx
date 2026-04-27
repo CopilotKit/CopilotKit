@@ -26,7 +26,9 @@ function ShowCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="my-2 rounded-lg border border-gray-300 bg-white p-4 shadow-sm">
       <div className="font-semibold text-gray-900">{title}</div>
-      <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{body}</div>
+      <div className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">
+        {body}
+      </div>
     </div>
   );
 }
@@ -58,7 +60,9 @@ function HeadlessChat() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-xl font-semibold">Headless Chat (Simple) — Google ADK</h1>
+      <h1 className="text-xl font-semibold">
+        Headless Chat (Simple) — Google ADK
+      </h1>
       <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 min-h-[300px]">
         {agent.messages.length === 0 && (
           <div className="text-sm text-gray-400">No messages yet. Say hi!</div>

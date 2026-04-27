@@ -2,7 +2,10 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function ReasoningDefaultRenderDemo() {
   return (

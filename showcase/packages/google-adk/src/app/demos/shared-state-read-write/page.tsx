@@ -79,7 +79,10 @@ function DemoContent() {
   return (
     <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
       <aside className="p-4 md:w-[360px] md:shrink-0 overflow-y-auto space-y-4">
-        <PreferencesCard value={preferences} onChange={handlePreferencesChange} />
+        <PreferencesCard
+          value={preferences}
+          onChange={handlePreferencesChange}
+        />
         <NotesCard notes={notes} onClear={handleClearNotes} />
       </aside>
       <main className="flex-1 flex flex-col min-h-0">

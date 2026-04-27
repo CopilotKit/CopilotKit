@@ -1,11 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import {
-  CopilotKit,
-  useAgent,
-  useCopilotKit,
-} from "@copilotkit/react-core/v2";
+import { CopilotKit, useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 import { MessageList } from "./message-list";
 

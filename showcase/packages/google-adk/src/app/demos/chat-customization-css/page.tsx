@@ -2,7 +2,10 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 import "./theme.css";
 
@@ -17,8 +20,14 @@ export default function ChatCustomizationCssDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Quick poem", message: "Write a 4-line poem about morning coffee." },
-      { title: "Travel one-liner", message: "Give me a one-liner about Tokyo at night." },
+      {
+        title: "Quick poem",
+        message: "Write a 4-line poem about morning coffee.",
+      },
+      {
+        title: "Travel one-liner",
+        message: "Give me a one-liner about Tokyo at night.",
+      },
     ],
     available: "always",
   });

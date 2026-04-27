@@ -56,7 +56,9 @@ function DemoContent() {
         <CopilotChat
           agentId="frontend_tools_async"
           className="flex-1 min-h-0"
-          labels={{ chatInputPlaceholder: "Ask the agent to search your notes..." }}
+          labels={{
+            chatInputPlaceholder: "Ask the agent to search your notes...",
+          }}
         />
       </main>
     </div>

@@ -2,7 +2,10 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotPopup, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotPopup,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function PrebuiltPopupDemo() {
   return (
@@ -16,7 +19,10 @@ function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Quick recipe", message: "Suggest a 15-minute pasta recipe." },
-      { title: "Travel tip", message: "Give me one weekend-trip idea near Tokyo." },
+      {
+        title: "Travel tip",
+        message: "Give me one weekend-trip idea near Tokyo.",
+      },
     ],
     available: "always",
   });
@@ -26,8 +32,8 @@ function DemoContent() {
       <main className="max-w-3xl mx-auto px-6 py-16 prose prose-slate">
         <h1>Pre-Built Popup</h1>
         <p>
-          The CopilotPopup component renders a floating chat bubble. Click it
-          to expand into a windowed chat surface that overlays the page.
+          The CopilotPopup component renders a floating chat bubble. Click it to
+          expand into a windowed chat surface that overlays the page.
         </p>
       </main>
       <CopilotPopup defaultOpen={false} />

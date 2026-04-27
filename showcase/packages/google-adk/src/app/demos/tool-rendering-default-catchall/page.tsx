@@ -2,11 +2,17 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="tool_rendering_default_catchall">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      agent="tool_rendering_default_catchall"
+    >
       <DemoContent />
     </CopilotKit>
   );
@@ -16,8 +22,14 @@ function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Get weather", message: "What's the weather in Tokyo?" },
-      { title: "Find flights", message: "Find me flights from SFO to LAX next Tuesday." },
-      { title: "Sales chart", message: "Show me a quarterly revenue pie chart." },
+      {
+        title: "Find flights",
+        message: "Find me flights from SFO to LAX next Tuesday.",
+      },
+      {
+        title: "Sales chart",
+        message: "Show me a quarterly revenue pie chart.",
+      },
     ],
     available: "always",
   });

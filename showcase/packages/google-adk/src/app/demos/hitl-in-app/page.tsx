@@ -33,20 +33,27 @@ function DemoContent() {
       summary: z.string().describe("Short summary of the proposed action."),
       reason: z.string().describe("Why the action is being proposed."),
     }),
-    handler: async ({ summary, reason }: { summary: string; reason: string }) => {
-      const decision = await new Promise<{ accepted: boolean; reason?: string }>(
-        (resolve) => {
-          setPending({
-            id: crypto.randomUUID(),
-            summary,
-            reason,
-            resolve: (d) => {
-              setPending(null);
-              resolve(d);
-            },
-          });
-        },
-      );
+    handler: async ({
+      summary,
+      reason,
+    }: {
+      summary: string;
+      reason: string;
+    }) => {
+      const decision = await new Promise<{
+        accepted: boolean;
+        reason?: string;
+      }>((resolve) => {
+        setPending({
+          id: crypto.randomUUID(),
+          summary,
+          reason,
+          resolve: (d) => {
+            setPending(null);
+            resolve(d);
+          },
+        });
+      });
       return decision;
     },
   });

@@ -2,7 +2,10 @@
 
 import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotSidebar, useConfigureSuggestions } from "@copilotkit/react-core/v2";
+import {
+  CopilotSidebar,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function PrebuiltSidebarDemo() {
   return (
@@ -15,8 +18,14 @@ export default function PrebuiltSidebarDemo() {
 function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Help me focus", message: "Suggest 3 ways to focus on my work today." },
-      { title: "Daily standup", message: "Help me draft a 3-bullet daily standup update." },
+      {
+        title: "Help me focus",
+        message: "Suggest 3 ways to focus on my work today.",
+      },
+      {
+        title: "Daily standup",
+        message: "Help me draft a 3-bullet daily standup update.",
+      },
     ],
     available: "always",
   });

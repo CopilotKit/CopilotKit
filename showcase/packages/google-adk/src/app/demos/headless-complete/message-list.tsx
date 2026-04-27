@@ -52,7 +52,10 @@ function MessageRow({ message }: { message: MessageItem }) {
   }
   if (message.role === "assistant") {
     return (
-      <div data-testid="msg-assistant" className="self-start max-w-[88%] space-y-1.5">
+      <div
+        data-testid="msg-assistant"
+        className="self-start max-w-[88%] space-y-1.5"
+      >
         {message.content ? (
           <div className="rounded-2xl rounded-bl-md bg-slate-100 px-4 py-2 text-slate-900">
             {String(message.content)}

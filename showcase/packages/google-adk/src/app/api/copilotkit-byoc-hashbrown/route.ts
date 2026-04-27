@@ -11,7 +11,9 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const byocHashbrownAgent = new HttpAgent({ url: `${AGENT_URL}/byoc_hashbrown` });
+const byocHashbrownAgent = new HttpAgent({
+  url: `${AGENT_URL}/byoc_hashbrown`,
+});
 
 const runtime = new CopilotRuntime({
   // @ts-ignore -- see main route.ts

@@ -42,9 +42,15 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
-      { title: "Weather in SF", message: "What's the weather in San Francisco?" },
+      {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
       { title: "Find flights", message: "Find flights from SFO to JFK." },
-      { title: "Sales chart", message: "Show me a quarterly revenue pie chart." },
+      {
+        title: "Sales chart",
+        message: "Show me a quarterly revenue pie chart.",
+      },
     ],
     available: "always",
   });
