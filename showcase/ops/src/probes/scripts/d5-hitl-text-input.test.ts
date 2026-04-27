@@ -107,6 +107,57 @@ describe("d5-hitl-text-input script", () => {
   });
 });
 
+describe("d5-hitl-text-input preNavigateRoute branching", () => {
+  beforeEach(() => {
+    __clearD5RegistryForTesting();
+  });
+
+  it("returns /demos/hitl-in-chat when no demos context is supplied (default)", async () => {
+    const mod = await import("./d5-hitl-text-input.js");
+    expect(mod.preNavigateRoute("hitl-text-input")).toBe("/demos/hitl-in-chat");
+  });
+
+  it("returns /demos/hitl-in-chat when modern in-chat ids are declared", async () => {
+    const mod = await import("./d5-hitl-text-input.js");
+    expect(
+      mod.preNavigateRoute("hitl-text-input", { demos: ["hitl-in-chat"] }),
+    ).toBe("/demos/hitl-in-chat");
+    expect(
+      mod.preNavigateRoute("hitl-text-input", {
+        demos: ["hitl-in-chat-booking"],
+      }),
+    ).toBe("/demos/hitl-in-chat");
+    expect(
+      mod.preNavigateRoute("hitl-text-input", { demos: ["gen-ui-interrupt"] }),
+    ).toBe("/demos/hitl-in-chat");
+  });
+
+  it("returns /demos/hitl when only the legacy hitl id is declared", async () => {
+    const mod = await import("./d5-hitl-text-input.js");
+    expect(mod.preNavigateRoute("hitl-text-input", { demos: ["hitl"] })).toBe(
+      "/demos/hitl",
+    );
+  });
+
+  it("prefers the modern route when both legacy and modern ids are declared", async () => {
+    const mod = await import("./d5-hitl-text-input.js");
+    expect(
+      mod.preNavigateRoute("hitl-text-input", {
+        demos: ["hitl", "hitl-in-chat"],
+      }),
+    ).toBe("/demos/hitl-in-chat");
+  });
+
+  it("falls back to /demos/hitl-in-chat when demos are present but unmatched", async () => {
+    const mod = await import("./d5-hitl-text-input.js");
+    expect(
+      mod.preNavigateRoute("hitl-text-input", {
+        demos: ["agentic-chat", "tool-rendering"],
+      }),
+    ).toBe("/demos/hitl-in-chat");
+  });
+});
+
 describe("d5-hitl-text-input registry side-effect", () => {
   it("populates the registry with the feature type after import", async () => {
     __clearD5RegistryForTesting();
