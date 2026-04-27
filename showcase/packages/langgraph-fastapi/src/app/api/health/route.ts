@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // Check agent backend reachability
   let agentStatus = "unknown";
   try {
-    const res = await fetch(`${AGENT_URL}/ok`, {
+    const res = await fetch(`${AGENT_URL}/health`, {
       signal: AbortSignal.timeout(3000),
     });
     agentStatus = res.ok ? "ok" : "error";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Public response: safe to expose
-  const publicResponse: Record<string, any> = {
+  const publicResponse: Record<string, unknown> = {
     status: agentStatus === "ok" ? "ok" : "degraded",
     integration: "langgraph-fastapi",
     agent: agentStatus,
