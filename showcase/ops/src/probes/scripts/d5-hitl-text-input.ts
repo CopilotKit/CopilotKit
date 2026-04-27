@@ -75,16 +75,29 @@ const REFERENCE_TOKENS = ["Alice"] as const;
  * script stays decoupled — the mapping table is allowed to grow new
  * legacy ids without forcing this script to relink.
  */
-const MODERN_IN_CHAT_DEMO_IDS = [
-  "hitl-in-chat",
-  "hitl-in-chat-booking",
-  "gen-ui-interrupt",
-] as const;
+const ROUTE_PRECEDENCE: ReadonlyArray<readonly [string, string]> = [
+  // Canonical modern in-chat HITL — exposed at /demos/hitl-in-chat by
+  // every integration that has been ported to the modern id set.
+  ["hitl-in-chat", "/demos/hitl-in-chat"],
+  // Booking variant of the modern in-chat HITL — same route, different
+  // registry id used by integrations whose example app frames the demo
+  // around a booking flow.
+  ["hitl-in-chat-booking", "/demos/hitl-in-chat"],
+  // Interrupt-only packages: integrations that expose a generative-UI
+  // interrupt demo at /demos/gen-ui-interrupt without a separate
+  // hitl-in-chat surface.
+  ["gen-ui-interrupt", "/demos/gen-ui-interrupt"],
+  // Legacy hitl id — integrations that pre-date the modern split still
+  // expose the demo at /demos/hitl.
+  ["hitl", "/demos/hitl"],
+];
 
 /**
  * Resolve the navigation route based on which registry demo ids the
- * integration declares. Exported for unit tests so the branching logic
- * can be exercised without booting the full driver pipeline.
+ * integration declares. Walks `ROUTE_PRECEDENCE` and returns the route
+ * for the first precedence entry whose demo id appears in the package's
+ * `demos[]`. Exported for unit tests so the branching logic can be
+ * exercised without booting the full driver pipeline.
  */
 export function preNavigateRoute(
   _featureType: unknown,
@@ -94,18 +107,14 @@ export function preNavigateRoute(
   if (demos.length === 0) {
     // No demos context (tests, e2e-parity without registry join, or a
     // service whose discovery record carried an empty `demos[]`).
-    // Default to the modern reference path — every integration in the
-    // current fleet either declares modern in-chat ids OR the legacy
-    // `hitl` id, and the legacy branch only fires when we have proof
-    // (an explicit `hitl` entry) that the legacy route is the right
-    // one.
+    // Default to the modern reference path — that's the canonical
+    // surface and matches every integration that has been updated to
+    // the modern id set.
     return "/demos/hitl-in-chat";
   }
-  const hasModern = demos.some((id) =>
-    (MODERN_IN_CHAT_DEMO_IDS as readonly string[]).includes(id),
-  );
-  if (hasModern) return "/demos/hitl-in-chat";
-  if (demos.includes("hitl")) return "/demos/hitl";
+  for (const [demoId, route] of ROUTE_PRECEDENCE) {
+    if (demos.includes(demoId)) return route;
+  }
   // Demos present but none of the known hitl ids matched — fall back
   // to the modern reference path so a future registry id we haven't
   // taught this script about doesn't silently 404.

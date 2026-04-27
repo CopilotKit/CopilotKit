@@ -65,6 +65,9 @@ export const GEN_UI_COMPONENT_SELECTORS = [
   '[data-testid="copilot-assistant-message"] svg',
   '[data-testid="copilot-assistant-message"] [data-testid]',
   '[data-testid="copilot-assistant-message"]',
+  '[data-message-role="assistant"] svg',
+  '[data-message-role="assistant"] [data-testid]',
+  '[data-message-role="assistant"]',
   '[role="article"] svg',
   '[role="article"]',
 ] as const;
@@ -107,18 +110,26 @@ export async function waitForGenUiComponent(
         }>;
       };
     };
-    const articles = win.document.querySelectorAll('[role="article"]');
-    const summary: string[] = [];
-    for (let i = 0; i < Math.min(articles.length, 5); i++) {
-      const el = articles[i]!;
-      summary.push(
-        `<${el.tagName.toLowerCase()} class="${el.className}" children=${el.childElementCount}>` +
-          `${(el.textContent ?? "").slice(0, 80)}`,
-      );
-    }
-    return summary.length > 0
-      ? summary.join(" | ")
-      : "no [role=article] elements found";
+    const probe = (label: string, sel: string): string => {
+      const nodes = win.document.querySelectorAll(sel);
+      if (nodes.length === 0) return `${label}: no elements found`;
+      const summary: string[] = [];
+      for (let i = 0; i < Math.min(nodes.length, 5); i++) {
+        const el = nodes[i]!;
+        summary.push(
+          `<${el.tagName.toLowerCase()} class="${el.className}" children=${el.childElementCount}>` +
+            `${(el.textContent ?? "").slice(0, 80)}`,
+        );
+      }
+      return `${label}: ${summary.join(" | ")}`;
+    };
+    return [
+      probe("[role=article]", '[role="article"]'),
+      probe(
+        "[data-message-role=assistant]",
+        '[data-message-role="assistant"]',
+      ),
+    ].join(" || ");
   });
   throw new Error(
     `gen-ui component did not render within ${timeoutMs}ms (${
@@ -158,6 +169,9 @@ async function findFirstNonTrivial(
       '[data-testid="copilot-assistant-message"] svg',
       '[data-testid="copilot-assistant-message"] [data-testid]',
       '[data-testid="copilot-assistant-message"]',
+      '[data-message-role="assistant"] svg',
+      '[data-message-role="assistant"] [data-testid]',
+      '[data-message-role="assistant"]',
       '[role="article"] svg',
       '[role="article"]',
     ];

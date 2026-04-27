@@ -53,11 +53,15 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
   // agentic-chat (1:1)
   "agentic-chat": ["agentic-chat"],
 
-  // tool-rendering — every variant exercises the per-tool render pipeline
+  // tool-rendering — every variant exercises the per-tool render pipeline.
+  // `tool-rendering-reasoning-chain` is intentionally NOT mapped here:
+  // the D5 tool-rendering probe sends "weather in Tokyo" and asserts a
+  // WeatherCard, which is the wrong test for the reasoning-chain demo.
+  // Reasoning-chain pages need their own D5 probe script; until one
+  // exists the demo ID is silently skipped by `demosToFeatureTypes`.
   "tool-rendering": ["tool-rendering"],
   "tool-rendering-default-catchall": ["tool-rendering"],
   "tool-rendering-custom-catchall": ["tool-rendering"],
-  "tool-rendering-reasoning-chain": ["tool-rendering"],
 
   // gen-ui (headless tier) — D5 script `d5-gen-ui-headless.ts` drives
   // /demos/headless-simple, but the registry also exposes a fuller
