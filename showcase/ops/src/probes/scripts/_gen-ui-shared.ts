@@ -125,10 +125,7 @@ export async function waitForGenUiComponent(
     };
     return [
       probe("[role=article]", '[role="article"]'),
-      probe(
-        "[data-message-role=assistant]",
-        '[data-message-role="assistant"]',
-      ),
+      probe("[data-message-role=assistant]", '[data-message-role="assistant"]'),
     ].join(" || ");
   });
   throw new Error(
