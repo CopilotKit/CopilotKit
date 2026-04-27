@@ -2,11 +2,198 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "call_fp_get_weather_001"
+      },
+      "response": {
+        "content": "The current weather in Tokyo is 22\u00b0C with partly cloudy skies. Humidity is at 65% with light winds from the east at 12 km/h. Perfect weather for a walk outside!"
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_render_pie_chart_001"
+      },
+      "response": {
+        "content": "Pie chart rendered above \u2014 Electronics is the largest slice at $42,000, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_show_card_001"
+      },
+      "response": {
+        "content": "Here is a quick card for Ada Lovelace \u2014 the rendered card above shows a short biography. Let me know if you want a deeper dive on her work or a different historical figure."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_request_approval_001"
+      },
+      "response": {
+        "content": "Approved \u2014 processing the $50 refund to customer #12345 now."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_book_call_001"
+      },
+      "response": {
+        "content": "Booked Alice's onboarding call for the time you selected \u2014 calendar invite is on its way."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_set_notes_001"
+      },
+      "response": {
+        "content": "Got it \u2014 I have noted that your favorite color is blue."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_critique_agent_001"
+      },
+      "response": {
+        "content": "Here is the summary, after research \u2192 drafting \u2192 critique:\n\nRemote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_writing_agent_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_critique_agent_001",
+            "name": "critique_agent",
+            "arguments": "{\"draft\":\"Remote work returns roughly ten hours a week to employees by eliminating the commute, and repeated surveys show meaningfully higher job satisfaction among remote workers. Employers benefit too: a geographically unbounded talent pool and lower office overhead. The honest counterweight is that ad-hoc collaboration, mentorship of junior staff, and cultural cohesion all degrade without intentional rituals to replace what an office provided implicitly.\",\"instructions\":\"Check factual claims, tighten prose, flag any unsupported assertions.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "call_fp_research_agent_001"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_writing_agent_001",
+            "name": "writing_agent",
+            "arguments": "{\"brief\":\"One-paragraph summary on the benefits of remote work, grounded in the research facts.\",\"facts\":[\"Eliminating commutes returns roughly ten hours per week per employee.\",\"Repeated surveys show meaningfully higher job satisfaction among remote workers.\",\"Employers gain access to a geographically unbounded talent pool.\",\"Office overhead (leases, utilities, maintenance) drops significantly.\",\"Trade-offs include reduced ad-hoc collaboration, harder mentorship of junior staff, and erosion of cultural cohesion without intentional replacement rituals.\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "good name for a goldfish"
+      },
+      "response": {
+        "content": "How about Bubbles? It is friendly, classic, and easy to call out at the tank. If you want alternatives: Goldie, Finley, or Mango."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "name for its tank"
+      },
+      "response": {
+        "content": "Following the Bubbles theme, you could call the tank The Bubble Bowl. It pairs naturally with the goldfish's name and keeps the playful tone."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "what we named the goldfish"
+      },
+      "response": {
+        "content": "We named the goldfish Bubbles, and the tank The Bubble Bowl."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a profile card for Ada Lovelace"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_show_card_001",
+            "name": "show_card",
+            "arguments": "{\"title\":\"Ada Lovelace\",\"body\":\"English mathematician (1815\u20131852), credited as the first computer programmer for her notes on Charles Babbage's Analytical Engine \u2014 including what is now recognized as the first algorithm intended to be carried out by a machine.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Issue a $50 refund to customer #12345"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_request_approval_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Issue a $50 refund to customer #12345.\",\"context\":\"Per the standard goodwill-credit policy for shipping delays.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Book a 30-minute onboarding call for Alice"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_book_call_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Onboarding call\",\"name\":\"Alice\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "remember that my favorite color is blue"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_set_notes_001",
+            "name": "set_notes",
+            "arguments": "{\"notes\":[\"Favorite color: blue\"]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "favorite color"
+      },
+      "response": {
+        "content": "Your favorite color is blue \u2014 I noted it earlier."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Research the benefits of remote work and draft a one-paragraph summary"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_research_agent_001",
+            "name": "research_agent",
+            "arguments": "{\"topic\":\"Benefits of remote work\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "userMessage": "weather"
       },
       "response": {
         "toolCalls": [
           {
+            "id": "call_fp_get_weather_001",
             "name": "get_weather",
             "arguments": "{\"location\":\"Tokyo\"}"
           }
@@ -360,7 +547,7 @@
         "userMessage": "Summarize this document"
       },
       "response": {
-        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart — installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
+        "content": "This is an excerpt from the CopilotKit documentation covering the quickstart \u2014 installing the packages and wrapping the app in a CopilotKitProvider pointing at a runtime endpoint."
       }
     },
     {
@@ -417,6 +604,7 @@
       "response": {
         "toolCalls": [
           {
+            "id": "call_fp_render_pie_chart_001",
             "name": "render_pie_chart",
             "arguments": "{\"title\":\"Revenue by Category\",\"description\":\"Revenue breakdown by product category\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]}"
           }

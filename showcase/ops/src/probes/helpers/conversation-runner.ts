@@ -392,7 +392,9 @@ async function waitForAssistantSettled(opts: {
       return current;
     }
   }
-  throw new Error(`timeout: assistant did not respond within ${timeoutMs}ms`);
+  throw new Error(
+    `timeout: assistant did not respond within ${timeoutMs}ms (baseline=${baselineCount}, current=${lastCount})`,
+  );
 }
 
 function sleep(ms: number): Promise<void> {

@@ -143,6 +143,14 @@ export interface E2eDeepFeatureSignal {
   errorDesc?: string;
   errorClass?: string;
   note?: string;
+  /**
+   * Failure-path diagnostics gathered from the browser page when a
+   * conversation times out or throws. Includes message counts,
+   * recent API requests to copilotkit endpoints, captured page
+   * errors, console error/warn logs, and request failures. Absent
+   * on green rows.
+   */
+  diagnostics?: Record<string, unknown>;
 }
 
 /**
@@ -161,6 +169,14 @@ export interface E2eDeepPage extends Page {
     },
   ): Promise<unknown>;
   close(): Promise<void>;
+  /**
+   * Returns browser-side diagnostic data captured since page creation.
+   * Optional because tests inject scripted fakes that don't track
+   * console / request events. Failure-path only — production callers
+   * invoke this from `runFeature` after a conversation throws or times
+   * out to enrich the error signal.
+   */
+  getDiagnostics?(): { consoleLogs: string[]; requestFailures: string[] };
 }
 
 export interface E2eDeepBrowserContext {
@@ -241,12 +257,51 @@ const defaultLauncher: E2eDeepBrowserLauncher =
         return {
           async newPage(): Promise<E2eDeepPage> {
             const page = await ctx.newPage();
-            // Playwright's Page satisfies E2eDeepPage structurally:
-            // waitForSelector / fill / press / evaluate (Page) + goto /
-            // close (E2eDeepPage). The double-cast through unknown is
-            // necessary because TypeScript can't see the structural
-            // compatibility through Playwright's overloads.
-            return page as unknown as E2eDeepPage;
+
+            // Attach diagnostic listeners on the real Playwright page.
+            // Failure-path enrichment only — `runFeature` reads these
+            // via `getDiagnostics()` when a conversation throws or
+            // times out. Buffers are bounded by sliceing the tail in
+            // the accessor, so a chatty page can't OOM the probe.
+            const consoleLogs: string[] = [];
+            const requestFailures: string[] = [];
+
+            page.on("console", (msg) => {
+              const t = msg.type();
+              if (t === "error" || t === "warning") {
+                consoleLogs.push(`[${t}] ${msg.text().slice(0, 200)}`);
+              }
+            });
+
+            page.on("requestfailed", (request) => {
+              requestFailures.push(
+                `${request.method()} ${request.url().slice(0, 200)} => ${
+                  request.failure()?.errorText || "unknown"
+                }`,
+              );
+            });
+
+            // Wrap the Playwright page in a structurally-typed
+            // E2eDeepPage so `getDiagnostics()` is part of the typed
+            // surface. Methods are bound back to the real page so
+            // Playwright's `this`-bound overloads keep working.
+            const wrapped: E2eDeepPage = {
+              waitForSelector: (s, o) => page.waitForSelector(s, o),
+              fill: (s, v, o) => page.fill(s, v, o),
+              press: (s, k, o) => page.press(s, k, o),
+              evaluate: <R>(fn: () => R) => page.evaluate(fn),
+              goto: (url, opts) =>
+                page.goto(
+                  url,
+                  opts as Parameters<typeof page.goto>[1],
+                ),
+              close: () => page.close(),
+              getDiagnostics: () => ({
+                consoleLogs: consoleLogs.slice(-20),
+                requestFailures: requestFailures.slice(-10),
+              }),
+            };
+            return wrapped;
           },
           close: () => ctx.close(),
         };
@@ -617,6 +672,7 @@ export function createE2eDeepDriver(
                   featureResult.conversation?.turn_durations_ms,
                 errorDesc: featureResult.errorDesc,
                 errorClass: featureResult.errorClass,
+                diagnostics: featureResult.diagnostics,
               },
               observedAt: ctx.now().toISOString(),
             });
@@ -679,6 +735,13 @@ async function runFeature(opts: {
       errorClass: string;
       errorDesc: string;
       conversation?: ConversationResult;
+      /**
+       * Failure-path diagnostics gathered from the browser page (DOM
+       * snapshot + recent API requests) and from the launcher-attached
+       * console/request listeners. Best-effort: absent if the page was
+       * already closed / crashed when we tried to read.
+       */
+      diagnostics?: Record<string, unknown>;
     }
 > {
   const { browser, url, pageTimeoutMs, script, buildCtx, abortSignal } = opts;
@@ -718,6 +781,7 @@ async function runFeature(opts: {
     const conversation = await runConversation(page, turns);
 
     if (conversation.failure_turn !== undefined) {
+      const diagnostics = await captureDiagnostics(page);
       return {
         ok: false,
         errorClass: "conversation-error",
@@ -726,16 +790,19 @@ async function runFeature(opts: {
           1200,
         ),
         conversation,
+        diagnostics,
       };
     }
 
     return { ok: true, conversation };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    const diagnostics = page ? await captureDiagnostics(page) : undefined;
     return {
       ok: false,
       errorClass: abortSignal.aborted ? "abort" : "driver-error",
       errorDesc: truncateUtf8(msg, 1200),
+      diagnostics,
     };
   } finally {
     if (page) {
@@ -753,6 +820,112 @@ async function runFeature(opts: {
       }
     }
   }
+}
+
+/**
+ * Best-effort browser-side diagnostic capture for failure rows. Gathers
+ * a DOM snapshot (assistant/user message counts, copilotkit API request
+ * timing, page error elements, chat container existence) plus the
+ * launcher's per-page console + request-failure logs. Returns
+ * `undefined` if the page is closed / crashed and we can't read it.
+ *
+ * Failure-path only — green conversations skip this entirely so the
+ * happy-path stays cheap.
+ */
+async function captureDiagnostics(
+  page: E2eDeepPage,
+): Promise<Record<string, unknown> | undefined> {
+  let diagnostics: Record<string, unknown> | undefined;
+  try {
+    // DOM types reached via a type-erased indirection because the
+    // package's tsconfig intentionally excludes the `dom` lib
+    // (server-side Node code). Same pattern used in
+    // `conversation-runner.ts` / `e2e-smoke.ts`.
+    diagnostics = await page.evaluate(() => {
+      type EvalElement = {
+        textContent: string | null;
+      };
+      type EvalResourceTiming = {
+        name: string;
+        duration: number;
+        transferSize?: number;
+        responseStatus?: number;
+      };
+      const win = globalThis as unknown as {
+        document: {
+          querySelector(sel: string): unknown;
+          querySelectorAll(sel: string): {
+            length: number;
+            [index: number]: EvalElement;
+          };
+          title: string;
+          body?: { innerText?: string };
+        };
+        performance: {
+          getEntriesByType(type: string): EvalResourceTiming[];
+        };
+        location: { href: string };
+      };
+
+      const assistantMsgs = win.document.querySelectorAll(
+        '[data-testid="copilot-assistant-message"]',
+      );
+      const userMsgs = win.document.querySelectorAll(
+        '[data-testid="copilot-user-message"]',
+      );
+
+      // Recent copilotkit API entries — the timing signal tells us
+      // whether the runtime was reached at all (transferSize > 0)
+      // and how the response landed (responseStatus when available).
+      const apiEntries = win.performance
+        .getEntriesByType("resource")
+        .filter((e) => e.name.includes("copilotkit"))
+        .map((e) => ({
+          url: e.name.slice(0, 200),
+          duration: Math.round(e.duration),
+          transferSize: e.transferSize || 0,
+          status: e.responseStatus || 0,
+        }));
+
+      const errorEls = win.document.querySelectorAll(
+        '[role="alert"], .error-boundary, [data-error]',
+      );
+      const errors: string[] = [];
+      for (let i = 0; i < Math.min(errorEls.length, 3); i++) {
+        errors.push((errorEls[i]!.textContent || "").slice(0, 200).trim());
+      }
+
+      const chatContainer = win.document.querySelector(
+        '[data-testid="copilot-chat"]',
+      );
+
+      return {
+        assistantMsgCount: assistantMsgs.length,
+        userMsgCount: userMsgs.length,
+        apiRequestCount: apiEntries.length,
+        apiRequests: apiEntries.slice(0, 5),
+        pageErrors: errors,
+        chatContainerExists: !!chatContainer,
+        url: win.location.href,
+        title: win.document.title,
+        bodyTextSnippet: (win.document.body?.innerText || "")
+          .slice(0, 300)
+          .trim(),
+      };
+    });
+  } catch {
+    // Page may be closed or crashed — can't gather DOM diagnostics.
+  }
+
+  // Augment with launcher-tracked console + network-failure logs.
+  const browserDiag = page.getDiagnostics?.();
+  if (browserDiag) {
+    if (!diagnostics) diagnostics = {};
+    diagnostics.consoleLogs = browserDiag.consoleLogs;
+    diagnostics.requestFailures = browserDiag.requestFailures;
+  }
+
+  return diagnostics;
 }
 
 async function sideEmit(
