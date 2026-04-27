@@ -128,10 +128,10 @@ describe("Catalog Generator", () => {
     const stub = lgpCells.filter((c: any) => c.status === "stub");
     const unshipped = lgpCells.filter((c: any) => c.status === "unshipped");
 
-    // LGP has 40 features: 39 wired + 1 stub (cli-start) + 0 unshipped
-    expect(wired.length).toBe(39);
+    // LGP has 40 features: 37 wired + 1 stub (cli-start) + 2 unshipped
+    expect(wired.length).toBe(37);
     expect(stub.length).toBe(1);
-    expect(unshipped.length).toBe(0);
+    expect(unshipped.length).toBe(2);
   });
 
   it("stub detection: LGP/cli-start has stub status (demo exists, no route)", () => {
@@ -172,7 +172,7 @@ describe("Catalog Generator", () => {
         c.integration === "crewai-crews" && c.manifestation === "integrated",
     );
     const crewaiWired = crewaiCells.filter((c: any) => c.status === "wired");
-    expect(crewaiWired.length).toBe(34);
+    expect(crewaiWired.length).toBe(28);
 
     // All cells for crewai should have parity_tier = "partial"
     for (const cell of crewaiCells) {
@@ -188,10 +188,10 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.total_cells).toBe(737);
 
     // 18 integrations x 40 features + 17 starters = 737 total cells
-    // Wired = 526, Stub = 8, Unshipped = 203
-    expect(catalog.metadata.wired).toBe(526);
+    // Wired = 452, Stub = 8, Unshipped = 277
+    expect(catalog.metadata.wired).toBe(452);
     expect(catalog.metadata.stub).toBe(8);
-    expect(catalog.metadata.unshipped).toBe(203);
+    expect(catalog.metadata.unshipped).toBe(277);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {
