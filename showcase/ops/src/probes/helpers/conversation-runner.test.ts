@@ -222,7 +222,7 @@ describe("runConversation", () => {
     expect(result.turn_durations_ms).toEqual([]);
   });
 
-  it("falls through the 5 chat-input selectors and uses the first that resolves", async () => {
+  it("falls through the chat-input selectors and uses the first that resolves", async () => {
     // Track which selectors were tried. The first that doesn't throw wins.
     const triedSelectors: string[] = [];
     let evalCalls = 0;
@@ -231,7 +231,7 @@ describe("runConversation", () => {
         triedSelectors.push(selector);
         // Force the first two to throw so the third one wins. The runner
         // must keep trying — anything else means it would false-fail on
-        // showcases that don't have the canonical testid.
+        // showcases that don't have the canonical V2 textarea testid.
         if (triedSelectors.length < 3) {
           throw new Error(`no match: ${selector}`);
         }
@@ -252,9 +252,69 @@ describe("runConversation", () => {
 
     expect(result.turns_completed).toBe(1);
     expect(triedSelectors.length).toBeGreaterThanOrEqual(3);
-    // First selector should be the canonical testid (matching the
-    // e2e-demos cascade ordering).
-    expect(triedSelectors[0]).toBe('[data-testid="copilot-chat-input"]');
+    // First selector must be the canonical V2 textarea testid — fillable.
+    // The previous wrapper-div testid (`[data-testid="copilot-chat-input"]`)
+    // matched a `<div>` and `page.fill()` would always throw on it.
+    expect(triedSelectors[0]).toBe('[data-testid="copilot-chat-textarea"]');
+    // Second selector scopes a textarea descendant under the wrapper for
+    // V2 UIs whose textarea doesn't have its own testid.
+    expect(triedSelectors[1]).toBe(
+      '[data-testid="copilot-chat-input"] textarea',
+    );
+    // Third selector is the bare `textarea` fallback (V1 / generic UIs).
+    expect(triedSelectors[2]).toBe("textarea");
+    // The bare wrapper-div selector MUST NOT appear before `textarea` —
+    // it's a non-fillable `<div>` and Playwright's `fill()` would throw.
+    const wrapperIdx = triedSelectors.indexOf(
+      '[data-testid="copilot-chat-input"]',
+    );
+    const textareaIdx = triedSelectors.indexOf("textarea");
+    if (wrapperIdx !== -1) {
+      expect(wrapperIdx).toBeGreaterThan(textareaIdx);
+    }
+  });
+
+  it("calls fill() on the resolved fillable selector, not the wrapper div", async () => {
+    // Simulate the V2 DOM where the wrapper-div testid would match (if
+    // it were in the cascade) but only the textarea descendant is
+    // actually fillable. The cascade must resolve to the textarea
+    // selector and `fill()` must be invoked with THAT selector — never
+    // the bare wrapper div.
+    const filledSelectors: string[] = [];
+    const triedSelectors: string[] = [];
+    let evalCalls = 0;
+    const page: Page = {
+      async waitForSelector(selector) {
+        triedSelectors.push(selector);
+        // Pretend the V2 textarea testid resolves successfully (it's the
+        // first selector in the cascade and the strictest, fillable one).
+      },
+      async fill(selector, _value) {
+        filledSelectors.push(selector);
+        // The bare wrapper-div selector must never reach fill() — that's
+        // the bug this test pins. Throw loudly if it ever does.
+        if (selector === '[data-testid="copilot-chat-input"]') {
+          throw new Error(
+            "fill() invoked on wrapper div — would throw in real Playwright",
+          );
+        }
+      },
+      async press() {},
+      async evaluate() {
+        evalCalls++;
+        return (evalCalls === 1 ? 0 : 1) as never;
+      },
+    };
+
+    const result = await runConversation(page, [{ input: "hello" }], {
+      assistantSettleMs: 30,
+    });
+
+    expect(result.turns_completed).toBe(1);
+    // Resolved selector is the V2 textarea testid (cascade slot #1).
+    expect(filledSelectors).toEqual(['[data-testid="copilot-chat-textarea"]']);
+    // And explicitly NOT the wrapper-div selector that `page.fill()` chokes on.
+    expect(filledSelectors).not.toContain('[data-testid="copilot-chat-input"]');
   });
 
   it("honours opts.chatInputSelector when provided (skips cascade)", async () => {

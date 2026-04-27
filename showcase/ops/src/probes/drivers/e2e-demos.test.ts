@@ -628,11 +628,12 @@ describe("e2e-demos driver", () => {
     expect(sig.passed).toBe(1);
     expect(sig.failed).toEqual([]);
 
-    // The chain was walked in order: testid → placeholder → textarea
-    // (match). Stronger fallbacks past the match are not attempted.
+    // The chain was walked in order: V2 textarea testid → scoped
+    // textarea descendant → bare `textarea` (match). Stronger fallbacks
+    // past the match are not attempted.
     expect(selectorsTried).toEqual([
-      '[data-testid="copilot-chat-input"]',
-      'input[placeholder="Type a message"]',
+      '[data-testid="copilot-chat-textarea"]',
+      '[data-testid="copilot-chat-input"] textarea',
       "textarea",
     ]);
 
@@ -640,7 +641,7 @@ describe("e2e-demos driver", () => {
     expect(writes[0]?.state).toBe("green");
   });
 
-  it("fails red only when all 5 fallback selectors miss", async () => {
+  it("fails red only when all 6 fallback selectors miss", async () => {
     // Harden the expanded selector chain: if every selector misses the
     // row must still red out as a selector-error (not swallowed as green
     // by the additional fallbacks).
@@ -686,9 +687,10 @@ describe("e2e-demos driver", () => {
 
     expect(result.state).toBe("red");
     expect(selectorsTried).toEqual([
-      '[data-testid="copilot-chat-input"]',
-      'input[placeholder="Type a message"]',
+      '[data-testid="copilot-chat-textarea"]',
+      '[data-testid="copilot-chat-input"] textarea',
       "textarea",
+      'input[placeholder="Type a message"]',
       'input[type="text"]',
       '[role="textbox"]',
     ]);
@@ -1101,11 +1103,11 @@ describe("e2e-demos driver", () => {
 
   // --- C7: selector-loop is abort-responsive ---------------------------
 
-  it("aborts mid-selector-loop without walking all 5 selectors", async () => {
+  it("aborts mid-selector-loop without walking all 6 selectors", async () => {
     // Slow waitForSelector + cap fires mid-loop. Without the abort
-    // check between iterations, the worst case is 5*pageTimeoutMs per
+    // check between iterations, the worst case is 6*pageTimeoutMs per
     // demo. Assert the loop bails after a small constant number of
-    // selectors (< 5) once the cap fires.
+    // selectors (< 6) once the cap fires.
     const selectorsTried: string[] = [];
     let resolveFirstSel!: () => void;
     const firstSelGate = new Promise<void>((r) => {
@@ -1173,7 +1175,7 @@ describe("e2e-demos driver", () => {
     // mid-loop abort check must bail before the second iteration runs.
     expect(selectorsTried.length).toBeLessThan(5);
     // Side row must reflect either abort or selector-error/timeout, NOT
-    // a wall-clock-bloated five-selector walk.
+    // a wall-clock-bloated six-selector walk.
     const sideRow = writes.find((w) => w.key === "e2e:abort-mid-loop/d1");
     const sig = sideRow?.signal as { errorClass?: string };
     expect(["abort", "selector-error", "selector-timeout"]).toContain(

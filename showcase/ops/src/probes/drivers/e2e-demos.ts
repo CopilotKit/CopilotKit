@@ -216,21 +216,31 @@ const TIMEOUT_ENV_VAR = "E2E_DEMOS_TIMEOUT_MS";
  * exact ordering — a refactor that re-orders the list surfaces as a test
  * diff.
  *
- * Ordering rationale:
- *   1. CopilotKit canonical testid — deterministic, the strictest signal.
- *   2. Default placeholder — covers CopilotKit UIs that haven't yet added
- *      the testid.
- *   3-5. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
+ * Ordering rationale (kept in lockstep with `conversation-runner.ts`'s
+ * CHAT_INPUT_SELECTORS — this driver only checks visibility so the
+ * div-wrapper testid wouldn't actually break it, but matching ordering
+ * keeps a single mental model for both probes):
+ *   1. CopilotKit V2 canonical textarea testid — the actual `<textarea>`
+ *      inside the V2 chat input. Strictest, fillable signal.
+ *   2. Scoped descendant — any `<textarea>` nested under the V2 wrapper
+ *      `[data-testid="copilot-chat-input"]`, for V2 UIs whose textarea
+ *      doesn't carry its own testid.
+ *   3. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
+ *      composer is a plain `<textarea>` without a testid.
+ *   4. Default placeholder — input-element composers whose UI uses
+ *      `<input placeholder="Type a message">` instead of a textarea.
+ *   5-6. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
  *      `headless-simple`, `headless-complete`) build their own UI on top
  *      of `useAgent`, so they lack both the testid and the default
- *      placeholder but still render a `textarea` / text input / ARIA
- *      textbox. A match on any of these is enough structural evidence
- *      that the demo route booted.
+ *      placeholder but still render a text input / ARIA textbox. A match
+ *      on any of these is enough structural evidence that the demo
+ *      route booted.
  */
 const READY_SELECTORS = [
-  '[data-testid="copilot-chat-input"]',
-  'input[placeholder="Type a message"]',
+  '[data-testid="copilot-chat-textarea"]',
+  '[data-testid="copilot-chat-input"] textarea',
   "textarea",
+  'input[placeholder="Type a message"]',
   'input[type="text"]',
   '[role="textbox"]',
 ] as const;
@@ -800,7 +810,7 @@ async function runDemo(opts: {
     //
     // Abort responsiveness (C7): check the signal at the top of every
     // iteration so a cap that fires mid-loop bails promptly rather
-    // than walking all 5 selectors at `pageTimeoutMs` each.
+    // than walking all 6 selectors at `pageTimeoutMs` each.
     //
     // Deadline responsiveness (C11): break out as `selector-timeout`
     // when the per-demo budget is exhausted instead of starting another

@@ -4,7 +4,7 @@
  * Drives a sequence of turns through a CopilotKit chat surface in a
  * Playwright Page. Each turn:
  *
- *   1. Locate the chat input via a 5-selector cascade (mirrors
+ *   1. Locate the chat input via a 6-selector cascade (mirrors
  *      `e2e-demos.ts` so showcases that don't yet expose
  *      `[data-testid="copilot-chat-input"]` still get probed).
  *   2. Fill the input, press Enter.
@@ -29,20 +29,39 @@
 
 /** Chat-input selector cascade — matches `e2e-demos.ts` READY_SELECTORS.
  *
- * Ordering (load-bearing):
- *   1. CopilotKit canonical testid — strictest signal.
- *   2. Default placeholder — covers UIs without the testid.
- *   3-5. Generic chat-affordance fallbacks for custom-composer demos
+ * Ordering (load-bearing — Playwright `fill()` only works on
+ * input/textarea/select/contenteditable elements; matching the wrapper
+ * `<div data-testid="copilot-chat-input">` resolves visibly but throws
+ * on `fill()`. So the cascade MUST resolve to a real fillable element):
+ *
+ *   1. CopilotKit V2 canonical textarea testid — the actual `<textarea>`
+ *      element inside the V2 chat input. Strictest, fillable signal.
+ *   2. Scoped descendant — any `<textarea>` nested under the V2 wrapper
+ *      `[data-testid="copilot-chat-input"]`, for V2 UIs whose textarea
+ *      doesn't carry its own testid.
+ *   3. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
+ *      composer is a plain `<textarea>` without a testid.
+ *   4. Default placeholder — V1/V2 input-element composers whose UI uses
+ *      `<input placeholder="Type a message">` instead of a textarea.
+ *   5-6. Generic chat-affordance fallbacks for custom-composer demos
  *        (e.g. `headless-simple`) that build their own UI on top of
  *        `useAgent` and lack both the testid and placeholder.
+ *
+ * Note: the V2 wrapper selector `[data-testid="copilot-chat-input"]` is
+ * intentionally OMITTED here — it matches a `<div>` wrapper, and
+ * `page.fill()` would always throw on it ("Element is not an
+ * <input>, <textarea>, <select> or [contenteditable]"). The visibility-
+ * only `e2e-demos.ts` cascade keeps the same ordering for parity but the
+ * wrapper selector can land further down without affecting that driver.
  *
  * Kept as a const tuple so it's literally the same shape as the
  * e2e-demos cascade. Any divergence is a refactor signal, not a feature.
  */
 const CHAT_INPUT_SELECTORS = [
-  '[data-testid="copilot-chat-input"]',
-  'input[placeholder="Type a message"]',
+  '[data-testid="copilot-chat-textarea"]',
+  '[data-testid="copilot-chat-input"] textarea',
   "textarea",
+  'input[placeholder="Type a message"]',
   'input[type="text"]',
   '[role="textbox"]',
 ] as const;
@@ -145,7 +164,7 @@ export interface ConversationResult {
 
 export interface ConversationRunnerOptions {
   /**
-   * Override the chat-input selector. When set, the 5-selector cascade
+   * Override the chat-input selector. When set, the 6-selector cascade
    * is skipped and only this selector is tried. Useful for showcases
    * with non-standard chat UIs where the cascade would mis-match.
    */
@@ -261,7 +280,7 @@ export async function runConversation(
 }
 
 /**
- * Probe the 5-selector cascade and return the first one that resolves.
+ * Probe the 6-selector cascade and return the first one that resolves.
  * When `override` is provided, only that selector is tried. Each probe
  * uses a short timeout (`SELECTOR_PROBE_TIMEOUT_MS`) so the cascade
  * doesn't multiply the page-level timeout by 5x on showcases where
