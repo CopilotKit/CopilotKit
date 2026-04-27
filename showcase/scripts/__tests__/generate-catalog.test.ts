@@ -188,10 +188,12 @@ describe("Catalog Generator", () => {
     expect(catalog.metadata.total_cells).toBe(737);
 
     // 18 integrations x 40 features + 17 starters = 737 total cells
-    // Wired = 526, Stub = 8, Unshipped = 203
-    expect(catalog.metadata.wired).toBe(526);
-    expect(catalog.metadata.stub).toBe(8);
-    expect(catalog.metadata.unshipped).toBe(203);
+    // Wired = 552, Stub = 9, Unshipped = 176 (post-google-adk parity port:
+    // google-adk went from 8 → 35 wired cells, see PR adding 27 demos +
+    // splitting tool_rendering_agents into per-variant files)
+    expect(catalog.metadata.wired).toBe(552);
+    expect(catalog.metadata.stub).toBe(9);
+    expect(catalog.metadata.unshipped).toBe(176);
   });
 
   it("max_depth: D4 for wired/stub cells, D0 for unshipped", () => {

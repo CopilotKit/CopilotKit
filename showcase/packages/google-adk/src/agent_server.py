@@ -1,8 +1,15 @@
-"""
-Agent Server for Google ADK
+"""Agent Server for Google ADK.
 
-FastAPI server that hosts the ADK agent backend.
-The Next.js CopilotKit runtime proxies requests here via AG-UI protocol.
+FastAPI server that hosts ALL ADK agents for this showcase package. Each demo
+gets its own ADKAgent middleware mounted at /<agent_name>; the Next.js
+CopilotKit runtime in src/app/api/copilotkit/route.ts proxies each agent name
+to the matching backend path via AG-UI protocol.
+
+NOTE on /agents/state: ag_ui_adk.endpoint.add_adk_fastapi_endpoint() also
+registers a hardcoded `POST /agents/state` route. Calling it N times registers
+N duplicate handlers; FastAPI/Starlette serve whichever was registered first.
+For our demos this is fine — only a handful (e.g. headless-complete) call
+that endpoint, and they all use the first registered agent's session service.
 """
 
 import os
@@ -13,7 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 from dotenv import load_dotenv
-from agents.main import sales_pipeline_agent
+
+from agents.registry import AGENT_REGISTRY
 
 load_dotenv()
 
@@ -21,9 +29,8 @@ app = FastAPI(title="Google ADK Agent Server")
 
 
 # Serve /health via middleware so it short-circuits BEFORE route resolution.
-# `add_adk_fastapi_endpoint(app, adk_agent, path="/")` installs a catch-all
-# at the root that shadows any later `@app.get("/health")` decorator.
-# Middleware runs above the routing layer, so /health stays reachable.
+# `add_adk_fastapi_endpoint(app, adk_agent, path="/<name>")` installs POST
+# routes; middleware runs above the routing layer, so /health stays reachable.
 class HealthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         if request.url.path == "/health" and request.method == "GET":
@@ -40,14 +47,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-adk_agent = ADKAgent(
-    adk_agent=sales_pipeline_agent,
-    user_id="demo_user",
-    session_timeout_seconds=3600,
-    use_in_memory_services=True,
-)
 
-add_adk_fastapi_endpoint(app, adk_agent, path="/")
+# Mount one ADKAgent per registered agent at /<agent_name>.
+for agent_name, spec in AGENT_REGISTRY.items():
+    middleware = ADKAgent(
+        adk_agent=spec.llm_agent,
+        user_id="demo_user",
+        session_timeout_seconds=3600,
+        use_in_memory_services=True,
+        predict_state=spec.predict_state,
+        emit_messages_snapshot=spec.emit_messages_snapshot,
+    )
+    add_adk_fastapi_endpoint(app, middleware, path=f"/{agent_name}")
 
 
 def main():

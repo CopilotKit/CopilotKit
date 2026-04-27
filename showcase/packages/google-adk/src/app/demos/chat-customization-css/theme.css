@@ -1,0 +1,81 @@
+/* Scoped theme for the chat-customization-css demo. All selectors are
+ * prefixed with `.chat-css-demo-scope` so they do not leak out and affect
+ * the rest of the showcase app. Targets the CopilotKit built-in classes
+ * documented at
+ * https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components
+ */
+
+/* CopilotKit CSS variable overrides */
+.chat-css-demo-scope {
+  --copilot-kit-primary-color: #1a73e8;
+  --copilot-kit-contrast-color: #ffffff;
+  --copilot-kit-background-color: #f0f7ff;
+  --copilot-kit-input-background-color: #e0ecff;
+  --copilot-kit-secondary-color: #ffb800;
+  --copilot-kit-secondary-contrast-color: #102d4d;
+  --copilot-kit-separator-color: #1a73e8;
+  --copilot-kit-muted-color: #4a6f9c;
+}
+
+.chat-css-demo-scope .copilotKitMessages {
+  font-family: "Inter", "Helvetica Neue", system-ui, sans-serif;
+  background-color: #f0f7ff;
+  color: #102d4d;
+  padding: 1.5rem 0;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitUserMessage {
+  background: linear-gradient(135deg, #1a73e8 0%, #0b5cc4 100%);
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 12px 18px;
+  border-radius: 18px 18px 4px 18px;
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage {
+  background: #ffffff;
+  color: #102d4d;
+  font-family: inherit;
+  font-size: 1rem;
+  padding: 14px 18px;
+  border-radius: 4px 18px 18px 18px;
+  border: 1px solid #cfe2ff;
+  box-shadow: 0 2px 4px rgba(16, 45, 77, 0.06);
+  max-width: 80%;
+  margin-right: auto;
+  margin-bottom: 1rem;
+}
+
+.chat-css-demo-scope .copilotKitMessage.copilotKitAssistantMessage p {
+  color: #102d4d;
+  font-family: inherit;
+}
+
+.chat-css-demo-scope .copilotKitInput {
+  font-family: inherit;
+  background-color: #e0ecff;
+  border: 2px solid #1a73e8;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.chat-css-demo-scope .copilotKitInput > textarea {
+  font-family: inherit;
+  font-size: 1rem;
+  color: #102d4d;
+}
+
+.chat-css-demo-scope .copilotKitInput > textarea::placeholder {
+  color: #4a6f9c;
+}
+
+.chat-css-demo-scope .copilotKitInputContainer {
+  background: #f0f7ff;
+}
+
+.chat-css-demo-scope .copilotKitChat {
+  background-color: #f0f7ff;
+}
