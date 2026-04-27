@@ -68,9 +68,8 @@ describe("Registry Generator", () => {
     expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
-    // 38 base + hitl + hitl-in-chat-booking = 40.
-    expect(langgraph.features.length).toBe(40);
-    expect(langgraph.demos.length).toBe(40);
+    expect(langgraph.features.length).toBe(38);
+    expect(langgraph.demos.length).toBe(38);
   });
 
   it("sorts integrations by sort_order", () => {
