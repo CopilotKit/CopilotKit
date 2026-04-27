@@ -1,0 +1,334 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "example-a2a-a2ui",
+      "cwd": "examples/integrations/a2a-a2ui",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-a2a-middleware",
+      "cwd": "examples/integrations/a2a-middleware",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-adk",
+      "cwd": "examples/integrations/adk",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-agent-spec",
+      "cwd": "examples/integrations/agent-spec",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-agentcore-frontend",
+      "cwd": "examples/integrations/agentcore/frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "example-agno",
+      "cwd": "examples/integrations/agno",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-crewai-crews",
+      "cwd": "examples/integrations/crewai-crews",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-crewai-flows",
+      "cwd": "examples/integrations/crewai-flows",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-langgraph-fastapi",
+      "cwd": "examples/integrations/langgraph-fastapi",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-langgraph-js",
+      "cwd": "examples/integrations/langgraph-js",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-langgraph-python",
+      "cwd": "examples/integrations/langgraph-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-langgraph-python-threads",
+      "cwd": "examples/integrations/langgraph-python-threads",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-llamaindex",
+      "cwd": "examples/integrations/llamaindex",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-mastra",
+      "cwd": "examples/integrations/mastra",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-mcp-apps",
+      "cwd": "examples/integrations/mcp-apps",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-ms-agent-dotnet",
+      "cwd": "examples/integrations/ms-agent-framework-dotnet",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-ms-agent-python",
+      "cwd": "examples/integrations/ms-agent-framework-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-pydantic-ai",
+      "cwd": "examples/integrations/pydantic-ai",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-strands-python",
+      "cwd": "examples/integrations/strands-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-react-demo",
+      "cwd": "examples/v2/react/demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "example-react-storybook",
+      "cwd": "examples/v2/react/storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 6006
+    },
+    {
+      "name": "example-angular-demo",
+      "cwd": "examples/v2/angular/demo",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4200
+    },
+    {
+      "name": "example-angular-storybook",
+      "cwd": "examples/v2/angular/storybook",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 6006
+    },
+    {
+      "name": "example-docs",
+      "cwd": "examples/v2/docs",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 4000
+    },
+    {
+      "name": "example-react-router",
+      "cwd": "examples/v2/react-router",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173
+    },
+    {
+      "name": "example-interrupts-langgraph",
+      "cwd": "examples/v2/interrupts-langgraph",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-shell",
+      "cwd": "showcase/shell",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-shell-dojo",
+      "cwd": "showcase/shell-dojo",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "showcase-shell-dashboard",
+      "cwd": "showcase/shell-dashboard",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "showcase-shell-docs",
+      "cwd": "showcase/shell-docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3003
+    },
+    {
+      "name": "showcase-ag2",
+      "cwd": "showcase/starters/ag2",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-agno",
+      "cwd": "showcase/starters/agno",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-claude-sdk-python",
+      "cwd": "showcase/starters/claude-sdk-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-claude-sdk-typescript",
+      "cwd": "showcase/starters/claude-sdk-typescript",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-crewai-crews",
+      "cwd": "showcase/starters/crewai-crews",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-google-adk",
+      "cwd": "showcase/starters/google-adk",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-fastapi",
+      "cwd": "showcase/starters/langgraph-fastapi",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-python",
+      "cwd": "showcase/starters/langgraph-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langgraph-typescript",
+      "cwd": "showcase/starters/langgraph-typescript",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-langroid",
+      "cwd": "showcase/starters/langroid",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-llamaindex",
+      "cwd": "showcase/starters/llamaindex",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-mastra",
+      "cwd": "showcase/starters/mastra",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-ms-agent-dotnet",
+      "cwd": "showcase/starters/ms-agent-dotnet",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-ms-agent-python",
+      "cwd": "showcase/starters/ms-agent-python",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-pydantic-ai",
+      "cwd": "showcase/starters/pydantic-ai",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-spring-ai",
+      "cwd": "showcase/starters/spring-ai",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "showcase-strands",
+      "cwd": "showcase/starters/strands",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}
