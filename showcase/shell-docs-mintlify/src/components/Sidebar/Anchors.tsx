@@ -1,5 +1,5 @@
-import { Anchor } from './Anchor';
-import type { AnchorItem } from './types';
+import { Anchor } from "./Anchor";
+import type { AnchorItem } from "./types";
 
 interface AnchorsProps {
   anchors: AnchorItem[];

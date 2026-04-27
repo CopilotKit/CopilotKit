@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { cn } from '@mintlify/components';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { cn } from "@mintlify/components";
 
 export interface TocHeading {
   depth: number;
@@ -16,7 +16,7 @@ export default function TableOfContents({
     () => headings.filter((h) => h.depth >= 2 && h.depth <= 3),
     [headings],
   );
-  const [activeSlug, setActiveSlug] = useState('');
+  const [activeSlug, setActiveSlug] = useState("");
 
   const handleScroll = useCallback(() => {
     const headingElements = tocHeadings
@@ -33,7 +33,7 @@ export default function TableOfContents({
       return;
     }
 
-    let active = '';
+    let active = "";
     for (const heading of headingElements) {
       if (heading.getBoundingClientRect().top <= 150) active = heading.id;
       else break;
@@ -43,8 +43,8 @@ export default function TableOfContents({
 
   useEffect(() => {
     handleScroll();
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
   if (tocHeadings.length === 0) return null;
@@ -64,7 +64,7 @@ export default function TableOfContents({
       <div className="toc-wrapper flex-col sticky top-16 h-[calc(100vh-4rem)] w-80 shrink-0 pl-10">
         <nav className="overflow-y-auto text-sm leading-6 pt-2 pb-8">
           <button
-            onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+            onClick={() => window.scrollTo({ top: 0, behavior: "instant" })}
             className="font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2 cursor-pointer hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
           >
             <LinesIcon />
@@ -79,11 +79,11 @@ export default function TableOfContents({
                   <a
                     href={`#${heading.slug}`}
                     className={cn(
-                      'block py-1 wrap-break-word transition-colors',
-                      heading.depth > 2 ? 'pl-4' : 'pl-0',
+                      "block py-1 wrap-break-word transition-colors",
+                      heading.depth > 2 ? "pl-4" : "pl-0",
                       isActive
-                        ? 'font-medium text-(--primary)'
-                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
+                        ? "font-medium text-(--primary)"
+                        : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100",
                     )}
                   >
                     {heading.text}

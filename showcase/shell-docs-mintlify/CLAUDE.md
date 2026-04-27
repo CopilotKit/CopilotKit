@@ -28,6 +28,7 @@ The Claude Preview launch config is wired in [`../.claude/launch.json`](../.clau
 ## Information architecture
 
 **URL = integration.** No state, no banners.
+
 - `/quickstart` → built-in (canonical/default)
 - `/langgraph/quickstart` → LangGraph variant
 - `/langgraph/subgraphs` → LangGraph-only page
@@ -37,11 +38,11 @@ corresponding URL on the chosen track. There is no client-side state to flip.
 
 **Three page types:**
 
-| Type | Where | Aliased? |
-|---|---|---|
-| Universal page | `docs/<slug>.mdx` (canonical) | Yes — to every non-default integration |
-| Variant page | One canonical with `<Variant for="...">` blocks inside | Yes — content swaps via CSS on `body[data-integration]` |
-| Integration-only page | `docs/<integration>/<slug>.mdx` (one file) | No — only appears in that integration's nav |
+| Type                  | Where                                                  | Aliased?                                                |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
+| Universal page        | `docs/<slug>.mdx` (canonical)                          | Yes — to every non-default integration                  |
+| Variant page          | One canonical with `<Variant for="...">` blocks inside | Yes — content swaps via CSS on `body[data-integration]` |
+| Integration-only page | `docs/<integration>/<slug>.mdx` (one file)             | No — only appears in that integration's nav             |
 
 ## Source of truth
 
@@ -69,12 +70,12 @@ The generator emits files with an `# AUTO-GENERATED` marker in their
 frontmatter. The orphan-cleanup logic only deletes files carrying that marker
 — it leaves author content intact.
 
-| File | Generator | Purpose |
-|---|---|---|
-| `docs/<integration>/<slug>.mdx` (alias stubs) | `scripts/generate-routing.ts` | Re-render canonical content at the prefixed URL |
-| `docs/docs.json` | `scripts/generate-routing.ts` | Mintlify nav structure (groups + pages) |
-| `src/styles/integrations.css` | `scripts/generate-routing.ts` | Per-integration visibility rules (variant blocks, sidebar groups, sidebar items) |
-| `src/lib/showcase.config.json` | `scripts/generate-showcase-config.ts` | Maps integration slug → deployed showcase URL + available demos |
+| File                                          | Generator                             | Purpose                                                                          |
+| --------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------- |
+| `docs/<integration>/<slug>.mdx` (alias stubs) | `scripts/generate-routing.ts`         | Re-render canonical content at the prefixed URL                                  |
+| `docs/docs.json`                              | `scripts/generate-routing.ts`         | Mintlify nav structure (groups + pages)                                          |
+| `src/styles/integrations.css`                 | `scripts/generate-routing.ts`         | Per-integration visibility rules (variant blocks, sidebar groups, sidebar items) |
+| `src/lib/showcase.config.json`                | `scripts/generate-showcase-config.ts` | Maps integration slug → deployed showcase URL + available demos                  |
 
 Both generators run via `npm run gen` (and automatically on `predev` / `prebuild`).
 
@@ -104,15 +105,11 @@ Use `<Variant for="<slug>">...</Variant>` blocks inline:
 ## Install
 
 <Variant for="built-in">
-\`\`\`bash
-npm install @copilotkit/runtime
-\`\`\`
+  \`\`\`bash npm install @copilotkit/runtime \`\`\`
 </Variant>
 
 <Variant for="langgraph">
-\`\`\`bash
-npm install @copilotkit/runtime @langchain/langgraph
-\`\`\`
+  \`\`\`bash npm install @copilotkit/runtime @langchain/langgraph \`\`\`
 </Variant>
 ```
 

@@ -1,10 +1,10 @@
-import { useEffect, useRef } from 'react';
-import type { NavNode } from '@mintlify/astro/helpers';
-import { unwrapNav } from '@mintlify/astro/helpers';
-import { type SidebarItemStyle, type AnchorItem } from './types';
-import { SidebarEntries } from './SidebarEntries';
-import { Anchors } from './Anchors';
-import { IntegrationPill } from '../IntegrationPill';
+import { useEffect, useRef } from "react";
+import type { NavNode } from "@mintlify/astro/helpers";
+import { unwrapNav } from "@mintlify/astro/helpers";
+import { type SidebarItemStyle, type AnchorItem } from "./types";
+import { SidebarEntries } from "./SidebarEntries";
+import { Anchors } from "./Anchors";
+import { IntegrationPill } from "../IntegrationPill";
 
 interface SidebarProps {
   navigation: NavNode;
@@ -14,13 +14,13 @@ interface SidebarProps {
   showDivider?: boolean;
 }
 
-const SIDEBAR_SCROLL_KEY = 'docs-sidebar-scroll';
+const SIDEBAR_SCROLL_KEY = "docs-sidebar-scroll";
 
 export default function Sidebar({
   navigation,
   currentPath,
   anchors = [],
-  sidebarItemStyle = 'container',
+  sidebarItemStyle = "container",
   showDivider = false,
 }: SidebarProps) {
   const entries = unwrapNav(navigation, currentPath);
@@ -51,14 +51,14 @@ export default function Sidebar({
       sessionStorage.setItem(SIDEBAR_SCROLL_KEY, String(nav.scrollTop));
     };
 
-    nav.addEventListener('scroll', save, { passive: true });
-    document.addEventListener('astro:before-swap', save);
-    window.addEventListener('beforeunload', save);
+    nav.addEventListener("scroll", save, { passive: true });
+    document.addEventListener("astro:before-swap", save);
+    window.addEventListener("beforeunload", save);
 
     return () => {
-      nav.removeEventListener('scroll', save);
-      document.removeEventListener('astro:before-swap', save);
-      window.removeEventListener('beforeunload', save);
+      nav.removeEventListener("scroll", save);
+      document.removeEventListener("astro:before-swap", save);
+      window.removeEventListener("beforeunload", save);
     };
   }, []);
 

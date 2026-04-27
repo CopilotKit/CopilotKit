@@ -1,16 +1,16 @@
-import { Icon } from '@mintlify/components';
-import { MintlifyLogo } from '../icons/MintlifyLogo';
+import { Icon } from "@mintlify/components";
+import { MintlifyLogo } from "../icons/MintlifyLogo";
 
 const socials = [
-  { type: 'x', url: 'https://x.com/mintlify' },
-  { type: 'github', url: 'https://github.com/mintlify' },
-  { type: 'linkedin', url: 'https://linkedin.com/company/mintlify' },
+  { type: "x", url: "https://x.com/mintlify" },
+  { type: "github", url: "https://github.com/mintlify" },
+  { type: "linkedin", url: "https://linkedin.com/company/mintlify" },
 ];
 
 const socialIconMap: Record<string, string> = {
-  x: 'x-twitter',
-  github: 'github',
-  linkedin: 'linkedin',
+  x: "x-twitter",
+  github: "github",
+  linkedin: "linkedin",
 };
 
 export default function SiteFooter() {

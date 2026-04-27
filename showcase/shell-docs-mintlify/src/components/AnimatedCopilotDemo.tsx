@@ -39,7 +39,11 @@ function applyEntry(state: DemoState, entry: ScriptEntry): DemoState {
         role: "user",
         content: state.typedInputText,
       };
-      return { ...state, messages: [...state.messages, msg], typedInputText: "" };
+      return {
+        ...state,
+        messages: [...state.messages, msg],
+        typedInputText: "",
+      };
     }
     case "assistant-typing":
       return { ...state, isAssistantTyping: entry.on };
@@ -63,7 +67,10 @@ function applyEntry(state: DemoState, entry: ScriptEntry): DemoState {
               {
                 id: nextId("tc"),
                 type: "function",
-                function: { name: entry.name, arguments: JSON.stringify(entry.args) },
+                function: {
+                  name: entry.name,
+                  arguments: JSON.stringify(entry.args),
+                },
               },
             ],
           };
@@ -82,7 +89,10 @@ function applyEntry(state: DemoState, entry: ScriptEntry): DemoState {
   }
 }
 
-export function advanceState(state: DemoState, entries: ReadonlyArray<ScriptEntry>): DemoState {
+export function advanceState(
+  state: DemoState,
+  entries: ReadonlyArray<ScriptEntry>,
+): DemoState {
   return entries.reduce(applyEntry, state);
 }
 
@@ -143,7 +153,10 @@ export interface AnimatedCopilotDemoProps {
 
 export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
   const reduced = typeof window !== "undefined" && prefersReducedMotion();
-  const [state, dispatch] = useReducer(reducer, reduced ? STATIC_FRAME : initialState);
+  const [state, dispatch] = useReducer(
+    reducer,
+    reduced ? STATIC_FRAME : initialState,
+  );
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -182,7 +195,10 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
   }, [reduced]);
 
   return (
-    <CopilotChatConfigurationProvider agentId="docs-demo" threadId="docs-demo-thread">
+    <CopilotChatConfigurationProvider
+      agentId="docs-demo"
+      threadId="docs-demo-thread"
+    >
       <div
         ref={containerRef}
         className={
@@ -195,10 +211,14 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
         {/* Faux chrome — anchors the visual as a chat surface */}
         <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-zinc-900/60">
           <span className="w-2 h-2 rounded-full bg-(--primary)" />
-          <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400">CopilotKit demo</span>
+          <span className="text-[11px] font-medium text-gray-600 dark:text-gray-400">
+            CopilotKit demo
+          </span>
           {state.pageEffectColor && (
             <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-mono text-gray-500 dark:text-gray-400">
-              <span className="text-gray-400 dark:text-gray-500">background</span>
+              <span className="text-gray-400 dark:text-gray-500">
+                background
+              </span>
               <span
                 className="inline-block w-3 h-3 rounded-sm border border-black/10 dark:border-white/10 transition-colors duration-500"
                 style={{ backgroundColor: state.pageEffectColor }}
@@ -227,7 +247,8 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
                     } catch {
                       // ignore — fall through to raw rendering
                     }
-                    const colorArg = typeof args.color === "string" ? args.color : null;
+                    const colorArg =
+                      typeof args.color === "string" ? args.color : null;
                     const argText = Object.entries(args)
                       .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
                       .join(", ");
@@ -237,7 +258,9 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
                         className="mt-1.5 inline-flex items-center gap-1.5 rounded-md border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-zinc-900 px-2 py-1 text-[11px] font-mono text-gray-700 dark:text-gray-300"
                       >
                         <span className="text-(--primary)">⚙</span>
-                        <span className="font-semibold">{tc.function.name}</span>
+                        <span className="font-semibold">
+                          {tc.function.name}
+                        </span>
                         {colorArg && (
                           <span
                             className="inline-block w-2.5 h-2.5 rounded-sm border border-black/10 dark:border-white/10"
@@ -245,8 +268,12 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
                             aria-hidden="true"
                           />
                         )}
-                        <span className="text-gray-500 dark:text-gray-400">({argText || tc.function.arguments})</span>
-                        <span className="text-green-600 dark:text-green-400">✓</span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          ({argText || tc.function.arguments})
+                        </span>
+                        <span className="text-green-600 dark:text-green-400">
+                          ✓
+                        </span>
                       </div>
                     );
                   })}
@@ -260,7 +287,11 @@ export function AnimatedCopilotDemo({ className }: AnimatedCopilotDemoProps) {
             )}
           </div>
           <div className="border-t border-gray-200 dark:border-gray-800 p-2">
-            <CopilotChatInput value={state.typedInputText} onChange={() => {}} onSubmitMessage={() => {}} />
+            <CopilotChatInput
+              value={state.typedInputText}
+              onChange={() => {}}
+              onSubmitMessage={() => {}}
+            />
           </div>
         </div>
       </div>

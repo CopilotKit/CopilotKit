@@ -1,5 +1,5 @@
-import { useState, type ComponentType, type SVGProps } from 'react';
-import { cn, Icon } from '@mintlify/components';
+import { useState, type ComponentType, type SVGProps } from "react";
+import { cn, Icon } from "@mintlify/components";
 import {
   INTEGRATIONS,
   INTEGRATION_LABELS,
@@ -7,7 +7,7 @@ import {
   resolveIntegration,
   stripIntegrationPrefix,
   type Integration,
-} from '../lib/integration';
+} from "../lib/integration";
 import {
   BuiltInIcon,
   LangGraphIcon,
@@ -22,38 +22,46 @@ import {
   MastraIcon,
   MicrosoftIcon,
   PydanticAIIcon,
-} from './IntegrationIcons';
+} from "./IntegrationIcons";
 
-type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
+type IconComponent = ComponentType<
+  SVGProps<SVGSVGElement> & { className?: string }
+>;
 
 const INTEGRATION_ICONS: Record<Integration, IconComponent> = {
-  'built-in': BuiltInIcon,
+  "built-in": BuiltInIcon,
   langgraph: LangGraphIcon,
   adk: ADKIcon,
   a2a: A2AIcon,
   ag2: AG2Icon,
-  'agent-spec': AgentSpecIcon,
+  "agent-spec": AgentSpecIcon,
   agno: AgnoIcon,
-  'aws-strands': AwsStrandsIcon,
-  'crewai-flows': CrewAIIcon,
+  "aws-strands": AwsStrandsIcon,
+  "crewai-flows": CrewAIIcon,
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
-  'microsoft-agent-framework': MicrosoftIcon,
-  'pydantic-ai': PydanticAIIcon,
+  "microsoft-agent-framework": MicrosoftIcon,
+  "pydantic-ai": PydanticAIIcon,
 };
 
 interface IntegrationPillProps {
   currentPath: string;
 }
 
-function IntegrationLogo({ slug, className }: { slug: Integration; className?: string }) {
+function IntegrationLogo({
+  slug,
+  className,
+}: {
+  slug: Integration;
+  className?: string;
+}) {
   const Icon = INTEGRATION_ICONS[slug];
   if (!Icon) return null;
   return (
     <Icon
       className={cn(
-        'shrink-0 text-[var(--color-primary)]',
-        className ?? 'w-4 h-4',
+        "shrink-0 text-[var(--color-primary)]",
+        className ?? "w-4 h-4",
       )}
       aria-hidden="true"
     />
@@ -67,10 +75,10 @@ export function IntegrationPill({ currentPath }: IntegrationPillProps) {
   function hrefFor(target: Integration): string {
     const rest = stripIntegrationPrefix(currentPath);
     const isUniversal = (UNIVERSAL_PAGES as readonly string[]).includes(rest);
-    if (target === 'built-in') {
-      return isUniversal ? rest : '/';
+    if (target === "built-in") {
+      return isUniversal ? rest : "/";
     }
-    if (rest === '/') return `/${target}/quickstart`;
+    if (rest === "/") return `/${target}/quickstart`;
     return isUniversal ? `/${target}${rest}` : `/${target}/quickstart`;
   }
 
@@ -88,8 +96,8 @@ export function IntegrationPill({ currentPath }: IntegrationPillProps) {
           icon="chevron-down"
           iconLibrary="lucide"
           className={cn(
-            'transition-transform text-gray-500 dark:text-gray-400',
-            isOpen && 'rotate-180',
+            "transition-transform text-gray-500 dark:text-gray-400",
+            isOpen && "rotate-180",
           )}
           size={16}
         />
@@ -107,10 +115,10 @@ export function IntegrationPill({ currentPath }: IntegrationPillProps) {
                 key={slug}
                 href={hrefFor(slug)}
                 className={cn(
-                  'flex items-center justify-between gap-2.5 px-2.5 py-2 text-sm font-medium rounded-[0.6rem] hover:bg-gray-100 dark:hover:bg-white/5',
+                  "flex items-center justify-between gap-2.5 px-2.5 py-2 text-sm font-medium rounded-[0.6rem] hover:bg-gray-100 dark:hover:bg-white/5",
                   slug === current
-                    ? 'text-(--primary)'
-                    : 'text-gray-800 dark:text-gray-200',
+                    ? "text-(--primary)"
+                    : "text-gray-800 dark:text-gray-200",
                 )}
                 onClick={() => setIsOpen(false)}
               >

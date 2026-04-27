@@ -1,12 +1,12 @@
-import { Icon } from '@mintlify/components';
-import type { NavGroup } from '@mintlify/astro/helpers';
-import { isNavPage, isNavGroup } from '@mintlify/astro/helpers';
-import type { SidebarItemStyle } from './types';
-import { SideNavItem } from './SideNavItem';
-import { INTEGRATIONS } from '../../lib/integration';
+import { Icon } from "@mintlify/components";
+import type { NavGroup } from "@mintlify/astro/helpers";
+import { isNavPage, isNavGroup } from "@mintlify/astro/helpers";
+import type { SidebarItemStyle } from "./types";
+import { SideNavItem } from "./SideNavItem";
+import { INTEGRATIONS } from "../../lib/integration";
 
 const INTEGRATION_TAG_REGEX = new RegExp(
-  `^\\[(${INTEGRATIONS.join('|')})\\]\\s*`,
+  `^\\[(${INTEGRATIONS.join("|")})\\]\\s*`,
 );
 
 interface SidebarGroupItemProps {
@@ -22,13 +22,15 @@ export function SidebarGroupItem({
 }: SidebarGroupItemProps) {
   const tagMatch = group.group.match(INTEGRATION_TAG_REGEX);
   const groupIntegration = tagMatch ? tagMatch[1] : null;
-  const cleanName = tagMatch ? group.group.replace(INTEGRATION_TAG_REGEX, '') : group.group;
+  const cleanName = tagMatch
+    ? group.group.replace(INTEGRATION_TAG_REGEX, "")
+    : group.group;
   // Stable identifier for CSS targeting (e.g. hiding empty groups per integration).
   // Lowercased, non-alphanum collapsed to single dashes, trimmed.
   const groupSlug = cleanName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
   return (
     <div

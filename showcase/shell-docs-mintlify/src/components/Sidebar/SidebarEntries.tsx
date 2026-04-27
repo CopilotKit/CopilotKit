@@ -1,8 +1,8 @@
-import type { NavEntry, NavPage, NavGroup } from '@mintlify/astro/helpers';
-import { isNavPage, isNavGroup } from '@mintlify/astro/helpers';
-import type { SidebarItemStyle } from './types';
-import { SideNavItem } from './SideNavItem';
-import { SidebarGroupItem } from './SidebarGroupItem';
+import type { NavEntry, NavPage, NavGroup } from "@mintlify/astro/helpers";
+import { isNavPage, isNavGroup } from "@mintlify/astro/helpers";
+import type { SidebarItemStyle } from "./types";
+import { SideNavItem } from "./SideNavItem";
+import { SidebarGroupItem } from "./SidebarGroupItem";
 
 function Divider() {
   return (
@@ -13,8 +13,8 @@ function Divider() {
 }
 
 type GroupedEntry =
-  | { kind: 'pages'; pages: NavPage[] }
-  | { kind: 'group'; group: NavGroup };
+  | { kind: "pages"; pages: NavPage[] }
+  | { kind: "group"; group: NavGroup };
 
 function groupEntries(entries: NavEntry[]): GroupedEntry[] {
   const result: GroupedEntry[] = [];
@@ -22,13 +22,13 @@ function groupEntries(entries: NavEntry[]): GroupedEntry[] {
   for (const entry of entries) {
     if (isNavPage(entry)) {
       const last = result[result.length - 1];
-      if (last?.kind === 'pages') {
+      if (last?.kind === "pages") {
         last.pages.push(entry);
       } else {
-        result.push({ kind: 'pages', pages: [entry] });
+        result.push({ kind: "pages", pages: [entry] });
       }
     } else if (isNavGroup(entry)) {
-      result.push({ kind: 'group', group: entry });
+      result.push({ kind: "group", group: entry });
     }
   }
 
@@ -54,9 +54,9 @@ export function SidebarEntries({
     <>
       {grouped.map((item, i) => {
         const spacingClass =
-          i > 0 ? (showDivider ? 'my-2' : 'mt-6 lg:mt-8') : undefined;
+          i > 0 ? (showDivider ? "my-2" : "mt-6 lg:mt-8") : undefined;
 
-        if (item.kind === 'pages') {
+        if (item.kind === "pages") {
           return (
             <ul key={item.pages[0].href} className={spacingClass}>
               {item.pages.map((page) => (

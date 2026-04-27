@@ -274,17 +274,11 @@
           },
           {
             "group": "Models & providers",
-            "pages": [
-              "model-selection",
-              "custom-agent"
-            ]
+            "pages": ["model-selection", "custom-agent"]
           },
           {
             "group": "Human-in-the-loop",
-            "pages": [
-              "langgraph/interrupts",
-              "mastra/interrupts"
-            ]
+            "pages": ["langgraph/interrupts", "mastra/interrupts"]
           },
           {
             "group": "Architecture",
@@ -429,57 +423,39 @@
           },
           {
             "group": "[a2a] A2A (Agent-to-Agent) features",
-            "pages": [
-              "a2a/declarative-a2ui"
-            ]
+            "pages": ["a2a/declarative-a2ui"]
           },
           {
             "group": "[ag2] AG2 (AutoGen) features",
-            "pages": [
-              "ag2/human-in-the-loop"
-            ]
+            "pages": ["ag2/human-in-the-loop"]
           },
           {
             "group": "[agent-spec] Agent Spec features",
-            "pages": [
-              "agent-spec/langgraph"
-            ]
+            "pages": ["agent-spec/langgraph"]
           },
           {
             "group": "[agno] Agno features",
-            "pages": [
-              "agno/human-in-the-loop"
-            ]
+            "pages": ["agno/human-in-the-loop"]
           },
           {
             "group": "[aws-strands] AWS Strands features",
-            "pages": [
-              "aws-strands/human-in-the-loop"
-            ]
+            "pages": ["aws-strands/human-in-the-loop"]
           },
           {
             "group": "[crewai-flows] CrewAI Flows features",
-            "pages": [
-              "crewai-flows/human-in-the-loop"
-            ]
+            "pages": ["crewai-flows/human-in-the-loop"]
           },
           {
             "group": "[llamaindex] LlamaIndex features",
-            "pages": [
-              "llamaindex/human-in-the-loop"
-            ]
+            "pages": ["llamaindex/human-in-the-loop"]
           },
           {
             "group": "[microsoft-agent-framework] Microsoft Agent Framework features",
-            "pages": [
-              "microsoft-agent-framework/human-in-the-loop"
-            ]
+            "pages": ["microsoft-agent-framework/human-in-the-loop"]
           },
           {
             "group": "[pydantic-ai] Pydantic AI features",
-            "pages": [
-              "pydantic-ai/human-in-the-loop"
-            ]
+            "pages": ["pydantic-ai/human-in-the-loop"]
           }
         ]
       },

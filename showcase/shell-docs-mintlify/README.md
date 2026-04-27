@@ -93,13 +93,13 @@ The `@mintlify/astro` integration connects three parts: the Astro build system, 
 The integration is configured in `astro.config.mjs`:
 
 ```javascript
-import { defineConfig } from 'astro/config';
-import react from '@astrojs/react';
-import mdx from '@astrojs/mdx';
-import { mintlify } from '@mintlify/astro';
+import { defineConfig } from "astro/config";
+import react from "@astrojs/react";
+import mdx from "@astrojs/mdx";
+import { mintlify } from "@mintlify/astro";
 
 export default defineConfig({
-  integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
+  integrations: [mintlify({ docsDir: "./docs" }), react(), mdx()],
 });
 ```
 

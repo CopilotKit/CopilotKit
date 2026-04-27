@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { cn, Icon } from '@mintlify/components';
-import type { TabInfo } from '@mintlify/astro/helpers';
+import { useState } from "react";
+import { cn, Icon } from "@mintlify/components";
+import type { TabInfo } from "@mintlify/astro/helpers";
 
 interface TabsDropdownProps {
   tabs: TabInfo[];
@@ -25,8 +25,8 @@ export function TabsDropdown({ tabs }: TabsDropdownProps) {
           icon="chevron-down"
           iconLibrary="lucide"
           className={cn(
-            'transition-transform text-gray-500 dark:text-gray-400',
-            isOpen && 'rotate-180',
+            "transition-transform text-gray-500 dark:text-gray-400",
+            isOpen && "rotate-180",
           )}
           size={16}
         />
@@ -44,8 +44,10 @@ export function TabsDropdown({ tabs }: TabsDropdownProps) {
                 key={tab.name}
                 href={tab.href}
                 className={cn(
-                  'flex items-center justify-between px-2.5 py-2 text-sm font-medium rounded-md hover:bg-gray-100 dark:hover:bg-white/5',
-                  tab.isActive ? 'text-primary' : 'text-gray-800 dark:text-gray-200',
+                  "flex items-center justify-between px-2.5 py-2 text-sm font-medium rounded-md hover:bg-gray-100 dark:hover:bg-white/5",
+                  tab.isActive
+                    ? "text-primary"
+                    : "text-gray-800 dark:text-gray-200",
                 )}
                 onClick={() => setIsOpen(false)}
               >

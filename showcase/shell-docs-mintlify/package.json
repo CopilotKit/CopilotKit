@@ -1,17 +1,17 @@
 {
   "name": "mintlify-astro-starter",
-  "type": "module",
   "version": "1.0.0",
   "description": "An Astro starter kit for building custom documentation sites powered by Mintlify.",
+  "homepage": "https://github.com/mintlify/mintlify-astro-starter#readme",
+  "bugs": {
+    "url": "https://github.com/mintlify/mintlify-astro-starter/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/mintlify/mintlify-astro-starter.git"
   },
-  "homepage": "https://github.com/mintlify/mintlify-astro-starter#readme",
-  "bugs": {
-    "url": "https://github.com/mintlify/mintlify-astro-starter/issues"
-  },
+  "type": "module",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
@@ -43,10 +43,6 @@
     "tailwindcss": "^4.1.18",
     "use-debounce": "^10.0.0"
   },
-  "overrides": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3"
-  },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -62,5 +58,9 @@
     "prettier-plugin-astro": "^0.14.1",
     "tsx": "^4.19.0",
     "vitest": "^2.1.0"
+  },
+  "overrides": {
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   }
 }

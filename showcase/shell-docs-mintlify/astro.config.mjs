@@ -1,8 +1,8 @@
-import { defineConfig } from 'astro/config';
-import react from '@astrojs/react';
-import mdx from '@astrojs/mdx';
-import { mintlify } from '@mintlify/astro';
-import { fileURLToPath } from 'node:url';
+import { defineConfig } from "astro/config";
+import react from "@astrojs/react";
+import mdx from "@astrojs/mdx";
+import { mintlify } from "@mintlify/astro";
+import { fileURLToPath } from "node:url";
 import {
   transformerNotationHighlight,
   transformerNotationDiff,
@@ -10,13 +10,13 @@ import {
   transformerNotationErrorLevel,
   transformerNotationWordHighlight,
   transformerMetaHighlight,
-} from '@shikijs/transformers';
+} from "@shikijs/transformers";
 
-import tailwindcss from '@tailwindcss/vite';
-import remarkMintlifyCodeBlock from './src/plugins/remark-mintlify-code-block.ts';
+import tailwindcss from "@tailwindcss/vite";
+import remarkMintlifyCodeBlock from "./src/plugins/remark-mintlify-code-block.ts";
 
 export default defineConfig({
-  integrations: [mintlify({ docsDir: './docs' }), react(), mdx()],
+  integrations: [mintlify({ docsDir: "./docs" }), react(), mdx()],
   markdown: {
     // Rewrite every fenced code block (with a language) into a
     // `<MintCodeBlock />` JSX element BEFORE Shiki sees it. Mintlify's
@@ -33,8 +33,8 @@ export default defineConfig({
       // rest of the UI. `defaultColor: false` prevents Shiki from baking
       // either theme as a hard color — both are vars only.
       themes: {
-        light: 'catppuccin-latte',
-        dark: 'tokyo-night',
+        light: "catppuccin-latte",
+        dark: "tokyo-night",
       },
       defaultColor: false,
       // Notation transformers stay enabled for any fenced block that escapes
@@ -55,14 +55,16 @@ export default defineConfig({
     plugins: [tailwindcss()],
     resolve: {
       alias: {
-        '~components': fileURLToPath(new URL('./src/components', import.meta.url)),
+        "~components": fileURLToPath(
+          new URL("./src/components", import.meta.url),
+        ),
       },
     },
     ssr: {
       // @copilotkit/react-core's bundle imports its own CSS at module
       // evaluation time, which Node's loader can't process. Inline the
       // package through Vite so the CSS pipeline handles it.
-      noExternal: ['@copilotkit/react-core'],
+      noExternal: ["@copilotkit/react-core"],
     },
   },
 });

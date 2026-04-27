@@ -1,6 +1,6 @@
-import type { Root, Code } from 'mdast';
-import type { Plugin } from 'unified';
-import { visit, SKIP } from 'unist-util-visit';
+import type { Root, Code } from "mdast";
+import type { Plugin } from "unified";
+import { visit, SKIP } from "unist-util-visit";
 
 /**
  * Remark plugin that rewrites every fenced code block (with a language) into
@@ -32,7 +32,7 @@ import { visit, SKIP } from 'unist-util-visit';
  */
 export const remarkMintlifyCodeBlock: Plugin<[], Root> = () => {
   return (tree) => {
-    visit(tree, 'code', (node: Code, index, parent) => {
+    visit(tree, "code", (node: Code, index, parent) => {
       // Skip if there's no language hint — fenced blocks without a language
       // (`` ``` `` alone) get rendered as a plain `<pre>` by Astro's default
       // pipeline. Wrapping them in `<CodeBlock>` would give them an empty
@@ -41,23 +41,23 @@ export const remarkMintlifyCodeBlock: Plugin<[], Root> = () => {
       if (parent == null || index == null) return;
 
       const language = node.lang;
-      const meta = node.meta ?? '';
-      const value = stripUnsupportedNotations(node.value ?? '');
+      const meta = node.meta ?? "";
+      const value = stripUnsupportedNotations(node.value ?? "");
 
       const { filename, icon, lines, wrap, expandable, highlight, focus } =
         parseMeta(meta);
 
       const attributes: MdxJsxAttribute[] = [
-        attr('language', language),
-        attr('code', value),
+        attr("language", language),
+        attr("code", value),
       ];
-      if (filename) attributes.push(attr('filename', filename));
-      if (icon) attributes.push(attr('icon', icon));
-      if (lines) attributes.push(boolAttr('lines'));
-      if (wrap) attributes.push(boolAttr('wrap'));
-      if (expandable) attributes.push(boolAttr('expandable'));
-      if (highlight) attributes.push(attr('highlight', highlight));
-      if (focus) attributes.push(attr('focus', focus));
+      if (filename) attributes.push(attr("filename", filename));
+      if (icon) attributes.push(attr("icon", icon));
+      if (lines) attributes.push(boolAttr("lines"));
+      if (wrap) attributes.push(boolAttr("wrap"));
+      if (expandable) attributes.push(boolAttr("expandable"));
+      if (highlight) attributes.push(attr("highlight", highlight));
+      if (focus) attributes.push(attr("focus", focus));
 
       // Replace the `code` node in-place with an `mdxJsxFlowElement` —
       // a self-closing `<MintCodeBlock />` with the source text passed as a
@@ -65,8 +65,8 @@ export const remarkMintlifyCodeBlock: Plugin<[], Root> = () => {
       // `[...slug].astro`) forwards `code` to `<CodeBlock>` as children, which
       // is what `getNodeText` expects.
       const replacement = {
-        type: 'mdxJsxFlowElement',
-        name: 'MintCodeBlock',
+        type: "mdxJsxFlowElement",
+        name: "MintCodeBlock",
         attributes,
         children: [],
       } as unknown as Code;
@@ -83,18 +83,18 @@ export default remarkMintlifyCodeBlock;
 // --- helpers ---------------------------------------------------------------
 
 interface MdxJsxAttribute {
-  type: 'mdxJsxAttribute';
+  type: "mdxJsxAttribute";
   name: string;
   value: string | null;
 }
 
 function attr(name: string, value: string): MdxJsxAttribute {
-  return { type: 'mdxJsxAttribute', name, value };
+  return { type: "mdxJsxAttribute", name, value };
 }
 
 /** Boolean MDX attribute: `<Foo bar />`. Represented as a `null` value. */
 function boolAttr(name: string): MdxJsxAttribute {
-  return { type: 'mdxJsxAttribute', name, value: null };
+  return { type: "mdxJsxAttribute", name, value: null };
 }
 
 interface ParsedMeta {
@@ -128,19 +128,19 @@ export function parseMeta(meta: string): ParsedMeta {
   let match: RegExpExecArray | null;
   while ((match = kvRegex.exec(meta)) !== null) {
     const key = match[1].toLowerCase();
-    const value = match[2] ?? match[3] ?? '';
-    if (key === 'title' || key === 'filename') result.filename = value;
-    else if (key === 'icon') result.icon = value;
+    const value = match[2] ?? match[3] ?? "";
+    if (key === "title" || key === "filename") result.filename = value;
+    else if (key === "icon") result.icon = value;
   }
 
   // Boolean flags. Strip k=v pairs first so we don't treat `title` as a flag.
-  const stripped = meta.replace(kvRegex, ' ');
+  const stripped = meta.replace(kvRegex, " ");
   const tokens = stripped.split(/\s+/).filter(Boolean);
   for (const token of tokens) {
     const lower = token.toLowerCase();
-    if (lower === 'lines') result.lines = true;
-    else if (lower === 'wrap') result.wrap = true;
-    else if (lower === 'expandable') result.expandable = true;
+    if (lower === "lines") result.lines = true;
+    else if (lower === "wrap") result.wrap = true;
+    else if (lower === "expandable") result.expandable = true;
   }
 
   // `{1,3-5}` highlight ranges.
@@ -167,10 +167,10 @@ export function parseMeta(meta: string): ParsedMeta {
 /** Expand `1,3-5` into `[1, 3, 4, 5]`. */
 function expandRange(input: string): number[] {
   const out: number[] = [];
-  for (const part of input.split(',')) {
+  for (const part of input.split(",")) {
     const trimmed = part.trim();
     if (!trimmed) continue;
-    const range = trimmed.split('-').map((n) => Number.parseInt(n, 10));
+    const range = trimmed.split("-").map((n) => Number.parseInt(n, 10));
     if (range.length === 1 && Number.isFinite(range[0])) {
       out.push(range[0]);
     } else if (
@@ -200,7 +200,9 @@ export function stripUnsupportedNotations(source: string): string {
   // syntax preceded by optional whitespace, on its own line.
   // Also handles `// [!code word:foo]` mid-line: collapse the comment marker
   // and notation while keeping the code that precedes it.
-  const standalone = /^\s*(?:\/\/|#|<!--|\/\*)\s*\[!code word:[^\]]+\][^\n]*\n?/gm;
-  const inline = /\s*(?:\/\/|#|<!--|\/\*)\s*\[!code word:[^\]]+\](?:\s*-->|\s*\*\/)?/g;
-  return source.replace(standalone, '').replace(inline, '');
+  const standalone =
+    /^\s*(?:\/\/|#|<!--|\/\*)\s*\[!code word:[^\]]+\][^\n]*\n?/gm;
+  const inline =
+    /\s*(?:\/\/|#|<!--|\/\*)\s*\[!code word:[^\]]+\](?:\s*-->|\s*\*\/)?/g;
+  return source.replace(standalone, "").replace(inline, "");
 }

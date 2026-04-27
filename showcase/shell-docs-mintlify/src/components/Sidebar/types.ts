@@ -6,9 +6,9 @@ export type AnchorItem = {
 };
 
 export type SidebarItemStyle =
-  | 'container'
-  | 'card'
-  | 'border'
-  | 'undecorated'
-  | 'arrow'
-  | 'plain';
+  | "container"
+  | "card"
+  | "border"
+  | "undecorated"
+  | "arrow"
+  | "plain";

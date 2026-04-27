@@ -1,4 +1,4 @@
-import { Icon } from '@mintlify/components';
+import { Icon } from "@mintlify/components";
 
 /**
  * Hamburger that opens the mobile sidebar drawer. The drawer (MobileSidebar)
@@ -6,7 +6,7 @@ import { Icon } from '@mintlify/components';
  */
 export function MobileMenuButton() {
   const handleToggle = () => {
-    window.dispatchEvent(new CustomEvent('toggle-mobile-sidebar'));
+    window.dispatchEvent(new CustomEvent("toggle-mobile-sidebar"));
   };
 
   return (

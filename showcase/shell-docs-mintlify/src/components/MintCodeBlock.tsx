@@ -1,4 +1,4 @@
-import { CodeBlock } from '@mintlify/components';
+import { CodeBlock } from "@mintlify/components";
 
 interface MintCodeBlockProps {
   /** Raw source code to render inside the code block. */
@@ -38,7 +38,7 @@ export default function MintCodeBlock({ code, ...rest }: MintCodeBlockProps) {
     <CodeBlock
       {...rest}
       codeBlockThemeObject={{
-        theme: { light: 'catppuccin-latte', dark: 'tokyo-night' },
+        theme: { light: "catppuccin-latte", dark: "tokyo-night" },
       }}
     >
       {code}

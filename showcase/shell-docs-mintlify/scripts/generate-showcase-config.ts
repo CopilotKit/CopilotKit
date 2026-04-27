@@ -23,37 +23,45 @@
  * Run via `npm run gen-showcase` (hooked into predev/prebuild).
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { integrations } from '../integrations.config.ts';
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { integrations } from "../integrations.config.ts";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
-const REPO_ROOT = path.resolve(PROJECT_ROOT, '..');
-const SHOWCASE_PACKAGES = path.join(REPO_ROOT, 'showcase', 'packages');
-const OUTPUT_PATH = path.join(PROJECT_ROOT, 'src', 'lib', 'showcase.config.json');
+const PROJECT_ROOT = path.resolve(SCRIPT_DIR, "..");
+const REPO_ROOT = path.resolve(PROJECT_ROOT, "..");
+const SHOWCASE_PACKAGES = path.join(REPO_ROOT, "showcase", "packages");
+const OUTPUT_PATH = path.join(
+  PROJECT_ROOT,
+  "src",
+  "lib",
+  "showcase.config.json",
+);
 
 function parseYaml(content: string): Record<string, string | boolean> {
   const result: Record<string, string | boolean> = {};
-  for (const line of content.split('\n')) {
-    if (line.startsWith(' ') || line.startsWith('\t') || line.startsWith('-')) continue;
+  for (const line of content.split("\n")) {
+    if (line.startsWith(" ") || line.startsWith("\t") || line.startsWith("-"))
+      continue;
     const m = line.match(/^([a-z_][a-z0-9_]*):\s*(.*?)\s*$/i);
     if (!m) continue;
     let value: string | boolean = m[2];
-    if (value === '') continue;
-    if (value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1);
-    else if (value.startsWith("'") && value.endsWith("'")) value = value.slice(1, -1);
-    else if (value === 'true') value = true;
-    else if (value === 'false') value = false;
-    else if (value.startsWith('>-') || value.startsWith('|')) continue;
+    if (value === "") continue;
+    if (value.startsWith('"') && value.endsWith('"'))
+      value = value.slice(1, -1);
+    else if (value.startsWith("'") && value.endsWith("'"))
+      value = value.slice(1, -1);
+    else if (value === "true") value = true;
+    else if (value === "false") value = false;
+    else if (value.startsWith(">-") || value.startsWith("|")) continue;
     result[m[1]] = value;
   }
   return result;
 }
 
 function listDemos(packageDir: string): string[] {
-  const demosDir = path.join(packageDir, 'src', 'app', 'demos');
+  const demosDir = path.join(packageDir, "src", "app", "demos");
   if (!fs.existsSync(demosDir)) return [];
   return fs
     .readdirSync(demosDir, { withFileTypes: true })
@@ -80,7 +88,10 @@ for (const integration of integrations) {
       deployed: false,
       features: [],
     };
-    skipped.push({ slug: integration.slug, reason: 'no showcaseSlug in config' });
+    skipped.push({
+      slug: integration.slug,
+      reason: "no showcaseSlug in config",
+    });
     continue;
   }
   const pkgDir = path.join(SHOWCASE_PACKAGES, integration.showcaseSlug);
@@ -91,31 +102,40 @@ for (const integration of integrations) {
       deployed: false,
       features: [],
     };
-    skipped.push({ slug: integration.slug, reason: `package not found at ${pkgDir}` });
+    skipped.push({
+      slug: integration.slug,
+      reason: `package not found at ${pkgDir}`,
+    });
     continue;
   }
 
-  const manifestPath = path.join(pkgDir, 'manifest.yaml');
+  const manifestPath = path.join(pkgDir, "manifest.yaml");
   const manifest = fs.existsSync(manifestPath)
-    ? parseYaml(fs.readFileSync(manifestPath, 'utf-8'))
+    ? parseYaml(fs.readFileSync(manifestPath, "utf-8"))
     : {};
   const features = listDemos(pkgDir);
 
   output[integration.slug] = {
     label: integration.label,
-    backendUrl: typeof manifest.backend_url === 'string' ? manifest.backend_url : null,
+    backendUrl:
+      typeof manifest.backend_url === "string" ? manifest.backend_url : null,
     deployed: manifest.deployed === true,
     features,
   };
 }
 
 fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2) + '\n');
+fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2) + "\n");
 
-const totalFeatures = Object.values(output).reduce((sum, e) => sum + e.features.length, 0);
+const totalFeatures = Object.values(output).reduce(
+  (sum, e) => sum + e.features.length,
+  0,
+);
 console.log(
   `✓ Wrote showcase.config.json — ${Object.keys(output).length} integration(s), ${totalFeatures} demos`,
 );
 if (skipped.length) {
-  console.log(`  Skipped ${skipped.length}: ${skipped.map((s) => `${s.slug} (${s.reason})`).join(', ')}`);
+  console.log(
+    `  Skipped ${skipped.length}: ${skipped.map((s) => `${s.slug} (${s.reason})`).join(", ")}`,
+  );
 }

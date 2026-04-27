@@ -29,16 +29,25 @@ describe("AnimatedCopilotDemo timeline reducer", () => {
   });
 
   it("toggles assistant-typing", () => {
-    const a = advanceState(initialState, [{ at: 0, action: "assistant-typing", on: true }]);
+    const a = advanceState(initialState, [
+      { at: 0, action: "assistant-typing", on: true },
+    ]);
     expect(a.isAssistantTyping).toBe(true);
-    const b = advanceState(a, [{ at: 1, action: "assistant-typing", on: false }]);
+    const b = advanceState(a, [
+      { at: 1, action: "assistant-typing", on: false },
+    ]);
     expect(b.isAssistantTyping).toBe(false);
   });
 
   it("attaches a tool call to the most recent assistant message", () => {
     const after = advanceState(initialState, [
       { at: 0, action: "assistant-message", text: "ok" },
-      { at: 1, action: "tool-call", name: "setBackground", args: { color: "#fff" } },
+      {
+        at: 1,
+        action: "tool-call",
+        name: "setBackground",
+        args: { color: "#fff" },
+      },
     ]);
     const last = after.messages[after.messages.length - 1];
     expect(last.role).toBe("assistant");
@@ -47,7 +56,9 @@ describe("AnimatedCopilotDemo timeline reducer", () => {
   });
 
   it("sets page-effect color", () => {
-    const after = advanceState(initialState, [{ at: 0, action: "page-effect", color: "#abc" }]);
+    const after = advanceState(initialState, [
+      { at: 0, action: "page-effect", color: "#abc" },
+    ]);
     expect(after.pageEffectColor).toBe("#abc");
   });
 

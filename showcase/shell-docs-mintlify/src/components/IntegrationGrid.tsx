@@ -16,7 +16,9 @@ import {
   PydanticAIIcon,
 } from "./IntegrationIcons";
 
-type IconComponent = ComponentType<SVGProps<SVGSVGElement> & { className?: string }>;
+type IconComponent = ComponentType<
+  SVGProps<SVGSVGElement> & { className?: string }
+>;
 
 const INTEGRATION_ICONS: Record<string, IconComponent> = {
   "built-in": BuiltInIcon,
@@ -55,7 +57,9 @@ export interface IntegrationGridProps {
   targetSlug?: string;
 }
 
-export function IntegrationGrid({ targetSlug = "quickstart" }: IntegrationGridProps) {
+export function IntegrationGrid({
+  targetSlug = "quickstart",
+}: IntegrationGridProps) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 my-6">
       {integrations.map((i) => {
@@ -90,7 +94,9 @@ export function IntegrationGrid({ targetSlug = "quickstart" }: IntegrationGridPr
                   aria-hidden="true"
                 />
               )}
-              <span className="font-semibold text-gray-900 dark:text-gray-100">{i.label}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {i.label}
+              </span>
               {isDefault && (
                 <span className="ml-auto text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-(--primary) text-white">
                   Start here

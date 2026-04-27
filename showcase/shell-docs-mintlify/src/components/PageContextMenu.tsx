@@ -1,11 +1,11 @@
-import { useState } from 'react';
-import { Icon, cn } from '@mintlify/components';
+import { useState } from "react";
+import { Icon, cn } from "@mintlify/components";
 import {
   useContextualOptions,
   type ContextualOptionItem,
-} from '../hooks/useContextualOptions';
+} from "../hooks/useContextualOptions";
 
-type CopyState = 'idle' | 'copying' | 'copied' | 'error';
+type CopyState = "idle" | "copying" | "copied" | "error";
 
 interface PageContextMenuProps {
   pathname: string;
@@ -18,56 +18,56 @@ export function PageContextMenu({
   options: configOptions,
   className,
 }: PageContextMenuProps) {
-  const markdownPath = pathname === '/' ? '/index' : pathname;
+  const markdownPath = pathname === "/" ? "/index" : pathname;
 
   const { options } = useContextualOptions({
     pathname: markdownPath,
     options: configOptions,
   });
   const [isOpen, setIsOpen] = useState(false);
-  const [copyState, setCopyState] = useState<CopyState>('idle');
+  const [copyState, setCopyState] = useState<CopyState>("idle");
 
   if (!options.length) return null;
 
   const handleAction = async (option: ContextualOptionItem) => {
     setIsOpen(false);
-    if (option.id === 'copy') {
-      setCopyState('copying');
+    if (option.id === "copy") {
+      setCopyState("copying");
       try {
         const result = await option.action();
-        setCopyState(result === false ? 'error' : 'copied');
+        setCopyState(result === false ? "error" : "copied");
       } catch {
-        setCopyState('error');
+        setCopyState("error");
       }
-      setTimeout(() => setCopyState('idle'), 2000);
+      setTimeout(() => setCopyState("idle"), 2000);
     } else {
       option.action();
     }
   };
 
   const copyText =
-    copyState === 'copying'
-      ? 'Copying...'
-      : copyState === 'copied'
-        ? 'Copied!'
-        : copyState === 'error'
-          ? 'Error'
-          : 'Copy page';
+    copyState === "copying"
+      ? "Copying..."
+      : copyState === "copied"
+        ? "Copied!"
+        : copyState === "error"
+          ? "Error"
+          : "Copy page";
 
   const firstOption = options[0];
 
   return (
-    <div className={cn('relative flex items-center shrink-0', className)}>
+    <div className={cn("relative flex items-center shrink-0", className)}>
       <div className="flex items-stretch h-9 relative z-20">
         {firstOption && (
           <button
             className={cn(
-              'rounded-l-xl px-3 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-950 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors h-full',
-              options.length === 1 ? 'rounded-xl' : 'border-r-0',
-              copyState !== 'idle' && 'text-stone-600 dark:text-stone-300',
+              "rounded-l-xl px-3 text-stone-700 dark:text-stone-200 border border-stone-200 dark:border-stone-700 bg-white dark:bg-zinc-950 hover:bg-stone-50 dark:hover:bg-zinc-800 transition-colors h-full",
+              options.length === 1 ? "rounded-xl" : "border-r-0",
+              copyState !== "idle" && "text-stone-600 dark:text-stone-300",
             )}
             onClick={() => void handleAction(firstOption)}
-            disabled={copyState === 'copying'}
+            disabled={copyState === "copying"}
             aria-label={firstOption.title}
           >
             <div className="flex items-center gap-2 text-sm font-medium whitespace-nowrap">
@@ -75,7 +75,7 @@ export function PageContextMenu({
                 <firstOption.icon className="w-4 h-4 text-stone-600 dark:text-stone-300" />
               )}
               <span>
-                {firstOption.id === 'copy' ? copyText : firstOption.title}
+                {firstOption.id === "copy" ? copyText : firstOption.title}
               </span>
             </div>
           </button>
@@ -92,8 +92,8 @@ export function PageContextMenu({
               size={16}
               color="currentColor"
               className={cn(
-                'transition-transform text-stone-400 dark:text-stone-500',
-                isOpen && 'rotate-180',
+                "transition-transform text-stone-400 dark:text-stone-500",
+                isOpen && "rotate-180",
               )}
             />
           </button>

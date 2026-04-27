@@ -1,8 +1,8 @@
-import { defineCollection, z } from 'astro:content';
-import { glob } from 'astro/loaders';
+import { defineCollection, z } from "astro:content";
+import { glob } from "astro/loaders";
 
 const docs = defineCollection({
-  loader: glob({ pattern: '**/*.mdx', base: './.mintlify/docs' }),
+  loader: glob({ pattern: "**/*.mdx", base: "./.mintlify/docs" }),
   schema: z.object({
     title: z.string().optional(),
     description: z.string().optional(),

@@ -56,7 +56,9 @@
   border: 1px solid rgba(2, 8, 23, 0.08);
   border-radius: 0.5rem;
 }
-.dark .mdx-content pre.astro-code:not([data-component-part="code-block-root"] *),
+.dark
+  .mdx-content
+  pre.astro-code:not([data-component-part="code-block-root"] *),
 .dark .mdx-content pre.shiki:not([data-component-part="code-block-root"] *) {
   background-color: var(--shiki-dark-bg, #1e1e1e) !important;
   color: var(--shiki-dark, #e5e7eb) !important;
@@ -69,8 +71,14 @@
 .mdx-content pre.shiki:not([data-component-part="code-block-root"] *) span {
   color: var(--shiki-light, inherit) !important;
 }
-.dark .mdx-content pre.astro-code:not([data-component-part="code-block-root"] *) span,
-.dark .mdx-content pre.shiki:not([data-component-part="code-block-root"] *) span {
+.dark
+  .mdx-content
+  pre.astro-code:not([data-component-part="code-block-root"] *)
+  span,
+.dark
+  .mdx-content
+  pre.shiki:not([data-component-part="code-block-root"] *)
+  span {
   color: var(--shiki-dark, inherit) !important;
 }
 

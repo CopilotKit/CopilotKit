@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import {
   SearchButton,
   SearchProvider,
   useSearch,
   type SearchResult,
   Icon,
-} from '@mintlify/components';
-import { navigate } from 'astro:transitions/client';
-import { useDebouncedCallback } from 'use-debounce';
-import { type DecoratedNavigationPage } from '@mintlify/models';
-import { resolveIntegration, stripIntegrationPrefix } from '../lib/integration';
+} from "@mintlify/components";
+import { navigate } from "astro:transitions/client";
+import { useDebouncedCallback } from "use-debounce";
+import { type DecoratedNavigationPage } from "@mintlify/models";
+import { resolveIntegration, stripIntegrationPrefix } from "../lib/integration";
 
-const SEARCH_OPEN_EVENT = 'open-search';
+const SEARCH_OPEN_EVENT = "open-search";
 
 export function openSearch() {
   window.dispatchEvent(new CustomEvent(SEARCH_OPEN_EVENT));
@@ -48,16 +48,16 @@ const SUBDOMAIN = import.meta.env.PUBLIC_MINTLIFY_SUBDOMAIN;
 const API_KEY = import.meta.env.PUBLIC_MINTLIFY_ASSISTANT_KEY;
 
 const normalizePath = (path: string | undefined): string => {
-  if (!path) return '/';
+  if (!path) return "/";
 
-  let normalized = path.startsWith('/') ? path : `/${path}`;
-  if (normalized.endsWith('index')) {
-    normalized = normalized.replace('index', '');
+  let normalized = path.startsWith("/") ? path : `/${path}`;
+  if (normalized.endsWith("index")) {
+    normalized = normalized.replace("index", "");
   }
   return normalized;
 };
 
-const SEARCH_HISTORY_KEY = 'mintlify-search-history';
+const SEARCH_HISTORY_KEY = "mintlify-search-history";
 const MAX_HISTORY_ITEMS = 5;
 const DEBOUNCE_DELAY_IN_MS = 100;
 
@@ -73,10 +73,10 @@ interface SearchBarProps {
    * `icon` renders a compact 32×32 magnifying-glass button — used in the
    * single-row header where the pill would compete with centered nav for space.
    */
-  variant?: 'full' | 'icon';
+  variant?: "full" | "icon";
 }
 
-export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
+export function SearchBar({ variant = "full" }: SearchBarProps = {}) {
   const [mounted, setMounted] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -90,7 +90,7 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
         setRecentSearches(JSON.parse(stored));
       }
     } catch (err) {
-      console.error('Failed to load search history:', err);
+      console.error("Failed to load search history:", err);
     }
   }, []);
 
@@ -101,23 +101,23 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
       const response = await fetch(
         `https://api.mintlify.com/discovery/v1/search/${SUBDOMAIN}`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...(API_KEY && { Authorization: `Bearer ${API_KEY}` }),
           },
           body: JSON.stringify({
             query: searchQuery,
             pageSize: 10,
             filter: {
-              language: 'en',
+              language: "en",
             },
           }),
         },
       );
 
       if (!response.ok) {
-        throw new Error('Search failed');
+        throw new Error("Search failed");
       }
 
       const data = (await response.json()) as ApiSearchResult[];
@@ -131,14 +131,14 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
       const currentIntegration = resolveIntegration(window.location.pathname);
       const dedupedByCanonical = new Map<string, ApiSearchResult>();
       for (const item of data) {
-        const canonicalSlug = stripIntegrationPrefix(item.path || '/');
+        const canonicalSlug = stripIntegrationPrefix(item.path || "/");
         const existing = dedupedByCanonical.get(canonicalSlug);
         if (!existing) {
           dedupedByCanonical.set(canonicalSlug, item);
           continue;
         }
-        const existingIntegration = resolveIntegration(existing.path || '/');
-        const itemIntegration = resolveIntegration(item.path || '/');
+        const existingIntegration = resolveIntegration(existing.path || "/");
+        const itemIntegration = resolveIntegration(item.path || "/");
         if (
           itemIntegration === currentIntegration &&
           existingIntegration !== currentIntegration
@@ -149,37 +149,35 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
 
       const transformedResults: SearchResult[] = Array.from(
         dedupedByCanonical.values(),
-      ).map(
-        (item: ApiSearchResult, index: number) => {
-          const pathSegments = item.path
-            ? item.path
-                .split('/')
-                .map(
-                  (segment: string) =>
-                    segment.charAt(0).toUpperCase() + segment.slice(1),
-                )
-            : [];
+      ).map((item: ApiSearchResult, index: number) => {
+        const pathSegments = item.path
+          ? item.path
+              .split("/")
+              .map(
+                (segment: string) =>
+                  segment.charAt(0).toUpperCase() + segment.slice(1),
+              )
+          : [];
 
-          return {
-            id: item.path || `result-${index}`,
-            header:
-              item.metadata?.title ||
-              pathSegments[pathSegments.length - 1] ||
-              'Untitled',
-            content: item.metadata?.description || item.content || '',
-            link: normalizePath(item.path),
-            metadata: {
-              ...item.metadata,
-              breadcrumbs: pathSegments,
-              iconName: item.metadata.icon || 'hashtag',
-            },
-          };
-        },
-      );
+        return {
+          id: item.path || `result-${index}`,
+          header:
+            item.metadata?.title ||
+            pathSegments[pathSegments.length - 1] ||
+            "Untitled",
+          content: item.metadata?.description || item.content || "",
+          link: normalizePath(item.path),
+          metadata: {
+            ...item.metadata,
+            breadcrumbs: pathSegments,
+            iconName: item.metadata.icon || "hashtag",
+          },
+        };
+      });
 
       setResults(transformedResults);
     } catch (err) {
-      console.error('Search error:', err);
+      console.error("Search error:", err);
       setResults([]);
     } finally {
       setIsLoading(false);
@@ -218,13 +216,13 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
       setRecentSearches(newHistory);
       localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory));
     } catch (err) {
-      console.error('Failed to save search history:', err);
+      console.error("Failed to save search history:", err);
     }
   };
 
   const addIconsToResults = (items: SearchResult[]): SearchResult[] => {
     return items.map((item) => {
-      const iconName = item.metadata?.iconName || 'hashtag';
+      const iconName = item.metadata?.iconName || "hashtag";
       return {
         ...item,
         icon: <Icon icon={iconName} size={16} color="gray" />,
@@ -233,7 +231,7 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
   };
 
   if (!mounted) {
-    return variant === 'icon' ? null : <SearchButton />;
+    return variant === "icon" ? null : <SearchButton />;
   }
 
   return (
@@ -247,7 +245,7 @@ export function SearchBar({ variant = 'full' }: SearchBarProps = {}) {
       }}
     >
       <SearchEventListener />
-      {variant === 'icon' ? <CompactSearchButton /> : <SearchButton />}
+      {variant === "icon" ? <CompactSearchButton /> : <SearchButton />}
     </SearchProvider>
   );
 }

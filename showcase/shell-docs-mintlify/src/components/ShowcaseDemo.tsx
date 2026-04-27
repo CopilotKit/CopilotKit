@@ -1,5 +1,5 @@
-import showcaseConfig from '../lib/showcase.config.json';
-import { INTEGRATIONS } from '../lib/integration';
+import showcaseConfig from "../lib/showcase.config.json";
+import { INTEGRATIONS } from "../lib/integration";
 
 interface ShowcaseDemoProps {
   /**
@@ -32,13 +32,19 @@ const config = showcaseConfig as Record<string, ShowcaseEntry>;
  * For source-code views, use the separate `<ShowcaseCode>` component which
  * fetches and highlights GitHub source at build time.
  */
-export function ShowcaseDemo({ feature, height = 600, title }: ShowcaseDemoProps) {
+export function ShowcaseDemo({
+  feature,
+  height = 600,
+  title,
+}: ShowcaseDemoProps) {
   return (
     <div className="my-6">
       {INTEGRATIONS.map((slug) => {
         const entry = config[slug];
         const hasDemo =
-          !!entry?.deployed && !!entry.backendUrl && entry.features.includes(feature);
+          !!entry?.deployed &&
+          !!entry.backendUrl &&
+          entry.features.includes(feature);
         const url = hasDemo ? `${entry!.backendUrl}/demos/${feature}` : null;
         return (
           <div key={slug} data-variant-for={slug}>

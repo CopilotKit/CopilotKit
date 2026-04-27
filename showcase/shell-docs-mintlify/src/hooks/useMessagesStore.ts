@@ -1,9 +1,9 @@
-import type { UIMessage } from '@ai-sdk/react';
-import { create } from 'zustand';
+import type { UIMessage } from "@ai-sdk/react";
+import { create } from "zustand";
 
 interface MessagesState {
   messages: UIMessage[];
-  status: 'submitted' | 'streaming' | 'ready' | 'error';
+  status: "submitted" | "streaming" | "ready" | "error";
   threadId: string | undefined;
   threadKey: string | undefined;
   setThreadId: (threadId: string | undefined) => void;
@@ -11,7 +11,7 @@ interface MessagesState {
 }
 
 const useMessagesStore = create<MessagesState>((set) => ({
-  status: 'ready',
+  status: "ready",
   messages: [],
   threadId: undefined,
   threadKey: undefined,

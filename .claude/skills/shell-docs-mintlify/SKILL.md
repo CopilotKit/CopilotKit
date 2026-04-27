@@ -20,15 +20,15 @@ for the full reference — this file is the load-bearing summary.
 
 ## Common task → where to edit
 
-| Task | Edit | Then run |
-|---|---|---|
-| Add a universal page (concept) | `integrations.config.ts` (`universalPages` array) + create `docs/<slug>.mdx` | `npm run gen` |
-| Rename a page in the sidebar | `integrations.config.ts` `title:` field | `npm run gen` |
-| Move a page to a different sidebar group | `integrations.config.ts` `group:` field | `npm run gen` |
-| Add a new integration | `integrations.config.ts` `integrations` array | `npm run gen` |
-| Add an integration-only page | `integrations.config.ts` `integrationOnlyPages` + create `docs/<integration>/<slug>.mdx` | `npm run gen` |
-| Per-integration code differs in one section | Add `<Variant for="<slug>">` blocks in the canonical `docs/<slug>.mdx` | (no regen needed) |
-| Embed a live showcase demo | Add `<ShowcaseDemo feature="<feature>" />` in any MDX | (no regen needed; URLs come from `showcase.config.json`) |
+| Task                                        | Edit                                                                                     | Then run                                                 |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Add a universal page (concept)              | `integrations.config.ts` (`universalPages` array) + create `docs/<slug>.mdx`             | `npm run gen`                                            |
+| Rename a page in the sidebar                | `integrations.config.ts` `title:` field                                                  | `npm run gen`                                            |
+| Move a page to a different sidebar group    | `integrations.config.ts` `group:` field                                                  | `npm run gen`                                            |
+| Add a new integration                       | `integrations.config.ts` `integrations` array                                            | `npm run gen`                                            |
+| Add an integration-only page                | `integrations.config.ts` `integrationOnlyPages` + create `docs/<integration>/<slug>.mdx` | `npm run gen`                                            |
+| Per-integration code differs in one section | Add `<Variant for="<slug>">` blocks in the canonical `docs/<slug>.mdx`                   | (no regen needed)                                        |
+| Embed a live showcase demo                  | Add `<ShowcaseDemo feature="<feature>" />` in any MDX                                    | (no regen needed; URLs come from `showcase.config.json`) |
 
 ## Generated files — DON'T edit
 
@@ -66,6 +66,7 @@ cd showcase/shell-docs-mintlify && npm run dev          # http://localhost:4321
 ```
 
 Or via Claude Preview MCP:
+
 ```
 mcp__Claude_Preview__preview_start { name: "shell-docs-mintlify" }
 ```
