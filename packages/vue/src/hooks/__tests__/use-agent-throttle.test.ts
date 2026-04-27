@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h, nextTick, ref } from "vue";
 import type { Ref } from "vue";
 import type { AbstractAgent, Message, RunAgentInput } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
+import type { RunErrorEvent } from "@ag-ui/client";
 import { useAgent, UseAgentUpdate } from "../use-agent";
 import { mountWithProvider } from "../../__tests__/utils/mount";
 
@@ -81,6 +83,35 @@ class NotifyingAgent implements Partial<AbstractAgent> {
         messages: this.messages,
         state: this.state,
         input,
+      });
+    }
+  }
+
+  notifyRunErrorEvent(
+    message = "run failed",
+    code: string | number | undefined = undefined,
+  ) {
+    const input: RunAgentInput = {
+      threadId: "t-1",
+      runId: "r-1",
+      state: {},
+      messages: [],
+      tools: [],
+      context: [],
+      forwardedProps: {},
+    };
+    const event: RunErrorEvent = {
+      type: EventType.RUN_ERROR,
+      message,
+      ...(code !== undefined ? { code } : {}),
+    } as RunErrorEvent;
+    for (const handler of this.handlers) {
+      handler.onRunErrorEvent?.({
+        agent: this as AbstractAgent,
+        messages: this.messages,
+        state: this.state,
+        input,
+        event,
       });
     }
   }
@@ -246,7 +277,11 @@ describe("useAgent throttleMs", () => {
     expect(wrapper.find("[data-testid=count]").text()).toBe("3");
   });
 
-  it("with throttleMs, onStateChanged still fires immediately", async () => {
+  it("with throttleMs, onStateChanged is also throttled (shared window)", async () => {
+    // Parity with React: `subscribeToAgentWithOptions` now shares a single
+    // throttle window across `onMessagesChanged` and `onStateChanged`, so a
+    // state change fired inside the message throttle window is deferred to
+    // the trailing edge instead of rendering immediately.
     const { wrapper } = mountHookComponent({
       agent,
       throttleMs: 100,
@@ -255,14 +290,79 @@ describe("useAgent throttleMs", () => {
         UseAgentUpdate.OnStateChanged,
       ],
     });
+
+    // Leading edge via messages.
     agent.setMessages([userMsg("1", "a")]);
     agent.notifyMessagesChanged();
     await flushVue();
+    expect(wrapper.find("[data-testid=count]").text()).toBe("1");
+
+    // State change inside the throttle window — should be deferred.
     vi.advanceTimersByTime(10);
     agent.state = { count: 42 };
     agent.notifyStateChanged();
     await flushVue();
+    expect(wrapper.find("[data-testid=state]").text()).toBe("{}");
+
+    // Trailing edge fires after the window expires.
+    vi.advanceTimersByTime(100);
+    await flushVue();
     expect(wrapper.find("[data-testid=state]").text()).toBe('{"count":42}');
+  });
+
+  it("with throttleMs and only OnStateChanged subscribed, first state fires on leading edge", async () => {
+    const { wrapper } = mountHookComponent({
+      agent,
+      throttleMs: 100,
+      updates: [UseAgentUpdate.OnStateChanged],
+    });
+
+    // First onStateChanged fires immediately (leading edge).
+    agent.state = { value: "test" };
+    agent.notifyStateChanged();
+    await flushVue();
+    expect(wrapper.find("[data-testid=state]").text()).toBe('{"value":"test"}');
+
+    // No onMessagesChanged subscription exists — notification is a no-op.
+    agent.setMessages([userMsg("1", "a")]);
+    agent.notifyMessagesChanged();
+    await flushVue();
+    expect(wrapper.find("[data-testid=state]").text()).toBe('{"value":"test"}');
+  });
+
+  it("with throttleMs, onRunErrorEvent fires immediately (bypasses shared throttle window)", async () => {
+    // Run lifecycle callbacks — including `onRunErrorEvent` — always fire
+    // immediately in core's `subscribeToAgentWithOptions`, regardless of the
+    // active throttle window for messages/state.
+    const { wrapper } = mountHookComponent({
+      agent,
+      throttleMs: 100,
+      updates: [
+        UseAgentUpdate.OnMessagesChanged,
+        UseAgentUpdate.OnStateChanged,
+        UseAgentUpdate.OnRunStatusChanged,
+      ],
+    });
+
+    // Open the throttle window with a messages change.
+    agent.setMessages([userMsg("1", "a")]);
+    agent.notifyMessagesChanged();
+    await flushVue();
+    expect(wrapper.find("[data-testid=count]").text()).toBe("1");
+
+    // Inside the window, a state change is deferred…
+    vi.advanceTimersByTime(10);
+    agent.state = { count: 1 };
+    agent.notifyStateChanged();
+    await flushVue();
+    expect(wrapper.find("[data-testid=state]").text()).toBe("{}");
+
+    // …but a RUN_ERROR event triggers an immediate re-render. We update
+    // state first so the next render proves the error path flushed.
+    agent.state = { count: 2 };
+    agent.notifyRunErrorEvent();
+    await flushVue();
+    expect(wrapper.find("[data-testid=state]").text()).toBe('{"count":2}');
   });
 
   it("with throttleMs, pending trailing timer does not fire after unmount", async () => {
@@ -312,10 +412,13 @@ describe("useAgent throttleMs", () => {
     async ({ value }) => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const { wrapper } = mountHookComponent({ agent, throttleMs: value });
+      // Source of the warning is now core's `subscribeToAgentWithOptions`,
+      // which calls `console.error(message, error)` via `logAndEmitError`.
       expect(errorSpy).toHaveBeenCalledWith(
         expect.stringContaining(
           "throttleMs must be a non-negative finite number",
         ),
+        expect.any(Error),
       );
       agent.setMessages([userMsg("1", "a")]);
       agent.notifyMessagesChanged();

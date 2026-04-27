@@ -34,6 +34,10 @@ describe("useAgent thread isolation", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    // Added after the hook moved to consume the shared core API. Mocks only
+    // need a no-op subscription object here; notification behavior is covered
+    // in `use-agent-throttle.test.ts`.
+    subscribeToAgentWithOptions: ReturnType<typeof vi.fn>;
   };
   let copilotkitRef: ReturnType<typeof ref<typeof mockCopilotkit>>;
   let registeredAgent: CloneableAgent;
@@ -50,6 +54,7 @@ describe("useAgent thread isolation", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: { "my-agent": registeredAgent },
+      subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
     };
     copilotkitRef = ref(mockCopilotkit);
     mockUseCopilotKit.mockReturnValue({

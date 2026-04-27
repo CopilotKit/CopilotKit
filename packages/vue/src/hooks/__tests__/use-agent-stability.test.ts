@@ -30,6 +30,10 @@ describe("useAgent stability during runtime connection", () => {
     runtimeTransport: string;
     headers: Record<string, string>;
     agents: Record<string, AbstractAgent>;
+    // Added after the hook moved to consume the shared core API. Mocks only
+    // need a no-op subscription object here; stability/ref-identity behavior
+    // is orthogonal to subscribe internals.
+    subscribeToAgentWithOptions: ReturnType<typeof vi.fn>;
   };
 
   let mockCopilotkit: MockCopilotkit;
@@ -44,6 +48,7 @@ describe("useAgent stability during runtime connection", () => {
       runtimeTransport: "rest",
       headers: {},
       agents: {},
+      subscribeToAgentWithOptions: vi.fn(() => ({ unsubscribe: vi.fn() })),
     });
     mockCopilotkit = copilotkitRef.value;
 

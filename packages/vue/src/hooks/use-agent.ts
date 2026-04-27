@@ -7,7 +7,10 @@ import {
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
 } from "@copilotkit/core";
-import type { CopilotRuntimeTransport } from "@copilotkit/core";
+import type {
+  CopilotRuntimeTransport,
+  SubscribeToAgentSubscriber,
+} from "@copilotkit/core";
 import { useCopilotKit } from "../providers/useCopilotKit";
 import { useCopilotChatConfiguration } from "../providers/useCopilotChatConfiguration";
 
@@ -28,8 +31,26 @@ export interface UseAgentProps {
   threadId?: MaybeRefOrGetter<string | undefined>;
   updates?: UseAgentUpdate[];
   /**
-   * Throttle interval (ms) for `OnMessagesChanged` refreshes.
-   * Falls back to provider `defaultThrottleMs` when omitted.
+   * Throttle interval (in milliseconds) for re-renders triggered by
+   * `onMessagesChanged` and `onStateChanged` notifications. Useful to reduce
+   * re-render frequency during high-frequency streaming updates.
+   *
+   * Uses a leading+trailing pattern with a shared window — first update
+   * fires immediately, subsequent updates within the window are coalesced,
+   * and a trailing timer ensures the most recent update fires after the
+   * window expires. See `CopilotKitCore.subscribeToAgentWithOptions` in
+   * `@copilotkit/core` for details.
+   *
+   * Resolved as: `throttleMs ?? provider defaultThrottleMs ?? 0`.
+   * Passing `throttleMs: 0` explicitly disables throttling even when the
+   * provider specifies a non-zero `defaultThrottleMs`.
+   *
+   * Run lifecycle callbacks (`onRunInitialized`, `onRunFinalized`,
+   * `onRunFailed`, `onRunErrorEvent`) always fire immediately.
+   *
+   * @default undefined
+   * When unset, inherits from the provider's `defaultThrottleMs`;
+   * if that is also unset, the effective value is `0` (no throttle).
    */
   throttleMs?: MaybeRefOrGetter<number | undefined>;
 }
@@ -114,22 +135,12 @@ export function useAgent(props: UseAgentProps = {}) {
   );
   const { copilotkit } = useCopilotKit();
   const updateFlags = computed(() => props.updates ?? ALL_UPDATES);
+  // Read the provider-level default so it appears in the subscribe watcher
+  // deps. `subscribeToAgentWithOptions` reads it from the core instance, but
+  // Vue still needs the dep to know when to resubscribe (same role it plays
+  // in React's `useEffect` dep array).
   const providerThrottleMs = computed(() => copilotkit.value.defaultThrottleMs);
   const hookThrottleMs = computed(() => toValue(props.throttleMs));
-  const effectiveThrottleMs = computed(() => {
-    const resolved = hookThrottleMs.value ?? providerThrottleMs.value ?? 0;
-    if (!Number.isFinite(resolved) || resolved < 0) {
-      const source =
-        hookThrottleMs.value !== undefined
-          ? "hook-level throttleMs"
-          : "provider-level defaultThrottleMs";
-      console.error(
-        `useAgent: ${source} must be a non-negative finite number, got ${resolved}. Falling back to unthrottled.`,
-      );
-      return 0;
-    }
-    return resolved;
-  });
 
   const agent = shallowRef<AbstractAgent>(null!);
   const subscriptionAgent = shallowRef<AbstractAgent | null>(null);
@@ -274,75 +285,73 @@ export function useAgent(props: UseAgentProps = {}) {
     { immediate: true },
   );
 
+  // Subscribe through the shared `CopilotKitCore.subscribeToAgentWithOptions`
+  // API. Core owns:
+  //   - shared leading+trailing throttle window across `onMessagesChanged`
+  //     and `onStateChanged` (parity with React)
+  //   - safeCall-guarded callbacks (errors in subscribers never poison the
+  //     agent notification loop)
+  //   - validation/fallback for invalid `throttleMs`
+  //   - `onRunErrorEvent` in the run-status callback set
+  //
+  // The hook only schedules a microtask-batched `triggerRef(agent)` so
+  // multiple synchronous notifications (e.g. state + run-status firing in
+  // the same tick) coalesce into a single Vue re-render — matching React's
+  // `queueMicrotask`-batched forceUpdate strategy.
   watch(
-    [subscriptionAgent, updateFlags, effectiveThrottleMs],
-    ([a, flags, throttleMs], _old, onCleanup) => {
-      if (!a || (flags as UseAgentUpdate[]).length === 0) return;
-      let disposed = false;
-      let refreshQueued = false;
-      let timerId: ReturnType<typeof setTimeout> | null = null;
-
-      const scheduleRefresh = () => {
-        if (disposed || refreshQueued) {
-          return;
-        }
-        refreshQueued = true;
-        Promise.resolve().then(() => {
-          refreshQueued = false;
-          if (!disposed) {
-            triggerRef(agent);
-          }
-        });
-      };
-      const handlers: Parameters<AbstractAgent["subscribe"]>[0] = {};
+    [subscriptionAgent, updateFlags, hookThrottleMs, providerThrottleMs],
+    ([a, flags], _old, onCleanup) => {
       const f = flags as UseAgentUpdate[];
+      if (!a || f.length === 0) return;
+
+      let active = true;
+      let batchScheduled = false;
+      const batchedRefresh = () => {
+        if (!active) return;
+        if (!batchScheduled) {
+          batchScheduled = true;
+          queueMicrotask(() => {
+            batchScheduled = false;
+            if (active) {
+              triggerRef(agent);
+            }
+          });
+        }
+      };
+
+      const handlers: SubscribeToAgentSubscriber = {};
+
       if (f.includes(UseAgentUpdate.OnMessagesChanged)) {
-        if (throttleMs > 0) {
-          let throttleActive = false;
-          let pending = false;
-          handlers.onMessagesChanged = () => {
-            if (disposed) return;
-            if (!throttleActive) {
-              throttleActive = true;
-              pending = false;
-              triggerRef(agent);
-              timerId = setTimeout(function trailingEdge() {
-                timerId = null;
-                if (!disposed && pending) {
-                  pending = false;
-                  triggerRef(agent);
-                  timerId = setTimeout(trailingEdge, throttleMs);
-                } else {
-                  throttleActive = false;
-                }
-              }, throttleMs);
-            } else {
-              pending = true;
-            }
-          };
-        } else {
-          handlers.onMessagesChanged = () => {
-            if (!disposed) {
-              triggerRef(agent);
-            }
-          };
-        }
+        // Messages fire immediately (no microtask indirection) so shared-
+        // window throttling in core sees an unadorned callback. Matches
+        // React's `handlers.onMessagesChanged = forceUpdate`.
+        handlers.onMessagesChanged = () => {
+          if (active) triggerRef(agent);
+        };
       }
+
       if (f.includes(UseAgentUpdate.OnStateChanged)) {
-        handlers.onStateChanged = scheduleRefresh;
+        handlers.onStateChanged = batchedRefresh;
       }
+
       if (f.includes(UseAgentUpdate.OnRunStatusChanged)) {
-        handlers.onRunInitialized = scheduleRefresh;
-        handlers.onRunFinalized = scheduleRefresh;
-        handlers.onRunFailed = scheduleRefresh;
+        handlers.onRunInitialized = batchedRefresh;
+        handlers.onRunFinalized = batchedRefresh;
+        handlers.onRunFailed = batchedRefresh;
+        // Protocol-level RUN_ERROR event (distinct from `onRunFailed`
+        // which handles local exceptions like network errors).
+        handlers.onRunErrorEvent = batchedRefresh;
       }
-      const sub = (a as AbstractAgent).subscribe(handlers);
+
+      const subscription = copilotkit.value.subscribeToAgentWithOptions(
+        a as AbstractAgent,
+        handlers,
+        { throttleMs: toValue(props.throttleMs) },
+      );
+
       onCleanup(() => {
-        disposed = true;
-        if (timerId !== null) {
-          clearTimeout(timerId);
-        }
-        sub.unsubscribe();
+        active = false;
+        subscription.unsubscribe();
       });
     },
     { immediate: true },
