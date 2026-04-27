@@ -39,6 +39,7 @@ import {
 } from "../helpers/d5-registry.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
   type ConversationTurn,
   type Page,
@@ -99,11 +100,17 @@ async function readLatestAssistantText(page: Page): Promise<string> {
       const canonical = doc.querySelectorAll(${JSON.stringify(
         ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
       )});
-      const list = canonical.length > 0
-        ? canonical
-        : doc.querySelectorAll(${JSON.stringify(
+      let list = canonical;
+      if (canonical.length === 0) {
+        const fallback = doc.querySelectorAll(${JSON.stringify(
           ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
         )});
+        list = fallback.length > 0
+          ? fallback
+          : doc.querySelectorAll(${JSON.stringify(
+            ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+          )});
+      }
       if (list.length === 0) return "";
       const last = list[list.length - 1];
       const text = (last && last.textContent) ? last.textContent : "";

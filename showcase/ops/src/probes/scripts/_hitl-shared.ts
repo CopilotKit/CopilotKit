@@ -43,6 +43,7 @@
 
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
   type Page as ConversationPage,
 } from "../helpers/conversation-runner.js";
@@ -279,7 +280,11 @@ export async function readAssistantCount(page: Page): Promise<number> {
         const fallback = doc.querySelectorAll(${JSON.stringify(
           ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
         )});
-        return fallback.length;
+        if (fallback.length > 0) return fallback.length;
+        const headless = doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+        )});
+        return headless.length;
       })()
     `;
     const fn = new Function(`return ${code.trim()};`) as () => number;
@@ -303,10 +308,15 @@ async function readLatestAssistantText(page: Page): Promise<string> {
         const canonical = doc.querySelectorAll(${JSON.stringify(
           ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
         )});
-        const list = canonical.length > 0
+        const fallback = canonical.length > 0
           ? canonical
           : doc.querySelectorAll(${JSON.stringify(
             ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+          )});
+        const list = fallback.length > 0
+          ? fallback
+          : doc.querySelectorAll(${JSON.stringify(
+            ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
           )});
         if (list.length === 0) return "";
         const last = list[list.length - 1];
