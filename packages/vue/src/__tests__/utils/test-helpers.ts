@@ -415,6 +415,7 @@ export function renderWithCopilotKit({
   agentId,
   threadId,
   renderCustomMessages,
+  renderActivityMessages,
   frontendTools,
   humanInTheLoop,
   children,
@@ -424,6 +425,7 @@ export function renderWithCopilotKit({
   agentId?: string;
   threadId?: string;
   renderCustomMessages?: unknown[];
+  renderActivityMessages?: unknown[];
   frontendTools?: unknown[];
   humanInTheLoop?: unknown[];
   children?: Component;
@@ -450,6 +452,7 @@ export function renderWithCopilotKit({
       return {
         resolvedAgents,
         renderCustomMessages,
+        renderActivityMessages,
         frontendTools,
         humanInTheLoop,
         resolvedAgentId,
@@ -462,6 +465,7 @@ export function renderWithCopilotKit({
       <CopilotKitProvider
         :agents__unsafe_dev_only="resolvedAgents"
         :render-custom-messages="renderCustomMessages"
+        :render-activity-messages="renderActivityMessages"
         :frontend-tools="frontendTools"
         :human-in-the-loop="humanInTheLoop"
       >

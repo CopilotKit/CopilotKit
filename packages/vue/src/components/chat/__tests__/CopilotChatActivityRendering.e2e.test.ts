@@ -1,18 +1,50 @@
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/vue";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/vue";
 import { defineComponent, ref, toRaw } from "vue";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import type { Theme } from "@copilotkit/a2ui-renderer";
 import CopilotChat from "../CopilotChat.vue";
+import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
+import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import { getThreadClone } from "../../../hooks/use-agent";
 import { useCopilotKit } from "../../../providers/useCopilotKit";
+import { createA2UIMessageRenderer } from "../../../components/A2UIMessageRenderer";
 import {
   activitySnapshotEvent,
+  MockReconnectableAgent,
   MockStepwiseAgent,
   renderWithCopilotKit,
   runFinishedEvent,
   runStartedEvent,
   testId,
 } from "../../../__tests__/utils/test-helpers";
+
+const { mockWebsandboxCreate, mockWebsandboxDestroy } = vi.hoisted(() => {
+  const mockDestroy = vi.fn();
+  const mockCreate = vi.fn(() => ({
+    iframe: document.createElement("iframe"),
+    promise: Promise.resolve(),
+    run: vi.fn().mockResolvedValue(undefined),
+    destroy: mockDestroy,
+  }));
+
+  return {
+    mockWebsandboxCreate: mockCreate,
+    mockWebsandboxDestroy: mockDestroy,
+  };
+});
+
+vi.mock("@jetbrains/websandbox", () => ({
+  default: {
+    create: (...args: unknown[]) => mockWebsandboxCreate(...args),
+  },
+}));
 
 async function submitMessageAndWaitForUserMessage(value: string) {
   await waitFor(() => {
@@ -208,5 +240,170 @@ describe("CopilotChat activity message rendering", () => {
     expect(clone).toBeDefined();
     expect(toRaw(capturedAgent.value!)).toBe(clone);
     expect(toRaw(capturedAgent.value!)).not.toBe(agent);
+  });
+
+  it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {
+    const agent = new MockReconnectableAgent();
+    const threadId = testId("a2ui-thread");
+    const surfaceId = testId("surface");
+    const a2uiRenderer = createA2UIMessageRenderer({
+      theme: {} as Theme,
+    });
+
+    const { unmount } = renderWithCopilotKit({
+      agent,
+      threadId,
+      renderActivityMessages: [a2uiRenderer],
+    });
+
+    await submitMessageAndWaitForUserMessage("Show me the restored UI");
+
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      activitySnapshotEvent({
+        messageId: testId("a2ui-activity"),
+        activityType: "a2ui-surface",
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId,
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId,
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Restored dashboard",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      }),
+    );
+    await agent.emit(runFinishedEvent());
+    await agent.complete();
+
+    await waitFor(
+      () => {
+        expect(
+          document.querySelector(`[data-surface-id='${surfaceId}']`),
+        ).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
+
+    unmount();
+    agent.reset();
+
+    renderWithCopilotKit({
+      agent,
+      threadId,
+      renderActivityMessages: [a2uiRenderer],
+    });
+
+    await waitFor(
+      () => {
+        expect(
+          document.querySelector(`[data-surface-id='${surfaceId}']`),
+        ).not.toBeNull();
+      },
+      { timeout: 5000 },
+    );
+  });
+
+  // The IntelligenceAgent /connect gateway-replay variant is pending N3
+  // (requires porting React's mockPhoenixSockets infrastructure).
+
+  it("restores a completed Open Generative UI activity after reconnect from an event-native baseline", async () => {
+    mockWebsandboxCreate.mockClear();
+    mockWebsandboxDestroy.mockClear();
+
+    const agent = new MockReconnectableAgent();
+    const threadId = testId("open-generative-ui-thread");
+    const restoredHtml =
+      "<head></head><body><div>Restored open generative UI</div></body>";
+
+    const renderOpenGenerativeUIChat = () => {
+      const Host = defineComponent({
+        components: {
+          CopilotKitProvider,
+          CopilotChatConfigurationProvider,
+          CopilotChat,
+        },
+        setup() {
+          return {
+            agents: { default: agent },
+            openGenerativeUI: {},
+            threadId,
+          };
+        },
+        template: `
+          <CopilotKitProvider
+            :agents__unsafe_dev_only="agents"
+            :open-generative-u-i="openGenerativeUI"
+          >
+            <CopilotChatConfigurationProvider :thread-id="threadId">
+              <div style="height: 400px;">
+                <CopilotChat :welcome-screen="false" />
+              </div>
+            </CopilotChatConfigurationProvider>
+          </CopilotKitProvider>
+        `,
+      });
+      return render(Host);
+    };
+
+    const { unmount } = renderOpenGenerativeUIChat();
+
+    await submitMessageAndWaitForUserMessage("Show me the restored app");
+
+    await agent.emit(runStartedEvent());
+    await agent.emit(
+      activitySnapshotEvent({
+        messageId: testId("open-generative-ui-activity"),
+        activityType: "open-generative-ui",
+        content: {
+          initialHeight: 180,
+          generating: false,
+          html: [restoredHtml],
+          htmlComplete: true,
+        },
+      }),
+    );
+    await agent.emit(runFinishedEvent());
+    await agent.complete();
+
+    await waitFor(() => {
+      expect(mockWebsandboxCreate).toHaveBeenCalledTimes(1);
+    });
+    expect(mockWebsandboxCreate.mock.calls[0]?.[1]).toMatchObject({
+      frameContent: restoredHtml,
+    });
+
+    unmount();
+
+    agent.reset();
+
+    renderOpenGenerativeUIChat();
+
+    await waitFor(() => {
+      expect(mockWebsandboxCreate).toHaveBeenCalledTimes(2);
+    });
+    expect(mockWebsandboxCreate.mock.calls[1]?.[1]).toMatchObject({
+      frameContent: restoredHtml,
+    });
+
+    expect(mockWebsandboxDestroy).toHaveBeenCalledTimes(1);
   });
 });
