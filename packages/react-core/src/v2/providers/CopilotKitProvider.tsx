@@ -133,10 +133,10 @@ export interface CopilotKitProviderProps {
   licenseToken?: string;
   properties?: Record<string, unknown>;
   /**
-   * @deprecated Since v1.57.0. Use `useLegacyRuntime` instead.
+   * @deprecated Use `useLegacyRuntime` instead.
    * When `true`, all runtime calls use a single POST endpoint with a JSON envelope
-   * (the legacy GQL-era transport). When `false` or omitted, the modern multi-endpoint
-   * REST transport is used.
+   * (the legacy single-endpoint transport). When `false` or omitted, the modern
+   * multi-endpoint REST transport is used.
    */
   useSingleEndpoint?: boolean;
   /**
@@ -556,13 +556,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   ]);
 
   // Resolve transport: useLegacyRuntime takes precedence over deprecated useSingleEndpoint.
-  const resolvedTransport = (() => {
-    if (useLegacyRuntime !== undefined && useSingleEndpoint !== undefined) {
-      console.warn(
-        "[CopilotKit] Both `useLegacyRuntime` and `useSingleEndpoint` are set. " +
-        "`useLegacyRuntime` takes precedence. Remove `useSingleEndpoint` to silence this warning.",
-      );
-    }
+  const resolvedTransport = useMemo(() => {
     if (useLegacyRuntime !== undefined) {
       return useLegacyRuntime ? "single" : "rest";
     }
@@ -570,7 +564,22 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
       return useSingleEndpoint ? "single" : "rest";
     }
     return "rest";
-  })();
+  }, [useLegacyRuntime, useSingleEndpoint]);
+
+  const hasWarnedConflictRef = useRef(false);
+  useEffect(() => {
+    if (
+      !hasWarnedConflictRef.current &&
+      useLegacyRuntime !== undefined &&
+      useSingleEndpoint !== undefined
+    ) {
+      hasWarnedConflictRef.current = true;
+      console.warn(
+        "[CopilotKit] Both `useLegacyRuntime` and `useSingleEndpoint` are set. " +
+          "`useLegacyRuntime` takes precedence. Remove `useSingleEndpoint` to silence this warning.",
+      );
+    }
+  }, [useLegacyRuntime, useSingleEndpoint]);
 
   // Stable instance: created once for the provider lifetime.
   // Updates are applied via setter effects below rather than recreating the instance.

@@ -325,7 +325,7 @@ export class CopilotKitCore {
 
   constructor({
     runtimeUrl,
-    runtimeTransport = "auto",
+    runtimeTransport = "rest",
     headers = {},
     credentials,
     properties = {},

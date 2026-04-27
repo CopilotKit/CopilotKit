@@ -632,9 +632,7 @@ describe("CopilotKitProvider", () => {
       expect(result.current.copilotkit.runtimeTransport).toBe("rest");
     });
 
-    it("useLegacyRuntime takes precedence over useSingleEndpoint", () => {
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-
+    it("useLegacyRuntime=true takes precedence over useSingleEndpoint=false", () => {
       const { result } = renderHook(() => useCopilotKit(), {
         wrapper: ({ children }) => (
           <CopilotKitProvider useLegacyRuntime={true} useSingleEndpoint={false}>
@@ -644,11 +642,24 @@ describe("CopilotKitProvider", () => {
       });
 
       expect(result.current.copilotkit.runtimeTransport).toBe("single");
-      expect(warnSpy).toHaveBeenCalledWith(
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining("Both `useLegacyRuntime` and `useSingleEndpoint` are set"),
       );
+    });
 
-      warnSpy.mockRestore();
+    it("useLegacyRuntime=false takes precedence over useSingleEndpoint=true", () => {
+      const { result } = renderHook(() => useCopilotKit(), {
+        wrapper: ({ children }) => (
+          <CopilotKitProvider useLegacyRuntime={false} useSingleEndpoint={true}>
+            {children}
+          </CopilotKitProvider>
+        ),
+      });
+
+      expect(result.current.copilotkit.runtimeTransport).toBe("rest");
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Both `useLegacyRuntime` and `useSingleEndpoint` are set"),
+      );
     });
 
     it("updates transport when useLegacyRuntime prop changes", () => {

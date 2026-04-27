@@ -16,6 +16,7 @@ import {
   CopilotKitCore,
   ProxiedCopilotRuntimeAgent,
   CopilotKitCoreRuntimeConnectionStatus,
+  type CopilotRuntimeTransport,
 } from "@copilotkit/core";
 
 /** Shape of the `core` property on the stub — derived from CopilotKitCore
@@ -131,7 +132,7 @@ class CopilotKitStub {
       CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     );
   readonly #runtimeUrl = signal<string | undefined>(undefined);
-  readonly #runtimeTransport = signal<"rest" | "single" | "auto">("auto");
+  readonly #runtimeTransport = signal<CopilotRuntimeTransport>("rest");
   readonly #headers = signal<Record<string, string>>({});
   getAgent = vi.fn((id: string) => this.#agents()[id]);
   agents = this.#agents.asReadonly();
@@ -142,7 +143,7 @@ class CopilotKitStub {
   #coreInstance = new CopilotKitCore({});
   core: StubCore = {
     runtimeUrl: undefined,
-    runtimeTransport: "auto",
+    runtimeTransport: "rest",
     runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {},
     subscribeToAgentWithOptions:
@@ -169,7 +170,7 @@ class CopilotKitStub {
     this.core = { ...this.core, headers: value };
   }
 
-  setRuntimeTransport(value: "rest" | "single" | "auto") {
+  setRuntimeTransport(value: CopilotRuntimeTransport) {
     this.#runtimeTransport.set(value);
     this.core = { ...this.core, runtimeTransport: value };
   }
