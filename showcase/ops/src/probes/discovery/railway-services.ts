@@ -753,6 +753,30 @@ interface GqlResult<T> {
 
 export const RAILWAY_GRAPHQL_ENDPOINT = ENDPOINT;
 
+/**
+ * Extract the GraphQL operation name from a query string.
+ *
+ * Railway's Cloudflare WAF applies a much stricter rate limit when the
+ * `/graphql/v2` endpoint is called without a query string (error 1015 /
+ * HTTP 429). The community-confirmed workaround — also used by the
+ * official Terraform provider — is to append `?query=<operationName>`
+ * to every request. The value is purely cosmetic from a GraphQL
+ * standpoint (the real query lives in the POST body); Cloudflare just
+ * needs *some* query string to route the request to the relaxed
+ * bucket.
+ *
+ * Returns "anonymous" when the query has no named operation (rare in
+ * this file, but possible if a caller passes a bare selection set).
+ *
+ * Refs:
+ *  - https://station.railway.com/questions/railway-api-cloudflare-rate-limiting-369be022
+ *  - https://station.railway.com/questions/frequent-graph-ql-api-rate-limiting-erro-d4316760
+ */
+export function extractOperationName(query: string): string {
+  const match = query.match(/(?:query|mutation)\s+(\w+)/);
+  return match?.[1] ?? "anonymous";
+}
+
 export function makeGql(opts: {
   fetchImpl: typeof fetch;
   token: string;
@@ -770,7 +794,11 @@ export function makeGql(opts: {
   ): Promise<GqlResult<T>> {
     let res: Response;
     try {
-      res = await fetchImpl(ENDPOINT, {
+      // Append `?query=<operationName>` to dodge Cloudflare's strict
+      // rate-limit bucket for query-string-less GraphQL calls. See
+      // `extractOperationName` for the full rationale.
+      const url = `${ENDPOINT}?query=${extractOperationName(query)}`;
+      res = await fetchImpl(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
