@@ -107,7 +107,8 @@ demos:
     animated_preview_url:
     highlight:
       - src/app/demos/tool-rendering-default-catchall/page.tsx
-      - src/agents/tool_rendering_agents.py
+      - src/agents/tool_rendering_default_catchall_agent.py
+      - src/agents/tool_rendering_common.py
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering-custom-catchall
     name: Tool Rendering (Custom Catch-all)
@@ -119,7 +120,8 @@ demos:
     highlight:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
-      - src/agents/tool_rendering_agents.py
+      - src/agents/tool_rendering_custom_catchall_agent.py
+      - src/agents/tool_rendering_common.py
       - src/app/api/copilotkit/route.ts
   - id: frontend-tools
     name: Frontend Tools (In-App Actions)
@@ -175,7 +177,8 @@ demos:
     route: /demos/tool-rendering
     animated_preview_url:
     highlight:
-      - src/agents/tool_rendering_agents.py
+      - src/agents/tool_rendering_agent.py
+      - src/agents/tool_rendering_common.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
@@ -364,7 +367,8 @@ demos:
     route: /demos/tool-rendering-reasoning-chain
     animated_preview_url:
     highlight:
-      - src/agents/tool_rendering_agents.py
+      - src/agents/tool_rendering_reasoning_chain_agent.py
+      - src/agents/tool_rendering_common.py
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: byoc-json-render

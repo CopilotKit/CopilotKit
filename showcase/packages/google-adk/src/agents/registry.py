@@ -24,10 +24,14 @@ from agents.shared_chat import (
 )
 from agents.gen_ui_agent import gen_ui_agent
 from agents.gen_ui_tool_based_agent import gen_ui_tool_based_agent
-from agents.tool_rendering_agents import (
-    tool_rendering_agent,
+from agents.tool_rendering_agent import tool_rendering_agent
+from agents.tool_rendering_default_catchall_agent import (
     tool_rendering_default_catchall_agent,
+)
+from agents.tool_rendering_custom_catchall_agent import (
     tool_rendering_custom_catchall_agent,
+)
+from agents.tool_rendering_reasoning_chain_agent import (
     tool_rendering_reasoning_chain_agent,
 )
 from agents.shared_state_read_write_agent import (
