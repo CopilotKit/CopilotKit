@@ -41,7 +41,9 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from .agent import (
+    build_agent_config_system_prompt,
     create_agent,
+    extract_agent_config_properties,
     ALL_TOOLS,
     BACKEND_TOOLS,
     FRONTEND_TOOL_NAMES,
@@ -277,7 +279,25 @@ async def handle_run(request: Request) -> StreamingResponse:
             status_code=422,
         )
 
-    agent = create_agent()
+    # Agent-config demo — <CopilotKit properties={tone, expertise,
+    # responseLength}> arrives as forwarded_props.config.configurable.properties
+    # (the dedicated Next.js route at copilotkit-agent-config repacks flat
+    # provider keys into that canonical shape before POSTing here). When
+    # those properties are present, steer the system prompt for this run
+    # only. For every other demo ``forwarded_props`` is empty / missing
+    # the keys and ``extract_agent_config_properties`` returns None, so
+    # behavior is unchanged.
+    agent_config_props = extract_agent_config_properties(
+        run_input.forwarded_props
+    )
+    system_override: str | None = None
+    if agent_config_props is not None:
+        system_override = build_agent_config_system_prompt(
+            tone=agent_config_props.get("tone"),
+            expertise=agent_config_props.get("expertise"),
+            response_length=agent_config_props.get("responseLength"),
+        )
+    agent = create_agent(system_message=system_override)
 
     # Build conversation history from all messages so multi-turn works.
     # Each ``msg.role`` / ``msg.content`` must be a string — silently

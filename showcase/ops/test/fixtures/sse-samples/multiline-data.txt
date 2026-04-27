@@ -1,0 +1,10 @@
+data: {"type":"RUN_STARTED",
+data: "threadId":"t-3",
+data: "runId":"r-3"}
+
+data: {"type":"TOOL_CALL_START","parentMessageId":"m-1","toolCallId":"tc-1","toolCallName":"multiline_tool"}
+
+data: {"type":"TOOL_CALL_END","toolCallId":"tc-1"}
+
+data: {"type":"RUN_FINISHED","threadId":"t-3","runId":"r-3"}
+

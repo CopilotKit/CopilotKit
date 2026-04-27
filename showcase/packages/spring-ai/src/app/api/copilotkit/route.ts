@@ -17,17 +17,43 @@ function createAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/` });
 }
 
-// Register the same agent under all names used by demo pages.
+// Register the same Spring AI agent (backed by a single Spring-AI ChatClient
+// on the Java side) under every name used by the demo pages in this package.
+// Each entry proxies CopilotKit requests to the same Spring endpoint —
+// per-demo behavior differences live on the frontend in the form of
+// useFrontendTool / useRenderTool / useHumanInTheLoop / useAgentContext
+// hooks registered on each page.
 const agentNames = [
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
   "gen-ui-tool-based",
   "gen-ui-agent",
   "shared-state-read",
   "shared-state-write",
+  "shared-state-read-write",
   "shared-state-streaming",
   "subagents",
+  "chat-customization-css",
+  "frontend_tools",
+  "frontend-tools-async",
+  "hitl-in-chat",
+  "hitl-in-app",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "headless-simple",
+  "headless-complete",
+  "readonly-state-agent-context",
+  "auth",
+  "open-gen-ui",
+  "beautiful-chat",
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  "tool-rendering-reasoning-chain",
+  "mcp-apps",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

@@ -1,0 +1,172 @@
+# Daily audit for GHCR container packages that are unlinked from a source
+# repository (`repository: null` on the GHCR API).
+#
+# WHY THIS EXISTS
+# ---------------
+# When a GHCR container package is not linked to a repository, workflow
+# builds in `CopilotKit/CopilotKit` get `403 Forbidden` on push to GHCR —
+# the workflow's `GITHUB_TOKEN` only has package-write permissions when
+# the package is linked to the actor's repo. We hit this twice in quick
+# succession (`showcase-ops` caught manually after a failed deploy, and
+# `showcase-pocketbase` caught by a preemptive scan). There is NO GitHub
+# API to programmatically link a package to a repo — it is UI-only — so
+# the only way to prevent future surprises is detect drift early via a
+# scheduled audit + Slack alert.
+#
+# This workflow is the operationalization of the lesson captured in
+# `feedback_ghcr_new_package_403.md`.
+#
+# REQUIRED SECRETS
+# ----------------
+# - ORG_READ_PACKAGES_PAT: a fine-grained PAT with `read:packages` scope,
+#   org-scoped to `CopilotKit`. The default `secrets.GITHUB_TOKEN` does
+#   NOT have `read:packages` for the org and cannot list org packages.
+# - SLACK_WEBHOOK_GHCR_DRIFT: a CopilotKit-internal Slack incoming-webhook
+#   URL. Posts to whichever channel the webhook is bound to (intended:
+#   an internal alerts channel).
+#
+# If `ORG_READ_PACKAGES_PAT` is unset the workflow fails loudly — drift
+# detection silently disabled is worse than no workflow at all.
+# If `SLACK_WEBHOOK_GHCR_DRIFT` is unset the workflow logs a warning
+# (the audit still runs) so a missing webhook does not mask drift.
+#
+# EXIT CODES
+# ----------
+# This workflow exits 0 in all non-error cases (including when drift is
+# present). The Slack message IS the alert; failing the workflow on
+# drift would create noisy red CI checks on a schedule.
+
+name: GHCR unlinked-package audit
+
+on:
+  schedule:
+    # Daily at 14:00 UTC (07:00 PT / 10:00 ET) — low-traffic window,
+    # well before the US workday's deploy activity.
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit org container packages for unlinked repos
+    # Hoist the Slack webhook into an env var so step-level `if:`
+    # expressions can reference it — `secrets.*` is not a valid
+    # named-value inside `if:` and causes a workflow startup failure.
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_GHCR_DRIFT }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify ORG_READ_PACKAGES_PAT is set
+        env:
+          PAT: ${{ secrets.ORG_READ_PACKAGES_PAT }}
+        run: |
+          if [ -z "$PAT" ]; then
+            echo "::error::ORG_READ_PACKAGES_PAT is not set. This workflow requires a fine-grained PAT with read:packages scope, org-scoped to CopilotKit. See the workflow header comment in .github/workflows/ghcr_unlinked_packages.yml for setup."
+            exit 1
+          fi
+          echo "ORG_READ_PACKAGES_PAT present."
+
+      - name: List org container packages and identify unlinked
+        id: audit
+        env:
+          GH_TOKEN: ${{ secrets.ORG_READ_PACKAGES_PAT }}
+        run: |
+          set -euo pipefail
+
+          # Page through all container packages in the CopilotKit org.
+          # `--paginate` follows Link headers; per_page=100 minimizes
+          # request count. `gh api` returns one JSON array per page;
+          # `--slurp` is unnecessary because gh concatenates pages into
+          # a single stream when called with `--paginate` on an array
+          # endpoint.
+          all_packages_json="$(gh api \
+            --paginate \
+            -H "Accept: application/vnd.github+json" \
+            "/orgs/CopilotKit/packages?package_type=container&per_page=100")"
+
+          total="$(echo "$all_packages_json" | jq 'length')"
+          echo "Total container packages in CopilotKit org: $total"
+
+          # Filter for packages where repository is null. Emit a compact
+          # JSON array of {name, visibility} objects for downstream use.
+          unlinked_json="$(echo "$all_packages_json" \
+            | jq -c '[.[] | select(.repository == null) | {name: .name, visibility: .visibility}]')"
+
+          unlinked_count="$(echo "$unlinked_json" | jq 'length')"
+          echo "Unlinked container packages: $unlinked_count"
+
+          # Emit outputs for the next step. Use the multiline-output
+          # delimiter form for the JSON array so jq output with embedded
+          # special chars survives intact.
+          {
+            echo "unlinked_count=$unlinked_count"
+            echo "unlinked_json<<EOF"
+            echo "$unlinked_json"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$unlinked_count" = "0" ]; then
+            echo "::notice::No GHCR drift — all CopilotKit org container packages are linked to a repository."
+          else
+            echo "::warning::Detected $unlinked_count unlinked container package(s):"
+            echo "$unlinked_json" | jq -r '.[] | "  - \(.name) (\(.visibility))"'
+          fi
+
+      - name: Build Slack payload
+        id: payload
+        if: steps.audit.outputs.unlinked_count != '0'
+        env:
+          UNLINKED_JSON: ${{ steps.audit.outputs.unlinked_json }}
+          UNLINKED_COUNT: ${{ steps.audit.outputs.unlinked_count }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          # Build a single `text` field with mrkdwn — keeps the payload
+          # compatible with both incoming-webhooks and channel webhooks.
+          # Each unlinked package gets a deep link to its Actions-access
+          # settings page, where the UI fix lives.
+          lines="$(echo "$UNLINKED_JSON" | jq -r '.[] | "• <https://github.com/orgs/CopilotKit/packages/container/\(.name)/settings|\(.name)> (\(.visibility))"')"
+
+          # Build message via printf — avoids heredoc indentation
+          # gotchas (closing delimiter must be column-0, which confuses
+          # YAML linters on `run: |` blocks). mrkdwn renders *bold*,
+          # _italic_, and <url|label> links.
+          nl=$'\n'
+          message=":warning: *GHCR drift detected* — ${UNLINKED_COUNT} container package(s) in the \`CopilotKit\` org are unlinked from a source repository.${nl}${nl}"
+          message="${message}${lines}${nl}${nl}"
+          message="${message}*UI fix (per package):* open the settings link above → *Manage Actions access* → *Add Repository* → \`CopilotKit/CopilotKit\` → *Write*.${nl}${nl}"
+          message="${message}_This drift breaks future workflow builds with \`403 Forbidden\` on push to GHCR. <${RUN_URL}|View audit run>_"
+
+          # Emit as a multiline output so the next step can consume it
+          # without re-quoting through a shell.
+          {
+            echo "text<<EOF"
+            echo "$message"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Notify Slack (drift detected)
+        if: steps.audit.outputs.unlinked_count != '0' && env.SLACK_WEBHOOK != ''
+        uses: slackapi/slack-github-action@v2.1.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_GHCR_DRIFT }}
+          webhook-type: incoming-webhook
+          # Wrap the dynamic message via toJSON so quotes/newlines/
+          # backslashes inside package names or visibility values are
+          # safely JSON-encoded instead of breaking the payload.
+          payload: |
+            { "text": ${{ toJSON(steps.payload.outputs.text) }} }
+
+      - name: Log (no Slack — webhook unset)
+        if: steps.audit.outputs.unlinked_count != '0' && env.SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::Drift detected but SLACK_WEBHOOK_GHCR_DRIFT is not set; no Slack notification sent. See run logs above for the unlinked package list."
+
+      - name: Log (no drift)
+        if: steps.audit.outputs.unlinked_count == '0'
+        run: |
+          echo "No drift — exiting 0."

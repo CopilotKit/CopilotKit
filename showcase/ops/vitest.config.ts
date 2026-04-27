@@ -6,6 +6,19 @@ export default defineConfig({
     exclude: ["node_modules", "dist", "test/integration/**", "test/e2e/**"],
     environment: "node",
     globals: false,
+    // Several orchestrator integration tests boot a real Hono server,
+    // chokidar watcher, scheduler, and PB client in beforeEach and tear
+    // them down in afterEach. On macOS + CI runners the teardown can
+    // spike well past the 10s default (chokidar.close on a deleted
+    // tempdir + http.Server.close + scheduler settle) — visible as
+    // cascading "Hook timed out in 10000ms" failures on `/health
+    // wiring`, `OPS_TRIGGER_TOKEN`, and probe-unregister describe
+    // blocks. The R21-a SIGHUP-reload test in particular deletes the
+    // configDir mid-test and chokidar's watcher.close() on a vanished
+    // path can hang for ~30s on macOS. 60s absorbs the variance
+    // without masking real hangs (a stuck stop() blocks for minutes,
+    // not seconds, so the ceiling still surfaces those cleanly).
+    hookTimeout: 60_000,
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],

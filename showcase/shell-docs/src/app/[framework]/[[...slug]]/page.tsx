@@ -22,12 +22,19 @@ import { SidebarFrameworkSelector } from "@/components/sidebar-framework-selecto
 import { UnscopedDocsPage } from "@/components/unscoped-docs-page";
 import {
   CONTENT_DIR,
+  buildFrameworkOverridesNav,
   buildNavTree,
   findFrameworksWithCell,
+  findFrameworksWithPage,
   loadDoc,
   type NavNode,
 } from "@/lib/docs-render";
-import { getIntegration, getIntegrations } from "@/lib/registry";
+import {
+  getDocsFolder,
+  getIntegration,
+  getIntegrations,
+  type Integration,
+} from "@/lib/registry";
 import { RESERVED_ROUTE_SLUGS } from "@/app/layout";
 import demoContent from "@/data/demo-content.json";
 
@@ -53,6 +60,58 @@ const demos: Record<string, DemoRecord> = (
  */
 function frameworkHasCellFor(framework: string, cell: string): boolean {
   return Boolean(demos[`${framework}::${cell}`]);
+}
+
+/**
+ * Merge per-framework overrides into the root nav tree. The override
+ * block is inserted as a labeled section right after "App Control" in
+ * the root ordering — this mirrors upstream's `integrations/built-in-agent/
+ * meta.json`, which puts BIA-specific topics immediately after App
+ * Control (before Backend / Premium / Troubleshooting). Implementation:
+ * locate the "App Control" section and insert at the next section
+ * boundary. Fallbacks in order: insert before "Threads", "Backend", or
+ * append at the end.
+ */
+function mergeFrameworkNav(
+  rootNav: NavNode[],
+  overrideNav: NavNode[],
+  frameworkName: string,
+): NavNode[] {
+  if (overrideNav.length === 0) return rootNav;
+  const sectionHeader: NavNode = {
+    type: "section",
+    title: frameworkName,
+  };
+  const isSection = (n: NavNode, title: string) =>
+    n.type === "section" && n.title.toLowerCase() === title.toLowerCase();
+  const appControlIdx = rootNav.findIndex((n) => isSection(n, "app control"));
+  let insertAt = -1;
+  if (appControlIdx !== -1) {
+    // Find the next section after App Control; insert right before it
+    // so the override block lands between App Control's pages and
+    // whatever comes next.
+    for (let i = appControlIdx + 1; i < rootNav.length; i++) {
+      if (rootNav[i].type === "section") {
+        insertAt = i;
+        break;
+      }
+    }
+  }
+  if (insertAt === -1) {
+    insertAt = rootNav.findIndex((n) => isSection(n, "threads"));
+  }
+  if (insertAt === -1) {
+    insertAt = rootNav.findIndex((n) => isSection(n, "backend"));
+  }
+  if (insertAt === -1) {
+    return [...rootNav, sectionHeader, ...overrideNav];
+  }
+  return [
+    ...rootNav.slice(0, insertAt),
+    sectionHeader,
+    ...overrideNav,
+    ...rootNav.slice(insertAt),
+  ];
 }
 
 export default async function FrameworkScopedDocsPage({
@@ -99,12 +158,72 @@ export default async function FrameworkScopedDocsPage({
     redirect(`/${framework}/${slugPath.slice("unselected/".length)}`);
   }
 
-  // When the page doesn't exist at all, 404.
-  const doc = loadDoc(slugPath);
-  if (!doc) notFound();
+  // Content resolution:
+  //   1. Root MDX — framework-agnostic page rendered with this
+  //      framework's override (Model 1, the primary path).
+  //   2. Per-framework override at `integrations/<framework>/<slug>.mdx`
+  //      — topics that are genuinely framework-specific (e.g. BIA's
+  //      `server-tools`) and have no root equivalent. When this path
+  //      wins, we record it as `contentSlugPath` so DocsPageView loads
+  //      from there while the URL slug continues driving breadcrumbs
+  //      and active-link detection.
+  //   3. If the slug exists for *other* frameworks but not this one,
+  //      render a "not available for <framework>" fallback inside the
+  //      docs shell (handled below, after the nav is built).
+  //   4. Otherwise 404.
+  // Most registry slugs map 1:1 to a folder under `integrations/`, but
+  // language/runtime variants share a single docs folder:
+  // langgraph-python/typescript/fastapi → `langgraph/`, ms-agent-dotnet/
+  // python → `microsoft-agent-framework/`, plus legacy renames for
+  // google-adk → `adk/` and strands → `aws-strands/`. Resolve the URL
+  // slug to its docs folder before touching disk.
+  const docsFolder = getDocsFolder(framework);
+
+  let contentSlugPath: string = slugPath;
+  let doc = loadDoc(slugPath);
+  if (!doc) {
+    const fallbackPath = `integrations/${docsFolder}/${slugPath}`;
+    doc = loadDoc(fallbackPath);
+    if (doc) contentSlugPath = fallbackPath;
+  }
+
+  // Sidebar nav needs to render on both the happy path and the
+  // "not available" fallback, so build it before branching.
+  const rootNav = buildNavTree(CONTENT_DIR);
+  const overrideNav = buildFrameworkOverridesNav(docsFolder);
+  const navTree: NavNode[] = mergeFrameworkNav(
+    rootNav,
+    overrideNav,
+    integration.name,
+  );
+
+  if (!doc) {
+    // No root MDX and no override for this framework. If the topic
+    // exists for *other* frameworks (e.g. a BIA-specific page like
+    // `/mastra/advanced-configuration`), render a fallback inside the
+    // docs shell that lists the frameworks where it does exist — the
+    // user keeps their framework context and gets a clear path
+    // forward. Only 404 when the slug is unknown everywhere.
+    const allFrameworkSlugs = getIntegrations().map((i) => i.slug);
+    const availableIn = findFrameworksWithPage(
+      slugPath,
+      allFrameworkSlugs,
+      getDocsFolder,
+    );
+    if (availableIn.length > 0) {
+      return (
+        <NotAvailableForFrameworkPage
+          framework={integration}
+          slugPath={slugPath}
+          availableIn={availableIn}
+          navTree={navTree}
+        />
+      );
+    }
+    notFound();
+  }
 
   const backLink = { label: "\u2190 All docs", href: "/" };
-  const navTree = buildNavTree(CONTENT_DIR);
 
   // Detect whether this page's default cell (the feature) has any
   // snippets tagged for the current framework. When it doesn't, show
@@ -165,6 +284,7 @@ export default async function FrameworkScopedDocsPage({
   return (
     <DocsPageView
       slugPath={slugPath}
+      contentSlugPath={contentSlugPath}
       slugHrefPrefix={`/${framework}`}
       frameworkOverride={framework}
       sidebarTitle="CopilotKit Docs"
@@ -184,8 +304,11 @@ function FrameworkLandingPage({ framework }: { framework: string }) {
   const integration = getIntegration(framework);
   if (!integration) notFound();
 
-  const navTree = buildNavTree(CONTENT_DIR);
-  const tree = navTree;
+  // Same nav merge as the scoped-page route. Resolve the URL slug to
+  // its docs folder — see comment in FrameworkScopedDocsPage above.
+  const rootNav = buildNavTree(CONTENT_DIR);
+  const overrideNav = buildFrameworkOverridesNav(getDocsFolder(framework));
+  const tree = mergeFrameworkNav(rootNav, overrideNav, integration.name);
 
   return (
     <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
@@ -290,6 +413,106 @@ function LandingCard({
       <div className="text-xs text-[var(--text-muted)]">{desc}</div>
     </Link>
   );
+}
+
+// ---------------------------------------------------------------------------
+// "Not available for this framework" fallback. Rendered when the URL's
+// slug has no root MDX, no override for the URL's framework, but DOES
+// exist for one or more other frameworks (typically a BIA-specific
+// page being hit under a different integration's scope). The goal is
+// to keep the user in context — sidebar intact, framework switcher
+// reachable — while pointing them at the frameworks where the page
+// actually exists.
+// ---------------------------------------------------------------------------
+
+function NotAvailableForFrameworkPage({
+  framework,
+  slugPath,
+  availableIn,
+  navTree,
+}: {
+  framework: Integration;
+  slugPath: string;
+  availableIn: string[];
+  navTree: NavNode[];
+}) {
+  const title = humanizeSlug(slugPath);
+  return (
+    <div className="flex" style={{ height: "calc(100vh - 53px)" }}>
+      <aside className="w-[240px] shrink-0 border-r border-[var(--border)] bg-[var(--bg)] overflow-y-auto p-4">
+        <SidebarFrameworkSelector />
+        <Link
+          href="/"
+          className="block text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] mb-3 transition-colors"
+        >
+          ← All docs
+        </Link>
+        <Link
+          href={`/${framework.slug}`}
+          className="block text-xs font-mono uppercase tracking-widest text-[var(--accent)] mb-4"
+        >
+          {framework.name}
+        </Link>
+        {navTree.map((node, i) => (
+          <RenderNav key={i} node={node} framework={framework.slug} />
+        ))}
+      </aside>
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl px-8 py-8">
+          <h1 className="text-[2rem] font-bold text-[var(--text)] tracking-tight mb-2 leading-tight">
+            {title}
+          </h1>
+          <p className="text-base text-[var(--text-muted)] mb-6 leading-relaxed">
+            This topic isn't available for {framework.name}.
+          </p>
+          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/5 p-5 mb-6">
+            <div className="text-sm font-semibold text-[var(--text)] mb-2">
+              Available in other integrations
+            </div>
+            <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed mb-3">
+              <code>{slugPath}</code> is a topic specific to other integrations.
+              Pick one to continue reading:
+            </p>
+            <ul className="space-y-2">
+              {availableIn.map((slug) => {
+                const alt = getIntegration(slug);
+                if (!alt) return null;
+                return (
+                  <li key={slug}>
+                    <Link
+                      href={`/${slug}/${slugPath}`}
+                      className="text-sm text-[var(--accent)] hover:underline"
+                    >
+                      {alt.name}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          <p className="text-[13px] text-[var(--text-muted)]">
+            Or return to{" "}
+            <Link
+              href={`/${framework.slug}`}
+              className="text-[var(--accent)] hover:underline"
+            >
+              the {framework.name} docs
+            </Link>
+            .
+          </p>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+function humanizeSlug(slugPath: string): string {
+  const last = slugPath.split("/").pop() ?? slugPath;
+  return last
+    .split("-")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 function RenderNav({

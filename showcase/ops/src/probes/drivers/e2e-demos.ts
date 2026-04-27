@@ -1,10 +1,9 @@
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 import { truncateUtf8 } from "../../render/filters.js";
 import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
-import type { ProbeContext, ProbeResult } from "../../types/index.js";
+import type { Logger, ProbeContext, ProbeResult } from "../../types/index.js";
 
 /**
  * Phase 4B.1 — e2e-demos driver.
@@ -186,27 +185,62 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 
 /**
+ * Env-var override for the driver's internal hard-cap. Read PER `run()`
+ * call against `ctx.env` so the orchestrator can thread the per-probe
+ * `cfg.timeout_ms` from `e2e-demos.yml` into the singleton driver
+ * registration without rebuilding the driver.
+ *
+ * Why this knob exists: drivers are registered as singletons at
+ * orchestrator boot (BEFORE probe configs are loaded), so we can't pass
+ * `cfg.timeout_ms` straight into `createE2eDemosDriver({ timeoutMs: ... })`
+ * — by the time the loader knows the YAML's `timeout_ms`, the singleton
+ * is already wired into the registry. Reading from `ctx.env` per-call
+ * lets the orchestrator set `process.env.E2E_DEMOS_TIMEOUT_MS` from the
+ * loaded probe config so the driver's internal cap aligns with the
+ * invoker's outer race (1_200_000ms in production today).
+ *
+ * Resolution order (highest precedence first):
+ *   1. `ctx.env.E2E_DEMOS_TIMEOUT_MS` — orchestrator-threaded YAML value.
+ *   2. `deps.timeoutMs` — explicit per-driver override (used by tests).
+ *   3. `DEFAULT_TIMEOUT_MS` — fallback (5 min).
+ *
+ * Env values that don't parse as positive integers fall through to the
+ * dep / default — a typo'd env var must NOT silently disable the cap.
+ */
+const TIMEOUT_ENV_VAR = "E2E_DEMOS_TIMEOUT_MS";
+
+/**
  * Structural-ready selectors tried in order. First match wins; a demo is
  * considered green if any one resolves within the page timeout. Kept as a
  * const array so the production config and the unit tests agree on the
  * exact ordering — a refactor that re-orders the list surfaces as a test
  * diff.
  *
- * Ordering rationale:
- *   1. CopilotKit canonical testid — deterministic, the strictest signal.
- *   2. Default placeholder — covers CopilotKit UIs that haven't yet added
- *      the testid.
- *   3-5. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
+ * Ordering rationale (kept in lockstep with `conversation-runner.ts`'s
+ * CHAT_INPUT_SELECTORS — this driver only checks visibility so the
+ * div-wrapper testid wouldn't actually break it, but matching ordering
+ * keeps a single mental model for both probes):
+ *   1. CopilotKit V2 canonical textarea testid — the actual `<textarea>`
+ *      inside the V2 chat input. Strictest, fillable signal.
+ *   2. Scoped descendant — any `<textarea>` nested under the V2 wrapper
+ *      `[data-testid="copilot-chat-input"]`, for V2 UIs whose textarea
+ *      doesn't carry its own testid.
+ *   3. Bare `textarea` — covers V1 CopilotKit and generic chat UIs whose
+ *      composer is a plain `<textarea>` without a testid.
+ *   4. Default placeholder — input-element composers whose UI uses
+ *      `<input placeholder="Type a message">` instead of a textarea.
+ *   5-6. Generic chat-affordance fallbacks. Custom-composer demos (e.g.
  *      `headless-simple`, `headless-complete`) build their own UI on top
  *      of `useAgent`, so they lack both the testid and the default
- *      placeholder but still render a `textarea` / text input / ARIA
- *      textbox. A match on any of these is enough structural evidence
- *      that the demo route booted.
+ *      placeholder but still render a text input / ARIA textbox. A match
+ *      on any of these is enough structural evidence that the demo
+ *      route booted.
  */
 const READY_SELECTORS = [
-  '[data-testid="copilot-chat-input"]',
-  'input[placeholder="Type a message"]',
+  '[data-testid="copilot-chat-textarea"]',
+  '[data-testid="copilot-chat-input"] textarea',
   "textarea",
+  'input[placeholder="Type a message"]',
   'input[type="text"]',
   '[role="textbox"]',
 ] as const;
@@ -241,45 +275,123 @@ const defaultLauncher: E2eDemosBrowserLauncher =
  * Default demos resolver. Reads `registry.json` once (memoised in-closure)
  * and extracts `integrations[].slug → demos[].id`. Production runtime gets
  * the file from `/app/data/registry.json` (copied in by the Dockerfile);
- * tests override via `REGISTRY_JSON_PATH` on ctx.env. Returns `[]` on any
- * read/parse error — a misconfigured runtime image should degrade to
- * "nothing to check, green aggregate" rather than flapping every service
- * red every tick.
+ * tests override via `REGISTRY_JSON_PATH` on ctx.env.
+ *
+ * Logging taxonomy (mirrors `loadDemosMap` in railway-services.ts so a
+ * grep across the orchestrator surfaces both call paths):
+ *   - `probe.e2e-demos.registry-read-failed` — fs.readFile threw. Logged
+ *     at `info` for ENOENT (steady-state in dev where the registry isn't
+ *     mounted yet) and `warn` for everything else (permission denied,
+ *     IO error, AbortError). Returns demos: [] for every slug.
+ *   - `probe.e2e-demos.registry-parse-failed` — JSON.parse threw on the
+ *     bytes we read. Always `warn` (a corrupt registry is never expected
+ *     steady-state). Returns demos: [].
+ *   - `probe.e2e-demos.registry-shape-invalid` — root parse value isn't
+ *     a plain object (null / array / scalar). Always `warn`. Returns
+ *     demos: [].
+ *
+ * Cache lifetime: the closure-level Map is allocated per
+ * `createDefaultDemosResolver()` call. The driver builds a FRESH resolver
+ * inside `run()` (`deps.demosResolver ?? createDefaultDemosResolver(...)`)
+ * each invocation, so within a single tick the cache short-circuits
+ * subsequent same-slug lookups but across ticks the cache is discarded
+ * and the registry is re-read — intentional, so a registry update
+ * mid-tick takes effect on the next tick without a driver restart.
+ * Hoisting the cache to module scope would make the registry stale
+ * forever after first read, so we keep it per-`run()`.
  */
 function createDefaultDemosResolver(
   env: Readonly<Record<string, string | undefined>>,
+  logger: Logger,
 ): E2eDemosResolver {
   let cache: Map<string, E2eDemoEntry[]> | null = null;
   return async (slug: string): Promise<E2eDemoEntry[]> => {
     if (cache === null) {
       const override = env.REGISTRY_JSON_PATH;
-      const fallback = path.resolve("/app/data/registry.json");
+      // Production fallback path. Previously wrapped in `path.resolve()`,
+      // which is a no-op for an absolute path; dropped the wrap to keep
+      // the constant greppable and to mirror railway-services.ts.
+      const fallback = "/app/data/registry.json";
       const registryPath = override ?? fallback;
+      let raw: string;
       try {
-        const raw = await fs.readFile(registryPath, "utf-8");
-        const parsed = JSON.parse(raw) as {
-          integrations?: Array<{
-            slug?: string;
-            demos?: Array<{ id?: string; route?: string }>;
-          }>;
+        raw = await fs.readFile(registryPath, "utf-8");
+      } catch (err) {
+        // Bucket: ENOENT is steady-state in local dev where the
+        // registry isn't mounted. Downgrade to `info` so the alert
+        // stream isn't pulsed every tick. Permission/IO/abort errors
+        // stay at `warn`. Mirrors railway-services.ts:loadDemosMap.
+        const code =
+          err && typeof err === "object" && "code" in err
+            ? (err as { code?: unknown }).code
+            : undefined;
+        const meta = {
+          slug,
+          path: registryPath,
+          err: err instanceof Error ? err.message : String(err),
         };
-        const map = new Map<string, E2eDemoEntry[]>();
-        for (const it of parsed.integrations ?? []) {
-          if (!it.slug) continue;
-          const entries: E2eDemoEntry[] = [];
-          for (const d of it.demos ?? []) {
-            if (typeof d.id !== "string") continue;
-            entries.push({
-              id: d.id,
-              route: typeof d.route === "string" ? d.route : undefined,
-            });
-          }
-          map.set(it.slug, entries);
+        if (code === "ENOENT") {
+          logger.info("probe.e2e-demos.registry-read-failed", meta);
+        } else {
+          logger.warn("probe.e2e-demos.registry-read-failed", meta);
         }
-        cache = map;
-      } catch {
         cache = new Map();
+        return cache.get(slug) ?? [];
       }
+      let parsedUnknown: unknown;
+      try {
+        parsedUnknown = JSON.parse(raw);
+      } catch (err) {
+        // Distinct log key from read-failure so operators can tell
+        // "file is corrupt" from "file isn't there" without parsing
+        // error strings.
+        logger.warn("probe.e2e-demos.registry-parse-failed", {
+          slug,
+          path: registryPath,
+          err: err instanceof Error ? err.message : String(err),
+        });
+        cache = new Map();
+        return cache.get(slug) ?? [];
+      }
+      // Shape guard: `JSON.parse("null")` returns null, `JSON.parse("42")`
+      // returns 42, `JSON.parse("[]")` returns an array. Any of these
+      // would crash the `for (const it of parsed.integrations ?? [])`
+      // loop below with a TypeError on property access. Reject anything
+      // that isn't a plain object root.
+      if (
+        parsedUnknown === null ||
+        typeof parsedUnknown !== "object" ||
+        Array.isArray(parsedUnknown)
+      ) {
+        logger.warn("probe.e2e-demos.registry-shape-invalid", {
+          slug,
+          path: registryPath,
+          rootType: parsedUnknown === null ? "null" : typeof parsedUnknown,
+          isArray: Array.isArray(parsedUnknown),
+        });
+        cache = new Map();
+        return cache.get(slug) ?? [];
+      }
+      const parsed = parsedUnknown as {
+        integrations?: Array<{
+          slug?: string;
+          demos?: Array<{ id?: string; route?: string }>;
+        }>;
+      };
+      const map = new Map<string, E2eDemoEntry[]>();
+      for (const it of parsed.integrations ?? []) {
+        if (!it.slug) continue;
+        const entries: E2eDemoEntry[] = [];
+        for (const d of it.demos ?? []) {
+          if (typeof d.id !== "string") continue;
+          entries.push({
+            id: d.id,
+            route: typeof d.route === "string" ? d.route : undefined,
+          });
+        }
+        map.set(it.slug, entries);
+      }
+      cache = map;
     }
     return cache.get(slug) ?? [];
   };
@@ -289,7 +401,7 @@ export function createE2eDemosDriver(
   deps: E2eDemosDriverDeps = {},
 ): ProbeDriver<E2eDemosDriverInput, E2eDemosAggregateSignal> {
   const launcher = deps.launcher ?? defaultLauncher;
-  const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const depTimeoutMs = deps.timeoutMs;
   const pageTimeoutMs = deps.pageTimeoutMs ?? DEFAULT_PAGE_TIMEOUT_MS;
 
   return {
@@ -302,6 +414,20 @@ export function createE2eDemosDriver(
       const observedAt = ctx.now().toISOString();
       const backendUrl = (input.backendUrl ?? input.publicUrl)!;
       const slug = deriveSlug(input.key, input.name);
+
+      // Resolve the internal cap per `run()` against env first so a
+      // singleton-driver registration can still align with the per-probe
+      // `cfg.timeout_ms` in `e2e-demos.yml`. See `TIMEOUT_ENV_VAR` block
+      // for the resolution-order rationale.
+      const envRaw = ctx.env[TIMEOUT_ENV_VAR];
+      const envParsed =
+        typeof envRaw === "string" && /^\d+$/.test(envRaw.trim())
+          ? Number.parseInt(envRaw.trim(), 10)
+          : NaN;
+      const timeoutMs =
+        Number.isFinite(envParsed) && envParsed > 0
+          ? envParsed
+          : (depTimeoutMs ?? DEFAULT_TIMEOUT_MS);
 
       // Starter short-circuit — runs BEFORE chromium launch AND BEFORE
       // demos resolution. Starters have no /demos/* routing, so every row
@@ -325,11 +451,17 @@ export function createE2eDemosDriver(
         };
       }
 
+      // Per-run side-emit closure. Captures ctx + a warnedNoWriter flag
+      // so the writer-missing warn fires once per run instead of per
+      // row (C10).
+      const sideEmit = makeSideEmit(ctx);
+
       // Lazy resolver — build the default only if we actually need one, so
       // tests that inject `demos: [...]` in-band never touch the
-      // filesystem.
+      // filesystem. Logger is threaded so the resolver's read/parse/shape
+      // errors emit through the same logger as the rest of the driver.
       const demosResolver =
-        deps.demosResolver ?? createDefaultDemosResolver(ctx.env);
+        deps.demosResolver ?? createDefaultDemosResolver(ctx.env, ctx.logger);
 
       // Demos resolution: (1) in-band `input.demos`, (2) registry lookup.
       // In-band ids synthesise a canonical `/demos/<id>` route so existing
@@ -344,9 +476,34 @@ export function createE2eDemosDriver(
         try {
           demos = await demosResolver(slug);
         } catch (err) {
+          // C12: a custom resolver throw (or default-resolver bug not
+          // already caught at the read/parse/shape layer) used to fall
+          // through to demos: [] which masquerades as a green aggregate
+          // — operators saw "all green" while the resolver was wedged.
+          // Surface a synthetic `__resolver` side row keyed
+          // `e2e:<slug>/__resolver` with errorClass="resolver-error" so
+          // the dashboard renders a red dot for the configuration
+          // mistake distinctly from an empty registry.
+          const errName = err instanceof Error ? err.name : "Error";
+          const msg = err instanceof Error ? err.message : String(err);
+          const stack = err instanceof Error ? err.stack : undefined;
           ctx.logger.warn("probe.e2e-demos.demos-resolve-failed", {
             slug,
-            err: err instanceof Error ? err.message : String(err),
+            errName,
+            err: msg,
+            stack,
+          });
+          await sideEmit({
+            key: `e2e:${slug}/__resolver`,
+            state: "red",
+            signal: {
+              slug,
+              featureId: "__resolver",
+              backendUrl,
+              errorClass: "resolver-error",
+              errorDesc: truncateUtf8(msg, 1200),
+            },
+            observedAt: ctx.now().toISOString(),
           });
           demos = [];
         }
@@ -423,6 +580,33 @@ export function createE2eDemosDriver(
           const featureId = demo.id;
           const sideKey = `e2e:${slug}/${featureId}`;
 
+          // C8: empty-string `route` is a config mistake (registry
+          // entries with `route: ""` would silently land on the
+          // informational-cell path and emit a misleading green dot).
+          // Surface it as a red row with errorClass="config-invalid"
+          // so operators see the broken entry on the dashboard
+          // instead of a false-green.
+          if (typeof demo.route === "string" && demo.route.length === 0) {
+            ctx.logger.warn("probe.e2e-demos.route-empty-string", {
+              slug,
+              featureId,
+            });
+            failed.push(featureId);
+            await sideEmit({
+              key: sideKey,
+              state: "red",
+              signal: {
+                slug,
+                featureId,
+                backendUrl,
+                errorClass: "config-invalid",
+                errorDesc: "route is empty string",
+              },
+              observedAt: ctx.now().toISOString(),
+            });
+            continue;
+          }
+
           // Informational cells (no `route:` in the registry — e.g.
           // `cli-start`, a command-cell with a `command:` field and no
           // UI route) short-circuit green without a goto. Navigating
@@ -433,7 +617,7 @@ export function createE2eDemosDriver(
           // the probe didn't exercise the page.
           if (!demo.route) {
             passed++;
-            await sideEmit(ctx, {
+            await sideEmit({
               key: sideKey,
               state: "green",
               signal: {
@@ -450,11 +634,21 @@ export function createE2eDemosDriver(
           const url = `${backendUrl}${demo.route}`;
 
           if (abort.signal.aborted) {
-            // Timeout / external abort fired mid-fan-out. Mark remaining
-            // demos red via the side-emit path so the dashboard still
-            // shows a signal per cell rather than going gray, then break.
+            // Timeout / external abort fired mid-fan-out. Mark each
+            // remaining demo red and continue iterating so all
+            // unprocessed demos get an `errorClass: "abort"` side row —
+            // the dashboard relies on per-demo dots, so silently skipping
+            // would leave half the cells gray rather than red.
+            //
+            // C9: fire-and-forget the side-emit (`void sideEmit(...)`).
+            // Awaiting on the abort branch defeats the prompt-shutdown
+            // contract: a slow / hung writer would block the loop from
+            // draining the remaining demos. The writer-failure path is
+            // already swallowed inside sideEmit, so a dropped row is
+            // worst case "this one cell stays at its prior state" — the
+            // aggregate primary still goes red on `failed.length > 0`.
             failed.push(featureId);
-            await sideEmit(ctx, {
+            void sideEmit({
               key: sideKey,
               state: "red",
               signal: {
@@ -477,11 +671,12 @@ export function createE2eDemosDriver(
             url,
             pageTimeoutMs,
             abortSignal: abort.signal,
+            logger: ctx.logger,
           });
 
           if (demoResult.ok) {
             passed++;
-            await sideEmit(ctx, {
+            await sideEmit({
               key: sideKey,
               state: "green",
               signal: { slug, featureId, backendUrl, url },
@@ -489,7 +684,18 @@ export function createE2eDemosDriver(
             });
           } else {
             failed.push(featureId);
-            await sideEmit(ctx, {
+            // When the inner cancellation surfaced as `abort`, normalise
+            // the errorDesc to the same shape the outer pre-iteration
+            // branch uses ("timeout after Xms" vs "aborted") so dashboard
+            // tooltips render a consistent message regardless of which
+            // layer detected the cancel.
+            const normalisedDesc =
+              demoResult.errorClass === "abort"
+                ? timedOut
+                  ? `timeout after ${timeoutMs}ms`
+                  : "aborted"
+                : demoResult.errorDesc;
+            await sideEmit({
               key: sideKey,
               state: "red",
               signal: {
@@ -497,7 +703,7 @@ export function createE2eDemosDriver(
                 featureId,
                 backendUrl,
                 url,
-                errorDesc: demoResult.errorDesc,
+                errorDesc: normalisedDesc,
                 errorClass: demoResult.errorClass,
               },
               observedAt: ctx.now().toISOString(),
@@ -546,16 +752,23 @@ export function createE2eDemosDriver(
  * isolation. Context is closed in the finally block even on assertion
  * failure, so a hanging demo doesn't orphan a context that would block
  * the next demo.
+ *
+ * Wall-clock budget: a per-demo deadline is computed from `pageTimeoutMs`
+ * at entry. The goto receives the full remaining budget; each subsequent
+ * selector wait receives only what's left. Once the deadline is reached
+ * the loop bails out as a `selector-timeout` red row instead of running
+ * the worst-case `1 goto + 5*selector ≈ 6*pageTimeoutMs` (C11).
  */
 async function runDemo(opts: {
   browser: E2eDemosBrowser;
   url: string;
   pageTimeoutMs: number;
   abortSignal: AbortSignal;
+  logger: Logger;
 }): Promise<
   { ok: true } | { ok: false; errorClass: string; errorDesc: string }
 > {
-  const { browser, url, pageTimeoutMs, abortSignal } = opts;
+  const { browser, url, pageTimeoutMs, abortSignal, logger } = opts;
   if (abortSignal.aborted) {
     return {
       ok: false,
@@ -563,6 +776,12 @@ async function runDemo(opts: {
       errorDesc: "aborted before start",
     };
   }
+
+  // C11: bound the per-demo wall-clock to a single `pageTimeoutMs`
+  // budget shared across goto + all selector waits, instead of letting
+  // each step consume `pageTimeoutMs` independently (worst case 6x).
+  const deadline = Date.now() + pageTimeoutMs;
+  const remaining = (): number => Math.max(0, deadline - Date.now());
 
   let context: E2eDemosBrowserContext | undefined;
   let page: E2eDemosPage | undefined;
@@ -572,7 +791,7 @@ async function runDemo(opts: {
     try {
       await page.goto(url, {
         waitUntil: "domcontentloaded",
-        timeout: pageTimeoutMs,
+        timeout: remaining(),
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -588,12 +807,34 @@ async function runDemo(opts: {
     // which demos need a testid added. Keeping the error taxonomy
     // distinct from a navigation failure lets alert rules branch on
     // `errorClass` without string-matching prose.
+    //
+    // Abort responsiveness (C7): check the signal at the top of every
+    // iteration so a cap that fires mid-loop bails promptly rather
+    // than walking all 6 selectors at `pageTimeoutMs` each.
+    //
+    // Deadline responsiveness (C11): break out as `selector-timeout`
+    // when the per-demo budget is exhausted instead of starting another
+    // selector wait that would extend the wall-clock past the bound.
     let lastError: Error | undefined;
     for (const sel of READY_SELECTORS) {
+      if (abortSignal.aborted) {
+        throw new DOMException("aborted", "AbortError");
+      }
+      const left = remaining();
+      if (left <= 0) {
+        return {
+          ok: false,
+          errorClass: "selector-timeout",
+          errorDesc: truncateUtf8(
+            `per-demo deadline exceeded after ${pageTimeoutMs}ms`,
+            1200,
+          ),
+        };
+      }
       try {
         await page.waitForSelector(sel, {
           state: "visible",
-          timeout: pageTimeoutMs,
+          timeout: left,
         });
         return { ok: true };
       } catch (err) {
@@ -609,51 +850,79 @@ async function runDemo(opts: {
       ),
     };
   } catch (err) {
+    // C5: classify via `err.name === "AbortError"` directly. The prior
+    // implementation read `abortSignal.aborted` after the catch settled
+    // — concurrent abort could flip the flag mid-throw and misclassify
+    // a real driver error (TypeError, TargetClosedError) as "abort".
+    const isAbort = err instanceof Error && err.name === "AbortError";
     const msg = err instanceof Error ? err.message : String(err);
     return {
       ok: false,
-      errorClass: abortSignal.aborted ? "abort" : "driver-error",
+      errorClass: isAbort ? "abort" : "driver-error",
       errorDesc: truncateUtf8(msg, 1200),
     };
   } finally {
+    // C6: log teardown failures at debug instead of swallowing silently.
+    // A page/context that won't close usually signals a launcher bug or
+    // resource leak we want visibility on. Stable log keys so operators
+    // can distinguish the two cases without parsing prose.
     if (page) {
       try {
         await page.close();
-      } catch {
-        /* context.close() picks up remnants */
+      } catch (err) {
+        logger.debug("probe.e2e-demos.page-close-failed", {
+          url,
+          errName: err instanceof Error ? err.name : "Error",
+          err: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     if (context) {
       try {
         await context.close();
-      } catch {
-        /* browser.close() in outer finally picks up remnants */
+      } catch (err) {
+        logger.debug("probe.e2e-demos.context-close-failed", {
+          url,
+          errName: err instanceof Error ? err.name : "Error",
+          err: err instanceof Error ? err.message : String(err),
+        });
       }
     }
   }
 }
 
 /**
- * Emit a per-demo side-row through ctx.writer. Absent writer is
- * logged-and-skipped. Writer throws are non-fatal — a side-emit hiccup
+ * Build a per-`run()` side-emit function. The closure captures the ctx
+ * plus a `warnedNoWriter` flag so the writer-missing warn fires AT MOST
+ * ONCE per invocation (C10) instead of per-row (which produced N warns
+ * for an N-demo service when the orchestrator forgot to wire a writer).
+ *
+ * Writer throws stay swallowed at error-level — a side-emit hiccup
  * must not take the aggregate tick down with it.
  */
-async function sideEmit(
-  ctx: ProbeContext,
-  result: ProbeResult<E2eDemosFeatureSignal>,
-): Promise<void> {
-  if (!ctx.writer) {
-    ctx.logger.warn("probe.e2e-demos.writer-missing", { key: result.key });
-    return;
-  }
-  try {
-    await ctx.writer.write(result);
-  } catch (err) {
-    ctx.logger.error("probe.e2e-demos.side-emit-writer-failed", {
-      key: result.key,
-      err: err instanceof Error ? err.message : String(err),
-    });
-  }
+type SideEmit = (result: ProbeResult<E2eDemosFeatureSignal>) => Promise<void>;
+
+function makeSideEmit(ctx: ProbeContext): SideEmit {
+  let warnedNoWriter = false;
+  return async (result) => {
+    if (!ctx.writer) {
+      if (!warnedNoWriter) {
+        warnedNoWriter = true;
+        ctx.logger.warn("probe.e2e-demos.writer-missing", {
+          key: result.key,
+        });
+      }
+      return;
+    }
+    try {
+      await ctx.writer.write(result);
+    } catch (err) {
+      ctx.logger.error("probe.e2e-demos.side-emit-writer-failed", {
+        key: result.key,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  };
 }
 
 /**

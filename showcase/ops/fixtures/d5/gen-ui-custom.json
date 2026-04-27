@@ -1,0 +1,34 @@
+{
+  "_comment": "D5 fixture for /demos/gen-ui-tool-based against LangGraph Python (LGP). Tool-based gen-UI with custom components — the frontend registers `render_bar_chart` and `render_pie_chart` via useComponent (see src/app/demos/gen-ui-tool-based/page.tsx); the backend agent (src/agents/gen_ui_tool_based.py) emits the tool call with title/description/data and a custom React chart component renders. After the tool result is appended, the agent re-invokes the LLM — second-leg matches by toolCallId. The system prompt in gen_ui_tool_based.py says 'Keep chat responses brief — let the chart do the talking', so the follow-up text is intentionally minimal. ORDER: toolCallId fixture above userMessage fixture to avoid infinite-loop re-matching.",
+  "fixtures": [
+    {
+      "match": { "toolCallId": "call_d5_render_pie_chart_001" },
+      "response": {
+        "content": "Pie chart rendered above — Electronics is the largest slice, followed by Clothing, Food, and Books."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Show me a pie chart of revenue by category"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_d5_render_pie_chart_001",
+            "name": "render_pie_chart",
+            "arguments": {
+              "title": "Revenue by Category",
+              "description": "Revenue breakdown by product category (Q4)",
+              "data": [
+                { "label": "Electronics", "value": 42000 },
+                { "label": "Clothing", "value": 28000 },
+                { "label": "Food", "value": 18000 },
+                { "label": "Books", "value": 12000 }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

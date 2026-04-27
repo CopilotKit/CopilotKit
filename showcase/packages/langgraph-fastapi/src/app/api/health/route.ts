@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Public response: safe to expose
-  const publicResponse: Record<string, any> = {
+  const publicResponse: Record<string, unknown> = {
     status: agentStatus === "ok" ? "ok" : "degraded",
     integration: "langgraph-fastapi",
     agent: agentStatus,

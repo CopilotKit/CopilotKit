@@ -35,7 +35,7 @@ export async function GET() {
           forwardedProps: {},
         },
       }),
-      signal: AbortSignal.timeout(50000),
+      signal: AbortSignal.timeout(45000),
     });
 
     const latency = Date.now() - start;
@@ -55,9 +55,24 @@ export async function GET() {
       );
     }
 
-    // Response is SSE stream — just verify we got content
-    const body = await res.text();
-    if (body.length === 0) {
+    // TTFB: read first chunk only to confirm SSE stream started, then cancel
+    const reader = res.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        {
+          status: "error",
+          integration: INTEGRATION_SLUG,
+          stage: "response_empty",
+          error: "Runtime returned no readable body",
+          latency_ms: latency,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 502 },
+      );
+    }
+    const { value, done } = await reader.read();
+    reader.cancel();
+    if (done || !value || value.length === 0) {
       return NextResponse.json(
         {
           status: "error",

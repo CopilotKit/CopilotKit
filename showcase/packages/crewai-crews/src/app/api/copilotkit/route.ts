@@ -17,8 +17,12 @@ function createAgent() {
   return new HttpAgent({ url: `${AGENT_URL}/` });
 }
 
-// Register the same agent under all names used by demo pages.
+// CrewAI hosts a single shared `LatestAiDevelopment` crew. We register
+// many agent names here so individual demo pages can scope their
+// per-cell frontend tool / component registrations independently; all
+// names resolve to the same HttpAgent bridge. See PARITY_NOTES.md.
 const agentNames = [
+  // Existing base demos
   "agentic_chat",
   "human_in_the_loop",
   "tool-rendering",
@@ -27,7 +31,33 @@ const agentNames = [
   "shared-state-read",
   "shared-state-write",
   "shared-state-streaming",
+  "shared-state-read-write",
   "subagents",
+  // Newly ported in parity PR — chrome / headless
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  // Frontend tools / context
+  "frontend_tools",
+  "frontend-tools-async",
+  "readonly-state-agent-context",
+  "agent-config",
+  // Reasoning variants
+  "agentic-chat-reasoning",
+  "reasoning-default-render",
+  // Tool rendering variants
+  "tool-rendering-default-catchall",
+  "tool-rendering-custom-catchall",
+  "tool-rendering-reasoning-chain",
+  // HITL
+  "hitl-in-chat",
+  "hitl-in-app",
+  // Open-ended generative UI
+  "open-gen-ui",
+  "open-gen-ui-advanced",
 ];
 
 const agents: Record<string, AbstractAgent> = {};

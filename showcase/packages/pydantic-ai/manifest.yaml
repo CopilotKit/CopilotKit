@@ -26,15 +26,45 @@ starter:
   demo_url: https://showcase-starter-pydantic-ai-production-cf5b.up.railway.app
   clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/pydantic-ai my-copilotkit-app
 features:
+  - cli-start
   - agentic-chat
+  - prebuilt-sidebar
+  - prebuilt-popup
+  - chat-slots
+  - chat-customization-css
+  - headless-simple
+  - frontend-tools
+  - frontend-tools-async
   - hitl-in-chat
+  - hitl-in-app
   - tool-rendering
+  - tool-rendering-default-catchall
+  - tool-rendering-custom-catchall
   - gen-ui-tool-based
   - gen-ui-agent
   - shared-state-read-write
   - shared-state-streaming
+  - readonly-state-agent-context
   - subagents
+  - open-gen-ui
+  - open-gen-ui-advanced
+  - declarative-gen-ui
+  - a2ui-fixed-schema
+  - headless-complete
+  - beautiful-chat
+  - byoc-json-render
+  - byoc-hashbrown
+  - multimodal
+  - voice
+  - agent-config
+  - auth
 demos:
+  - id: cli-start
+    name: CLI Start Command
+    description: Copy-paste command to clone the canonical starter
+    tags:
+      - chat-ui
+    command: "npx copilotkit@latest init --framework pydantic-ai"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution
@@ -42,6 +72,92 @@ demos:
       - chat-ui
     route: /demos/agentic-chat
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/agentic-chat/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-sidebar
+    name: "Pre-Built: Sidebar"
+    description: Docked sidebar chat via <CopilotSidebar />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-sidebar
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/prebuilt-sidebar/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: prebuilt-popup
+    name: "Pre-Built: Popup"
+    description: Floating popup chat via <CopilotPopup />
+    tags:
+      - chat-ui
+    route: /demos/prebuilt-popup
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/prebuilt-popup/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-slots
+    name: Chat Customization (Slots)
+    description: Customize CopilotChat via its slot system
+    tags:
+      - chat-ui
+    route: /demos/chat-slots
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/chat-slots/page.tsx
+      - src/app/demos/chat-slots/custom-welcome-screen.tsx
+      - src/app/demos/chat-slots/custom-assistant-message.tsx
+      - src/app/demos/chat-slots/custom-disclaimer.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: chat-customization-css
+    name: Chat Customization (CSS)
+    description: Default CopilotChat re-themed via CopilotKitCSSProperties
+    tags:
+      - chat-ui
+    route: /demos/chat-customization-css
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/chat-customization-css/page.tsx
+      - src/app/demos/chat-customization-css/theme.css
+      - src/app/api/copilotkit/route.ts
+  - id: headless-simple
+    name: Headless Chat (Simple)
+    description: Minimal custom chat surface built on useAgent
+    tags:
+      - chat-ui
+    route: /demos/headless-simple
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/headless-simple/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools
+    name: Frontend Tools (In-App Actions)
+    description: Agent invokes client-side handlers registered with useFrontendTool
+    tags:
+      - interactivity
+    route: /demos/frontend-tools
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/frontend-tools/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: frontend-tools-async
+    name: Frontend Tools (Async)
+    description: useFrontendTool with an async handler — agent awaits a client-side async operation (simulated notes DB query) and uses the returned result
+    tags:
+      - interactivity
+    route: /demos/frontend-tools-async
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/frontend-tools-async/page.tsx
+      - src/app/demos/frontend-tools-async/notes-card.tsx
+      - src/app/api/copilotkit/route.ts
   - id: hitl-in-chat
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
@@ -49,6 +165,22 @@ demos:
       - interactivity
     route: /demos/hitl
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/hitl/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: hitl-in-app
+    name: In-App Human in the Loop (Frontend Tools + async HITL)
+    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
+    tags:
+      - interactivity
+    route: /demos/hitl-in-app
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/hitl-in-app/page.tsx
+      - src/app/demos/hitl-in-app/approval-dialog.tsx
+      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
@@ -56,6 +188,33 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/tool-rendering/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-default-catchall
+    name: Tool Rendering (Default Catch-all)
+    description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-default-catchall
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/tool-rendering-default-catchall/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: tool-rendering-custom-catchall
+    name: Tool Rendering (Custom Catch-all)
+    description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
+    tags:
+      - generative-ui
+    route: /demos/tool-rendering-custom-catchall
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/tool-rendering-custom-catchall/page.tsx
+      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-tool-based
     name: Tool-Based Generative UI
     description: Agent uses tools to trigger UI generation
@@ -63,6 +222,10 @@ demos:
       - generative-ui
     route: /demos/gen-ui-tool-based
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/gen-ui-tool-based/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -70,6 +233,10 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/gen-ui-agent/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-read-write
     name: Shared State (Read + Write)
     description: Bidirectional agent state — UI writes preferences, agent writes notes back
@@ -77,6 +244,10 @@ demos:
       - agent-state
     route: /demos/shared-state-read-write
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/shared-state-read-write/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -84,6 +255,21 @@ demos:
       - agent-state
     route: /demos/shared-state-streaming
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/shared-state-streaming/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: readonly-state-agent-context
+    name: Readonly State (Agent Context)
+    description: Frontend provides read-only context to the agent via useAgentContext
+    tags:
+      - agent-state
+    route: /demos/readonly-state-agent-context
+    animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/readonly-state-agent-context/page.tsx
+      - src/app/api/copilotkit/route.ts
   - id: subagents
     name: Sub-Agents
     description: Multiple agents with visible task delegation
@@ -91,3 +277,165 @@ demos:
       - multi-agent
     route: /demos/subagents
     animated_preview_url:
+    highlight:
+      - src/agents/agent.py
+      - src/app/demos/subagents/page.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: open-gen-ui
+    name: Open Generative UI (Minimal)
+    description: Agent streams HTML/CSS into a sandboxed iframe via the runtime's openGenerativeUI middleware
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_agent.py
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: open-gen-ui-advanced
+    name: Open Generative UI (Advanced)
+    description: Sandboxed UI invokes host-registered sandbox functions via Websandbox.connection.remote
+    tags:
+      - generative-ui
+    route: /demos/open-gen-ui-advanced
+    animated_preview_url:
+    highlight:
+      - src/agents/open_gen_ui_advanced_agent.py
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/api/copilotkit-ogui/route.ts
+  - id: declarative-gen-ui
+    name: Declarative Generative UI (A2UI Dynamic)
+    description: Agent generates dynamic A2UI surfaces from a frontend-registered component catalog
+    tags:
+      - generative-ui
+    route: /demos/declarative-gen-ui
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_dynamic.py
+      - src/app/demos/declarative-gen-ui/page.tsx
+      - src/app/demos/declarative-gen-ui/a2ui/catalog.ts
+      - src/app/demos/declarative-gen-ui/a2ui/definitions.ts
+      - src/app/demos/declarative-gen-ui/a2ui/renderers.tsx
+      - src/app/api/copilotkit-declarative-gen-ui/route.ts
+  - id: a2ui-fixed-schema
+    name: A2UI — Fixed Schema
+    description: Backend-authored JSON schema + frontend catalog renderers; agent streams only data
+    tags:
+      - generative-ui
+    route: /demos/a2ui-fixed-schema
+    animated_preview_url:
+    highlight:
+      - src/agents/a2ui_fixed.py
+      - src/agents/a2ui_schemas/flight_schema.json
+      - src/app/demos/a2ui-fixed-schema/page.tsx
+      - src/app/demos/a2ui-fixed-schema/a2ui/catalog.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/definitions.ts
+      - src/app/demos/a2ui-fixed-schema/a2ui/renderers.tsx
+      - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+  - id: headless-complete
+    name: Headless Chat (Complete)
+    description: Full custom chat built from scratch on useAgent — no CopilotChat primitives
+    tags:
+      - chat-ui
+    route: /demos/headless-complete
+    animated_preview_url:
+    highlight:
+      - src/agents/headless_complete.py
+      - src/app/demos/headless-complete/page.tsx
+      - src/app/demos/headless-complete/message-list.tsx
+      - src/app/demos/headless-complete/use-rendered-messages.tsx
+      - src/app/demos/headless-complete/tool-renderers.tsx
+      - src/app/api/copilotkit/route.ts
+  - id: beautiful-chat
+    name: Beautiful Chat
+    description: Flagship showcase combining A2UI (fixed + dynamic), Open Generative UI, shared todos state, and HITL in a single polished cell
+    tags:
+      - generative-ui
+      - agent-state
+      - multi-agent
+    route: /demos/beautiful-chat
+    animated_preview_url:
+    highlight:
+      - src/agents/beautiful_chat.py
+      - src/app/demos/beautiful-chat/page.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/definitions.ts
+      - src/app/demos/beautiful-chat/components/example-layout/index.tsx
+      - src/app/demos/beautiful-chat/components/example-canvas/index.tsx
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/demos/beautiful-chat/hooks/use-example-suggestions.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts
+  - id: byoc-json-render
+    name: "BYOC: json-render"
+    description: BYOC (bring-your-own-components) demo rendering a streaming JSON spec via @json-render/react against a Zod-validated catalog
+    tags:
+      - generative-ui
+    route: /demos/byoc-json-render
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_json_render_agent.py
+      - src/app/demos/byoc-json-render/page.tsx
+      - src/app/demos/byoc-json-render/json-render-renderer.tsx
+      - src/app/demos/byoc-json-render/catalog.ts
+      - src/app/demos/byoc-json-render/registry.tsx
+      - src/app/api/copilotkit-byoc-json-render/route.ts
+  - id: byoc-hashbrown
+    name: "BYOC: Hashbrown"
+    description: BYOC demo using @hashbrownai/react's useJsonParser + useUiKit for progressive streaming-JSON UI rendering
+    tags:
+      - generative-ui
+    route: /demos/byoc-hashbrown
+    animated_preview_url:
+    highlight:
+      - src/agents/byoc_hashbrown_agent.py
+      - src/app/demos/byoc-hashbrown/page.tsx
+      - src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx
+      - src/app/api/copilotkit-byoc-hashbrown/route.ts
+  - id: multimodal
+    name: Multimodal Attachments
+    description: Image + PDF attachments via CopilotChat — images flow natively to GPT-4o vision; PDFs flatten to text via pypdf
+    tags:
+      - interactivity
+    route: /demos/multimodal
+    animated_preview_url:
+    highlight:
+      - src/agents/multimodal_agent.py
+      - src/app/demos/multimodal/page.tsx
+      - src/app/demos/multimodal/sample-attachment-buttons.tsx
+      - src/app/api/copilotkit-multimodal/route.ts
+  - id: voice
+    name: Voice Input
+    description: Audio transcription via OpenAI Whisper — mic + bundled sample round-trip populate the chat composer
+    tags:
+      - interactivity
+    route: /demos/voice
+    animated_preview_url:
+    highlight:
+      - src/app/demos/voice/page.tsx
+      - src/app/demos/voice/sample-audio-button.tsx
+      - src/app/api/copilotkit-voice/route.ts
+  - id: agent-config
+    name: Agent Config Object
+    description: Forwarded provider properties (tone / expertise / responseLength) reshape the agent's system prompt per turn
+    tags:
+      - agent-capabilities
+    route: /demos/agent-config
+    animated_preview_url:
+    highlight:
+      - src/agents/agent_config_agent.py
+      - src/app/demos/agent-config/page.tsx
+      - src/app/demos/agent-config/config-card.tsx
+      - src/app/api/copilotkit-agent-config/route.ts
+  - id: auth
+    name: Authentication
+    description: Bearer-token gated runtime route via the V2 onRequest hook — sign out exercises the 401 path without white-screening
+    tags:
+      - agent-capabilities
+    route: /demos/auth
+    animated_preview_url:
+    highlight:
+      - src/app/demos/auth/page.tsx
+      - src/app/demos/auth/auth-banner.tsx
+      - src/app/demos/auth/use-demo-auth.ts
+      - src/app/api/copilotkit-auth/route.ts

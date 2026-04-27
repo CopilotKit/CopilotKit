@@ -13,8 +13,12 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 console.log("[copilotkit/route] Initializing CopilotKit runtime");
 console.log(`[copilotkit/route] AGENT_URL: ${AGENT_URL}`);
 
-function createAgent() {
-  return new HttpAgent({ url: `${AGENT_URL}/` });
+function createAgent(path = "/") {
+  return new HttpAgent({ url: `${AGENT_URL}${path}` });
+}
+
+function createInterruptAgent() {
+  return new HttpAgent({ url: `${AGENT_URL}/interrupt-adapted` });
 }
 
 // Register the same agent under all names used by demo pages.
@@ -28,13 +32,47 @@ const agentNames = [
   "shared-state-write",
   "shared-state-streaming",
   "subagents",
+  "prebuilt-sidebar",
+  "prebuilt-popup",
+  "chat-slots",
+  "chat-customization-css",
+  "headless-simple",
+  "headless-complete",
+  "frontend-tools",
+  "frontend-tools-async",
+  "readonly-state-agent-context",
 ];
+
+// Agent names routed to the interrupt-adapted scheduling backend. Both
+// gen-ui-interrupt and interrupt-headless share the same MS Agent Framework
+// scheduling agent; only the frontend UX differs (inline in chat vs. external
+// popup driven from a button grid).
+const interruptAgentNames = ["gen-ui-interrupt", "interrupt-headless"];
 
 const agents: Record<string, AbstractAgent> = {};
 for (const name of agentNames) {
   agents[name] = createAgent();
 }
+// In-App HITL -- async frontend-tool + app-level modal (outside chat).
+// Points at the dedicated hitl-in-app agent mounted at /hitl-in-app on the
+// FastAPI backend; the agent has tools=[] and a system prompt tailored to
+// the frontend-provided `request_user_approval` tool.
+agents["hitl-in-app"] = new HttpAgent({ url: `${AGENT_URL}/hitl-in-app/` });
 agents["default"] = createAgent();
+
+// Tool-rendering demos — share the dedicated reasoning-chain agent
+// mounted at /tool-rendering-reasoning-chain on the Python backend. All
+// three cells call the same agent; they differ only in how the frontend
+// renders tool calls.
+agents["tool-rendering-default-catchall"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
+agents["tool-rendering-custom-catchall"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
+agents["tool-rendering-reasoning-chain"] = createAgent(
+  "/tool-rendering-reasoning-chain",
+);
 
 console.log(
   `[copilotkit/route] Registered ${Object.keys(agents).length} agent names: ${Object.keys(agents).join(", ")}`,

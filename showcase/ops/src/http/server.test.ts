@@ -34,6 +34,7 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 1,
       loopAlive: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(200);
@@ -114,6 +115,7 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 1,
       loopAlive: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(503);
@@ -125,6 +127,7 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 0,
       loopAlive: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(503);
@@ -136,6 +139,7 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 1,
       loopAlive: () => false,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(503);
@@ -148,6 +152,7 @@ describe("http/server", () => {
       ruleCount: () => 1,
       loopAlive: () => true,
       schedulerStarted: () => false,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(503);
@@ -163,6 +168,7 @@ describe("http/server", () => {
       ruleCount: () => 1,
       loopAlive: () => true,
       schedulerStarted: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(200);
@@ -177,6 +183,7 @@ describe("http/server", () => {
       ruleCount: () => 1,
       loopAlive: () => false,
       schedulerStarted: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/health");
     expect(res.status).toBe(503);
@@ -193,6 +200,7 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 1,
       loopAlive: () => true,
+      schedulerJobCount: () => 1,
       metrics,
     });
     const res = await app.request("/metrics");
@@ -209,8 +217,29 @@ describe("http/server", () => {
       logger,
       ruleCount: () => 1,
       loopAlive: () => true,
+      schedulerJobCount: () => 1,
     });
     const res = await app.request("/metrics");
     expect(res.status).toBe(404);
+  });
+
+  it("buildServer throws synchronously when schedulerJobCount is not supplied", () => {
+    // Fail-loud discipline: the previous behaviour treated a missing
+    // `schedulerJobCount` as "OK by default" (jobCountOk = true), so an
+    // orchestrator that forgot to wire the callback would silently report
+    // /health: 200 with zero cron jobs. Production must always supply it;
+    // surface the misconfiguration as a hard boot-time failure rather than
+    // a quiet `loop: ok` lie.
+    expect(() =>
+      // @ts-expect-error — schedulerJobCount is now required; this call
+      // must fail to compile AND fail at runtime so misconfigured boot
+      // paths cannot reach a misleading /health response.
+      buildServer({
+        pb: fakePb(true),
+        logger,
+        ruleCount: () => 1,
+        loopAlive: () => true,
+      }),
+    ).toThrow(/schedulerJobCount/);
   });
 });

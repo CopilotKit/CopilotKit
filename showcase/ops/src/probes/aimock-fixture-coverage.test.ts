@@ -252,6 +252,7 @@ function isCovered(prompt: string, fixtures: Fixture[]): boolean {
   }
   const lower = prompt.toLowerCase();
   for (const f of fixtures) {
+    if (!f.match.userMessage) continue;
     const matchLower = f.match.userMessage.toLowerCase();
     if (lower.includes(matchLower)) return true;
   }

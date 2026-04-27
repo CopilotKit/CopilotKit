@@ -1,9 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
-  // Mastra runs in-process — no external agent to ping
+  const baseUrl =
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    `http://localhost:${process.env.PORT || 3000}`;
+
+  let agentStatus = "unknown";
+  try {
+    const res = await fetch(`${baseUrl}/api/copilotkit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        method: "agent/run",
+        params: { agentId: "agentic_chat" },
+        body: {
+          threadId: "health-check",
+          runId: "health-check",
+          state: {},
+          messages: [],
+          tools: [],
+          context: [],
+          forwardedProps: {},
+        },
+      }),
+      signal: AbortSignal.timeout(3000),
+    });
+    // Any non-network-error response means runtime is alive
+    agentStatus = res.ok || res.status < 500 ? "ok" : "error";
+  } catch {
+    agentStatus = "down";
+  }
+
   const publicResponse: Record<string, unknown> = {
-    status: "ok",
+    status: agentStatus === "ok" ? "ok" : "degraded",
     integration: "mastra",
     agent: "in-process",
     timestamp: new Date().toISOString(),

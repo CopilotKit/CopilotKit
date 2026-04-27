@@ -23,6 +23,26 @@ export const weatherTool = createTool({
     JSON.stringify(getWeatherImpl(context.location)),
 });
 
+// Mock stock-price tool used by the headless-complete demo to exercise the
+// manual `useRenderTool` path alongside `get_weather`. Returns a fixed
+// payload so the StockCard renders deterministically without a real market
+// data API.
+export const stockPriceTool = createTool({
+  id: "get-stock-price",
+  description: "Get a mock current price for a stock ticker",
+  inputSchema: z.object({
+    ticker: z.string().describe("Stock ticker symbol, e.g. AAPL"),
+  }),
+  execute: async ({ context }) => {
+    const ticker = (context.ticker ?? "").toUpperCase();
+    return JSON.stringify({
+      ticker,
+      price_usd: 189.42,
+      change_pct: 1.27,
+    });
+  },
+});
+
 export const queryDataTool = createTool({
   id: "query-data",
   description: "Query financial database for chart data",
