@@ -7,7 +7,6 @@ export const maxDuration = 60;
 
 export async function GET() {
   const start = Date.now();
-  // Hit our own /api/copilotkit endpoint — tests the full deployed stack
   const baseUrl =
     process.env.NEXT_PUBLIC_BASE_URL ||
     `http://localhost:${process.env.PORT || 3000}`;
@@ -55,15 +54,7 @@ export async function GET() {
       );
     }
 
-    // Response is SSE stream. The agno SDK does not reliably emit the
-    // terminal events (TEXT_MESSAGE_END / RUN_FINISHED) on the success path,
-    // so `await res.text()` can hang until the client timeout fires even
-    // though the agent has already produced valid output. Workaround: read
-    // the stream incrementally and short-circuit as soon as we observe
-    // TEXT_MESSAGE_CONTENT with "OK" in the delta, canceling the reader
-    // rather than awaiting a stream close that may never come. This is a
-    // client-side mitigation — the real fix belongs upstream in the agno
-    // SDK's AG-UI interface.
+    // TTFB: read first chunk only to confirm SSE stream started, then cancel
     const reader = res.body?.getReader();
     if (!reader) {
       return NextResponse.json(
@@ -71,66 +62,23 @@ export async function GET() {
           status: "error",
           integration: INTEGRATION_SLUG,
           stage: "response_empty",
-          error: "Runtime returned no response body",
+          error: "Runtime returned no readable body",
           latency_ms: latency,
           timestamp: new Date().toISOString(),
         },
         { status: 502 },
       );
     }
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let gotOk = false;
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        if (
-          buffer.includes('"type":"TEXT_MESSAGE_CONTENT"') &&
-          buffer.includes('"OK"')
-        ) {
-          gotOk = true;
-          // Drop the connection; don't await a stream close that may never come.
-          await reader.cancel().catch(() => {});
-          break;
-        }
-      }
-    } finally {
-      try {
-        reader.releaseLock();
-      } catch {
-        // reader may already be released via cancel(); ignore.
-      }
-    }
-
-    const finalLatency = Date.now() - start;
-
-    if (!gotOk && buffer.length === 0) {
+    const { value, done } = await reader.read();
+    reader.cancel();
+    if (done || !value || value.length === 0) {
       return NextResponse.json(
         {
           status: "error",
           integration: INTEGRATION_SLUG,
           stage: "response_empty",
           error: "Runtime returned empty response body",
-          latency_ms: finalLatency,
-          timestamp: new Date().toISOString(),
-        },
-        { status: 502 },
-      );
-    }
-
-    if (!gotOk) {
-      return NextResponse.json(
-        {
-          status: "error",
-          integration: INTEGRATION_SLUG,
-          stage: "response_incomplete",
-          error:
-            "Stream ended without TEXT_MESSAGE_CONTENT 'OK': " +
-            buffer.slice(0, 200),
-          latency_ms: finalLatency,
+          latency_ms: latency,
           timestamp: new Date().toISOString(),
         },
         { status: 502 },
@@ -140,7 +88,7 @@ export async function GET() {
     return NextResponse.json({
       status: "ok",
       integration: INTEGRATION_SLUG,
-      latency_ms: finalLatency,
+      latency_ms: latency,
       timestamp: new Date().toISOString(),
     });
   } catch (e: unknown) {

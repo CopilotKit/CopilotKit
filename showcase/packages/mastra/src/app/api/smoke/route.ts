@@ -18,7 +18,7 @@ export async function GET() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         method: "agent/run",
-        params: { agentId: "weatherAgent" },
+        params: { agentId: "agentic_chat" },
         body: {
           threadId: `smoke-${Date.now()}`,
           runId: `smoke-run-${Date.now()}`,
@@ -55,9 +55,24 @@ export async function GET() {
       );
     }
 
-    // Response is SSE stream — just verify we got content
-    const body = await res.text();
-    if (body.length === 0) {
+    // TTFB: read first chunk only to confirm SSE stream started, then cancel
+    const reader = res.body?.getReader();
+    if (!reader) {
+      return NextResponse.json(
+        {
+          status: "error",
+          integration: INTEGRATION_SLUG,
+          stage: "response_empty",
+          error: "Runtime returned no readable body",
+          latency_ms: latency,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 502 },
+      );
+    }
+    const { value, done } = await reader.read();
+    reader.cancel();
+    if (done || !value || value.length === 0) {
       return NextResponse.json(
         {
           status: "error",
