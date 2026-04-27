@@ -85,6 +85,9 @@ function makePage(script: PageScript = {}): E2eDeepPage {
     async click() {
       /* no-op */
     },
+    async waitForFunction() {
+      /* hydration guard — fake passes immediately */
+    },
     async close() {
       /* no-op */
     },
