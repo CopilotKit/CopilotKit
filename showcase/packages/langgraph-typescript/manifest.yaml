@@ -59,7 +59,6 @@ features:
   - mcp-apps
   - frontend-tools
   - frontend-tools-async
-  - hitl-in-app
   - readonly-state-agent-context
   - voice
   - byoc-hashbrown
@@ -349,18 +348,6 @@ demos:
       - src/agent/frontend-tools-async.ts
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agent/hitl-in-app.ts
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)

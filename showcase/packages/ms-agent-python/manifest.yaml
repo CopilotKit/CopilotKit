@@ -40,7 +40,6 @@ features:
   - frontend-tools
   - frontend-tools-async
   - hitl
-  - hitl-in-app
   - gen-ui-interrupt
   - interrupt-headless
   - declarative-gen-ui
@@ -144,18 +143,6 @@ demos:
       - interactivity
     route: /demos/hitl
     animated_preview_url:
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agents/hitl_in_app_agent.py
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
-      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components

@@ -33,7 +33,6 @@ features:
   - frontend-tools
   - frontend-tools-async
   - hitl-in-chat
-  - hitl-in-app
   - gen-ui-agent
   - open-gen-ui
   - open-gen-ui-advanced
@@ -105,17 +104,6 @@ demos:
     highlight:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-app
-    name: In-App Human in the Loop
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
