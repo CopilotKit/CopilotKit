@@ -26,6 +26,7 @@ export default function OpenGenUiAdvancedDemo() {
   return (
     // @region[sandbox-function-registration]
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui-advanced"
       openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }}

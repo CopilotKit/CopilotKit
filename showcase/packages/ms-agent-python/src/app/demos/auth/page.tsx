@@ -136,6 +136,7 @@ export default function AuthDemoPage() {
 
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-auth"
       agent="auth-demo"
       headers={headers}

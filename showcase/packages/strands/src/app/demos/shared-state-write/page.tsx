@@ -9,7 +9,7 @@ import {
 
 export default function SharedStateWriteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-write">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="shared-state-write">
       <DemoContent />
     </CopilotKit>
   );

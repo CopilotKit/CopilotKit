@@ -15,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CopilotKit runtimeUrl="/api/copilotkit">
+        <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit">
           <MantineProvider>{children}</MantineProvider>
         </CopilotKit>
       </body>

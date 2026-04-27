@@ -36,6 +36,7 @@ import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-byoc-hashbrown"
       agent="byoc-hashbrown-demo"
     >

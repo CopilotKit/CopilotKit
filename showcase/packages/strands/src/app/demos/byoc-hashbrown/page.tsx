@@ -84,6 +84,7 @@ Rules:
 export default function ByocHashbrownDemoPage() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-byoc-hashbrown"
       agent="byoc-hashbrown-demo"
     >

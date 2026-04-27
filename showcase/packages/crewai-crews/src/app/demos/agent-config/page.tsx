@@ -20,6 +20,7 @@ export default function AgentConfigDemoPage() {
 
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-agent-config"
       agent="agent-config-demo"
       properties={providerProperties}

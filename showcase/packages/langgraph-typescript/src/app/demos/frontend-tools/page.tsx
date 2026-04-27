@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export default function FrontendToolsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend_tools">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="frontend_tools">
       <Chat />
     </CopilotKit>
   );

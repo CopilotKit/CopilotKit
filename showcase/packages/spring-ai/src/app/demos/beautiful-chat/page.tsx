@@ -46,7 +46,7 @@ const BRAND_SUGGESTIONS = [
 
 export default function BeautifulChatPage() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div
         className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden"
         style={{

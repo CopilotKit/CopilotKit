@@ -30,7 +30,7 @@ function DashboardContent({ agentId }: ToolBasedDashboardProps) {
 
 export function ToolBasedDashboard({ agentId }: ToolBasedDashboardProps) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={agentId}>
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent={agentId}>
       <DashboardContent agentId={agentId} />
     </CopilotKit>
   );

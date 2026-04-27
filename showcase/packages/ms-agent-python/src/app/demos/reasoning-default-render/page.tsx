@@ -23,6 +23,7 @@ import { z } from "zod";
 export default function ReasoningDefaultRenderDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-reasoning"
       agent="reasoning-default-render"
     >

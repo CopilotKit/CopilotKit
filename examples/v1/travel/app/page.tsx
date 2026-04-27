@@ -55,6 +55,7 @@ export default function Home() {
 
   return (
     <CopilotKit
+      useLegacyRuntime
       agent="travel"
       runtimeUrl={
         process.env.NEXT_PUBLIC_CPK_PUBLIC_API_KEY == undefined

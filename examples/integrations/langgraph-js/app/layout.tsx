@@ -17,7 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={"antialiased"}>
-        <CopilotKit runtimeUrl="/api/copilotkit" agent="starterAgent">
+        <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="starterAgent">
           {children}
         </CopilotKit>
       </body>

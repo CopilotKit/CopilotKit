@@ -13,7 +13,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 
 export default function ReasoningDefaultRenderDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="reasoning-default-render">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="reasoning-default-render">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           {/* @region[default-reasoning-zero-config] */}

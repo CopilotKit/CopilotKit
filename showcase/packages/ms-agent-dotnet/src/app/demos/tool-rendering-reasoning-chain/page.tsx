@@ -74,6 +74,7 @@ function extractFlights(parsed: FlightSearchResult): Flight[] {
 export default function ToolRenderingReasoningChainDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-reasoning-chain"
     >

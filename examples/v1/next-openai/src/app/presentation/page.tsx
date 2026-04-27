@@ -25,7 +25,7 @@ export default function AIPresentation() {
   };
 
   return (
-    <CopilotKit {...copilotKitProps}>
+    <CopilotKit useLegacyRuntime {...copilotKitProps}>
       <div
         style={
           {

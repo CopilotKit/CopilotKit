@@ -45,7 +45,7 @@ export default function VoiceDemoPage() {
   }, []);
 
   return (
-    <CopilotKit runtimeUrl={RUNTIME_URL} agent={AGENT_ID}>
+    <CopilotKit useLegacyRuntime runtimeUrl={RUNTIME_URL} agent={AGENT_ID}>
       <div className="flex h-screen flex-col gap-3 p-6">
         <header>
           <h1 className="text-lg font-semibold">Voice input</h1>

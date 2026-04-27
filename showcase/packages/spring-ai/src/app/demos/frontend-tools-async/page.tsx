@@ -62,7 +62,7 @@ function parseJsonResult<T>(result: unknown): T {
 
 export default function FrontendToolsAsyncDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="frontend-tools-async">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

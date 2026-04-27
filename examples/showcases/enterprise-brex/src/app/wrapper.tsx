@@ -12,6 +12,7 @@ export function CopilotKitWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       properties={{

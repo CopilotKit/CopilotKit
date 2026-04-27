@@ -47,7 +47,7 @@ type MeetingDecision =
 
 export default function InterruptHeadlessDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="interrupt-headless">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="interrupt-headless">
       <Layout />
     </CopilotKit>
   );

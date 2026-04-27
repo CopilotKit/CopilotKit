@@ -29,7 +29,7 @@ function Home() {
       }`;
 
   return (
-    <CopilotKit runtimeUrl={runtimeUrl} showDevConsole={false} agent={agent}>
+    <CopilotKit useLegacyRuntime runtimeUrl={runtimeUrl} showDevConsole={false} agent={agent}>
       <Main />
     </CopilotKit>
   );

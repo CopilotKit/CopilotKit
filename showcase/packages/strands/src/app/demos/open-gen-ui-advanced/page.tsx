@@ -19,6 +19,7 @@ import { openGenUiSuggestions } from "./suggestions";
 export default function OpenGenUiAdvancedDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui-advanced"
       openGenerativeUI={{ sandboxFunctions: openGenUiSandboxFunctions }}

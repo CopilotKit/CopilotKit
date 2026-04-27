@@ -23,6 +23,7 @@ export default function RootLayout({
       <body>
         <ApiKeyInput />
         <CopilotKit
+          useLegacyRuntime
           runtimeUrl="/api/copilotkit"
           agent="world_agent"
           headers={{

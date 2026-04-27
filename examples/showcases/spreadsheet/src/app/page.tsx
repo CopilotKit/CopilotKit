@@ -22,6 +22,7 @@ import { sampleData, sampleData2 } from "./utils/sampleData";
 const HomePage = () => {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="api/copilotkit"
       transcribeAudioUrl="/api/transcribe"
       textToSpeechUrl="/api/tts"

@@ -25,6 +25,7 @@ import { ReasoningBlock } from "./reasoning-block";
 export default function AgenticChatReasoningDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-reasoning"
       agent="agentic-chat-reasoning"
     >

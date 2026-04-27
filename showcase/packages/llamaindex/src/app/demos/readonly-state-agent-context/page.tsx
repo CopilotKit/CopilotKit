@@ -11,6 +11,7 @@ import {
 export default function ReadonlyStateAgentContextDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="readonly_state_agent_context"
     >

@@ -244,7 +244,7 @@ export default function MultimodalDemoPage() {
   const onUpload = useCallback(fileToDataAttachment, []);
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
       <LegacyConverterShim />
       <div
         data-testid="multimodal-demo-root"

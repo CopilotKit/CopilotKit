@@ -20,7 +20,7 @@ export default function WaterBnb() {
   };
 
   return (
-    <CopilotKit {...copilotKitProps}>
+    <CopilotKit useLegacyRuntime {...copilotKitProps}>
       <CopilotSidebar
         onThumbsUp={(message) => {
           console.log("thumbs up", message);
