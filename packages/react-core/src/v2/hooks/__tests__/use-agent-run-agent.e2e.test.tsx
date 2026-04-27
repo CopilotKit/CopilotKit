@@ -1,21 +1,18 @@
 /**
  * Tests that agent.runAgent() from useAgent() includes frontend tools.
  *
- * useAgent() returns a proxied agent whose runAgent() delegates to
- * copilotkit.runAgent({ agent }), which collects all registered frontend
- * tools and context before sending the request. This ensures tools
+ * useAgent() installs a CopilotKit middleware (via agent.use()) that injects
+ * registered frontend tools, context, and forwarded properties into the
+ * RunAgentInput when they are not already present. This ensures tools
  * registered via useFrontendTool, useHumanInTheLoop, etc. are always
- * included — without requiring the caller to know about copilotkit.runAgent.
+ * included — even when calling agent.runAgent() directly without going
+ * through copilotkit.runAgent().
  */
 import React from "react";
 import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import {
-  type RunAgentInput,
-  type AgentSubscriber,
-  type RunAgentParameters,
-} from "@ag-ui/client";
+import { type RunAgentInput } from "@ag-ui/client";
 import {
   MockStepwiseAgent,
   renderWithCopilotKit,
@@ -40,13 +37,6 @@ class ToolCapturingMockAgent extends MockStepwiseAgent {
     const cloned = super.clone();
     (cloned as unknown as ToolCapturingMockAgent)._capture = this._capture;
     return cloned;
-  }
-
-  async runAgent(
-    parameters?: RunAgentParameters,
-    subscriber?: AgentSubscriber,
-  ) {
-    return super.runAgent(parameters, subscriber);
   }
 
   run(input: RunAgentInput) {
@@ -78,7 +68,7 @@ describe("useAgent().agent.runAgent()", () => {
           content: "Use my tool",
         });
         // Call runAgent() directly on the agent from useAgent() —
-        // the proxy should route this through copilotkit.runAgent()
+        // the middleware should inject frontend tools into RunAgentInput
         await hookAgent.runAgent();
       };
 

@@ -330,24 +330,13 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
 
-  // Wrap the agent so that runAgent() goes through CopilotKit core,
-  // which collects registered frontend tools and context. Without this,
-  // agent.runAgent() bypasses CopilotKit and sends requests without any
-  // tools registered via useFrontendTool, useHumanInTheLoop, etc.
-  const wrappedAgent = useMemo(
-    () =>
-      new Proxy(agent, {
-        get(target, prop, receiver) {
-          if (prop === "runAgent") {
-            return () => copilotkit.runAgent({ agent: target });
-          }
-          return Reflect.get(target, prop, receiver);
-        },
-      }),
-    [agent, copilotkit],
-  );
+  // Ensure the agent has the CopilotKit tool-injection middleware installed.
+  // This is idempotent (WeakSet guard) so it's safe to call on every render
+  // path — registry agents, provisionals, and per-thread clones all get
+  // middleware before the hook returns.
+  copilotkit.ensureToolMiddleware?.(agent);
 
   return {
-    agent: wrappedAgent,
+    agent,
   };
 }

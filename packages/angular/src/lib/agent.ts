@@ -123,8 +123,8 @@ export class CopilotkitAgentFactory {
             transport: runtimeTransport,
           });
           // Apply current headers so runs/connects inherit them
-
           (provisional as any).headers = { ...headers };
+          this.#copilotkit.core.ensureToolMiddleware(provisional);
           lastAgentStore = new AgentStore(
             provisional,
             destroyRef,
@@ -146,6 +146,7 @@ export class CopilotkitAgentFactory {
         );
       }
 
+      this.#copilotkit.core.ensureToolMiddleware(abstractAgent);
       lastAgentStore = new AgentStore(
         abstractAgent,
         destroyRef,
