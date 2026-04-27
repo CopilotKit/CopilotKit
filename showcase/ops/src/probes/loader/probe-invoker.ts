@@ -336,8 +336,17 @@ export function buildProbeInvoker(
     // The failed-counter here counts the discovery itself as the single
     // failed unit so RunSummary's invariant holds (total === passed+failed).
     if (!resolved.ok) {
+      // Synthetic-error key MUST use the `discovery:` dimension prefix so
+      // the dashboard's per-cell `keyFor("<dim>", slug)` lookups (smoke,
+      // image-drift, ...) don't collide with discovery-failure rows. A
+      // bare `cfg.id` like `smoke` (or `smoke:enumerate-failed` from the
+      // sentinel branch below) renders as a phantom red service cell on
+      // the dashboard. Routing all discovery-side failures under a
+      // distinct `discovery` dimension keeps them surfaced via PB
+      // queries / metrics / alerts but out of the integration grid.
+      const errKey = `discovery:${cfg.id}`;
       const errResult = syntheticError(
-        cfg.id,
+        errKey,
         `discovery enumerate failed: ${resolved.error}`,
         now,
         "discovery-error",
@@ -349,7 +358,7 @@ export function buildProbeInvoker(
         logger.error("probe.writer-failed", {
           probeId: cfg.id,
           kind: cfg.kind,
-          key: cfg.id,
+          key: errKey,
           err: err instanceof Error ? err.message : String(err),
         });
       }
@@ -780,12 +789,17 @@ async function resolveInputs(
       // in the discriminated `ok: true` shape so the upstream sentinel
       // branch (errorClass: "discovery-source-missing") fires; the
       // distinct `ok: false` path is reserved for enumerate() failures.
+      // Same `discovery:` dimension prefix as the enumerate-failed
+      // sentinel — keeps misconfigured-source synthetic rows out of the
+      // dashboard's integration grid (which lives under smoke / e2e /
+      // image-drift / ... per-cell lookups) while staying visible to PB
+      // queries, metrics, and alerts.
       return {
         ok: true,
         inputs: [
           {
             input: MISCONFIGURED_DISCOVERY_INPUT,
-            key: `${cfg.id}:misconfigured`,
+            key: `discovery:${cfg.id}`,
             errorDesc: `discovery source missing: ${cfg.discovery.source}`,
           },
         ],
@@ -868,12 +882,19 @@ async function resolveInputs(
         probeId: cfg.id,
         source: cfg.discovery.source,
       });
+      // Sentinel key uses the `discovery:` dimension prefix (see the
+      // matching note on the `!resolved.ok` synthetic-error path above).
+      // A bare `${cfg.id}:enumerate-failed` collides with the dashboard's
+      // `keyFor("<probe-dim>", slug)` lookup space and renders as a
+      // phantom red service cell. Routing through a `discovery`
+      // dimension keeps the failure visible to PB queries, metrics, and
+      // alert rules without polluting the integration grid.
       return {
         ok: true,
         inputs: [
           {
             input: ENUMERATE_FAILED_INPUT,
-            key: `${cfg.id}:enumerate-failed`,
+            key: `discovery:${cfg.id}`,
             errorDesc: `discovery enumerate failed: ${message}`,
           },
         ],

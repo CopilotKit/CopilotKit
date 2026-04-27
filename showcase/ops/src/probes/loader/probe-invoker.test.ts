@@ -1090,7 +1090,7 @@ describe("buildProbeInvoker", () => {
       })();
       // Synthetic dashboard tick instead of silent zero-write.
       expect(writes).toHaveLength(1);
-      expect(writes[0]!.key).toBe("image-drift:misconfigured");
+      expect(writes[0]!.key).toBe("discovery:image-drift");
       expect(writes[0]!.state).toBe("error");
       const sig = writes[0]!.signal as { errorClass?: string };
       expect(sig.errorClass).toBe("discovery-source-missing");
@@ -1410,7 +1410,7 @@ describe("buildProbeInvoker", () => {
     // catch path now surfaces a sentinel ResolvedInput so operators
     // see a red tick instead.
     expect(writes).toHaveLength(1);
-    expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(writes[0]!.key).toBe("discovery:image-drift");
     expect(writes[0]!.state).toBe("error");
     const sig = writes[0]!.signal as { errorClass?: string };
     expect(sig.errorClass).toBe("discovery-error");
@@ -1512,7 +1512,7 @@ describe("buildProbeInvoker", () => {
     expect(writes).toHaveLength(1);
     // (b) errorClass is discovery-error (NOT discovery-source-missing
     //     — the source IS registered, it just threw at runtime).
-    expect(writes[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(writes[0]!.key).toBe("discovery:image-drift");
     expect(writes[0]!.state).toBe("error");
     const sig = writes[0]!.signal as {
       errorClass?: string;
@@ -1607,7 +1607,7 @@ describe("buildProbeInvoker", () => {
     const errors = writes.filter((w) => w.state === "error");
     const greens = writes.filter((w) => w.state === "green");
     expect(errors).toHaveLength(1);
-    expect(errors[0]!.key).toBe("image-drift:enumerate-failed");
+    expect(errors[0]!.key).toBe("discovery:image-drift");
     expect(greens.map((w) => w.key).sort()).toEqual(["smoke:a", "smoke:b"]);
   });
 
