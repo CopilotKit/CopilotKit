@@ -6,6 +6,7 @@ import { AwsStrandsIcon } from "@/components/ui/icons/aws-strands";
 import CrewaiIcon from "@/components/ui/icons/crewai";
 import CopilotKitMarkIcon from "@/components/ui/icons/copilotkit-mark";
 import LanggraphIcon from "@/components/ui/icons/langgraph";
+import DeepAgentsIcon from "@/components/ui/icons/deepagents";
 import LlamaIndexIcon from "@/components/ui/icons/llama-index";
 import MastraIcon from "@/components/ui/icons/mastra";
 import PydanticAiIcon from "@/components/ui/icons/pydantic-ai";
@@ -36,6 +37,7 @@ const INTEGRATION_ICONS: Record<
   "crewai-flows": CrewaiIcon,
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
+  deepagents: DeepAgentsIcon,
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,

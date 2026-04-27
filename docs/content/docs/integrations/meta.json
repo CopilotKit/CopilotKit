@@ -3,6 +3,7 @@
   "pages": [
     "built-in-agent",
     "langgraph",
+    "deepagents",
     "adk",
     "microsoft-agent-framework",
     "aws-strands",

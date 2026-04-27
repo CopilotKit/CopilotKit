@@ -19,6 +19,7 @@ import AdkIcon from "../ui/icons/adk";
 import Ag2Icon from "../ui/icons/ag2";
 import CrewaiIcon from "../ui/icons/crewai";
 import LanggraphIcon from "../ui/icons/langgraph";
+import DeepAgentsIcon from "../ui/icons/deepagents";
 import LlamaIndexIcon from "../ui/icons/llama-index";
 import MastraIcon from "../ui/icons/mastra";
 import AgnoIcon from "../ui/icons/agno";
@@ -33,6 +34,7 @@ const INTEGRATION_ICONS: Record<
 > = {
   "built-in-agent": () => <p>🪁</p>,
   langgraph: LanggraphIcon,
+  deepagents: DeepAgentsIcon,
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,

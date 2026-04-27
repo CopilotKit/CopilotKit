@@ -11,6 +11,7 @@ import AgnoIcon from "../icons/agno";
 import CrewaiIcon from "../icons/crewai";
 import CopilotKitMarkIcon from "../icons/copilotkit-mark";
 import LanggraphIcon from "../icons/langgraph";
+import DeepAgentsIcon from "../icons/deepagents";
 import LlamaIndexIcon from "../icons/llama-index";
 import MastraIcon from "../icons/mastra";
 import PydanticAiIcon from "../icons/pydantic-ai";
@@ -47,6 +48,7 @@ const INTEGRATION_ICONS: Record<
   "crewai-flows": CrewaiIcon,
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
+  deepagents: DeepAgentsIcon,
   llamaindex: LlamaIndexIcon,
   mastra: MastraIcon,
   "pydantic-ai": PydanticAiIcon,

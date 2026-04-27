@@ -5,6 +5,7 @@ import Ag2Icon from "@/components/ui/icons/ag2";
 import CrewaiIcon from "@/components/ui/icons/crewai";
 import CopilotKitMarkIcon from "@/components/ui/icons/copilotkit-mark";
 import LanggraphIcon from "@/components/ui/icons/langgraph";
+import DeepAgentsIcon from "@/components/ui/icons/deepagents";
 import LlamaIndexIcon from "@/components/ui/icons/llama-index";
 import MastraIcon from "@/components/ui/icons/mastra";
 import AgnoIcon from "@/components/ui/icons/agno";
@@ -16,6 +17,7 @@ import type { ComponentType } from "react";
 export type IntegrationName =
   | "built-in-agent"
   | "langgraph"
+  | "deepagents"
   | "adk"
   | "microsoft-agent-framework"
   | "aws-strands"
@@ -47,6 +49,12 @@ const INTEGRATIONS: Integration[] = [
     label: "LangChain",
     description: "Build and deploy stateful AI agents with LangChain.",
     icon: LanggraphIcon,
+  },
+  {
+    name: "deepagents",
+    label: "Deep Agents",
+    description: "Build sophisticated AI agents with LangChain's Deep Agents framework.",
+    icon: DeepAgentsIcon,
   },
   {
     name: "adk",

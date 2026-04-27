@@ -130,6 +130,7 @@ const config = {
       'crewai-flows',
       'built-in-agent',
       'langgraph',
+      'deepagents',
       'llamaindex',
       'mastra',
       'pydantic-ai',

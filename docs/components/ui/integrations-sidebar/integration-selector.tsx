@@ -9,6 +9,7 @@ import AgnoIcon from "../icons/agno";
 import CrewaiIcon from "../icons/crewai";
 import CopilotKitMarkIcon from "../icons/copilotkit-mark";
 import LanggraphIcon from "../icons/langgraph";
+import DeepAgentsIcon from "../icons/deepagents";
 import LlamaIndexIcon from "../icons/llama-index";
 import MastraIcon from "../icons/mastra";
 import PydanticAiIcon from "../icons/pydantic-ai";
@@ -39,6 +40,7 @@ const INTEGRATION_ICONS: Record<
 > = {
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,
+  deepagents: DeepAgentsIcon,
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,
