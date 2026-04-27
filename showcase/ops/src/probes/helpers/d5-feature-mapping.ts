@@ -103,9 +103,7 @@ const REGISTRY_TO_D5: Readonly<Record<string, readonly D5FeatureType[]>> = {
  *     order in their output. Determinism matters for snapshot-style
  *     tests and dashboard tile ordering.
  */
-export function demosToFeatureTypes(
-  demos: readonly string[],
-): D5FeatureType[] {
+export function demosToFeatureTypes(demos: readonly string[]): D5FeatureType[] {
   const out: D5FeatureType[] = [];
   const seen = new Set<D5FeatureType>();
   for (const id of demos) {
