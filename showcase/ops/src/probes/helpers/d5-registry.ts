@@ -93,6 +93,25 @@ export interface D5BuildContext {
 }
 
 /**
+ * Optional context handed to `D5Script.preNavigateRoute`. Scripts that
+ * need to vary the navigation route based on which registry demo IDs
+ * triggered this featureType (e.g. legacy `hitl` vs. modern
+ * `hitl-in-chat`) can read `demos` and branch. Existing scripts that
+ * take no arguments continue to work unchanged — the parameter is
+ * optional and ignored by zero-arg implementations.
+ *
+ * `demos` mirrors the `demos[]` populated by `railway-services`
+ * discovery from `feature-registry.json` for this integration. When
+ * the driver doesn't have demo information available (e.g. tests
+ * passing `features` directly, or e2e-parity's snapshot path) the
+ * field is omitted; scripts must therefore tolerate a missing /
+ * empty `demos` and return a sensible default route.
+ */
+export interface D5RouteContext {
+  demos?: readonly string[];
+}
+
+/**
  * D5 script contract. One file under `src/probes/scripts/d5-<name>.ts`
  * exports a top-level `registerD5Script(...)` call with this shape.
  *
@@ -116,7 +135,10 @@ export interface D5Script {
   featureTypes: D5FeatureType[];
   fixtureFile: string;
   buildTurns: (ctx: D5BuildContext) => ConversationTurn[];
-  preNavigateRoute?: (featureType: D5FeatureType) => string;
+  preNavigateRoute?: (
+    featureType: D5FeatureType,
+    ctx?: D5RouteContext,
+  ) => string;
 }
 
 /**

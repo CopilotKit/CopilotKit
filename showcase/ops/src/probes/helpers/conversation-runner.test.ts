@@ -430,14 +430,21 @@ describe("runConversation", () => {
         if (sel === '[data-testid="copilot-assistant-message"]') {
           return { length: 0 };
         }
-        // Tagged-assistant articles: 0 (forces last-resort path).
+        // Tagged-assistant articles: 0 (forces narrowed-article path).
         if (sel === '[role="article"][data-message-role="assistant"]') {
           return { length: 0 };
         }
-        // Last-resort selector excludes user-tagged articles.
+        // Narrowed-article selector excludes user-tagged articles.
         // First call (baseline) → 0; subsequent calls → 2 (settled).
         if (sel === '[role="article"]:not([data-message-role="user"])') {
           return { length: evalCount === 0 ? 0 : 2 };
+        }
+        // Headless tier: present in cascade for custom-composer demos
+        // (e.g. headless-simple) that don't use [role="article"].
+        // Returns 0 here so the narrowed-article tier is the one that
+        // actually drives the settle loop.
+        if (sel === '[data-message-role="assistant"]') {
+          return { length: 0 };
         }
         // ANY other [role="article"] selector means we leaked the
         // unscoped fallback that this fix was supposed to remove.

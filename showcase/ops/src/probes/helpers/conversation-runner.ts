@@ -77,18 +77,26 @@ const CHAT_INPUT_SELECTORS = [
  * bubbles toward the assistant total). Pinning the selector here is
  * the single-source-of-truth fix.
  *
- * The cascade has two preferences:
+ * The cascade has three preferences:
  *   1. `[data-testid="copilot-assistant-message"]` — canonical CopilotKit testid.
  *   2. `[role="article"]:not([data-message-role="user"])` — generic
- *      ARIA + explicit user-bubble exclusion. This last clause is
+ *      ARIA + explicit user-bubble exclusion. This clause is
  *      load-bearing: some composers tag their bubbles
  *      `[role="article"][data-message-role="user"]` and a bare
  *      `[role="article"]` would over-count.
+ *   3. `[data-message-role="assistant"]` — last-resort fallback for
+ *      headless / custom-composer demos that don't wrap bubbles in
+ *      `[role="article"]` at all. The headless-simple template tags
+ *      its assistant `<div>` with `data-message-role="assistant"` so
+ *      the runner can still detect "response settled" without the
+ *      canonical CopilotKit testids being present.
  */
 export const ASSISTANT_MESSAGE_PRIMARY_SELECTOR =
   '[data-testid="copilot-assistant-message"]';
 export const ASSISTANT_MESSAGE_FALLBACK_SELECTOR =
   '[role="article"]:not([data-message-role="user"])';
+export const ASSISTANT_MESSAGE_HEADLESS_SELECTOR =
+  '[data-message-role="assistant"]';
 
 const DEFAULT_RESPONSE_TIMEOUT_MS = 30_000;
 const DEFAULT_SETTLE_MS = 1500;
@@ -341,14 +349,23 @@ async function readMessageCount(page: Page): Promise<number> {
         '[role="article"][data-message-role="assistant"]',
       );
       if (tagged.length > 0) return tagged.length;
-      // Last resort: any [role="article"] that is NOT explicitly
-      // tagged as a user message. This still matches untagged
-      // articles (the historical behaviour) but excludes user
-      // bubbles that some composers tag with `data-message-role="user"`.
+      // Next: any [role="article"] that is NOT explicitly tagged as a
+      // user message. This still matches untagged articles (the
+      // historical behaviour) but excludes user bubbles that some
+      // composers tag with `data-message-role="user"`.
       const fallback = win.document.querySelectorAll(
         '[role="article"]:not([data-message-role="user"])',
       );
-      return fallback.length;
+      if (fallback.length > 0) return fallback.length;
+      // Last resort: headless / custom-composer demos that don't use
+      // [role="article"] at all but tag their assistant bubble with
+      // `data-message-role="assistant"`. Without this tier the runner
+      // would never detect "response settled" on the headless-simple
+      // template since none of the prior selectors match its DOM.
+      const headless = win.document.querySelectorAll(
+        '[data-message-role="assistant"]',
+      );
+      return headless.length;
     });
   } catch {
     return 0;

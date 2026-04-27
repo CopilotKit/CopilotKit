@@ -164,12 +164,24 @@ export interface E2eDeepPage extends Page {
   goto(
     url: string,
     opts?: {
-      waitUntil?: "networkidle" | "domcontentloaded";
+      waitUntil?: "networkidle" | "domcontentloaded" | "load";
       timeout?: number;
     },
   ): Promise<unknown>;
   close(): Promise<void>;
   click(selector: string, opts?: { timeout?: number }): Promise<void>;
+  /**
+   * Poll a browser-side predicate until it returns truthy. Used by the
+   * driver to wait for React hydration to attach `__react*` properties
+   * to the SSR'd chat textarea before the conversation runner tries to
+   * fill + Enter. Without this guard the keypress fires before React
+   * has bound `onKeyDown`, the request never goes out, and the probe
+   * times out with a "no assistant response" error.
+   */
+  waitForFunction(
+    fn: () => boolean,
+    opts?: { timeout?: number },
+  ): Promise<unknown>;
   /**
    * Returns browser-side diagnostic data captured since page creation.
    * Optional because tests inject scripted fakes that don't track
@@ -217,7 +229,7 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 
 /** Default route shape for a feature when the script doesn't override. */
-function defaultRoute(featureType: D5FeatureType): string {
+function defaultRoute(featureType: D5FeatureType, _ctx?: unknown): string {
   return `/demos/${featureType}`;
 }
 
@@ -295,6 +307,12 @@ const defaultLauncher: E2eDeepBrowserLauncher =
                 page.goto(url, opts as Parameters<typeof page.goto>[1]),
               close: () => page.close(),
               click: (s, o) => page.click(s, o),
+              waitForFunction: (fn, opts) =>
+                page.waitForFunction(
+                  fn as Parameters<typeof page.waitForFunction>[0],
+                  undefined,
+                  opts,
+                ),
               getDiagnostics: () => ({
                 consoleLogs: consoleLogs.slice(-20),
                 requestFailures: requestFailures.slice(-10),
@@ -599,7 +617,9 @@ export function createE2eDeepDriver(
         for (const ft of runnable) {
           const sideKey = `d5:${slug}/${ft}`;
           const script = D5_REGISTRY.get(ft)!;
-          const route = (script.preNavigateRoute ?? defaultRoute)(ft);
+          const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
+            demos: input.demos,
+          });
           const url = `${backendUrl}${route}`;
 
           if (abort.signal.aborted) {
@@ -764,7 +784,7 @@ async function runFeature(opts: {
     // sufficient.
     try {
       await page.goto(url, {
-        waitUntil: "domcontentloaded",
+        waitUntil: "load",
         timeout: pageTimeoutMs,
       });
     } catch (err) {
@@ -774,6 +794,37 @@ async function runFeature(opts: {
         errorClass: "goto-error",
         errorDesc: truncateUtf8(msg, 1200),
       };
+    }
+
+    // Wait for React hydration — React attaches __reactFiber$* and
+    // __reactProps$* properties to DOM elements during hydration.
+    // Without this, the SSR'd textarea is visible but Enter has no
+    // handler, so the first turn's keypress is a no-op and the probe
+    // times out waiting for an assistant response that never comes.
+    try {
+      await page.waitForFunction(
+        () => {
+          // DOM types reached via type-erased indirection — the
+          // package's tsconfig excludes the `dom` lib. Same pattern
+          // used in `captureDiagnostics()` below.
+          const win = globalThis as unknown as {
+            document: {
+              querySelector(sel: string): object | null;
+            };
+          };
+          const el = win.document.querySelector(
+            '[data-testid="copilot-chat-textarea"], [data-testid="copilot-chat"] textarea, textarea',
+          );
+          if (!el) return false;
+          return Object.getOwnPropertyNames(el).some((k) =>
+            k.startsWith("__react"),
+          );
+        },
+        { timeout: 15_000 },
+      );
+    } catch {
+      // Non-fatal — proceed anyway; worst case is a downstream timeout
+      // error that's more diagnosable than "assistant did not respond".
     }
 
     const turns = script.buildTurns(buildCtx);
