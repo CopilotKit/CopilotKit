@@ -735,9 +735,7 @@ describe("ASI / new Function evaluate", () => {
     // The fix: strip leading whitespace/newlines before concatenation
     // so `return` and the IIFE share a line. A trailing semicolon is
     // also added defensively.
-    const fixed = new Function(
-      "return " + codeWithLeadingNewline.trim() + ";",
-    );
+    const fixed = new Function("return " + codeWithLeadingNewline.trim() + ";");
     expect(fixed()).toBe("hello");
   });
 
