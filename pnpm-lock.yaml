@@ -1617,6 +1617,9 @@ importers:
         specifier: ^3.24.1
         version: 3.25.1(zod@3.25.76)
     devDependencies:
+      '@tanstack/intent':
+        specifier: ^0.0.29
+        version: 0.0.29
       '@testing-library/react':
         specifier: ^16.0.0
         version: 16.3.1(@testing-library/dom@10.4.0)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -2096,6 +2099,9 @@ importers:
       '@tailwindcss/typography':
         specifier: ^0.5.16
         version: 0.5.19(tailwindcss@4.1.18)
+      '@tanstack/intent':
+        specifier: ^0.0.29
+        version: 0.0.29
       '@testing-library/jest-dom':
         specifier: ^6.0.0
         version: 6.9.1
@@ -2501,6 +2507,9 @@ importers:
       '@swc/core':
         specifier: 1.5.28
         version: 1.5.28(@swc/helpers@0.5.18)
+      '@tanstack/intent':
+        specifier: ^0.0.29
+        version: 0.0.29
       '@types/cors':
         specifier: ^2.8.17
         version: 2.8.19
@@ -11415,6 +11424,10 @@ packages:
   '@tanstack/devtools-event-client@0.4.3':
     resolution: {integrity: sha512-OZI6QyULw0FI0wjgmeYzCIfbgPsOEzwJtCpa69XrfLMtNXLGnz3d/dIabk7frg0TmHo+Ah49w5I4KC7Tufwsvw==}
     engines: {node: '>=18'}
+    hasBin: true
+
+  '@tanstack/intent@0.0.29':
+    resolution: {integrity: sha512-tJcWapEkXGRLHE7mQYvQS0xIWrzKm2n7fQ/lOy4LCdR1hX0Yxb9QnwRwd0oqmmr54ObP9/5sfiD8vELxL/r30g==}
     hasBin: true
 
   '@tanstack/pacer@0.20.1':
@@ -34885,6 +34898,11 @@ snapshots:
       partial-json: 0.1.7
 
   '@tanstack/devtools-event-client@0.4.3': {}
+
+  '@tanstack/intent@0.0.29':
+    dependencies:
+      cac: 6.7.14
+      yaml: 2.8.2
 
   '@tanstack/pacer@0.20.1':
     dependencies:

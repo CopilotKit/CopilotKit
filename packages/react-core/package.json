@@ -12,6 +12,7 @@
     "nextjs",
     "nodejs",
     "react",
+    "tanstack-intent",
     "textarea"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
@@ -20,30 +21,39 @@
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
+  "files": [
+    "dist",
+    "skills"
+  ],
   "type": "module",
   "sideEffects": [
     "**/*.css"
   ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
-  "typesVersions": {
-    "*": {
-      "v2": [
-        "./dist/v2/index.d.cts"
-      ]
-    }
-  },
+  "types": "./dist/index.d.mts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.cjs"
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/v2/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/v2/index.cjs"
+      }
     },
     "./package.json": "./package.json",
     "./v2/styles.css": "./dist/v2/index.css"
@@ -95,6 +105,7 @@
     "@tailwindcss/cli": "^4.1.11",
     "@tailwindcss/postcss": "^4.1.11",
     "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/intent": "^0.0.29",
     "@testing-library/jest-dom": "^6.0.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/react-hooks": "^8.0.1",

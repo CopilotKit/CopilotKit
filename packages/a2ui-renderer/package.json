@@ -9,6 +9,7 @@
     "copilotkit",
     "react",
     "renderer",
+    "tanstack-intent",
     "ui"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
@@ -19,18 +20,25 @@
     "directory": "packages/a2ui-renderer"
   },
   "files": [
-    "dist"
+    "dist",
+    "skills"
   ],
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
-  "types": "./dist/index.d.cts",
+  "types": "./dist/index.d.mts",
   "unpkg": "./dist/index.umd.js",
   "jsdelivr": "./dist/index.umd.js",
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -54,6 +62,7 @@
     "zod-to-json-schema": "^3.24.1"
   },
   "devDependencies": {
+    "@tanstack/intent": "^0.0.29",
     "@testing-library/react": "^16.0.0",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.2.3",

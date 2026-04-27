@@ -12,6 +12,7 @@
     "nextjs",
     "nodejs",
     "react",
+    "tanstack-intent",
     "textarea"
   ],
   "homepage": "https://github.com/CopilotKit/CopilotKit",
@@ -20,6 +21,10 @@
     "type": "git",
     "url": "https://github.com/CopilotKit/CopilotKit.git"
   },
+  "files": [
+    "dist",
+    "skills"
+  ],
   "sideEffects": [
     "./dist/index.mjs",
     "./dist/index.cjs",
@@ -29,46 +34,66 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
-  "typesVersions": {
-    "*": {
-      "v2": [
-        "./dist/v2/index.d.cts"
-      ],
-      "v2/express": [
-        "./dist/v2/express.d.cts"
-      ],
-      "v2/hono": [
-        "./dist/v2/hono.d.cts"
-      ],
-      "v2/node": [
-        "./dist/v2/node.d.cts"
-      ]
-    }
-  },
   "exports": {
     ".": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./langgraph": {
-      "import": "./dist/langgraph.mjs",
-      "require": "./dist/langgraph.cjs"
+      "import": {
+        "types": "./dist/langgraph.d.mts",
+        "default": "./dist/langgraph.mjs"
+      },
+      "require": {
+        "types": "./dist/langgraph.d.cts",
+        "default": "./dist/langgraph.cjs"
+      }
     },
     "./v2": {
-      "import": "./dist/v2/index.mjs",
-      "require": "./dist/v2/index.cjs"
+      "import": {
+        "types": "./dist/v2/index.d.mts",
+        "default": "./dist/v2/index.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/index.d.cts",
+        "default": "./dist/v2/index.cjs"
+      }
     },
     "./v2/express": {
-      "import": "./dist/v2/express.mjs",
-      "require": "./dist/v2/express.cjs"
+      "import": {
+        "types": "./dist/v2/express.d.mts",
+        "default": "./dist/v2/express.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/express.d.cts",
+        "default": "./dist/v2/express.cjs"
+      }
     },
     "./v2/hono": {
-      "import": "./dist/v2/hono.mjs",
-      "require": "./dist/v2/hono.cjs"
+      "import": {
+        "types": "./dist/v2/hono.d.mts",
+        "default": "./dist/v2/hono.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/hono.d.cts",
+        "default": "./dist/v2/hono.cjs"
+      }
     },
     "./v2/node": {
-      "import": "./dist/v2/node.mjs",
-      "require": "./dist/v2/node.cjs"
+      "import": {
+        "types": "./dist/v2/node.d.mts",
+        "default": "./dist/v2/node.mjs"
+      },
+      "require": {
+        "types": "./dist/v2/node.d.cts",
+        "default": "./dist/v2/node.cjs"
+      }
     },
     "./package.json": "./package.json"
   },
@@ -132,6 +157,7 @@
   "devDependencies": {
     "@copilotkit/aimock": "^1.10.0",
     "@swc/core": "1.5.28",
+    "@tanstack/intent": "^0.0.29",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^18.11.17",

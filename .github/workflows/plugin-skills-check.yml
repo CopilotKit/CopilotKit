@@ -1,0 +1,45 @@
+name: plugin-skills-check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/*/skills/**"
+      - "skills/runtime/**"
+      - "skills/react-core/**"
+      - "skills/a2ui-renderer/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+  pull_request:
+    paths:
+      - "packages/*/skills/**"
+      - "skills/runtime/**"
+      - "skills/react-core/**"
+      - "skills/a2ui-renderer/**"
+      - "scripts/sync-plugin-skills.ts"
+      - "scripts/__tests__/sync-plugin-skills.test.ts"
+      - ".claude-plugin/**"
+      - ".github/workflows/plugin-skills-check.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run sync script unit tests
+        run: pnpm exec vitest run scripts/__tests__/sync-plugin-skills.test.ts
+
+      - name: Check plugin skill mirror is in sync
+        run: pnpm check:plugin-skills

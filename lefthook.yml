@@ -48,6 +48,15 @@ pre-commit:
         NX_TUI: "false"
       run: pnpm run test && pnpm run check:packages
 
+    check-plugin-skills:
+      tags: plugin-skills
+      glob: "{packages/*/skills/**,skills/runtime/**,skills/react-core/**,skills/a2ui-renderer/**,scripts/sync-plugin-skills.ts,.claude-plugin/**}"
+      run: pnpm check:plugin-skills
+      fail_text: |
+        Plugin skill mirror is out of sync with the Intent source.
+        Run: pnpm sync:plugin-skills
+        Then stage the changes and re-commit.
+
 commit-msg:
   commands:
     commitlint:
