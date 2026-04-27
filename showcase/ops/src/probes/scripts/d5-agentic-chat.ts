@@ -40,6 +40,7 @@
 import { registerD5Script } from "../helpers/d5-registry.js";
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
   type ConversationTurn,
   type Page,
@@ -68,11 +69,17 @@ async function readAssistantTranscript(page: Page): Promise<string> {
       const canonical = doc.querySelectorAll(${JSON.stringify(
         ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
       )});
-      const nodes = canonical.length > 0
-        ? canonical
-        : doc.querySelectorAll(${JSON.stringify(
+      let nodes = canonical;
+      if (canonical.length === 0) {
+        const fallback = doc.querySelectorAll(${JSON.stringify(
           ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
         )});
+        nodes = fallback.length > 0
+          ? fallback
+          : doc.querySelectorAll(${JSON.stringify(
+            ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+          )});
+      }
       let out = "";
       for (let i = 0; i < nodes.length; i++) {
         const text = (nodes[i] && nodes[i].textContent) ? nodes[i].textContent : "";
