@@ -95,6 +95,12 @@ export function PackagesSection({
                 <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
                   L1-L4 Status
                 </span>
+                <span
+                  className="ml-2 text-[10px] font-normal normal-case text-[var(--text-muted)]"
+                  data-testid="packages-uwct-legend"
+                >
+                  (U=Up, W=Wired, C=Chats, T=Tools)
+                </span>
               </th>
               <th className="bg-[var(--bg-muted)] px-4 py-2 text-center border-b border-l border-[var(--border)]">
                 <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-muted)]">

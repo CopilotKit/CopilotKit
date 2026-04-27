@@ -69,4 +69,12 @@ describe("PackagesSection", () => {
     );
     expect(getByText("Depth")).toBeDefined();
   });
+
+  it("renders the UWCT legend in the L1-L4 Status header", () => {
+    const { getByTestId } = render(
+      <PackagesSection liveStatus={emptyLiveStatus} connection="live" />,
+    );
+    const legend = getByTestId("packages-uwct-legend");
+    expect(legend.textContent).toBe("(U=Up, W=Wired, C=Chats, T=Tools)");
+  });
 });
