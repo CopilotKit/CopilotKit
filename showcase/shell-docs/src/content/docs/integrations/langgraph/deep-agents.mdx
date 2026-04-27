@@ -3,7 +3,6 @@ title: Deep Agents
 description: Leverage LangGraph Deep Agents to build sophisticated agentic applications.
 icon: "lucide/BrainCircuit"
 ---
-
 ## Prerequisites
 
 Before you begin, you'll need the following:
@@ -14,7 +13,6 @@ Before you begin, you'll need the following:
 - A LangSmith API key - only required if deploying to LangSmith Platform
 
 ## Getting started
-
 <Steps>
     <Step>
         ### Initialize your agent project
@@ -53,12 +51,13 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.2",
+                    model="openai:gpt-5.4",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
-                    checkpointer=MemorySaver()
                 )
+
+                graph = agent
                 ```
 
                 Then to test and deploy with LangSmith, we'll also need a `langgraph.json`
@@ -90,6 +89,9 @@ Before you begin, you'll need the following:
                 Then create a simple LangGraph agent, add a FastAPI app, and build attach our agent as an AG-UI endpoint.
 
                 ```python title="main.py"
+                import os
+                from fastapi import FastAPI
+                import uvicorn
 
                 # [!code highlight:2]
                 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
@@ -102,12 +104,14 @@ Before you begin, you'll need the following:
                     return f"The weather in {location} is sunny."
 
                 agent = create_deep_agent(
-                    model="openai:gpt-5.2",
+                    model="openai:gpt-5.4",
                     tools=[get_weather],
                     middleware=[CopilotKitMiddleware()], # for frontend tools and context
                     system_prompt="You are a helpful research assistant.",
                     checkpointer=MemorySaver()
                 )
+
+                app = FastAPI()
 
                 # [!code highlight:9]
                 add_langgraph_fastapi_endpoint(
@@ -125,7 +129,7 @@ Before you begin, you'll need the following:
                     uvicorn.run(
                         "main:app",
                         host="0.0.0.0",
-                        port="8123",
+                        port=8123,
                         reload=True,
                     )
 
@@ -181,11 +185,14 @@ Before you begin, you'll need the following:
         <Tabs groupId="deployment_method" items={['LangSmith', 'FastAPI']}>
             <Tab value="LangSmith">
                 ```tsx title="app/api/copilotkit/route.ts"
+                import {
                     CopilotRuntime,
                     ExperimentalEmptyAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
                 // [!code highlight]
+                import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -213,11 +220,14 @@ Before you begin, you'll need the following:
             </Tab>
             <Tab value="FastAPI">
                 ```tsx title="app/api/copilotkit/route.ts"
+                import {
                     CopilotRuntime,
                     ExperimentalEmptyAdapter,
                     copilotRuntimeNextJSAppRouterEndpoint,
                 } from "@copilotkit/runtime";
                 // [!code highlight]
+                import { LangGraphHttpAgent } from "@copilotkit/runtime/langgraph";
+                import { NextRequest } from "next/server";
 
                 const serviceAdapter = new ExperimentalEmptyAdapter();
 
@@ -250,6 +260,8 @@ Before you begin, you'll need the following:
 
         ```tsx title="app/layout.tsx"
         // [!code highlight:2]
+        import { CopilotKit } from "@copilotkit/react-core";
+        import "@copilotkit/react-ui/v2/styles.css";
 
         // ...
 
@@ -275,6 +287,8 @@ Before you begin, you'll need the following:
     ```tsx title="app/page.tsx"
     "use client";
 
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+    import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 
     export default function Page() {
         useDefaultRenderTool({
@@ -352,5 +366,4 @@ Before you begin, you'll need the following:
             </Tab>
         </Tabs>
     </Step>
-
 </Steps>
