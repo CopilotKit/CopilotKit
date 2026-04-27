@@ -104,7 +104,7 @@ function expectAssistantContains(opts: {
   label: string;
 }): (page: Page) => Promise<void> {
   return async (page: Page) => {
-    const transcript = await readAssistantTranscript(page);
+    const transcript = (await readAssistantTranscript(page)) ?? "";
     if (transcript.trim().length === 0) {
       throw new Error(`${opts.label}: assistant response was empty`);
     }
@@ -129,7 +129,7 @@ function expectAssistantContains(opts: {
  */
 function expectAssistantNonEmpty(label: string): (page: Page) => Promise<void> {
   return async (page: Page) => {
-    const transcript = await readAssistantTranscript(page);
+    const transcript = (await readAssistantTranscript(page)) ?? "";
     if (transcript.trim().length === 0) {
       throw new Error(`${label}: assistant response was empty`);
     }

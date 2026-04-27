@@ -136,7 +136,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     {
       input: TURN_1_INPUT,
       assertions: async (page: Page) => {
-        const text = await readLatestAssistantText(page);
+        const text = (await readLatestAssistantText(page)) ?? "";
         if (text.length === 0) {
           throw new Error(
             "turn 1: no assistant message text found after settle",
@@ -156,7 +156,7 @@ export function buildTurns(_ctx: D5BuildContext): ConversationTurn[] {
     {
       input: TURN_2_INPUT,
       assertions: async (page: Page) => {
-        const text = await readLatestAssistantText(page);
+        const text = (await readLatestAssistantText(page)) ?? "";
         if (text.length === 0) {
           throw new Error(
             "turn 2: no assistant message text found after settle",
