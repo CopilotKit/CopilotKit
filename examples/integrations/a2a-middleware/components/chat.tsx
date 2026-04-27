@@ -127,7 +127,7 @@ export default function Chat({
   onAnalysisUpdate,
 }: ChatProps) {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="a2a_chat">
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent="a2a_chat">
       <ChatInner
         onResearchUpdate={onResearchUpdate}
         onAnalysisUpdate={onAnalysisUpdate}

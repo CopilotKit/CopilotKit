@@ -9,7 +9,11 @@ import {
 
 export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-streaming">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-streaming"
+    >
       <DemoContent />
     </CopilotKit>
   );

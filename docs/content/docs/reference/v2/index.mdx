@@ -68,8 +68,12 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   Runtime metadata payload.
 </PropertyReference>
 
-<PropertyReference name="useSingleEndpoint" type="boolean">
-  When enabled, all runtime calls use a single endpoint.
+<PropertyReference name="useLegacyRuntime" type="boolean" default="false">
+  When `true`, uses the legacy single-endpoint transport (all runtime calls go through a single POST endpoint with a JSON envelope). When `false` or omitted, the modern multi-endpoint REST transport is used.
+</PropertyReference>
+
+<PropertyReference name="useSingleEndpoint" type="boolean" deprecated>
+  **Deprecated.** Use `useLegacyRuntime` instead. When enabled, all runtime calls use a single endpoint.
 </PropertyReference>
 
 <PropertyReference name="agents__unsafe_dev_only" type="Record<string, AbstractAgent>">

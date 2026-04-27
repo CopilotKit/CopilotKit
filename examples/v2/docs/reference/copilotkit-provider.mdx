@@ -114,7 +114,7 @@ const devAgent = new HttpAgent({
 </CopilotKitProvider>;
 ```
 
-### useSingleEndpoint
+### useLegacyRuntime
 
 `boolean` **(optional, default: `false`)**
 
@@ -123,12 +123,20 @@ When set to `true`, the provider connects to runtimes that expose the **single-r
 Pair this flag with the matching server endpoint helper:
 
 ```tsx
-<CopilotKitProvider runtimeUrl="/api/copilotkit" useSingleEndpoint>
+<CopilotKitProvider runtimeUrl="/api/copilotkit" useLegacyRuntime>
   {children}
 </CopilotKitProvider>
 ```
 
 On the server, mount one of the single-route runtimes (`createCopilotEndpointSingleRoute` for Hono or `createCopilotEndpointSingleRouteExpress` for Express).
+
+### useSingleEndpoint *(deprecated)*
+
+`boolean` **(optional)**
+
+> **Deprecated.** Use `useLegacyRuntime` instead.
+
+Predecessor to `useLegacyRuntime` with equivalent behavior when explicitly set. If both are provided, `useLegacyRuntime` takes precedence.
 
 ### renderToolCalls
 

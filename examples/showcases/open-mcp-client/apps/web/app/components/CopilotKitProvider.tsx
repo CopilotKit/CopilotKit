@@ -80,6 +80,7 @@ export function DynamicCopilotKitProvider({
   return (
     <McpServersContext.Provider value={{ servers, setServers }}>
       <CopilotKit
+        useLegacyRuntime
         runtimeUrl="/api/mastra-agent"
         headers={headers}
         showDevConsole={false}

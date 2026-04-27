@@ -44,7 +44,7 @@ const AGENT_ID = "headless-complete";
 // stays in place for future MCP-apps parity; today it simply never fires.
 export default function HeadlessCompleteDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="flex justify-center items-center h-screen w-full bg-gray-50">
         <div className="h-full w-full max-w-3xl flex flex-col bg-white shadow-sm">
           <header className="px-4 py-3 border-b border-gray-200">

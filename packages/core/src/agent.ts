@@ -100,7 +100,7 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
     const normalizedRuntimeUrl = config.runtimeUrl
       ? config.runtimeUrl.replace(/\/$/, "")
       : undefined;
-    const transport = config.transport ?? "auto";
+    const transport = config.transport ?? "rest";
     const runUrl =
       transport === "single"
         ? (normalizedRuntimeUrl ?? config.runtimeUrl ?? "")
@@ -427,10 +427,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       ...this.headers,
     };
 
-    if (this.transport === "auto") {
-      return this.fetchRuntimeInfoAutoDetect(headers);
-    }
-
     let init: RequestInit;
     let url: string;
 
@@ -458,47 +454,6 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
         `Runtime info request failed with status ${response.status}`,
       );
     }
-    return (await response.json()) as RuntimeInfo;
-  }
-
-  private async fetchRuntimeInfoAutoDetect(
-    headers: Record<string, string>,
-  ): Promise<RuntimeInfo> {
-    // Try REST first (GET /info)
-    try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
-        headers: { ...headers },
-        ...(this.credentials ? { credentials: this.credentials } : {}),
-      });
-      // Only treat a successful (2xx) response as a valid REST runtime.
-      // 404/405 means the endpoint doesn't exist; other non-2xx errors
-      // (500, 403, etc.) should also fall through to single-endpoint.
-      if (response.status >= 200 && response.status < 300) {
-        this.transport = "rest";
-        return (await response.json()) as RuntimeInfo;
-      }
-    } catch {
-      // REST failed — fall through to single-endpoint attempt
-    }
-
-    // Try single-endpoint (POST with { method: "info" })
-    const singleHeaders = { ...headers };
-    if (!singleHeaders["Content-Type"]) {
-      singleHeaders["Content-Type"] = "application/json";
-    }
-    const response = await fetch(this.runtimeUrl!, {
-      method: "POST",
-      headers: singleHeaders,
-      body: JSON.stringify({ method: "info" }),
-      ...(this.credentials ? { credentials: this.credentials } : {}),
-    });
-    if (!response.ok) {
-      throw new Error(
-        `Runtime info request failed with status ${response.status}`,
-      );
-    }
-    this.transport = "single";
-    this.singleEndpointUrl = this.runtimeUrl;
     return (await response.json()) as RuntimeInfo;
   }
 

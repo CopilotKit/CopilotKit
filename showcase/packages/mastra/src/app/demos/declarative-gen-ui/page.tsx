@@ -32,6 +32,7 @@ import { myCatalog } from "./a2ui/catalog";
 export default function DeclarativeGenUIDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="declarative-gen-ui"
       a2ui={{ catalog: myCatalog }}

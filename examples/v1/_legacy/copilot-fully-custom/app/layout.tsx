@@ -16,6 +16,7 @@ export default function RootLayout({
     <html lang="en">
       <body>
         <CopilotKit
+          useLegacyRuntime
           publicApiKey={process.env.COPILOT_CLOUD_PUBLIC_API_KEY}
           runtimeUrl={
             process.env.COPILOT_CLOUD_PUBLIC_API_KEY

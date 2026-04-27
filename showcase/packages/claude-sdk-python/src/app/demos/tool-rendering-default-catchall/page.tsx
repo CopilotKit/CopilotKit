@@ -20,6 +20,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-default-catchall"
     >

@@ -26,6 +26,7 @@ export default function RootLayout({
     <html lang="en" className={`${manrope.variable} ${GeistMono.variable}`}>
       <body className="subpixel-antialiased">
         <CopilotKit
+          useLegacyRuntime
           runtimeUrl="/api/copilotkit"
           agent="sample_agent"
           showDevConsole={false}

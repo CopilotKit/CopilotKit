@@ -85,6 +85,7 @@ const minimalSuggestions = [
 export default function OpenGenUiDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui"
       openGenerativeUI={{ designSkill: VISUALIZATION_DESIGN_SKILL }}

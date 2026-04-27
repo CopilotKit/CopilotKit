@@ -24,6 +24,7 @@ export default function BeautifulChatPage() {
   return (
     <ThemeProvider>
       <CopilotKit
+        useLegacyRuntime
         runtimeUrl="/api/copilotkit-beautiful-chat"
         agent="beautiful-chat"
         a2ui={{ catalog: demonstrationCatalog }}

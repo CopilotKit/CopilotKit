@@ -43,7 +43,7 @@ function HashBrownInner() {
   useShowcaseSuggestions();
 
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
+    <CopilotKit useLegacyRuntime runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
       <div className="min-h-screen w-full flex items-center justify-center">
         <SalesDashboard agentId={AGENT_ID} />
         <CopilotSidebar

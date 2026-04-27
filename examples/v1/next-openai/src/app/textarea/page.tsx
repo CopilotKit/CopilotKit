@@ -28,7 +28,7 @@ export default function CopilotTextareaDemo() {
   };
 
   return (
-    <CopilotKit {...copilotKitProps}>
+    <CopilotKit useLegacyRuntime {...copilotKitProps}>
       <TextAreas />
     </CopilotKit>
   );

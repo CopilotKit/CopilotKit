@@ -83,7 +83,7 @@ export default function PanelPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <CopilotKit {...copilotKitProps}>
+      <CopilotKit useLegacyRuntime {...copilotKitProps}>
         <ChatApp />
       </CopilotKit>
     </div>

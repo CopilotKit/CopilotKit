@@ -9,7 +9,11 @@ import {
 
 export default function PrebuiltSidebarDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-sidebar">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="prebuilt-sidebar"
+    >
       <MainContent />
       <CopilotSidebar agentId="prebuilt-sidebar" defaultOpen={true} />
       <Suggestions />

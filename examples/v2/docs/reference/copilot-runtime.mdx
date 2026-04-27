@@ -203,7 +203,7 @@ Allowed `method` values are:
 - `info`
 - `transcribe`
 
-Pair this server endpoint with the React provider flag `<CopilotKitProvider useSingleEndpoint />`.
+Pair this server endpoint with the React provider flag `<CopilotKitProvider useLegacyRuntime />`.
 
 ### Next.js (App Router) with Hono
 
@@ -221,7 +221,7 @@ export const GET = handle(app);
 export const POST = handle(app);
 ```
 
-Swap `createCopilotEndpoint` for `createCopilotEndpointSingleRoute` if you configure the client with `useSingleEndpoint`.
+Swap `createCopilotEndpoint` for `createCopilotEndpointSingleRoute` if you configure the client with `useLegacyRuntime`.
 
 ### Express (REST-style)
 
@@ -251,7 +251,7 @@ app.use(
 );
 ```
 
-Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set `useSingleEndpoint` on the client.
+Single-route Express works identically to the Hono version: send the JSON envelope described earlier, and set `useLegacyRuntime` on the client.
 
 ### NestJS (Express backend)
 
@@ -297,7 +297,7 @@ Available routes (no global prefix):
 - `GET  /api/copilotkit/info`
 - `POST /api/copilotkit/transcribe`
 
-If you prefer the single-route transport, mount the single-route helper instead and set `useSingleEndpoint` on the client:
+If you prefer the single-route transport, mount the single-route helper instead and set `useLegacyRuntime` on the client:
 
 ```ts
 import { createCopilotEndpointSingleRouteExpress } from "@copilotkit/runtime/express";
@@ -336,6 +336,6 @@ Use this to verify deployments and surface diagnostics in your UI.
 
 ## Next Steps
 
-- Configure the React client with `runtimeUrl` (and `useSingleEndpoint` if you chose the single endpoint helper).
+- Configure the React client with `runtimeUrl` (and `useLegacyRuntime` if you chose the single endpoint helper).
 - Register frontend tools with `CopilotKitProvider` so agents can trigger UI actions.
 - Extend the runtime runner or middleware hooks to integrate logging, rate limiting, or background queues.

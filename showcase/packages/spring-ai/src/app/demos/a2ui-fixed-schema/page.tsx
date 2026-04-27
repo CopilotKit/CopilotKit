@@ -28,6 +28,7 @@ import { fixedCatalog } from "./a2ui/catalog";
 export default function A2UIFixedSchemaDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-a2ui-fixed-schema"
       agent="a2ui-fixed-schema"
       a2ui={{ catalog: fixedCatalog }}

@@ -32,7 +32,11 @@ import { ReasoningBlock } from "./reasoning-block";
 // Outer layer — provider + layout chrome.
 export default function AgenticChatReasoningDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic-chat-reasoning">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="agentic-chat-reasoning"
+    >
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />

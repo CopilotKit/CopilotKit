@@ -17,6 +17,7 @@ import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
 export default function ReasoningDefaultRenderDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-reasoning"
       agent="reasoning-default-render"
     >

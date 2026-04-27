@@ -37,7 +37,7 @@ export class AgentRegistry {
   private _runtimeVersion?: string;
   private _runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus =
     CopilotKitCoreRuntimeConnectionStatus.Disconnected;
-  private _runtimeTransport: CopilotRuntimeTransport = "auto";
+  private _runtimeTransport: CopilotRuntimeTransport = "rest";
   private _audioFileTranscriptionEnabled: boolean = false;
   private _runtimeMode: RuntimeMode = RUNTIME_MODE_SSE;
   private _intelligence?: IntelligenceRuntimeInfo;
@@ -337,8 +337,12 @@ export class AgentRegistry {
 
       const message =
         error instanceof Error ? error.message : JSON.stringify(error);
+      const transportHint =
+        this._runtimeTransport === "rest"
+          ? ` If your server uses a single-endpoint runtime, set useLegacyRuntime={true} on your CopilotKitProvider.`
+          : "";
       logger.warn(
-        `Failed to load runtime info (${this.runtimeUrl}/info): ${message}`,
+        `Failed to load runtime info (${this._runtimeTransport} transport, ${this.runtimeUrl}): ${message}.${transportHint}`,
       );
       const runtimeError =
         error instanceof Error ? error : new Error(String(error));
@@ -367,10 +371,6 @@ export class AgentRegistry {
 
     if (this._runtimeTransport === "single") {
       return this.fetchRuntimeInfoSingle(headers, credentials);
-    }
-
-    if (this._runtimeTransport === "auto") {
-      return this.fetchRuntimeInfoAutoDetect(headers, credentials);
     }
 
     // REST transport
@@ -405,40 +405,6 @@ export class AgentRegistry {
       );
     }
     return (await response.json()) as RuntimeInfo;
-  }
-
-  /**
-   * Auto-detect transport by trying REST first, then falling back to single-endpoint.
-   * Updates `_runtimeTransport` to the detected value so subsequent requests use it directly.
-   */
-  private async fetchRuntimeInfoAutoDetect(
-    headers: Record<string, string>,
-    credentials: RequestCredentials | undefined,
-  ): Promise<RuntimeInfo> {
-    // Try REST first (GET /info)
-    try {
-      const response = await fetch(`${this.runtimeUrl}/info`, {
-        headers: { ...headers },
-        ...(credentials ? { credentials } : {}),
-      });
-      // Only treat a successful (2xx) response as a valid REST runtime.
-      // 404/405 means the endpoint doesn't exist; other non-2xx errors
-      // (500, 403, etc.) should also fall through to single-endpoint.
-      if (response.status >= 200 && response.status < 300) {
-        this._runtimeTransport = "rest";
-        return (await response.json()) as RuntimeInfo;
-      }
-      // Non-2xx — try single-endpoint below
-    } catch {
-      // REST failed (network error, etc.) — fall through to single-endpoint attempt
-    }
-
-    const result = await this.fetchRuntimeInfoSingle(
-      { ...headers },
-      credentials,
-    );
-    this._runtimeTransport = "single";
-    return result;
   }
 
   /**

@@ -59,7 +59,6 @@ export default function App() {
         runtimeUrl={runtimeUrl}
         a2ui={{ catalog: demonstrationCatalog }}
         openGenerativeUI={{}}
-        useSingleEndpoint={false}
       >
         <HomePage />
       </CopilotKitProvider>

@@ -77,7 +77,11 @@ const INITIAL_STATE: RecipeAgentState = {
 
 export default function SharedStateReadDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="shared-state-read">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="shared-state-read"
+    >
       <div className="min-h-screen w-full flex items-center justify-center">
         <Recipe />
         <CopilotSidebar

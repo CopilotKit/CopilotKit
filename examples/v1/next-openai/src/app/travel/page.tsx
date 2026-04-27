@@ -26,7 +26,7 @@ export default function PanelPage() {
   };
 
   return (
-    <CopilotKit {...copilotKitProps}>
+    <CopilotKit useLegacyRuntime {...copilotKitProps}>
       <TravelPlanner />
     </CopilotKit>
   );

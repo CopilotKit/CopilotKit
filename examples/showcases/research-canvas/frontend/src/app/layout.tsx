@@ -33,6 +33,7 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${lato.variable} ${noto.className} antialiased h-full`}>
         <CopilotKit
+          useLegacyRuntime
           publicApiKey={process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY} // if using copilot cloud
           runtimeUrl={
             process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY

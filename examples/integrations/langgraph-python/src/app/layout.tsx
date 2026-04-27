@@ -24,11 +24,11 @@ export default function RootLayout({
       <body className={`antialiased`}>
         <ThemeProvider>
           <CopilotKit
+            useLegacyRuntime
             runtimeUrl="/api/copilotkit"
             inspectorDefaultAnchor={{ horizontal: "right", vertical: "top" }}
             a2ui={{ catalog: demonstrationCatalog }}
             openGenerativeUI={{}}
-            useSingleEndpoint={false}
           >
             {children}
           </CopilotKit>

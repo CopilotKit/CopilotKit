@@ -300,6 +300,7 @@ export default function TravelChat({
 }: TravelChatProps) {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       showDevConsole={false}
       agent="a2a_chat"

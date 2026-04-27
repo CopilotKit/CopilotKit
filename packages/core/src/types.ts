@@ -15,7 +15,7 @@ export enum ToolCallStatus {
   Complete = "complete",
 }
 
-export type CopilotRuntimeTransport = "rest" | "single" | "auto";
+export type CopilotRuntimeTransport = "rest" | "single";
 export type { RuntimeMode, IntelligenceRuntimeInfo, RuntimeLicenseStatus };
 
 /**

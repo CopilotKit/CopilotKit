@@ -48,6 +48,7 @@ function parseJsonResult<T>(result: unknown): T {
 export default function ToolRenderingReasoningChainDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-reasoning-chain"
     >

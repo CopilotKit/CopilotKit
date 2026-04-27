@@ -13,7 +13,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <CopilotKit runtimeUrl="/api/copilotkit" showDevConsole={false}>
+        <CopilotKit
+          useLegacyRuntime
+          runtimeUrl="/api/copilotkit"
+          showDevConsole={false}
+        >
           <GlobalStateProvider>
             <div className="h-screen w-screen grid grid-cols-[40fr,60fr] p-10 gap-5">
               <div className="overflow-y-auto rounded-xl border">

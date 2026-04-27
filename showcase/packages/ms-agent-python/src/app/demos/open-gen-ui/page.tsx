@@ -113,6 +113,7 @@ export default function OpenGenUiDemo() {
   // guidance in place of the default shadcn design skill.
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui"
       openGenerativeUI={{ designSkill: VISUALIZATION_DESIGN_SKILL }}

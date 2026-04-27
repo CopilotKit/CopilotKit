@@ -26,6 +26,7 @@ import {
 export default function ToolRenderingDefaultCatchallDemo() {
   return (
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit"
       agent="tool-rendering-default-catchall"
     >

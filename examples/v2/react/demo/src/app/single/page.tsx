@@ -38,7 +38,7 @@ export default function SingleEndpointDemo() {
   return (
     <CopilotKitProvider
       runtimeUrl="/api/copilotkit-single"
-      useSingleEndpoint
+      useLegacyRuntime
       renderToolCalls={[wildcardRenderer]}
       showDevConsole="auto"
     >

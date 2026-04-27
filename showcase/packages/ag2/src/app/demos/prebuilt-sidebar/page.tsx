@@ -11,7 +11,11 @@ import {
 export default function PrebuiltSidebarDemo() {
   return (
     // @region[sidebar-basic-setup]
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt-sidebar">
+    <CopilotKit
+      useLegacyRuntime
+      runtimeUrl="/api/copilotkit"
+      agent="prebuilt-sidebar"
+    >
       <MainContent />
       {/* @region[sidebar-configuration] */}
       <CopilotSidebar agentId="prebuilt-sidebar" defaultOpen={true} />

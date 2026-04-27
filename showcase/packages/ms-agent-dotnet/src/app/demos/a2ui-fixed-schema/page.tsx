@@ -30,6 +30,7 @@ export default function A2UIFixedSchemaDemo() {
   return (
     // `a2ui.catalog` wires the fixed catalog into the A2UI activity renderer.
     <CopilotKit
+      useLegacyRuntime
       runtimeUrl="/api/copilotkit-a2ui-fixed-schema"
       agent="a2ui-fixed-schema"
       a2ui={{ catalog: fixedCatalog }}

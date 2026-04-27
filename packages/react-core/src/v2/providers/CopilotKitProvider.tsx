@@ -132,7 +132,21 @@ export interface CopilotKitProviderProps {
    */
   licenseToken?: string;
   properties?: Record<string, unknown>;
+  /**
+   * @deprecated Use `useLegacyRuntime` instead.
+   * When `true`, all runtime calls use a single POST endpoint with a JSON envelope
+   * (the legacy single-endpoint transport). When `false` or omitted, the modern
+   * multi-endpoint REST transport is used.
+   */
   useSingleEndpoint?: boolean;
+  /**
+   * When `true`, uses the legacy single-endpoint transport (all runtime calls go
+   * through a single POST endpoint with a JSON envelope). When `false` or omitted,
+   * the modern multi-endpoint REST transport is used (default).
+   *
+   * This replaces the deprecated `useSingleEndpoint` prop.
+   */
+  useLegacyRuntime?: boolean;
   agents__unsafe_dev_only?: Record<string, AbstractAgent>;
   selfManagedAgents?: Record<string, AbstractAgent>;
   renderToolCalls?: ReactToolCallRenderer<any>[];
@@ -284,6 +298,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
   openGenerativeUI,
   showDevConsole = false,
   useSingleEndpoint,
+  useLegacyRuntime,
   onError,
   a2ui,
   defaultThrottleMs,
@@ -540,18 +555,39 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     processedHumanInTheLoopTools,
   ]);
 
+  // Resolve transport: useLegacyRuntime takes precedence over deprecated useSingleEndpoint.
+  const resolvedTransport = useMemo(() => {
+    if (useLegacyRuntime !== undefined) {
+      return useLegacyRuntime ? "single" : "rest";
+    }
+    if (useSingleEndpoint !== undefined) {
+      return useSingleEndpoint ? "single" : "rest";
+    }
+    return "rest";
+  }, [useLegacyRuntime, useSingleEndpoint]);
+
+  const hasWarnedConflictRef = useRef(false);
+  useEffect(() => {
+    if (
+      !hasWarnedConflictRef.current &&
+      useLegacyRuntime !== undefined &&
+      useSingleEndpoint !== undefined
+    ) {
+      hasWarnedConflictRef.current = true;
+      console.warn(
+        "[CopilotKit] Both `useLegacyRuntime` and `useSingleEndpoint` are set. " +
+          "`useLegacyRuntime` takes precedence. Remove `useSingleEndpoint` to silence this warning.",
+      );
+    }
+  }, [useLegacyRuntime, useSingleEndpoint]);
+
   // Stable instance: created once for the provider lifetime.
   // Updates are applied via setter effects below rather than recreating the instance.
   const copilotkitRef = useRef<CopilotKitCoreReact | null>(null);
   if (copilotkitRef.current === null) {
     copilotkitRef.current = new CopilotKitCoreReact({
       runtimeUrl: chatApiEndpoint,
-      runtimeTransport:
-        useSingleEndpoint === true
-          ? "single"
-          : useSingleEndpoint === false
-            ? "rest"
-            : "auto",
+      runtimeTransport: resolvedTransport,
       headers: mergedHeaders,
       credentials,
       properties,
@@ -661,13 +697,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
 
   useEffect(() => {
     copilotkit.setRuntimeUrl(chatApiEndpoint);
-    copilotkit.setRuntimeTransport(
-      useSingleEndpoint === true
-        ? "single"
-        : useSingleEndpoint === false
-          ? "rest"
-          : "auto",
-    );
+    copilotkit.setRuntimeTransport(resolvedTransport);
     copilotkit.setHeaders(mergedHeaders);
     copilotkit.setCredentials(credentials);
     copilotkit.setProperties(properties);
@@ -680,7 +710,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
     credentials,
     properties,
     mergedAgents,
-    useSingleEndpoint,
+    resolvedTransport,
     debug,
   ]);
 
