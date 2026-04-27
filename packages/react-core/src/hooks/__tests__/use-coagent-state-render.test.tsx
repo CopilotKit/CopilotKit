@@ -1,6 +1,7 @@
 import { vi, type Mock } from "vitest";
 import React, { type ReactNode } from "react";
-import { render, renderHook, waitFor } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
+import { renderHook } from "../../test-helpers/render-hook";
 import { useCoAgentStateRender } from "../use-coagent-state-render";
 import type { CoAgentStateRender } from "../../types/coagent-action";
 import {

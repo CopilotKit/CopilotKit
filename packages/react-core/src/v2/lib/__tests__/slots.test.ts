@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import { describe, it, expect } from "vitest";
 import { useShallowStableRef } from "../slots";
 

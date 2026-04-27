@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import React, {
-  useRef,
-  useSyncExternalStore,
-  useCallback,
-  memo,
-  useEffect,
-} from "react";
+import React, { useRef, useCallback, memo, useEffect } from "react";
+// Shim for React 17 compat (no native useSyncExternalStore on R17); do not
+// replace with react's built-in export.
+import { useSyncExternalStore } from "use-sync-external-store/shim";
 import { type ComponentContext, GenericBinder } from "@a2ui/web_core/v0_9";
 import type {
   ComponentApi,

@@ -1,5 +1,6 @@
 import React from "react";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, waitFor } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 import { CopilotKitCoreRuntimeConnectionStatus } from "@copilotkit/core";

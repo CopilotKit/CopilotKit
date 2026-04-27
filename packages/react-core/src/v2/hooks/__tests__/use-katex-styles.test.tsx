@@ -1,4 +1,4 @@
-import { renderHook } from "@testing-library/react";
+import { renderHook } from "../../../test-helpers/render-hook";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock the katex CSS import globally

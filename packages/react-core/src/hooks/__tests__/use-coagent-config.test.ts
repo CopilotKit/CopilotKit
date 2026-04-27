@@ -1,5 +1,6 @@
 import { vi } from "vitest";
-import { renderHook, waitFor } from "@testing-library/react";
+import { waitFor } from "@testing-library/react";
+import { renderHook } from "../../test-helpers/render-hook";
 import { useCoAgent } from "../use-coagent";
 import type { AgentSubscriber } from "@ag-ui/client";
 
