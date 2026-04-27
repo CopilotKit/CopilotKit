@@ -537,6 +537,144 @@ describe("e2e-deep driver", () => {
     expect(sig.errorDesc).toBe("launcher-error");
     expect(sig.failureSummary).toMatch(/chromium launch failed/);
   });
+
+  it("derives features from demos[] when explicit features are absent", async () => {
+    // Production discovery (`railway-services`) populates `demos`
+    // with registry feature IDs; the driver maps them to D5 feature
+    // types via `demosToFeatureTypes`. Use the registry → D5 mapping
+    // to drive a service whose declared `demos[]` carry IDs that
+    // DON'T match a D5 type verbatim:
+    //   - `tool-rendering-default-catchall` → `tool-rendering`
+    //   - `shared-state-read-write` → BOTH `shared-state-read` AND
+    //     `shared-state-write` (one-to-many)
+    //   - `voice` is unmapped and silently dropped.
+    // Only the shared-state script is registered, so
+    // `tool-rendering` lands in `skipped[]` — the test exercises
+    // both the mapping AND the closed-set filter without paying
+    // the per-feature ~1.5s settle window for every demo.
+    registerD5Script(
+      makeScript({
+        featureTypes: ["shared-state-read", "shared-state-write"],
+        fixtureFile: "shared-state.json",
+      }),
+    );
+
+    const { browser } = makeBrowser([{}, {}]);
+    const driver = createE2eDeepDriver({
+      launcher: async () => browser,
+      scriptLoader: async () => {
+        /* registry already populated above */
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-deep:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      // No `features` field — production discovery shape.
+      demos: [
+        "tool-rendering-default-catchall", // → tool-rendering (skipped, no script)
+        "shared-state-read-write", // → shared-state-read + shared-state-write (run)
+        "voice", // unmapped → dropped
+      ],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eDeepAggregateSignal;
+    // 3 mapped D5 types: tool-rendering (skipped) + shared-state-read
+    // + shared-state-write (both run). `voice` was dropped before
+    // counting.
+    expect(sig.total).toBe(3);
+    expect(sig.passed).toBe(2);
+    expect(sig.failed).toEqual([]);
+    expect(sig.skipped).toEqual(["tool-rendering"]);
+
+    const sideKeys = writes.map((w) => w.key).sort();
+    expect(sideKeys).toEqual([
+      "d5:langgraph-python/shared-state-read",
+      "d5:langgraph-python/shared-state-write",
+      "d5:langgraph-python/tool-rendering",
+    ]);
+  });
+
+  it("explicit features wins over demos when both are present", async () => {
+    // Tests pass `features` directly. Verify the demos fallback is
+    // NOT consulted when `features` carries entries — otherwise the
+    // existing test suite's `features: [...]` calls would silently
+    // pull in extra D5 types from a populated `demos` field.
+    registerD5Script(
+      makeScript({
+        featureTypes: ["agentic-chat"],
+        fixtureFile: "agentic-chat.json",
+      }),
+    );
+
+    const { browser } = makeBrowser([{}]);
+    const driver = createE2eDeepDriver({
+      launcher: async () => browser,
+      scriptLoader: async () => {
+        /* registry already populated above */
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-deep:showcase-langgraph-python",
+      publicUrl: "https://showcase-langgraph-python.example.com",
+      name: "showcase-langgraph-python",
+      features: ["agentic-chat"],
+      // demos would normally add tool-rendering + more — overridden
+      // by explicit features, so the driver runs only agentic-chat.
+      demos: ["tool-rendering", "hitl-in-app", "shared-state-read-write"],
+      shape: "package",
+    });
+
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eDeepAggregateSignal;
+    expect(sig.total).toBe(1);
+    expect(sig.passed).toBe(1);
+    expect(writes.map((w) => w.key)).toEqual([
+      "d5:langgraph-python/agentic-chat",
+    ]);
+  });
+
+  it("short-circuits 'no D5 features declared' when both demos and features are empty", async () => {
+    // Both empty: discovery emitted a record with neither field
+    // populated (e.g. unmapped service whose slug isn't in
+    // registry.json). The driver must still take the no-op green
+    // path WITHOUT launching chromium — otherwise we pay the launch
+    // cost on every unmapped service.
+    let launched = false;
+    const driver = createE2eDeepDriver({
+      launcher: async () => {
+        launched = true;
+        const { browser } = makeBrowser([{}]);
+        return browser;
+      },
+      scriptLoader: async () => {
+        /* registry stays empty */
+      },
+    });
+    const { writer, writes } = mkWriter();
+
+    const result = await driver.run(mkCtx(writer), {
+      key: "e2e-deep:showcase-mystery",
+      publicUrl: "https://showcase-mystery.example.com",
+      name: "showcase-mystery",
+      features: [],
+      demos: [],
+      shape: "package",
+    });
+
+    expect(launched).toBe(false);
+    expect(result.state).toBe("green");
+    const sig = result.signal as E2eDeepAggregateSignal;
+    expect(sig.total).toBe(0);
+    expect(sig.note).toMatch(/no D5 features declared/);
+    expect(writes).toEqual([]);
+  });
 });
 
 describe("D5_SCRIPT_FILE_MATCHER", () => {

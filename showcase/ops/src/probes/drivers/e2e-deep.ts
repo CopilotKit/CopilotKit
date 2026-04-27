@@ -10,6 +10,7 @@ import {
   type D5FeatureType,
   type D5Script,
 } from "../helpers/d5-registry.js";
+import { demosToFeatureTypes } from "../helpers/d5-feature-mapping.js";
 import {
   runConversation,
   type ConversationResult,
@@ -61,8 +62,24 @@ const inputSchema = z
      * The list of D5 feature types the integration declares. Driver
      * fans out over this list. Empty / absent → aggregate-green
      * short-circuit, no chromium launched.
+     *
+     * Tests pass `features` directly. Production discovery
+     * (`railway-services`) populates `demos: string[]` (registry
+     * feature IDs) instead — the driver maps `demos` → `features`
+     * via `demosToFeatureTypes` BEFORE the `requestedFeatures`
+     * filter when `features` is empty/absent. Explicit `features`
+     * always wins so test fixtures never interact with the demos
+     * mapping.
      */
     features: z.array(z.string()).optional(),
+    /**
+     * Registry-feature-id list, populated by the `railway-services`
+     * discovery source from `feature-registry.json` joined by
+     * integration slug. Used as a fallback source for `features`
+     * via `demosToFeatureTypes` when `features` is empty/absent —
+     * see the import site for the mapping table.
+     */
+    demos: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
   })
   .passthrough()
@@ -360,13 +377,25 @@ export function createE2eDeepDriver(
         };
       }
 
-      // Filter the integration's declared features to known D5 feature
-      // types. Anything else (e.g. legacy `e2e-features` ids that map
-      // to demo routes but not to a D5 conversation) is silently
-      // dropped — D5 covers a closed set.
-      const requestedFeatures = (input.features ?? []).filter(
-        isKnownFeatureType,
-      );
+      // Resolve the feature list. Explicit `features` (from tests or a
+      // hand-authored YAML target) wins; otherwise translate the
+      // discovery-supplied `demos[]` (registry feature IDs) into D5
+      // feature types via `demosToFeatureTypes`. Without this fallback
+      // production discovery records — which carry `demos` but never
+      // `features` — would always short-circuit "no D5 features
+      // declared" green even on services with full demo coverage.
+      const featuresFromInput = input.features ?? [];
+      const featureSource: readonly string[] =
+        featuresFromInput.length > 0
+          ? featuresFromInput
+          : demosToFeatureTypes(input.demos ?? []);
+
+      // Filter to the known D5 feature-type set. The mapping output is
+      // already typed `D5FeatureType[]`, but explicit `features` may
+      // carry legacy / typo strings that aren't in the closed enum —
+      // run the same filter for both code paths so behaviour stays
+      // uniform.
+      const requestedFeatures = featureSource.filter(isKnownFeatureType);
 
       if (requestedFeatures.length === 0) {
         return {
