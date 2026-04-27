@@ -19,8 +19,13 @@ import CopilotChatSuggestionView, {
 } from "./CopilotChatSuggestionView";
 import type { Suggestion } from "@copilotkit/core";
 import type { Message } from "@ag-ui/core";
-import type { Attachment } from "@copilotkit/shared";
+import type { Attachment, InputContent } from "@copilotkit/shared";
 import { CopilotChatAttachmentQueue } from "./CopilotChatAttachmentQueue";
+import { CopilotChatMessageQueue } from "./CopilotChatMessageQueue";
+import type {
+  QueuedMessage,
+  MessageQueueDispatchMode,
+} from "../../hooks/use-message-queue";
 import { twMerge } from "tailwind-merge";
 import {
   StickToBottom,
@@ -59,6 +64,7 @@ export type CopilotChatViewProps = WithSlots<
     scrollView: typeof CopilotChatView.ScrollView;
     input: typeof CopilotChatInput;
     suggestionView: typeof CopilotChatSuggestionView;
+    messageQueue: typeof CopilotChatMessageQueue;
   },
   {
     messages?: Message[];
@@ -108,6 +114,17 @@ export type CopilotChatViewProps = WithSlots<
      * ```
      */
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
+    // Message queue props
+    queuedMessages?: QueuedMessage[];
+    onQueueEdit?: (id: string, content: InputContent[]) => void;
+    onQueueRemove?: (id: string) => void;
+    onQueueMoveUp?: (id: string) => void;
+    onQueueMoveDown?: (id: string) => void;
+    onQueueSendNow?: (id: string) => void;
+    messageQueueDispatch?: MessageQueueDispatchMode;
+    // Forwarded to the input slot
+    queueEnabled?: boolean;
+    hasDrainableQueue?: boolean;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
 
@@ -134,6 +151,7 @@ export function CopilotChatView({
   input,
   scrollView,
   suggestionView,
+  messageQueue: providedMessageQueue,
   welcomeScreen,
   messages = [],
   autoScroll = true,
@@ -159,6 +177,16 @@ export function CopilotChatView({
   onDragOver,
   onDragLeave,
   onDrop,
+  // Message queue props
+  queuedMessages = [],
+  onQueueEdit,
+  onQueueRemove,
+  onQueueMoveUp,
+  onQueueMoveDown,
+  onQueueSendNow,
+  messageQueueDispatch = "sequential",
+  queueEnabled = false,
+  hasDrainableQueue = false,
   isConnecting = false,
   hasExplicitThreadId = false,
   // Deprecated — forwarded to input slot
@@ -176,7 +204,9 @@ export function CopilotChatView({
   const { isKeyboardOpen, keyboardHeight, availableHeight } =
     useKeyboardHeight();
 
-  // Track input container height changes
+  // Track input container height changes — the overlay wraps the message
+  // queue, attachment queue, and input, so this covers the combined height
+  // needed by the scroll-to-bottom button + feather offsets.
   useEffect(() => {
     const element = inputContainerRef.current;
     if (!element) return;
@@ -184,39 +214,28 @@ export function CopilotChatView({
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const newHeight = entry.contentRect.height;
-
-        // Update height and set resizing state
-        setInputContainerHeight((prevHeight) => {
-          if (newHeight !== prevHeight) {
+        setInputContainerHeight((prev) => {
+          if (newHeight !== prev) {
             setIsResizing(true);
-
-            // Clear existing timeout
-            if (resizeTimeoutRef.current) {
+            if (resizeTimeoutRef.current)
               clearTimeout(resizeTimeoutRef.current);
-            }
-
-            // Set isResizing to false after a short delay
-            resizeTimeoutRef.current = setTimeout(() => {
-              setIsResizing(false);
-            }, 250);
-
+            resizeTimeoutRef.current = setTimeout(
+              () => setIsResizing(false),
+              250,
+            );
             return newHeight;
           }
-          return prevHeight;
+          return prev;
         });
       }
     });
 
     resizeObserver.observe(element);
-
-    // Set initial height
     setInputContainerHeight(element.offsetHeight);
 
     return () => {
       resizeObserver.disconnect();
-      if (resizeTimeoutRef.current) {
-        clearTimeout(resizeTimeoutRef.current);
-      }
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
     };
   }, []);
 
@@ -245,8 +264,23 @@ export function CopilotChatView({
     // inside CopilotChatInput. The welcome-screen input (below) intentionally
     // omits this flag.
     bottomAnchored: true,
+    queueEnabled,
+    hasDrainableQueue,
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
+
+  const BoundMessageQueue =
+    queuedMessages.length > 0
+      ? renderSlot(providedMessageQueue, CopilotChatMessageQueue, {
+          messages: queuedMessages,
+          onEdit: onQueueEdit ?? (() => {}),
+          onRemove: onQueueRemove ?? (() => {}),
+          onMoveUp: onQueueMoveUp ?? (() => {}),
+          onMoveDown: onQueueMoveDown ?? (() => {}),
+          onSendNow: onQueueSendNow,
+          dispatch: messageQueueDispatch,
+        })
+      : null;
 
   // Hide suggestions while a thread is connecting or a run is in flight.
   // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
@@ -317,6 +351,8 @@ export function CopilotChatView({
       onAddFile,
       positioning: "static",
       showDisclaimer: true,
+      queueEnabled,
+      hasDrainableQueue,
       ...(disclaimer !== undefined ? { disclaimer } : {}),
     } as CopilotChatInputProps);
 
@@ -324,9 +360,10 @@ export function CopilotChatView({
     const welcomeScreenSlot = (
       welcomeScreen === true ? undefined : welcomeScreen
     ) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
-    // Wrap the input with attachment queue above it
+    // Wrap the input with message queue + attachment queue above it
     const inputWithAttachments = (
       <div className="cpk:w-full">
+        {BoundMessageQueue}
         {attachments && attachments.length > 0 && (
           <CopilotChatAttachmentQueue
             attachments={attachments}
@@ -402,13 +439,18 @@ export function CopilotChatView({
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
-        {attachments && attachments.length > 0 && (
-          <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">
-            <CopilotChatAttachmentQueue
-              attachments={attachments}
-              onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
-              className="cpk:px-4"
-            />
+        {(BoundMessageQueue || (attachments && attachments.length > 0)) && (
+          <div className="cpk:bg-background cpk:w-full cpk:pointer-events-auto">
+            <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
+              {BoundMessageQueue}
+              {attachments && attachments.length > 0 && (
+                <CopilotChatAttachmentQueue
+                  attachments={attachments}
+                  onRemoveAttachment={(id) => onRemoveAttachment?.(id)}
+                  className="cpk:px-4"
+                />
+              )}
+            </div>
           </div>
         )}
         {BoundInput}

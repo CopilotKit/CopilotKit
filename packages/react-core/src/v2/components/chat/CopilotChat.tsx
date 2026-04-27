@@ -37,6 +37,8 @@ import {
   LastUserMessageContext,
   type LastUserMessageState,
 } from "./last-user-message-context";
+import { useMessageQueue } from "../../hooks/use-message-queue";
+import type { MessageQueueDispatchMode } from "../../hooks/use-message-queue";
 
 export type CopilotChatProps = Omit<
   CopilotChatViewProps,
@@ -53,6 +55,16 @@ export type CopilotChatProps = Omit<
   | "onDragOver"
   | "onDragLeave"
   | "onDrop"
+  // Queue state props — managed internally based on `messageQueueOptions`
+  | "queuedMessages"
+  | "onQueueEdit"
+  | "onQueueRemove"
+  | "onQueueMoveUp"
+  | "onQueueMoveDown"
+  | "onQueueSendNow"
+  | "messageQueueDispatch"
+  | "queueEnabled"
+  | "hasDrainableQueue"
 > & {
   agentId?: string;
   threadId?: string;
@@ -61,6 +73,16 @@ export type CopilotChatProps = Omit<
   isModalDefaultOpen?: boolean;
   /** Enable multimodal file attachments (images, audio, video, documents). */
   attachments?: AttachmentsConfig;
+  /**
+   * Message queue configuration. When `enabled`, users can submit messages
+   * while the assistant is generating; queued messages appear as pills above
+   * the input and dispatch based on `dispatch` mode.
+   */
+  messageQueueOptions?: {
+    enabled?: boolean;
+    dispatch?: MessageQueueDispatchMode;
+    maxSize?: number;
+  };
   /**
    * Error handler scoped to this chat's agent. Fires in addition to the
    * provider-level onError (does not suppress it). Receives only errors
@@ -91,6 +113,7 @@ export function CopilotChat({
   chatView,
   isModalDefaultOpen,
   attachments: attachmentsConfig,
+  messageQueueOptions,
   onError,
   throttleMs,
   ...props
@@ -190,6 +213,33 @@ export function CopilotChat({
     removeAttachment,
     consumeAttachments,
   } = useAttachments({ config: attachmentsConfig });
+
+  // Message queue (opt-in via messageQueueOptions.enabled)
+  const messageQueue = useMessageQueue({
+    enabled: messageQueueOptions?.enabled ?? false,
+    dispatch: messageQueueOptions?.dispatch ?? "sequential",
+    maxSize: messageQueueOptions?.maxSize,
+    isRunning: agent.isRunning,
+    onDrain: async (content) => {
+      agent.addMessage({
+        id: randomUUID(),
+        role: "user",
+        content,
+      });
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch (error) {
+        console.error("CopilotChat: runAgent failed draining queue", error);
+      }
+    },
+  });
+
+  // Clear the queue when the agent (thread) changes — queued messages belong
+  // to the previous conversation and should not leak across threads.
+  useEffect(() => {
+    messageQueue.clear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent]);
 
   // Check if transcription is enabled
   const isTranscriptionEnabled = copilotkit.audioFileTranscriptionEnabled;
@@ -296,14 +346,16 @@ export function CopilotChat({
       }
 
       const readyAttachments = consumeAttachments();
+      const trimmed = value.trim();
+      const hasText = trimmed.length > 0;
+      const hasAttachments = readyAttachments.length > 0;
+      const hasContent = hasText || hasAttachments;
 
-      if (readyAttachments.length > 0) {
-        const contentParts: InputContent[] = [];
-        if (value.trim()) {
-          contentParts.push({ type: "text", text: value });
-        }
+      const buildContentParts = (): InputContent[] => {
+        const parts: InputContent[] = [];
+        if (hasText) parts.push({ type: "text", text: value });
         for (const att of readyAttachments) {
-          contentParts.push({
+          parts.push({
             type: att.type,
             source: att.source,
             metadata: {
@@ -312,10 +364,44 @@ export function CopilotChat({
             },
           } as InputContent);
         }
+        return parts;
+      };
+
+      const queueOn = messageQueueOptions?.enabled ?? false;
+      const dispatchMode = messageQueueOptions?.dispatch ?? "sequential";
+
+      // Manual-mode drain: empty Send click + queue non-empty + agent idle
+      if (
+        queueOn &&
+        dispatchMode === "manual" &&
+        !hasContent &&
+        !agent.isRunning &&
+        messageQueue.items.length > 0
+      ) {
+        messageQueue.sendNow(messageQueue.items[0].id);
+        setInputValue("");
+        return;
+      }
+
+      // Enqueue while the agent is generating
+      if (queueOn && agent.isRunning && hasContent) {
+        const parts = buildContentParts();
+        // Always store as InputContent[] for consistent merging semantics
+        messageQueue.enqueue(
+          parts.length > 0 ? parts : [{ type: "text", text: value }],
+        );
+        setInputValue("");
+        return;
+      }
+
+      // Normal send path (existing behavior)
+      if (!hasContent) return;
+
+      if (hasAttachments) {
         agent.addMessage({
           id: randomUUID(),
           role: "user",
-          content: contentParts,
+          content: buildContentParts(),
         });
       } else {
         agent.addMessage({
@@ -335,7 +421,14 @@ export function CopilotChat({
     },
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [agent, selectedAttachments, consumeAttachments],
+    [
+      agent,
+      selectedAttachments,
+      consumeAttachments,
+      messageQueue,
+      messageQueueOptions?.enabled,
+      messageQueueOptions?.dispatch,
+    ],
   );
 
   const handleSelectSuggestion = useCallback(
@@ -603,6 +696,20 @@ export function CopilotChat({
     onDragOver: handleDragOver,
     onDragLeave: handleDragLeave,
     onDrop: handleDrop,
+    // Message queue props
+    queuedMessages: messageQueue.items,
+    onQueueEdit: messageQueue.editAt,
+    onQueueRemove: messageQueue.removeAt,
+    onQueueMoveUp: messageQueue.moveUp,
+    onQueueMoveDown: messageQueue.moveDown,
+    onQueueSendNow: messageQueue.sendNow,
+    messageQueueDispatch: messageQueueOptions?.dispatch ?? "sequential",
+    queueEnabled: messageQueueOptions?.enabled ?? false,
+    hasDrainableQueue:
+      (messageQueueOptions?.enabled ?? false) &&
+      (messageQueueOptions?.dispatch ?? "sequential") === "manual" &&
+      !agent.isRunning &&
+      messageQueue.items.length > 0,
     isConnecting,
     hasExplicitThreadId,
   };

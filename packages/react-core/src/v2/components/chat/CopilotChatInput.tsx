@@ -100,6 +100,17 @@ type CopilotChatInputRestProps = {
    * welcome screen, where the banner offset would push the input off-center.
    */
   bottomAnchored?: boolean;
+  /**
+   * Enables queue-aware send behavior. When `true` AND `isRunning` AND the
+   * input has content, the primary button shows Send (not Stop) — clicking
+   * invokes `onSubmitMessage(value)` which the parent routes to the queue.
+   */
+  queueEnabled?: boolean;
+  /**
+   * When `true`, Send is enabled even with empty input. Used by manual-mode
+   * queue drain: parent observes an empty-input Send and drains the queue head.
+   */
+  hasDrainableQueue?: boolean;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, "onChange">;
 
 type CopilotChatInputBaseProps = WithSlots<
@@ -144,6 +155,8 @@ export function CopilotChatInput({
   containerRef,
   showDisclaimer,
   bottomAnchored = false,
+  queueEnabled = false,
+  hasDrainableQueue = false,
   textArea,
   sendButton,
   startTranscribeButton,
@@ -469,7 +482,7 @@ export function CopilotChatInput({
       return;
     }
     const trimmed = resolvedValue.trim();
-    if (!trimmed) {
+    if (!trimmed && !hasDrainableQueue) {
       return;
     }
 
@@ -505,8 +518,10 @@ export function CopilotChatInput({
     ),
   });
 
-  const isProcessing = mode !== "transcribe" && isRunning;
-  const canSend = resolvedValue.trim().length > 0 && !!onSubmitMessage;
+  const hasInputContent = resolvedValue.trim().length > 0;
+  const canSend = (hasInputContent || hasDrainableQueue) && !!onSubmitMessage;
+  const isProcessing =
+    mode !== "transcribe" && isRunning && !(queueEnabled && hasInputContent);
   const canStop = !!onStop;
 
   const handleSendButtonClick = () => {
