@@ -129,7 +129,7 @@ describe("d5-hitl-text-input preNavigateRoute branching", () => {
     ).toBe("/demos/hitl-in-chat");
     expect(
       mod.preNavigateRoute("hitl-text-input", { demos: ["gen-ui-interrupt"] }),
-    ).toBe("/demos/hitl-in-chat");
+    ).toBe("/demos/gen-ui-interrupt");
   });
 
   it("returns /demos/hitl when only the legacy hitl id is declared", async () => {

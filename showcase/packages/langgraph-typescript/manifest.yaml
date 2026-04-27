@@ -40,11 +40,8 @@ features:
   - tool-rendering-reasoning-chain
   - agentic-chat-reasoning
   - reasoning-default-render
-  - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read-write
   - shared-state-streaming
-  - subagents
   - beautiful-chat
   - prebuilt-sidebar
   - prebuilt-popup
@@ -62,7 +59,6 @@ features:
   - mcp-apps
   - frontend-tools
   - frontend-tools-async
-  - hitl-in-app
   - readonly-state-agent-context
   - voice
   - byoc-hashbrown
@@ -91,13 +87,6 @@ demos:
       - agent-capabilities
     route: /demos/tool-rendering
     animated_preview_url:
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -105,26 +94,12 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
     tags:
       - agent-state
     route: /demos/shared-state-streaming
-    animated_preview_url:
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
     animated_preview_url:
   - id: beautiful-chat
     name: Beautiful Chat
@@ -373,18 +348,6 @@ demos:
       - src/agent/frontend-tools-async.ts
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agent/hitl-in-app.ts
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)

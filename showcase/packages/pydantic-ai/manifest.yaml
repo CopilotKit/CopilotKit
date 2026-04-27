@@ -35,17 +35,14 @@ features:
   - headless-simple
   - frontend-tools
   - frontend-tools-async
-  - hitl-in-chat
+  - hitl
   - hitl-in-app
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
-  - subagents
   - open-gen-ui
   - open-gen-ui-advanced
   - declarative-gen-ui
@@ -158,7 +155,7 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat
+  - id: hitl
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
     tags:
@@ -215,17 +212,6 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/gen-ui-tool-based/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -236,17 +222,6 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/gen-ui-agent/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/shared-state-read-write/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
@@ -269,17 +244,6 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/readonly-state-agent-context/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/subagents/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: open-gen-ui
     name: Open Generative UI (Minimal)

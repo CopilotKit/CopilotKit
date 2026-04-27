@@ -39,9 +39,7 @@ features:
   - reasoning-default-render
   - frontend-tools
   - frontend-tools-async
-  - gen-ui-tool-based
-  - hitl-in-chat
-  - hitl-in-app
+  - hitl
   - gen-ui-interrupt
   - interrupt-headless
   - declarative-gen-ui
@@ -52,10 +50,8 @@ features:
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-reasoning-chain
-  - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
-  - subagents
   - multimodal
   - auth
   - byoc-hashbrown
@@ -140,38 +136,19 @@ demos:
       - src/app/demos/frontend-tools-async/page.tsx
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl-in-chat
+  - id: hitl
     name: In-Chat Human in the Loop
     description: User approves agent actions before execution
     tags:
       - interactivity
     route: /demos/hitl
     animated_preview_url:
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agents/hitl_in_app_agent.py
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
-      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Backend agent tools rendered as UI components
     tags:
       - agent-capabilities
     route: /demos/tool-rendering
-    animated_preview_url:
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
     animated_preview_url:
   - id: gen-ui-agent
     name: Agentic Generative UI
@@ -180,26 +157,12 @@ demos:
       - generative-ui
     route: /demos/gen-ui-agent
     animated_preview_url:
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
     tags:
       - agent-state
     route: /demos/shared-state-streaming
-    animated_preview_url:
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
     animated_preview_url:
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"

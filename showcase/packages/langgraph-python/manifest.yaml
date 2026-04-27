@@ -50,7 +50,6 @@ features:
   - hitl
   - hitl-in-chat
   - hitl-in-chat-booking
-  - hitl-in-app
   - gen-ui-interrupt
   - interrupt-headless
   - declarative-gen-ui
@@ -61,7 +60,6 @@ features:
   - tool-rendering-custom-catchall
   - tool-rendering
   - tool-rendering-reasoning-chain
-  - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
   - subagents
@@ -185,18 +183,6 @@ demos:
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
       - src/app/api/copilotkit/route.ts
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat, and a completion callback resolves the pending tool Promise with the user's decision
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agents/hitl_in_app.py
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
-      - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
     description: Custom per-tool renderers (WeatherCard, FlightListCard) plus a wildcard catch-all for every other tool
@@ -233,19 +219,6 @@ demos:
       - src/agents/gen_ui_agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/demos/gen-ui-agent/InlineAgentStateCard.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
-    highlight:
-      - src/agents/shared_state_read_write.py
-      - src/app/demos/shared-state-read-write/page.tsx
-      - src/app/demos/shared-state-read-write/preferences-card.tsx
-      - src/app/demos/shared-state-read-write/notes-card.tsx
       - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming

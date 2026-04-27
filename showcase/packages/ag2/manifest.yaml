@@ -23,15 +23,11 @@ interaction_modalities:
 features:
   - agentic-chat
   - hitl-in-chat
-  - hitl-in-app
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read-write
   - shared-state-streaming
-  - subagents
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
@@ -64,18 +60,6 @@ demos:
       - src/agents/agent.py
       - src/app/demos/hitl-in-chat/page.tsx
       - src/app/demos/hitl-in-chat/time-picker-card.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: hitl-in-app
-    name: In-App Human in the Loop (Frontend Tools + async HITL)
-    description: Agent requests approval via useFrontendTool with an async handler; the approval UI pops up as an app-level modal OUTSIDE the chat.
-    tags:
-      - interactivity
-    route: /demos/hitl-in-app
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/hitl-in-app/page.tsx
-      - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
   - id: tool-rendering
     name: Tool Rendering
@@ -111,17 +95,6 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/gen-ui-tool-based/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -133,17 +106,6 @@ demos:
       - src/agents/agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/shared-state-read-write/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -154,17 +116,6 @@ demos:
     highlight:
       - src/agents/agent.py
       - src/app/demos/shared-state-streaming/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/subagents/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
