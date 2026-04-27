@@ -175,6 +175,32 @@ class EventEmittingMockAgent extends AbstractAgent {
     }
   }
 
+  // Helper to emit tool call result event
+  public async emitToolCallResult(
+    runId: string,
+    messageId: string,
+    toolCallId: string,
+    content: string,
+  ) {
+    for (const sub of this.subscribers) {
+      if (sub.onToolCallResultEvent) {
+        await sub.onToolCallResultEvent({
+          event: {
+            type: EventType.TOOL_CALL_RESULT,
+            messageId,
+            toolCallId,
+            content,
+            role: "tool",
+          },
+          messages: this.messages,
+          state: this.state,
+          agent: this,
+          input: this.createRunInput(runId),
+        });
+      }
+    }
+  }
+
   // Override subscribe to track subscribers
   public override subscribe(subscriber: any) {
     this.subscribers.push(subscriber);
@@ -1112,5 +1138,124 @@ describe("StateManager - Real-world Scenarios", () => {
       toolsExecuted: ["searchWeb"],
       totalMessages: 4,
     });
+  });
+});
+
+describe("StateManager - ToolCallResultEvent Handling", () => {
+  let copilotKitCore: CopilotKitCore;
+  let agent: EventEmittingMockAgent;
+
+  beforeEach(() => {
+    copilotKitCore = new CopilotKitCore({});
+    agent = new EventEmittingMockAgent("agent1", "thread1");
+    copilotKitCore.addAgent__unsafe_dev_only({
+      id: "agent1",
+      agent: agent as any,
+    });
+  });
+
+  it("should associate tool call result messages with runs", async () => {
+    const runId = "run1";
+
+    await agent.emitRunStarted(runId, {});
+
+    // Emit a tool call result event (sent by AG-UI servers for tool outputs)
+    await agent.emitToolCallResult(
+      runId,
+      "tool-result-msg-1",
+      "tool-call-1",
+      "Search returned 5 results",
+    );
+
+    await agent.emitRunFinished(runId, {});
+
+    const associatedRunId = copilotKitCore.getRunIdForMessage(
+      "agent1",
+      "thread1",
+      "tool-result-msg-1",
+    );
+    expect(associatedRunId).toBe(runId);
+  });
+
+  it("should track tool call results across multiple runs", async () => {
+    // First run with a tool call
+    await agent.emitRunStarted("run1", {});
+    await agent.emitToolCallResult(
+      "run1",
+      "tool-msg-1",
+      "tc-1",
+      "Result from run 1",
+    );
+    await agent.emitRunFinished("run1", {});
+
+    // Second run with a different tool call
+    await agent.emitRunStarted("run2", {});
+    await agent.emitToolCallResult(
+      "run2",
+      "tool-msg-2",
+      "tc-2",
+      "Result from run 2",
+    );
+    await agent.emitRunFinished("run2", {});
+
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", "tool-msg-1"),
+    ).toBe("run1");
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", "tool-msg-2"),
+    ).toBe("run2");
+  });
+
+  it("should handle tool call results alongside regular messages", async () => {
+    const runId = "run1";
+
+    await agent.emitRunStarted(runId, {});
+
+    // User message
+    const userMsg: Message = {
+      id: "msg1",
+      role: "user",
+      content: "Search for cats",
+    };
+    await agent.emitNewMessage(runId, userMsg);
+
+    // Assistant with tool call
+    const assistantMsg: Message = {
+      id: "msg2",
+      role: "assistant",
+      content: "",
+      toolCalls: [
+        {
+          id: "tc-1",
+          type: "function",
+          function: {
+            name: "searchWeb",
+            arguments: JSON.stringify({ query: "cats" }),
+          },
+        },
+      ],
+    };
+    await agent.emitNewMessage(runId, assistantMsg);
+
+    // Tool result arrives via ToolCallResultEvent (not onNewMessage)
+    await agent.emitToolCallResult(
+      runId,
+      "tool-result-1",
+      "tc-1",
+      "Found 10 results about cats",
+    );
+
+    await agent.emitRunFinished(runId, {});
+
+    // All messages should be associated with the same run
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg1")).toBe(
+      runId,
+    );
+    expect(copilotKitCore.getRunIdForMessage("agent1", "thread1", "msg2")).toBe(
+      runId,
+    );
+    expect(
+      copilotKitCore.getRunIdForMessage("agent1", "thread1", "tool-result-1"),
+    ).toBe(runId);
   });
 });
