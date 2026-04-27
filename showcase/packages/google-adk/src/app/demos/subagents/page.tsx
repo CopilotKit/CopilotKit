@@ -4,8 +4,16 @@ import React from "react";
 import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  useAgent,
+  UseAgentUpdate,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
+
+import { DelegationLog, Delegation } from "./delegation-log";
+
+interface SubagentsState {
+  delegations?: Delegation[];
+}
 
 export default function SubagentsDemo() {
   return (
@@ -16,29 +24,43 @@ export default function SubagentsDemo() {
 }
 
 function DemoContent() {
-  // TODO: Implement Sub-Agents demo
-  // See the LangGraph Python reference implementation for patterns
-  //
-  // Key hooks available:
-  //   useFrontendTool({ name, description, parameters: z.object({...}), handler })
-  //   useRenderTool({ name: "tool_name", render: ({ args }) => <Component /> })
-  //   useHumanInTheLoop({ name, description, parameters, handler: ({ args, respond }) => ... })
-  //   useAgentContext({ description, value })
-  //   useConfigureSuggestions({ suggestions: [{ title, message }] })
-  //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
-
-  useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+  const { agent } = useAgent({
+    agentId: "subagents",
+    updates: [UseAgentUpdate.OnStateChanged],
   });
 
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Quick brief",
+        message: "Plan a 1-paragraph brief on the benefits of pair programming.",
+      },
+      {
+        title: "Marketing post",
+        message: "Draft and critique a LinkedIn post announcing CopilotKit 2.0.",
+      },
+    ],
+    available: "always",
+  });
+
+  const state = agent.state as SubagentsState | undefined;
+  const delegations = state?.delegations ?? [];
+
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
-      <CopilotChat
-        labels={{
-          title: "Sub-Agents",
-          placeholder: "Type a message...",
-        }}
-      />
+    <div className="flex flex-col md:flex-row h-screen w-full bg-gray-50">
+      <section className="flex-1 min-h-0 p-4">
+        <DelegationLog delegations={delegations} />
+      </section>
+      <aside className="md:w-[420px] md:shrink-0 flex flex-col min-h-0 border-l bg-white">
+        <CopilotChat
+          agentId="subagents"
+          className="flex-1 min-h-0"
+          labels={{
+            chatInputPlaceholder:
+              "Ask the supervisor to plan, draft, or critique...",
+          }}
+        />
+      </aside>
     </div>
   );
 }
