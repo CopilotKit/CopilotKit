@@ -74,6 +74,7 @@ function HeadlessChat() {
             return (
               <div
                 key={m.id}
+                data-message-role="user"
                 className="self-end rounded-lg bg-blue-600 px-3 py-2 text-white max-w-[80%]"
               >
                 {typeof m.content === "string" ? m.content : ""}
@@ -84,7 +85,11 @@ function HeadlessChat() {
             const toolCalls =
               "toolCalls" in m && Array.isArray(m.toolCalls) ? m.toolCalls : [];
             return (
-              <div key={m.id} className="self-start max-w-[90%]">
+              <div
+                key={m.id}
+                data-message-role="assistant"
+                className="self-start max-w-[90%]"
+              >
                 {m.content && (
                   <div className="rounded-lg bg-gray-100 px-3 py-2 text-gray-900">
                     {typeof m.content === "string" ? m.content : ""}
