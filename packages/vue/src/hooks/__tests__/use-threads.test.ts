@@ -13,6 +13,7 @@ type ThreadRecord = {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  lastRunAt?: string;
 };
 
 type ThreadState = {
@@ -40,7 +41,14 @@ vi.mock("../../providers/useCopilotKit", () => ({
 const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
 const threadMocks = vi.hoisted(() => ({
   sockets: [] as any[],
+  dispatchedContexts: [] as Array<ThreadState["context"]>,
 }));
+
+function compareThreadsByActivity(left: ThreadRecord, right: ThreadRecord) {
+  const leftKey = left.lastRunAt ?? left.updatedAt ?? left.createdAt;
+  const rightKey = right.lastRunAt ?? right.updatedAt ?? right.createdAt;
+  return rightKey.localeCompare(leftKey);
+}
 
 vi.mock("@copilotkit/core", () => {
   class MockChannel {
@@ -125,6 +133,7 @@ vi.mock("@copilotkit/core", () => {
     }
 
     setContext(context: ThreadState["context"]): void {
+      threadMocks.dispatchedContexts.push(context);
       this.state.context = context;
       if (!context) {
         this.state.threads = [];
@@ -169,8 +178,8 @@ vi.mock("@copilotkit/core", () => {
         }
 
         const listData = await listResponse.json();
-        this.state.threads = [...listData.threads].sort((left, right) =>
-          right.updatedAt.localeCompare(left.updatedAt),
+        this.state.threads = [...listData.threads].sort(
+          compareThreadsByActivity,
         );
         this.state.hasNextPage = typeof listData.nextCursor === "string";
         this.state.isLoading = false;
@@ -218,9 +227,7 @@ vi.mock("@copilotkit/core", () => {
           next[existingIndex] = thread;
           this.state.threads = next;
         }
-        this.state.threads.sort((left, right) =>
-          right.updatedAt.localeCompare(left.updatedAt),
-        );
+        this.state.threads.sort(compareThreadsByActivity);
       }
       this.notify();
     }
@@ -300,6 +307,12 @@ vi.mock("@copilotkit/core", () => {
   }
 
   return {
+    CopilotKitCoreRuntimeConnectionStatus: {
+      Disconnected: "disconnected",
+      Connecting: "connecting",
+      Connected: "connected",
+      Error: "error",
+    },
     ɵcreateThreadStore: () => new MockThreadStore(),
     ɵselectThreads: select((state) => state.threads),
     ɵselectThreadsIsLoading: select((state) => state.isLoading),
@@ -312,13 +325,30 @@ vi.mock("@copilotkit/core", () => {
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
 
+const { CopilotKitCoreRuntimeConnectionStatus } = await import(
+  "@copilotkit/core"
+);
+
 function getMockSockets(): any[] {
   return threadMocks.sockets;
 }
 
-function setupCopilotKit(runtimeUrl = "http://localhost:4000") {
-  const copilotkit = ref({
+function getDispatchedContexts(): Array<ThreadState["context"]> {
+  return threadMocks.dispatchedContexts;
+}
+
+function setupCopilotKit(
+  runtimeUrl: string | undefined = "http://localhost:4000",
+  runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus = CopilotKitCoreRuntimeConnectionStatus.Connected,
+) {
+  const copilotkit = ref<{
+    runtimeUrl: string | undefined;
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus;
+    headers: Record<string, string>;
+    intelligence: { wsUrl?: string } | undefined;
+  }>({
     runtimeUrl,
+    runtimeConnectionStatus,
     headers: { Authorization: "Bearer test-token" },
     intelligence: {
       wsUrl: "ws://localhost:4000/client",
@@ -397,6 +427,7 @@ function mountHook(
 describe("useThreads", () => {
   beforeEach(() => {
     threadMocks.sockets.splice(0);
+    threadMocks.dispatchedContexts.splice(0);
     fetchMock.mockReset();
     setupCopilotKit();
   });
@@ -792,6 +823,222 @@ describe("useThreads", () => {
           expect.objectContaining({ method: "GET" }),
         );
       });
+    });
+  });
+
+  describe("Connected-gate", () => {
+    it("waits for runtimeConnectionStatus=Connected before fetching /threads", async () => {
+      // Start in Connecting — hook should hold off on dispatching any request
+      // so the initial list fetch includes wsUrl and avoids a redundant second
+      // call once /info resolves.
+      const copilotkit = setupCopilotKit(
+        "http://localhost:4000",
+        CopilotKitCoreRuntimeConnectionStatus.Connecting,
+      );
+      copilotkit.value = {
+        ...copilotkit.value,
+        intelligence: undefined,
+      };
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // While waiting for Connected, the hook must surface isLoading=true so
+      // consumers don't render an empty-state flash before the first fetch
+      // is even dispatched. The store's own isLoading is false at this
+      // point (no setContext call yet), so the hook synthesizes it.
+      expect(getResult().isLoading.value).toBe(true);
+      expect(getResult().threads.value).toEqual([]);
+
+      // Flip to Connected with wsUrl populated. The watcher now dispatches
+      // exactly one list fetch (+ one subscribe after it lands).
+      copilotkit.value = {
+        ...copilotkit.value,
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Connected,
+        intelligence: { wsUrl: "ws://localhost:4000/client" },
+      };
+
+      await vi.waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining("/threads?agentId=agent-1"),
+          expect.objectContaining({ method: "GET" }),
+        );
+      });
+
+      const listCalls = fetchMock.mock.calls.filter(
+        ([url]) => typeof url === "string" && /\/threads\?agentId=/.test(url),
+      );
+      expect(listCalls).toHaveLength(1);
+
+      // The dispatched context must carry wsUrl, otherwise the store would
+      // re-fetch once /info eventually populates it.
+      const nonNullContexts = getDispatchedContexts().filter(
+        (context) => context !== null,
+      );
+      expect(nonNullContexts).toHaveLength(1);
+      expect(nonNullContexts[0]).toMatchObject({
+        runtimeUrl: "http://localhost:4000",
+        wsUrl: "ws://localhost:4000/client",
+        agentId: "agent-1",
+      });
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+    });
+
+    it("does not re-dispatch context across transient Disconnected states", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      const baselineContexts = getDispatchedContexts().filter(
+        (context) => context !== null,
+      ).length;
+
+      copilotkit.value = {
+        ...copilotkit.value,
+        runtimeConnectionStatus:
+          CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+      };
+
+      await new Promise((resolve) => setTimeout(resolve, 20));
+
+      const afterTransient = getDispatchedContexts().filter(
+        (context) => context !== null,
+      ).length;
+      expect(afterTransient).toBe(baselineContexts);
+    });
+
+    it("clears the store when runtimeUrl is removed even before Connected", async () => {
+      const copilotkit = setupCopilotKit();
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: sampleThreads, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      copilotkit.value = {
+        ...copilotkit.value,
+        runtimeUrl: undefined,
+      };
+
+      await vi.waitFor(() => {
+        expect(getResult().error.value?.message).toBe(
+          "Runtime URL is not configured",
+        );
+      });
+
+      const lastDispatched = getDispatchedContexts().at(-1);
+      expect(lastDispatched).toBeNull();
+    });
+  });
+
+  describe("lastRunAt", () => {
+    it("exposes lastRunAt on threads when present", async () => {
+      const threadsWithLastRun = [
+        {
+          ...sampleThreads[0],
+          lastRunAt: "2026-02-01T00:00:00Z",
+        },
+        sampleThreads[1],
+      ];
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: threadsWithLastRun, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      const byId = Object.fromEntries(
+        getResult().threads.value.map((thread) => [thread.id, thread]),
+      );
+      expect(byId["t-1"].lastRunAt).toBe("2026-02-01T00:00:00Z");
+      expect(byId["t-2"]).not.toHaveProperty("lastRunAt");
+    });
+
+    it("orders threads by lastRunAt with fallback to updatedAt then createdAt", async () => {
+      const mixed = [
+        {
+          ...sampleThreads[0],
+          id: "u-only",
+          lastRunAt: undefined,
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-05T00:00:00Z",
+        },
+        {
+          ...sampleThreads[0],
+          id: "lr-new",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-01T00:00:00Z",
+          lastRunAt: "2026-02-01T00:00:00Z",
+        },
+        {
+          ...sampleThreads[0],
+          id: "lr-old",
+          createdAt: "2026-01-01T00:00:00Z",
+          updatedAt: "2026-01-10T00:00:00Z",
+          lastRunAt: "2026-01-15T00:00:00Z",
+        },
+        {
+          ...sampleThreads[0],
+          id: "c-only",
+          lastRunAt: undefined,
+          createdAt: "2026-01-03T00:00:00Z",
+          updatedAt: undefined as unknown as string,
+        },
+      ];
+
+      fetchMock
+        .mockReturnValueOnce(
+          jsonResponse({ threads: mixed, joinCode: "jc-1" }),
+        )
+        .mockReturnValueOnce(jsonResponse({ joinToken: "jt-1" }));
+
+      const { getResult } = mountHook();
+
+      await vi.waitFor(() => {
+        expect(getResult().isLoading.value).toBe(false);
+      });
+
+      expect(getResult().threads.value.map((thread) => thread.id)).toEqual([
+        "lr-new",
+        "lr-old",
+        "u-only",
+        "c-only",
+      ]);
     });
   });
 });

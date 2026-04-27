@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, ref, toValue, watch } from "vue";
 import type { MaybeRefOrGetter, Ref } from "vue";
 import {
+  CopilotKitCoreRuntimeConnectionStatus,
   ɵcreateThreadStore,
   ɵselectHasNextPage,
   ɵselectIsFetchingNextPage,
@@ -18,6 +19,13 @@ export interface Thread {
   archived: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * ISO-8601 timestamp of the most recent agent run on this thread. Absent
+   * when the thread has never been run. Prefer this over `updatedAt` for
+   * user-facing "last activity" displays — it is not bumped by metadata-only
+   * actions like rename or archive.
+   */
+  lastRunAt?: string;
 }
 
 export interface UseThreadsInput {
@@ -82,8 +90,6 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
   const storeError = ref<Error | null>(null);
   const hasMoreThreads = ref(false);
   const isFetchingMoreThreads = ref(false);
-  const isLoading = ref(false);
-  const error = ref<Error | null>(null);
 
   bindThreadStoreSelector(store, ɵselectThreads, threads as Ref<Thread[]>);
   bindThreadStoreSelector(store, ɵselectThreadsIsLoading, storeIsLoading);
@@ -100,57 +106,100 @@ export function useThreads(input: UseThreadsInput): UseThreadsResult {
     store.stop();
   });
 
+  // Tracks whether we've dispatched the first real context to the store.
+  // The store itself starts with `isLoading: false`, so before we dispatch
+  // consumers would otherwise see an empty, non-loading state (empty-list
+  // flash). While runtimeUrl is set and we haven't dispatched yet, we
+  // synthesize `isLoading: true` so the UI keeps its loading indicator until
+  // the first fetch is in flight (at which point the store's own
+  // isLoading takes over).
+  const hasDispatchedContext = ref(false);
+
+  // Defer setting the context until the runtime reports Connected. Before
+  // `/info` resolves we don't know `intelligence.wsUrl`, so dispatching the
+  // context early would issue a list fetch with `wsUrl: undefined`, then a
+  // second list fetch (and a `/threads/subscribe`) once the flag lands.
+  // Waiting lets the hook issue just one `/threads?…` + one `/threads/subscribe`.
+  //
+  // When `runtimeUrl` is absent we dispatch `null` to clear the store. For
+  // transient states (Disconnected/Connecting/Error with a URL still set) we
+  // leave the previously-dispatched context in place — any in-flight
+  // realtime subscription or cached thread list stays usable while the
+  // runtime recovers, and we don't re-trigger a fetch storm on transitions.
   watch(
     [
       () => copilotkit.value.runtimeUrl,
+      () => copilotkit.value.runtimeConnectionStatus,
       headersKey,
       () => copilotkit.value.intelligence?.wsUrl,
       resolvedAgentId,
       resolvedIncludeArchived,
       resolvedLimit,
     ],
-    ([runtimeUrl, _headersKey, wsUrl, agentId, includeArchived, limit]) => {
-      const context: ɵThreadRuntimeContext | null = runtimeUrl
-        ? {
-            runtimeUrl,
-            headers: { ...copilotkit.value.headers },
-            wsUrl,
-            agentId,
-            includeArchived,
-            limit,
-          }
-        : null;
+    ([
+      runtimeUrl,
+      runtimeStatus,
+      ,
+      wsUrl,
+      agentId,
+      includeArchived,
+      limit,
+    ]) => {
+      if (!runtimeUrl) {
+        store.setContext(null);
+        return;
+      }
+
+      if (runtimeStatus !== CopilotKitCoreRuntimeConnectionStatus.Connected) {
+        return;
+      }
+
+      const context: ɵThreadRuntimeContext = {
+        runtimeUrl,
+        headers: { ...copilotkit.value.headers },
+        wsUrl,
+        agentId,
+        includeArchived,
+        limit,
+      };
 
       store.setContext(context);
+      hasDispatchedContext.value = true;
     },
     { immediate: true },
   );
 
-  watch(
-    [() => copilotkit.value.runtimeUrl, storeIsLoading, storeError],
-    ([runtimeUrl, loading, latestError]) => {
-      if (runtimeUrl) {
-        isLoading.value = loading;
-        error.value = latestError;
-        return;
-      }
+  const runtimeError = computed<Error | null>(() =>
+    copilotkit.value.runtimeUrl
+      ? null
+      : new Error("Runtime URL is not configured"),
+  );
 
-      isLoading.value = false;
-      error.value = new Error("Runtime URL is not configured");
-    },
-    { immediate: true },
+  const preConnectLoading = computed(
+    () => !!copilotkit.value.runtimeUrl && !hasDispatchedContext.value,
+  );
+
+  const isLoading = computed(() =>
+    runtimeError.value
+      ? false
+      : preConnectLoading.value || storeIsLoading.value,
+  );
+
+  const error = computed<Error | null>(
+    () => runtimeError.value ?? storeError.value,
   );
 
   return {
     threads: computed(() =>
       threads.value.map(
-        ({ id, agentId, name, archived, createdAt, updatedAt }) => ({
+        ({ id, agentId, name, archived, createdAt, updatedAt, lastRunAt }) => ({
           id,
           agentId,
           name,
           archived,
           createdAt,
           updatedAt,
+          ...(lastRunAt !== undefined ? { lastRunAt } : {}),
         }),
       ),
     ),
