@@ -11,7 +11,7 @@ from crewai.tools import BaseTool
 from typing import Type
 from pydantic import BaseModel, Field
 
-from . import (
+from .tools import (
     get_weather_impl,
     query_data_impl,
     schedule_meeting_impl,
