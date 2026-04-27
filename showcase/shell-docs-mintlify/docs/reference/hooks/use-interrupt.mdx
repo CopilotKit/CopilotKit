@@ -1,0 +1,111 @@
+---
+title: "useInterrupt"
+description: "Handle agent interrupts (on_interrupt events) with optional filtering, async preprocessing, and a resolve callback to resume the run."
+icon: "lucide/CirclePause"
+---
+
+## Signature
+
+```ts
+// renderInChat: true (default) — returns void, publishes element into <CopilotChat>
+function useInterrupt<TResult = never>(
+  config: UseInterruptConfig<any, TResult, true | undefined>,
+): void;
+
+// renderInChat: false — returns the interrupt element for manual placement
+function useInterrupt<TResult = never>(
+  config: UseInterruptConfig<any, TResult, false>,
+): React.ReactElement | null;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config.render` | `(props: InterruptRenderProps) => React.ReactElement` | Yes | — | Renders the interrupt UI. Called once the run finalizes and the interrupt event is accepted by `enabled`. |
+| `config.handler` | `(props: InterruptHandlerProps) => TResult \| PromiseLike<TResult>` | No | — | Optional async pre-processor. Its resolved return value is passed as `result` in `render`. Errors fall back to `result = null`. |
+| `config.enabled` | `(event: InterruptEvent) => boolean` | No | — | Optional filter. Return `false` to ignore an interrupt event entirely. |
+| `config.agentId` | `string` | No | default agent | Agent to listen on. Defaults to the current chat agent. |
+| `config.renderInChat` | `boolean` | No | `true` | When `true` (default), the interrupt UI is injected into `<CopilotChat>` automatically. When `false`, the hook returns the element for you to place manually. |
+
+### `InterruptEvent<TValue>`
+
+| Property | Type | Description |
+|---|---|---|
+| `name` | `string` | Event name (always `"on_interrupt"`). |
+| `value` | `TValue` | Interrupt payload from the agent. Type-narrow this in your callbacks. |
+
+### `InterruptRenderProps<TValue, TResult>`
+
+| Property | Type | Description |
+|---|---|---|
+| `event` | `InterruptEvent<TValue>` | The interrupt event. |
+| `result` | `TResult \| null` | Resolved return value from `handler`, or `null` if no handler / handler failed. |
+| `resolve` | `(response: unknown) => void` | Call to resume the agent with user-provided data. |
+
+### `InterruptHandlerProps<TValue>`
+
+| Property | Type | Description |
+|---|---|---|
+| `event` | `InterruptEvent<TValue>` | The interrupt event. |
+| `resolve` | `(response: unknown) => void` | Same `resolve` that is passed to `render`. |
+
+## Returns
+
+- When `renderInChat` is `true` or omitted: `void`
+- When `renderInChat` is `false`: `React.ReactElement | null`
+
+## Example
+
+```tsx
+"use client";
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+// Default: renders inside <CopilotChat>
+export function ApprovalInterrupt() {
+  useInterrupt({
+    render: ({ event, resolve }) => (
+      <div>
+        <p>{(event.value as { question: string }).question}</p>
+        <button onClick={() => resolve({ approved: true })}>Approve</button>
+        <button onClick={() => resolve({ approved: false })}>Reject</button>
+      </div>
+    ),
+  });
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+// Manual placement outside chat
+export function SidebarInterrupt() {
+  const interruptElement = useInterrupt({
+    renderInChat: false,
+    enabled: (event) =>
+      typeof event.value === "object" &&
+      event.value !== null &&
+      "approvalRequired" in event.value,
+    handler: async ({ event }) => {
+      const payload = event.value as { label: string };
+      return { upperLabel: payload.label.toUpperCase() };
+    },
+    render: ({ event, result, resolve }) => (
+      <aside>
+        <strong>{result?.upperLabel ?? ""}</strong>
+        <button onClick={() => resolve({ value: event.value })}>Continue</button>
+      </aside>
+    ),
+  });
+
+  return <div className="sidebar">{interruptElement}</div>;
+}
+```
+
+## Related
+
+- [`useAgent`](/reference/hooks/use-agent) — subscribe to agent state and run status
+- [`useHumanInTheLoop`](/reference/hooks/use-human-in-the-loop) — tool-call-based human-in-the-loop pattern

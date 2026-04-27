@@ -1,0 +1,163 @@
+---
+/**
+ * <ShowcaseCode feature="..." /> — build-time-fetched, syntax-highlighted
+ * source for a showcase demo. One <pre> per integration, wrapped in
+ * data-variant-for=<slug> so the integration CSS hides non-active variants.
+ *
+ * Astro evaluates this frontmatter at build time on the SSG server. The fetch
+ * runs once per unique URL across the whole build via an in-memory cache, so
+ * `<ShowcaseCode feature="agentic-chat" />` rendered on five pages costs one
+ * round-trip per integration that supports the feature, not five.
+ */
+import { codeToHtml } from 'shiki';
+import showcaseConfig from '../lib/showcase.config.json';
+import {
+  integrations as INTEGRATION_DEFS,
+  defaultIntegration,
+} from '../../integrations.config';
+
+interface Props {
+  /**
+   * Demo slug — must match a directory under
+   * `showcase/packages/<showcaseSlug>/src/app/demos/`.
+   */
+  feature: string;
+  /** Optional caption shown next to the filename. */
+  title?: string;
+  /** Max code-block height in pixels. Default 600. */
+  height?: number;
+}
+
+type ShowcaseEntry = {
+  label: string;
+  backendUrl: string | null;
+  deployed: boolean;
+  features: string[];
+};
+
+const { feature, title, height = 600 } = Astro.props;
+
+const config = showcaseConfig as Record<string, ShowcaseEntry>;
+const showcaseSlugByIntegration = Object.fromEntries(
+  INTEGRATION_DEFS.map((i) => [i.slug, i.showcaseSlug ?? null]),
+) as Record<string, string | null>;
+
+function rawUrlFor(showcaseSlug: string, demoFeature: string): string {
+  return `https://raw.githubusercontent.com/CopilotKit/CopilotKit/main/showcase/packages/${showcaseSlug}/src/app/demos/${demoFeature}/page.tsx`;
+}
+
+type Cached =
+  | { kind: 'ok'; html: string; filename: string }
+  | { kind: 'err'; reason: string };
+
+// Module-level cache keyed by URL. Astro module modules persist across
+// component invocations within a build, so multiple <ShowcaseCode> instances
+// for the same feature reuse the same fetch.
+const globalSym = Symbol.for('shell-docs-mintlify.showcaseCodeCache');
+const globalScope = globalThis as Record<symbol, unknown>;
+if (!globalScope[globalSym]) {
+  globalScope[globalSym] = new Map<string, Cached>();
+}
+const codeCache = globalScope[globalSym] as Map<string, Cached>;
+
+async function loadAndHighlight(url: string): Promise<Cached> {
+  try {
+    const res = await fetch(url, { headers: { Accept: 'text/plain' } });
+    if (!res.ok) {
+      return { kind: 'err', reason: `HTTP ${res.status}` };
+    }
+    const source = await res.text();
+    const html = await codeToHtml(source, {
+      lang: 'tsx',
+      themes: { light: 'github-light-default', dark: 'dark-plus' },
+      defaultColor: false,
+    });
+    const filename = url.split('/').pop() ?? 'page.tsx';
+    return { kind: 'ok', html, filename };
+  } catch (err) {
+    return {
+      kind: 'err',
+      reason: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+async function fetchOnce(url: string): Promise<Cached> {
+  const existing = codeCache.get(url);
+  if (existing) return existing;
+  const result = await loadAndHighlight(url);
+  codeCache.set(url, result);
+  return result;
+}
+
+interface VariantData {
+  slug: string;
+  label: string;
+  url: string | null;
+  cached: Cached | null;
+}
+
+// Resolve every integration's source in parallel. Integrations without a
+// matching showcase package or without the requested feature get a null URL
+// (which renders the "source not available" fallback). The `built-in`
+// canonical entry only renders if it has a showcase too — currently it's
+// metadata-only (deployed: false, features: []).
+const variants: VariantData[] = await Promise.all(
+  INTEGRATION_DEFS.map(async (integration) => {
+    const showcaseSlug = showcaseSlugByIntegration[integration.slug];
+    const entry = config[integration.slug];
+    const hasFeature =
+      !!showcaseSlug && !!entry && entry.features.includes(feature);
+    const url = hasFeature ? rawUrlFor(showcaseSlug, feature) : null;
+    const cached = url ? await fetchOnce(url) : null;
+    return {
+      slug: integration.slug,
+      label: integration.label,
+      url,
+      cached,
+    };
+  }),
+);
+
+// At least one integration with valid source. If everything failed we still
+// render the wrappers (fallbacks per-integration) so authors know the
+// component is wired even if their feature slug is wrong.
+const _hasAnySource = variants.some((v) => v.cached?.kind === 'ok');
+void defaultIntegration;
+void _hasAnySource;
+---
+
+<div class="my-6">
+  {
+    variants.map((v) => (
+      <div data-variant-for={v.slug}>
+        {v.cached?.kind === 'ok' ? (
+          <div class="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-white dark:bg-zinc-950">
+            <div class="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-800 bg-gray-50/60 dark:bg-zinc-800/60">
+              <span class="text-xs font-mono text-gray-500 dark:text-gray-400">{v.cached.filename}</span>
+              {title && <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{title}</span>}
+            </div>
+            <div
+              class="showcase-code overflow-auto text-sm"
+              style={`max-height: ${height}px;`}
+              set:html={v.cached.html}
+            />
+          </div>
+        ) : (
+          <div class="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 bg-gray-50/50 dark:bg-zinc-900/50 px-6 py-8 text-sm text-gray-600 dark:text-gray-400">
+            <div class="font-medium text-gray-800 dark:text-gray-200 mb-1">
+              Source not available for {v.label}
+            </div>
+            <div class="text-gray-500 dark:text-gray-400">
+              {v.url == null
+                ? `The "${feature}" demo isn't available for this integration.`
+                : v.cached?.kind === 'err'
+                  ? `Failed to fetch source: ${v.cached.reason}`
+                  : 'Source could not be loaded.'}
+            </div>
+          </div>
+        )}
+      </div>
+    ))
+  }
+</div>

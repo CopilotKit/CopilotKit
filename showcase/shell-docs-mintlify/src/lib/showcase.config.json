@@ -1,0 +1,190 @@
+{
+  "built-in": {
+    "label": "CopilotKit",
+    "backendUrl": "https://copilotkit.ai",
+    "deployed": false,
+    "features": []
+  },
+  "langgraph": {
+    "label": "LangChain",
+    "backendUrl": "https://showcase-langgraph-typescript-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "adk": {
+    "label": "Google ADK",
+    "backendUrl": "https://showcase-google-adk-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "a2a": {
+    "label": "A2A (Agent-to-Agent)",
+    "backendUrl": null,
+    "deployed": false,
+    "features": []
+  },
+  "ag2": {
+    "label": "AG2 (AutoGen)",
+    "backendUrl": "https://showcase-ag2-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "agent-spec": {
+    "label": "Agent Spec",
+    "backendUrl": null,
+    "deployed": false,
+    "features": []
+  },
+  "agno": {
+    "label": "Agno",
+    "backendUrl": "https://showcase-agno-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "aws-strands": {
+    "label": "AWS Strands",
+    "backendUrl": "https://showcase-strands-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "crewai-flows": {
+    "label": "CrewAI Flows",
+    "backendUrl": "https://showcase-crewai-crews-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "llamaindex": {
+    "label": "LlamaIndex",
+    "backendUrl": "https://showcase-llamaindex-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "mastra": {
+    "label": "Mastra",
+    "backendUrl": "https://showcase-mastra-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "microsoft-agent-framework": {
+    "label": "Microsoft Agent Framework",
+    "backendUrl": "https://showcase-ms-agent-dotnet-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  },
+  "pydantic-ai": {
+    "label": "Pydantic AI",
+    "backendUrl": "https://showcase-pydantic-ai-production.up.railway.app",
+    "deployed": true,
+    "features": [
+      "agentic-chat",
+      "gen-ui-agent",
+      "gen-ui-tool-based",
+      "hitl",
+      "shared-state-read",
+      "shared-state-read-write",
+      "shared-state-streaming",
+      "shared-state-write",
+      "subagents",
+      "tool-rendering"
+    ]
+  }
+}

@@ -1,0 +1,113 @@
+---
+title: "CopilotRuntime"
+description: "Server-side runtime that orchestrates agent requests, applies middleware, and dispatches to agents."
+icon: "lucide/Server"
+---
+
+## Constructor
+
+```ts
+new CopilotRuntime(options: CopilotRuntimeOptions)
+```
+
+`CopilotRuntime` is a convenience shim that automatically selects the correct underlying implementation:
+
+- Pass `intelligence` → creates a `CopilotIntelligenceRuntime` (durable threads, WebSocket runner)
+- Omit `intelligence` → creates a `CopilotSseRuntime` (in-memory, SSE streaming)
+
+For explicit control, instantiate `CopilotSseRuntime` or `CopilotIntelligenceRuntime` directly.
+
+## Options
+
+### Common options (all modes)
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `agents` | `AgentsConfig` | Yes | — | Map of agent IDs to agent instances, a Promise resolving to that map, or a factory function `({ request }) => Record<string, AbstractAgent>` for per-request resolution. |
+| `beforeRequestMiddleware` | `BeforeRequestMiddlewareFn` | No | — | Callback that runs before each request. Can return a modified `Request` or `void`. |
+| `afterRequestMiddleware` | `AfterRequestMiddlewareFn` | No | — | Callback that runs after each request with reconstructed messages, `threadId`, and `runId`. Useful for logging. |
+| `openGenerativeUI` | `boolean \| OpenGenerativeUIOptions` | No | — | Auto-applies `OpenGenerativeUIMiddleware`. Pass `true` to apply to all agents, or `{ agents: string[] }` to apply selectively. |
+| `a2ui` | `BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig` | No | — | Auto-applies `A2UIMiddleware`. Accepts optional `agents`, `schema`, `injectA2UITool`, and `a2uiToolNames`. |
+| `mcpApps` | `McpAppsConfig` | No | — | Configures `MCPAppsMiddleware`. Provide `{ servers: McpAppsServerConfig[] }`. |
+| `transcriptionService` | `TranscriptionService` | No | — | Optional audio transcription service. |
+| `licenseToken` | `string` | No | — | Signed license token for server-side feature verification. Falls back to `COPILOTKIT_LICENSE_TOKEN` env var. |
+| `debug` | `DebugConfig` | No | — | Enable debug logging for the event pipeline. |
+
+### Intelligence mode (additional options)
+
+These options are required/available when passing `intelligence`:
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `intelligence` | `CopilotKitIntelligence` | Yes | — | Intelligence platform client — enables durable threads and real-time events. |
+| `identifyUser` | `(request: Request) => MaybePromise<{ id: string; name: string }>` | Yes | — | Resolves the authenticated user for each intelligence request. |
+| `generateThreadNames` | `boolean` | No | `true` | Auto-generate short names for newly created threads. |
+| `maxReconnectMs` | `number` | No | `10_000` | Max delay (ms) for WebSocket reconnect backoff. |
+| `maxRejoinMs` | `number` | No | `30_000` | Max delay (ms) for channel rejoin backoff. |
+| `lockTtlSeconds` | `number` | No | `20` | Thread lock TTL in seconds. Clamped to max 3600. |
+| `lockKeyPrefix` | `string` | No | — | Custom Redis key prefix for the thread lock. |
+| `lockHeartbeatIntervalSeconds` | `number` | No | `15` | How often the runtime renews the thread lock (seconds). Clamped to max 3000. |
+
+## `AgentsConfig` type
+
+```ts
+type AgentsConfig =
+  | Record<string, AbstractAgent>
+  | Promise<Record<string, AbstractAgent>>
+  | ((ctx: { request: Request }) => MaybePromise<Record<string, AbstractAgent>>);
+```
+
+Use a factory function to resolve agents per-request — useful for multi-tenant scenarios:
+
+```ts
+agents: ({ request }) => {
+  const tenantId = request.headers.get("x-tenant-id");
+  return { default: createAgentForTenant(tenantId) };
+}
+```
+
+## Example — SSE mode (default)
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+});
+
+export default createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+```
+
+## Example — with middleware
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  beforeRequestMiddleware: async ({ request }) => {
+    const token = request.headers.get("authorization");
+    if (!token) throw new Response("Unauthorized", { status: 401 });
+  },
+  afterRequestMiddleware: async ({ messages, threadId, runId }) => {
+    console.log("Run completed", { threadId, runId, messageCount: messages?.length });
+  },
+});
+```
+
+## Related
+
+- [Quickstart](/quickstart) — get a runtime running in five minutes
+- [`BuiltInAgent`](/reference/agents/built-in-agent) — built-in LLM agent
+- [`HttpAgent`](/reference/agents/http-agent) — generic HTTP/SSE agent
+- [`createCopilotHonoHandler`](/reference/handlers/create-copilot-hono-handler) — Hono adapter
+- [`createCopilotExpressHandler`](/reference/handlers/create-copilot-express-handler) — Express adapter
+- [Middleware](/reference/middleware/before-request-middleware) — auth and logging hooks

@@ -1,0 +1,86 @@
+---
+title: "useConfigureSuggestions"
+description: "Register static or AI-driven chat suggestion configuration. De-registers automatically on unmount."
+icon: "lucide/SlidersHorizontal"
+---
+
+## Signature
+
+```ts
+function useConfigureSuggestions(
+  config: SuggestionsConfigInput | null | undefined,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config` | `SuggestionsConfigInput \| null \| undefined` | Yes | — | The suggestion configuration to register. Pass `null` or `undefined` to disable. Pass a config with `available: "disabled"` to also disable. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra dependencies. When these change the configuration is refreshed and suggestions are reloaded. |
+
+### Static configuration
+
+Provide a fixed list of suggestions:
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `suggestions` | `Array<{ message: string; isLoading?: boolean }>` | Yes | The suggestion items to display. |
+| `available` | `"enabled" \| "disabled"` | No | Toggle the configuration on/off. |
+| `consumerAgentId` | `string \| "*"` | No | Scope to a specific agent, or `"*"` for all agents. Defaults to the enclosing chat's agent. |
+
+### Dynamic (AI-driven) configuration
+
+Let the model generate suggestions based on instructions:
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `instructions` | `string` | Yes | Prompt instructions sent to the model for generating suggestions. |
+| `available` | `"enabled" \| "disabled"` | No | Toggle the configuration on/off. |
+| `consumerAgentId` | `string \| "*"` | No | Scope to a specific agent, or `"*"` for all agents. |
+
+## Returns
+
+`void`
+
+## Example
+
+```tsx
+"use client";
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
+// Static suggestions
+export function StaticSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      { message: "What can you help me with?" },
+      { message: "Show me a summary of recent activity." },
+      { message: "How do I get started?" },
+    ],
+  });
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
+// AI-generated suggestions
+export function DynamicSuggestions({ topic }: { topic: string }) {
+  useConfigureSuggestions(
+    {
+      instructions: `Generate 3 helpful follow-up questions about ${topic}.`,
+    },
+    [topic],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useSuggestions`](/reference/hooks/use-suggestions) — read and reload suggestions at runtime

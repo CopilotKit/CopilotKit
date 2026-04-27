@@ -1,0 +1,126 @@
+---
+title: "A2UIMiddleware"
+description: "AG-UI middleware that enables agents to render structured UI components using the A2UI protocol."
+icon: "lucide/Layers"
+---
+
+## Overview
+
+`A2UIMiddleware` is an `@ag-ui/a2ui-middleware` `Middleware` subclass that adds Agent-to-UI (A2UI) component rendering capability to any agent. It optionally:
+
+1. Injects a `render_a2ui` tool into the agent's tool list so the LLM can explicitly render components.
+2. Injects a component schema into `RunAgentInput.context` so the LLM knows what components are available.
+3. Tracks streaming A2UI tool call arguments and emits a synthetic `TOOL_CALL_RESULT` at run completion.
+
+This middleware is applied automatically when you set `a2ui: { ... }` on `CopilotRuntime`. You can also instantiate and apply it manually.
+
+## Usage via `CopilotRuntime`
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  a2ui: {
+    // Apply to all agents (omit `agents` to apply to all)
+    schema: {
+      catalogId: "my-catalog",
+      components: {
+        ProductCard: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            price: { type: "number" },
+            imageUrl: { type: "string" },
+          },
+        },
+      },
+    },
+    injectA2UITool: true,
+  },
+});
+```
+
+## Manual usage
+
+```ts
+import { A2UIMiddleware } from "@ag-ui/a2ui-middleware";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({ model: "openai/gpt-5-mini" });
+agent.use(new A2UIMiddleware({
+  injectA2UITool: true,
+  schema: { catalogId: "my-catalog", components: { ... } },
+}));
+```
+
+## Class signature
+
+```ts
+class A2UIMiddleware extends Middleware {
+  constructor(config?: A2UIMiddlewareConfig)
+  run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>
+}
+```
+
+## Configuration (`A2UIMiddlewareConfig`)
+
+| Name | Type | Default | Description |
+|---|---|---|---|
+| `schema` | `A2UIInlineCatalogSchema \| A2UIComponentSchema[]` | — | Component schema. Use the v0.9 inline catalog format (preferred) or the legacy array format for backwards compatibility. |
+| `injectA2UITool` | `boolean \| string` | — | Inject a rendering tool. `true` uses the default name `"render_a2ui"`. Pass a string to use a custom tool name. |
+| `a2uiToolNames` | `string[]` | `["render_a2ui"]` | Tool names the middleware recognizes as A2UI rendering tools. Used for streaming argument detection. |
+
+## `A2UIInlineCatalogSchema` (v0.9, preferred)
+
+```ts
+interface A2UIInlineCatalogSchema {
+  catalogId: string;
+  components: Record<string, Record<string, unknown>>; // JSON Schema per component
+}
+```
+
+## `CopilotRuntime` options reference
+
+When using `a2ui` on `CopilotRuntime`, the option type is `BaseCopilotRuntimeMiddlewareOptions & A2UIMiddlewareConfig`:
+
+| Option | Type | Description |
+|---|---|---|
+| `agents` | `string[]` | Limit to specific agent IDs. Omit to apply to all agents. |
+| `schema` | `A2UIInlineCatalogSchema \| A2UIComponentSchema[]` | Component schema to inject. |
+| `injectA2UITool` | `boolean \| string` | Whether to inject the rendering tool. |
+| `a2uiToolNames` | `string[]` | Additional tool names to recognize as A2UI tools. |
+
+## Example — scoped to specific agents
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: {
+    ui: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    chat: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  a2ui: {
+    agents: ["ui"], // only the "ui" agent gets A2UI
+    schema: {
+      catalogId: "my-catalog",
+      components: {
+        WeatherCard: {
+          type: "object",
+          properties: {
+            city: { type: "string" },
+            temperature: { type: "number" },
+            condition: { type: "string" },
+          },
+        },
+      },
+    },
+    injectA2UITool: "render_component",
+  },
+});
+```
+
+## Related
+
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — `a2ui` option
+- [`OpenGenerativeUIMiddleware`](/reference/middleware/open-generative-ui-middleware) — sandboxed UI generation middleware
+- [`MCPAppsMiddleware`](/reference/middleware/mcp-apps-middleware) — MCP apps middleware

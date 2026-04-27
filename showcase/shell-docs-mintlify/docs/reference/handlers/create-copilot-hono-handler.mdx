@@ -1,0 +1,133 @@
+---
+title: "createCopilotHonoHandler"
+description: "Creates a Hono app that serves the CopilotKit v2 runtime."
+icon: "lucide/Server"
+---
+
+## Signature
+
+```ts
+function createCopilotHonoHandler(params: CopilotEndpointParams): Hono
+```
+
+Returns a `Hono` instance pre-configured with all CopilotKit routes. Mount it on your existing Hono app or export it directly (e.g. for Cloudflare Workers, Deno, or Bun).
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `runtime` | `CopilotRuntimeLike` | Yes | — | A `CopilotRuntime`, `CopilotSseRuntime`, or `CopilotIntelligenceRuntime` instance. |
+| `basePath` | `string` | Yes | — | Base path for all routes (e.g. `"/api/copilotkit"`). |
+| `mode` | `"multi-route" \| "single-route"` | No | `"multi-route"` | Route layout. `"multi-route"` exposes separate REST routes; `"single-route"` uses a single POST with JSON envelope dispatch. |
+| `cors` | `CopilotEndpointCorsConfig` | No | `origin: "*"` | CORS configuration. To support HTTP-only cookies, set `credentials: true` and provide an explicit `origin`. |
+| `hooks` | `CopilotRuntimeHooks` | No | — | Lifecycle hooks: `onRequest`, `onBeforeHandler`, `onResponse`, `onError`. |
+
+## CORS options (`cors`)
+
+| Name | Type | Description |
+|---|---|---|
+| `origin` | `string \| string[] \| ((origin: string, c) => string \| null)` | Allowed origin(s). Cannot be `"*"` when `credentials` is `true`. |
+| `credentials` | `boolean` | Allow credentials (cookies, HTTP auth). |
+
+## Routes exposed in `multi-route` mode
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `{basePath}/info` | Runtime info |
+| `POST` | `{basePath}/agent/:agentId/run` | Start an agent run |
+| `POST` | `{basePath}/agent/:agentId/connect` | Connect to a running agent |
+| `POST` | `{basePath}/agent/:agentId/stop/:threadId` | Stop an agent run |
+| `POST` | `{basePath}/transcribe` | Transcribe audio |
+
+## Hooks (`hooks`)
+
+| Hook | Signature | Description |
+|---|---|---|
+| `onRequest` | `(ctx: HookContext) => MaybePromise<Request \| void>` | Runs before routing. Return a modified `Request` or throw a `Response` to short-circuit. |
+| `onBeforeHandler` | `(ctx: HandlerHookContext) => MaybePromise<Request \| void>` | Runs after routing. Receives resolved `route` info. |
+| `onResponse` | `(ctx: ResponseHookContext) => MaybePromise<Response \| void>` | Runs after the handler. Return a modified `Response` or void. |
+| `onError` | `(ctx: ErrorHookContext) => MaybePromise<Response \| void>` | Runs on error. Return a custom error `Response` or void for default behavior. |
+
+## Example — basic Hono setup
+
+```ts
+import { Hono } from "hono";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+});
+
+const app = new Hono();
+
+app.route(
+  "/api/copilotkit",
+  createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }),
+);
+
+export default app;
+```
+
+## Example — Cloudflare Workers
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+});
+
+export default createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+});
+```
+
+## Example — auth hook
+
+```ts
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2";
+
+createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  hooks: {
+    onRequest: async ({ request }) => {
+      const token = request.headers.get("authorization");
+      if (!token || !isValidToken(token)) {
+        throw new Response("Unauthorized", { status: 401 });
+      }
+    },
+    onResponse: async ({ response }) => {
+      const headers = new Headers(response.headers);
+      headers.set("x-powered-by", "CopilotKit");
+      return new Response(response.body, { status: response.status, headers });
+    },
+  },
+});
+```
+
+## Example — CORS with credentials
+
+```ts
+createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://my-app.example.com",
+    credentials: true,
+  },
+});
+```
+
+## Related
+
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — construct the runtime to pass here
+- [`createCopilotExpressHandler`](/reference/handlers/create-copilot-express-handler) — Express adapter
+- [Middleware](/reference/middleware/before-request-middleware) — request lifecycle middleware

@@ -16,6 +16,7 @@ cdk_outputs.json
 .nx
 test-run-comment.md
 superpowers/
+.superpowers/
 
 *.egg-info/
 .installed.cfg
@@ -34,6 +35,9 @@ __pycache__/
 .vercel
 
 docs/next-env.d.ts
+
+# Astro generated types (e.g. from showcase/shell-docs-mintlify)
+.astro/
 
 # Showcase: staged shared contexts for Docker builds (see showcase/scripts/dev-local.sh)
 showcase/packages/*/shared_python/

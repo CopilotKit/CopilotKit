@@ -1,0 +1,3 @@
+/* Imports the CopilotKit v2 component styles. Scoped at the source via
+ * scope-preflight; safe to import alongside the docs-v2 Tailwind 4 styles. */
+@import "@copilotkit/react-core/v2/styles.css";

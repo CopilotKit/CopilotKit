@@ -1,0 +1,112 @@
+---
+title: "useAttachments"
+description: "Manage file attachment state for chat inputs — file picking, drag-and-drop, clipboard paste, upload lifecycle, and removal."
+icon: "lucide/Paperclip"
+---
+
+## Signature
+
+```ts
+function useAttachments(props: UseAttachmentsProps): UseAttachmentsReturn;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config` | `AttachmentsConfig` | No | — | Attachment configuration. When omitted, attachments are disabled (`enabled: false`). |
+
+### `AttachmentsConfig` (from `@copilotkit/shared`)
+
+| Property | Type | Description |
+|---|---|---|
+| `enabled` | `boolean` | Whether file attachments are active. |
+| `accept` | `string` | MIME type filter string (e.g., `"image/*,application/pdf"`). Defaults to `"*/*"`. |
+| `maxSize` | `number` | Maximum file size in bytes. Defaults to `20 * 1024 * 1024` (20 MB). |
+| `onUpload` | `(file: File) => Promise<AttachmentSource & { metadata?: Record<string, unknown> }>` | Custom upload handler. When omitted, files are encoded as base64 data URIs. |
+| `onUploadFailed` | `(info: UploadFailedInfo) => void` | Called when a file is rejected (type mismatch, too large, or upload error). |
+
+## Returns
+
+| Property | Type | Description |
+|---|---|---|
+| `attachments` | `Attachment[]` | Currently staged attachments (both `uploading` and `ready` status). |
+| `enabled` | `boolean` | Whether attachments are enabled (derived from `config.enabled`). |
+| `dragOver` | `boolean` | `true` while the user is dragging a file over the drop zone. |
+| `fileInputRef` | `React.RefObject<HTMLInputElement \| null>` | Ref for the hidden `<input type="file">` element. |
+| `containerRef` | `React.RefObject<HTMLDivElement \| null>` | Ref for the container element. Scopes clipboard paste handling to this container. |
+| `processFiles` | `(files: File[]) => Promise<void>` | Validate and upload an array of `File` objects. |
+| `handleFileUpload` | `(e: React.ChangeEvent<HTMLInputElement>) => Promise<void>` | `onChange` handler for `<input type="file">`. |
+| `handleDragOver` | `(e: React.DragEvent) => void` | `onDragOver` handler for the drop zone. |
+| `handleDragLeave` | `(e: React.DragEvent) => void` | `onDragLeave` handler for the drop zone. |
+| `handleDrop` | `(e: React.DragEvent) => Promise<void>` | `onDrop` handler for the drop zone. |
+| `removeAttachment` | `(id: string) => void` | Remove an attachment by ID before sending. |
+| `consumeAttachments` | `() => Attachment[]` | Return all `ready` attachments and clear them from state. Resets the file input. No-ops when the queue is empty. |
+
+All returned callbacks are referentially stable (`useCallback`) to avoid unnecessary re-renders.
+
+## Example
+
+```tsx
+"use client";
+import { useAttachments } from "@copilotkit/react-core/v2";
+
+export function ChatInputWithAttachments() {
+  const {
+    attachments,
+    enabled,
+    dragOver,
+    fileInputRef,
+    containerRef,
+    handleFileUpload,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    removeAttachment,
+    consumeAttachments,
+  } = useAttachments({
+    config: {
+      enabled: true,
+      accept: "image/*,application/pdf",
+      maxSize: 5 * 1024 * 1024, // 5 MB
+    },
+  });
+
+  const handleSend = () => {
+    const ready = consumeAttachments();
+    console.log("Sending attachments:", ready);
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      style={{ border: dragOver ? "2px dashed blue" : "2px solid transparent" }}
+    >
+      {enabled && (
+        <input
+          type="file"
+          multiple
+          ref={fileInputRef}
+          onChange={handleFileUpload}
+          accept="image/*,application/pdf"
+          style={{ display: "none" }}
+        />
+      )}
+      {attachments.map((att) => (
+        <div key={att.id}>
+          {att.filename} ({att.status})
+          <button onClick={() => removeAttachment(att.id)}>Remove</button>
+        </div>
+      ))}
+      <button onClick={handleSend}>Send</button>
+    </div>
+  );
+}
+```
+
+## Related
+
+- [`CopilotChat`](/reference/components/copilot-chat) — built-in chat component with `attachments` prop that uses this hook internally

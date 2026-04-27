@@ -1,0 +1,133 @@
+---
+title: "App context"
+icon: "lucide/BookA"
+description: "Share app-specific context with your Mastra agent."
+---
+
+Share your application's state with your Mastra agent using the `useAgentContext` hook on the frontend and Mastra's `RuntimeContext` on the agent side.
+
+## What is this?
+
+CopilotKit forwards everything you register with `useAgentContext` to your Mastra agent through the AG-UI run input. Mastra exposes that context on its `RuntimeContext`, so your agent can read it from inside its `instructions` callback (or any tool) — no extra wiring required.
+
+## When should I use this?
+
+- The agent should know about the user's current state (logged-in user, active page, working data)
+- You want to ground the model's responses in app data without baking it into the system prompt
+- You want app state and agent state to stay in sync as the user navigates
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Register context in your component
+
+Use `useAgentContext` to ship any data to the agent:
+
+```tsx title="components/Dashboard.tsx"
+"use client"; // only necessary for Next.js App Router // [!code highlight]
+import { useAgentContext } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { useState } from "react";
+
+export function Dashboard() {
+  const [colleagues] = useState([
+    { id: 1, name: "John Doe", role: "Developer" },
+    { id: 2, name: "Jane Smith", role: "Designer" },
+    { id: 3, name: "Bob Wilson", role: "Product Manager" },
+  ]);
+
+  // [!code highlight:4]
+  useAgentContext({
+    description: "The current user's colleagues",
+    value: colleagues,
+  });
+
+  return <div>{/* your dashboard UI */}</div>;
+}
+```
+
+</Step>
+
+<Step>
+
+### Read the context in your Mastra agent
+
+Mastra exposes the AG-UI context through its `RuntimeContext`. Read it inside your agent's `instructions` callback to pull values you need into the prompt:
+
+```ts title="agent.ts"
+import { openai } from "@ai-sdk/openai";
+import { Agent } from "@mastra/core/agent";
+
+export const colleaguesAgent = new Agent({
+  id: "colleague-agent",
+  name: "Colleagues Agent",
+  model: openai("gpt-5.4-mini"),
+  // [!code highlight:8]
+  instructions: ({ requestContext }) => {
+    const aguiContext = requestContext.get("ag-ui")?.context;
+    const colleagues = aguiContext?.find(
+      (item) => item.description === "The current user's colleagues",
+    );
+    return `You are a helpful assistant that can help email colleagues.
+The user's colleagues are: ${JSON.stringify(colleagues?.value, null, 2)}`;
+  },
+});
+```
+
+The same `requestContext` is available in tool handlers — access it via the tool's execution context to make tools that depend on user state.
+
+<Info>
+  See Mastra's [runtime context docs](https://mastra.ai/en/docs/agents/runtime-context) for the full API.
+</Info>
+
+</Step>
+
+<Step>
+
+### Give it a try
+
+Ask the agent something that requires the registered context — for example, "Who's on my team?" or "Email Jane about the design review." The agent has direct access to the data you registered.
+
+</Step>
+
+</Steps>
+
+## Multiple contexts
+
+Call `useAgentContext` from any component. All registered values are sent on every run; pull whichever ones you need by `description`:
+
+```tsx
+useAgentContext({
+  description: "Current user profile",
+  value: { name: "Jane", role: "Manager" },
+});
+
+useAgentContext({
+  description: "The page the user is currently viewing",
+  value: { page: "settings", section: "notifications" },
+});
+```
+
+```ts title="agent.ts"
+instructions: ({ requestContext }) => {
+  const aguiContext = requestContext.get("ag-ui")?.context ?? [];
+  const user = aguiContext.find((c) => c.description === "Current user profile")?.value;
+  const page = aguiContext.find((c) => c.description.startsWith("The page"))?.value;
+  return `User: ${user?.name}. Currently on: ${page?.page}/${page?.section}.`;
+};
+```
+
+## Dynamic context
+
+Context updates whenever the underlying value changes — `useAgentContext` re-registers on every render with the latest value, and the next agent run sees the updated payload.
+
+```tsx
+const [tasks, setTasks] = useState([]);
+
+useAgentContext({
+  description: "The user's current task list",
+  value: tasks, // [!code highlight]
+});
+```

@@ -1,0 +1,157 @@
+---
+title: Declarative UI (A2UI)
+description: Use A2UI to declaratively generate user interfaces from your A2A agent.
+---
+
+Build an A2A agent, configure it to use A2UI, use the A2UI Composer to generate widgets, and render them in your CopilotKit-powered app.
+
+<video
+  src="https://cdn.copilotkit.ai/a2ui/demo.mp4"
+  autoPlay
+  controls
+  loop
+  muted
+  playsInline
+  className="rounded-xl shadow-lg mx-auto mt-auto w-5/6"
+/>
+
+## Getting started
+
+<Steps>
+
+<Step>
+
+### Clone the A2A starter template
+
+```bash
+git clone https://github.com/copilotkit/with-a2a-a2ui.git
+```
+
+The agent and frontend in the starter template are already configured to use A2UI. The steps below explain how it works so you can adapt it to your own agent.
+
+</Step>
+
+<Step>
+
+### Install dependencies and run
+
+```bash
+pnpm install
+pnpm dev
+```
+
+</Step>
+
+<Step>
+
+### Configure your agent to emit A2UI messages
+
+A2UI messages are plain JSON arrays injected into your agent's prompt as examples. The agent emits them as part of its response, and CopilotKit renders them automatically.
+
+Define your widget examples in the agent's prompt builder:
+
+```python title="agent/restaurant_finder/prompt_builder.py"
+RESTAURANT_UI_EXAMPLES = """
+---BEGIN SINGLE_COLUMN_LIST_EXAMPLE---
+[
+  { "beginRendering": { "surfaceId": "default", "root": "root-column", "styles": { "primaryColor": "#FF0000", "font": "Roboto" } } },
+  { "surfaceUpdate": {
+    "surfaceId": "default",
+    "components": [
+      { "id": "root-column", "component": { "Column": { "children": { "explicitList": ["title-heading", "item-list"] } } } },
+      { "id": "title-heading", "component": { "Text": { "usageHint": "h1", "text": { "literalString": "Top Restaurants" } } } },
+      { "id": "item-list", "component": { "List": { "direction": "vertical", "children": { "template": { "componentId": "item-card-template", "dataBinding": "/items" } } } } },
+      { "id": "item-card-template", "component": { "Card": { "child": "card-layout" } } },
+      { "id": "card-layout", "component": { "Row": { "children": { "explicitList": ["template-image", "card-details"] } } } },
+      { "id": "template-image", "weight": 1, "component": { "Image": { "url": { "path": "imageUrl" } } } },
+      { "id": "card-details", "weight": 2, "component": { "Column": { "children": { "explicitList": ["template-name", "template-rating", "template-detail"] } } } },
+      { "id": "template-name", "component": { "Text": { "usageHint": "h3", "text": { "path": "name" } } } },
+      { "id": "template-rating", "component": { "Text": { "text": { "path": "rating" } } } },
+      { "id": "template-detail", "component": { "Text": { "text": { "path": "detail" } } } }
+    ]
+  } },
+  { "dataModelUpdate": {
+    "surfaceId": "default",
+    "path": "/",
+    "contents": [
+      { "key": "items", "valueMap": [
+        { "key": "item1", "valueMap": [
+          { "key": "name", "valueString": "The Fancy Place" },
+          { "key": "rating", "valueNumber": 4.8 },
+          { "key": "detail", "valueString": "Fine dining experience" },
+          { "key": "imageUrl", "valueString": "https://example.com/fancy.jpg" }
+        ] }
+      ] }
+    ]
+  } }
+]
+---END SINGLE_COLUMN_LIST_EXAMPLE---
+"""
+```
+
+Each example block contains three events:
+- `beginRendering` — declares the surface and root component
+- `surfaceUpdate` — defines the component tree
+- `dataModelUpdate` — provides the data to bind
+
+</Step>
+
+<Step>
+
+### Generate components with the A2UI Composer
+
+The [A2UI Composer](https://a2ui-composer.ag-ui.com/) gives you a visual editor to build component specs. Copy the generated JSON directly into your agent's prompt examples.
+
+</Step>
+
+<Step>
+
+### Configure your frontend to render A2UI
+
+CopilotKit ships a renderer for A2UI messages. Pass it to `CopilotKit` via `renderActivityMessages`:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import { createA2UIMessageRenderer } from "@copilotkit/a2ui-renderer";
+import { theme } from "./theme";
+
+const A2UIMessageRenderer = createA2UIMessageRenderer({ theme });
+
+export default function Home() {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      showDevConsole="auto"
+      renderActivityMessages={[A2UIMessageRenderer]}
+    >
+      <main style={{ minHeight: "100dvh" }}>
+        <Chat />
+      </main>
+    </CopilotKit>
+  );
+}
+
+function Chat() {
+  return (
+    <div style={{ display: "flex", flex: 1, flexDirection: "column" }}>
+      <CopilotChat style={{ flex: 1, minHeight: "100%" }} />
+    </div>
+  );
+}
+```
+
+The `theme` object controls how A2UI components are styled. See the [starter template](https://github.com/copilotkit/with-a2a-a2ui) for a full theme example using `@google/a2ui`.
+
+</Step>
+
+<Step>
+
+### Try it out
+
+When your agent generates an A2UI message, it is rendered live in the chat UI. Button clicks and other interactions are automatically forwarded back to your agent via AG-UI.
+
+</Step>
+
+</Steps>

@@ -1,0 +1,143 @@
+---
+title: "Shared state"
+icon: "lucide/Repeat"
+description: "Bidirectional state sharing between your app and your Google ADK agent."
+---
+
+Share state bidirectionally between your React app and your Google ADK agent. ADK exposes per-session state via `ToolContext.state`; CopilotKit forwards updates over AG-UI so your React components react in real time.
+
+<ShowcaseDemo feature="shared-state-read-write" title="Live demo: shared state" />
+
+## What is this?
+
+ADK agents already keep per-session state through the ADK session service. CopilotKit pipes that state into AG-UI events — your React app subscribes through `useAgent` and renders the values as they change. Calling `agent.setState()` from React sends the new state up on the next run.
+
+## When should I use this?
+
+- The user should see what the agent is doing in the native UI (current language, working data, progress)
+- The agent should be able to update your UI by mutating state (toggle a setting, fill a form, add a row)
+- You want app state and agent state to stay in sync without inventing a custom protocol
+
+## Define a stateful ADK agent
+
+Define a Pydantic state model and an LLM tool that mutates `ToolContext.state`. Wrap the ADK agent with `ADKAgent` so the AG-UI bridge can forward state changes:
+
+```python title="agent.py"
+from typing import Dict
+from fastapi import FastAPI
+from pydantic import BaseModel
+from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from google.adk.agents import LlmAgent
+from google.adk.tools import ToolContext
+
+
+class AgentState(BaseModel):
+    language: str = "english"
+
+
+# [!code highlight:6]
+def set_language(tool_context: ToolContext, new_language: str) -> Dict[str, str]:
+    """Sets the language preference for the user."""
+    tool_context.state["language"] = new_language
+    return {"status": "success", "message": f"Language set to {new_language}"}
+
+
+agent = LlmAgent(
+    name="my_agent",
+    model="gemini-2.5-flash",
+    instruction=(
+        "You are a helpful assistant. Use the language stored in state when "
+        "responding. Update it via the set_language tool when asked."
+    ),
+    tools=[set_language],
+)
+
+adk_agent = ADKAgent(
+    adk_agent=agent,
+    app_name="demo_app",
+    user_id="demo_user",
+    session_timeout_seconds=3600,
+    use_in_memory_services=True,
+)
+
+app = FastAPI()
+add_adk_fastapi_endpoint(app, adk_agent, path="/")
+```
+
+## Read agent state in your app
+
+Use the `useAgent` hook to subscribe. The component re-renders automatically whenever `tool_context.state` changes on the agent.
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+type AgentState = { language: "english" | "spanish" };
+
+function LanguageBadge() {
+  // [!code highlight:4]
+  const { agent } = useAgent({
+    agentId: "my_agent",
+    initialState: { language: "english" },
+  });
+
+  return <p>Language: {agent.state?.language ?? "english"}</p>;
+}
+```
+
+<Note>
+  `agent.state` is reactive — your component re-renders automatically whenever the agent emits a new state snapshot or delta.
+</Note>
+
+<Warning>
+  `agentId` must match the `name` you passed to `LlmAgent`. If they don't match, `useAgent` won't receive any updates.
+</Warning>
+
+## Write state from your app
+
+Push state up from React. ADK reads it on the next session run via `tool_context.state`:
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function LanguageSwitcher() {
+  const { agent } = useAgent({ agentId: "my_agent" });
+
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={() => agent.setState({ ...agent.state, language: "english" })} // [!code highlight]
+      >
+        English
+      </button>
+      <button
+        onClick={() => agent.setState({ ...agent.state, language: "spanish" })} // [!code highlight]
+      >
+        Spanish
+      </button>
+    </div>
+  );
+}
+```
+
+## Render state in the chat
+
+You can also render state inline in the chat by passing a `render` callback to `useAgent`:
+
+```tsx
+useAgent({
+  agentId: "my_agent",
+  render: ({ state }) => {
+    if (!state.language) return null;
+    return <div>Language: {state.language}</div>;
+  },
+});
+```
+
+## How it works
+
+1. Your ADK tool mutates `tool_context.state` when called by the LLM.
+2. `ag_ui_adk` serializes state changes into AG-UI `STATE_SNAPSHOT` / `STATE_DELTA` events.
+3. The Copilot Runtime forwards them to the frontend over SSE.
+4. `useAgent` re-renders whenever a new snapshot or delta arrives.
+
+When you call `agent.setState()` from React, the next run sends the snapshot to the agent as part of the AG-UI run input. ADK's session service merges it into the session before the next tool call.

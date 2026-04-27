@@ -1,0 +1,91 @@
+---
+title: "beforeRequestMiddleware"
+description: "Callback that runs before each CopilotKit request — use it for auth, header injection, or request modification."
+icon: "lucide/Filter"
+---
+
+## Type
+
+```ts
+type BeforeRequestMiddlewareFn = (
+  params: BeforeRequestMiddlewareParameters,
+) => MaybePromise<Request | void>;
+```
+
+`beforeRequestMiddleware` is a function you provide on `CopilotRuntime`. It is called once before each incoming request is processed. Return a modified `Request` to replace the original, return `void` to continue unchanged, or throw to reject the request.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `runtime` | `CopilotRuntimeLike` | The runtime instance processing this request. |
+| `request` | `Request` | The incoming Fetch `Request`. |
+| `path` | `string` | The resolved URL pathname. |
+
+## Return value
+
+| Return | Effect |
+|---|---|
+| `Request` | Replaces the original request for all downstream processing. |
+| `void` / `undefined` | Continues with the original request unchanged. |
+| Throws any value | Aborts the request. If you throw a `Response`, it is returned to the client as-is. |
+
+## Example — authorization check
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  beforeRequestMiddleware: async ({ request, path }) => {
+    const token = request.headers.get("authorization");
+    if (!token || !isValidToken(token)) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+  },
+});
+```
+
+## Example — header injection
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  beforeRequestMiddleware: async ({ request }) => {
+    const headers = new Headers(request.headers);
+    headers.set("x-correlation-id", crypto.randomUUID());
+    return new Request(request, { headers });
+  },
+});
+```
+
+## Example — per-tenant agent selection
+
+```ts
+const runtime = new CopilotRuntime({
+  // Factory function resolves agents per-request (preferred approach for multi-tenancy)
+  agents: ({ request }) => {
+    const tenantId = request.headers.get("x-tenant-id");
+    return { default: getAgentForTenant(tenantId) };
+  },
+  beforeRequestMiddleware: async ({ request }) => {
+    // Validate the tenant header exists
+    if (!request.headers.get("x-tenant-id")) {
+      throw new Response("Missing tenant", { status: 400 });
+    }
+  },
+});
+```
+
+## Notes
+
+- `beforeRequestMiddleware` runs for **every** request to the runtime, including `/info`, agent runs, connects, stops, and transcription.
+- For route-specific auth or per-agent logic, prefer the `onBeforeHandler` hook on `createCopilotHonoHandler` / `createCopilotExpressHandler` — it receives the resolved route info.
+
+## Related
+
+- [`afterRequestMiddleware`](/reference/middleware/after-request-middleware) — runs after each request
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — where middleware is configured
+- [`createCopilotHonoHandler`](/reference/handlers/create-copilot-hono-handler) — handler-level hooks

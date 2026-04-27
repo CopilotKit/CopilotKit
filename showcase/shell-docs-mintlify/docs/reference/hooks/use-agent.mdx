@@ -1,0 +1,72 @@
+---
+title: "useAgent"
+description: "Subscribe to agent state, messages, and run status. Returns the live AbstractAgent instance for a given agentId and optional threadId."
+icon: "lucide/Cable"
+---
+
+## Signature
+
+```ts
+function useAgent(options?: UseAgentProps): { agent: AbstractAgent };
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `agentId` | `string` | No | `'default'` | The ID of the agent to subscribe to. Must match an agent registered in the runtime or provided via `selfManagedAgents`. |
+| `threadId` | `string` | No | — | Scope the hook to a specific thread. When provided, a per-thread clone of the registry agent is returned, isolated from other threads. When omitted, falls back to the enclosing `<CopilotChat>` threadId. |
+| `updates` | `UseAgentUpdate[]` | No | all updates | Which change events trigger a re-render. Defaults to `[OnMessagesChanged, OnStateChanged, OnRunStatusChanged]`. |
+| `throttleMs` | `number` | No | inherits from provider | Coalesce re-renders triggered by `onMessagesChanged` / `onStateChanged` within a sliding window. `0` disables throttling even when the provider sets a non-zero default. Run lifecycle callbacks always fire immediately. |
+
+### `UseAgentUpdate` enum
+
+| Value | Description |
+|---|---|
+| `UseAgentUpdate.OnMessagesChanged` | Re-render when the agent's message list changes (e.g. during streaming). |
+| `UseAgentUpdate.OnStateChanged` | Re-render when the agent's state object changes. |
+| `UseAgentUpdate.OnRunStatusChanged` | Re-render when a run starts, finishes, fails, or produces an error event. |
+
+## Returns
+
+| Property | Type | Description |
+|---|---|---|
+| `agent` | `AbstractAgent` | The live agent instance. Use `agent.messages`, `agent.state`, `agent.isRunning`, `agent.addMessage()`, `agent.setState()` etc. |
+
+## Example
+
+```tsx
+"use client";
+import { useAgent, UseAgentUpdate } from "@copilotkit/react-core/v2";
+
+export function AgentStatus() {
+  const { agent } = useAgent({
+    agentId: "my-agent",
+    updates: [UseAgentUpdate.OnRunStatusChanged],
+  });
+
+  return (
+    <div>
+      <p>Status: {agent.isRunning ? "Running…" : "Idle"}</p>
+      <p>Messages: {agent.messages.length}</p>
+    </div>
+  );
+}
+```
+
+```tsx
+"use client";
+import { useAgent } from "@copilotkit/react-core/v2";
+
+// Per-thread isolation
+export function ThreadedChat({ threadId }: { threadId: string }) {
+  const { agent } = useAgent({ agentId: "my-agent", threadId });
+  return <p>{agent.messages.length} messages in thread {threadId}</p>;
+}
+```
+
+## Related
+
+- [`useAgentContext`](/reference/hooks/use-agent-context) — share app context with the agent
+- [`useInterrupt`](/reference/hooks/use-interrupt) — handle agent interrupts
+- [`CopilotChat`](/reference/components/copilot-chat) — ready-made chat UI that uses `useAgent` internally

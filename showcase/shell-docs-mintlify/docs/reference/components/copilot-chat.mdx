@@ -1,0 +1,86 @@
+---
+title: "CopilotChat"
+description: "Full-featured inline chat component. Connects to an agent, manages threads, renders messages, and handles user input — all in a single component."
+icon: "lucide/MessageSquareMore"
+---
+
+## Props
+
+`CopilotChat` accepts all `CopilotChatViewProps` except the internally managed state props (`messages`, `isRunning`, `suggestions`, etc.), plus the following agent/thread control props:
+
+| Prop | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `agentId` | `string` | No | `'default'` | The agent to connect to. |
+| `threadId` | `string` | No | auto-generated UUID | Resume a specific thread. When omitted, a new thread is created on first message. |
+| `labels` | `Partial<CopilotChatLabels>` | No | — | Override UI text strings (placeholder, send button label, etc.). |
+| `chatView` | `SlotValue<typeof CopilotChatView>` | No | `CopilotChatView` | Replace the default chat view component. |
+| `attachments` | `AttachmentsConfig` | No | — | Enable file attachments. Pass `{ enabled: true }` to activate with defaults, or provide full config. |
+| `throttleMs` | `number` | No | inherits from provider | Throttle re-renders during streaming. Overrides the provider-level `defaultThrottleMs` for this instance. |
+| `onError` | `(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void \| Promise<void>` | No | — | Error handler scoped to this chat's agent. Fires in addition to the provider-level `onError`. |
+
+### Inherited visual props (from `CopilotChatViewProps`)
+
+Common layout and content overrides forwarded to the underlying view:
+
+| Prop | Type | Description |
+|---|---|---|
+| `welcomeScreen` | `React.ReactNode \| React.ComponentType` | Content shown when there are no messages yet. |
+| `messageView` | `SlotValue` | Slot override for the message list area. |
+| `suggestionView` | `SlotValue` | Slot override for the suggestion pills area. |
+| `onSubmitMessage` | `(value: string) => Promise<void>` | Called when the user submits a message. |
+| `onStop` | `() => void` | Called when the user clicks the stop button. |
+| `className` | `string` | CSS class applied to the chat container. |
+
+### `AttachmentsConfig`
+
+| Property | Type | Description |
+|---|---|---|
+| `enabled` | `boolean` | Activate attachment support. |
+| `accept` | `string` | MIME type filter (e.g. `"image/*"`). Defaults to `"*/*"`. |
+| `maxSize` | `number` | Max file size in bytes. Defaults to 20 MB. |
+| `onUpload` | `(file: File) => Promise<...>` | Custom upload handler. Defaults to base64 data URI encoding. |
+| `onUploadFailed` | `(info: UploadFailedInfo) => void` | Called when a file is rejected. |
+
+## Children / Composition
+
+`CopilotChat` exposes `CopilotChat.View` (which is `CopilotChatView`) for use as a type reference or slot target.
+
+## Example
+
+```tsx
+"use client";
+import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function Page() {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <CopilotChat agentId="my-agent" />
+    </CopilotKit>
+  );
+}
+```
+
+```tsx
+"use client";
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+// Resume an existing thread with file attachment support
+export function ResumedChat({ threadId }: { threadId: string }) {
+  return (
+    <CopilotChat
+      agentId="my-agent"
+      threadId={threadId}
+      attachments={{ enabled: true, accept: "image/*,application/pdf" }}
+      onError={({ error }) => console.error(error)}
+    />
+  );
+}
+```
+
+## Related
+
+- [`CopilotPopup`](/reference/components/copilot-popup) — floating popup variant
+- [`CopilotSidebar`](/reference/components/copilot-sidebar) — sliding sidebar variant
+- [`CopilotKit`](/reference/components/copilot-kit-provider) — required parent provider
+- [`useAgent`](/reference/hooks/use-agent) — access agent state directly without the UI layer

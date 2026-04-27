@@ -1,0 +1,149 @@
+---
+title: "MCPAppsMiddleware"
+description: "AG-UI middleware that enables agents to call MCP servers on behalf of frontend iframe apps."
+icon: "lucide/Layers"
+---
+
+## Overview
+
+`MCPAppsMiddleware` is an `@ag-ui/mcp-apps-middleware` `Middleware` subclass that allows frontend iframe applications to proxy MCP (Model Context Protocol) requests through the CopilotKit runtime. It:
+
+1. Registers the MCP server configurations and exposes their tool schemas to the agent via a discovery tool.
+2. Intercepts `proxiedMCPRequest` tool calls from the frontend and forwards them to the appropriate MCP server.
+3. Maintains stable server identifiers (MD5 hashes of configs) so the frontend can reference servers without knowing their URLs.
+
+This middleware is applied automatically when you set `mcpApps: { servers: [...] }` on `CopilotRuntime`. You can also instantiate and apply it manually.
+
+## Usage via `CopilotRuntime`
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  mcpApps: {
+    servers: [
+      {
+        type: "http",
+        url: "https://my-mcp-server.example.com/mcp",
+        serverId: "my-server",
+      },
+      {
+        type: "sse",
+        url: "https://other-mcp.example.com/events",
+        headers: { Authorization: "Bearer token" },
+        serverId: "other-server",
+      },
+    ],
+  },
+});
+```
+
+## Manual usage
+
+```ts
+import { MCPAppsMiddleware } from "@ag-ui/mcp-apps-middleware";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({ model: "openai/gpt-5-mini" });
+agent.use(new MCPAppsMiddleware({
+  mcpServers: [
+    { type: "http", url: "https://my-mcp-server.example.com/mcp" },
+  ],
+}));
+```
+
+## Class signature
+
+```ts
+class MCPAppsMiddleware extends Middleware {
+  constructor(config?: MCPAppsMiddlewareConfig)
+  run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>
+}
+```
+
+## Configuration (`MCPAppsMiddlewareConfig`)
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `mcpServers` | `MCPClientConfig[]` | Yes | List of MCP server configurations to make available. |
+
+## `MCPClientConfig` types
+
+### HTTP transport
+
+```ts
+interface MCPClientConfigHTTP {
+  type: "http";
+  url: string;
+  serverId?: string; // Optional stable identifier
+}
+```
+
+### SSE transport
+
+```ts
+interface MCPClientConfigSSE {
+  type: "sse";
+  url: string;
+  headers?: Record<string, string>;
+  serverId?: string;
+}
+```
+
+## `CopilotRuntime` options reference
+
+The `mcpApps` option on `CopilotRuntime` accepts a `McpAppsConfig`:
+
+```ts
+interface McpAppsConfig {
+  servers: McpAppsServerConfig[];
+}
+
+type McpAppsServerConfig = MCPClientConfig & {
+  agentId?: string; // Bind this server to a specific agent; omit for all agents
+};
+```
+
+Use `agentId` to bind specific MCP servers to specific agents in multi-agent setups:
+
+```ts
+mcpApps: {
+  servers: [
+    { type: "http", url: "https://db.example.com/mcp", agentId: "data-agent" },
+    { type: "http", url: "https://docs.example.com/mcp" }, // available to all agents
+  ],
+},
+```
+
+## Example — agent-scoped MCP servers
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: {
+    "data-agent": new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    "chat-agent": new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  mcpApps: {
+    servers: [
+      // Only "data-agent" gets access to the database MCP server
+      {
+        type: "http",
+        url: "https://database-mcp.example.com/mcp",
+        agentId: "data-agent",
+      },
+      // Both agents can access the shared tools server
+      {
+        type: "sse",
+        url: "https://shared-tools.example.com/events",
+      },
+    ],
+  },
+});
+```
+
+## Related
+
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — `mcpApps` option
+- [`A2UIMiddleware`](/reference/middleware/a2ui-middleware) — agent-to-UI rendering middleware
+- [`BuiltInAgent`](/reference/agents/built-in-agent) — `mcpServers` option for agent-level MCP (alternative to middleware)

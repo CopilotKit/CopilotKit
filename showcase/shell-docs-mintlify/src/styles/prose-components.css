@@ -1,0 +1,54 @@
+.mdx-content.prose {
+  --mdx-card-primary: var(--primary, #16a34a);
+}
+
+.mdx-content.prose a.card {
+  text-decoration: none;
+}
+
+.mdx-content.prose .card [data-component-part='card-title'] {
+  letter-spacing: normal;
+  margin-bottom: 0;
+}
+
+.mdx-content.prose .card [data-component-part='icon-svg'],
+.mdx-content.prose .card [data-component-part='icon-image'] {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.mdx-content.prose .card [data-component-part='icon-svg'] {
+  background-color: var(--mdx-card-primary);
+}
+
+.mdx-content.prose .columns {
+  max-width: none;
+}
+
+.mdx-content.prose .columns.grid {
+  row-gap: 0;
+  column-gap: 1rem;
+}
+
+.mdx-content.prose .card:hover {
+  border-color: var(--mdx-card-primary);
+}
+
+/* Dark mode card surface — Mintlify defaults to a white card background that
+ * stays white when the rest of the page goes dark. Match the rest of the dark
+ * surface palette: lifted slate against the near-black body background. */
+.dark .mdx-content.prose .card {
+  background-color: rgb(15 23 42 / 0.6); /* slate-900/60 */
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.dark .mdx-content.prose .card [data-component-part='card-title'] {
+  color: #f1f5f9; /* slate-100 */
+}
+.dark .mdx-content.prose .card,
+.dark .mdx-content.prose .card p {
+  color: #cbd5e1; /* slate-300 */
+}
+.dark .mdx-content.prose .card:hover {
+  background-color: rgb(15 23 42 / 0.8);
+  border-color: var(--mdx-card-primary);
+}

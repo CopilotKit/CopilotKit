@@ -1,0 +1,141 @@
+---
+title: "Chat suggestions"
+icon: "lucide/Sparkle"
+description: "Drive AI-generated or static prompt suggestions in the chat input from your app state."
+---
+
+Chat suggestions are prompt chips displayed above the chat input that guide users toward useful queries. They can be generated on the fly by the agent or pre-defined as static strings.
+
+## What is this?
+
+`useConfigureSuggestions` registers a suggestion configuration — either a dynamic config (the agent generates suggestions from instructions) or a static config (you supply the suggestions yourself). `useSuggestions` reads the live suggestion state so you can build custom UI or react to loading events.
+
+## When should I use this?
+
+- You want to reduce blank-page friction and onboard users with relevant starter prompts
+- The right prompts depend on the current page, user role, or app state
+- You want to refresh suggestions after each agent response to keep them contextual
+- You are building a custom chat UI and need direct access to suggestion state
+
+## How to use it
+
+### Dynamic suggestions (agent-generated)
+
+Pass an `instructions` string and the runtime will ask the agent to produce suggestions matching that description.
+
+```tsx title="components/MyPage.tsx"
+"use client"; // only necessary for Next.js App Router
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
+export function MyPage() {
+  const [currentSection] = useState("billing");
+
+  useConfigureSuggestions({
+    instructions: `Generate 3 helpful suggestions for a user viewing the ${currentSection} section.`,
+    available: "after-first-message",
+    minSuggestions: 1,
+    maxSuggestions: 3,
+  });
+
+  return <div>{/* page content */}</div>;
+}
+```
+
+### Static suggestions
+
+When you already know what to show, pass an array of `suggestions` instead of `instructions`.
+
+```tsx title="components/WelcomePanel.tsx"
+"use client";
+import { useConfigureSuggestions } from "@copilotkit/react-core/v2";
+
+export function WelcomePanel() {
+  useConfigureSuggestions({
+    suggestions: [
+      { title: "Summarize my activity", message: "Give me a summary of my recent activity." },
+      { title: "Help me get started", message: "What can I do here?" },
+    ],
+    available: "before-first-message",
+  });
+
+  return null;
+}
+```
+
+### Reading suggestion state
+
+`useSuggestions` exposes the live array of suggestions, a loading flag, and imperative controls. Use it when you want to render suggestions outside the default chat UI.
+
+```tsx title="components/SuggestionBar.tsx"
+"use client";
+import { useSuggestions } from "@copilotkit/react-core/v2";
+
+export function SuggestionBar() {
+  const { suggestions, isLoading, reloadSuggestions, clearSuggestions } = useSuggestions();
+
+  if (isLoading) return <p>Loading suggestions…</p>;
+
+  return (
+    <div className="suggestion-bar">
+      {suggestions.map((s) => (
+        <button key={s.message} disabled={s.isLoading}>
+          {s.title}
+        </button>
+      ))}
+      <button onClick={reloadSuggestions}>Refresh</button>
+      <button onClick={clearSuggestions}>Clear</button>
+    </div>
+  );
+}
+```
+
+## `available` values
+
+The `available` field controls when the suggestions are displayed. Both dynamic and static configs accept it.
+
+| Value | When suggestions appear |
+|---|---|
+| `"before-first-message"` | Shown until the user sends the first message. **Default for static configs.** |
+| `"after-first-message"` | Shown after the first message is sent. **Default for dynamic configs.** |
+| `"always"` | Shown at all times. |
+| `"disabled"` | Never shown. Equivalent to passing `null` to `useConfigureSuggestions`. |
+
+## API reference
+
+### `useConfigureSuggestions(config, deps?)`
+
+Registers a suggestion configuration for the lifecycle of the component. The configuration is removed when the component unmounts.
+
+**Dynamic config (`instructions` present)**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `instructions` | `string` | — | Prompt for the agent to generate suggestions from. |
+| `available` | `SuggestionAvailability` | `"after-first-message"` | When suggestions are displayed. |
+| `minSuggestions` | `number` | `1` | Minimum number of suggestions to generate. |
+| `maxSuggestions` | `number` | `3` | Maximum number of suggestions to generate. |
+| `providerAgentId` | `string` | `"default"` | Agent ID that generates the suggestions. |
+| `consumerAgentId` | `string` | `"*"` | Agent ID that consumes (displays) the suggestions. `"*"` means all agents. |
+
+**Static config (`suggestions` present)**
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `suggestions` | `Array<{ title: string; message: string }>` | — | Pre-defined suggestion objects. |
+| `available` | `SuggestionAvailability` | `"before-first-message"` | When suggestions are displayed. |
+| `consumerAgentId` | `string` | `"*"` | Agent ID that displays the suggestions. |
+
+`deps` is an optional dependency array. Pass reactive values used inside the config to keep suggestions in sync.
+
+### `useSuggestions(options?)`
+
+Returns live suggestion state for the current (or specified) agent.
+
+| Return | Type | Description |
+|---|---|---|
+| `suggestions` | `Suggestion[]` | Current array of suggestions. Each has `title`, `message`, and `isLoading`. |
+| `isLoading` | `boolean` | `true` while the agent is generating dynamic suggestions. |
+| `reloadSuggestions()` | `() => void` | Triggers a fresh generation cycle. |
+| `clearSuggestions()` | `() => void` | Removes all current suggestions. |
+
+`options.agentId` scopes the hook to a specific agent (defaults to the chat's configured agent).

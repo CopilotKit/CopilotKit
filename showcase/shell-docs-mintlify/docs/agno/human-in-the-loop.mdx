@@ -1,0 +1,131 @@
+---
+title: Human-in-the-Loop
+description: Create frontend tools and use them within your Agno agent for human-in-the-loop interactions.
+---
+
+Human-in-the-loop (HITL) lets your Agno agent pause mid-run and wait for a user decision before continuing. CopilotKit implements this via **frontend tools** — client-side functions the agent can invoke, with execution happening entirely in the user's browser.
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your Agno agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
+
+This pattern works for [agent-controlled UI](/agno/frontend-tools), [generative UI](/agno/generative-ui), or — as covered here — human-in-the-loop interactions.
+
+## When should I use this?
+
+Use frontend tools when you need your agent to interact with client-side primitives such as:
+
+- Reading or modifying React component state
+- Accessing browser APIs like `localStorage`, `sessionStorage`, or cookies
+- Triggering UI updates or animations
+- Interacting with third-party frontend libraries
+- Performing actions that require the user's immediate browser context
+
+## Implementation
+
+<Steps>
+  <Step>
+    ### Define the frontend tool in your Agno agent
+
+    In your Agno agent, define a tool with the `@tool(external_execution=True)` decorator. This signals to Agno that the tool should be executed on the frontend rather than the agent server:
+
+    ```python title="tools/frontend.py"
+    from agno.tools import tool
+
+    @tool(external_execution=True)
+    def offerOptions(option_1: str, option_2: str):
+        """
+        Give the user a choice between two options and have them select one.
+
+        Args:
+            option_1: str: The first option
+            option_2: str: The second option
+        """
+    ```
+
+    Register the tool with your agent:
+
+    ```python title="main.py"
+    from agno.agent import Agent
+    from agno.models.openai import OpenAIChat
+    from agno.os import AgentOS
+    from agno.os.interfaces.agui import AGUI
+    from tools.frontend import offerOptions
+
+    agent = Agent(
+        model=OpenAIChat(id="gpt-5.4-mini"),
+        tools=[offerOptions],
+        description="A helpful assistant that can answer questions and provide information.",
+        instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+    )
+
+    agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+    app = agent_os.get_app()
+
+    if __name__ == "__main__":
+        agent_os.serve(app="main:app", port=8000, reload=True)
+    ```
+  </Step>
+
+  <Step>
+    ### Create a frontend human-in-the-loop tool
+
+    Use the `useHumanInTheLoop` hook to register the corresponding client-side handler. When the agent calls `offerOptions`, CopilotKit renders your `render` function and waits for the user to call `respond` before resuming the agent run.
+
+    ```tsx title="app/page.tsx"
+    import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+
+    export function Page() {
+      useHumanInTheLoop({
+        name: "offerOptions",
+        description: "Give the user a choice between two options and have them select one.",
+        parameters: [
+          {
+            name: "option_1",
+            type: "string",
+            description: "The first option",
+            required: true,
+          },
+          {
+            name: "option_2",
+            type: "string",
+            description: "The second option",
+            required: true,
+          },
+        ],
+        render: ({ args, respond }) => {
+          if (!respond) return <></>;
+          return (
+            <div>
+              <button onClick={() => respond(`${args.option_1} was selected`)}>
+                {args.option_1}
+              </button>
+              <button onClick={() => respond(`${args.option_2} was selected`)}>
+                {args.option_2}
+              </button>
+            </div>
+          );
+        },
+      });
+
+      // ... rest of your page
+    }
+    ```
+
+    <Info>
+    The `respond` callback is only defined while the agent is waiting for a response. Always guard with `if (!respond) return` to avoid rendering stale UI after the agent has resumed.
+    </Info>
+  </Step>
+
+  <Step>
+    ### Try it out!
+
+    Start your agent and frontend servers, then send a prompt that triggers the tool:
+
+    ```
+    Can you show me two good options for a restaurant name?
+    ```
+
+    The agent will pause, render your option buttons in the chat, and resume only after the user clicks one.
+  </Step>
+</Steps>

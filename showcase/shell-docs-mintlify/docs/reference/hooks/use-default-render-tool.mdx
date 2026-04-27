@@ -1,0 +1,80 @@
+---
+title: "useDefaultRenderTool"
+description: "Register a wildcard ('*') tool-call renderer. Call with no arguments to use CopilotKit's built-in collapsible tool card, or pass a custom render function to replace it."
+icon: "lucide/LayoutTemplate"
+---
+
+## Signature
+
+```ts
+function useDefaultRenderTool(
+  config?: {
+    render?: (props: DefaultRenderProps) => React.ReactElement;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config` | `object` | No | — | Optional config object. Omit entirely to use the built-in default card UI. |
+| `config.render` | `(props: DefaultRenderProps) => React.ReactElement` | No | CopilotKit built-in card | Custom render function to replace the default tool-call card. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra dependencies that refresh the renderer registration. |
+
+### `DefaultRenderProps`
+
+| Prop | Type | Description |
+|---|---|---|
+| `name` | `string` | Name of the tool being called. |
+| `parameters` | `unknown` | Parsed parameters passed to the tool call. |
+| `status` | `"inProgress" \| "executing" \| "complete"` | Current execution status. |
+| `result` | `string \| undefined` | Tool result string, available only when `status` is `"complete"`. |
+
+## Returns
+
+`void`
+
+<Info>
+`useDefaultRenderTool` is a convenience wrapper around `useRenderTool({ name: "*", ... })`. It registers a wildcard renderer used as a fallback when no exact name-matched renderer exists for a tool call.
+</Info>
+
+## Example
+
+```tsx
+"use client";
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+// Use CopilotKit's built-in collapsible tool card for all unmatched tool calls
+export function DefaultToolUI() {
+  useDefaultRenderTool();
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
+
+// Custom fallback renderer
+export function CustomDefaultTool({ compact }: { compact: boolean }) {
+  useDefaultRenderTool(
+    {
+      render: ({ name, status, result }) => (
+        <div className={compact ? "tool-row-compact" : "tool-row"}>
+          <span>{name}</span>
+          <span>{status === "complete" ? result : "…"}</span>
+        </div>
+      ),
+    },
+    [compact],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useRenderTool`](/reference/hooks/use-render-tool) — register a renderer for a specific named tool

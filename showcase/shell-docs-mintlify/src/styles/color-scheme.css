@@ -1,0 +1,21 @@
+/* Tailwind v4 class-based dark variant.
+ *
+ * `dark:foo` resolves when the element OR any ancestor carries `.dark`. The
+ * inline init script in Layout.astro mirrors `prefers-color-scheme` onto
+ * `<html class="dark">` and keeps it in sync as the OS preference flips.
+ * The variant matches `:where(.dark, .dark *)` so styles cascade from the
+ * root onto every descendant — same shape that Mintlify's pre-compiled
+ * `:is(.dark *)` components expect, so toggling `.dark` on `<html>` flips
+ * both our utilities and theirs in one go.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tell the browser which color scheme matches the active theme so native
+ * UI (form controls, scrollbars, focus rings) and `color-scheme: dark`-
+ * aware components pick the right palette. */
+:root {
+  color-scheme: light;
+}
+:root.dark {
+  color-scheme: dark;
+}

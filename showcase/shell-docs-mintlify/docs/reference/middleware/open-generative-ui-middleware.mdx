@@ -1,0 +1,83 @@
+---
+title: "OpenGenerativeUIMiddleware"
+description: "AG-UI middleware that intercepts generateSandboxedUi tool calls and emits progressive activity events for sandboxed UI generation."
+icon: "lucide/Layers"
+---
+
+## Overview
+
+`OpenGenerativeUIMiddleware` is an `@ag-ui/client` `Middleware` subclass that intercepts calls to a special tool named `generateSandboxedUi`. As the LLM streams the tool's JSON arguments, the middleware progressively parses them and emits `ACTIVITY_SNAPSHOT` and `ACTIVITY_DELTA` events so the frontend can render the generative UI incrementally — before the tool call completes.
+
+This middleware is applied automatically when you set `openGenerativeUI: true` on `CopilotRuntime`. You can also instantiate and apply it manually via `agent.use(new OpenGenerativeUIMiddleware())`.
+
+## Usage via `CopilotRuntime`
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+// Apply to all agents
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  openGenerativeUI: true,
+});
+
+// Apply to specific agents only
+const runtime2 = new CopilotRuntime({
+  agents: {
+    ui: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+    plain: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  openGenerativeUI: { agents: ["ui"] },
+});
+```
+
+## Manual usage
+
+```ts
+import { OpenGenerativeUIMiddleware } from "@copilotkit/runtime/v2";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({ model: "openai/gpt-5-mini" });
+agent.use(new OpenGenerativeUIMiddleware());
+```
+
+## Class signature
+
+```ts
+class OpenGenerativeUIMiddleware extends Middleware {
+  run(input: RunAgentInput, next: AbstractAgent): Observable<BaseEvent>
+}
+```
+
+Extends the `Middleware` abstract class from `@ag-ui/client`. The `run` method wraps the downstream agent's event stream.
+
+## How it works
+
+1. The middleware intercepts `TOOL_CALL_START` events for the tool named `generateSandboxedUi`.
+2. It creates an `ArgsParser` instance that incrementally parses the streaming JSON arguments.
+3. As parameters complete (`initialHeight`, `css`, `html`, `jsFunctions`, `jsExpressions`, etc.), the parser emits `ACTIVITY_SNAPSHOT` and `ACTIVITY_DELTA` events.
+4. The original `TOOL_CALL_START`, `TOOL_CALL_ARGS`, and `TOOL_CALL_END` events are held until the first activity event fires, then flushed in order.
+5. A final `ACTIVITY_DELTA` with `{ op: "add", path: "/generating", value: false }` is emitted when the tool call ends.
+
+## `generateSandboxedUi` tool parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `initialHeight` | `number` | Initial height of the sandboxed UI in pixels. |
+| `placeholderMessages` | `string[]` | Loading messages shown while the UI generates. |
+| `css` | `string` | CSS styles for the sandboxed UI. |
+| `html` | `string` | HTML content for the sandboxed UI. |
+| `jsFunctions` | `string` | JavaScript functions available in the sandbox. |
+| `jsExpressions` | `string[]` | JavaScript expressions to evaluate in the sandbox. |
+
+## `CopilotRuntime` options reference
+
+| Option | Type | Description |
+|---|---|---|
+| `openGenerativeUI` | `boolean` | Apply `OpenGenerativeUIMiddleware` to all agents. |
+| `openGenerativeUI` | `{ agents: string[] }` | Apply only to the listed agent IDs. |
+
+## Related
+
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — `openGenerativeUI` option
+- [`A2UIMiddleware`](/reference/middleware/a2ui-middleware) — agent-to-UI component rendering middleware

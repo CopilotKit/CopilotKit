@@ -1,0 +1,55 @@
+---
+title: "useSuggestions"
+description: "Read the current chat suggestions for an agent and imperatively reload or clear them."
+icon: "lucide/Lightbulb"
+---
+
+## Signature
+
+```ts
+function useSuggestions(options?: UseSuggestionsOptions): UseSuggestionsResult;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `agentId` | `string` | No | current chat agent | The agent whose suggestions to read. Falls back to the enclosing `<CopilotChat>` agent, then to `'default'`. |
+
+## Returns
+
+| Property | Type | Description |
+|---|---|---|
+| `suggestions` | `Suggestion[]` | Current suggestion list. Kept in sync via a subscription — updates automatically when the platform generates new suggestions. |
+| `isLoading` | `boolean` | `true` while suggestions are being generated. |
+| `reloadSuggestions` | `() => void` | Trigger a fresh suggestion generation request. |
+| `clearSuggestions` | `() => void` | Clear the current suggestions without reloading. |
+
+## Example
+
+```tsx
+"use client";
+import { useSuggestions } from "@copilotkit/react-core/v2";
+
+export function SuggestionBar() {
+  const { suggestions, isLoading, reloadSuggestions } = useSuggestions({
+    agentId: "my-agent",
+  });
+
+  return (
+    <div>
+      {isLoading && <span>Generating suggestions…</span>}
+      {suggestions.map((s) => (
+        <button key={s.message} onClick={() => console.log(s.message)}>
+          {s.message}
+        </button>
+      ))}
+      <button onClick={reloadSuggestions}>Refresh</button>
+    </div>
+  );
+}
+```
+
+## Related
+
+- [`useConfigureSuggestions`](/reference/hooks/use-configure-suggestions) — configure how suggestions are generated (static list or AI-driven)

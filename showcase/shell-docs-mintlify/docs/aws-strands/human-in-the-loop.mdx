@@ -1,0 +1,137 @@
+---
+title: Human-in-the-Loop
+description: Pause your AWS Strands agent and ask the user for approval before continuing.
+---
+
+## What is this?
+
+Human-in-the-loop (HITL) lets your AWS Strands agent pause execution and wait for the user to approve, reject, or supply input before continuing. CopilotKit implements this with **frontend tools** — functions that run in the browser and whose return value is fed back to the agent over the AG-UI protocol.
+
+## When should I use this?
+
+Use HITL whenever the agent is about to take a consequential action:
+
+- Executing a shell command or external API call
+- Sending an email or notification
+- Modifying a database record
+- Approving a draft before it ships
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Set up the agent and runtime
+
+Follow the [quickstart](/aws-strands/quickstart) to get your AWS Strands agent running behind `ag_ui_strands` and the Copilot Runtime wired up locally.
+
+</Step>
+
+<Step>
+
+### Add a `useHumanInTheLoop` frontend tool
+
+Use the `useHumanInTheLoop` hook to register a tool that blocks the agent until the user responds.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+export default function Page() {
+  // [!code highlight:24]
+  useHumanInTheLoop({
+    name: "humanApprovedCommand",
+    description: "Ask the human for approval before running a command.",
+    parameters: z.object({
+      command: z.string().describe("The command to run"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status !== "executing") return null;
+      return (
+        <div className="p-4 border rounded-lg space-y-2">
+          <p className="font-mono text-sm">{args.command}</p>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 bg-green-600 text-white rounded"
+              onClick={() => respond?.("Command APPROVED")}
+            >
+              Approve
+            </button>
+            <button
+              className="px-3 py-1 bg-red-600 text-white rounded"
+              onClick={() => respond?.("Command DENIED")}
+            >
+              Deny
+            </button>
+          </div>
+        </div>
+      );
+    },
+  });
+
+  return (
+    <main>
+      <CopilotSidebar
+        labels={{
+          modalHeaderTitle: "Strands Assistant",
+          welcomeMessageText: "Ask me to run a command and I'll check with you first.",
+        }}
+      />
+      <h1>Your App</h1>
+    </main>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### No extra wiring on the agent
+
+Frontend tools registered with `useHumanInTheLoop` are forwarded to the agent through AG-UI. Your Strands agent picks them up alongside any tools you've defined on the Python side — no extra registration is needed.
+
+```python title="main.py"
+from ag_ui_strands import StrandsAgent, create_strands_app
+from strands import Agent
+from strands.models.openai import OpenAIModel
+import os
+
+api_key = os.getenv("OPENAI_API_KEY", "")
+model = OpenAIModel(
+    client_args={"api_key": api_key},
+    model_id="gpt-5.4-mini",
+)
+
+agent = Agent(
+    model=model,
+    system_prompt=(
+        "You are a helpful assistant. "
+        "When asked to run a command, always call humanApprovedCommand first."
+    ),
+)
+
+# Frontend tools (useHumanInTheLoop) are forwarded automatically via AG-UI.
+agui_agent = StrandsAgent(agent=agent, name="strands_agent")
+app = create_strands_app(agui_agent)
+```
+
+<Info>
+  Tool execution and the approval UI both happen on the frontend — the agent simply waits for `respond` to be called before continuing. The string you pass to `respond` becomes the tool's return value as the agent sees it.
+</Info>
+
+</Step>
+
+<Step>
+
+### Give it a try
+
+Ask the agent to run something like `rm -rf /tmp/test`. It will call `humanApprovedCommand`, the approval card will render in the chat, and the agent will wait for **Approve** or **Deny** before continuing.
+
+</Step>
+
+</Steps>

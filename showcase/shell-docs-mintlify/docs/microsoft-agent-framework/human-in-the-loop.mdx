@@ -1,0 +1,176 @@
+---
+title: Human-in-the-Loop
+description: Let users approve or reject agent actions directly in the chat using frontend tools.
+---
+
+## What is this?
+
+Human-in-the-loop (HITL) lets your Microsoft Agent Framework agent pause and ask the user for approval before continuing. CopilotKit implements this via **frontend tools** — functions that run in the browser and whose return value is fed back to the agent.
+
+## When should I use this?
+
+Use HITL whenever your agent is about to take a consequential action:
+
+- Executing a shell command
+- Sending an email or notification
+- Modifying a database record
+- Making a purchase or API call that costs money
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Set up the agent and runtime
+
+Follow the [quickstart](/microsoft-agent-framework/quickstart) to get your Microsoft Agent Framework agent and Copilot Runtime running locally.
+
+</Step>
+
+<Step>
+
+### Add a `useHumanInTheLoop` frontend tool
+
+Use the `useHumanInTheLoop` hook to register a tool that blocks the agent until the user responds.
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+
+export default function Page() {
+  useHumanInTheLoop({
+    name: "humanApprovedCommand",
+    description: "Ask the human for approval before running a command.",
+    parameters: z.object({
+      command: z.string().describe("The command to run"),
+    }),
+    render: ({ args, respond, status }) => {
+      if (status !== "executing") return null;
+      return (
+        <div className="p-4 border rounded-lg space-y-2">
+          <p className="font-mono text-sm">{args.command}</p>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 bg-green-600 text-white rounded"
+              onClick={() => respond?.("Command is APPROVED")}
+            >
+              Approve
+            </button>
+            <button
+              className="px-3 py-1 bg-red-600 text-white rounded"
+              onClick={() => respond?.("Command is DENIED")}
+            >
+              Deny
+            </button>
+          </div>
+        </div>
+      );
+    },
+  });
+
+  return (
+    <main>
+      <CopilotSidebar
+        labels={{ title: "Your Assistant", initial: "Hi! What should I do?" }}
+      />
+      <h1>Your App</h1>
+    </main>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Receive frontend tools in your AG-UI server
+
+Frontend tools registered with `useHumanInTheLoop` are automatically forwarded to your AG-UI server via the AG-UI protocol. No extra wiring is required on the server — the tool is injected into the agent's available tools at runtime.
+
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    ```csharp title="Program.cs"
+    using Azure.AI.OpenAI;
+    using Azure.Identity;
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
+    var app = builder.Build();
+
+    string endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"]!;
+    string deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"]!;
+
+    // Frontend tools are automatically available via AG-UI — no extra code needed.
+    var agent = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential())
+        .GetChatClient(deployment)
+        .CreateAIAgent(
+            name: "AGUIAssistant",
+            instructions: "You are a helpful assistant. When asked to run a command, always call the humanApprovedCommand tool first.");
+
+    app.MapAGUI("/", agent);
+    await app.RunAsync();
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python title="main.py"
+    from __future__ import annotations
+    import os
+    import uvicorn
+    from agent_framework import Agent
+    from agent_framework.openai import OpenAIChatClient
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+    from dotenv import load_dotenv
+    from fastapi import FastAPI
+
+    load_dotenv()
+
+    def _build_chat_client():
+        if os.getenv("OPENAI_API_KEY"):
+            return OpenAIChatClient(
+                model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.4-mini"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+            )
+        raise RuntimeError("Set OPENAI_API_KEY in agent/.env")
+
+    chat_client = _build_chat_client()
+
+    # Frontend tools (useHumanInTheLoop) are automatically forwarded via AG-UI.
+    agent = Agent(
+        name="sample_agent",
+        instructions=(
+            "You are a helpful assistant. "
+            "When asked to run a command, always call humanApprovedCommand first."
+        ),
+        client=chat_client,
+    )
+
+    app = FastAPI(title="AG-UI Server")
+    add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+
+    if __name__ == "__main__":
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    ```
+  </Tab>
+</Tabs>
+
+<Info>
+  Frontend tools defined with `useHumanInTheLoop` are forwarded to the agent through the AG-UI protocol. Tool execution and the approval UI both happen on the frontend — the agent simply waits for the `respond` callback to be called before it continues.
+</Info>
+
+</Step>
+
+<Step>
+
+### Give it a try!
+
+Ask your agent to run a command such as `rm -rf /tmp/test`. It will call `humanApprovedCommand`, the approval card will appear in the chat, and the agent will wait for you to click **Approve** or **Deny** before proceeding.
+
+</Step>
+
+</Steps>

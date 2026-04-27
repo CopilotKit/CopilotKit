@@ -1,0 +1,18 @@
+---
+/**
+ * Astro wrapper that mounts the React `<MintCodeBlock>` with `client:load`.
+ *
+ * The remark plugin emits `<MintCodeBlock />` MDX JSX for every fenced code
+ * block. Without hydration the React component renders as static HTML — the
+ * filename header, copy button, and Ask AI button all paint, but their
+ * `useState` hooks and `onClick` handlers never execute, so the copy button
+ * does nothing when clicked. Wrapping in an Astro file lets us apply
+ * `client:load` so the React tree hydrates on every page that has a code
+ * block.
+ */
+import MintCodeBlockReact from './MintCodeBlock';
+
+const props = Astro.props as Record<string, unknown>;
+---
+
+<MintCodeBlockReact {...props} client:load />

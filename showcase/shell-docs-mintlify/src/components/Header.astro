@@ -1,0 +1,111 @@
+---
+import type { TabInfo } from '@mintlify/astro/helpers';
+import { SearchBar } from './SearchBar';
+import { MobileMenuButton } from './MobileHeaderActions';
+import { ThemeToggle } from './ThemeToggle';
+import { Icon } from '@mintlify/components';
+import { getGitHubStars, formatStars } from '../lib/github-stars';
+
+interface Props {
+  tabs: TabInfo[] | null;
+  pageTitle?: string;
+  groupName?: string;
+}
+
+const { tabs } = Astro.props;
+const usingTabs = tabs && tabs.length > 0;
+
+const stars = await getGitHubStars();
+const starsLabel = formatStars(stars);
+
+const GITHUB_URL = 'https://github.com/CopilotKit/CopilotKit';
+const DISCORD_URL = 'https://discord.gg/6dffbvGU3D';
+const TALK_URL = 'https://calendly.com/d/cnqt-yr9-hxr/talk-to-copilotkit';
+---
+
+<header class="sticky top-0 w-full px-8 z-50">
+  <div
+    class="absolute left-1/2 -translate-x-1/2 w-screen h-full backdrop-blur flex-none transition-colors duration-500 border-b border-gray-500/5 bg-white/95 supports-backdrop-blur:bg-white/60 dark:bg-zinc-950/95 dark:supports-backdrop-blur:bg-zinc-950/60 dark:border-gray-800/60"
+  >
+  </div>
+  <div class="relative flex items-center h-16 min-w-0 justify-between gap-x-3">
+    <div class="flex items-center gap-x-2 shrink-0 min-w-0">
+      <MobileMenuButton client:load />
+      <a href="/" class="flex items-center shrink-0">
+        <img
+          src="/logo/light.svg"
+          alt="CopilotKit"
+          class="h-7 block dark:hidden"
+        />
+        <img
+          src="/logo/dark.svg"
+          alt="CopilotKit"
+          class="h-7 hidden dark:block"
+        />
+      </a>
+    </div>
+
+    {
+      usingTabs && (
+        <nav class="hidden lg:flex absolute inset-x-0 top-0 h-16 justify-center items-center pointer-events-none">
+          <div class="flex items-center text-sm gap-x-1 p-1 rounded-[0.85rem] bg-gray-100/70 dark:bg-gray-800/40 ring-1 ring-gray-200/60 dark:ring-gray-700/40 pointer-events-auto">
+            {tabs.map((tab) => (
+              <a
+                href={tab.href}
+                class:list={[
+                  'flex items-center h-8 px-4 rounded-[0.6rem] font-medium transition-colors',
+                  tab.isActive
+                    ? 'bg-white text-gray-900 shadow-sm ring-1 ring-gray-200/70 dark:bg-zinc-950 dark:text-gray-50 dark:ring-gray-700/60'
+                    : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100',
+                ]}
+              >
+                {tab.name}
+              </a>
+            ))}
+          </div>
+        </nav>
+      )
+    }
+
+    <div class="hidden lg:flex items-center gap-1 shrink-0">
+      <SearchBar variant="icon" client:load />
+      <a
+        href={DISCORD_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Discord"
+        title="Discord"
+        class="flex items-center justify-center w-9 h-9 rounded-[0.85rem] text-gray-500 hover:text-gray-800 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-gray-800 transition-colors"
+      >
+        <Icon icon="discord" iconLibrary="fontawesome" iconType="brands" size={18} color="currentColor" />
+      </a>
+      <a
+        href={GITHUB_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`GitHub — ${stars.toLocaleString()} stars`}
+        title={`Star CopilotKit on GitHub — ${stars.toLocaleString()} stars`}
+        class="flex items-center gap-1.5 h-9 px-3 rounded-[0.85rem] text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+      >
+        <Icon icon="github" iconLibrary="fontawesome" iconType="brands" size={16} color="currentColor" />
+        <span class="tabular-nums">{starsLabel}</span>
+      </a>
+      <a
+        href={TALK_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex items-center h-9 px-4 ml-2 rounded-[0.85rem] bg-(--primary) text-white text-sm font-medium shadow-sm hover:bg-[color-mix(in_srgb,var(--primary)_88%,black)] transition-colors"
+      >
+        Talk with us
+      </a>
+      <div class="ml-1">
+        <ThemeToggle client:load />
+      </div>
+    </div>
+
+    <div class="flex lg:hidden items-center gap-1 shrink-0">
+      <SearchBar variant="icon" client:load />
+      <ThemeToggle client:load />
+    </div>
+  </div>
+</header>

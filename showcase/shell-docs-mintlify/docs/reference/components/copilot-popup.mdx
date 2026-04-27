@@ -1,0 +1,62 @@
+---
+title: "CopilotPopup"
+description: "Floating popup chat widget. Renders a toggle button that opens a positioned chat window. Accepts all CopilotChat props plus popup-specific layout controls."
+icon: "lucide/MessageCircle"
+---
+
+## Props
+
+`CopilotPopup` accepts all [`CopilotChat`](/reference/components/copilot-chat) props (except `chatView`, which is managed internally) plus the following popup-specific props:
+
+| Prop | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `header` | `SlotValue` | No | built-in header | Override the popup header area. |
+| `toggleButton` | `SlotValue` | No | built-in button | Override the toggle button that opens/closes the popup. |
+| `defaultOpen` | `boolean` | No | `false` | Whether the popup starts open. |
+| `width` | `number \| string` | No | — | Override popup width. |
+| `height` | `number \| string` | No | — | Override popup height. |
+| `clickOutsideToClose` | `boolean` | No | `true` | Whether clicking outside the popup closes it. |
+
+All `CopilotChat` props are forwarded to the underlying `CopilotChat`, including `agentId`, `threadId`, `attachments`, `onError`, `throttleMs`, `labels`, etc.
+
+## Example
+
+```tsx
+"use client";
+import { CopilotKit, CopilotPopup } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      {children}
+      <CopilotPopup agentId="my-agent" defaultOpen={false} />
+    </CopilotKit>
+  );
+}
+```
+
+```tsx
+"use client";
+import { CopilotPopup } from "@copilotkit/react-core/v2";
+
+// Customized popup
+export function CustomPopup() {
+  return (
+    <CopilotPopup
+      agentId="support-agent"
+      width={400}
+      height={600}
+      clickOutsideToClose={false}
+      defaultOpen
+      labels={{ placeholder: "How can I help you?" }}
+    />
+  );
+}
+```
+
+## Related
+
+- [`CopilotChat`](/reference/components/copilot-chat) — inline embed variant
+- [`CopilotSidebar`](/reference/components/copilot-sidebar) — sliding sidebar variant
+- [`CopilotKit`](/reference/components/copilot-kit-provider) — required parent provider

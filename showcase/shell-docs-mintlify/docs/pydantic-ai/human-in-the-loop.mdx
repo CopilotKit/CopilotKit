@@ -1,0 +1,148 @@
+---
+title: Human in the Loop
+description: Allow your Pydantic AI agent and users to collaborate on complex tasks using CopilotKit's HITL pattern.
+---
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## What is Human-in-the-Loop (HITL)?
+
+Human-in-the-loop (HITL) allows a Pydantic AI agent to pause execution and request human input or approval before continuing. This is essential when your agent needs to handle decisions that require human judgment — reviewing a draft, confirming a destructive action, or providing missing context.
+
+CopilotKit lets you define a `useFrontendTool` that the agent can call at any point during execution. The frontend renders custom UI, collects the user's response, and returns it to the agent so it can continue.
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Connect your agent
+
+Follow the [quickstart](/pydantic-ai/quickstart) to run your Pydantic AI agent and connect it to CopilotKit before proceeding.
+
+</Step>
+
+<Step>
+
+### Add `useFrontendTool` to your frontend
+
+Create a component that renders agent output and waits for user approval. The `renderAndWaitForResponse` callback receives the tool arguments, a `respond` function, and the current `status`:
+
+```tsx title="app/page.tsx"
+"use client";
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+function YourMainContent() {
+  useFrontendTool({
+    name: "write_essay",
+    available: "frontend",
+    description: "Writes an essay draft and asks the user to approve or reject it.",
+    parameters: z.object({
+      draft: z.string().describe("The draft of the essay"),
+    }),
+    renderAndWaitForResponse: ({ args, respond, status }) => {
+      return (
+        <div className="p-4 border rounded-lg space-y-4">
+          <p className="whitespace-pre-wrap">{args.draft ?? "Preparing your draft..."}</p>
+
+          <div className={`flex gap-4 ${status !== "executing" ? "hidden" : ""}`}>
+            <button
+              onClick={() => respond?.("CANCEL")}
+              disabled={status !== "executing"}
+              className="border px-4 py-2 rounded-lg w-full"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => respond?.("SEND")}
+              disabled={status !== "executing"}
+              className="bg-blue-500 text-white px-4 py-2 rounded-lg w-full"
+            >
+              Approve Draft
+            </button>
+          </div>
+        </div>
+      );
+    },
+  });
+
+  return <main>{/* your page content */}</main>;
+}
+```
+
+</Step>
+
+<Step>
+
+### Set up the Pydantic AI agent
+
+Define a Pydantic AI agent with a tool that triggers the frontend HITL interaction. The agent calls `write_essay`, which hands control to the frontend until the user responds:
+
+```python title="agent.py"
+from pydantic_ai import Agent
+
+agent = Agent(
+    'openai:gpt-5.4-mini',
+    system_prompt="You are a helpful writing assistant. When asked to write an essay, use the write_essay tool to create a draft and wait for user feedback."
+)
+
+@agent.tool_plain
+async def write_essay(topic: str) -> str:
+    """Write an essay on the given topic and present it to the user for review."""
+    # In a real implementation you would generate the essay here.
+    # Returning a placeholder so CopilotKit can render the HITL UI on the frontend.
+    return f"Draft essay on '{topic}' is ready for review."
+
+app = agent.to_ag_ui()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+```
+
+<Info>
+  The tool name on the Python side (`write_essay`) must match the `name` passed to `useFrontendTool` on the frontend (`"write_essay"`). CopilotKit routes the call automatically.
+</Info>
+
+</Step>
+
+<Step>
+
+### Try it out
+
+Start both servers and navigate to `http://localhost:3000`. Ask the agent to write an essay:
+
+```
+Write me an essay about the benefits of AI.
+```
+
+The agent will generate a draft and pause, showing the approval UI. Click **Approve Draft** to let the agent continue, or **Try Again** to have it revise.
+
+</Step>
+
+</Steps>
+
+## How it works
+
+1. The user sends a message asking the agent to write an essay.
+2. The Pydantic AI agent calls its `write_essay` tool.
+3. CopilotKit intercepts the tool call and invokes the matching `useFrontendTool` on the frontend.
+4. The frontend renders the draft and the approval buttons, suspending the agent until the user responds.
+5. When the user clicks a button, `respond` is called with `"SEND"` or `"CANCEL"`, which is returned to the agent as the tool result.
+6. The agent receives the result and continues (or retries) accordingly.
+
+## Next steps
+
+- [Shared State](/pydantic-ai/shared-state) — synchronize agent state with your UI in real time
+- [Generative UI](/pydantic-ai/generative-ui/tool-rendering) — render rich UI components during agent execution
+- [Frontend Tools](/pydantic-ai/frontend-tools) — give your agent the ability to call frontend functions directly

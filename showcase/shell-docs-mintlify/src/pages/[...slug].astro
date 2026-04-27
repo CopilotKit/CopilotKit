@@ -1,0 +1,142 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer';
+import SiteFooter from '../components/SiteFooter';
+import { PageContextMenu } from '../components/PageContextMenu';
+import { components } from '@mintlify/astro/components';
+import { resolvePageData } from '@mintlify/astro/helpers';
+import Variant from '../components/Variant';
+import ShowcaseDemo from '../components/ShowcaseDemo';
+import ShowcaseCode from '../components/ShowcaseCode.astro';
+import MintCodeBlock from '../components/MintCodeBlock.astro';
+import AnimatedCopilotDemo from '../components/AnimatedCopilotDemoIsland.astro';
+import { IntegrationGrid } from '../components/IntegrationGrid';
+import '../styles/copilotkit.css';
+import type { DocsConfig } from '@mintlify/astro';
+import docsConfig from '../../docs/docs.json';
+import Sidebar, { MobileSidebar } from '../components/Sidebar';
+import TableOfContents from '../components/TableOfContents';
+import { getGitHubStars, formatStars } from '../lib/github-stars';
+
+export async function getStaticPaths() {
+  const docs = await getCollection('docs');
+
+  return docs.map((doc) => {
+    const slug = doc.id === 'index' ? undefined : doc.id;
+    return {
+      params: { slug },
+      props: { doc, allDocs: docs },
+    };
+  });
+}
+
+const { doc, allDocs } = Astro.props;
+const { Content, headings } = await render(doc);
+
+const titleMap = Object.fromEntries(
+  allDocs.map((doc) => [doc.id, doc.data.title || doc.id]),
+);
+const currentPath = doc.id === 'index' ? '/' : `/${doc.id}`;
+const page = resolvePageData(docsConfig as DocsConfig, {
+  currentPath,
+  titleMap,
+});
+
+const stars = await getGitHubStars();
+const starsLabel = formatStars(stars);
+---
+
+<Layout title={doc.data.title || doc.id} description={doc.data.description}>
+  <div>
+    <Header
+      tabs={page.tabs}
+      pageTitle={doc.data.title || doc.id}
+      groupName={page.groupName}
+    />
+
+    <MobileSidebar
+      navigation={page.navigation}
+      currentPath={currentPath}
+      tabs={page.tabs || []}
+      anchors={page.anchors}
+      stars={stars}
+      starsLabel={starsLabel}
+      client:load
+    />
+
+    <div class="w-full px-4 pt-3 lg:pt-0">
+      <div
+        class="flex lg:gap-10 min-h-[calc(100vh-4rem)]"
+        style="container-type: inline-size;"
+      >
+        <div transition:animate="none">
+          <Sidebar
+            navigation={page.navigation}
+            currentPath={currentPath}
+            anchors={page.anchors}
+            client:load
+          />
+        </div>
+
+        <main class="flex-1 min-w-0 pt-6 pb-10" id="main-content">
+          <article class="w-full">
+            <header class="leading-none pb-8">
+              {
+                page.groupName && (
+                  <p class="text-sm font-semibold text-(--primary) mt-0.5">
+                    {page.groupName}
+                  </p>
+                )
+              }
+              <div
+                class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mt-2.5"
+              >
+                <div class="flex flex-col gap-2.5">
+                  <h1
+                    class="text-2xl sm:text-3xl text-gray-900 dark:text-gray-50 tracking-tight font-bold wrap-anywhere"
+                  >
+                    {doc.data.title || doc.id}
+                  </h1>
+                  {
+                    doc.data.description && (
+                      <div class="text-lg prose prose-gray dark:prose-invert max-w-2xl">
+                        <p>{doc.data.description}</p>
+                      </div>
+                    )
+                  }
+                </div>
+                <PageContextMenu
+                  pathname={currentPath}
+                  className="sm:mt-0"
+                  client:load
+                />
+              </div>
+            </header>
+            <div class="mdx-content prose dark:prose-invert max-w-none">
+              <Content
+                components={{
+                  ...components,
+                  Variant,
+                  ShowcaseDemo,
+                  ShowcaseCode,
+                  MintCodeBlock,
+                  AnimatedCopilotDemo,
+                  IntegrationGrid,
+                }}
+              />
+              <Footer
+                prev={page.footerPages.prev}
+                next={page.footerPages.next}
+              />
+            </div>
+          </article>
+          <SiteFooter />
+        </main>
+
+        <TableOfContents headings={headings} client:load />
+      </div>
+    </div>
+  </div>
+</Layout>

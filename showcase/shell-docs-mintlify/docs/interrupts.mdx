@@ -1,0 +1,148 @@
+---
+title: "Interrupts"
+icon: "lucide/Pause"
+description: "Pause the agent mid-run and resolve with UI-driven input."
+---
+
+Interrupts let a backend agent pause its run and emit an event that your React app can catch, display a custom UI for, and resolve with user-provided data. The agent resumes with whatever you pass back via `resolve`.
+
+## What is this?
+
+`useInterrupt` listens for `on_interrupt` custom events on the active agent. When one arrives, it calls your `render` function so you can display a prompt, a form, or an approval dialog. Once the user acts, call `resolve(value)` and the agent continues from where it paused.
+
+### Interrupts vs. Human-in-the-loop
+
+Both patterns pause execution and collect user input, but they target different use cases:
+
+| | Interrupts (`useInterrupt`) | HITL (`useHumanInTheLoop`) |
+|---|---|---|
+| **Trigger** | Agent emits an `on_interrupt` custom event at the state-machine level | Agent invokes a special frontend tool |
+| **Typical source** | LangChain `interrupt()` nodes or any backend that emits `on_interrupt` | Built-in Agent tool calls |
+| **Resolution** | `resolve(value)` re-runs the agent with a resume command | Tool handler return value |
+| **When to use** | State-machine pauses (LangChain-style) | Tool-based interactive pauses |
+
+## How to use it
+
+### Basic interrupt handler
+
+```tsx title="components/ApprovalGate.tsx"
+"use client"; // only necessary for Next.js App Router
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+export function ApprovalGate() {
+  // Renders inside <CopilotChat> automatically (renderInChat default = true)
+  useInterrupt({
+    render: ({ event, resolve }) => (
+      <div className="approval-modal">
+        <p>{String(event.value)}</p>
+        <button onClick={() => resolve({ approved: true })}>Approve</button>
+        <button onClick={() => resolve({ approved: false })}>Reject</button>
+      </div>
+    ),
+  });
+
+  return null;
+}
+```
+
+Mount `<ApprovalGate />` anywhere inside your `<CopilotKit>` provider. When the agent emits `on_interrupt`, the card appears in the chat area.
+
+### Custom placement outside the chat
+
+Set `renderInChat: false` to receive the element and place it yourself.
+
+```tsx title="components/SidebarInterrupt.tsx"
+"use client";
+import { useInterrupt } from "@copilotkit/react-core/v2";
+
+export function SidebarInterrupt() {
+  const interruptElement = useInterrupt({
+    renderInChat: false,
+    render: ({ event, resolve }) => (
+      <aside className="interrupt-panel">
+        <strong>Agent needs input</strong>
+        <p>{String(event.value)}</p>
+        <button onClick={() => resolve("confirmed")}>Confirm</button>
+      </aside>
+    ),
+  });
+
+  return <>{interruptElement}</>;
+}
+```
+
+### Filtering with `enabled`
+
+When you have multiple interrupt handlers, use `enabled` to route each interrupt to the right component.
+
+```tsx
+useInterrupt({
+  enabled: (event) =>
+    typeof event.value === "object" &&
+    event.value !== null &&
+    "type" in (event.value as object) &&
+    (event.value as { type: string }).type === "approval",
+  render: ({ event, resolve }) => (
+    <ApprovalModal
+      payload={event.value as { message: string }}
+      onApprove={() => resolve({ approved: true })}
+      onReject={() => resolve({ approved: false })}
+    />
+  ),
+});
+```
+
+### Pre-processing with `handler`
+
+Run async logic before the UI appears. The return value is available as `result` in `render`.
+
+```tsx
+useInterrupt<{ approved: boolean; label: string }>({
+  handler: async ({ event }) => {
+    // Fetch enriched data before rendering
+    const extra = await fetchPolicyDetails((event.value as any).policyId);
+    return { approved: false, label: extra.title };
+  },
+  render: ({ event, result, resolve }) => (
+    <div>
+      <h3>{result?.label ?? "Approval required"}</h3>
+      <button onClick={() => resolve({ approved: true })}>Approve</button>
+      <button onClick={() => resolve({ approved: false })}>Decline</button>
+    </div>
+  ),
+});
+```
+
+`result` is `null` until the handler resolves. If the handler throws, `result` falls back to `null` and rendering still proceeds.
+
+## API reference
+
+### `useInterrupt(config)`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `render` | `(props: InterruptRenderProps) => ReactElement` | — | **Required.** Renders the interrupt UI. Receives `event`, `result`, and `resolve`. |
+| `enabled` | `(event: InterruptEvent) => boolean` | Always `true` | Optional filter. Return `false` to ignore this interrupt. |
+| `handler` | `(props: InterruptHandlerProps) => TResult \| Promise<TResult>` | — | Optional pre-render async logic. Return value is exposed as `result` in `render`. |
+| `renderInChat` | `boolean` | `true` | When `true`, the element is published into `<CopilotChat>`. When `false`, the hook returns the element. |
+| `agentId` | `string` | Chat agent | Scope this handler to a specific agent. |
+
+**`InterruptEvent`**
+
+| Field | Type | Description |
+|---|---|---|
+| `name` | `string` | Always `"on_interrupt"`. |
+| `value` | `unknown` | The payload emitted by the backend. Shape depends on your agent. |
+
+**`InterruptRenderProps`**
+
+| Prop | Type | Description |
+|---|---|---|
+| `event` | `InterruptEvent` | The interrupt event from the agent. |
+| `result` | `TResult \| null` | Resolved value from `handler`, or `null` if no handler was provided or it failed. |
+| `resolve` | `(response: unknown) => void` | Call with user input to resume the agent. |
+
+## Related
+
+- [Human in the Loop](/frontend-tools) — tool-based pauses with `useHumanInTheLoop`
+- [LangChain human-in-the-loop](/langgraph/human-in-the-loop) — the LangChain-specific `interrupt()` flow

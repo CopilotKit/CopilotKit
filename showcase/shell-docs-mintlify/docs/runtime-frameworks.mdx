@@ -1,0 +1,338 @@
+---
+title: "Backend frameworks"
+icon: "lucide/Server"
+description: "Run the Copilot Runtime on Hono, Express, NestJS, or any Node-compatible backend."
+---
+
+## What is this?
+
+The Copilot Runtime is the server-side component of CopilotKit. It handles agent communication, streaming responses, thread management, and lifecycle hooks. The runtime itself is framework-agnostic: at its core it is a pure `(Request) => Promise<Response>` handler that can run anywhere the Fetch API is available.
+
+This guide shows how to mount the runtime in specific Node.js frameworks. If you are using **Next.js**, see the [Quickstart](/quickstart) instead — the Next.js App Router integration uses the Fetch handler directly.
+
+## When should I use this?
+
+Use this guide when:
+
+- Your backend runs **Express**, **Hono**, or a raw **Node.js HTTP server**.
+- You are building a standalone API server that is separate from your frontend.
+- You already have an existing Node.js service and want to add CopilotKit endpoints to it.
+- You need maximum control over routing, middleware ordering, or CORS configuration.
+
+## Hono
+
+`@copilotkit/runtime` ships a first-class Hono integration. `createCopilotHonoHandler` returns a Hono application that you mount into your own `Hono` instance with `.route()`.
+
+### Install
+
+```bash
+npm install @copilotkit/runtime hono @hono/node-server
+```
+
+### Wire it up
+
+```typescript
+// server.ts
+import { Hono } from "hono";
+import { serve } from "@hono/node-server";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotHonoHandler } from "@copilotkit/runtime/v2/hono";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = new Hono();
+
+// Mount all CopilotKit routes under /api/copilotkit
+app.route(
+  "/",
+  createCopilotHonoHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+  }),
+);
+
+// Your other routes
+app.get("/health", (c) => c.text("OK"));
+
+serve({ fetch: app.fetch, port: 4000 }, () => {
+  console.log("Server running on http://localhost:4000");
+});
+```
+
+### CORS and credentials
+
+By default the handler allows all origins without credentials. To support HTTP-only cookies, pass an explicit origin:
+
+```typescript
+createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: {
+    origin: "https://myapp.com",
+    credentials: true,
+  },
+});
+```
+
+### Single-route mode
+
+For environments that require a single POST endpoint (e.g., proxies that restrict routing), set `mode: "single-route"`:
+
+```typescript
+createCopilotHonoHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+});
+```
+
+In single-route mode all operations are dispatched through one `POST /api/copilotkit` endpoint using a JSON envelope `{ method, params, body }`.
+
+### Bun / Deno / Cloudflare Workers
+
+Because `createCopilotHonoHandler` returns a standard Hono app, any runtime that can serve a Hono app works out of the box:
+
+```typescript
+// Bun — no @hono/node-server needed
+const app = new Hono();
+app.route("/", createCopilotHonoHandler({ runtime, basePath: "/api/copilotkit" }));
+Bun.serve({ fetch: app.fetch, port: 4000 });
+```
+
+---
+
+## Express
+
+`@copilotkit/runtime` ships a dedicated Express integration. `createCopilotExpressHandler` returns an Express `Router` that you mount with `app.use()`.
+
+### Install
+
+```bash
+npm install @copilotkit/runtime express
+```
+
+### Wire it up
+
+```typescript
+// server.ts
+import express from "express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const app = express();
+
+// Mount all CopilotKit routes. The router handles its own CORS.
+// Do NOT add express.json() before this — the handler manages body parsing.
+app.use(
+  createCopilotExpressHandler({
+    runtime,
+    basePath: "/api/copilotkit",
+    cors: true, // permissive CORS; pass a CorsOptions object for fine-grained control
+  }),
+);
+
+// Your other routes
+app.get("/health", (_req, res) => res.send("OK"));
+
+app.listen(4000, () => {
+  console.log("Server running on http://localhost:4000");
+});
+```
+
+### CORS options
+
+The `cors` parameter accepts:
+- `true` (default) — permissive: `origin: "*"`, all methods, all headers.
+- `false` — no CORS middleware; handle it yourself.
+- A [`CorsOptions`](https://www.npmjs.com/package/cors#configuration-options) object for fine-grained control.
+
+### Body-parser compatibility
+
+`createCopilotExpressHandler` handles its own body reading. If you add `express.json()` globally before the CopilotKit router, the handler detects the pre-parsed body and re-serialises it correctly — no extra configuration needed.
+
+### Single-route mode
+
+```typescript
+createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  mode: "single-route",
+  cors: true,
+});
+```
+
+---
+
+## NestJS
+
+v2 does not ship a dedicated NestJS module. The recommended approach is to mount the Express handler inside a NestJS app, which is itself built on Express by default.
+
+### Install
+
+```bash
+npm install @copilotkit/runtime express @nestjs/platform-express
+```
+
+### Wire it up
+
+Register the handler as a NestJS middleware in your `AppModule`:
+
+```typescript
+// app.module.ts
+import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
+import { Request, Response, NextFunction } from "express";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotExpressHandler } from "@copilotkit/runtime/v2/express";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const copilotHandler = createCopilotExpressHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+@Module({})
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // Apply the CopilotKit router to /api/copilotkit and all sub-paths
+    consumer
+      .apply((req: Request, res: Response, next: NextFunction) => {
+        copilotHandler(req, res, next);
+      })
+      .forRoutes("/api/copilotkit(.*)");
+  }
+}
+```
+
+### Fastify adapter
+
+If your NestJS app uses `@nestjs/platform-fastify`, use the Hono handler instead and bridge it through Fastify's `addContentTypeParser` + raw handler, or switch the platform adapter to Express for the CopilotKit routes. The simplest path is to keep Express as the NestJS platform:
+
+```bash
+# default NestJS adapter — nothing extra to install
+npm install @nestjs/platform-express
+```
+
+---
+
+## Node HTTP server
+
+For minimal setups without a framework, use `createCopilotNodeListener` (a convenience wrapper) or compose `createCopilotRuntimeHandler` + `createCopilotNodeHandler` yourself.
+
+### Install
+
+```bash
+npm install @copilotkit/runtime
+```
+
+### Convenience wrapper
+
+```typescript
+// server.ts
+import { createServer } from "node:http";
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createCopilotNodeListener } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const listener = createCopilotNodeListener({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+createServer(listener).listen(4000, () => {
+  console.log("Server running on http://localhost:4000");
+});
+```
+
+### Manual composition
+
+If you need to handle other routes alongside CopilotKit, compose the handlers yourself:
+
+```typescript
+import { createServer } from "node:http";
+import { CopilotRuntime, BuiltInAgent, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+import { createCopilotNodeHandler } from "@copilotkit/runtime/v2/node";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }),
+  },
+});
+
+const fetchHandler = createCopilotRuntimeHandler({
+  runtime,
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+const copilotNodeHandler = createCopilotNodeHandler(fetchHandler);
+
+createServer(async (req, res) => {
+  const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+
+  if (url.pathname.startsWith("/api/copilotkit")) {
+    return copilotNodeHandler(req, res);
+  }
+
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Hello from my server");
+}).listen(4000, () => {
+  console.log("Server running on http://localhost:4000");
+});
+```
+
+### Fetch-native runtimes
+
+`createCopilotRuntimeHandler` returns a plain `(Request) => Promise<Response>` function, so it works directly in any Fetch-native environment:
+
+```typescript
+import { CopilotRuntime, BuiltInAgent, createCopilotRuntimeHandler } from "@copilotkit/runtime/v2";
+
+const handler = createCopilotRuntimeHandler({
+  runtime: new CopilotRuntime({
+    agents: { default: new BuiltInAgent({ model: "openai/gpt-4o-mini" }) },
+  }),
+  basePath: "/api/copilotkit",
+  cors: true,
+});
+
+// Bun
+Bun.serve({ fetch: handler });
+
+// Deno
+Deno.serve(handler);
+
+// Cloudflare Workers
+export default { fetch: handler };
+```
+
+---
+
+## Related
+
+- [Quickstart](/quickstart) — end-to-end setup with Next.js App Router
+- [Copilot Runtime](/copilot-runtime) — runtime configuration reference (agents, middleware, hooks, intelligence mode)
+<Variant for="built-in">
+- [Model Selection](/model-selection) — how to configure different LLM providers
+</Variant>

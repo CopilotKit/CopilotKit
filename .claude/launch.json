@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "shell-docs-mintlify",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "showcase/shell-docs-mintlify"],
+      "port": 4321
+    }
+  ]
+}

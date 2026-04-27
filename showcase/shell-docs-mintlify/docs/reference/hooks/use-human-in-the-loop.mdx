@@ -1,0 +1,117 @@
+---
+title: "useHumanInTheLoop"
+description: "Register a tool that pauses the agent run and waits for explicit user confirmation before continuing."
+icon: "lucide/UserCheck"
+---
+
+## Signature
+
+```ts
+function useHumanInTheLoop<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactHumanInTheLoop<T>,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `tool` | `ReactHumanInTheLoop<T>` | Yes | — | HITL tool definition with a required `render` component that must call `respond` to resume the agent. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra React dependencies that refresh registration when they change. |
+
+### `ReactHumanInTheLoop<T>`
+
+Omits `handler` from `FrontendTool<T>` (the handler is auto-generated) and requires a `render` component.
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Unique tool name sent to the model. |
+| `description` | `string` | No | Explains to the model when to invoke this confirmation step. |
+| `parameters` | `StandardSchemaV1` | No | Schema for the tool's input parameters. |
+| `agentId` | `string` | No | Scope to a specific agent. |
+| `render` | `React.ComponentType<HitlRenderProps>` | Yes | Component rendered in chat. Receives `status` (`inProgress` / `executing` / `complete`) and a `respond` callback (only present during `executing`). |
+
+### `HitlRenderProps` (per status)
+
+**`inProgress`** — tool call is streaming in:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `description` | `string` |
+| `args` | `Partial<T>` |
+| `status` | `"inProgress"` |
+| `result` | `undefined` |
+| `respond` | `undefined` |
+
+**`executing`** — tool call is ready, awaiting user response:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `description` | `string` |
+| `args` | `T` |
+| `status` | `"executing"` |
+| `result` | `undefined` |
+| `respond` | `(result: unknown) => Promise<void>` |
+
+**`complete`** — user has responded:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `description` | `string` |
+| `args` | `T` |
+| `status` | `"complete"` |
+| `result` | `string` |
+| `respond` | `undefined` |
+
+## Returns
+
+`void`
+
+<Warning>
+The HITL renderer is removed from the DOM on unmount (unlike regular tool renderers). This is intentional — once the component that owns the confirmation dialog unmounts, the tool can no longer accept responses.
+</Warning>
+
+## Example
+
+```tsx
+"use client";
+import { z } from "zod";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+
+export function DeleteConfirmation() {
+  useHumanInTheLoop({
+    name: "confirmDelete",
+    description: "Ask the user to confirm a delete action before proceeding",
+    parameters: z.object({
+      resourceName: z.string(),
+      resourceType: z.string(),
+    }),
+    render: ({ status, args, respond }) => {
+      if (status === "inProgress") {
+        return <div>Loading confirmation…</div>;
+      }
+      if (status === "executing") {
+        return (
+          <div>
+            <p>Delete {args.resourceType}: <strong>{args.resourceName}</strong>?</p>
+            <button onClick={() => respond({ confirmed: true })}>Confirm</button>
+            <button onClick={() => respond({ confirmed: false })}>Cancel</button>
+          </div>
+        );
+      }
+      return <div>Confirmed.</div>;
+    },
+  });
+
+  return null;
+}
+```
+
+## Related
+
+- [`useFrontendTool`](/reference/hooks/use-frontend-tool) — general-purpose frontend tool with custom handler
+- [`useInterrupt`](/reference/hooks/use-interrupt) — interrupt-based human-in-the-loop via agent events

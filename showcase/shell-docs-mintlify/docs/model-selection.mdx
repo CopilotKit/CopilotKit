@@ -1,0 +1,230 @@
+---
+title: "Model Selection"
+icon: "lucide/Cpu"
+description: "Pick a model for your Built-in Agent — out-of-the-box providers or any AI SDK / TanStack AI model."
+---
+
+<Variant for="langgraph adk a2a ag2 agent-spec agno aws-strands crewai-flows llamaindex mastra microsoft-agent-framework pydantic-ai">
+  <Note>
+    This page covers Built-in Agent's `model` parameter, which uses the [Vercel AI SDK](https://sdk.vercel.ai) under the hood. Your integration selects models in its own framework (e.g. `ChatOpenAI` in LangChain, `LlmAgent(model=...)` in ADK, `OpenAIModel` in Strands, `openai(...)` in Mastra). Refer to your framework's docs for the supported provider list and configuration options.
+  </Note>
+</Variant>
+
+The Built-in Agent supports two backend modes:
+
+- **Simple mode** — pass a `"provider:model"` string and CopilotKit handles everything via the Vercel AI SDK. Works for OpenAI, Anthropic, and Google models out of the box.
+- **Factory mode** — bring your own model router. Use any [Vercel AI SDK](https://sdk.vercel.ai) provider (Azure, Bedrock, Ollama, OpenRouter, custom) or [TanStack AI](https://tanstack.com/ai) for full control.
+
+---
+
+## Simple mode: built-in providers
+
+Pass a `"provider:model"` string (or `"provider/model"` — both work). CopilotKit resolves it to the right Vercel AI SDK provider automatically.
+
+```typescript
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini", // [!code highlight]
+});
+```
+
+### OpenAI
+
+| Model | Specifier |
+|-------|-----------|
+| GPT-5 | `openai:gpt-5` |
+| GPT-5 Mini | `openai:gpt-5-mini` |
+| GPT-5.4 Mini | `openai:gpt-5.4-mini` |
+| GPT-4.1 | `openai:gpt-4.1` |
+| GPT-4.1 Mini | `openai:gpt-4.1-mini` |
+| GPT-4.1 Nano | `openai:gpt-4.1-nano` |
+| o3 | `openai:o3` |
+| o3-mini | `openai:o3-mini` |
+| o4-mini | `openai:o4-mini` |
+
+```typescript
+const agent = new BuiltInAgent({ model: "openai:gpt-5.4-mini" });
+```
+
+### Anthropic
+
+| Model | Specifier |
+|-------|-----------|
+| Claude Sonnet 4.5 | `anthropic:claude-sonnet-4-5` |
+| Claude Sonnet 4 | `anthropic:claude-sonnet-4` |
+| Claude 3.7 Sonnet | `anthropic:claude-3-7-sonnet` |
+| Claude Opus 4.1 | `anthropic:claude-opus-4-1` |
+| Claude Opus 4 | `anthropic:claude-opus-4` |
+| Claude 3.5 Haiku | `anthropic:claude-3-5-haiku` |
+
+```typescript
+const agent = new BuiltInAgent({ model: "anthropic:claude-sonnet-4-5" });
+```
+
+### Google
+
+| Model | Specifier |
+|-------|-----------|
+| Gemini 2.5 Pro | `google:gemini-2.5-pro` |
+| Gemini 2.5 Flash | `google:gemini-2.5-flash` |
+| Gemini 2.5 Flash Lite | `google:gemini-2.5-flash-lite` |
+
+```typescript
+const agent = new BuiltInAgent({ model: "google:gemini-2.5-pro" });
+```
+
+### API keys
+
+Set the API key for your chosen provider as an environment variable:
+
+```bash
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+```
+
+Or pass it directly:
+
+```typescript
+const agent = new BuiltInAgent({
+  model: "openai:gpt-4.1",
+  apiKey: process.env.MY_OPENAI_KEY, // [!code highlight]
+});
+```
+
+---
+
+## Factory mode: bring your own model router
+
+For models outside the built-in list, switch the agent to **factory mode** and supply your own provider. Two ecosystems are supported first-class:
+
+<Columns cols={2}>
+  <Card
+    title="Vercel AI SDK"
+    icon="triangle"
+    href="#vercel-ai-sdk"
+  >
+    The default. Use any AI SDK provider — OpenAI, Anthropic, Google, Azure, Bedrock, Mistral, Groq, Ollama, OpenRouter, or any OpenAI-compatible endpoint.
+  </Card>
+  <Card
+    title="TanStack AI"
+    icon="layers"
+    href="#tanstack-ai"
+  >
+    The TanStack-native model router. Same model coverage with a different ergonomic for tools, streams, and adapters.
+  </Card>
+</Columns>
+
+<Note>
+  Factory mode is also where you set up custom message conversion, multi-step tool-call chains, and proprietary backends. See [Bring your own model](/custom-agent) for the full overview.
+</Note>
+
+### <img src="/logos/vercel-ai-sdk.svg" alt="" className="inline w-4 h-4 align-text-bottom mr-1.5" /> Vercel AI SDK
+
+The AI SDK is the default backend behind simple mode. In factory mode, you wire the AI SDK provider yourself — useful for custom base URLs, extra options, fine-tuned models, or providers not in the simple-mode list.
+
+```typescript title="src/copilotkit.ts"
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { createOpenAI } from "@ai-sdk/openai"; // [!code highlight]
+
+const customProvider = createOpenAI({ // [!code highlight]
+  apiKey: process.env.MY_API_KEY,
+  baseURL: "https://my-proxy.example.com/v1",
+});
+
+const agent = new BuiltInAgent({
+  model: customProvider("my-fine-tuned-model"), // [!code highlight]
+});
+```
+
+Same pattern works for **Azure OpenAI**, **AWS Bedrock**, **Mistral**, **Groq**, **Ollama**, **OpenRouter**, and any OpenAI-compatible endpoint:
+
+```typescript
+import { createAzure } from "@ai-sdk/azure";
+
+const azure = createAzure({
+  resourceName: "my-resource",
+  apiKey: process.env.AZURE_API_KEY,
+});
+
+const agent = new BuiltInAgent({
+  model: azure("my-deployment"),
+});
+```
+
+```typescript
+import { createOllama } from "ollama-ai-provider";
+
+const ollama = createOllama({ baseURL: "http://localhost:11434" });
+const agent = new BuiltInAgent({ model: ollama("llama3.1") });
+```
+
+```typescript
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+
+const openrouter = createOpenRouter({ apiKey: process.env.OPENROUTER_API_KEY });
+const agent = new BuiltInAgent({ model: openrouter("anthropic/claude-3.5-sonnet") });
+```
+
+See the [AI SDK provider list](https://sdk.vercel.ai/providers/ai-sdk-providers) for everything supported.
+
+### <img src="/logos/tanstack.svg" alt="" className="inline w-4 h-4 align-text-bottom mr-1.5" /> TanStack AI
+
+If you'd rather use the TanStack ecosystem, factory mode integrates with [TanStack AI](https://tanstack.com/ai) just as cleanly. Pass `type: "tanstack"` and provide a factory that returns a TanStack `chat()` stream.
+
+```typescript title="src/copilotkit.ts"
+import {
+  CopilotRuntime,
+  createCopilotHonoHandler,
+  InMemoryAgentRunner,
+  BuiltInAgent,
+  convertInputToTanStackAI,
+} from "@copilotkit/runtime/v2";
+import { chat } from "@tanstack/ai";
+import { openaiText } from "@tanstack/ai-openai"; // [!code highlight]
+
+const agent = new BuiltInAgent({
+  type: "tanstack", // [!code highlight]
+  factory: ({ input, abortController }) => {
+    const { messages, systemPrompts } = convertInputToTanStackAI(input);
+    return chat({
+      adapter: openaiText("gpt-5.4-mini"),
+      messages,
+      systemPrompts,
+      abortController,
+    });
+  },
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: agent },
+  runner: new InMemoryAgentRunner(),
+});
+```
+
+TanStack AI provides adapters for OpenAI, Anthropic, Google, Mistral, and any OpenAI-compatible endpoint. Swap `openaiText` for `anthropicText`, `googleText`, etc. as needed.
+
+For tools, message conversion, and the full factory API, see [Bring your own model](/custom-agent).
+
+---
+
+## How simple mode resolves your model string
+
+Under the hood, the Built-in Agent maps `"provider:model"` strings to AI SDK provider instances:
+
+- `"openai:gpt-4.1"` → `@ai-sdk/openai` → `openai("gpt-4.1")`
+- `"anthropic:claude-sonnet-4-5"` → `@ai-sdk/anthropic` → `anthropic("claude-sonnet-4-5")`
+- `"google:gemini-2.5-pro"` → `@ai-sdk/google` → `google("gemini-2.5-pro")`
+
+Both `"provider:model"` and `"provider/model"` separators work.
+
+## Picking between Simple and Factory mode
+
+| If you… | Use |
+|---|---|
+| Want to switch models with a string | **Simple mode** |
+| Need a custom base URL, headers, or auth | **Factory mode (AI SDK)** |
+| Use Azure / Bedrock / Ollama / OpenRouter | **Factory mode (AI SDK)** |
+| Already use TanStack AI in your stack | **Factory mode (TanStack AI)** |
+| Need a fully custom LLM backend | **Factory mode (custom)** — see [Bring your own model](/custom-agent) |

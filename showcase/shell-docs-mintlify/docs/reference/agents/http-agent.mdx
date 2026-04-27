@@ -1,0 +1,90 @@
+---
+title: "HttpAgent"
+description: "Generic HTTP/SSE agent from @ag-ui/client that forwards run requests to any AG-UI-compatible endpoint."
+icon: "lucide/Cpu"
+---
+
+## Constructor
+
+```ts
+new HttpAgent(config: HttpAgentConfig)
+```
+
+`HttpAgent` is the generic remote agent provided by `@ag-ui/client`. It connects to any server that speaks the AG-UI protocol over HTTP streaming (SSE). Use it to connect CopilotKit to LangChain, ADK, and other AG-UI-compatible backends.
+
+## Options
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `url` | `string` | Yes | — | Fully-qualified URL of the remote AG-UI endpoint (e.g. `"http://localhost:8000/copilotkit"`). |
+| `headers` | `Record<string, string>` | No | `{}` | HTTP headers to include on every request. Use for auth tokens or custom routing. |
+| `agentId` | `string` | No | — | Optional identifier forwarded to the remote endpoint. |
+| `description` | `string` | No | — | Human-readable description of this agent. |
+| `threadId` | `string` | No | — | Default thread ID. Overridden per-run if the caller provides one. |
+| `initialMessages` | `Message[]` | No | `[]` | Seed messages prepended before the first run. |
+| `initialState` | `State` | No | — | Initial application state forwarded to the remote agent. |
+| `debug` | `AgentDebugConfig` | No | — | Enable debug logging (`true`, or `{ lifecycle, verbose }`). |
+
+## Methods
+
+| Method | Description |
+|---|---|
+| `run(input)` | Execute a run. Returns an `Observable<BaseEvent>` of AG-UI events. |
+| `abortRun()` | Abort the in-flight HTTP request. |
+| `clone()` | Return a copy of the agent with the same config and middleware chain. |
+
+## Example — LangChain remote agent
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    langgraph: new HttpAgent({
+      url: "http://localhost:8000/copilotkit",
+      headers: {
+        Authorization: `Bearer ${process.env.LANGGRAPH_TOKEN}`,
+      },
+    }),
+  },
+});
+```
+
+## Example — Google ADK agent
+
+```ts
+import { HttpAgent } from "@ag-ui/client";
+
+const adkAgent = new HttpAgent({
+  url: "http://localhost:8080/run",
+  agentId: "my-adk-agent",
+});
+```
+
+## Example — multiple remote agents
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { HttpAgent } from "@ag-ui/client";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    support: new HttpAgent({ url: "https://agents.example.com/support" }),
+    coding: new HttpAgent({ url: "https://agents.example.com/coding" }),
+  },
+});
+```
+
+## Notes
+
+`HttpAgent` is imported from `@ag-ui/client`, not from `@copilotkit/runtime/v2`. The `@ag-ui/client` package is installed as a dependency of `@copilotkit/runtime`.
+
+```ts
+import { HttpAgent } from "@ag-ui/client";
+```
+
+## Related
+
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — the runtime that hosts agents
+- [`BuiltInAgent`](/reference/agents/built-in-agent) — built-in LLM agent for direct model access

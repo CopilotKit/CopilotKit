@@ -1,0 +1,67 @@
+---
+title: "useAgentContext"
+description: "Inject JSON-serializable context into every agent run so the model has access to live app data."
+icon: "lucide/Info"
+---
+
+## Signature
+
+```ts
+function useAgentContext(context: AgentContextInput): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `context` | `AgentContextInput` | Yes | — | The context to register. Removed from the runtime when the component unmounts. |
+
+### `AgentContextInput`
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `description` | `string` | Yes | A human-readable label describing what this context represents. Sent to the model. |
+| `value` | `JsonSerializable` | Yes | The context payload. Non-string values are automatically serialized with `JSON.stringify`. |
+
+### `JsonSerializable`
+
+`string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable }`
+
+## Returns
+
+`void` — this hook has no return value. It registers/deregisters context as a side effect.
+
+## Example
+
+```tsx
+"use client";
+import { useAgentContext } from "@copilotkit/react-core/v2";
+
+export function ShoppingCartContext({ cartItems }: { cartItems: string[] }) {
+  useAgentContext({
+    description: "The user's current shopping cart items",
+    value: cartItems,
+  });
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useAgentContext } from "@copilotkit/react-core/v2";
+
+export function UserProfileContext({ userId, role }: { userId: string; role: string }) {
+  useAgentContext({
+    description: "Authenticated user profile",
+    value: { userId, role },
+  });
+
+  return null;
+}
+```
+
+## Related
+
+- [`useAgent`](/reference/hooks/use-agent) — subscribe to agent state and messages
+- [`useFrontendTool`](/reference/hooks/use-frontend-tool) — register a callable tool for the agent

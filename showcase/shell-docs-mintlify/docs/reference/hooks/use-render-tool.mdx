@@ -1,0 +1,131 @@
+---
+title: "useRenderTool"
+description: "Register a React renderer for tool calls by name. Renderers stay in the DOM after unmount so chat history continues to display correctly."
+icon: "lucide/PanelTop"
+---
+
+## Signature
+
+```ts
+// Named renderer with typed parameters
+function useRenderTool<S extends StandardSchemaV1>(
+  config: {
+    name: string;
+    parameters: S;
+    render: (props: RenderToolProps<S>) => React.ReactElement;
+    agentId?: string;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+
+// Wildcard renderer (fallback for any unmatched tool call)
+function useRenderTool(
+  config: {
+    name: "*";
+    render: (props: any) => React.ReactElement;
+    agentId?: string;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config.name` | `string \| "*"` | Yes | — | Tool name to match. Use `"*"` for a wildcard fallback renderer. |
+| `config.parameters` | `StandardSchemaV1` | No | — | Schema for typed parameter inference. Required when `name` is not `"*"`. Accepts any Standard Schema V1 compatible library (Zod, Valibot, ArkType, etc.). |
+| `config.render` | `(props: RenderToolProps<S>) => React.ReactElement` | Yes | — | Render function called with the tool call status and parameters. |
+| `config.agentId` | `string` | No | — | Scope the renderer to a specific agent. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra dependencies that refresh the renderer registration. |
+
+### `RenderToolProps<S>`
+
+A discriminated union based on `status`:
+
+**`inProgress`** — parameters are still streaming:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `toolCallId` | `string` |
+| `parameters` | `Partial<InferSchemaOutput<S>>` |
+| `status` | `"inProgress"` |
+| `result` | `undefined` |
+
+**`executing`** — parameters are complete, tool handler is running:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `toolCallId` | `string` |
+| `parameters` | `InferSchemaOutput<S>` |
+| `status` | `"executing"` |
+| `result` | `undefined` |
+
+**`complete`** — handler has returned:
+
+| Prop | Type |
+|---|---|
+| `name` | `string` |
+| `toolCallId` | `string` |
+| `parameters` | `InferSchemaOutput<S>` |
+| `status` | `"complete"` |
+| `result` | `string` |
+
+## Returns
+
+`void`
+
+<Info>
+Renderers are intentionally NOT removed on cleanup. This allows previously-executed tool calls in the chat history to keep displaying their UI even after the registering component unmounts.
+</Info>
+
+## Example
+
+```tsx
+"use client";
+import { z } from "zod";
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+export function SearchRenderer() {
+  useRenderTool(
+    {
+      name: "searchDocs",
+      parameters: z.object({ query: z.string() }),
+      render: ({ status, parameters, result }) => {
+        if (status === "inProgress") return <div>Preparing search…</div>;
+        if (status === "executing") return <div>Searching: {parameters.query}</div>;
+        return <pre>{result}</pre>;
+      },
+    },
+    [],
+  );
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useRenderTool } from "@copilotkit/react-core/v2";
+
+// Wildcard fallback for any tool call not matched by a named renderer
+export function GenericToolRenderer() {
+  useRenderTool({
+    name: "*",
+    render: ({ name, status }) => (
+      <div>
+        {status === "complete" ? "✓" : "⏳"} {name}
+      </div>
+    ),
+  });
+
+  return null;
+}
+```
+
+## Related
+
+- [`useDefaultRenderTool`](/reference/hooks/use-default-render-tool) — shortcut to register a wildcard renderer with CopilotKit's built-in card UI
+- [`useFrontendTool`](/reference/hooks/use-frontend-tool) — register a tool with both a handler and optional renderer

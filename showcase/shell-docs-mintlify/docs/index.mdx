@@ -1,0 +1,106 @@
+---
+title: "Introduction"
+description: "Add a production-grade AI copilot to your React app in five minutes."
+---
+
+Chat that does things in your app — not just answers questions. Drop in a chat component, register a few tools, and your users get an AI assistant that can read your app's state, render rich UI inline, ask for approval before destructive actions, and call any backend you've built.
+
+<AnimatedCopilotDemo />
+
+<Tip>
+  Switch the integration pill in the sidebar to swap the code below to your stack.
+</Tip>
+
+<Steps>
+  <Step title="Install">
+    <div data-variant-for="built-in">
+      ```bash
+      npm i @copilotkit/react-core @copilotkit/runtime
+      ```
+    </div>
+    <div data-variant-for="langgraph">
+      ```bash
+      npm i @copilotkit/react-core @copilotkit/runtime @langchain/langgraph
+      ```
+    </div>
+    <div data-variant-for="mastra">
+      ```bash
+      npm i @copilotkit/react-core @copilotkit/runtime @mastra/core
+      ```
+    </div>
+    <div data-variant-for="adk a2a ag2 agent-spec agno aws-strands crewai-flows llamaindex microsoft-agent-framework pydantic-ai">
+      ```bash
+      npm i @copilotkit/react-core @copilotkit/runtime
+      ```
+    </div>
+  </Step>
+  <Step title="Wrap your app">
+    ```tsx
+    import { CopilotKit } from "@copilotkit/react-core/v2";
+
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+      <YourApp />
+    </CopilotKit>
+    ```
+  </Step>
+  <Step title="Drop in the chat">
+    ```tsx
+    import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+    <CopilotSidebar />
+    ```
+  </Step>
+</Steps>
+
+<Columns cols={2}>
+  <Card title="Run the full quickstart" icon="rocket" href="/quickstart" horizontal>
+    Wire up the runtime, register a tool, and chat with the result. ~5 minutes.
+  </Card>
+  <Card title="Watch a 90-second demo" icon="play" href="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/agentic-chat-ui.mp4" horizontal>
+    See generative UI, frontend tools, and shared state in a real product.
+  </Card>
+</Columns>
+
+## What you can add
+
+<Columns cols={2}>
+  <Card title="Frontend tools" icon="wrench" href="/frontend-tools">
+    Run code in the user's browser — change UI, navigate, read state.
+  </Card>
+  <Card title="Generative UI" icon="sparkles" href="/generative-ui">
+    Render real React components from tool calls — cards, charts, forms.
+  </Card>
+  <Card title="Shared state" icon="repeat" href="/shared-state">
+    Two-way sync. The agent updates UI; UI updates the agent.
+  </Card>
+  <Variant for="langgraph mastra">
+    <Card title="Human-in-the-loop" icon="hand" href="/interrupts">
+      Pause the agent mid-run for approvals before destructive actions.
+    </Card>
+  </Variant>
+  <Variant for="built-in adk a2a ag2 agent-spec agno aws-strands crewai-flows llamaindex microsoft-agent-framework pydantic-ai">
+    <Card title="Threads" icon="history" href="/threads">
+      Persistent conversations users can resume across sessions.
+    </Card>
+  </Variant>
+</Columns>
+
+## Use any agent backend
+
+CopilotKit defaults to the **Built-in Agent** — direct LLM access, zero framework. If you already have an agent in LangGraph, Mastra, or somewhere else, point CopilotKit at it instead.
+
+<IntegrationGrid />
+
+## How it fits together
+
+<Columns cols={3}>
+  <Card title="React UI" icon="browser">
+    `<CopilotKit>` provider, drop-in chat components, hooks (`useAgent`, `useFrontendTool`, `useComponent`). Same API across every backend.
+  </Card>
+  <Card title="Copilot Runtime" icon="server">
+    A server endpoint (Hono / Express / Next.js) that bridges agents to the frontend over AG-UI events. Owns auth, middleware, threads, routing.
+  </Card>
+  <Card title="Your agent" icon="cpu">
+    Runs wherever you want — built-in, LangGraph, Mastra, ADK, custom. Defines the brain.
+  </Card>
+</Columns>

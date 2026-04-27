@@ -1,0 +1,135 @@
+---
+title: "Shared state"
+icon: "lucide/Repeat"
+description: "Bidirectional state sharing between your app and your LangChain agent."
+---
+
+Share state bidirectionally between your React app and your LangChain agent. Anything your nodes return as state is streamed to the frontend and made available on `useAgent().agent.state` — and vice versa, your frontend can push state up that the agent reads on the next run.
+
+<ShowcaseDemo feature="shared-state-read-write" title="Live demo: shared state" />
+
+## What is this?
+
+LangChain is stateful: as the graph transitions between nodes, state flows through. CopilotKit pipes that state over AG-UI so your React components can render it in real time, and your app's local state can be sent back into the next agent run.
+
+## When should I use this?
+
+- Your UI should reflect what the agent is doing right now (progress, intermediate values, working memory)
+- The agent should be able to write back into your UI (add items to a list, toggle a setting, fill a form)
+- You want the user's local app state to inform the agent's next decision without baking it into the system prompt
+
+## Define the agent state
+
+LangChain state is declared once and shared across nodes. Extend `CopilotKitState` (Python) or `CopilotKitStateAnnotation` (TypeScript) so the AG-UI bridge knows how to forward it.
+
+<Tabs groupId="language_langgraph_agent" items={["Python", "TypeScript"]}>
+  <Tab value="Python">
+    ```python title="agent.py"
+    from copilotkit import CopilotKitState # [!code highlight]
+    from typing import Literal
+
+    class AgentState(CopilotKitState):
+        language: Literal["english", "spanish"] = "english"
+
+    def chat_node(state: AgentState, config):
+        language = state.get("language", "english")
+        # ... do work, possibly mutate state ...
+        return {
+            "language": language,  # [!code highlight]
+            "messages": state["messages"],
+        }
+    ```
+  </Tab>
+  <Tab value="TypeScript">
+    ```ts title="agent.ts"
+    import { Annotation } from "@langchain/langgraph";
+    import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph"; // [!code highlight]
+
+    export const AgentStateAnnotation = Annotation.Root({
+      language: Annotation<"english" | "spanish">,
+      ...CopilotKitStateAnnotation.spec,
+    });
+    export type AgentState = typeof AgentStateAnnotation.State;
+
+    async function chatNode(state: AgentState, config) {
+      const language = state.language ?? "english";
+      // ... do work, possibly mutate state ...
+      return {
+        language, // [!code highlight]
+        messages: state.messages,
+      };
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  By default LangChain emits state only between node transitions. For continuous in-node streaming, see the [LangChain streaming docs](https://docs.langchain.com/oss/python/langgraph/streaming) and the LangChain SDK helpers shipped with CopilotKit.
+</Note>
+
+## Read agent state in your app
+
+Use the `useAgent` hook to subscribe to the agent's current state. The component re-renders automatically when state changes.
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2"; // [!code highlight]
+
+function LanguageBadge() {
+  // [!code highlight:3]
+  const { agent } = useAgent({ agentId: "starterAgent" });
+
+  const language = (agent.state.language as string) ?? "english";
+
+  return <p>Language: {language}</p>;
+}
+```
+
+<Note>
+  `agent.state` is reactive — your component re-renders automatically whenever the agent emits a new state snapshot or delta.
+</Note>
+
+## Write state from your app
+
+You can also push state up from React. The agent picks up the new value on the next run:
+
+```tsx title="app/page.tsx"
+import { useAgent } from "@copilotkit/react-core/v2";
+
+function LanguageSwitcher() {
+  const { agent } = useAgent({ agentId: "starterAgent" });
+
+  return (
+    <div className="flex gap-2">
+      <button
+        onClick={() =>
+          agent.setState({ ...agent.state, language: "english" }) // [!code highlight]
+        }
+      >
+        English
+      </button>
+      <button
+        onClick={() =>
+          agent.setState({ ...agent.state, language: "spanish" }) // [!code highlight]
+        }
+      >
+        Spanish
+      </button>
+    </div>
+  );
+}
+```
+
+## How it works
+
+1. Each LangChain node returns its piece of state. LangChain merges it into the graph state.
+2. The `ag-ui-langgraph` bridge serializes state changes into AG-UI `STATE_SNAPSHOT` / `STATE_DELTA` events.
+3. The Copilot Runtime forwards those events to the frontend over SSE.
+4. `useAgent` subscribes and triggers a re-render when state changes.
+
+When you call `agent.setState()` from React, the next run sends the snapshot to the agent as part of the AG-UI run input. Your nodes can read it from the same `state` they always do.
+
+## Tips
+
+- Always extend `CopilotKitState` / `CopilotKitStateAnnotation` so the bridge knows how to ship state over AG-UI.
+- Return state explicitly from each node — LangChain won't propagate keys you don't include.
+- If state isn't appearing on the frontend, check that your agent is registered in the runtime under the same `agentId` you're passing to `useAgent`.

@@ -1,0 +1,193 @@
+---
+title: "Human in the Loop"
+description: "Let users review and approve agent actions inside a CrewAI Flow."
+---
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/node-hitl.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+<Info>
+  Pictured above is the [coagent starter](https://github.com/copilotkit/copilotkit/tree/main/examples/coagents-starter-crewai-flows) with the implementation below applied.
+</Info>
+
+## Overview
+
+[CrewAI Flows](https://docs.crewai.com/concepts/flows) are stateful agents that can be interrupted and resumed to collect user input. CopilotKit lets you render custom UI that captures that input and passes it back to the agent when the user responds.
+
+Human-in-the-loop is a reliable way to build production-ready workflows: the human steers the agent at the moments that matter, and the agent carries the full conversation context across every interruption.
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Set up CopilotKit
+
+If you haven't already, follow the [Quickstart](/crewai-flows/quickstart) to connect your CrewAI Flow to CopilotKit. You can use the [coagent starter](https://github.com/CopilotKit/CopilotKit/tree/main/examples/coagents-starter-crewai-flows) as a starting point — this guide builds on it.
+
+</Step>
+
+<Step>
+
+### Install the CopilotKit Python SDK
+
+```bash
+pip install copilotkit
+```
+
+</Step>
+
+<Step>
+
+### Add a `useFrontendTool` to your frontend
+
+Create a tool that renders the agent's draft and waits for the user to approve or reject it. The `renderAndWaitForResponse` handler keeps the tool open until the user clicks a button, then sends the result back to the agent.
+
+```tsx title="app/page.tsx"
+"use client";
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { Markdown } from "@copilotkit/react-ui";
+
+function YourMainContent() {
+  useFrontendTool({
+    name: "writeEssay",
+    available: "remote",
+    description: "Writes an essay and presents the draft for user approval.",
+    parameters: z.object({
+      draft: z.string().describe("The essay draft"),
+    }),
+    renderAndWaitForResponse: ({ args, respond, status }) => {
+      return (
+        <div>
+          <Markdown content={args.draft || "Preparing your draft..."} />
+
+          <div className={`flex gap-4 pt-4 ${status !== "executing" ? "hidden" : ""}`}>
+            <button
+              onClick={() => respond?.("CANCEL")}
+              disabled={status !== "executing"}
+              className="border p-2 rounded-xl w-full"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => respond?.("SEND")}
+              disabled={status !== "executing"}
+              className="bg-blue-500 text-white p-2 rounded-xl w-full"
+            >
+              Approve Draft
+            </button>
+          </div>
+        </div>
+      );
+    },
+  });
+
+  // rest of your component...
+}
+```
+
+</Step>
+
+<Step>
+
+### Set up the CrewAI Flow agent
+
+The flow inherits from `CopilotKitState` so it receives the CopilotKit actions as tools. When the LLM calls `writeEssay`, the frontend renders the approval UI. When the user responds, the result comes back as a `tool` role message and the flow resumes from `check_for_user_feedback`.
+
+```python title="agent.py"
+from typing import Any, cast
+from crewai.flow.flow import Flow, start, listen
+from copilotkit import CopilotKitState
+from copilotkit.crewai import copilotkit_stream
+from litellm import completion
+
+
+class AgentState(CopilotKitState):
+    pass
+
+
+class SampleAgentFlow(Flow[AgentState]):
+
+    @start()
+    async def check_for_user_feedback(self):
+        if not self.state.get("messages"):
+            return
+
+        last_message = cast(Any, self.state["messages"][-1])
+
+        # The user's response arrives as a tool result message
+        if last_message["role"] == "tool":
+            user_response = last_message.get("content")
+
+            if user_response == "SEND":
+                self.state["messages"].append({
+                    "role": "assistant",
+                    "content": "Great! Sending your essay via email.",
+                })
+                return
+
+            if user_response == "CANCEL":
+                self.state["messages"].append({
+                    "role": "assistant",
+                    "content": "Okay, let's improve the draft. What would you like to change?",
+                })
+                return
+
+        # New user message — add a system prompt and proceed to chat
+        if last_message.get("role") == "user":
+            self.state["messages"].append({
+                "role": "system",
+                "content": (
+                    "You write essays. Use your tools to write an essay; "
+                    "don't write it in plain text."
+                ),
+            })
+
+    @listen(check_for_user_feedback)
+    async def chat(self):
+        messages = self.state.get("messages", [])
+
+        system_message = {
+            "role": "system",
+            "content": (
+                "You write essays. Use your tools to write an essay; "
+                "don't write it in plain text."
+            ),
+        }
+
+        response = await copilotkit_stream(
+            completion(
+                model="openai/gpt-5.4-mini",
+                messages=[system_message, *messages],
+                tools=self.state["copilotkit"]["actions"],
+                stream=True,
+            )
+        )
+
+        self.state["messages"].append(response.choices[0].message)
+```
+
+</Step>
+
+<Step>
+
+### Try it out
+
+Ask your agent to write an essay about a topic of your choice. The agent will generate a draft, stream its progress, and then surface the approval UI — all without leaving the chat.
+
+```
+Write me an essay about the benefits of AI.
+```
+
+</Step>
+
+</Steps>

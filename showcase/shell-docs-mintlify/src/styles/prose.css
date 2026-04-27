@@ -1,0 +1,100 @@
+.mdx-content.prose :is(h2, h3) {
+  letter-spacing: -0.025em;
+}
+
+.mdx-content.prose h2 {
+  margin-bottom: 0.6666667em;
+  font-weight: 600;
+}
+
+.mdx-content.prose h3 {
+  margin-top: 2.4em;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.mdx-content.prose h4 {
+  margin-top: 2em;
+  font-size: 1.125em;
+  font-weight: 600;
+}
+
+.mdx-content.prose > p {
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+}
+
+.mdx-content.prose > :is(h2, h3, h4) + p,
+.mdx-content.prose > p:first-child {
+  margin-top: 0;
+}
+
+.mdx-content.prose :is(code, kbd, pre, samp) {
+  font-family: var(--font-family-mono-custom, var(--font-mono));
+}
+
+/* Shiki dual-theme via Astro's `astro-code` wrapper. Both `--shiki-light`
+ * and `--shiki-dark` CSS vars are emitted on every token — we activate one
+ * side based on the `.dark` class on <html>. The !important overrides win
+ * against Mintlify's prose stylesheet which otherwise hard-codes a light
+ * palette.
+ *
+ * Scoped with `:not(:has(...))` and `:not(* :scope)` to skip Shiki output
+ * that lives INSIDE a Mintlify `<CodeBlock>` (those use `defaultColor: 'light'`
+ * and bake the light theme as inline color, with `--shiki-dark` as the dark
+ * variant). The remark-mintlify-code-block plugin wraps every fenced code
+ * block in `<CodeBlock>`; the rules below only apply to the few Astro Shiki
+ * blocks that escape the rewrite (e.g. fences with no language) and to
+ * `<ShowcaseCode>`'s build-time Shiki output. */
+.mdx-content pre.astro-code:not([data-component-part="code-block-root"] *),
+.mdx-content pre.shiki:not([data-component-part="code-block-root"] *) {
+  /* Subtle off-white surface so the code block reads as a contained block
+   * instead of floating on the white page background. Matches GitHub's
+   * canonical code-block bg. */
+  background-color: #f6f8fa !important;
+  color: var(--shiki-light, rgb(31, 35, 40)) !important;
+  border: 1px solid rgba(2, 8, 23, 0.08);
+  border-radius: 0.5rem;
+}
+.dark .mdx-content pre.astro-code:not([data-component-part="code-block-root"] *),
+.dark .mdx-content pre.shiki:not([data-component-part="code-block-root"] *) {
+  background-color: var(--shiki-dark-bg, #1e1e1e) !important;
+  color: var(--shiki-dark, #e5e7eb) !important;
+}
+/* Per-token coloring: Shiki emits `--shiki-light` and `--shiki-dark` as
+ * inline CSS variables on every span. Both light and dark need explicit
+ * rules to apply the variable as `color` — without them, tokens fall back
+ * to the parent <pre>'s color and you get a flat, unstyled wall of text. */
+.mdx-content pre.astro-code:not([data-component-part="code-block-root"] *) span,
+.mdx-content pre.shiki:not([data-component-part="code-block-root"] *) span {
+  color: var(--shiki-light, inherit) !important;
+}
+.dark .mdx-content pre.astro-code:not([data-component-part="code-block-root"] *) span,
+.dark .mdx-content pre.shiki:not([data-component-part="code-block-root"] *) span {
+  color: var(--shiki-dark, inherit) !important;
+}
+
+/* Plain (non-Shiki) code blocks fall back to a static dark canvas. */
+.mdx-content pre:not(.astro-code):not(.shiki) {
+  background-color: #fff !important;
+  color: rgb(31, 35, 40) !important;
+  border: 1px solid rgba(2, 8, 23, 0.1);
+  border-radius: 1rem;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
+}
+.dark .mdx-content pre:not(.astro-code):not(.shiki) {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Inline `code` styling override for dark mode. Mintlify's prose styling
+ * gives inline code a light off-white pill; in dark mode we want a subtle
+ * elevated chip. */
+.dark .mdx-content :not(pre) > code {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #e5e7eb;
+  border-color: rgba(255, 255, 255, 0.08);
+}

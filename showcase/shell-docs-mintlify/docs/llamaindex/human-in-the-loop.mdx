@@ -1,0 +1,157 @@
+---
+title: "Human in the Loop"
+description: "Let users review and approve agent actions inside a LlamaIndex agent."
+---
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/human-in-the-loop-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## What is this?
+
+Frontend tools enable you to define client-side functions that your LlamaIndex agent can invoke, with execution happening entirely in the user's browser. When your agent calls a frontend tool, the logic runs on the client side, giving you direct access to the frontend environment.
+
+This can be used to let your agent control the UI, render generative UI, or implement human-in-the-loop interactions — where the agent pauses and waits for user input before continuing.
+
+## Implementation
+
+<Steps>
+
+<Step>
+
+### Set up CopilotKit
+
+If you haven't already, follow the [Quickstart](/llamaindex/quickstart) to connect your LlamaIndex agent to CopilotKit.
+
+</Step>
+
+<Step>
+
+### Add a frontend tool to your agent
+
+Declare the tool in LlamaIndex's `frontend_tools` list so the agent knows to call out to the frontend instead of running it server-side:
+
+```python title="main.py"
+from fastapi import FastAPI
+from llama_index.llms.openai import OpenAI
+from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+def offerOptions(option_1: str, option_2: str) -> str:
+    """Give the user a choice between two options and have them select one."""
+    return f"Presenting options: {option_1} or {option_2}"
+
+llm = OpenAI(model="gpt-5.4-mini")
+
+agentic_chat_router = get_ag_ui_workflow_router(
+    llm=llm,
+    frontend_tools=[offerOptions],
+    system_prompt=(
+        "You are a helpful AI assistant. When you need to present the user "
+        "with a choice, you MUST use the offerOptions tool."
+    ),
+)
+
+app = FastAPI(title="LlamaIndex Agent", version="1.0.0")
+app.include_router(agentic_chat_router)
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "agent": "llamaindex"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+```
+
+<Info>
+  Tools listed in `frontend_tools` are forwarded to the browser via the AG-UI protocol. The server-side function body is never called — CopilotKit intercepts the call and runs your React handler instead.
+</Info>
+
+</Step>
+
+<Step>
+
+### Add the `useHumanInTheLoop` hook to your frontend
+
+Use the `useHumanInTheLoop` hook to render custom UI when the agent calls `offerOptions`. The `respond` callback sends the user's selection back to the agent so it can continue.
+
+```tsx title="app/page.tsx"
+"use client";
+import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
+import { CopilotSidebar } from "@copilotkit/react-ui";
+
+export default function Page() {
+  useHumanInTheLoop({
+    name: "offerOptions",
+    description: "Give the user a choice between two options and have them select one.",
+    parameters: [
+      {
+        name: "option_1",
+        type: "string",
+        description: "The first option",
+        required: true,
+      },
+      {
+        name: "option_2",
+        type: "string",
+        description: "The second option",
+        required: true,
+      },
+    ],
+    render: ({ args, respond }) => {
+      if (!respond) return <></>;
+      return (
+        <div className="flex gap-4 p-4">
+          <button
+            onClick={() => respond(`${args.option_1} was selected`)}
+            className="border p-2 rounded-xl flex-1"
+          >
+            {args.option_1}
+          </button>
+          <button
+            onClick={() => respond(`${args.option_2} was selected`)}
+            className="bg-blue-500 text-white p-2 rounded-xl flex-1"
+          >
+            {args.option_2}
+          </button>
+        </div>
+      );
+    },
+  });
+
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+<Info>
+  Human-in-the-loop tools registered with `useHumanInTheLoop` are automatically forwarded to your agent through the AG-UI protocol — no extra wiring required.
+</Info>
+
+</Step>
+
+<Step>
+
+### Try it out
+
+Ask your agent to present you with options:
+
+```
+Can you show me two good options for a restaurant name?
+```
+
+The agent will call `offerOptions`, your custom UI will appear inline in the chat, and once you click a button the agent resumes with your selection in context.
+
+</Step>
+
+</Steps>

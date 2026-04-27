@@ -1,0 +1,80 @@
+---
+title: "CopilotKit"
+description: "Root provider that initializes the CopilotKit runtime connection, registers agents, and makes the CopilotKit context available to all child hooks and components."
+icon: "lucide/Settings2"
+---
+
+## Props
+
+| Prop | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `children` | `ReactNode` | Yes | — | Your application tree. All CopilotKit hooks must be rendered inside this provider. |
+| `runtimeUrl` | `string` | No* | — | URL of your CopilotKit runtime endpoint (e.g. `/api/copilotkit`). Required unless `publicApiKey` or `selfManagedAgents` is set. |
+| `publicApiKey` | `string` | No* | — | Copilot Cloud public API key. When provided, automatically routes requests to the CopilotKit cloud endpoint. Alias: `publicLicenseKey`. |
+| `publicLicenseKey` | `string` | No | — | Alias for `publicApiKey`. |
+| `licenseToken` | `string` | No | — | Signed license token for offline premium feature verification. Obtain from https://cloud.copilotkit.ai. |
+| `headers` | `Record<string, string> \| (() => Record<string, string>)` | No | `{}` | HTTP headers sent with every runtime request. Accepts a static object or a factory function evaluated on each request. |
+| `credentials` | `RequestCredentials` | No | — | Fetch credentials mode (e.g. `"include"` for HTTP-only cookies in cross-origin requests). |
+| `properties` | `Record<string, unknown>` | No | `{}` | Arbitrary metadata forwarded to the runtime with every request. |
+| `selfManagedAgents` | `Record<string, AbstractAgent>` | No | `{}` | Pre-constructed AG-UI agent instances. Use this when you manage the agent transport yourself. |
+| `agents__unsafe_dev_only` | `Record<string, AbstractAgent>` | No | `{}` | Same as `selfManagedAgents` but clearly flagged for dev-only use. Merged with `selfManagedAgents`. |
+| `frontendTools` | `ReactFrontendTool[]` | No | `[]` | Provider-level frontend tools available to all agents. Must be a **stable array** — dynamic tools should use `useFrontendTool` instead. |
+| `humanInTheLoop` | `ReactHumanInTheLoop[]` | No | `[]` | Provider-level HITL tool definitions. Must be a **stable array** — dynamic tools should use `useHumanInTheLoop` instead. |
+| `renderToolCalls` | `ReactToolCallRenderer[]` | No | `[]` | Provider-level tool call renderers. Must be a **stable array**. |
+| `renderActivityMessages` | `ReactActivityMessageRenderer[]` | No | `[]` | Provider-level activity message renderers. |
+| `renderCustomMessages` | `ReactCustomMessageRenderer[]` | No | `[]` | Provider-level custom message renderers. |
+| `openGenerativeUI` | `{ sandboxFunctions?: SandboxFunction[]; designSkill?: string }` | No | — | Enable sandboxed AI-generated UI. `sandboxFunctions` are exposed to generated iframes. `designSkill` overrides the default design guidelines prompt. |
+| `a2ui` | `{ theme?: A2UITheme; catalog?: any; loadingComponent?: React.ComponentType; includeSchema?: boolean }` | No | — | Configuration for the built-in Agent-to-UI renderer. Override theme, component catalog, or loading state. |
+| `onError` | `(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void \| Promise<void>` | No | — | Global error handler. Fires for all runtime connection failures, agent errors, and tool errors. |
+| `defaultThrottleMs` | `number` | No | `0` (unthrottled) | Default throttle interval in ms for `useAgent` re-renders triggered by message changes. Individual hooks and `<CopilotChat>` can override this per-instance. |
+| `showDevConsole` | `boolean \| "auto"` | No | `false` | Show the CopilotKit dev inspector. `"auto"` shows it only on `localhost` / `127.0.0.1`. |
+| `inspectorDefaultAnchor` | `Anchor` | No | top-right | Default anchor position for the dev inspector button. |
+| `useSingleEndpoint` | `boolean` | No | — | Force `"single"` endpoint transport (`true`) or `"rest"` (`false`). Defaults to `"auto"`. |
+| `debug` | `DebugConfig` | No | — | Enable debug logging for the client-side event pipeline. |
+
+*At least one of `runtimeUrl`, `publicApiKey`, or `selfManagedAgents` is required in production.
+
+## Example
+
+```tsx
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      {children}
+    </CopilotKit>
+  );
+}
+```
+
+```tsx
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+
+// With authentication headers and error handling
+export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit
+      runtimeUrl="/api/copilotkit"
+      headers={{ Authorization: `Bearer ${getToken()}` }}
+      defaultThrottleMs={50}
+      onError={({ error, code }) => {
+        console.error("CopilotKit error", code, error);
+      }}
+    >
+      {children}
+    </CopilotKit>
+  );
+}
+
+function getToken() {
+  return "my-token";
+}
+```
+
+## Related
+
+- [`useAgent`](/reference/hooks/use-agent) — subscribe to an agent inside this provider
+- [`CopilotChat`](/reference/components/copilot-chat) — ready-made chat UI that requires this provider

@@ -1,0 +1,60 @@
+---
+title: "CopilotSidebar"
+description: "Sliding sidebar chat panel. Renders a toggle button that opens an edge-anchored panel. Accepts all CopilotChat props plus sidebar-specific layout controls."
+icon: "lucide/PanelRight"
+---
+
+## Props
+
+`CopilotSidebar` accepts all [`CopilotChat`](/reference/components/copilot-chat) props (except `chatView`, which is managed internally) plus the following sidebar-specific props:
+
+| Prop | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `header` | `SlotValue` | No | built-in header | Override the sidebar header area. |
+| `toggleButton` | `SlotValue` | No | built-in button | Override the button that opens/closes the sidebar. |
+| `defaultOpen` | `boolean` | No | `false` | Whether the sidebar starts open. |
+| `width` | `number \| string` | No | — | Override sidebar width. |
+
+All `CopilotChat` props are forwarded to the underlying `CopilotChat`, including `agentId`, `threadId`, `attachments`, `onError`, `throttleMs`, `labels`, etc.
+
+## Example
+
+```tsx
+"use client";
+import { CopilotKit, CopilotSidebar } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+
+export default function App({ children }: { children: React.ReactNode }) {
+  return (
+    <CopilotKit runtimeUrl="/api/copilotkit">
+      <div style={{ display: "flex" }}>
+        <main style={{ flex: 1 }}>{children}</main>
+        <CopilotSidebar agentId="my-agent" />
+      </div>
+    </CopilotKit>
+  );
+}
+```
+
+```tsx
+"use client";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+// Custom width, open by default
+export function WideOpenSidebar() {
+  return (
+    <CopilotSidebar
+      agentId="assistant"
+      width={480}
+      defaultOpen
+      labels={{ placeholder: "Ask anything…" }}
+    />
+  );
+}
+```
+
+## Related
+
+- [`CopilotChat`](/reference/components/copilot-chat) — inline embed variant
+- [`CopilotPopup`](/reference/components/copilot-popup) — floating popup variant
+- [`CopilotKit`](/reference/components/copilot-kit-provider) — required parent provider

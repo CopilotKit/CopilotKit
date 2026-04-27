@@ -1,0 +1,89 @@
+---
+title: "useComponent"
+description: "Register a React component as a tool the agent can invoke to display UI in chat. A convenience wrapper around useFrontendTool that auto-generates the tool description."
+icon: "lucide/Blocks"
+---
+
+## Signature
+
+```ts
+function useComponent<TSchema extends StandardSchemaV1 | undefined = undefined>(
+  config: {
+    name: string;
+    description?: string;
+    parameters?: TSchema;
+    render: ComponentType<NoInfer<InferRenderProps<TSchema>>>;
+    agentId?: string;
+  },
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `config.name` | `string` | Yes | — | Tool name sent to the model. Stable identifier for the component. |
+| `config.description` | `string` | No | — | Extra description appended to the auto-generated model-facing tool description. |
+| `config.parameters` | `TSchema` (Standard Schema V1) | No | — | Schema describing the component's props. When provided, render props are typed from the schema. |
+| `config.render` | `ComponentType<InferRenderProps<TSchema>>` | Yes | — | The React component to render in chat when the tool is called. Receives the tool call's parsed arguments as props. |
+| `config.agentId` | `string` | No | — | Scope the component to a specific agent. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra dependencies that refresh the registration. |
+
+## Returns
+
+`void`
+
+<Info>
+The auto-generated tool description sent to the model is:
+`Use this tool to display the "${name}" component in the chat. This tool renders a visual UI component for the user.`
+Any custom `description` you provide is appended after this prefix.
+</Info>
+
+## Example
+
+```tsx
+"use client";
+import { z } from "zod";
+import { useComponent } from "@copilotkit/react-core/v2";
+
+function WeatherCard({ city, tempC }: { city: string; tempC: number }) {
+  return (
+    <div>
+      <h3>{city}</h3>
+      <p>{tempC}°C</p>
+    </div>
+  );
+}
+
+export function WeatherComponentTool() {
+  useComponent({
+    name: "showWeatherCard",
+    description: "Display current weather conditions for a city.",
+    parameters: z.object({ city: z.string(), tempC: z.number() }),
+    render: WeatherCard,
+  });
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { useComponent } from "@copilotkit/react-core/v2";
+
+// Without a schema — render receives unknown props
+export function GreetingTool() {
+  useComponent({
+    name: "showGreeting",
+    render: ({ message }: { message: string }) => <div>{message}</div>,
+  });
+
+  return null;
+}
+```
+
+## Related
+
+- [`useFrontendTool`](/reference/hooks/use-frontend-tool) — lower-level API when you need a custom handler in addition to a renderer
+- [`useRenderTool`](/reference/hooks/use-render-tool) — render-only registration (no tool description or handler)

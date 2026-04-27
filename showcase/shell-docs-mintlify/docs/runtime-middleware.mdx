@@ -1,0 +1,168 @@
+---
+title: "Runtime middleware"
+icon: "lucide/Shield"
+description: "Authenticate, log, and modify requests at the runtime level with before/after hooks."
+---
+
+Runtime middleware gives you two synchronous hooks into the CopilotRuntime request lifecycle — one fires before the handler runs and one fires after the SSE response has been fully produced. Use them to enforce auth, inject headers, or write audit records without touching agent logic.
+
+## What is this?
+
+`beforeRequestMiddleware` and `afterRequestMiddleware` are optional callbacks you pass to `CopilotRuntime`. They receive the raw `Request` (and optionally the `Response`) and can modify, block, or observe every agent run.
+
+## When should I use this?
+
+- Validate an API key or JWT before the agent receives any message
+- Inject a per-request header (tenant ID, trace ID) so the downstream agent can read it
+- Log every completed run for compliance or debugging
+- Short-circuit requests that violate rate limits by throwing a `Response`
+
+## `beforeRequestMiddleware`
+
+Runs before the request reaches the route handler.
+
+```ts
+beforeRequestMiddleware?: (params: {
+  runtime: CopilotRuntimeLike;
+  request: Request;
+  path: string;
+}) => MaybePromise<Request | void>;
+```
+
+**Return semantics**
+
+| Return value | Effect |
+|---|---|
+| `void` / `undefined` | Request passes through unchanged. |
+| A new `Request` | The runtime uses the returned request for the rest of the lifecycle. Use this to add or rewrite headers. |
+| Throw a `Response` | The runtime immediately returns that `Response` to the client — useful for 401/403 gates. |
+
+## `afterRequestMiddleware`
+
+Runs after the handler has produced its full response. Because the CopilotKit runtime streams over SSE, the `afterRequestMiddleware` fires once the stream is complete and the SSE events have been parsed into structured data.
+
+```ts
+afterRequestMiddleware?: (params: {
+  runtime: CopilotRuntimeLike;
+  response: Response;
+  path: string;
+  messages?: Message[];   // reconstructed from the SSE stream
+  threadId?: string;      // from the RUN_STARTED event
+  runId?: string;         // from the RUN_STARTED event
+}) => MaybePromise<void>;
+```
+
+`messages` is an array of `{ id, role, content?, toolCalls?, toolCallId? }` objects reconstructed from AG-UI SSE events. It is empty for non-SSE responses.
+
+## Examples
+
+### Auth gate (`beforeRequestMiddleware`)
+
+Reject requests that lack a valid API key before the agent sees them.
+
+```ts title="runtime.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { myAgent } from "./agent";
+
+export const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+
+  beforeRequestMiddleware: async ({ request }) => {
+    const token = request.headers.get("x-api-key");
+    if (!token || !isValidToken(token)) {
+      throw new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  },
+});
+```
+
+### Tenant header injection (`beforeRequestMiddleware`)
+
+Forward a tenant ID from the incoming request into a new header so the agent can read it.
+
+```ts title="runtime.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { myAgent } from "./agent";
+
+export const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+
+  beforeRequestMiddleware: async ({ request }) => {
+    const tenantId = resolveTenantFromJwt(request.headers.get("authorization"));
+
+    // Clone the request and add the resolved tenant header
+    const modified = new Request(request, {
+      headers: new Headers({
+        ...Object.fromEntries(request.headers.entries()),
+        "x-tenant-id": tenantId,
+      }),
+    });
+    return modified;
+  },
+});
+```
+
+### Audit log (`afterRequestMiddleware`)
+
+Record every completed agent run along with the messages it produced.
+
+```ts title="runtime.ts"
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { myAgent } from "./agent";
+import { db } from "./db";
+
+export const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+
+  afterRequestMiddleware: async ({ threadId, runId, messages }) => {
+    await db.auditLogs.insert({
+      threadId,
+      runId,
+      messageCount: messages?.length ?? 0,
+      timestamp: new Date().toISOString(),
+    });
+  },
+});
+```
+
+## Per-request agent resolution (`AgentsFactory`)
+
+For multi-tenant apps where each request needs a differently-configured agent, pass a factory function instead of a static record.
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime/v2";
+import { buildAgentForTenant } from "./agents";
+
+export const runtime = new CopilotRuntime({
+  // Called once per request — receives the raw Request object
+  agents: async ({ request }) => {
+    const tenantId = request.headers.get("x-tenant-id") ?? "default";
+    const agent = await buildAgentForTenant(tenantId);
+    return { default: agent };
+  },
+
+  beforeRequestMiddleware: async ({ request }) => {
+    // Auth still runs before agents are resolved
+    if (!request.headers.get("x-api-key")) {
+      throw new Response("Unauthorized", { status: 401 });
+    }
+  },
+});
+```
+
+<Info>
+The factory function is called **after** `beforeRequestMiddleware` resolves. Any modifications made to the `Request` inside `beforeRequestMiddleware` are visible to the factory via the returned `Request`.
+</Info>
+
+## API reference
+
+### `CopilotRuntime` options
+
+| Option | Type | Description |
+|---|---|---|
+| `beforeRequestMiddleware` | `BeforeRequestMiddlewareFn` | Called before the route handler. Return a `Request` to modify, `void` to pass through, or throw a `Response` to short-circuit. |
+| `afterRequestMiddleware` | `AfterRequestMiddlewareFn` | Called after the SSE stream has been fully consumed. Receives parsed messages, `threadId`, and `runId`. |
+| `agents` | `AgentsConfig` | A static record of agents, a `Promise<Record<string, AbstractAgent>>`, or a factory `({ request }) => Record<string, AbstractAgent>`. |

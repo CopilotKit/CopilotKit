@@ -1,0 +1,108 @@
+---
+title: "useThreads"
+description: "List and manage conversation threads on the Intelligence platform. Supports real-time updates, pagination, rename, archive, and delete."
+icon: "lucide/MessagesSquare"
+---
+
+## Signature
+
+```ts
+function useThreads(input: UseThreadsInput): UseThreadsResult;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `agentId` | `string` | Yes | — | The agent whose threads to list. |
+| `includeArchived` | `boolean` | No | `false` | When `true`, archived threads are included in the result. |
+| `limit` | `number` | No | — | Maximum threads per page. When set, enables cursor-based pagination via `fetchMoreThreads`. |
+
+## Returns
+
+| Property | Type | Description |
+|---|---|---|
+| `threads` | `Thread[]` | Threads for the authenticated user + given agent, sorted most-recently-updated first. Reflects real-time platform events when a WebSocket URL is available. |
+| `isLoading` | `boolean` | `true` while the initial thread list is being fetched. Subsequent real-time updates do not re-enter this state. |
+| `error` | `Error \| null` | Most recent fetch or mutation error. Reset to `null` on the next successful fetch. |
+| `hasMoreThreads` | `boolean` | `true` when a next page is available. Only meaningful when `limit` is set. |
+| `isFetchingMoreThreads` | `boolean` | `true` while a next-page fetch is in progress. |
+| `fetchMoreThreads` | `() => void` | Fetch the next page. No-op when `hasMoreThreads` is `false` or a fetch is already in progress. |
+| `renameThread` | `(threadId: string, name: string) => Promise<void>` | Rename a thread. Rejects on failure. |
+| `archiveThread` | `(threadId: string) => Promise<void>` | Archive a thread. Excludes it from future list results. Rejects on failure. |
+| `deleteThread` | `(threadId: string) => Promise<void>` | Permanently delete a thread. Irreversible. Rejects on failure. |
+
+### `Thread`
+
+| Property | Type | Description |
+|---|---|---|
+| `id` | `string` | Unique thread ID. |
+| `agentId` | `string` | The agent this thread belongs to. |
+| `name` | `string \| null` | Human-readable thread name, or `null` if unnamed. |
+| `archived` | `boolean` | Whether the thread is archived. |
+| `createdAt` | `string` | ISO-8601 creation timestamp. |
+| `updatedAt` | `string` | ISO-8601 last-updated timestamp. |
+| `lastRunAt` | `string \| undefined` | ISO-8601 timestamp of the most recent agent run. Prefer this over `updatedAt` for "last activity" displays. |
+
+## Example
+
+```tsx
+"use client";
+import { useThreads } from "@copilotkit/react-core/v2";
+
+export function ThreadList() {
+  const {
+    threads,
+    isLoading,
+    error,
+    renameThread,
+    archiveThread,
+    deleteThread,
+  } = useThreads({ agentId: "my-agent" });
+
+  if (isLoading) return <p>Loading threads…</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  return (
+    <ul>
+      {threads.map((thread) => (
+        <li key={thread.id}>
+          <span>{thread.name ?? "Untitled"}</span>
+          <button onClick={() => renameThread(thread.id, "New name")}>Rename</button>
+          <button onClick={() => archiveThread(thread.id)}>Archive</button>
+          <button onClick={() => deleteThread(thread.id)}>Delete</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+```tsx
+"use client";
+import { useThreads } from "@copilotkit/react-core/v2";
+
+// Paginated thread list
+export function PaginatedThreadList() {
+  const { threads, hasMoreThreads, isFetchingMoreThreads, fetchMoreThreads } =
+    useThreads({ agentId: "my-agent", limit: 20 });
+
+  return (
+    <div>
+      <ul>
+        {threads.map((t) => <li key={t.id}>{t.name ?? t.id}</li>)}
+      </ul>
+      {hasMoreThreads && (
+        <button onClick={fetchMoreThreads} disabled={isFetchingMoreThreads}>
+          {isFetchingMoreThreads ? "Loading…" : "Load more"}
+        </button>
+      )}
+    </div>
+  );
+}
+```
+
+## Related
+
+- [`useAgent`](/reference/hooks/use-agent) — subscribe to an agent instance within a specific thread
+- [`CopilotChat`](/reference/components/copilot-chat) — pass `threadId` to resume an existing thread in the chat UI

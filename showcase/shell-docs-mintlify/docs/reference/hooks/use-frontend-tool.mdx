@@ -1,0 +1,95 @@
+---
+title: "useFrontendTool"
+description: "Register a callable frontend tool that the agent can invoke during a run. The tool lives in the browser and returns a result back to the model."
+icon: "lucide/Wrench"
+---
+
+## Signature
+
+```ts
+function useFrontendTool<T extends Record<string, unknown> = Record<string, unknown>>(
+  tool: ReactFrontendTool<T>,
+  deps?: ReadonlyArray<unknown>,
+): void;
+```
+
+## Parameters
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `tool` | `ReactFrontendTool<T>` | Yes | — | Tool definition including name, description, optional schema, handler, and optional render function. |
+| `deps` | `ReadonlyArray<unknown>` | No | `[]` | Extra React dependencies. When these change the tool registration is refreshed. |
+
+### `ReactFrontendTool<T>`
+
+Extends `FrontendTool<T>` from `@copilotkit/core` with an optional `render` prop.
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Unique tool name. Must be stable across renders (same as a hook name). |
+| `description` | `string` | No | Description sent to the model so it knows when to call this tool. |
+| `parameters` | `StandardSchemaV1` | No | Schema (Zod, Valibot, ArkType, etc.) describing the tool's parameters. Validated before `handler` is called. |
+| `handler` | `(args: T) => unknown \| Promise<unknown>` | No | Async function executed when the agent calls this tool. The return value is forwarded back to the model as the tool result. |
+| `agentId` | `string` | No | Scope the tool to a specific agent. Omit for global registration. |
+| `available` | `boolean \| "enabled" \| "disabled"` | No | Toggle tool availability without unmounting the component. |
+| `followUp` | `boolean` | No | When `true`, the agent issues another LLM pass after the tool returns. |
+| `render` | `(props: { args: T }) => React.ReactElement` | No | Optional React component rendered in the chat UI when this tool is called. |
+
+## Returns
+
+`void` — registration is managed as a side effect.
+
+<Info>
+The tool renderer (`render`) is intentionally kept in the DOM after unmount so historical tool calls in the chat can still display their UI. The tool handler is removed on unmount.
+</Info>
+
+## Example
+
+```tsx
+"use client";
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+export function SearchTool() {
+  useFrontendTool({
+    name: "searchProducts",
+    description: "Search the product catalog by keyword",
+    parameters: z.object({ query: z.string() }),
+    handler: async ({ query }) => {
+      const results = await fetch(`/api/search?q=${query}`).then((r) => r.json());
+      return results;
+    },
+    render: ({ args }) => (
+      <div>Searching for: <strong>{args.query}</strong></div>
+    ),
+  });
+
+  return null;
+}
+```
+
+```tsx
+"use client";
+import { z } from "zod";
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+
+// Dynamic tool — re-registers when `userId` changes
+export function UserTool({ userId }: { userId: string }) {
+  useFrontendTool(
+    {
+      name: "getUser",
+      description: "Retrieve the currently authenticated user",
+      handler: async () => ({ userId }),
+    },
+    [userId],
+  );
+
+  return null;
+}
+```
+
+## Related
+
+- [`useHumanInTheLoop`](/reference/hooks/use-human-in-the-loop) — tool that pauses for user input before returning
+- [`useRenderTool`](/reference/hooks/use-render-tool) — register a render-only tool (no handler)
+- [`useComponent`](/reference/hooks/use-component) — convenience wrapper that builds a tool description automatically

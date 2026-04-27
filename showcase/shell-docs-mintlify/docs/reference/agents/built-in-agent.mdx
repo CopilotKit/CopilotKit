@@ -1,0 +1,159 @@
+---
+title: "BuiltInAgent"
+description: "Built-in LLM agent that uses the Vercel AI SDK to stream responses from OpenAI, Anthropic, Google, and other providers."
+icon: "lucide/Cpu"
+---
+
+## Constructor
+
+```ts
+new BuiltInAgent(config: BuiltInAgentConfiguration)
+```
+
+`BuiltInAgent` is CopilotKit's built-in agent. It supports two modes:
+
+- **Classic mode** — pass `model` and options. The agent handles streaming, tool calls, MCP servers, state sync, and prompt building.
+- **Factory mode** — pass `type` and `factory`. You own the LLM call; the agent manages the AG-UI lifecycle.
+
+## Classic mode options
+
+| Name | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `model` | `BuiltInAgentModel \| LanguageModel` | Yes | — | Model string (e.g. `"openai/gpt-5-mini"`) or a Vercel AI SDK `LanguageModel` instance. |
+| `apiKey` | `string` | No | env var | API key for the model provider. Falls back to `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY`. |
+| `prompt` | `string` | No | — | System prompt. Combined with context and state into the system message. |
+| `tools` | `ToolDefinition[]` | No | `[]` | Server-side tools defined with `defineTool`. |
+| `mcpServers` | `MCPClientConfig[]` | No | `[]` | MCP server configurations. The agent creates and closes connections per-run. |
+| `mcpClients` | `MCPClientProvider[]` | No | `[]` | User-managed MCP clients. You control the lifecycle; the agent calls `.tools()` before each run. |
+| `maxSteps` | `number` | No | `1` | Maximum number of tool-calling steps per run. |
+| `toolChoice` | `ToolChoice` | No | `"auto"` | How the model selects tools: `"auto"`, `"required"`, `"none"`, or `{ type: "tool", toolName: string }`. |
+| `maxOutputTokens` | `number` | No | — | Maximum tokens to generate. |
+| `temperature` | `number` | No | — | Sampling temperature. |
+| `topP` | `number` | No | — | Nucleus sampling (top-p). |
+| `topK` | `number` | No | — | Top-k sampling. |
+| `presencePenalty` | `number` | No | — | Presence penalty. |
+| `frequencyPenalty` | `number` | No | — | Frequency penalty. |
+| `stopSequences` | `string[]` | No | — | Sequences that stop generation. |
+| `seed` | `number` | No | — | Seed for deterministic results. |
+| `maxRetries` | `number` | No | — | Max retries on provider errors. |
+| `providerOptions` | `Record<string, any>` | No | — | Provider-specific options (e.g. `{ openai: { reasoningEffort: "high" } }`). |
+| `forwardSystemMessages` | `boolean` | No | `false` | Forward `system`-role messages from the input to the LLM. |
+| `forwardDeveloperMessages` | `boolean` | No | `false` | Forward `developer`-role messages as system messages. |
+| `overridableProperties` | `OverridableProperty[]` | No | `[]` | Properties that the frontend can override via `forwardedProps`. |
+| `capabilities` | `Partial<AgentCapabilities>` | No | — | Override inferred agent capabilities. Shallow-merged at the category level. |
+
+### Supported model strings
+
+```
+openai/gpt-5
+openai/gpt-5-mini
+openai/gpt-4.1
+openai/gpt-4.1-mini
+openai/gpt-4.1-nano
+openai/gpt-4o
+openai/gpt-4o-mini
+openai/o3
+openai/o3-mini
+openai/o4-mini
+anthropic/claude-sonnet-4.5
+anthropic/claude-sonnet-4
+anthropic/claude-3.7-sonnet
+anthropic/claude-opus-4.1
+anthropic/claude-opus-4
+anthropic/claude-3.5-haiku
+google/gemini-2.5-pro
+google/gemini-2.5-flash
+google/gemini-2.5-flash-lite
+```
+
+Any string matching `"provider/model"` is accepted — unknown providers will throw at runtime.
+
+## Factory mode options
+
+Factory mode lets you own the LLM call while `BuiltInAgent` handles the AG-UI lifecycle (run started/finished events, abort, error propagation).
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `type` | `"aisdk" \| "tanstack" \| "custom"` | Yes | Backend type. |
+| `factory` | `(ctx: AgentFactoryContext) => ...` | Yes | Called per-run with `{ input, abortSignal, abortController }`. Return type depends on `type`. |
+
+Factory return types by `type`:
+
+| `type` | Return type |
+|---|---|
+| `"aisdk"` | `{ fullStream: AsyncIterable<unknown> }` (compatible with Vercel AI SDK `streamText` result) |
+| `"tanstack"` | `AsyncIterable<unknown>` (TanStack AI stream chunks) |
+| `"custom"` | `AsyncIterable<BaseEvent>` (raw AG-UI events) |
+
+## Methods
+
+| Method | Description |
+|---|---|
+| `abortRun()` | Abort the currently running inference. |
+| `clone()` | Return a copy of the agent with the same config and middleware chain. |
+| `canOverride(property)` | Returns `true` if the given property appears in `overridableProperties`. |
+| `getCapabilities()` | Returns the agent's `AgentCapabilities` (async). |
+
+## Example — classic mode
+
+```ts
+import { CopilotRuntime, BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai/gpt-5-mini",
+      prompt: "You are a helpful assistant.",
+      tools: [
+        defineTool({
+          name: "getWeather",
+          description: "Get the weather for a location",
+          parameters: z.object({ location: z.string() }),
+          execute: async ({ location }) => fetchWeather(location),
+        }),
+      ],
+      maxSteps: 5,
+    }),
+  },
+});
+```
+
+## Example — with MCP server
+
+```ts
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const agent = new BuiltInAgent({
+  model: "anthropic/claude-sonnet-4.5",
+  mcpServers: [
+    { type: "http", url: "https://my-mcp-server.example.com/mcp" },
+    { type: "sse", url: "https://other-mcp.example.com/events", headers: { Authorization: "Bearer token" } },
+  ],
+});
+```
+
+## Example — factory mode (AI SDK)
+
+```ts
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new BuiltInAgent({
+  type: "aisdk",
+  factory: async ({ input, abortSignal }) => {
+    return streamText({
+      model: openai("gpt-5-mini"),
+      messages: [{ role: "user", content: "Hello" }],
+      abortSignal,
+    });
+  },
+});
+```
+
+## Related
+
+- [`defineTool`](/reference/runtime/define-tool) — server tool definition helper
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — the runtime that hosts agents
+- [`HttpAgent`](/reference/agents/http-agent) — connect to an external agent over HTTP

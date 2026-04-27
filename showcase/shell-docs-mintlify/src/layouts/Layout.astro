@@ -1,0 +1,91 @@
+---
+import { ClientRouter } from 'astro:transitions';
+import '../styles/global.css';
+import { resolveIntegration } from '../lib/integration';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title = 'CopilotKit Docs', description } = Astro.props;
+const integration = resolveIntegration(Astro.url.pathname);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    {/*
+      Theme bootstrap. Runs synchronously BEFORE the body renders to avoid a
+      flash of unstyled content (FOUC). Mirrors `prefers-color-scheme` onto
+      `<html class="dark">`, then keeps it in sync as the OS preference
+      flips. There's no user override — we follow the system, full stop.
+
+      Inlined and `is:inline` so Astro doesn't bundle / hash it (which would
+      defer execution past the body render).
+    */}
+    <script is:inline>
+      (function () {
+        function osPrefersDark() {
+          return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        }
+        function apply() {
+          if (osPrefersDark()) document.documentElement.classList.add('dark');
+          else document.documentElement.classList.remove('dark');
+        }
+        apply();
+
+        if (window.matchMedia) {
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          if (mq.addEventListener) mq.addEventListener('change', apply);
+          else if (mq.addListener) mq.addListener(apply); // older Safari
+        }
+
+        // Re-apply on Astro view transitions. View transitions preserve
+        // <html> (so the class normally survives), but on the first nav
+        // after a hard reload Astro can briefly clone <html> and drop
+        // classes set by inline scripts. Idempotent re-resolve.
+        document.addEventListener('astro:after-swap', apply);
+      })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600;1,700;1,800&family=Spline+Sans+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    <ClientRouter />
+  </head>
+  <body
+    data-integration={integration}
+    class="bg-white text-gray-900 dark:bg-zinc-950 dark:text-gray-100"
+  >
+    <div class="flex antialiased">
+      <div class="flex-1 min-w-0 max-w-[1400px] mx-auto w-full">
+        <slot />
+      </div>
+    </div>
+  </body>
+</html>
+
+<style>
+  html,
+  body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overscroll-behavior-y: none;
+  }
+
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+  }
+</style>

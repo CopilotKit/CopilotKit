@@ -1,0 +1,2650 @@
+---
+title: "Quickstart"
+description: "Get a working copilot running in your app in under five minutes."
+icon: "lucide/Play"
+---
+
+<Variant for="built-in">
+CopilotKit's default agent is built-in — connects directly to an LLM with tools and gen UI, no external framework needed. Switch the integration pill in the sidebar to see setup for LangChain, ADK, or any of the other supported backends.
+</Variant>
+
+<Variant for="langgraph">
+This page wires CopilotKit up to a LangChain agent. You keep your LangChain code as-is and gain a chat UI, generative components from tool calls, two-way shared state with your graph, and `interrupt()` flows that resolve in React — without rewriting your agent. The runtime connects through the LangChain Platform / LangSmith deployment URL.
+</Variant>
+
+<Variant for="adk">
+This page wires CopilotKit up to a Google ADK agent. Your ADK agent stays as a FastAPI service; CopilotKit adds a production-grade chat UI, generative UI for tool calls, and bidirectional state sync with `tool_context.state` — no agent rewrite needed.
+</Variant>
+
+<Variant for="a2a">
+This page sets up CopilotKit with an A2A (Agent-to-Agent) backend using the with-a2a-a2ui starter template. A2A is an open protocol for building multi-agent systems where agents discover and call each other; CopilotKit gives you the user-facing layer — chat UI, tool calls rendered as React, and declarative A2UI for streaming agent-emitted layouts. The agent and frontend ship pre-wired.
+</Variant>
+
+<Variant for="ag2">
+This page wires CopilotKit up to an AG2 (formerly AutoGen) backend. The AG2 agent runs as a FastAPI server; CopilotKit adds the chat UI, generative components, and human-in-the-loop flows on top — your AG2 logic doesn't change.
+</Variant>
+
+<Variant for="agent-spec">
+This page wires CopilotKit up to an Agent Spec backend (a declarative agent config format), using the LangChain adapter as the primary supported runtime. CopilotKit gives your spec-driven agent a chat UI, generative UI, and human-in-the-loop without coding it from scratch.
+</Variant>
+
+<Variant for="agno">
+This page sets up CopilotKit with an Agno agent. The Agno agent runs as a Python ASGI app exposed via the AG-UI interface; CopilotKit's runtime connects to it.
+</Variant>
+
+<Variant for="aws-strands">
+This page sets up CopilotKit with an AWS Strands agent. Your Strands agent runs as a FastAPI server; CopilotKit's runtime connects to it over HTTP.
+</Variant>
+
+<Variant for="crewai-flows">
+This page sets up CopilotKit with a CrewAI Flow deployed on CrewAI Enterprise, routed through Copilot Cloud — no self-hosted runtime needed.
+</Variant>
+
+<Variant for="llamaindex">
+This page sets up CopilotKit with a LlamaIndex agent workflow. Your LlamaIndex agent runs as a FastAPI server; CopilotKit's runtime connects to it over HTTP.
+</Variant>
+
+<Variant for="mastra">
+This page sets up CopilotKit with a Mastra agent. The Mastra agent runs as a separate dev server; CopilotKit's runtime connects to it.
+</Variant>
+
+<Variant for="microsoft-agent-framework">
+This page sets up CopilotKit with the Microsoft Agent Framework (.NET or Python). Your MAF agent runs as a separate server; CopilotKit's runtime connects via HTTP.
+</Variant>
+
+<Variant for="pydantic-ai">
+This page sets up CopilotKit with a Pydantic AI agent. Your Pydantic AI agent is exposed via `agent.to_ag_ui()` as a FastAPI app; CopilotKit's runtime connects to it.
+</Variant>
+
+## Prerequisites
+
+<Variant for="built-in">
+- An OpenAI API key (or Anthropic/Google — see [Model Selection](/model-selection))
+- Node.js 20+
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="langgraph">
+- An OpenAI API key
+- Node.js 20+
+- Python 3.9+ (for the agent server)
+- (Optional) A LangSmith API key
+</Variant>
+
+<Variant for="adk">
+- A Google Gemini API key
+- Node.js 20+
+- Python 3.9+
+- A working Google ADK agent
+</Variant>
+
+
+<Variant for="a2a">
+- A Google Gemini API key
+- Node.js 20+
+- Python 3.9+
+- pnpm (or your preferred package manager)
+</Variant>
+
+<Variant for="ag2">
+- Python 3.10–3.13 (for the AG2 backend)
+- [uv](https://docs.astral.sh/uv/getting-started/installation/) (Python dependency management)
+- Node.js 20+ and pnpm (for the frontend)
+- An OpenAI API key
+</Variant>
+
+<Variant for="agent-spec">
+- Python 3.10–3.13
+- Node.js 20+
+- An OpenAI API key (or any OpenAI-compatible LLM provider)
+- An Agent Spec config JSON/YAML file (or you'll create one below)
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="agno">
+- An OpenAI API key (Agno supports other providers too — see [Agno model docs](https://docs.agno.com/models))
+- Node.js 20+
+- Python 3.9+
+- Your favorite package manager
+</Variant>
+
+<Variant for="aws-strands">
+- An OpenAI API key (or any model supported by Strands)
+- Node.js 20+
+- Python 3.12+
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="crewai-flows">
+- A [CrewAI Flow](https://docs.crewai.com/guides/flows/first-flow) deployed on [CrewAI Enterprise](https://docs.crewai.com/enterprise/introduction)
+- A [Copilot Cloud](https://cloud.copilotkit.ai) account (free to start)
+- Node.js 20+
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="llamaindex">
+- An OpenAI API key
+- Node.js 20+
+- Python 3.10+
+- Your favorite package manager
+</Variant>
+
+<Variant for="mastra">
+- An OpenAI API key (or any model supported by Mastra)
+- Node.js 20+
+- A Mastra agent (we'll create one below if you don't have one)
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="microsoft-agent-framework">
+Before you begin, you'll need the following:
+
+- A GitHub Personal Access Token (for GitHub Models API — free AI access)
+- .NET 9.0 SDK or later (or Python 3.10+ for the Python path)
+- Node.js 20+
+- A React app (we'll use Next.js below)
+</Variant>
+
+<Variant for="pydantic-ai">
+- An OpenAI API key
+- Node.js 20+
+- Python 3.9+
+- A React app (we'll use Next.js below)
+</Variant>
+
+## Setup
+
+<Variant for="built-in">
+<Steps>
+
+<Step>
+
+### Install packages
+
+Create a new Next.js app and install the CopilotKit packages:
+
+```bash
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in your project root and add your OpenAI API key:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+```
+
+</Step>
+
+<Step>
+
+### Set up the runtime
+
+Create an API route at `app/api/copilotkit/route.ts` with the `BuiltInAgent` and `CopilotRuntime`:
+
+```ts
+import {
+  CopilotRuntime,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { NextRequest } from "next/server";
+
+const builtInAgent = new BuiltInAgent({
+  model: "openai:gpt-5.4-mini",
+});
+
+const runtime = new CopilotRuntime({
+  agents: { default: builtInAgent },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Add the chat UI
+
+Wrap your app with the `CopilotKit` provider and add a chat UI component.
+
+Update `app/layout.tsx`:
+
+```tsx
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import './globals.css';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="default">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+Then add the chat interface to `app/page.tsx`:
+
+```tsx
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+```bash
+npm run dev
+```
+
+Navigate to `http://localhost:3000` — your copilot is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="langgraph">
+<Steps>
+
+<Step>
+
+### Install packages
+
+First, bootstrap a new project using the CopilotKit CLI (choose Python or JavaScript for your agent):
+
+```bash
+npx copilotkit@latest create -f langgraph-py
+```
+
+Then install dependencies:
+
+```bash
+npm install
+```
+
+Or, to bring your own LangChain agent, create a Next.js frontend and install the packages:
+
+```bash
+npx create-next-app@latest frontend
+cd frontend
+npm install @copilotkit/react-core @copilotkit/runtime
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in your agent directory and add your OpenAI API key:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+LANGSMITH_API_KEY=lsv2-...  # optional, required for LangSmith deployment
+```
+
+</Step>
+
+<Step>
+
+### Set up the runtime
+
+Create an API route at `app/api/copilotkit/route.ts` to connect CopilotKit to your LangChain agent:
+
+```ts
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { LangGraphAgent } from "@copilotkit/runtime/langgraph";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    sample_agent: new LangGraphAgent({
+      deploymentUrl: process.env.LANGGRAPH_DEPLOYMENT_URL || "http://localhost:8123",
+      graphId: "sample_agent",
+      langsmithApiKey: process.env.LANGSMITH_API_KEY || "",
+    }),
+  }
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+Then start your LangChain agent server (from the agent directory):
+
+```bash
+npx @langchain/langgraph-cli dev --port 8123 --no-browser
+```
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="adk">
+<Steps>
+
+<Step>
+
+### Install packages
+
+First, bootstrap a new project using the CopilotKit CLI:
+
+```bash
+npx copilotkit@latest create -f adk
+```
+
+Then install dependencies:
+
+```bash
+npm install
+```
+
+Or, to bring your own ADK agent, set up your Python agent environment and a Next.js frontend:
+
+```bash
+uv init my-agent && cd my-agent
+uv add ag-ui-adk google-adk uvicorn fastapi
+
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in your agent directory and add your Google API key:
+
+```plaintext
+GOOGLE_API_KEY=your_google_api_key
+```
+
+</Step>
+
+<Step>
+
+### Set up the runtime
+
+First, create your ADK agent and expose it via FastAPI. Create `main.py` in your agent directory:
+
+```python
+from fastapi import FastAPI
+from ag_ui_adk import ADKAgent, add_adk_fastapi_endpoint
+from google.adk.agents import LlmAgent
+
+agent = LlmAgent(
+    name="assistant",
+    model="gemini-2.5-flash",
+    instruction="Be helpful and fun!"
+)
+
+adk_agent = ADKAgent(
+    adk_agent=agent,
+    app_name="demo_app",
+    user_id="demo_user",
+    session_timeout_seconds=3600,
+    use_in_memory_services=True
+)
+
+app = FastAPI()
+add_adk_fastapi_endpoint(app, adk_agent, path="/")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+```
+
+Start your agent:
+
+```bash
+uv run main.py
+```
+
+Then create a Next.js API route at `app/api/copilotkit/route.ts` to connect CopilotKit to your ADK agent:
+
+```ts
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  }
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="a2a">
+<Steps>
+
+<Step>
+
+### Install packages
+
+Clone the A2A starter template — it ships with both the agent backend and the CopilotKit-powered frontend pre-wired:
+
+```bash
+git clone https://github.com/copilotkit/with-a2a-a2ui.git
+cd with-a2a-a2ui
+pnpm install
+```
+
+<Info>
+  The starter template includes a Google ADK-based A2A agent and a Next.js frontend connected via AG-UI. No additional scaffolding is needed.
+</Info>
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in the `agent` directory and add your Google Gemini API key:
+
+```plaintext title="agent/.env"
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+<Info>
+  The starter template defaults to Google's Gemini model, but you can swap in any language model supported by the Google ADK.
+</Info>
+
+</Step>
+
+<Step>
+
+### Start the development server
+
+Run the following command from the project root to start both the UI and agent servers concurrently:
+
+<Tabs items={['pnpm', 'npm', 'yarn', 'bun']}>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dev
+    ```
+  </Tab>
+  <Tab value="npm">
+    ```bash
+    npm run dev
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dev
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun dev
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Chat with your agent
+
+Navigate to `http://localhost:3000` and start prompting your agent:
+
+```
+Show me chinese restaurants in NYC
+```
+
+<Note>
+  If you see connection errors, try `0.0.0.0` or `127.0.0.1` instead of `localhost`. Confirm your A2A agent is running on port 10002 and your Gemini API key is correctly set.
+</Note>
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="ag2">
+AG2 serves the agent directly over AG-UI. You wire CopilotKit's runtime to your AG2 backend via `HttpAgent`.
+
+<Steps>
+
+<Step>
+
+### Install packages
+
+Bootstrap a new project using the CopilotKit CLI and select **AG2** during setup:
+
+```bash
+npx copilotkit@latest init
+```
+
+This wires up an AG2 backend over AG-UI and a ready-to-run frontend. Follow the prompts, then run the install/start commands it prints.
+
+Or, to bring your own AG2 agent, clone the AG2 samples repository:
+
+```bash
+git clone https://github.com/ag2ai/ag2-samples.git
+cd ag2-samples
+```
+
+Then install frontend dependencies:
+
+```bash
+cd ui
+pnpm install
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Set your OpenAI API key in the AG2 backend directory:
+
+```bash
+export OPENAI_API_KEY="your_openai_api_key"
+```
+
+Or add it to a `.env` file in the agent directory:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+  AG2 communicates with CopilotKit via the [AG-UI protocol](https://docs.ag2.ai/latest/docs/user-guide/ag-ui/) — an event-based SSE stream over a `/chat` endpoint. No CopilotKit runtime API key is required for local development.
+</Info>
+
+</Step>
+
+<Step>
+
+### Start your AG2 backend
+
+From the `ag2-samples` directory, install dependencies and launch the weather agent:
+
+```bash
+uv sync
+uv run python weather.py
+```
+
+The backend starts at `http://localhost:8000` and exposes the agent at `/weather`.
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+Create `app/api/copilotkit/route.ts` in your Next.js frontend to connect CopilotKit to your AG2 backend:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    weather_agent: new HttpAgent({
+      url: process.env.AG2_AGENT_URL || "http://localhost:8000/weather",
+    }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context:
+
+```tsx title="app/layout.tsx"
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="weather_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat interface to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your frontend development server:
+
+```bash
+pnpm dev
+```
+
+Navigate to `http://localhost:3000` — your AG2 agent is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="agent-spec">
+<Steps>
+
+<Step>
+
+### Install packages
+
+Clone the AG-UI Agent Spec integration and install it with the LangChain adapter (the primary supported runtime):
+
+```bash
+git clone --depth 1 --filter=blob:none --sparse https://github.com/ag-ui-protocol/ag-ui.git
+cd ag-ui
+git sparse-checkout set integrations/agent-spec/python
+cd integrations/agent-spec/python
+```
+
+Install the package using `uv`:
+
+```bash
+uv sync --extra langgraph
+```
+
+Or with `pip`:
+
+```bash
+pip install pyagentspec[langgraph]
+```
+
+<Info>
+  Agent Spec also supports WayFlow (Oracle's reference agent framework). Pass `--extra wayflow` or `pip install wayflowcore` to install that runtime instead.
+</Info>
+
+Then scaffold a Next.js frontend and install the CopilotKit packages:
+
+```bash
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+```
+
+<Info>
+  Prefer to start from a working template? Clone the ready-to-go starter: `git clone https://github.com/CopilotKit/with-agent-spec.git` — it ships with a sample Agent Spec agent and a pre-wired Next.js frontend.
+</Info>
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Set your LLM credentials. Agent Spec uses OpenAI-compatible variables regardless of the actual provider:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+export OPENAI_MODEL=gpt-5.4-mini
+```
+
+Or create a `.env` file in your Next.js project root:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+<Info>
+  These variables can point to any OpenAI-compatible LLM provider (for example a local vLLM server or Together AI), but the variable names must be `OPENAI_API_KEY` and `OPENAI_MODEL`.
+</Info>
+
+</Step>
+
+<Step>
+
+### Define your Agent Spec agent
+
+Create a `main.py` file inside `ag-ui/integrations/agent-spec/python/ag_ui_agentspec/` that declares your agent and starts the FastAPI server:
+
+```python title="ag_ui_agentspec/main.py"
+from pyagentspec.agent import Agent
+from pyagentspec.llms import OpenAiCompatibleConfig
+from pyagentspec.serialization import AgentSpecSerializer
+from fastapi import FastAPI
+from ag_ui_agentspec.agent import AgentSpecAgent
+from ag_ui_agentspec.endpoint import add_agentspec_fastapi_endpoint
+import uvicorn
+
+import os
+
+agentspec_agent = Agent(
+    name="AgentSpecAgent",
+    description="A starter Agent that can call tools.",
+    system_prompt="You are a helpful assistant.",
+    llm_config=OpenAiCompatibleConfig(
+        name="my-llm",
+        model_id=os.getenv("OPENAI_MODEL", "gpt-5.4-mini"),
+        url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+    ),
+)
+
+agent_spec_config = AgentSpecSerializer().to_json(agentspec_agent)
+
+# Or load your own Agent Spec config:
+# agent_spec_config = <loaded json/yaml string of your Agent Spec agent>
+
+runtime = "langgraph"  # or "wayflow"
+
+app = FastAPI()
+agent = AgentSpecAgent(agent_spec_config=agent_spec_config, runtime=runtime)
+add_agentspec_fastapi_endpoint(app, agentspec_agent=agent, path="/")
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+```
+
+Start the agent server:
+
+```bash
+uv run main.py
+```
+
+Your Agent Spec agent is now available at `http://localhost:8000`.
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+In your Next.js app, create an API route that connects CopilotKit to your running Agent Spec server via `@ag-ui/client`:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context. Set `agent` to the key you used when registering the agent in the runtime (e.g. `"my_agent"`):
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat interface to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tab value="npm">
+    ```bash
+    npm run dev
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dev
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dev
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun dev
+    ```
+  </Tab>
+</Tabs>
+
+Navigate to `http://localhost:3000` — your Agent Spec agent is live.
+
+<Note>
+  If you see connection errors, try `0.0.0.0` or `127.0.0.1` instead of `localhost`, and confirm your agent is running on port 8000 with your OpenAI API key set correctly.
+</Note>
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="agno">
+<Steps>
+
+<Step>
+
+### Install packages
+
+Bootstrap a new project using the CopilotKit CLI:
+
+```bash
+npx copilotkit@latest create -f agno
+```
+
+Then install dependencies:
+
+```bash
+npm install
+```
+
+Or, to bring your own Agno agent, set up your Python environment and a Next.js frontend:
+
+```bash
+uv init my-agent
+cd my-agent
+uv add agno fastapi uvicorn openai ag-ui-protocol
+
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/agno
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in your agent directory and add your OpenAI API key:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+The starter template uses OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Agno.
+</Info>
+
+</Step>
+
+<Step>
+
+### Expose your agent via AG-UI
+
+First, expose your Agno agent via the AG-UI protocol. Create `main.py` in your agent directory:
+
+```python title="main.py"
+from agno.agent import Agent
+from agno.models.openai import OpenAIChat
+from agno.os import AgentOS
+from agno.os.interfaces.agui import AGUI
+
+agent = Agent(
+    model=OpenAIChat(id="gpt-5.4-mini"),
+    description="A helpful assistant that can answer questions and provide information.",
+    instructions="Be helpful and friendly. Format your responses using markdown where appropriate.",
+)
+
+agent_os = AgentOS(agents=[agent], interfaces=[AGUI(agent=agent)])
+app = agent_os.get_app()
+
+if __name__ == "__main__":
+    agent_os.serve(app="main:app", port=8000, reload=True)
+```
+
+Start your agent:
+
+```bash
+uv run main.py
+```
+
+Your agent will be available at `http://localhost:8000/agui`.
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+Create a Next.js API route at `app/api/copilotkit/route.ts` to connect CopilotKit to your Agno agent:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { AgnoAgent } from "@ag-ui/agno";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new AgnoAgent({ url: "http://localhost:8000/agui" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+<Info>
+AG-UI is an open protocol for frontend-agent communication. `AgentOS` with the `AGUI` interface creates an ASGI app that CopilotKit connects to via Server-Sent Events.
+</Info>
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Wrap your app with the `CopilotKit` provider in `app/layout.tsx`:
+
+```tsx title="app/layout.tsx"
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat UI in `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Run both your Agno agent and the Next.js app, then navigate to `http://localhost:3000` — your Agno agent is live.
+
+```bash
+# In the agent directory:
+uv run main.py
+
+# In the Next.js app directory:
+npm run dev
+```
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="aws-strands">
+<Steps>
+
+<Step>
+
+### Install packages
+
+**Option A — Start from scratch with the CLI:**
+
+```bash
+npx copilotkit@latest create -f aws-strands-py my-copilot-app
+cd my-copilot-app
+npm install
+```
+
+**Option B — Bring your existing Strands agent.** Initialize a Python project, then install the required packages:
+
+```bash
+uv init my-agent
+cd my-agent
+uv add ag-ui-strands "strands-agents[OpenAI]" fastapi uvicorn
+```
+
+Then create a Next.js frontend and install the CopilotKit packages:
+
+```bash
+npx create-next-app@latest frontend
+cd frontend
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Set your OpenAI API key as an environment variable. If using the CLI starter, create a `.env` file in the `agent/` directory:
+
+```plaintext title="agent/.env"
+OPENAI_API_KEY=your_openai_api_key
+```
+
+If you initialized your own Python project, export the variable in your shell or add it to a `.env` file:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+  The starter template uses OpenAI's GPT-4o by default, but you can modify it to use any language model supported by Strands.
+</Info>
+
+</Step>
+
+<Step>
+
+### Expose your agent via AG-UI
+
+Update your agent entry point to wrap it with the `StrandsAgent` adapter and expose it as a FastAPI ASGI app:
+
+```python title="main.py"
+import os
+
+from ag_ui_strands import StrandsAgent, create_strands_app
+from strands import Agent
+from strands.models.openai import OpenAIModel
+
+# Set up the Strands agent
+api_key = os.getenv("OPENAI_API_KEY", "")
+model = OpenAIModel(
+    client_args={"api_key": api_key},
+    model_id="gpt-5.4-mini",
+)
+
+agent = Agent(
+    model=model,
+    system_prompt="You are a helpful AI assistant.",
+)
+
+# Wrap with the AG-UI adapter
+agui_agent = StrandsAgent(
+    agent=agent,
+    name="strands_agent",
+)
+
+# Create the FastAPI app
+app = create_strands_app(agui_agent, "/")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+```
+
+<Info>
+  AG-UI is an open protocol for frontend-agent communication. The `create_strands_app` function creates an ASGI app that CopilotKit connects to over Server-Sent Events.
+</Info>
+
+Start the agent server:
+
+```bash
+uv run main.py
+```
+
+Your agent will be available at `http://localhost:8000`.
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+In your Next.js app, create an API route that connects CopilotKit to your running Strands agent:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    strands_agent: new HttpAgent({ url: "http://localhost:8000" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context. The `agent` prop must match the `name` you set in `StrandsAgent`:
+
+```tsx title="app/layout.tsx"
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="strands_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat interface
+
+Add `CopilotSidebar` to your page:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+```bash
+npm run dev
+```
+
+Navigate to `http://localhost:3000` — your Strands agent is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="crewai-flows">
+CrewAI Flows use Copilot Cloud as the runtime — there is no API route to create. Follow these steps to connect your flow and wire up the frontend.
+
+<Steps>
+
+<Step>
+
+### Install packages
+
+Install the CopilotKit frontend packages into your Next.js app:
+
+```bash
+npm install @copilotkit/react-core
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+CrewAI Flows connect through Copilot Cloud — no self-hosted runtime is required. You only need your Copilot Cloud public API key and the agent name you configured in the Copilot Cloud dashboard.
+
+Create a `.env.local` file in your project root:
+
+```plaintext
+NEXT_PUBLIC_COPILOT_CLOUD_API_KEY=your_copilot_cloud_public_api_key
+NEXT_PUBLIC_COPILOTKIT_AGENT_NAME=your_crewai_flow_agent_name
+```
+
+<Info>
+  The agent name must match the name you used when adding the remote endpoint in Copilot Cloud. If the name contains multiple words, use underscores (`_`) as separators.
+</Info>
+
+</Step>
+
+<Step>
+
+### Connect your CrewAI Flow to Copilot Cloud
+
+1. Go to [Copilot Cloud](https://cloud.copilotkit.ai), sign in, and click **Get Started**.
+2. Click **Add Remote Endpoint** and fill in the details of your deployed CrewAI Flow.
+3. Click **Save Endpoint** and copy your **Public API Key**.
+
+<img
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/copilot-cloud/crewai-flow-cpk-setup.gif"
+  alt="CrewAI Flow Copilot Cloud setup"
+  className="rounded-lg shadow-xl mt-4"
+/>
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context. The `publicApiKey` points at Copilot Cloud; `agent` is the name you set in the dashboard:
+
+```tsx title="app/layout.tsx"
+"use client";
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+const publicApiKey = process.env.NEXT_PUBLIC_COPILOT_CLOUD_API_KEY || "";
+const agentName = process.env.NEXT_PUBLIC_COPILOTKIT_AGENT_NAME || "DefaultAgent";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit publicApiKey={publicApiKey} agent={agentName}>
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat interface to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+```bash
+npm run dev
+```
+
+Navigate to `http://localhost:3000` — your CrewAI Flow is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="llamaindex">
+<Steps>
+
+<Step>
+
+### Install packages
+
+Initialize your Python agent project and install LlamaIndex with AG-UI support:
+
+```bash
+uv init my-agent
+cd my-agent
+uv add llama-index llama-index-llms-openai llama-index-protocols-ag-ui fastapi uvicorn
+```
+
+<Info>
+  AG-UI is an open protocol for frontend-agent communication. The `llama-index-protocols-ag-ui` package provides LlamaIndex integration that CopilotKit can connect to.
+</Info>
+
+Then create your Next.js frontend and install CopilotKit packages:
+
+```bash
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/llamaindex
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Set your OpenAI API key for the agent. In your agent directory:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+  This example uses OpenAI's GPT-4o by default, but you can modify it to use any language model supported by LlamaIndex.
+</Info>
+
+</Step>
+
+<Step>
+
+### Expose your agent via AG-UI
+
+Create a `main.py` file that exposes your LlamaIndex agent as an AG-UI ASGI application:
+
+```python title="main.py"
+from fastapi import FastAPI
+from llama_index.llms.openai import OpenAI
+from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
+
+# Initialize the LLM
+llm = OpenAI(model="gpt-5.4-mini")
+
+# Create the AG-UI workflow router
+agentic_chat_router = get_ag_ui_workflow_router(
+    llm=llm,
+    system_prompt="You are a helpful AI assistant with access to various tools and capabilities.",
+)
+
+# Create FastAPI app
+app = FastAPI(
+    title="LlamaIndex Agent",
+    description="A LlamaIndex agent integrated with CopilotKit",
+    version="1.0.0"
+)
+
+# Include the router
+app.include_router(agentic_chat_router)
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "agent": "llamaindex"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+```
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+In your Next.js app, create an API route that connects CopilotKit to your LlamaIndex agent:
+
+```tsx title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { LlamaIndexAgent } from "@ag-ui/llamaindex";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new LlamaIndexAgent({ url: "http://localhost:8000/run" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context:
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add the `CopilotSidebar` component to your page:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Start your agent and UI
+
+In your agent directory, start the agent server:
+
+```bash
+uv run main.py
+```
+
+In a separate terminal, start the Next.js dev server:
+
+<Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tab value="npm">
+    ```bash
+    npm run dev
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dev
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dev
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun dev
+    ```
+  </Tab>
+</Tabs>
+
+Navigate to `http://localhost:3000` — your LlamaIndex agent is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="mastra">
+<Steps>
+
+<Step>
+
+### Install packages
+
+If you don't have a Mastra project yet, scaffold one:
+
+```bash
+npx create-mastra@latest my-agent
+cd my-agent
+```
+
+Then create a Next.js frontend and install all required packages:
+
+```bash
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/mastra @ag-ui/core @ag-ui/client @mastra/client-js @ai-sdk/openai
+```
+
+<Info>
+  Prefer to start from a working template? Run `npx copilotkit@latest create -f mastra` to scaffold a full project with agent and frontend pre-wired.
+</Info>
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Create a `.env` file in your Next.js project root and add your OpenAI API key:
+
+```plaintext
+OPENAI_API_KEY=your_openai_api_key
+```
+
+Also set the key in your Mastra agent directory if it is a separate project:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+  The Mastra starter template defaults to OpenAI GPT-4o, but you can swap in any model supported by Mastra.
+</Info>
+
+</Step>
+
+<Step>
+
+### Define your Mastra agent
+
+Create an agent file in your Mastra project and export it from your Mastra instance:
+
+```ts title="src/mastra/agents/index.ts"
+import { openai } from "@ai-sdk/openai";
+import { Agent } from "@mastra/core/agent";
+
+export const myAgent = new Agent({
+  name: "My Agent",
+  instructions: "You are a helpful assistant!",
+  model: openai("gpt-5.4-mini"),
+});
+```
+
+```ts title="src/mastra/index.ts"
+import { Mastra } from "@mastra/core";
+import { myAgent } from "./agents";
+
+export const mastra = new Mastra({
+  agents: { myAgent },
+});
+```
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+Create an API route in your Next.js app that connects CopilotKit to your Mastra agent:
+
+```ts title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { MastraAgent } from "@ag-ui/mastra";
+import { mastra } from "@/mastra"; // path to your Mastra instance
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: MastraAgent.getLocalAgents({ mastra }),
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context. Set `agent` to the key you used when registering your agent in the Mastra instance (e.g. `"myAgent"`):
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="myAgent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat interface to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tab value="npm">
+    ```bash
+    npm run dev
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dev
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dev
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun dev
+    ```
+  </Tab>
+</Tabs>
+
+Navigate to `http://localhost:3000` — your Mastra agent is live.
+
+<Info>
+  This setup uses `MastraAgent.getLocalAgents({ mastra })`, which runs your Mastra agent in-process inside the Next.js dev server — there's no separate agent server to start. If you'd rather host Mastra as a standalone service (`mastra dev` on port 4111), swap to `MastraAgent.getRemoteAgents()` and point it at the Mastra dev URL.
+</Info>
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="microsoft-agent-framework">
+The Microsoft Agent Framework integration uses the AG-UI protocol, so CopilotKit connects to your agent through a self-hosted Copilot Runtime. Follow these steps to wire everything together.
+
+<Steps>
+
+<Step>
+
+### Install packages
+
+Use our CLI to scaffold a new project with the Microsoft Agent Framework integration:
+
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    ```bash
+    npx copilotkit@latest create -f microsoft-agent-framework-dotnet
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```bash
+    npx copilotkit@latest create -f microsoft-agent-framework-py
+    ```
+  </Tab>
+</Tabs>
+
+Then install all dependencies (the starter's `postinstall` script handles both npm and agent packages):
+
+```bash
+npm install
+```
+
+<Info>
+  If automatic agent dependency installation fails you can run it manually:
+
+  **.NET** — `npm run install:agent` (runs `dotnet restore`)
+
+  **Python** — `npm run install:agent` or `cd agent && uv sync`
+</Info>
+
+If you prefer to integrate CopilotKit into an **existing** Microsoft Agent Framework agent, install the frontend packages directly:
+
+```bash
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+```
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    The starter template uses GitHub Models API for free access to AI models. Retrieve your GitHub token with the [GitHub CLI](https://github.com/cli/cli) and store it as a .NET user secret:
+
+    ```bash
+    gh auth token
+    cd agent
+    dotnet user-secrets set GitHubToken "$(gh auth token)"
+    cd ..
+    ```
+
+    <Info>
+      The starter is configured for GitHub Models (free), but you can switch to OpenAI, Azure OpenAI, or any other provider supported by Microsoft Agent Framework. See `agent/Program.cs` to customize the model configuration.
+    </Info>
+  </Tab>
+  <Tab value="Python">
+    Create a `.env` file inside the `agent` folder:
+
+    ```bash title="agent/.env (OpenAI)"
+    OPENAI_API_KEY=sk-...your-openai-key-here...
+    OPENAI_CHAT_MODEL_ID=gpt-5.4-mini
+    ```
+
+    ```bash title="agent/.env (Azure OpenAI)"
+    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+    AZURE_OPENAI_CHAT_DEPLOYMENT_NAME=gpt-5.4-mini
+    # If you are not using az login:
+    # AZURE_OPENAI_API_KEY=...
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Start your Microsoft Agent Framework agent
+
+<Tabs groupId="language_microsoft-agent-framework_agent" items={['.NET', 'Python']}>
+  <Tab value=".NET">
+    If you used the starter, run:
+
+    ```bash
+    npm run dev
+    ```
+
+    This starts both the Next.js UI (port 3000) and the .NET agent server (port 8000) concurrently.
+
+    For a manual setup, create a minimal .NET project that exposes an AG-UI endpoint:
+
+    ```bash
+    dotnet new web -n AGUIServer
+    cd AGUIServer
+    dotnet add package Microsoft.Agents.AI.Hosting.AGUI.AspNetCore --prerelease
+    dotnet add package Microsoft.Extensions.AI.OpenAI --prerelease
+    dotnet add package OpenAI
+    dotnet user-secrets init
+    dotnet user-secrets set GitHubToken "$(gh auth token)"
+    ```
+
+    <Info>
+      `Microsoft.Agents.AI.Hosting.AGUI.AspNetCore` and `Microsoft.Extensions.AI.OpenAI` are still in preview at the time of writing. `--prerelease` always pulls the latest preview — pin to a specific version once they ship a stable release.
+    </Info>
+
+    ```csharp title="Program.cs"
+    using Microsoft.Agents.AI;
+    using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+    using Microsoft.Extensions.AI;
+    using OpenAI;
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Services.AddAGUI();
+    var app = builder.Build();
+
+    var githubToken = builder.Configuration["GitHubToken"]!;
+    var openAI = new OpenAIClient(
+        new System.ClientModel.ApiKeyCredential(githubToken),
+        new OpenAIClientOptions {
+            Endpoint = new Uri("https://models.inference.ai.azure.com")
+        });
+
+    var chatClient = openAI.GetChatClient("gpt-5.4-mini").AsIChatClient();
+    var agent = new ChatClientAgent(
+        chatClient,
+        name: "MyAgent",
+        description: "You are a helpful assistant.");
+
+    app.MapAGUI("/", agent);
+    app.Run("http://localhost:8000");
+    ```
+
+    ```bash
+    dotnet run
+    ```
+  </Tab>
+  <Tab value="Python">
+    If you used the starter, run:
+
+    ```bash
+    npm run dev
+    ```
+
+    This starts both the Next.js UI (port 3000) and the Python agent server (port 8000) concurrently.
+
+    For a manual setup, create a minimal FastAPI server:
+
+    ```bash
+    uv init my-agent
+    cd my-agent
+    uv add agent-framework-ag-ui python-dotenv uvicorn agent-framework-openai
+    ```
+
+    ```python title="main.py"
+    from __future__ import annotations
+    import os
+    import uvicorn
+    from agent_framework import Agent
+    from agent_framework.openai import OpenAIChatClient
+    from agent_framework.ag_ui import add_agent_framework_fastapi_endpoint
+    from dotenv import load_dotenv
+    from fastapi import FastAPI
+
+    load_dotenv()
+
+    def _build_chat_client():
+        if os.getenv("AZURE_OPENAI_ENDPOINT"):
+            return OpenAIChatClient(
+                model=os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT_NAME", "gpt-5.4-mini"),
+                api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+                azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+            )
+        if os.getenv("OPENAI_API_KEY"):
+            return OpenAIChatClient(
+                model=os.getenv("OPENAI_CHAT_MODEL_ID", "gpt-5.4-mini"),
+                api_key=os.getenv("OPENAI_API_KEY"),
+            )
+        raise RuntimeError(
+            "Set either AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY, or OPENAI_API_KEY."
+        )
+
+    chat_client = _build_chat_client()
+
+    agent = Agent(
+        name="MyAgent",
+        instructions="You are a helpful assistant.",
+        client=chat_client,
+    )
+
+    app = FastAPI(title="Microsoft Agent Framework - Quickstart")
+    add_agent_framework_fastapi_endpoint(app=app, agent=agent, path="/")
+
+    if __name__ == "__main__":
+        uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    ```
+
+    ```bash
+    uv run main.py
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Create a Copilot Runtime API route
+
+CopilotKit requires a Copilot Runtime endpoint to communicate with your agent. In your Next.js app, create `app/api/copilotkit/route.ts`:
+
+```tsx title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+// Use the empty adapter — we're routing directly to our AG-UI agent.
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context across your application:
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat interface
+
+Add the sidebar chat component to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+"use client";
+
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <CopilotSidebar
+        labels={{
+          title: "Your Assistant",
+          initial: "Hi! How can I help you today?",
+        }}
+      />
+      <h1>Your App</h1>
+    </main>
+  );
+}
+```
+
+Start your development server:
+
+```bash
+npm run dev
+```
+
+Navigate to `http://localhost:3000` — your Microsoft Agent Framework agent is live.
+
+</Step>
+
+</Steps>
+</Variant>
+
+<Variant for="pydantic-ai">
+<Steps>
+
+<Step>
+
+### Install packages
+
+If you don't have a Pydantic AI project yet, initialize one with `uv`:
+
+```bash
+uv init my-agent
+cd my-agent
+```
+
+Install Pydantic AI with AG-UI support and uvicorn:
+
+```bash
+uv add 'pydantic-ai-slim[ag-ui]' uvicorn
+```
+
+Then create a Next.js frontend and install the CopilotKit packages:
+
+```bash
+npx create-next-app@latest my-copilot-app
+cd my-copilot-app
+npm install @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+```
+
+<Info>
+  Prefer a fully wired starting point? Run `npx copilotkit@latest create -f pydantic-ai` to scaffold a complete project with agent and frontend pre-configured.
+</Info>
+
+</Step>
+
+<Step>
+
+### Configure environment
+
+Set your OpenAI API key as an environment variable in your agent directory:
+
+```bash
+export OPENAI_API_KEY=your_openai_api_key
+```
+
+Or create an `.env` file in your agent directory:
+
+```plaintext title="agent/.env"
+OPENAI_API_KEY=your_openai_api_key
+```
+
+<Info>
+  The examples below use OpenAI's GPT-4.1 model, but Pydantic AI supports any LLM provider — swap in whichever model you prefer.
+</Info>
+
+</Step>
+
+<Step>
+
+### Expose your agent via AG-UI
+
+Create (or update) your agent file to expose it as an AG-UI ASGI application:
+
+```python title="agent.py"
+from pydantic_ai import Agent
+
+agent = Agent('openai:gpt-5.4-mini', system_prompt='Be fun!')
+app = agent.to_ag_ui()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="localhost", port=8000)
+```
+
+Start the agent server:
+
+```bash
+uv run agent.py
+```
+
+Your agent is now running at `http://localhost:8000`.
+
+</Step>
+
+<Step>
+
+### Create the CopilotKit API route
+
+Create an API route in your Next.js app that connects CopilotKit to your Pydantic AI agent via AG-UI:
+
+```tsx title="app/api/copilotkit/route.ts"
+import {
+  CopilotRuntime,
+  ExperimentalEmptyAdapter,
+  copilotRuntimeNextJSAppRouterEndpoint,
+} from "@copilotkit/runtime";
+import { HttpAgent } from "@ag-ui/client";
+import { NextRequest } from "next/server";
+
+const serviceAdapter = new ExperimentalEmptyAdapter();
+
+const runtime = new CopilotRuntime({
+  agents: {
+    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+  },
+});
+
+export const POST = async (req: NextRequest) => {
+  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+    runtime,
+    serviceAdapter,
+    endpoint: "/api/copilotkit",
+  });
+
+  return handleRequest(req);
+};
+```
+
+</Step>
+
+<Step>
+
+### Wrap your app with `CopilotKit`
+
+Update `app/layout.tsx` to provide the CopilotKit context. The `agent` prop must match the key you used when registering your agent in the runtime (e.g. `"my_agent"`):
+
+```tsx title="app/layout.tsx"
+import { CopilotKit } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-core/v2/styles.css";
+import "./globals.css";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+          {children}
+        </CopilotKit>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Add a chat UI
+
+Add a chat interface to `app/page.tsx`:
+
+```tsx title="app/page.tsx"
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+
+export default function Page() {
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Start your Next.js development server:
+
+<Tabs items={['npm', 'pnpm', 'yarn', 'bun']}>
+  <Tab value="npm">
+    ```bash
+    npm run dev
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm dev
+    ```
+  </Tab>
+  <Tab value="yarn">
+    ```bash
+    yarn dev
+    ```
+  </Tab>
+  <Tab value="bun">
+    ```bash
+    bun dev
+    ```
+  </Tab>
+</Tabs>
+
+Navigate to `http://localhost:3000` — your Pydantic AI agent is live.
+
+<Note>
+  If you see connection errors, try `0.0.0.0` or `127.0.0.1` instead of `localhost`, and confirm your agent is running on port 8000.
+</Note>
+
+</Step>
+
+</Steps>
+</Variant>
+
+
+## Connect a coding agent
+
+Before you keep building, take a minute to wire up your coding agent — Cursor, Claude Code, Windsurf, Codex, anything that supports MCP or skills. Once connected, your agent has first-class knowledge of CopilotKit's v2 hooks, runtime config, and per-framework integration patterns. When you ask it to "add a frontend tool" or "wire up shared state", it reaches for the right APIs instead of guessing from training data.
+
+There are two install paths and they compose — the **skill** teaches your coding agent the patterns and workflows; the **MCP server** lets it search live docs and source. Install both for the best experience.
+
+### Install the skill
+
+The skills are distributed via [`agentskills.io`](https://agentskills.io) and work across Claude Code, Codex, Cursor, OpenCode, and Gemini CLI. From your project root:
+
+```bash
+npx skills add copilotkit/skills --full-depth -y
+```
+
+Re-run the same command any time to pull the latest. This installs seven skills: `copilotkit-setup`, `copilotkit-develop`, `copilotkit-integrations`, `copilotkit-debug`, `copilotkit-upgrade`, `copilotkit-agui`, and `copilotkit-contribute`.
+
+### Connect the MCP server
+
+The hosted MCP server at `https://mcp.copilotkit.ai/mcp` exposes `search-docs` and `search-code` tools so your agent can look up the exact API signature, hook, or example it needs.
+
+<Tabs items={['Cursor', 'Claude Code', 'Windsurf', 'Codex']}>
+  <Tab value="Cursor">
+    Add to `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global):
+
+    ```json
+    {
+      "mcpServers": {
+        "copilotkit-docs": {
+          "url": "https://mcp.copilotkit.ai/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Claude Code">
+    From your project root:
+
+    ```bash
+    claude mcp add --transport http copilotkit-docs https://mcp.copilotkit.ai/mcp
+    ```
+
+    Or add it manually to `.mcp.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "copilotkit-docs": {
+          "type": "http",
+          "url": "https://mcp.copilotkit.ai/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Windsurf">
+    Add to `~/.codeium/windsurf/mcp_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "copilotkit-docs": {
+          "serverUrl": "https://mcp.copilotkit.ai/mcp"
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Codex">
+    Add to `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.copilotkit-docs]
+    type = "http"
+    url = "https://mcp.copilotkit.ai/mcp"
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+  Source and full skill list: [github.com/CopilotKit/skills](https://github.com/CopilotKit/skills). See [Coding agents](/coding-agents) for setup in Claude Web, Claude Desktop, and other MCP clients.
+</Tip>
+
+## Try generative UI
+
+Your agent can render real React components — not just text. Register one with `useComponent` and the agent decides when to show it.
+
+Add this to `app/page.tsx`:
+
+```tsx
+"use client";
+import { CopilotSidebar, useComponent } from "@copilotkit/react-core/v2"; // [!code highlight]
+import { z } from "zod";
+
+export default function Page() {
+  // [!code highlight:14]
+  useComponent({
+    name: "showWeather",
+    description: "Display a weather card for a city.",
+    parameters: z.object({
+      city: z.string(),
+      temperature: z.number(),
+      condition: z.string(),
+    }),
+    render: ({ city, temperature, condition }) => (
+      <div className="rounded-lg border p-4 my-2 bg-white shadow-sm">
+        <h3 className="font-semibold">{city}</h3>
+        <p className="text-2xl font-bold">{temperature}°F</p>
+        <p className="text-sm text-gray-500">{condition}</p>
+      </div>
+    ),
+  });
+
+  return (
+    <main>
+      <h1>Your App</h1>
+      <CopilotSidebar />
+    </main>
+  );
+}
+```
+
+Now ask the chat **"What's the weather in San Francisco?"** — the agent calls `showWeather` with the right values and the card renders inline. That's generative UI in 14 lines.
+
+<Tip>
+  See [Generative UI](/generative-ui) for the four patterns and when to reach for each.
+</Tip>
+
+## What's next
+
+<Variant for="built-in">
+You've got a copilot wired up to the Built-in Agent. From here:
+
+- [Frontend tools](/frontend-tools) — let the agent control your UI
+- [Generative UI](/generative-ui) — render React components from tool calls
+- [Shared state](/shared-state) — two-way state sync between your app and the agent
+- [Threads](/threads) — persist and resume conversations
+- [Model selection](/model-selection) — pick a different model or BYO router
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="langgraph">
+You've connected a LangChain agent to a CopilotKit-powered UI. From here:
+
+- [LangChain human-in-the-loop](/langgraph/human-in-the-loop) — pause your graph with `interrupt()` and resolve from React
+- [LangChain shared state](/langgraph/shared-state) — read/write graph state from your UI
+- [Subgraphs](/langgraph/subgraphs) and [multi-agent flows](/langgraph/multi-agent-flows)
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui) work the same as the built-in track
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="adk">
+You've connected a Google ADK agent. From here:
+
+- [Shared state](/adk/shared-state) — sync `tool_context.state` with your React UI
+- [Frontend tools](/frontend-tools) — let the agent invoke React-side tools
+- [Generative UI](/generative-ui) — render components from agent tool calls
+- [Threads](/threads) — persist conversations
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="mastra">
+You've connected a Mastra agent. From here:
+
+- [App context](/mastra/agent-app-context) — read app state via `requestContext.get('ag-ui')` in your agent
+- [Shared state](/shared-state) — sync agent state with your React UI
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="aws-strands">
+You've connected an AWS Strands agent. From here:
+
+- [Human-in-the-loop](/aws-strands/human-in-the-loop) — gate consequential actions with `useHumanInTheLoop`
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="microsoft-agent-framework">
+You've connected a Microsoft Agent Framework agent. From here:
+
+- [Human-in-the-loop](/microsoft-agent-framework/human-in-the-loop) — add approval flows
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="pydantic-ai">
+You've connected a Pydantic AI agent. From here:
+
+- [Human-in-the-loop](/pydantic-ai/human-in-the-loop) — pause for user input mid-tool
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="agno">
+You've connected an Agno agent. From here:
+
+- [Human-in-the-loop](/agno/human-in-the-loop) — gate consequential actions
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="llamaindex">
+You've connected a LlamaIndex agent. From here:
+
+- [Human-in-the-loop](/llamaindex/human-in-the-loop) — pause for user approval
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="crewai-flows">
+You've connected a CrewAI Flow via Copilot Cloud. From here:
+
+- [Human-in-the-loop](/crewai-flows/human-in-the-loop) — add approval gates to your flow
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="ag2">
+You've connected an AG2 backend. From here:
+
+- [Human-in-the-loop](/ag2/human-in-the-loop)
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="a2a">
+You've connected an A2A backend. From here:
+
+- [Declarative A2UI](/a2a/declarative-a2ui) — let the agent emit UI structure directly
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>
+
+<Variant for="agent-spec">
+You've connected an Agent Spec backend. From here:
+
+- [LangChain adapter](/agent-spec/langgraph) — the LangChain-backed runtime
+- [Frontend tools](/frontend-tools) and [generative UI](/generative-ui)
+- [Shared state](/shared-state)
+- [Coding agents](/coding-agents) — full setup for Cursor, Claude, and other MCP clients
+</Variant>

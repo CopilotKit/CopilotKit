@@ -1,0 +1,103 @@
+---
+title: "defineTool"
+description: "Helper function that defines a server-side tool for use with BuiltInAgent."
+icon: "lucide/Server"
+---
+
+## Signature
+
+```ts
+function defineTool<TParameters extends StandardSchemaV1>(config: {
+  name: string;
+  description: string;
+  parameters: TParameters;
+  execute: (args: InferSchemaOutput<TParameters>) => Promise<unknown>;
+}): ToolDefinition<TParameters>
+```
+
+`defineTool` is a typed helper that creates a `ToolDefinition` object for use with `BuiltInAgent`. It accepts any [Standard Schema v1](https://standardschema.dev/) compatible schema library — Zod, Valibot, ArkType, and others are all supported.
+
+## Parameters
+
+| Name | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | Yes | Tool name the LLM will call. Must be a valid identifier. |
+| `description` | `string` | Yes | Natural language description the LLM uses to decide when to call the tool. |
+| `parameters` | `StandardSchemaV1` | Yes | Schema describing the tool's input. Use Zod (`z.object({...})`), Valibot, or any Standard Schema v1 library. |
+| `execute` | `(args) => Promise<unknown>` | Yes | Async function executed server-side when the LLM calls the tool. The return value is serialized and returned to the LLM as the tool result. |
+
+## Returns
+
+A `ToolDefinition<TParameters>` object that can be passed to `BuiltInAgent`'s `tools` option.
+
+## Example — with Zod
+
+```ts
+import { defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const searchTool = defineTool({
+  name: "searchDocuments",
+  description: "Search the knowledge base for relevant documents",
+  parameters: z.object({
+    query: z.string().describe("The search query"),
+    limit: z.number().optional().default(5).describe("Max number of results"),
+  }),
+  execute: async ({ query, limit }) => {
+    const results = await db.search(query, { limit });
+    return results;
+  },
+});
+```
+
+## Example — with Valibot
+
+```ts
+import { defineTool } from "@copilotkit/runtime/v2";
+import * as v from "valibot";
+
+const createTaskTool = defineTool({
+  name: "createTask",
+  description: "Create a new task in the task manager",
+  parameters: v.object({
+    title: v.string(),
+    priority: v.picklist(["low", "medium", "high"]),
+  }),
+  execute: async ({ title, priority }) => {
+    const task = await taskManager.create({ title, priority });
+    return { id: task.id, status: "created" };
+  },
+});
+```
+
+## Using tools with BuiltInAgent
+
+```ts
+import { CopilotRuntime, BuiltInAgent, defineTool } from "@copilotkit/runtime/v2";
+import { z } from "zod";
+
+const weatherTool = defineTool({
+  name: "getWeather",
+  description: "Get the current weather for a location",
+  parameters: z.object({
+    location: z.string().describe("City name or coordinates"),
+  }),
+  execute: async ({ location }) => {
+    const data = await fetchWeather(location);
+    return data;
+  },
+});
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({
+      model: "openai/gpt-5-mini",
+      tools: [weatherTool],
+    }),
+  },
+});
+```
+
+## Related
+
+- [`BuiltInAgent`](/reference/agents/built-in-agent) — agent that consumes `ToolDefinition` objects

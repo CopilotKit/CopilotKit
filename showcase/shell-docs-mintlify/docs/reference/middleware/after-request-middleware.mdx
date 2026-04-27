@@ -1,0 +1,92 @@
+---
+title: "afterRequestMiddleware"
+description: "Callback that runs after each CopilotKit request with reconstructed messages, threadId, and runId — use it for logging or analytics."
+icon: "lucide/Filter"
+---
+
+## Type
+
+```ts
+type AfterRequestMiddlewareFn = (
+  params: AfterRequestMiddlewareParameters,
+) => MaybePromise<void>;
+```
+
+`afterRequestMiddleware` is a function you provide on `CopilotRuntime`. It is called once after each request completes. The runtime reconstructs the SSE message stream for you, providing the full message list, thread ID, and run ID.
+
+## Parameters
+
+| Name | Type | Description |
+|---|---|---|
+| `runtime` | `CopilotRuntimeLike` | The runtime instance that processed this request. |
+| `response` | `Response` | The Fetch `Response` that was (or will be) sent to the client. |
+| `path` | `string` | The resolved URL pathname. |
+| `messages` | `Message[]` | Reconstructed messages from the SSE stream. Empty for non-SSE responses (e.g. `/info`). |
+| `threadId` | `string \| undefined` | Thread ID extracted from the `RUN_STARTED` event, if present. |
+| `runId` | `string \| undefined` | Run ID extracted from the `RUN_STARTED` event, if present. |
+
+## Return value
+
+The return value is ignored. `afterRequestMiddleware` cannot modify the response — it is purely observational.
+
+## Example — logging
+
+```ts
+import { CopilotRuntime, BuiltInAgent } from "@copilotkit/runtime/v2";
+
+const runtime = new CopilotRuntime({
+  agents: {
+    default: new BuiltInAgent({ model: "openai/gpt-5-mini" }),
+  },
+  afterRequestMiddleware: async ({ messages, threadId, runId, path }) => {
+    console.log("Run completed", {
+      path,
+      threadId,
+      runId,
+      messageCount: messages?.length ?? 0,
+    });
+  },
+});
+```
+
+## Example — analytics
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  afterRequestMiddleware: async ({ messages, threadId, runId }) => {
+    if (!threadId || !runId) return;
+
+    const assistantMessages = messages?.filter((m) => m.role === "assistant") ?? [];
+
+    await analytics.track("agent_run_completed", {
+      threadId,
+      runId,
+      responseCount: assistantMessages.length,
+      totalMessages: messages?.length ?? 0,
+    });
+  },
+});
+```
+
+## Example — persisting conversation history
+
+```ts
+const runtime = new CopilotRuntime({
+  agents: { default: new BuiltInAgent({ model: "openai/gpt-5-mini" }) },
+  afterRequestMiddleware: async ({ messages, threadId }) => {
+    if (!threadId || !messages?.length) return;
+    await db.threads.upsertMessages(threadId, messages);
+  },
+});
+```
+
+## Notes
+
+- `afterRequestMiddleware` is called for all requests, including `/info` and transcription. For those, `messages` will be an empty array and `threadId`/`runId` will be `undefined`.
+- The callback must not throw. Errors are swallowed to prevent breaking the already-sent response.
+
+## Related
+
+- [`beforeRequestMiddleware`](/reference/middleware/before-request-middleware) — runs before each request
+- [`CopilotRuntime`](/reference/runtime/copilot-runtime) — where middleware is configured

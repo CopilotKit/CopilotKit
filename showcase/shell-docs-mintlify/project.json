@@ -1,0 +1,44 @@
+{
+  "name": "shell-docs-mintlify",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "showcase/shell-docs-mintlify/src",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run dev",
+        "cwd": "showcase/shell-docs-mintlify"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run build",
+        "cwd": "showcase/shell-docs-mintlify"
+      }
+    },
+    "preview": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run preview",
+        "cwd": "showcase/shell-docs-mintlify"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npm run lint",
+        "cwd": "showcase/shell-docs-mintlify"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "npx vitest run",
+        "cwd": "showcase/shell-docs-mintlify"
+      }
+    }
+  },
+  "tags": ["scope:docs", "type:app"]
+}
