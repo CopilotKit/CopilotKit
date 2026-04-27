@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // Check agent backend reachability
   let agentStatus = "unknown";
   try {
-    const res = await fetch(`${AGENT_URL}/health`, {
+    const res = await fetch(`${AGENT_URL}/ok`, {
       signal: AbortSignal.timeout(3000),
     });
     agentStatus = res.ok ? "ok" : "error";
