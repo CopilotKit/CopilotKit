@@ -30,8 +30,9 @@ import { integrations } from "../integrations.config.ts";
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(SCRIPT_DIR, "..");
-const REPO_ROOT = path.resolve(PROJECT_ROOT, "..");
-const SHOWCASE_PACKAGES = path.join(REPO_ROOT, "showcase", "packages");
+// Project lives at <repo>/showcase/shell-docs-mintlify; sibling showcase
+// packages live one directory up.
+const SHOWCASE_PACKAGES = path.resolve(PROJECT_ROOT, "..", "packages");
 const OUTPUT_PATH = path.join(
   PROJECT_ROOT,
   "src",

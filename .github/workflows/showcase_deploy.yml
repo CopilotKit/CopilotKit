@@ -176,6 +176,10 @@ jobs:
               - 'showcase/shared/**'
               - 'showcase/scripts/**'
               - 'showcase/packages/*/manifest.yaml'
+            shell_docs_mintlify:
+              - 'showcase/shell-docs-mintlify/**'
+              - 'showcase/packages/*/manifest.yaml'
+              - 'showcase/packages/*/src/app/demos/**'
 
       - name: Build service matrix
         id: build-matrix

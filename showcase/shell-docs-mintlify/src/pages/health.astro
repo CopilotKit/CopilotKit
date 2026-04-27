@@ -1,0 +1,14 @@
+---
+// Static health probe used by showcase deploy verification + Railway
+// uptime checks. Astro emits this as `dist/health/index.html` (or
+// `dist/health.html` depending on trailingSlash config); both serve a
+// 200 OK to GET /health.
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OK</title>
+  </head>
+  <body>OK</body>
+</html>
