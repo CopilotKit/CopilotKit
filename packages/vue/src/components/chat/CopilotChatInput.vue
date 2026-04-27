@@ -401,6 +401,10 @@ function handleKeydown(event: KeyboardEvent) {
     return;
   }
 
+  if (isComposing.value || event.isComposing || event.keyCode === 229) {
+    return;
+  }
+
   if (commandQuery.value !== null && props.mode === "input") {
     if (event.key === "ArrowDown") {
       if (filteredCommands.value.length > 0) {
@@ -447,13 +451,7 @@ function handleKeydown(event: KeyboardEvent) {
     }
   }
 
-  if (
-    event.key === "Enter" &&
-    !event.shiftKey &&
-    !isComposing.value &&
-    !event.isComposing &&
-    props.mode === "input"
-  ) {
+  if (event.key === "Enter" && !event.shiftKey && props.mode === "input") {
     event.preventDefault();
     if (isProcessing.value) {
       if (hasStopAction.value) {
@@ -510,7 +508,7 @@ function handleContainerClick(event: MouseEvent) {
 
 function ensureMeasurements() {
   const textarea = textareaRef.value;
-  if (!textarea) {
+  if (!textarea || isComposing.value) {
     return;
   }
 

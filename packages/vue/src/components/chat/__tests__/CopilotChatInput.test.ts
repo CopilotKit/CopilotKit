@@ -908,5 +908,144 @@ describe("CopilotChatInput", () => {
       expect((input as HTMLTextAreaElement).value).toBe("test message");
       expect(onSubmit).toHaveBeenCalledWith("test message");
     });
+
+    it("emits update:modelValue('') after button-click submit in controlled mode", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "test message" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      await fireEvent.click(getSendButton());
+
+      expect(onSubmit).toHaveBeenCalledWith("test message");
+      expect(onUpdateModelValue).toHaveBeenCalledWith("");
+    });
+
+    it("emits update:modelValue('') after Enter submit in controlled mode", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "hello world" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox");
+      await fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+      expect(onSubmit).toHaveBeenCalledWith("hello world");
+      expect(onUpdateModelValue).toHaveBeenCalledWith("");
+    });
+  });
+
+  describe("IME composition parity", () => {
+    it("does not submit on Enter while composition is active", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "こんに" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox");
+      await fireEvent.compositionStart(input);
+      await fireEvent.keyDown(input, {
+        key: "Enter",
+        shiftKey: false,
+        isComposing: true,
+      });
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("submits on Enter after compositionend", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "こんにちは" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox");
+      await fireEvent.compositionStart(input);
+      await fireEvent.compositionEnd(input);
+      await fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+      expect(onSubmit).toHaveBeenCalledWith("こんにちは");
+    });
+
+    it("does not submit when keydown reports isComposing: true", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "abc" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox");
+      await fireEvent.keyDown(input, {
+        key: "Enter",
+        shiftKey: false,
+        isComposing: true,
+      });
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("does not submit when keydown reports keyCode 229", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "abc" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox");
+      await fireEvent.keyDown(input, {
+        key: "Enter",
+        shiftKey: false,
+        keyCode: 229,
+      });
+
+      expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it("does not reset textarea value during active composition", async () => {
+      const onUpdateModelValue = vi.fn();
+      const onSubmit = vi.fn();
+      renderWithProvider({
+        props: { modelValue: "" },
+        listeners: {
+          "onUpdate:modelValue": onUpdateModelValue,
+          onSubmitMessage: onSubmit,
+        },
+      });
+
+      const input = screen.getByRole("textbox") as HTMLTextAreaElement;
+      await fireEvent.compositionStart(input);
+      input.value = "部分";
+      await fireEvent.input(input, { target: { value: "部分" } });
+
+      expect(input.value).toBe("部分");
+    });
   });
 });
