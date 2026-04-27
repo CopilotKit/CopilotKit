@@ -380,6 +380,8 @@ interface ThreadStore {
   start(): void;
   stop(): void;
   setContext(context: ThreadRuntimeContext | null): void;
+  /** Re-fetches the thread list without resetting the current list to empty. */
+  refresh(): void;
   fetchNextPage(): void;
   renameThread(threadId: string, name: string): Promise<void>;
   archiveThread(threadId: string): Promise<void>;
@@ -964,6 +966,11 @@ function createThreadStore(environment: ThreadEnvironment): ThreadStore {
     },
     setContext(context: ThreadRuntimeContext | null): void {
       store.dispatch(threadAdapterEvents.contextChanged({ context }));
+    },
+    refresh(): void {
+      const { sessionId, context } = store.getState();
+      if (!context) return;
+      store.dispatch(threadRestEvents.listRequested({ sessionId }));
     },
     fetchNextPage(): void {
       store.dispatch(threadAdapterEvents.fetchNextPageRequested());

@@ -1,16 +1,22 @@
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
+import { marked } from "marked";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
 import inspectorLogoIconUrl from "./assets/inspector-logo-icon.svg";
 import { unsafeHTML } from "lit/directives/unsafe-html.js";
-import { marked } from "marked";
 import { icons } from "lucide";
+import type { CopilotKitCore } from "@copilotkit/core";
 import {
-  CopilotKitCore,
   CopilotKitCoreRuntimeConnectionStatus,
-  type CopilotKitCoreSubscriber,
-  type CopilotKitCoreErrorCode,
+  ɵselectThreads,
+  ɵcreateThreadStore,
+} from "@copilotkit/core";
+import type {
+  CopilotKitCoreSubscriber,
+  CopilotKitCoreErrorCode,
+  ɵThreadStore,
+  ɵThread,
 } from "@copilotkit/core";
 import type { AbstractAgent, AgentSubscriber } from "@ag-ui/client";
 import type {
@@ -33,18 +39,23 @@ import {
 import {
   loadInspectorState,
   saveInspectorState,
-  type PersistedState,
   isValidAnchor,
   isValidPosition,
   isValidSize,
   isValidDockMode,
 } from "./lib/persistence";
+import type { PersistedState } from "./lib/persistence";
 
 export const WEB_INSPECTOR_TAG = "cpk-web-inspector" as const;
 
 type LucideIconName = keyof typeof icons;
 
-type MenuKey = "ag-ui-events" | "agents" | "frontend-tools" | "agent-context";
+type MenuKey =
+  | "ag-ui-events"
+  | "agents"
+  | "frontend-tools"
+  | "agent-context"
+  | "threads";
 
 type MenuItem = {
   key: MenuKey;
@@ -61,7 +72,7 @@ const INSPECTOR_STORAGE_KEY = "cpk:inspector:state";
 const ANNOUNCEMENT_STORAGE_KEY = "cpk:inspector:announcements";
 const ANNOUNCEMENT_URL = "https://cdn.copilotkit.ai/announcements.json";
 const DEFAULT_BUTTON_SIZE: Size = { width: 48, height: 48 };
-const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 560 };
+const DEFAULT_WINDOW_SIZE: Size = { width: 840, height: 700 };
 const DOCKED_LEFT_WIDTH = 500; // Sensible width for left dock with collapsed sidebar
 const MAX_AGENT_EVENTS = 200;
 const MAX_TOTAL_EVENTS = 500;
@@ -87,7 +98,9 @@ type InspectorAgentEventType =
   | "REASONING_MESSAGE_CONTENT"
   | "REASONING_MESSAGE_END"
   | "REASONING_END"
-  | "REASONING_ENCRYPTED_VALUE";
+  | "REASONING_ENCRYPTED_VALUE"
+  | "ACTIVITY_SNAPSHOT"
+  | "ACTIVITY_DELTA";
 
 const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "RUN_STARTED",
@@ -111,6 +124,8 @@ const AGENT_EVENT_TYPES: readonly InspectorAgentEventType[] = [
   "REASONING_MESSAGE_END",
   "REASONING_END",
   "REASONING_ENCRYPTED_VALUE",
+  "ACTIVITY_SNAPSHOT",
+  "ACTIVITY_DELTA",
 ] as const;
 
 type SanitizedValue =
@@ -137,6 +152,8 @@ type InspectorMessage = {
   contentText: string;
   contentRaw?: SanitizedValue;
   toolCalls: InspectorToolCall[];
+  /** Populated for role="activity" messages (Generative UI). */
+  activityType?: string;
 };
 
 type InspectorToolDefinition = {
@@ -154,6 +171,1858 @@ type InspectorEvent = {
   timestamp: number;
   payload: SanitizedValue;
 };
+
+// ─── Thread details types ────────────────────────────────────────────────────
+
+interface ApiThreadMessage {
+  id: string;
+  role: string;
+  content?: string;
+  toolCalls?: Array<{ id: string; name: string; args: string }>;
+  toolCallId?: string;
+  /** Present when role === "activity" (Generative UI output). */
+  activityType?: string;
+}
+
+interface ConversationUser {
+  id: string;
+  type: "user";
+  content: string;
+  createdAt: string;
+}
+
+interface ConversationAssistant {
+  id: string;
+  type: "assistant";
+  content: string;
+  createdAt: string;
+}
+
+interface ConversationToolCall {
+  id: string;
+  type: "tool_call";
+  toolName: string;
+  toolCallId: string;
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown> | null;
+  createdAt: string;
+  groupId?: string;
+}
+
+interface ConversationReasoning {
+  id: string;
+  type: "reasoning";
+  duration: string;
+  createdAt: string;
+}
+
+interface ConversationStateUpdate {
+  id: string;
+  type: "state_update";
+  createdAt: string;
+}
+
+interface ConversationAgentResponded {
+  id: string;
+  type: "agent_responded";
+  createdAt: string;
+}
+
+interface ConversationGenerativeUIItem {
+  id: string;
+  type: "generative-ui";
+  activityType: string;
+  /** Pre-rendered HTML for demo/scripted mode. Not present for live runtime data. */
+  html?: string;
+  createdAt: string;
+}
+
+interface ToolCallGroup {
+  type: "tool_call_group";
+  id: string;
+  items: ConversationToolCall[];
+}
+
+type ConversationItem =
+  | ConversationUser
+  | ConversationAssistant
+  | ConversationToolCall
+  | ConversationReasoning
+  | ConversationStateUpdate
+  | ConversationAgentResponded
+  | ConversationGenerativeUIItem;
+
+type RenderItem = ConversationItem | ToolCallGroup;
+
+interface ApiAgentEvent {
+  type: string;
+  timestamp: string | number;
+  payload: Record<string, unknown>;
+}
+
+type ThreadDetailsTab = "conversation" | "agent-state" | "ag-ui-events";
+
+// ─── JSON syntax highlighter ─────────────────────────────────────────────────
+// Inline-styled so shadow DOM encapsulation preserves colors when the output
+// is injected via unsafeHTML. Only for structured data — never raw user HTML.
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function highlightedJson(obj: unknown): string {
+  const colors = {
+    key: "#5558B2",
+    str: "#189370",
+    num: "#996300",
+    bool: "#c0333a",
+    nil: "#838389",
+  };
+  const json = JSON.stringify(obj, null, 2);
+  if (!json) return "";
+  const parts: string[] = [];
+  let lastIndex = 0;
+  const re =
+    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(json)) !== null) {
+    parts.push(escapeHtml(json.slice(lastIndex, match.index)));
+    const m = match[0];
+    let color = colors.num;
+    if (m.startsWith('"')) {
+      color = m.trimEnd().endsWith(":") ? colors.key : colors.str;
+    } else if (m === "true" || m === "false") {
+      color = colors.bool;
+    } else if (m === "null") {
+      color = colors.nil;
+    }
+    parts.push(`<span style="color:${color}">${escapeHtml(m)}</span>`);
+    lastIndex = match.index + m.length;
+  }
+  parts.push(escapeHtml(json.slice(lastIndex)));
+  return parts.join("");
+}
+
+function eventColors(type: string): { bg: string; fg: string } {
+  if (type.startsWith("TEXT_MESSAGE")) return { bg: "#EEE6FE", fg: "#57575B" };
+  if (type.startsWith("TOOL_CALL"))
+    return { bg: "rgba(133,236,206,0.15)", fg: "#189370" };
+  if (type.startsWith("STATE"))
+    return { bg: "rgba(190,194,255,0.102)", fg: "#5558B2" };
+  if (type.startsWith("RUN_") || type.startsWith("STEP_"))
+    return { bg: "rgba(255,172,77,0.2)", fg: "#996300" };
+  if (type === "ERROR") return { bg: "rgba(250,95,103,0.13)", fg: "#c0333a" };
+  return { bg: "#F7F7F9", fg: "#838389" };
+}
+
+function formatTimestamp(ts: string | number): string {
+  const date = typeof ts === "number" ? new Date(ts) : new Date(ts);
+  if (Number.isNaN(date.getTime())) return "";
+  const ms = date.getMilliseconds().toString().padStart(3, "0");
+  return (
+    date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }) +
+    "." +
+    ms
+  );
+}
+
+// ─── cpk-thread-list ────────────────────────────────────────────────────────
+
+class CpkThreadList extends LitElement {
+  static properties = {
+    threads: { attribute: false },
+    selectedThreadId: { attribute: false },
+    _query: { state: true },
+  };
+  threads: ɵThread[] = [];
+  selectedThreadId: string | null = null;
+  private _query = "";
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cpk-tl {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow: hidden;
+      background: #f7f7f9;
+    }
+
+    /* ── Search ── */
+    .cpk-tl__search {
+      padding: 10px 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+    }
+
+    .cpk-tl__search-input {
+      width: 100%;
+      box-sizing: border-box;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 12px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      border: 1px solid #dbdbe5;
+      background: #ffffff;
+      color: #010507;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .cpk-tl__search-input:focus {
+      border-color: #bec2ff;
+    }
+
+    /* ── List ── */
+    .cpk-tl__list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    /* ── Thread item ── */
+    .cpk-tl__item {
+      padding: 11px 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #e9e9ef;
+      border-left: 3px solid transparent;
+      transition: background 0.1s;
+    }
+
+    .cpk-tl__item:hover {
+      background: #ffffff;
+    }
+
+    .cpk-tl__item--active {
+      background: #bec2ff1a;
+      border-left-color: #bec2ff;
+    }
+
+    .cpk-tl__item--active:hover {
+      background: #bec2ff33;
+    }
+
+    .cpk-tl__row1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .cpk-tl__name {
+      font-size: 12px;
+      font-weight: 500;
+      color: #010507;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .cpk-tl__name--unnamed {
+      color: #838389;
+      font-style: italic;
+      font-weight: 400;
+    }
+
+    .cpk-tl__time {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      color: #838389;
+      flex-shrink: 0;
+    }
+
+    .cpk-tl__meta {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .cpk-tl__pill {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-weight: 500;
+      white-space: nowrap;
+      background: #eee6fe;
+      color: #57575b;
+    }
+
+    /* ── Empty state ── */
+    .cpk-tl__empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: #838389;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .cpk-tl__empty-icon {
+      color: #c0c0c8;
+    }
+  `;
+
+  private relativeTime(dateStr: string): string {
+    const date = new Date(dateStr);
+    const diffMs = Date.now() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `${diffH}h ago`;
+    const diffD = Math.floor(diffH / 24);
+    return `${diffD}d ago`;
+  }
+
+  private get filtered(): ɵThread[] {
+    const q = this._query.toLowerCase();
+    if (!q) return this.threads;
+    return this.threads.filter(
+      (t) =>
+        (t.name?.toLowerCase().includes(q) ?? false) ||
+        t.agentId.toLowerCase().includes(q) ||
+        t.id.toLowerCase().includes(q),
+    );
+  }
+
+  private onThreadClick(threadId: string): void {
+    this.dispatchEvent(
+      new CustomEvent("threadSelected", {
+        detail: threadId,
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  private onSearchInput = (event: Event): void => {
+    this._query = (event.target as HTMLInputElement).value;
+  };
+
+  render() {
+    const filtered = this.filtered;
+    return html`
+      <div class="cpk-tl">
+        <!-- Search -->
+        <div class="cpk-tl__search">
+          <input
+            type="text"
+            placeholder="Search threads…"
+            .value=${this._query}
+            @input=${this.onSearchInput}
+            class="cpk-tl__search-input"
+          />
+        </div>
+
+        <!-- Thread list -->
+        <div class="cpk-tl__list">
+          ${filtered.map(
+            (thread) => html`
+              <div
+                class="cpk-tl__item ${
+                  this.selectedThreadId === thread.id
+                    ? "cpk-tl__item--active"
+                    : ""
+                }"
+                @click=${() => this.onThreadClick(thread.id)}
+              >
+                <div class="cpk-tl__row1">
+                  <span
+                    class="cpk-tl__name ${
+                      !thread.name ? "cpk-tl__name--unnamed" : ""
+                    }"
+                    >${thread.name ?? "Untitled"}</span
+                  >
+                  <span class="cpk-tl__time"
+                    >${this.relativeTime(thread.updatedAt)}</span
+                  >
+                </div>
+                <div class="cpk-tl__meta">
+                  <span class="cpk-tl__pill">${thread.agentId}</span>
+                </div>
+              </div>
+            `,
+          )}
+          ${
+            filtered.length === 0
+              ? html`
+                <div class="cpk-tl__empty">
+                  ${
+                    this.threads.length === 0
+                      ? html`
+                          <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.5"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="cpk-tl__empty-icon"
+                          >
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                          </svg>
+                          No threads yet
+                        `
+                      : html`
+                          No threads match your search.
+                        `
+                  }
+                </div>
+              `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ─── cpk-thread-details ──────────────────────────────────────────────────────
+// Renders the selected thread's conversation, agent state, and AG-UI events.
+// Fetches per-thread history from the runtime's /threads/:id/{messages,events,state}
+// endpoints whenever threadId changes. Live overrides (from the parent inspector's
+// ongoing agent subscriptions) take priority when present, otherwise fetched data
+// is authoritative.
+
+class CpkThreadDetails extends LitElement {
+  static properties = {
+    threadId: { attribute: false },
+    thread: { attribute: false },
+    runtimeUrl: { attribute: false },
+    headers: { attribute: false },
+    agentStateInput: { attribute: false },
+    agentEventsInput: { attribute: false },
+    conversationOverride: { attribute: false },
+    _tab: { state: true },
+    _conversation: { state: true },
+    _fetchedEvents: { state: true },
+    _fetchedState: { state: true },
+    _loadingMessages: { state: true },
+    _loadingEvents: { state: true },
+    _loadingState: { state: true },
+    _messagesError: { state: true },
+    _eventsError: { state: true },
+    _stateError: { state: true },
+    _expandedTools: { state: true },
+    _expandedMessages: { state: true },
+    _showDetailPanel: { state: true },
+    _detailPanelWidth: { state: true },
+    _eventsNotAvailable: { state: true },
+    _stateNotAvailable: { state: true },
+  };
+
+  threadId: string | null = null;
+  thread: ɵThread | null = null;
+  runtimeUrl = "";
+  headers: Record<string, string> = {};
+  agentStateInput: Record<string, unknown> | null = null;
+  agentEventsInput: ApiAgentEvent[] = [];
+  conversationOverride: ConversationItem[] | null = null;
+
+  private _tab: ThreadDetailsTab = "conversation";
+  private _conversation: ConversationItem[] = [];
+  private _fetchedEvents: ApiAgentEvent[] | null = null;
+  private _fetchedState: Record<string, unknown> | null = null;
+  private _loadingMessages = false;
+  private _loadingEvents = false;
+  private _loadingState = false;
+  private _messagesError: string | null = null;
+  private _eventsError: string | null = null;
+  private _stateError: string | null = null;
+  private _expandedTools = new Set<string>();
+  private _expandedMessages = new Set<string>();
+  private _showDetailPanel = false;
+  private _detailPanelWidth = 250;
+  /** True when the /events endpoint returned 501 — don't fall back to live data. */
+  private _eventsNotAvailable = false;
+  /** True when the /state endpoint returned 501 — don't fall back to live data. */
+  private _stateNotAvailable = false;
+  private _lastFetchedThreadId: string | null = null;
+  private _messagesAbort: AbortController | null = null;
+  private _dividerResizing = false;
+  private _dividerPointerId = -1;
+  private _dividerStartX = 0;
+  private _dividerStartWidth = 0;
+
+  static readonly COLLAPSE_THRESHOLD = 800;
+  private static readonly TAB_LIST: Array<{
+    id: ThreadDetailsTab;
+    label: string;
+  }> = [
+    { id: "conversation", label: "Conversation" },
+    { id: "agent-state", label: "Agent State" },
+    { id: "ag-ui-events", label: "AG-UI Events" },
+  ];
+
+  static styles = css`
+    @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap");
+
+    /* ── Root ────────────────────────────────────────────────────────── */
+    :host {
+      display: flex;
+      flex-direction: row;
+      overflow: hidden;
+    }
+
+    .cpk-td {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 13px;
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    /* ── Left area ───────────────────────────────────────────────────── */
+    .cpk-td__left {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Tab bar header ──────────────────────────────────────────────── */
+    .cpk-td__tabs-header {
+      /* No top/right padding so tabs and toggle sit flush against the
+         top and right edges of the inspector. */
+      padding: 0 0 0 12px;
+      border-bottom: 1px solid #dbdbe5;
+      flex-shrink: 0;
+      display: flex;
+      align-items: stretch;
+    }
+
+    .cpk-td__tab-group {
+      display: flex;
+      gap: 0;
+      margin-bottom: -1px;
+      /* Allow the tab list to shrink rather than pushing the panel-toggle
+         button past the right edge of the inspector when horizontal space
+         gets tight (the drawer being open eats noticeably into width). */
+      min-width: 0;
+      flex-shrink: 1;
+      overflow: hidden;
+    }
+
+    .cpk-td__tab {
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      padding: 10px 12px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      background: transparent;
+      color: #838389;
+      transition:
+        color 0.12s,
+        border-color 0.12s;
+      white-space: nowrap;
+    }
+
+    .cpk-td__tab:hover {
+      color: #010507;
+    }
+
+    .cpk-td__tab--active {
+      color: #010507;
+      border-bottom-color: #bec2ff;
+    }
+
+    /* Toggle is a separate control, not a tab — so it does NOT use the
+       tabs' bottom-border active indicator. Instead, a subtle filled
+       state communicates "the drawer is open," and a vertical separator
+       on the left visually divorces it from the tab group. */
+    .cpk-td__panel-toggle {
+      margin-left: auto;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 12px;
+      border: none;
+      border-left: 1px solid #dbdbe5;
+      background: transparent;
+      color: #838389;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition:
+        color 0.12s,
+        background 0.12s;
+    }
+    .cpk-td__panel-toggle:hover {
+      color: #010507;
+      background: #f4f4f9;
+    }
+    .cpk-td__panel-toggle--active {
+      color: #5558b2;
+      background: #eee6fe;
+    }
+    .cpk-td__panel-toggle--active:hover {
+      background: #e4d8fc;
+    }
+
+    /* ── Scrollable content ──────────────────────────────────────────── */
+    .cpk-td__content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Pin direct children so expanded tool bodies don't get flex-shrunk. */
+    .cpk-td__content > * {
+      flex-shrink: 0;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────────── */
+    .cpk-td__empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #838389;
+      font-size: 13px;
+      padding: 40px 0;
+    }
+
+    .cpk-td__empty-hint {
+      font-size: 11px;
+      color: #838389;
+      text-align: center;
+      max-width: 220px;
+      line-height: 1.5;
+    }
+
+    /* ── Status messages ─────────────────────────────────────────────── */
+    .cpk-td__status {
+      padding: 16px;
+      font-size: 12px;
+      color: #838389;
+      text-align: center;
+    }
+
+    .cpk-td__status--error {
+      color: #c0333a;
+    }
+
+    /* ── Conversation bubbles ────────────────────────────────────────── */
+    .cpk-td__bubble {
+      display: flex;
+      margin-bottom: 2px;
+    }
+
+    .cpk-td__bubble--user {
+      justify-content: flex-end;
+    }
+
+    .cpk-td__bubble--assistant {
+      justify-content: flex-start;
+    }
+
+    .cpk-td__bubble-inner {
+      padding: 9px 14px;
+      max-width: 75%;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .cpk-td__bubble-inner--user {
+      background: #eee6fe;
+      color: #57575b;
+      border-radius: 10px 10px 3px 10px;
+    }
+
+    .cpk-td__show-more {
+      display: inline-block;
+      margin-top: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #57575b;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .cpk-td__bubble-inner--assistant {
+      background: #f7f7f9;
+      color: #010507;
+      border-radius: 10px 10px 10px 3px;
+      border: 1px solid #e9e9ef;
+    }
+
+    /* ── Tool call blocks ────────────────────────────────────────────── */
+    .cpk-td__tool-block {
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .cpk-td__tool-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(133, 236, 206, 0.15);
+      cursor: pointer;
+      font-size: 11px;
+      user-select: none;
+    }
+
+    .cpk-td__tool-header:hover {
+      background: rgba(133, 236, 206, 0.22);
+    }
+
+    .cpk-td__tool-name {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      color: #189370;
+      text-transform: uppercase;
+      flex: 1;
+    }
+
+    .cpk-td__tool-status {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-transform: uppercase;
+      color: #189370;
+    }
+
+    .cpk-td__tool-status--pending {
+      color: #996300;
+    }
+
+    .cpk-td__tool-chevron {
+      color: #838389;
+      font-size: 10px;
+    }
+
+    .cpk-td__tool-body {
+      padding: 8px 10px;
+      border-top: 1px solid #e9e9ef;
+      background: #ffffff;
+    }
+
+    .cpk-td__tool-section-label {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      font-weight: 500;
+      color: #838389;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+    }
+
+    .cpk-td__tool-pre {
+      margin: 0;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      background: #f7f7f9;
+      padding: 6px 8px;
+      border-radius: 4px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #010507;
+      line-height: 1.6;
+    }
+
+    /* ── Tool call group ─────────────────────────────────────────────── */
+    .cpk-td__tool-group {
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .cpk-td__tool-group-header {
+      padding: 5px 10px;
+      background: rgba(133, 236, 206, 0.15);
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      color: #189370;
+      text-transform: uppercase;
+      font-weight: 500;
+      border-bottom: 1px solid #e9e9ef;
+    }
+
+    .cpk-td__tool-group .cpk-td__tool-block {
+      border: none;
+      border-bottom: 1px solid #e9e9ef;
+      border-radius: 0;
+    }
+
+    .cpk-td__tool-group .cpk-td__tool-block:last-child {
+      border-bottom: none;
+    }
+
+    /* ── Inline chips (reasoning / state update) ─────────────────────── */
+    .cpk-td__inline-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 0;
+      color: #838389;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      text-transform: uppercase;
+    }
+
+    .cpk-td__inline-chip::before,
+    .cpk-td__inline-chip::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e9e9ef;
+    }
+
+    /* ── Generative UI ──────────────────────────────────────────────── */
+    @keyframes cpk-genui-enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .cpk-td__genui {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 4px 16px 8px;
+      animation: cpk-genui-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+
+    .cpk-td__genui-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: #eee6fe;
+      color: #57575b;
+      font-size: 10px;
+      font-weight: 600;
+      align-self: flex-start;
+    }
+
+    .cpk-td__genui-card {
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.08);
+    }
+
+    .cpk-td__genui-placeholder {
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid #ede9fe;
+      background: #f5f3ff;
+      color: #7c3aed;
+      font-size: 11px;
+    }
+
+    /* ── AG-UI Events ────────────────────────────────────────────────── */
+    .cpk-td__event {
+      flex-shrink: 0;
+      border: 1px solid #e9e9ef;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .cpk-td__event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 10px;
+    }
+
+    .cpk-td__event-type {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+
+    .cpk-td__event-time {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 9px;
+      color: #838389;
+    }
+
+    .cpk-td__event-payload {
+      margin: 0;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #57575b;
+      padding: 8px 10px;
+      border-top: 1px solid #e9e9ef;
+    }
+
+    /* ── JSON block (agent state) ────────────────────────────────────── */
+    .cpk-td__json-block {
+      margin: 0;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 11px;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: #57575b;
+    }
+
+    /* ── Resize divider ──────────────────────────────────────────────── */
+    /* Floats over the drawer's left edge so the toggle and the drawer
+       touch directly without a 4px flex-gap between them. The hit zone
+       is wider than its visual hint to make it easy to grab. */
+    .cpk-td__detail-divider {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: -3px;
+      width: 7px;
+      cursor: col-resize;
+      background: transparent;
+      z-index: 5;
+    }
+
+    .cpk-td__detail-divider:hover {
+      background: rgba(190, 194, 255, 0.3);
+    }
+
+    /* ── Right detail panel ──────────────────────────────────────────── */
+    .cpk-td__detail {
+      flex-shrink: 0;
+      overflow: hidden;
+      background: #f7f7f9;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      padding: 0;
+      box-sizing: border-box;
+      position: relative;
+      /* Slide open/closed via width + padding transition. When closed,
+         width and padding are 0 so the drawer fully collapses. */
+      transition:
+        width 220ms cubic-bezier(0.4, 0, 0.2, 1),
+        padding 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .cpk-td__detail[data-open="true"] {
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .cpk-tdp__section-title {
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      color: #838389;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+    }
+
+    .cpk-tdp__divider {
+      height: 1px;
+      background: #dbdbe5;
+      margin: 14px 0;
+    }
+
+    .cpk-tdp__row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 3px 0;
+      gap: 8px;
+    }
+
+    .cpk-tdp__label {
+      color: #838389;
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .cpk-tdp__value {
+      color: #010507;
+      font-family: "Spline Sans Mono", monospace;
+      font-size: 11px;
+      text-align: right;
+      min-width: 0;
+    }
+
+    .cpk-tdp__value--truncate {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 130px;
+    }
+
+    .cpk-tdp__value--wrap {
+      white-space: normal;
+      word-break: break-all;
+      text-align: right;
+    }
+  `;
+
+  updated(changed: Map<string, unknown>): void {
+    if (this.threadId !== this._lastFetchedThreadId) {
+      this._lastFetchedThreadId = this.threadId;
+      this._tab = "conversation";
+      this._expandedTools = new Set();
+      this._expandedMessages = new Set();
+      this._messagesAbort?.abort();
+      this._messagesAbort = null;
+
+      const override = this.conversationOverride;
+      if (override !== null) {
+        this._conversation = override;
+      } else if (this.threadId) {
+        void this.fetchMessages(this.threadId);
+      } else {
+        this._conversation = [];
+      }
+
+      if (this.threadId) {
+        void this.fetchEvents(this.threadId);
+        void this.fetchState(this.threadId);
+      } else {
+        this._fetchedEvents = null;
+        this._fetchedState = null;
+      }
+    } else if (changed.has("conversationOverride")) {
+      const override = this.conversationOverride;
+      if (override !== null) {
+        this._conversation = override;
+      }
+    }
+  }
+
+  private async fetchMessages(threadId: string): Promise<void> {
+    if (!this.runtimeUrl) {
+      this._conversation = [];
+      return;
+    }
+    const controller = new AbortController();
+    this._messagesAbort = controller;
+    this._loadingMessages = true;
+    this._messagesError = null;
+    try {
+      const res = await fetch(
+        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/messages`,
+        { headers: { ...this.headers }, signal: controller.signal },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { messages: ApiThreadMessage[] };
+      this._conversation = this.mapMessages(data.messages);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      this._messagesError =
+        err instanceof Error ? err.message : "Failed to load messages";
+      this._conversation = [];
+    } finally {
+      if (!controller.signal.aborted) {
+        this._loadingMessages = false;
+      }
+    }
+  }
+
+  private async fetchEvents(threadId: string): Promise<void> {
+    this._eventsNotAvailable = false;
+    if (!this.runtimeUrl) {
+      this._fetchedEvents = null;
+      return;
+    }
+    this._loadingEvents = true;
+    this._eventsError = null;
+    try {
+      const res = await fetch(
+        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/events`,
+        { headers: { ...this.headers } },
+      );
+      if (res.status === 501) {
+        // Endpoint not supported on this runtime (e.g. Intelligence platform).
+        // Mark unavailable so we don't misleadingly fall back to the parent's
+        // live agent events — those are agent-keyed, not thread-keyed, and
+        // would render identical across every thread on the same agent.
+        this._eventsNotAvailable = true;
+        this._fetchedEvents = null;
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        events: Array<Record<string, unknown>>;
+      };
+      this._fetchedEvents = this.mapApiEvents(data.events);
+    } catch (err) {
+      this._eventsError =
+        err instanceof Error ? err.message : "Failed to load events";
+      this._fetchedEvents = [];
+    } finally {
+      this._loadingEvents = false;
+    }
+  }
+
+  private async fetchState(threadId: string): Promise<void> {
+    this._stateNotAvailable = false;
+    if (!this.runtimeUrl) {
+      this._fetchedState = null;
+      return;
+    }
+    this._loadingState = true;
+    this._stateError = null;
+    try {
+      const res = await fetch(
+        `${this.runtimeUrl}/threads/${encodeURIComponent(threadId)}/state`,
+        { headers: { ...this.headers } },
+      );
+      if (res.status === 501) {
+        this._stateNotAvailable = true;
+        this._fetchedState = null;
+        return;
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        state: Record<string, unknown> | null;
+      };
+      this._fetchedState = data.state ?? null;
+    } catch (err) {
+      this._stateError =
+        err instanceof Error ? err.message : "Failed to load state";
+      this._fetchedState = null;
+    } finally {
+      this._loadingState = false;
+    }
+  }
+
+  private mapMessages(messages: ApiThreadMessage[]): ConversationItem[] {
+    const items: ConversationItem[] = [];
+    const toolCallMap = new Map<string, ConversationToolCall>();
+    for (const msg of messages) {
+      if (msg.role === "user" && msg.content) {
+        items.push({
+          id: msg.id,
+          type: "user",
+          content: msg.content,
+          createdAt: "",
+        });
+      } else if (msg.role === "assistant") {
+        if (msg.toolCalls?.length) {
+          for (const tc of msg.toolCalls) {
+            let args: Record<string, unknown> = {};
+            try {
+              args = JSON.parse(tc.args) as Record<string, unknown>;
+            } catch {
+              /* leave empty */
+            }
+            const item: ConversationToolCall = {
+              id: tc.id,
+              type: "tool_call",
+              toolName: tc.name,
+              toolCallId: tc.id,
+              arguments: args,
+              result: null,
+              createdAt: "",
+            };
+            toolCallMap.set(tc.id, item);
+            items.push(item);
+          }
+        }
+        if (msg.content) {
+          items.push({
+            id: msg.id,
+            type: "assistant",
+            content: msg.content,
+            createdAt: "",
+          });
+        }
+      } else if (msg.role === "activity") {
+        items.push({
+          id: msg.id,
+          type: "generative-ui",
+          activityType: msg.activityType ?? "unknown",
+          createdAt: "",
+        });
+      } else if (msg.role === "tool" && msg.toolCallId) {
+        const tc = toolCallMap.get(msg.toolCallId);
+        if (tc) {
+          try {
+            tc.result = JSON.parse(msg.content ?? "{}") as Record<
+              string,
+              unknown
+            >;
+          } catch {
+            tc.result = {};
+          }
+        }
+      }
+    }
+    return items;
+  }
+
+  private mapApiEvents(
+    events: Array<Record<string, unknown>>,
+  ): ApiAgentEvent[] {
+    return events.map((event) => {
+      const { type, timestamp, ...rest } = event;
+      return {
+        type: typeof type === "string" ? type : "UNKNOWN",
+        timestamp:
+          typeof timestamp === "string" || typeof timestamp === "number"
+            ? timestamp
+            : Date.now(),
+        payload: rest,
+      };
+    });
+  }
+
+  private get renderItems(): RenderItem[] {
+    const items = this._conversation;
+    const result: RenderItem[] = [];
+    const seen = new Set<string>();
+    for (const item of items) {
+      if (item.type === "agent_responded") continue;
+      if (item.type !== "tool_call" || !item.groupId) {
+        result.push(item);
+        continue;
+      }
+      if (seen.has(item.groupId)) continue;
+      seen.add(item.groupId);
+      const group: ToolCallGroup = {
+        type: "tool_call_group",
+        id: item.groupId,
+        items: items.filter(
+          (i): i is ConversationToolCall =>
+            i.type === "tool_call" && i.groupId === item.groupId,
+        ),
+      };
+      result.push(group);
+    }
+    return result;
+  }
+
+  private get activityCounts(): {
+    messages: number;
+    toolCalls: number;
+    generativeUi: number;
+  } {
+    let messages = 0;
+    let toolCalls = 0;
+    let generativeUi = 0;
+    for (const item of this._conversation) {
+      if (item.type === "user" || item.type === "assistant") messages++;
+      if (item.type === "tool_call") toolCalls++;
+      if (item.type === "generative-ui") generativeUi++;
+    }
+    return { messages, toolCalls, generativeUi };
+  }
+
+  private get duration(): string {
+    const t = this.thread;
+    if (!t?.createdAt || !t?.updatedAt) return "—";
+    const ms =
+      new Date(t.updatedAt).getTime() - new Date(t.createdAt).getTime();
+    if (ms < 0) return "—";
+    if (ms < 1000) return `${ms}ms`;
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return `${m}m ${rs}s`;
+  }
+
+  private toggleToolExpand(id: string): void {
+    const next = new Set(this._expandedTools);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedTools = next;
+  }
+
+  private toggleMessageExpand(id: string): void {
+    const next = new Set(this._expandedMessages);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    this._expandedMessages = next;
+  }
+
+  private get activeEvents(): ApiAgentEvent[] {
+    // When the endpoint explicitly returned 501 we report no events rather
+    // than leaking the parent's agent-keyed live events across historical
+    // threads (those would render identically for every thread on the same
+    // agent and mislead the reader).
+    if (this._eventsNotAvailable) return [];
+    return this._fetchedEvents ?? this.agentEventsInput ?? [];
+  }
+
+  private get activeState(): Record<string, unknown> | null {
+    if (this._stateNotAvailable) return null;
+    return this._fetchedState ?? this.agentStateInput ?? null;
+  }
+
+  private hasRenderableState(): boolean {
+    const s = this.activeState;
+    return !!s && typeof s === "object" && Object.keys(s).length > 0;
+  }
+
+  private shortId(id: string | null | undefined): string {
+    if (!id) return "—";
+    return id.length > 20 ? id.slice(0, 8) + "…" : id;
+  }
+
+  private fmtTime(dateStr: string | null | undefined): string {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return "—";
+    return d.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+  }
+
+  private onDetailDividerDown = (event: PointerEvent): void => {
+    this._dividerResizing = true;
+    this._dividerPointerId = event.pointerId;
+    this._dividerStartX = event.clientX;
+    this._dividerStartWidth = this._detailPanelWidth;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  private onDetailDividerMove = (event: PointerEvent): void => {
+    if (!this._dividerResizing || this._dividerPointerId !== event.pointerId)
+      return;
+    const delta = this._dividerStartX - event.clientX;
+    this._detailPanelWidth = Math.max(
+      160,
+      Math.min(400, this._dividerStartWidth + delta),
+    );
+  };
+
+  private onDetailDividerUp = (event: PointerEvent): void => {
+    if (this._dividerPointerId !== event.pointerId) return;
+    const target = event.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(this._dividerPointerId)) {
+      target.releasePointerCapture(this._dividerPointerId);
+    }
+    this._dividerResizing = false;
+  };
+
+  render() {
+    return html`
+      <div class="cpk-td">
+        <!-- ── Left area: tabs + content ─────────────────────────────────── -->
+        <div class="cpk-td__left">
+          <!-- Tab bar -->
+          <div class="cpk-td__tabs-header">
+            <div class="cpk-td__tab-group" role="tablist">
+              ${CpkThreadDetails.TAB_LIST.map(
+                (tab) => html`
+                  <button
+                    role="tab"
+                    class="cpk-td__tab ${
+                      this._tab === tab.id ? "cpk-td__tab--active" : ""
+                    }"
+                    @click=${() => {
+                      this._tab = tab.id;
+                    }}
+                  >
+                    ${tab.label}
+                  </button>
+                `,
+              )}
+            </div>
+            ${this.renderPanelToggle()}
+          </div>
+
+          <!-- Scrollable content -->
+          <div class="cpk-td__content">
+            ${
+              this._tab === "conversation"
+                ? this.renderConversation()
+                : this._tab === "agent-state"
+                  ? this.renderState()
+                  : this.renderEvents()
+            }
+          </div>
+        </div>
+
+        <!--
+          Drawer always rendered so width animates between 0 and its
+          target. Divider lives INSIDE the drawer and is absolutely
+          positioned over its left edge so the toggle (rightmost of the
+          tab row) and the drawer touch with no flex-gap between them.
+        -->
+        <div
+          class="cpk-td__detail"
+          data-open=${this._showDetailPanel ? "true" : "false"}
+          style="width:${this._showDetailPanel ? this._detailPanelWidth : 0}px"
+          aria-hidden=${this._showDetailPanel ? "false" : "true"}
+        >
+          ${
+            this._showDetailPanel
+              ? html`
+                <div
+                  class="cpk-td__detail-divider"
+                  @pointerdown=${this.onDetailDividerDown}
+                  @pointermove=${this.onDetailDividerMove}
+                  @pointerup=${this.onDetailDividerUp}
+                  @pointercancel=${this.onDetailDividerUp}
+                ></div>
+              `
+              : nothing
+          }
+          ${this.renderDetailPanel()}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderConversation() {
+    if (this._loadingMessages) {
+      return html`
+        <div class="cpk-td__status">Loading messages…</div>
+      `;
+    }
+    if (this._messagesError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._messagesError}
+      </div>`;
+    }
+    const items = this.renderItems;
+    if (items.length === 0) {
+      return html`
+        <div class="cpk-td__empty-state">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <span>No messages yet</span>
+        </div>
+      `;
+    }
+    return html`${items.map((item) => this.renderRenderItem(item))}`;
+  }
+
+  private renderRenderItem(item: RenderItem) {
+    switch (item.type) {
+      case "user":
+      case "assistant":
+        return this.renderBubble(item);
+      case "tool_call":
+        return this.renderToolBlock(item);
+      case "tool_call_group":
+        return this.renderToolGroup(item);
+      case "reasoning":
+        return html`<div class="cpk-td__inline-chip">
+          <span>Reasoned for ${item.duration}</span>
+        </div>`;
+      case "state_update":
+        return html`
+          <div class="cpk-td__inline-chip">
+            <span>Updated agent state</span>
+          </div>
+        `;
+      case "generative-ui":
+        return this.renderGenerativeUI(item);
+      case "agent_responded":
+        return nothing;
+    }
+  }
+
+  private renderBubble(item: ConversationUser | ConversationAssistant) {
+    const isUser = item.type === "user";
+    const threshold = CpkThreadDetails.COLLAPSE_THRESHOLD;
+    const expanded = this._expandedMessages.has(item.id);
+    const tooLong = item.content.length > threshold;
+    const shown =
+      tooLong && !expanded
+        ? item.content.slice(0, threshold) + "…"
+        : item.content;
+    return html`
+      <div
+        class="cpk-td__bubble ${
+          isUser ? "cpk-td__bubble--user" : "cpk-td__bubble--assistant"
+        }"
+      >
+        <div
+          class="cpk-td__bubble-inner ${
+            isUser
+              ? "cpk-td__bubble-inner--user"
+              : "cpk-td__bubble-inner--assistant"
+          }"
+        >
+          ${shown}
+          ${
+            tooLong
+              ? html`<span
+                class="cpk-td__show-more"
+                @click=${() => this.toggleMessageExpand(item.id)}
+                >${expanded ? "Show less" : "Show more"}</span
+              >`
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private renderToolBlock(item: ConversationToolCall) {
+    const expanded = this._expandedTools.has(item.id);
+    return html`
+      <div class="cpk-td__tool-block">
+        <div
+          class="cpk-td__tool-header"
+          @click=${() => this.toggleToolExpand(item.id)}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path
+              d="M1 9C1 9 2 7 5 7C8 7 9 9 9 9M5 1C5 1 7 2.5 7 4.5C7 6.5 5 7 5 7C5 7 3 6.5 3 4.5C3 2.5 5 1 5 1Z"
+              stroke="#189370"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="cpk-td__tool-name">${item.toolName}</span>
+          ${
+            item.result
+              ? html`
+                  <span class="cpk-td__tool-status">DONE</span>
+                `
+              : html`
+                  <span class="cpk-td__tool-status cpk-td__tool-status--pending">PENDING</span>
+                `
+          }
+          <span class="cpk-td__tool-chevron">${expanded ? "▾" : "▸"}</span>
+        </div>
+        ${
+          expanded
+            ? html`
+              <div class="cpk-td__tool-body">
+                <div class="cpk-td__tool-section-label">Arguments</div>
+                <pre class="cpk-td__tool-pre">
+${unsafeHTML(highlightedJson(item.arguments))}</pre
+                >
+                ${
+                  item.result
+                    ? html`
+                      <div
+                        class="cpk-td__tool-section-label"
+                        style="margin-top:8px"
+                      >
+                        Result
+                      </div>
+                      <pre class="cpk-td__tool-pre">
+${unsafeHTML(highlightedJson(item.result))}</pre
+                      >
+                    `
+                    : nothing
+                }
+              </div>
+            `
+            : nothing
+        }
+      </div>
+    `;
+  }
+
+  private renderToolGroup(group: ToolCallGroup) {
+    return html`
+      <div class="cpk-td__tool-group">
+        <div class="cpk-td__tool-group-header">
+          ${group.items.length} tool call${group.items.length !== 1 ? "s" : ""}
+        </div>
+        ${group.items.map((tc) => this.renderToolBlock(tc))}
+      </div>
+    `;
+  }
+
+  private renderGenerativeUI(item: ConversationGenerativeUIItem) {
+    return html`
+      <div class="cpk-td__genui">
+        <div class="cpk-td__genui-badge">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          Generative UI
+        </div>
+        ${
+          item.html
+            ? html`<div class="cpk-td__genui-card">
+              ${unsafeHTML(item.html)}
+            </div>`
+            : html`<div class="cpk-td__genui-placeholder">
+              ${item.activityType} — rendered in chat
+            </div>`
+        }
+      </div>
+    `;
+  }
+
+  private renderState() {
+    if (this._loadingState) {
+      return html`
+        <div class="cpk-td__status">Loading state…</div>
+      `;
+    }
+    if (this._stateError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._stateError}
+      </div>`;
+    }
+    if (this._stateNotAvailable) {
+      return html`
+        <div class="cpk-td__empty-state">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          <span>State history not available</span>
+          <span class="cpk-td__empty-hint"
+            >This runtime doesn't yet expose per-thread agent state. Available when
+            running against the in-memory runner.</span
+          >
+        </div>
+      `;
+    }
+    if (!this.hasRenderableState()) {
+      return html`
+        <div class="cpk-td__empty-state">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+          </svg>
+          <span>No state captured</span>
+          <span class="cpk-td__empty-hint"
+            >Emitted live from STATE_SNAPSHOT events.</span
+          >
+        </div>
+      `;
+    }
+    return html`<pre class="cpk-td__json-block">
+${unsafeHTML(highlightedJson(this.activeState))}</pre
+    >`;
+  }
+
+  private renderEvents() {
+    if (this._loadingEvents) {
+      return html`
+        <div class="cpk-td__status">Loading events…</div>
+      `;
+    }
+    if (this._eventsError) {
+      return html`<div class="cpk-td__status cpk-td__status--error">
+        ${this._eventsError}
+      </div>`;
+    }
+    if (this._eventsNotAvailable) {
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>Event history not available</span>
+          <span class="cpk-td__empty-hint"
+            >This runtime doesn't yet expose per-thread AG-UI events. Available when
+            running against the in-memory runner.</span
+          >
+        </div>
+      `;
+    }
+    const events = this.activeEvents;
+    if (events.length === 0) {
+      return html`
+        <div class="cpk-td__empty-state">
+          <span>No events captured</span>
+          <span class="cpk-td__empty-hint"
+            >Events are recorded live. Run the agent to see them here.</span
+          >
+        </div>
+      `;
+    }
+    return html`${events.map((event) => {
+      const { bg, fg } = eventColors(event.type);
+      return html`
+        <div class="cpk-td__event">
+          <div class="cpk-td__event-header" style="background:${bg}">
+            <span class="cpk-td__event-type" style="color:${fg}"
+              >${event.type}</span
+            >
+            <span class="cpk-td__event-time"
+              >${formatTimestamp(event.timestamp)}</span
+            >
+          </div>
+          <pre class="cpk-td__event-payload">
+${unsafeHTML(highlightedJson(event.payload))}</pre
+          >
+        </div>
+      `;
+    })}`;
+  }
+
+  private renderPanelToggle() {
+    return html`
+      <button
+        class="cpk-td__panel-toggle ${
+          this._showDetailPanel ? "cpk-td__panel-toggle--active" : ""
+        }"
+        @click=${() => {
+          this._showDetailPanel = !this._showDetailPanel;
+        }}
+        title="Toggle thread details"
+        type="button"
+      >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="15" y1="3" x2="15" y2="21" />
+        </svg>
+      </button>
+    `;
+  }
+
+  private renderDetailPanel() {
+    const counts = this.activityCounts;
+    return html`
+      <!-- Thread -->
+      <div class="cpk-tdp__section-title">Thread</div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">ID</span>
+        <span class="cpk-tdp__value cpk-tdp__value--wrap"
+          >${this.shortId(this.thread?.id)}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Name</span>
+        <span class="cpk-tdp__value">${this.thread?.name ?? "—"}</span>
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Agent</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${this.thread?.agentId ?? "—"}</span
+        >
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Created by</span>
+        <span class="cpk-tdp__value cpk-tdp__value--truncate"
+          >${this.thread?.createdById ?? "—"}</span
+        >
+      </div>
+
+      <div class="cpk-tdp__divider"></div>
+
+      <!-- Timestamps -->
+      <div class="cpk-tdp__section-title">Timestamps</div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Created</span>
+        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.createdAt)}</span>
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Updated</span>
+        <span class="cpk-tdp__value">${this.fmtTime(this.thread?.updatedAt)}</span>
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Duration</span>
+        <span class="cpk-tdp__value">${this.duration}</span>
+      </div>
+
+      <div class="cpk-tdp__divider"></div>
+
+      <!-- Activity -->
+      <div class="cpk-tdp__section-title">Activity</div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Messages</span>
+        <span class="cpk-tdp__value">${counts.messages}</span>
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">Tool calls</span>
+        <span class="cpk-tdp__value">${counts.toolCalls}</span>
+      </div>
+      <div class="cpk-tdp__row">
+        <span class="cpk-tdp__label">AG-UI events</span>
+        <span class="cpk-tdp__value">${this.activeEvents.length}</span>
+      </div>
+    `;
+  }
+}
+
+if (!customElements.get("cpk-thread-list")) {
+  customElements.define("cpk-thread-list", CpkThreadList);
+}
+if (!customElements.get("cpk-thread-details")) {
+  customElements.define("cpk-thread-details", CpkThreadDetails);
+}
 
 export class WebInspectorElement extends LitElement {
   static properties = {
@@ -190,6 +2059,17 @@ export class WebInspectorElement extends LitElement {
   private draggedDuringInteraction = false;
   private ignoreNextButtonClick = false;
   private selectedMenu: MenuKey = "ag-ui-events";
+  private selectedThreadId: string | null = null;
+  private threadListWidth = 290;
+  private threadDividerResizing = false;
+  private threadDividerPointerId = -1;
+  private threadDividerStartX = 0;
+  private threadDividerStartWidth = 0;
+  private _threads: ɵThread[] = [];
+  private _threadStoreSubscriptions: Map<string, () => void> = new Map();
+  private _threadsByAgent: Map<string, ɵThread[]> = new Map();
+  // Thread stores created and owned by the inspector (keyed by agentId)
+  private _ownedThreadStores: Map<string, ɵThreadStore> = new Map();
   private contextMenuOpen = false;
   private dockMode: DockMode = "floating";
   private previousBodyMargins: { left: string; bottom: string } | null = null;
@@ -203,16 +2083,29 @@ export class WebInspectorElement extends LitElement {
   private toolSignature = "";
   private eventFilterText = "";
   private eventTypeFilter: InspectorAgentEventType | "all" = "all";
+  // Column widths for the AG-UI events table (agent, time, event-type; last col is auto)
+  private evtColWidths = [100, 80, 150];
+  private _evtColResize: {
+    col: number;
+    startX: number;
+    startW: number;
+  } | null = null;
 
-  private announcementMarkdown: string | null = null;
+  private _threadsUnlocked = false;
+  private _threadsUnlocking = false;
+  private _threadsGateError: string | null = null;
+  private _threadsGateCodeInvalid = false;
+  private _threadsGateInvalidTimer: ReturnType<typeof setTimeout> | null = null;
+  private _threadsUnlockingTimer: ReturnType<typeof setTimeout> | null = null;
+
   private announcementHtml: string | null = null;
   private announcementTimestamp: string | null = null;
   private announcementPreviewText: string | null = null;
   private hasUnseenAnnouncement = false;
   private announcementLoaded = false;
-  private announcementLoadError: unknown = null;
   private announcementPromise: Promise<void> | null = null;
   private showAnnouncementPreview = true;
+  private announcementExpanded = false;
 
   get core(): CopilotKitCore | null {
     return this._core;
@@ -259,12 +2152,129 @@ export class WebInspectorElement extends LitElement {
   private resizeInitialSize: { width: number; height: number } | null = null;
   private isResizing = false;
 
-  private readonly menuItems: MenuItem[] = [
-    { key: "ag-ui-events", label: "AG-UI Events", icon: "Zap" },
-    { key: "agents", label: "Agent", icon: "Bot" },
-    { key: "frontend-tools", label: "Frontend Tools", icon: "Hammer" },
-    { key: "agent-context", label: "Context", icon: "FileText" },
-  ];
+  private readonly customTabIcons: Record<string, string> = {
+    threads: `<svg class="h-3.5 w-3.5" width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.04167 15C8.29167 15 7.65972 14.7431 7.14583 14.2292C6.63194 13.7153 6.375 13.0972 6.375 12.375C6.375 11.3194 6.80208 10.3646 7.65625 9.51042C8.51042 8.65625 9.57639 8.125 10.8542 7.91667C10.8125 7.41667 10.6875 7.03819 10.4792 6.78125C10.2708 6.52431 9.98611 6.39583 9.625 6.39583C9.20833 6.39583 8.75694 6.56944 8.27083 6.91667C7.78472 7.26389 7.20833 7.83333 6.54167 8.625C5.45833 9.91667 4.66319 10.7569 4.15625 11.1458C3.64931 11.5347 3.10417 11.7292 2.52083 11.7292C1.8125 11.7292 1.21528 11.4653 0.729167 10.9375C0.243056 10.4097 0 9.77083 0 9.02083C0 8.27083 0.163194 7.50347 0.489583 6.71875C0.815972 5.93403 1.36806 4.99306 2.14583 3.89583C2.40972 3.53472 2.60417 3.22917 2.72917 2.97917C2.85417 2.72917 2.91667 2.52778 2.91667 2.375C2.91667 2.27778 2.89931 2.20486 2.86458 2.15625C2.82986 2.10764 2.77778 2.08333 2.70833 2.08333C2.56944 2.08333 2.39583 2.17014 2.1875 2.34375C1.97917 2.51736 1.73611 2.78472 1.45833 3.14583L0 1.66667C0.444444 1.125 0.895833 0.711806 1.35417 0.427083C1.8125 0.142361 2.26389 0 2.70833 0C3.34722 0 3.88889 0.222222 4.33333 0.666667C4.77778 1.11111 5 1.66667 5 2.33333C5 2.73611 4.89583 3.18056 4.6875 3.66667C4.47917 4.15278 4.13194 4.73611 3.64583 5.41667C3.11806 6.16667 2.72569 6.82639 2.46875 7.39583C2.21181 7.96528 2.08333 8.46528 2.08333 8.89583C2.08333 9.13194 2.12153 9.31597 2.19792 9.44792C2.27431 9.57986 2.38194 9.64583 2.52083 9.64583C2.65972 9.64583 2.78125 9.60764 2.88542 9.53125C2.98958 9.45486 3.18056 9.27083 3.45833 8.97917C3.63889 8.78472 3.85417 8.54514 4.10417 8.26042C4.35417 7.97569 4.65972 7.625 5.02083 7.20833C5.89583 6.16667 6.6875 5.42361 7.39583 4.97917C8.10417 4.53472 8.84722 4.3125 9.625 4.3125C10.5556 4.3125 11.3194 4.625 11.9167 5.25C12.5139 5.875 12.8542 6.72917 12.9375 7.8125H15V9.89583H12.9375C12.8264 11.4514 12.4201 12.691 11.7188 13.6146C11.0174 14.5382 10.125 15 9.04167 15ZM9.08333 12.9167C9.52778 12.9167 9.90278 12.6632 10.2083 12.1562C10.5139 11.6493 10.7222 10.9444 10.8333 10.0417C10.1944 10.1944 9.63889 10.4965 9.16667 10.9479C8.69444 11.3993 8.45833 11.8472 8.45833 12.2917C8.45833 12.4861 8.51389 12.6389 8.625 12.75C8.73611 12.8611 8.88889 12.9167 9.08333 12.9167Z" fill="currentColor"/></svg>`,
+  };
+
+  private get menuItems(): MenuItem[] {
+    const hasFrontendTools = (this._core?.tools?.length ?? 0) > 0;
+    return [
+      {
+        key: "ag-ui-events",
+        label: "AG-UI Events",
+        icon: "Zap" as LucideIconName,
+      },
+      { key: "agents", label: "Agent", icon: "Bot" as LucideIconName },
+      ...(hasFrontendTools
+        ? [
+            {
+              key: "frontend-tools" as const,
+              label: "Frontend Tools",
+              icon: "Hammer" as LucideIconName,
+            },
+          ]
+        : []),
+      {
+        key: "agent-context",
+        label: "Context",
+        icon: "FileText" as LucideIconName,
+      },
+      {
+        key: "threads",
+        label: "Threads",
+        icon: "MessageSquare" as LucideIconName,
+      },
+    ];
+  }
+
+  private subscribeToThreadStore(agentId: string, store: ɵThreadStore): void {
+    if (this._threadStoreSubscriptions.has(agentId)) return;
+    const sub = store.select(ɵselectThreads).subscribe((threads) => {
+      this._threadsByAgent.set(agentId, threads as ɵThread[]);
+      this._threads = Array.from(this._threadsByAgent.values()).flat();
+      this.autoSelectLatestThread();
+      this.requestUpdate();
+    });
+    this._threadStoreSubscriptions.set(agentId, () => sub.unsubscribe());
+    // Populate immediately from current state
+    const threads = ɵselectThreads(store.getState());
+    this._threadsByAgent.set(agentId, threads);
+    this._threads = Array.from(this._threadsByAgent.values()).flat();
+    this.autoSelectLatestThread();
+  }
+
+  private autoSelectLatestThread(): void {
+    if (this._threads.length === 0) return;
+    const stillValid =
+      this.selectedThreadId != null &&
+      this._threads.some((t) => t.id === this.selectedThreadId);
+    if (!stillValid) {
+      // Threads are sorted most-recently-updated first
+      this.selectedThreadId = this._threads[0]!.id;
+    }
+  }
+
+  private teardownThreadStoreSubscriptions(): void {
+    for (const unsub of this._threadStoreSubscriptions.values()) {
+      unsub();
+    }
+    this._threadStoreSubscriptions.clear();
+    this._threadsByAgent.clear();
+    this._threads = [];
+  }
+
+  private ensureOwnedThreadStore(agentId: string): void {
+    if (this._ownedThreadStores.has(agentId)) return;
+    // Don't overwrite a store already registered by useThreads() or another external caller
+    if (
+      typeof (this.core as any)?.getThreadStore === "function" &&
+      (this.core as any).getThreadStore(agentId)
+    )
+      return;
+    const core = this.core;
+    if (!core?.runtimeUrl) return;
+
+    const store = ɵcreateThreadStore({ fetch: globalThis.fetch });
+    store.start();
+    store.setContext({
+      runtimeUrl: core.runtimeUrl,
+      headers: {},
+      agentId,
+    });
+    this._ownedThreadStores.set(agentId, store);
+    // Subscribe directly so threads render even on published cores that lack
+    // registerThreadStore (which triggers onThreadStoreRegistered → subscribeToThreadStore).
+    this.subscribeToThreadStore(agentId, store);
+    if (typeof (core as any).registerThreadStore === "function") {
+      (core as any).registerThreadStore(agentId, store);
+    }
+  }
+
+  private refreshOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    if (!store) return;
+    // refresh() re-fetches without resetting threads to [] first, so the list
+    // stays visible while new data loads and survives transient fetch failures.
+    if (typeof (store as any).refresh === "function") {
+      (store as any).refresh();
+    }
+  }
+
+  private removeOwnedThreadStore(agentId: string): void {
+    const store = this._ownedThreadStores.get(agentId);
+    if (!store) return;
+    store.stop();
+    this.core?.unregisterThreadStore(agentId);
+    this._ownedThreadStores.delete(agentId);
+  }
+
+  private teardownOwnedThreadStores(): void {
+    for (const [agentId, store] of this._ownedThreadStores) {
+      store.stop();
+      this.core?.unregisterThreadStore(agentId);
+    }
+    this._ownedThreadStores.clear();
+  }
 
   private attachToCore(core: CopilotKitCore): void {
     this.runtimeStatus = core.runtimeConnectionStatus;
@@ -274,6 +2284,15 @@ export class WebInspectorElement extends LitElement {
     this.coreSubscriber = {
       onRuntimeConnectionStatusChanged: ({ status }) => {
         this.runtimeStatus = status;
+        if (status === "connected") {
+          for (const agentId of this._ownedThreadStores.keys()) {
+            this.refreshOwnedThreadStore(agentId);
+          }
+        } else {
+          // Clear stale thread data immediately when the server goes away
+          this._threadsByAgent.clear();
+          this._threads = [];
+        }
         this.requestUpdate();
       },
       onPropertiesChanged: ({ properties }) => {
@@ -287,22 +2306,46 @@ export class WebInspectorElement extends LitElement {
       onAgentsChanged: ({ agents }) => {
         this.processAgentsChanged(agents);
       },
-      onAgentRunStarted: ({ agent }) => {
-        // Per-thread clones are not in the agent registry, so
-        // onAgentsChanged never fires for them. Subscribe here so
-        // the inspector captures their AG-UI events.
-        if (agent?.agentId) {
-          this.subscribeToAgent(agent);
-        }
-      },
       onContextChanged: ({ context }) => {
         this.contextStore = this.normalizeContextStore(context);
+        this.requestUpdate();
+      },
+      onThreadStoreRegistered: ({ agentId, store }) => {
+        this.subscribeToThreadStore(agentId, store);
+        this.requestUpdate();
+      },
+      onThreadStoreUnregistered: ({ agentId }) => {
+        const unsub = this._threadStoreSubscriptions.get(agentId);
+        if (unsub) {
+          unsub();
+          this._threadStoreSubscriptions.delete(agentId);
+        }
+        this._threadsByAgent.delete(agentId);
+        this._threads = Array.from(this._threadsByAgent.values()).flat();
+        this.requestUpdate();
+      },
+      onAgentRunStarted: ({ agent }) => {
+        // Subscribe to the concrete agent instance about to run. This handles
+        // per-thread clones that are not in core.agents and therefore not
+        // reachable via onAgentsChanged. Replacing an existing subscription for
+        // the same agentId is safe: the previous instance emits no more events
+        // once a new run starts on a fresh clone.
+        this.subscribeToAgent(agent);
         this.requestUpdate();
       },
     } satisfies CopilotKitCoreSubscriber;
 
     this.coreUnsubscribe = core.subscribe(this.coreSubscriber).unsubscribe;
     this.processAgentsChanged(core.agents);
+
+    // Subscribe to any already-registered thread stores. `getThreadStores` was
+    // added in the same release as this inspector; guard so consumers still on
+    // an older @copilotkit/core don't throw when assigning `inspector.core`.
+    const threadStores =
+      typeof core.getThreadStores === "function" ? core.getThreadStores() : {};
+    for (const [agentId, store] of Object.entries(threadStores)) {
+      this.subscribeToThreadStore(agentId, store);
+    }
 
     // Initialize context from core
     if (core.context) {
@@ -322,6 +2365,8 @@ export class WebInspectorElement extends LitElement {
     this.cachedTools = [];
     this.toolSignature = "";
     this.teardownAgentSubscriptions();
+    this.teardownThreadStoreSubscriptions();
+    this.teardownOwnedThreadStores();
   }
 
   private teardownAgentSubscriptions(): void {
@@ -347,6 +2392,7 @@ export class WebInspectorElement extends LitElement {
       }
       seenAgentIds.add(agent.agentId);
       this.subscribeToAgent(agent);
+      this.ensureOwnedThreadStore(agent.agentId);
     }
 
     for (const agentId of Array.from(this.agentSubscriptions.keys())) {
@@ -355,6 +2401,10 @@ export class WebInspectorElement extends LitElement {
         this.agentEvents.delete(agentId);
         this.agentMessages.delete(agentId);
         this.agentStates.delete(agentId);
+        // Do NOT remove owned thread stores here — they are independent of
+        // whether the agent appears in core.agents (published cores discover
+        // agents asynchronously so agents may be empty on first fire). Stores
+        // are torn down in teardownOwnedThreadStores() when the core detaches.
       }
     }
 
@@ -436,6 +2486,7 @@ export class WebInspectorElement extends LitElement {
       },
       onRunFinishedEvent: ({ event, result }) => {
         this.recordAgentEvent(agentId, "RUN_FINISHED", { event, result });
+        this.refreshOwnedThreadStore(agentId);
       },
       onRunErrorEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "RUN_ERROR", event);
@@ -529,6 +2580,14 @@ export class WebInspectorElement extends LitElement {
       onReasoningEncryptedValueEvent: ({ event }) => {
         this.recordAgentEvent(agentId, "REASONING_ENCRYPTED_VALUE", event);
       },
+      onActivitySnapshotEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_SNAPSHOT", event);
+        this.syncAgentMessages(agent);
+      },
+      onActivityDeltaEvent: ({ event }) => {
+        this.recordAgentEvent(agentId, "ACTIVITY_DELTA", event);
+        this.syncAgentMessages(agent);
+      },
     };
 
     const { unsubscribe } = agent.subscribe(subscriber);
@@ -547,6 +2606,32 @@ export class WebInspectorElement extends LitElement {
       unsubscribe();
       this.agentSubscriptions.delete(agentId);
     }
+  }
+
+  private mapMessagesToConversation(
+    messages: InspectorMessage[] | null,
+  ): { id: string; type: string; content: string; createdAt: string }[] | null {
+    if (!messages) return null;
+    return messages
+      .filter(
+        (m) =>
+          m.role === "user" || m.role === "assistant" || m.role === "activity",
+      )
+      .map((m, i) => ({
+        id: m.id ?? `msg-${i}`,
+        type:
+          m.role === "user"
+            ? "user"
+            : m.role === "activity"
+              ? "generative-ui"
+              : "assistant",
+        // For activity messages, store the activityType as content so the
+        // renderer can display a meaningful label (crawl phase). Walk phase
+        // will render the actual output once the Angular inspector ships.
+        content:
+          m.role === "activity" ? (m.activityType ?? "unknown") : m.contentText,
+        createdAt: "",
+      }));
   }
 
   private recordAgentEvent(
@@ -648,14 +2733,25 @@ export class WebInspectorElement extends LitElement {
     if (pendingContext) {
       const isPendingAvailable =
         pendingContext === "all-agents" || agentIds.has(pendingContext);
-      if (isPendingAvailable) {
+      // Only restore a specific-agent selection when there is exactly one
+      // agent registered. With multiple agents, fall back to "all-agents" so
+      // events from any agent are visible regardless of what was persisted.
+      const shouldRestore =
+        isPendingAvailable &&
+        (pendingContext === "all-agents" || agentIds.size === 1);
+      if (shouldRestore) {
         if (this.selectedContext !== pendingContext) {
           this.selectedContext = pendingContext;
           this.expandedRows.clear();
         }
         this.pendingSelectedContext = null;
       } else if (agentIds.size > 0) {
-        // Agents are loaded but the pending selection no longer exists
+        // Persisted selection is unavailable or inappropriate for multiple
+        // agents — reset to "all-agents" so nothing is silently filtered.
+        if (this.selectedContext !== "all-agents") {
+          this.selectedContext = "all-agents";
+          this.expandedRows.clear();
+        }
         this.pendingSelectedContext = null;
       }
     }
@@ -665,15 +2761,13 @@ export class WebInspectorElement extends LitElement {
     );
 
     if (!hasSelectedContext && this.pendingSelectedContext === null) {
-      // Auto-select "default" agent if it exists, otherwise first agent, otherwise "all-agents"
+      // When there is exactly one agent, auto-select it so the view is
+      // immediately focused. When multiple agents are registered (e.g. "default"
+      // + "openai"), keep "all-agents" so events from any agent are visible.
       let nextSelected: string = "all-agents";
 
-      if (agentIds.has("default")) {
-        nextSelected = "default";
-      } else if (agentIds.size > 0) {
-        nextSelected = Array.from(agentIds).sort((a, b) =>
-          a.localeCompare(b),
-        )[0]!;
+      if (agentIds.size === 1) {
+        nextSelected = Array.from(agentIds)[0]!;
       }
 
       if (this.selectedContext !== nextSelected) {
@@ -1003,6 +3097,7 @@ ${argsString}</pre
         z-index: 2147483646;
         display: block;
         will-change: transform;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
       }
 
       :host([data-transitioning="true"]) {
@@ -1058,13 +3153,14 @@ ${argsString}</pre
         left: 50%;
         transform: translateX(-50%) translateY(-4px);
         white-space: nowrap;
-        background: rgba(17, 24, 39, 0.95);
+        background: rgba(1, 5, 7, 0.95);
         color: white;
         padding: 4px 8px;
         border-radius: 6px;
         font-size: 10px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.2;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 10px rgba(1, 5, 7, 0.18);
         opacity: 0;
         pointer-events: none;
         transition:
@@ -1085,18 +3181,19 @@ ${argsString}</pre
         min-width: 300px;
         max-width: 300px;
         background: white;
-        color: #111827;
+        color: #010507;
         font-size: 13px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
         line-height: 1.4;
         border-radius: 12px;
-        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.22);
+        box-shadow: 0 12px 28px rgba(1, 5, 7, 0.12);
         padding: 10px 12px;
         display: inline-flex;
         align-items: flex-start;
         gap: 8px;
         z-index: 4500;
         animation: fade-slide-in 160ms ease;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         white-space: normal;
         word-break: break-word;
         text-align: left;
@@ -1117,7 +3214,7 @@ ${argsString}</pre
         width: 10px;
         height: 10px;
         background: white;
-        border: 1px solid rgba(148, 163, 184, 0.35);
+        border: 1px solid rgba(219, 219, 229, 0.4);
         transform: rotate(45deg);
         top: 50%;
         margin-top: -5px;
@@ -1126,35 +3223,130 @@ ${argsString}</pre
 
       .announcement-preview[data-side="left"] .announcement-preview__arrow {
         right: -5px;
-        box-shadow: 6px -6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: 6px -6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-preview[data-side="right"] .announcement-preview__arrow {
         left: -5px;
-        box-shadow: -6px 6px 10px rgba(15, 23, 42, 0.12);
+        box-shadow: -6px 6px 10px rgba(1, 5, 7, 0.08);
       }
 
       .announcement-dismiss {
-        color: #6b7280;
-        font-size: 12px;
-        padding: 2px 8px;
-        border-radius: 8px;
-        border: 1px solid rgba(148, 163, 184, 0.5);
-        background: rgba(248, 250, 252, 0.9);
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #838389;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        padding: 0;
         transition:
           background 120ms ease,
           color 120ms ease;
       }
 
       .announcement-dismiss:hover {
-        background: rgba(241, 245, 249, 1);
-        color: #111827;
+        background: rgba(0, 0, 0, 0.06);
+        color: #010507;
+      }
+
+      /* ── Agent tab section cards ─────────────────────────────────────── */
+      .cpk-section-card {
+        border-radius: 8px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+
+      /* ── Agent icon bubble ───────────────────────────────────────────── */
+      .cpk-agent-icon {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+
+      /* ── Agent stat cards ────────────────────────────────────────────── */
+      .cpk-stat-card {
+        background-color: #ffffff !important;
+        border: 1px solid #dbdbe5 !important;
+      }
+      button.cpk-stat-card:hover {
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Circle chevron (Frontend Tools + Context) ──────────────────── */
+      .cpk-chevron-circle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #f0f0f4;
+        color: #838389;
+        flex-shrink: 0;
+        transition: transform 0.2s;
+      }
+      .cpk-chevron-circle svg {
+        width: 14px !important;
+        height: 14px !important;
+      }
+      .cpk-chevron-circle--open {
+        transform: rotate(180deg);
+      }
+
+      /* ── Inline copy button ─────────────────────────────────────────── */
+      .cpk-copy-btn {
+        font-size: 10px;
+        font-weight: 500;
+        color: #57575b;
+        background: #ffffff;
+        border: 1px solid #dbdbe5;
+        cursor: pointer;
+        padding: 2px 8px;
+        border-radius: 4px;
+        flex-shrink: 0;
+        transition:
+          background-color 0.15s,
+          border-color 0.15s;
+      }
+      .cpk-copy-btn:hover {
+        background-color: #f0f0f4;
+        border-color: #afafb7;
+      }
+
+      .cpk-section-header {
+        background: #e8edf5;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 10px 16px;
+      }
+      .cpk-section-header h4 {
+        font-size: 11px;
+        font-weight: 600;
+        color: #181c1f;
+        margin: 0;
+      }
+
+      /* Inputs/selects inside the lavender header need an explicit white bg */
+      .cpk-section-header input,
+      .cpk-section-header select {
+        background-color: #ffffff !important;
+        box-shadow: none !important;
+      }
+      .cpk-section-header select {
+        padding-right: 24px !important;
+      }
+      /* Events table column headers */
+      table thead th {
+        font-weight: 600 !important;
       }
 
       .announcement-content {
-        color: #111827;
-        font-size: 14px;
-        line-height: 1.6;
+        color: #010507;
+        font-size: 12px;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        line-height: 1.5;
       }
 
       .announcement-content h1,
@@ -1165,36 +3357,315 @@ ${argsString}</pre
       }
 
       .announcement-content h1 {
-        font-size: 1.1rem;
+        font-size: 0.75rem;
       }
-
       .announcement-content h2 {
-        font-size: 1rem;
+        font-size: 0.8rem;
       }
-
       .announcement-content h3 {
-        font-size: 0.95rem;
+        font-size: 0.75rem;
       }
 
       .announcement-content p {
-        margin: 0.25rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ul {
         list-style: disc;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content ol {
         list-style: decimal;
         padding-left: 1.25rem;
-        margin: 0.3rem 0;
+        margin: 0.2rem 0;
       }
 
       .announcement-content a {
-        color: #0f766e;
+        color: #757cf2;
         text-decoration: underline;
+      }
+
+      .announcement-body {
+        position: relative;
+        overflow: hidden;
+        transition: max-height 0.25s ease;
+      }
+      .announcement-body--collapsed {
+        max-height: 72px;
+      }
+      .announcement-body--expanded {
+        max-height: 2000px;
+      }
+      .announcement-fade {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 48px;
+        background: linear-gradient(to bottom, transparent, #ffffff);
+        pointer-events: none;
+      }
+      .announcement-toggle {
+        display: block;
+        width: 100%;
+        margin-top: 6px;
+        padding: 0;
+        background: none;
+        border: none;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+        font-size: 12px;
+        font-weight: 500;
+        color: #757cf2;
+        cursor: pointer;
+        text-align: center;
+      }
+      .announcement-toggle:hover {
+        color: #6430ab;
+      }
+
+      /* ── Brand typography ────────────────────────────────────────── */
+      /* Override Tailwind font-mono stack → Spline Sans Mono */
+      .font-mono,
+      pre,
+      code {
+        font-family: "Spline Sans Mono", ui-monospace, "Cascadia Code", monospace;
+      }
+
+      /* ── Floating button ─────────────────────────────────────────── */
+      .console-button {
+        background-color: rgba(1, 5, 7, 0.95) !important;
+        border-color: rgba(190, 194, 255, 0.25) !important;
+        box-shadow:
+          0 0 0 1px rgba(190, 194, 255, 0.15),
+          0 4px 14px rgba(1, 5, 7, 0.28) !important;
+      }
+      .console-button:hover {
+        background-color: rgba(1, 5, 7, 1) !important;
+        border-color: rgba(190, 194, 255, 0.45) !important;
+      }
+      .console-button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Inspector window ────────────────────────────────────────── */
+      .inspector-window {
+        border-color: #dbdbe5 !important;
+        box-shadow:
+          0 8px 32px rgba(1, 5, 7, 0.1),
+          0 2px 8px rgba(1, 5, 7, 0.06) !important;
+      }
+
+      /* ── Header drag area ────────────────────────────────────────── */
+      .drag-handle {
+        border-bottom-color: #dbdbe5 !important;
+        /* Subtle pale lavender gradient — brand "light, spacious" surface */
+        background: linear-gradient(180deg, #f4f4fd 0%, #ffffff 100%) !important;
+      }
+
+      /* Tab strip row: soft off-white, separated from content */
+      .drag-handle > div:last-child {
+        border-top-color: #e2e2ea !important;
+        background-color: #fafafc !important;
+      }
+
+      /* ── Tab buttons ─────────────────────────────────────────────── */
+      /*
+       * Named classes owned by this component — no Tailwind conflict.
+       * Active: brand surface/surfaceContainerActive (lilac tint) +
+       *         border/borderActionEnabled underline.
+       * Dark fill is for primary action buttons only, not nav tabs.
+       */
+      .cpk-tab-active {
+        background-color: rgba(190, 194, 255, 0.18);
+        color: #010507;
+        font-weight: 600;
+      }
+      .cpk-tab-active .cpk-tab-icon {
+        color: #757cf2;
+      }
+      .cpk-tab-inactive {
+        background-color: transparent;
+        color: #2b2b2b;
+      }
+      .cpk-tab-inactive .cpk-tab-icon {
+        color: #838389;
+      }
+      .cpk-tab-inactive:hover {
+        background-color: rgba(190, 194, 255, 0.08);
+        color: #010507;
+        cursor: pointer;
+      }
+      .cpk-tab-active {
+        cursor: pointer;
+      }
+
+      /* ── Header control buttons (dock, close) — first row only ───── */
+      .drag-handle > div:first-child button {
+        color: #838389 !important;
+      }
+      .drag-handle > div:first-child button:hover {
+        background-color: #f0f0f4 !important;
+        color: #57575b !important;
+      }
+      .drag-handle > div:first-child button:focus-visible {
+        outline-color: #bec2ff !important;
+      }
+
+      /* ── Agent/context dropdown ──────────────────────────────────── */
+      [data-context-dropdown-root="true"] > button {
+        border-color: #dbdbe5 !important;
+        color: #010507 !important;
+      }
+      [data-context-dropdown-root="true"] > button:hover {
+        border-color: #bec2ff !important;
+        background-color: #f7f7f9 !important;
+      }
+      [data-context-dropdown-root="true"] > button > span:last-child {
+        color: #838389 !important;
+      }
+      [data-context-dropdown-root="true"] > div {
+        border-color: #dbdbe5 !important;
+        box-shadow: 0 4px 12px rgba(1, 5, 7, 0.08) !important;
+      }
+      [data-context-dropdown-root="true"] > div button:hover,
+      [data-context-dropdown-root="true"] > div button:focus {
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Status bar (bottom chrome) ──────────────────────────────── */
+      .inspector-window > div > div:last-child {
+        border-top-color: #dbdbe5 !important;
+        background-color: #f7f7f9 !important;
+      }
+
+      /* ── Resize handle ───────────────────────────────────────────── */
+      .resize-handle {
+        color: #838389 !important;
+      }
+      .resize-handle:hover {
+        color: #57575b !important;
+      }
+
+      /* ── AG-UI Events tab ────────────────────────────────────────── */
+      /* Row hover: replace blue tint with brand lilac */
+      tr:hover td {
+        background-color: rgba(190, 194, 255, 0.08) !important;
+      }
+      /* Reset/dark action button */
+      button[class*="bg-gray-900"] {
+        background-color: #010507 !important;
+      }
+      button[class*="bg-gray-800"] {
+        background-color: #2b2b2b !important;
+      }
+      /* Copy "copied" state: generic green → brand mint */
+      button[class*="bg-green-100"] {
+        background-color: rgba(133, 236, 206, 0.2) !important;
+        color: #189370 !important;
+      }
+
+      /* ── Agents tab ──────────────────────────────────────────────── */
+      /* Agent icon bubble: blue → lilac */
+      span[class*="bg-blue-100"]:not([class*="text-blue-800"]) {
+        background-color: rgba(190, 194, 255, 0.15) !important;
+      }
+      span[class*="text-blue-600"] {
+        color: #757cf2 !important;
+      }
+      /* Running badge: emerald → mint */
+      span[class*="bg-emerald-50"] {
+        background-color: rgba(133, 236, 206, 0.15) !important;
+      }
+      span[class*="text-emerald-700"] {
+        color: #189370 !important;
+      }
+      /* Running status dot */
+      span[class*="bg-emerald-500"] {
+        background-color: #85ecce !important;
+      }
+      /* Idle dot */
+      span[class*="bg-gray-400"] {
+        background-color: #afafb7 !important;
+      }
+      /* User role badge (blue → lilac) */
+      span[class*="bg-blue-100"][class*="text-blue-800"] {
+        background-color: rgba(190, 194, 255, 0.22) !important;
+        border: 1px solid rgba(190, 194, 255, 0.45) !important;
+        color: #57575b !important;
+      }
+      /* Assistant role badge (green → mint) */
+      span[class*="bg-green-100"][class*="text-green-800"] {
+        background-color: rgba(133, 236, 206, 0.18) !important;
+        border: 1px solid rgba(133, 236, 206, 0.4) !important;
+        color: #189370 !important;
+      }
+      /* Tool role badge (amber → orange brand) */
+      span[class*="bg-amber-100"][class*="text-amber-800"] {
+        background-color: rgba(255, 172, 77, 0.15) !important;
+        color: #57575b !important;
+      }
+
+      /* ── Frontend Tools tab ──────────────────────────────────────── */
+      /* Handler badge (blue → lilac) */
+      span[class*="bg-blue-50"][class*="text-blue-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #010507 !important;
+      }
+      /* Renderer badge (purple → lilac-adjacent) */
+      span[class*="bg-purple-50"][class*="text-purple-700"] {
+        background-color: rgba(190, 194, 255, 0.12) !important;
+        border-color: rgba(190, 194, 255, 0.3) !important;
+        color: #57575b !important;
+      }
+      /* Required badge (rose → brand red) */
+      span[class*="bg-rose-50"][class*="text-rose-700"] {
+        background-color: rgba(250, 95, 103, 0.1) !important;
+        border-color: rgba(250, 95, 103, 0.25) !important;
+        color: #fa5f67 !important;
+      }
+      /* Code/default value blocks */
+      code[class*="bg-gray-100"],
+      span[class*="bg-gray-100"] {
+        background-color: #f0f0f4 !important;
+      }
+
+      /* ── Connected status bar: match threads header mint (#5BE4BB) ──── */
+      /* Outer strip bg + top border + text when connected badge is present */
+      .inspector-window
+        > div
+        > div:last-child
+        > div:last-child:has(div[class*="bg-emerald-50"]) {
+        background-color: rgba(91, 228, 187, 0.08) !important;
+        border-top-color: rgba(91, 228, 187, 0.3) !important;
+        color: #189370 !important;
+      }
+      /* Inner badge — slightly more opaque on the mint bg */
+      div[class*="bg-emerald-50"][class*="border-emerald-200"] {
+        background-color: rgba(91, 228, 187, 0.12) !important;
+        border-color: rgba(91, 228, 187, 0.4) !important;
+        color: #189370 !important;
+      }
+      /* Icon bubble inside connected badge → mint tint */
+      div[class*="bg-emerald-50"] span[class*="bg-white"] {
+        background-color: rgba(91, 228, 187, 0.3) !important;
+      }
+
+      /* ── Announcement panel ──────────────────────────────────────── */
+      div[class*="border-slate-200"][class*="bg-white"] {
+        border-color: #dbdbe5 !important;
+      }
+      /* Announcement icon bubble: black → brand light lavender + lilac icon */
+      span[class*="bg-slate-900"],
+      div[class*="bg-slate-900"] {
+        background-color: #eee6fe !important;
+        color: #757cf2 !important;
+      }
+      span[class*="text-slate-800"],
+      div[class*="text-slate-800"] {
+        color: #010507 !important;
       }
     `,
   ];
@@ -1202,6 +3673,7 @@ ${argsString}</pre
   connectedCallback(): void {
     super.connectedCallback();
     if (typeof window !== "undefined") {
+      this.ensureBrandFonts();
       window.addEventListener("resize", this.handleResize);
       window.addEventListener(
         "pointerdown",
@@ -1213,6 +3685,17 @@ ${argsString}</pre
       this.tryAutoAttachCore();
       this.ensureAnnouncementLoading();
     }
+  }
+
+  private ensureBrandFonts(): void {
+    const FONT_LINK_ID = "cpk-inspector-brand-fonts";
+    if (document.getElementById(FONT_LINK_ID)) return;
+    const link = document.createElement("link");
+    link.id = FONT_LINK_ID;
+    link.rel = "stylesheet";
+    link.href =
+      "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Spline+Sans+Mono:wght@600&display=swap";
+    document.head.appendChild(link);
   }
 
   disconnectedCallback(): void {
@@ -1309,7 +3792,7 @@ ${argsString}</pre
       "focus-visible:outline",
       "focus-visible:outline-2",
       "focus-visible:outline-offset-2",
-      "focus-visible:outline-rose-500",
+      "focus-visible:outline-[#BEC2FF]",
       "touch-none",
       "select-none",
       this.isDragging ? "cursor-grabbing" : "cursor-grab",
@@ -1435,6 +3918,7 @@ ${argsString}</pre
                 </div>
               </div>
             </div>
+            ${this.renderAnnouncementBanner()}
             <div
               class="flex flex-wrap items-center gap-2 border-t border-gray-100 px-3 py-2 text-xs"
             >
@@ -1442,9 +3926,7 @@ ${argsString}</pre
                 const isSelected = this.selectedMenu === key;
                 const tabClasses = [
                   "inline-flex items-center gap-2 rounded-md px-3 py-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300",
-                  isSelected
-                    ? "bg-gray-900 text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                  isSelected ? "cpk-tab-active" : "cpk-tab-inactive",
                 ].join(" ");
 
                 return html`
@@ -1454,10 +3936,12 @@ ${argsString}</pre
                     aria-pressed=${isSelected}
                     @click=${() => this.handleMenuSelect(key)}
                   >
-                    <span
-                      class="text-gray-400 ${isSelected ? "text-white" : ""}"
-                    >
-                      ${this.renderIcon(icon)}
+                    <span class="cpk-tab-icon">
+                      ${
+                        key in this.customTabIcons
+                          ? unsafeHTML(this.customTabIcons[key])
+                          : this.renderIcon(icon)
+                      }
                     </span>
                     <span>${label}</span>
                   </button>
@@ -1466,8 +3950,7 @@ ${argsString}</pre
             </div>
           </div>
           <div class="flex flex-1 flex-col overflow-hidden">
-            <div class="flex-1 overflow-auto">
-              ${this.renderAnnouncementPanel()}
+            <div id="cpk-main-scroll" class="flex-1 overflow-auto">
               ${this.renderCoreWarningBanner()} ${this.renderMainContent()}
               <slot></slot>
             </div>
@@ -1517,6 +4000,11 @@ ${argsString}</pre
   private hydrateStateFromStorageEarly(): void {
     if (typeof document === "undefined" || typeof window === "undefined") {
       return;
+    }
+
+    // Restore early-access unlock from cookie set by _submitThreadsCode
+    if (document.cookie.includes("cpk_threads_access=1")) {
+      this._threadsUnlocked = true;
     }
 
     const persisted = loadInspectorState(INSPECTOR_STORAGE_KEY);
@@ -2531,6 +5019,8 @@ ${argsString}</pre
           ? this.sanitizeForLogging(raw.content)
           : undefined,
       toolCalls,
+      activityType:
+        typeof raw.activityType === "string" ? raw.activityType : undefined,
     };
   }
 
@@ -2586,11 +5076,6 @@ ${argsString}</pre
   private expandedTools: Set<string> = new Set();
   private expandedContextItems: Set<string> = new Set();
   private copiedContextItems: Set<string> = new Set();
-
-  private getSelectedMenu(): MenuItem {
-    const found = this.menuItems.find((item) => item.key === this.selectedMenu);
-    return found ?? this.menuItems[0]!;
-  }
 
   private renderCoreWarningBanner() {
     if (this._core) {
@@ -2686,7 +5171,534 @@ ${argsString}</pre
       return this.renderContextView();
     }
 
+    if (this.selectedMenu === "threads") {
+      return this.renderThreadsView();
+    }
+
     return nothing;
+  }
+
+  private handleThreadDividerPointerDown = (event: PointerEvent) => {
+    this.threadDividerResizing = true;
+    this.threadDividerPointerId = event.pointerId;
+    this.threadDividerStartX = event.clientX;
+    this.threadDividerStartWidth = this.threadListWidth;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  private handleThreadDividerPointerMove = (event: PointerEvent) => {
+    if (
+      !this.threadDividerResizing ||
+      this.threadDividerPointerId !== event.pointerId
+    )
+      return;
+    const delta = event.clientX - this.threadDividerStartX;
+    this.threadListWidth = Math.max(
+      180,
+      Math.min(480, this.threadDividerStartWidth + delta),
+    );
+    this.requestUpdate();
+  };
+
+  private handleThreadDividerPointerUp = (event: PointerEvent) => {
+    if (this.threadDividerPointerId !== event.pointerId) return;
+    const target = event.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(this.threadDividerPointerId)) {
+      target.releasePointerCapture(this.threadDividerPointerId);
+    }
+    this.threadDividerResizing = false;
+  };
+
+  private renderThreadsGate() {
+    return html`
+      <div style="
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+        padding:40px 24px;
+        min-height:100%;
+        text-align:center;
+        background:linear-gradient(135deg,#f5f4ff 0%,#ede9fe 100%);
+        overflow:hidden;
+      ">
+        <!-- Blurred ellipses from Figma/storybook -->
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;top:-80px;left:-120px;opacity:0.25;background:#757CF2;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:570px;height:570px;border-radius:50%;bottom:-100px;right:-80px;opacity:0.2;background:#FFAC4D;filter:blur(120px);pointer-events:none;"></div>
+        <div style="position:absolute;width:400px;height:400px;border-radius:50%;bottom:20px;left:-60px;opacity:0.15;background:#FFAC4D;filter:blur(100px);pointer-events:none;"></div>
+
+        ${
+          this._threadsUnlocking
+            ? this._renderUnlockingCard()
+            : this._renderEarlyAccessCard()
+        }
+      </div>
+    `;
+  }
+
+  /** Hosted invite-form URL — used by the "Request early access" CTA. */
+  private static readonly THREADS_REQUEST_URL =
+    "https://r3x69.share-na2.hsforms.com/2uiZg8EkiT7a_KykeXV1ajQ";
+
+  private _renderEarlyAccessCard() {
+    const invalid = this._threadsGateCodeInvalid;
+    return html`
+      <div
+        style="
+          position:relative;
+          z-index:1;
+          background:#ffffff;
+          border:1px solid #E5E5EA;
+          border-radius:20px;
+          box-shadow:0 16px 48px rgba(1,5,7,0.12),0 2px 6px rgba(1,5,7,0.05);
+          padding:28px;
+          width:400px;
+          max-width:100%;
+          display:flex;
+          flex-direction:column;
+          gap:18px;
+          text-align:left;
+          font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+        "
+      >
+        <!-- Kicker pill -->
+        <div>
+          <span
+            style="
+              display:inline-flex;
+              align-items:center;
+              gap:4px;
+              padding:4px 10px;
+              border-radius:999px;
+              background:#F3F3FC;
+              color:#757CF2;
+              font-family:'Spline Sans Mono', ui-monospace, monospace;
+              font-size:10px;
+              font-weight:500;
+              letter-spacing:0.08em;
+              text-transform:uppercase;
+            "
+            >Early Access</span
+          >
+        </div>
+
+        <!-- Title + description -->
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <h2
+            style="
+              font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+              font-size:24px;
+              font-weight:700;
+              color:#010507;
+              line-height:1.2;
+              letter-spacing:-0.015em;
+              margin:0;
+            "
+          >
+            <span
+              style="
+                background:linear-gradient(90deg, #757CF2 0%, #5AE4BB 100%);
+                -webkit-background-clip:text;
+                background-clip:text;
+                color:transparent;
+                -webkit-text-fill-color:transparent;
+              "
+              >Threads</span
+            >
+            are in private beta
+          </h2>
+          <p
+            style="
+              font-size:14px;
+              font-weight:500;
+              color:#5C5C66;
+              line-height:1.55;
+              margin:0;
+            "
+          >
+            Spin up separate conversations with your agent, one per task, bug,
+            or feature, and jump back into any of them without losing context.
+          </p>
+        </div>
+
+        <!-- Bullets -->
+        <div
+          style="display:flex;flex-direction:column;gap:8px;padding:4px 0;"
+        >
+          ${[
+            "One agent, many conversations",
+            "Persistent history across sessions",
+            "Jump between threads in a click",
+          ].map(
+            (label) => html`
+              <div style="display:flex;align-items:center;gap:10px;">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#010507"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  style="flex-shrink:0;"
+                >
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span style="font-size:13px;font-weight:500;color:#010507;"
+                  >${label}</span
+                >
+              </div>
+            `,
+          )}
+        </div>
+
+        <!-- Primary CTA: dark MonoPillButton with adjacent arrow circle -->
+        <div>
+          <a
+            href=${WebInspectorElement.THREADS_REQUEST_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style="
+              display:inline-flex;
+              align-items:center;
+              gap:8px;
+              text-decoration:none;
+              cursor:pointer;
+            "
+          >
+            <span
+              style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                background:#010507;
+                color:#ffffff;
+                font-family:'Spline Sans Mono', ui-monospace, monospace;
+                font-size:13px;
+                font-weight:500;
+                letter-spacing:0.06em;
+                text-transform:uppercase;
+                padding:14px 22px;
+                border-radius:999px;
+                box-shadow:0 4px 12px rgba(1,5,7,0.18);
+              "
+              >Request Early Access</span
+            >
+            <span
+              style="
+                display:inline-flex;
+                align-items:center;
+                justify-content:center;
+                width:36px;
+                height:36px;
+                border-radius:999px;
+                background:#010507;
+                color:#ffffff;
+                box-shadow:0 4px 12px rgba(1,5,7,0.18);
+              "
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </span>
+          </a>
+        </div>
+
+        <!-- Divider + invite-code section -->
+        <div
+          style="
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+            padding-top:14px;
+            border-top:1px dashed #E5E5EA;
+          "
+        >
+          <span style="font-size:12px;font-weight:500;color:#8A8A94;"
+            >Have an invite code?</span
+          >
+          <div style="display:flex;gap:8px;">
+            <div
+              style="
+                flex:1;
+                background:#ffffff;
+                border:1px solid ${invalid ? "#FA5F67" : "#E5E5EA"};
+                border-radius:10px;
+                padding:2px 4px 2px 12px;
+                transition:border-color 150ms ease;
+              "
+            >
+              <input
+                id="cpk-gate-input"
+                type="text"
+                placeholder="Enter access code"
+                style="
+                  width:100%;
+                  padding:10px 0;
+                  font-family:'Plus Jakarta Sans', system-ui, sans-serif;
+                  font-size:13px;
+                  font-weight:500;
+                  color:#010507;
+                  background:transparent;
+                  border:none;
+                  outline:none;
+                "
+                @keydown=${(e: KeyboardEvent) => {
+                  if (e.key === "Enter") {
+                    this._submitThreadsCode(
+                      (e.currentTarget as HTMLInputElement).value,
+                    );
+                  }
+                }}
+              />
+            </div>
+            <button
+              style="
+                background:#010507;
+                color:#ffffff;
+                border:none;
+                border-radius:10px;
+                padding:0 16px;
+                font-family:'Spline Sans Mono', ui-monospace, monospace;
+                font-size:11px;
+                font-weight:500;
+                letter-spacing:0.06em;
+                text-transform:uppercase;
+                cursor:pointer;
+                white-space:nowrap;
+              "
+              @click=${() => {
+                const input = this.shadowRoot?.getElementById(
+                  "cpk-gate-input",
+                ) as HTMLInputElement | null;
+                if (input) this._submitThreadsCode(input.value);
+              }}
+            >
+              Unlock
+            </button>
+          </div>
+          ${
+            invalid
+              ? html`
+                  <div style="font-size: 11px; font-weight: 500; color: #fa5f67">
+                    That code isn't valid. Double-check your invite email.
+                  </div>
+                `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  private _renderUnlockingCard() {
+    return html`
+      <div
+        style="
+          position: relative;
+          z-index: 1;
+          background: #ffffff;
+          border: 1px solid #e5e5ea;
+          border-radius: 20px;
+          box-shadow:
+            0 16px 48px rgba(1, 5, 7, 0.12),
+            0 2px 6px rgba(1, 5, 7, 0.05);
+          padding: 32px;
+          width: 340px;
+          max-width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 16px;
+          text-align: center;
+          font-family: &quot;Plus Jakarta Sans&quot;, system-ui, sans-serif;
+        "
+      >
+        <div
+          style="
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #bec2ff 0%, #85ecce 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
+        >
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#010507"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <div style="font-size: 18px; font-weight: 700; color: #010507">
+          Welcome to Threads
+        </div>
+        <div style="font-size: 13px; color: #5c5c66; line-height: 1.5">
+          Loading your conversations…
+        </div>
+      </div>
+    `;
+  }
+
+  private _submitThreadsCode(value: string): void {
+    if (value.trim().toLowerCase() === "earlyaccess") {
+      // Persist the unlock so subsequent loads bypass the gate, then show
+      // the brief "Welcome to Threads" confirmation before swapping to the
+      // real Threads UI ~2s later.
+      document.cookie =
+        "cpk_threads_access=1; path=/; max-age=31536000; SameSite=Lax";
+      this._threadsGateError = null;
+      this._threadsGateCodeInvalid = false;
+      this._threadsUnlocking = true;
+      if (this._threadsUnlockingTimer !== null) {
+        clearTimeout(this._threadsUnlockingTimer);
+      }
+      this._threadsUnlockingTimer = setTimeout(() => {
+        this._threadsUnlocking = false;
+        this._threadsUnlocked = true;
+        this._threadsUnlockingTimer = null;
+        this.requestUpdate();
+      }, 2000);
+    } else {
+      // Invalid: flash the input border + error copy, auto-clear after
+      // 1600ms (matches the design's invalid-code window).
+      this._threadsGateCodeInvalid = true;
+      this._threadsGateError = null;
+      if (this._threadsGateInvalidTimer !== null) {
+        clearTimeout(this._threadsGateInvalidTimer);
+      }
+      this._threadsGateInvalidTimer = setTimeout(() => {
+        this._threadsGateCodeInvalid = false;
+        this._threadsGateInvalidTimer = null;
+        this.requestUpdate();
+      }, 1600);
+    }
+    this.requestUpdate();
+  }
+
+  private renderThreadsView() {
+    if (!this._threadsUnlocked) {
+      return this.renderThreadsGate();
+    }
+
+    const displayThreads =
+      this.selectedContext === "all-agents"
+        ? this._threads
+        : (this._threadsByAgent.get(this.selectedContext) ?? []);
+
+    const selectedThread =
+      this.selectedThreadId != null
+        ? (displayThreads.find((t) => t.id === this.selectedThreadId) ?? null)
+        : null;
+
+    // Don't pass live agent messages as conversationOverride across thread
+    // boundaries. The inspector's agentMessages map is keyed by agentId (not
+    // threadId), so for any thread other than the currently-streaming one the
+    // override would be the wrong thread's content. The thread details
+    // component fetches per-thread messages from `GET /threads/:id/messages`
+    // which is always thread-accurate.
+    const conversationOverride = null;
+
+    return html`
+      <div style="display:flex;height:100%;overflow:hidden;">
+        <!-- Left sidebar: thread list -->
+        <div
+          style="width:${this.threadListWidth}px;flex-shrink:0;overflow:hidden;display:flex;flex-direction:column;border-right:1px solid #DBDBE5;"
+        >
+          <cpk-thread-list
+            style="height:100%;"
+            .threads=${displayThreads}
+            .selectedThreadId=${this.selectedThreadId}
+            @threadSelected=${(e: CustomEvent<string>) => {
+              this.selectedThreadId = e.detail;
+              this.requestUpdate();
+            }}
+          ></cpk-thread-list>
+        </div>
+
+        <!-- Resize divider -->
+        <div
+          style="width:4px;flex-shrink:0;cursor:col-resize;background:transparent;position:relative;z-index:1;"
+          @pointerdown=${this.handleThreadDividerPointerDown}
+          @pointermove=${this.handleThreadDividerPointerMove}
+          @pointerup=${this.handleThreadDividerPointerUp}
+          @pointercancel=${this.handleThreadDividerPointerUp}
+        ></div>
+
+        <!-- Center + right: thread details or empty state -->
+        <div style="flex:1;min-width:0;overflow:hidden;display:flex;">
+          ${
+            this.selectedThreadId
+              ? html`<cpk-thread-details
+                  style="flex:1;min-width:0;"
+                  .threadId=${this.selectedThreadId}
+                  .thread=${selectedThread}
+                  .runtimeUrl=${this._core?.runtimeUrl ?? ""}
+                  .headers=${this._core?.headers ?? {}}
+                  .agentStateInput=${
+                    selectedThread
+                      ? this.getLatestStateForAgent(selectedThread.agentId)
+                      : null
+                  }
+                  .agentEventsInput=${
+                    selectedThread
+                      ? (this.agentEvents.get(selectedThread.agentId) ?? [])
+                      : []
+                  }
+                  .conversationOverride=${conversationOverride}
+                ></cpk-thread-details>`
+              : html`
+                  <div
+                    style="
+                      flex: 1;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      gap: 8px;
+                      color: #838389;
+                    "
+                  >
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="#c0c0c8"
+                      stroke-width="1.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <span style="font-size: 13px">${displayThreads.length === 0 ? "No threads yet" : "Select a thread to inspect"}</span>
+                  </div>
+                `
+          }
+        </div>
+      </div>
+    `;
   }
 
   private renderEventsTable() {
@@ -2700,19 +5712,15 @@ ${argsString}</pre
     if (events.length === 0) {
       return html`
         <div
-          class="flex h-full items-center justify-center px-4 py-8 text-center"
+          class="flex h-full flex-col items-center justify-center gap-2 px-4 py-10 text-center"
         >
-          <div class="max-w-md">
-            <div
-              class="mb-3 flex justify-center text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8"
-            >
-              ${this.renderIcon("Zap")}
-            </div>
-            <p class="text-sm text-gray-600">No events yet</p>
-            <p class="mt-2 text-xs text-gray-500">
-              Trigger an agent run to see live activity.
-            </p>
+          <div class="text-gray-300 [&>svg]:!h-8 [&>svg]:!w-8">
+            ${this.renderIcon("Zap")}
           </div>
+          <span class="text-sm text-gray-600">No events yet</span>
+          <span class="max-w-[240px] text-xs leading-snug text-gray-400"
+            >Events are recorded live. Run the agent to see them here.</span
+          >
         </div>
       `;
     }
@@ -2823,23 +5831,30 @@ ${argsString}</pre
         </div>
         <div class="relative h-full w-full overflow-y-auto overflow-x-hidden">
           <table class="w-full table-fixed border-collapse text-xs box-border">
+            <colgroup>
+              <col style="width:${this.evtColWidths[0]}px">
+              <col style="width:${this.evtColWidths[1]}px">
+              <col style="width:${this.evtColWidths[2]}px">
+              <col>
+            </colgroup>
             <thead class="sticky top-0 z-10">
               <tr class="bg-white">
+                ${["Agent", "Time", "Event Type"].map(
+                  (label, col) => html`
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
+                  style="position:relative;overflow:hidden;"
                 >
-                  Agent
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Time
-                </th>
-                <th
-                  class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
-                >
-                  Event Type
-                </th>
+                  ${label}
+                  <div
+                    style="position:absolute;top:0;right:0;width:5px;height:100%;cursor:col-resize;user-select:none;background:transparent;"
+                    @pointerdown=${(e: PointerEvent) => this._onEvtColResizeStart(e, col)}
+                    @pointermove=${(e: PointerEvent) => this._onEvtColResizeMove(e)}
+                    @pointerup=${() => this._onEvtColResizeEnd()}
+                    @pointercancel=${() => this._onEvtColResizeEnd()}
+                  ></div>
+                </th>`,
+                )}
                 <th
                   class="border-b border-gray-200 bg-white px-3 py-2 text-left font-medium text-gray-900"
                 >
@@ -2954,6 +5969,30 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
+  private _onEvtColResizeStart(e: PointerEvent, col: number): void {
+    e.preventDefault();
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    this._evtColResize = {
+      col,
+      startX: e.clientX,
+      startW: this.evtColWidths[col] ?? 0,
+    };
+  }
+
+  private _onEvtColResizeMove(e: PointerEvent): void {
+    if (!this._evtColResize) return;
+    const { col, startX, startW } = this._evtColResize;
+    this.evtColWidths = this.evtColWidths.map((w, i) =>
+      i === col ? Math.max(40, startW + (e.clientX - startX)) : w,
+    );
+    this.requestUpdate();
+  }
+
+  private _onEvtColResizeEnd(): void {
+    this._evtColResize = null;
+  }
+
   private handleClearEvents = (): void => {
     if (this.selectedContext === "all-agents") {
       this.agentEvents.clear();
@@ -3026,7 +6065,7 @@ ${prettyEvent}</pre
           <div class="flex items-start justify-between mb-4">
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600"
+                class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 cpk-agent-icon"
               >
                 ${this.renderIcon("Bot")}
               </div>
@@ -3062,7 +6101,7 @@ ${prettyEvent}</pre
           <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
             <button
               type="button"
-              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden"
+              class="rounded-md bg-gray-50 px-3 py-2 text-left transition hover:bg-gray-100 cursor-pointer overflow-hidden cpk-stat-card"
               @click=${() => this.handleMenuSelect("ag-ui-events")}
               title="View all events in AG-UI Events"
             >
@@ -3073,7 +6112,9 @@ ${prettyEvent}</pre
                 ${stats.totalEvents}
               </div>
             </button>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Messages
               </div>
@@ -3081,7 +6122,9 @@ ${prettyEvent}</pre
                 ${stats.messages}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Tool Calls
               </div>
@@ -3089,7 +6132,9 @@ ${prettyEvent}</pre
                 ${stats.toolCalls}
               </div>
             </div>
-            <div class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden">
+            <div
+              class="rounded-md bg-gray-50 px-3 py-2 overflow-hidden cpk-stat-card"
+            >
               <div class="truncate whitespace-nowrap text-xs text-gray-600">
                 Errors
               </div>
@@ -3101,9 +6146,9 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current State Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">Current State</h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current State</h4>
           </div>
           <div class="overflow-auto p-4">
             ${
@@ -3115,7 +6160,7 @@ ${prettyEvent}</pre
                 `
                 : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
@@ -3130,32 +6175,20 @@ ${prettyEvent}</pre
         </div>
 
         <!-- Current Messages Section -->
-        <div class="rounded-lg border border-gray-200 bg-white">
-          <div class="border-b border-gray-200 px-4 py-3">
-            <h4 class="text-sm font-semibold text-gray-900">
-              Current Messages
-            </h4>
+        <div class="cpk-section-card">
+          <div class="cpk-section-header">
+            <h4>Current Messages</h4>
           </div>
           <div class="overflow-auto">
             ${
               messages && messages.length > 0
                 ? html`
-                  <table class="w-full text-xs">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Role
-                        </th>
-                        <th
-                          class="px-4 py-2 text-left font-medium text-gray-700"
-                        >
-                          Content
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-200">
+                  <div class="w-full text-xs">
+                    <div class="flex bg-gray-50">
+                      <div class="w-40 shrink-0 px-4 py-2 font-medium text-gray-700">Role</div>
+                      <div class="flex-1 px-4 py-2 font-medium text-gray-700">Content</div>
+                    </div>
+                    <div class="divide-y divide-gray-200">
                       ${messages.map((msg) => {
                         const role = msg.role || "unknown";
                         const roleColors: Record<string, string> = {
@@ -3173,27 +6206,23 @@ ${prettyEvent}</pre
                           toolCalls.length > 0 ? "Invoked tool call" : "—";
 
                         return html`
-                          <tr>
-                            <td class="px-4 py-2 align-top">
+                          <div class="flex items-start">
+                            <div class="w-40 shrink-0 px-4 py-2">
                               <span
-                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${
-                                  roleColors[role] || roleColors.unknown
-                                }"
+                                class="inline-flex rounded px-2 py-0.5 text-[10px] font-medium ${roleColors[role] || roleColors.unknown}"
                               >
                                 ${role}
                               </span>
-                            </td>
-                            <td class="px-4 py-2">
+                            </div>
+                            <div class="flex-1 px-4 py-2">
                               ${
                                 hasContent
                                   ? html`<div
-                                    class="max-w-2xl whitespace-pre-wrap break-words text-gray-700"
+                                    class="whitespace-pre-line break-words text-gray-700"
                                   >
                                     ${rawContent}
                                   </div>`
-                                  : html`<div
-                                    class="text-xs italic text-gray-400"
-                                  >
+                                  : html`<div class="italic text-gray-400">
                                     ${contentFallback}
                                   </div>`
                               }
@@ -3202,16 +6231,16 @@ ${prettyEvent}</pre
                                   ? this.renderToolCallDetails(toolCalls)
                                   : nothing
                               }
-                            </td>
-                          </tr>
+                            </div>
+                          </div>
                         `;
                       })}
-                    </tbody>
-                  </table>
+                    </div>
+                  </div>
                 `
                 : html`
                   <div
-                    class="flex h-40 items-center justify-center text-xs text-gray-500"
+                    class="flex h-12 items-center justify-center text-xs text-gray-500"
                   >
                     <div class="flex items-center gap-2 text-gray-500">
                       <span class="text-lg text-gray-400"
@@ -3300,20 +6329,49 @@ ${prettyEvent}</pre
       return;
     }
 
+    const previousMenu = this.selectedMenu;
     this.selectedMenu = key;
 
-    // If switching to agents view and "all-agents" is selected, switch to default or first agent
+    // If switching to agents view and "all-agents" is selected, switch to the most recently active agent
     if (key === "agents" && this.selectedContext === "all-agents") {
       const agentOptions = this.contextOptions.filter(
         (opt) => opt.key !== "all-agents",
       );
       if (agentOptions.length > 0) {
-        // Try to find "default" agent first
-        const defaultAgent = agentOptions.find((opt) => opt.key === "default");
-        this.selectedContext = defaultAgent
-          ? defaultAgent.key
+        // Pick the agent with the most recent activity; fall back to first
+        const mostRecent = agentOptions.reduce<{
+          key: string;
+          ts: number;
+        } | null>((best, opt) => {
+          const ts = this.getAgentStats(opt.key).lastActivity ?? -1;
+          return best === null || ts > best.ts ? { key: opt.key, ts } : best;
+        }, null);
+        this.selectedContext = mostRecent
+          ? mostRecent.key
           : agentOptions[0]!.key;
       }
+    }
+
+    // If leaving the agents view with multiple agents registered, restore
+    // "all-agents" so the Events tab isn't silently filtered to one agent.
+    if (previousMenu === "agents" && key !== "agents") {
+      const agentCount = this.contextOptions.filter(
+        (opt) => opt.key !== "all-agents",
+      ).length;
+      if (agentCount > 1) {
+        this.selectedContext = "all-agents";
+      }
+    }
+
+    if (key === "threads") {
+      this.autoSelectLatestThread();
+    }
+
+    if (key === "ag-ui-events" || key === "agents") {
+      requestAnimationFrame(() => {
+        const scroller = this.shadowRoot?.getElementById("cpk-main-scroll");
+        if (scroller) scroller.scrollTop = 0;
+      });
     }
 
     this.contextMenuOpen = false;
@@ -3948,9 +7006,19 @@ ${prettyEvent}</pre
                 <div class="mb-3">
                   <h5 class="mb-1 text-xs font-semibold text-gray-700">ID</h5>
                   <code
-                    class="block rounded bg-white border border-gray-200 px-2 py-1 text-[10px] font-mono text-gray-600"
+                    class="font-mono text-xs font-medium text-gray-800 flex-1 truncate min-w-0"
                     >${id}</code
                   >
+                  <button
+                    type="button"
+                    class="cpk-copy-btn"
+                    @click=${(e: Event) => {
+                      e.stopPropagation();
+                      void this.copyContextValue(id, `${id}:id`);
+                    }}
+                  >
+                    ${this.copiedContextItems.has(`${id}:id`) ? "✓" : "Copy"}
+                  </button>
                 </div>
                 ${
                   hasValue
@@ -3960,8 +7028,8 @@ ${prettyEvent}</pre
                           Value
                         </h5>
                         <button
-                          class="flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-medium text-gray-700 transition hover:bg-gray-50"
                           type="button"
+                          class="cpk-copy-btn"
                           @click=${(e: Event) => {
                             e.stopPropagation();
                             void this.copyContextValue(context.value, id);
@@ -3973,15 +7041,6 @@ ${prettyEvent}</pre
                               : "Copy JSON"
                           }
                         </button>
-                      </div>
-                      <div
-                        class="rounded-md border border-gray-200 bg-white p-3"
-                      >
-                        <pre
-                          class="overflow-auto text-xs text-gray-800 max-h-96"
-                        ><code>${this.formatContextValue(
-                          context.value,
-                        )}</code></pre>
                       </div>
                     `
                     : html`
@@ -4004,7 +7063,7 @@ ${prettyEvent}</pre
     }
 
     if (typeof value === "string") {
-      return value.length > 50 ? `${value.substring(0, 50)}...` : value;
+      return value.length > 50 ? `${value.slice(0, 50)}...` : value;
     }
 
     if (typeof value === "number" || typeof value === "boolean") {
@@ -4112,70 +7171,34 @@ ${prettyEvent}</pre
     this.requestUpdate();
   }
 
-  private renderAnnouncementPanel() {
-    if (!this.isOpen) {
-      return nothing;
-    }
-
-    // Ensure loading is triggered even if we mounted in an already-open state
-    this.ensureAnnouncementLoading();
-
+  private renderAnnouncementBanner() {
     if (!this.hasUnseenAnnouncement) {
       return nothing;
     }
 
-    if (!this.announcementLoaded && !this.announcementMarkdown) {
+    if (!this.announcementLoaded && !this.announcementHtml) {
       return html`<div
-        class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
+        class="flex items-center gap-2 px-4 py-3 text-sm font-semibold text-slate-800"
       >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Loading latest announcement…</span>
-        </div>
+        <span
+          class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+        >
+          ${this.renderIcon("Megaphone")}
+        </span>
+        <span>Loading latest announcement…</span>
       </div>`;
     }
 
-    if (this.announcementLoadError) {
-      return html`<div
-        class="mx-4 my-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
-      >
-        <div class="flex items-center gap-2 font-semibold">
-          <span
-            class="inline-flex h-6 w-6 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm"
-          >
-            ${this.renderIcon("Megaphone")}
-          </span>
-          <span>Announcement unavailable</span>
-        </div>
-        <p class="mt-2 text-xs text-rose-800">
-          We couldn’t load the latest notice. Please try opening the inspector
-          again.
-        </p>
-      </div>`;
-    }
-
-    if (!this.announcementMarkdown) {
+    if (!this.announcementHtml) {
       return nothing;
     }
 
-    const content = this.announcementHtml
-      ? unsafeHTML(this.announcementHtml)
-      : html`<pre class="whitespace-pre-wrap text-sm text-gray-900">
-${this.announcementMarkdown}</pre
-        >`;
-
-    return html`<div
-      class="mx-4 my-3 rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-[0_12px_30px_rgba(15,23,42,0.12)]"
-    >
+    return html`<div class="mx-4 mb-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
       <div
-        class="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-900"
+        class="mb-2 flex items-center gap-2 text-xs font-semibold text-slate-900"
       >
         <span
-          class="inline-flex h-7 w-7 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
+          class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-slate-900 text-white shadow-sm"
         >
           ${this.renderIcon("Megaphone")}
         </span>
@@ -4186,12 +7209,31 @@ ${this.announcementMarkdown}</pre
           @click=${this.handleDismissAnnouncement}
           aria-label="Dismiss announcement"
         >
-          Dismiss
+          ${this.renderIcon("X")}
         </button>
       </div>
-      <div class="announcement-content text-sm leading-relaxed text-gray-900">
-        ${content}
+      <div class="announcement-body ${this.announcementExpanded ? "announcement-body--expanded" : "announcement-body--collapsed"}">
+        <div class="announcement-content">
+          ${unsafeHTML(this.announcementHtml)}
+        </div>
+        ${
+          !this.announcementExpanded
+            ? html`
+                <div class="announcement-fade"></div>
+              `
+            : nothing
+        }
       </div>
+      <button
+        class="announcement-toggle"
+        type="button"
+        @click=${() => {
+          this.announcementExpanded = !this.announcementExpanded;
+          this.requestUpdate();
+        }}
+      >
+        ${this.announcementExpanded ? "Show less ↑" : "Show more ↓"}
+      </button>
     </div>`;
   }
 
@@ -4266,7 +7308,6 @@ ${this.announcementMarkdown}</pre
 
       this.announcementTimestamp = timestamp;
       this.announcementPreviewText = previewText ?? "";
-      this.announcementMarkdown = markdown;
       this.hasUnseenAnnouncement =
         (!storedTimestamp || storedTimestamp !== timestamp) &&
         !!this.announcementPreviewText;
@@ -4275,8 +7316,7 @@ ${this.announcementMarkdown}</pre
       this.announcementLoaded = true;
 
       this.requestUpdate();
-    } catch (error) {
-      this.announcementLoadError = error;
+    } catch {
       this.announcementLoaded = true;
       this.requestUpdate();
     }

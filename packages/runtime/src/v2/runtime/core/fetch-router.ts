@@ -139,6 +139,28 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/messages", threadId };
   }
 
+  // /threads/:threadId/events (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "events"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/events", threadId };
+  }
+
+  // /threads/:threadId/state (3 segments)
+  if (
+    len >= 3 &&
+    segments[len - 3] === "threads" &&
+    segments[len - 1] === "state"
+  ) {
+    const threadId = safeDecodeURIComponent(segments[len - 2]!);
+    if (!threadId) return null;
+    return { method: "threads/state", threadId };
+  }
+
   // /threads/:threadId/archive (3 segments)
   if (
     len >= 3 &&
@@ -150,11 +172,21 @@ function matchSegments(path: string): RouteInfo | null {
     return { method: "threads/archive", threadId };
   }
 
+  // /threads/clear (2 segments) — wipe in-memory thread history
+  if (
+    len >= 2 &&
+    segments[len - 2] === "threads" &&
+    segments[len - 1] === "clear"
+  ) {
+    return { method: "threads/clear" };
+  }
+
   // /threads/:threadId (2 segments) — update or delete
   if (
     len >= 2 &&
     segments[len - 2] === "threads" &&
-    segments[len - 1] !== "subscribe"
+    segments[len - 1] !== "subscribe" &&
+    segments[len - 1] !== "clear"
   ) {
     const threadId = safeDecodeURIComponent(segments[len - 1]!);
     if (!threadId) return null;

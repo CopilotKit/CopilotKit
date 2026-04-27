@@ -48,12 +48,15 @@ import { handleGetRuntimeInfo } from "../handlers/get-runtime-info";
 import { handleTranscribe } from "../handlers/handle-transcribe";
 import { handleDebugEvents } from "../handlers/handle-debug-events";
 import {
+  handleClearThreads,
   handleListThreads,
   handleSubscribeToThreads,
   handleUpdateThread,
   handleArchiveThread,
   handleDeleteThread,
   handleGetThreadMessages,
+  handleGetThreadEvents,
+  handleGetThreadState,
 } from "../handlers/handle-threads";
 import {
   parseMethodCall,
@@ -318,6 +321,8 @@ function dispatchRoute(
       return handleGetRuntimeInfo({ runtime, request });
     case "transcribe":
       return handleTranscribe({ runtime, request });
+    case "threads/clear":
+      return Promise.resolve(handleClearThreads({ runtime, request }));
     case "threads/list":
       return handleListThreads({ runtime, request });
     case "threads/subscribe":
@@ -339,6 +344,18 @@ function dispatchRoute(
       });
     case "threads/messages":
       return handleGetThreadMessages({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
+    case "threads/events":
+      return handleGetThreadEvents({
+        runtime,
+        request,
+        threadId: route.threadId,
+      });
+    case "threads/state":
+      return handleGetThreadState({
         runtime,
         request,
         threadId: route.threadId,
@@ -420,6 +437,8 @@ function validateHttpMethod(
     case "info":
     case "threads/list":
     case "threads/messages":
+    case "threads/events":
+    case "threads/state":
     case "cpk-debug-events":
       if (method === "GET") return null;
       return jsonResponse({ error: "Method not allowed" }, 405, {
