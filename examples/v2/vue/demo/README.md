@@ -25,6 +25,7 @@ Nuxt SSR demo for `@copilotkitnext/vue` with strict parity intent against the Re
   - `/mcp-apps`
   - `/sidebar`
   - `/popup`
+  - `/a2ui-demo` (A2UI confirm-button route, parity with React)
 - Endpoint routes are present for:
   - `GET/POST /api/copilotkit/**`
   - `POST /api/copilotkit-single`
