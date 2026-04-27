@@ -407,7 +407,6 @@ export class AgentRegistry {
     return (await response.json()) as RuntimeInfo;
   }
 
-
   /**
    * Assign agent IDs to a record of agents
    */

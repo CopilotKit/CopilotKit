@@ -643,7 +643,9 @@ describe("CopilotKitProvider", () => {
 
       expect(result.current.copilotkit.runtimeTransport).toBe("single");
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Both `useLegacyRuntime` and `useSingleEndpoint` are set"),
+        expect.stringContaining(
+          "Both `useLegacyRuntime` and `useSingleEndpoint` are set",
+        ),
       );
     });
 
@@ -658,7 +660,9 @@ describe("CopilotKitProvider", () => {
 
       expect(result.current.copilotkit.runtimeTransport).toBe("rest");
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Both `useLegacyRuntime` and `useSingleEndpoint` are set"),
+        expect.stringContaining(
+          "Both `useLegacyRuntime` and `useSingleEndpoint` are set",
+        ),
       );
     });
 
