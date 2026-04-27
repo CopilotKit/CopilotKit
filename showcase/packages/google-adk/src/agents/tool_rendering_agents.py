@@ -66,26 +66,42 @@ _TOOL_INSTRUCTION = (
 )
 
 
-def _build(name: str, *, thinking: bool = False) -> LlmAgent:
-    kwargs = {
-        "name": name,
-        "model": "gemini-2.5-flash",
-        "instruction": _TOOL_INSTRUCTION,
-        "tools": [get_weather, search_flights, query_data],
-    }
-    if thinking:
-        kwargs["generate_content_config"] = types.GenerateContentConfig(
-            thinking_config=types.ThinkingConfig(
-                include_thoughts=True,
-                thinking_budget=-1,
-            ),
-        )
-    return LlmAgent(**kwargs)
+# `tools=[...]` is repeated across every constructor below rather than passed
+# through a kwargs dict, so the showcase aimock fixture-tool-surface validator
+# (validate-fixture-tool-surface.ts) can statically extract the tool list per
+# agent — its regex matches `tools = [...]`, not `"tools": [...]` dict-syntax.
+_THINKING_CONFIG = types.GenerateContentConfig(
+    thinking_config=types.ThinkingConfig(
+        include_thoughts=True,
+        thinking_budget=-1,
+    ),
+)
 
+tool_rendering_agent = LlmAgent(
+    name="ToolRenderingAgent",
+    model="gemini-2.5-flash",
+    instruction=_TOOL_INSTRUCTION,
+    tools=[get_weather, search_flights, query_data],
+)
 
-tool_rendering_agent = _build("ToolRenderingAgent")
-tool_rendering_default_catchall_agent = _build("ToolRenderingDefaultCatchallAgent")
-tool_rendering_custom_catchall_agent = _build("ToolRenderingCustomCatchallAgent")
-tool_rendering_reasoning_chain_agent = _build(
-    "ToolRenderingReasoningChainAgent", thinking=True
+tool_rendering_default_catchall_agent = LlmAgent(
+    name="ToolRenderingDefaultCatchallAgent",
+    model="gemini-2.5-flash",
+    instruction=_TOOL_INSTRUCTION,
+    tools=[get_weather, search_flights, query_data],
+)
+
+tool_rendering_custom_catchall_agent = LlmAgent(
+    name="ToolRenderingCustomCatchallAgent",
+    model="gemini-2.5-flash",
+    instruction=_TOOL_INSTRUCTION,
+    tools=[get_weather, search_flights, query_data],
+)
+
+tool_rendering_reasoning_chain_agent = LlmAgent(
+    name="ToolRenderingReasoningChainAgent",
+    model="gemini-2.5-flash",
+    instruction=_TOOL_INSTRUCTION,
+    tools=[get_weather, search_flights, query_data],
+    generate_content_config=_THINKING_CONFIG,
 )
