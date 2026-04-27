@@ -3,6 +3,7 @@ import {
   aimockWiringProbe,
   type AimockWiringSignal,
 } from "../aimock-wiring.js";
+import { extractOperationName } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { Logger } from "../../types/index.js";
 
@@ -168,7 +169,11 @@ function createRailwayAdapter(
     query: string,
     variables: Record<string, unknown>,
   ): Promise<T> {
-    const res = await fetchImpl(endpoint, {
+    // Append `?query=<operationName>` to dodge Cloudflare's strict
+    // rate-limit bucket for query-string-less GraphQL calls. See
+    // `extractOperationName` for the full rationale.
+    const url = `${endpoint}?query=${extractOperationName(query)}`;
+    const res = await fetchImpl(url, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${opts.token}`,
