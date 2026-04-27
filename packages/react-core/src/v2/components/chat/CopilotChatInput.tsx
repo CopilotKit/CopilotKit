@@ -758,7 +758,14 @@ export function CopilotChatInput({
     ) {
       const isMobileViewport = window.matchMedia("(max-width: 767px)").matches;
       if (isMobileViewport) {
-        ensureMeasurements();
+        // Only call ensureMeasurements() when we don't have measurements yet.
+        // Calling it unconditionally sets textarea.value = "" on every keystroke
+        // which resets the cursor to the end, making it impossible to edit text
+        // in the middle of a string on mobile viewports. adjustTextareaHeight()
+        // already guards this call internally for the same reason.
+        if (measurementsRef.current.singleLineHeight === 0) {
+          ensureMeasurements();
+        }
         adjustTextareaHeight();
         updateLayout("expanded");
         return;
