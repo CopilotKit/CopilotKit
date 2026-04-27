@@ -36,9 +36,10 @@ COPY --chown=app:app --from=builder /app/node_modules ./node_modules
 COPY --chown=app:app --from=builder /app/package.json ./
 COPY --chown=app:app --from=builder /app/public ./public
 
-# Precompiled agent entry (from builder stage). entrypoint.sh invokes
-# `node /app/agent_server.js` instead of `npx tsx src/agent_server.ts`.
-COPY --chown=app:app --from=builder /app/dist/agent_server.js ./agent_server.js
+# Precompiled agent tree (from builder stage) — tsc emits agent_server.js
+# plus agent/*.js prompt modules; copy the whole dist/ tree so require()
+# resolves the sibling imports at runtime.
+COPY --chown=app:app --from=builder /app/dist/ ./
 
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./
