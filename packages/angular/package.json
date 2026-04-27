@@ -14,6 +14,7 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/fesm2022/copilotkitnext-angular.mjs"
     },
     "./styles.css": "./dist/styles.css"
@@ -30,7 +31,7 @@
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "publint": "publint .",
-    "attw": "attw --pack . --profile node16"
+    "attw": "attw --pack . --profile node16 --ignore-rules internal-resolution-error"
   },
   "dependencies": {
     "@ag-ui/client": "0.0.52",

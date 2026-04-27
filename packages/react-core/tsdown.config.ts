@@ -19,10 +19,45 @@ export default defineConfig([
       /\.css$/,
     ],
     exports: {
-      customExports: (exports) => ({
-        ...exports,
-        "./v2/styles.css": "./dist/v2/index.css",
-      }),
+      customExports: (exports) => {
+        // Nest types inside each condition so ESM gets .d.mts and CJS gets .d.cts
+        const nestTypes = (
+          entry: Record<string, string>,
+          dtsBase: string,
+        ): Record<string, unknown> => {
+          const result: Record<string, unknown> = {};
+          for (const [condition, value] of Object.entries(entry)) {
+            if (condition === "import") {
+              result[condition] = {
+                types: `${dtsBase}.d.mts`,
+                default: value,
+              };
+            } else if (condition === "require") {
+              result[condition] = {
+                types: `${dtsBase}.d.cts`,
+                default: value,
+              };
+            } else {
+              result[condition] = value;
+            }
+          }
+          return result;
+        };
+        return {
+          ".": nestTypes(
+            exports["."] as Record<string, string>,
+            "./dist/index",
+          ),
+          "./v2": nestTypes(
+            exports["./v2"] as Record<string, string>,
+            "./dist/v2/index",
+          ),
+          ...Object.fromEntries(
+            Object.entries(exports).filter(([k]) => k !== "." && k !== "./v2"),
+          ),
+          "./v2/styles.css": "./dist/v2/index.css",
+        };
+      },
     },
   },
   {
