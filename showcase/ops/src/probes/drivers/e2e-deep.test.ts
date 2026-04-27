@@ -707,19 +707,20 @@ describe("D5_SCRIPT_FILE_MATCHER", () => {
 
 // Regression test for the ASI bug in the page-evaluated transcript reader.
 //
-// readAssistantTranscript ships a `code` string to `page.evaluate(...)`,
-// which Playwright wraps in `new Function("return " + code)()`. When the
-// script source begins with a newline, JavaScript's Automatic Semicolon
-// Insertion (ASI) terminates the `return` statement BEFORE the IIFE runs,
-// so the function returns `undefined` and the assistant message count
-// stays at 0 — the conversation-runner then times out on every turn.
+// D5 probe helpers (readAssistantTranscript, readLatestAssistantText, etc.)
+// build a code string from a template literal, wrap it via
+// `new Function("return " + code)`, and pass the result to `page.evaluate`.
+// When the code string begins with a newline, JavaScript's Automatic
+// Semicolon Insertion (ASI) terminates the `return` statement BEFORE the
+// IIFE runs, so the function returns `undefined` and the assistant message
+// count stays at 0 — the conversation-runner then times out on every turn.
 //
 // The fix is to `.trim()` the code before concatenation so the IIFE
 // follows `return ` on the same line.
 describe("ASI / new Function evaluate", () => {
-  // The exact code shape Playwright's evaluate uses internally:
-  //   new Function("return " + userCode)()
-  // When userCode opens with "\n  (() => ...)()" ASI bites.
+  // The code shape our probe helpers use:
+  //   new Function("return " + code)()
+  // When code opens with "\n  (() => ...)()" ASI bites.
   const codeWithLeadingNewline = '\n  (() => { return "hello"; })()\n';
 
   it("demonstrates the ASI bug: leading-newline code returns undefined", () => {
