@@ -101,6 +101,15 @@ const inputSchema = z
      * skipped with a green note row.
      */
     features: z.array(z.string()).optional(),
+    /**
+     * Registry-feature-id list (`feature-registry.json` `features[].id`)
+     * for this integration. Optional — when present, the driver hands
+     * the list to `D5Script.preNavigateRoute` so scripts can vary the
+     * navigation path based on which legacy / modern demo IDs the
+     * integration declares (e.g. legacy `hitl` route vs. modern
+     * `hitl-in-chat` route).
+     */
+    demos: z.array(z.string()).optional(),
     shape: showcaseShapeSchema.optional(),
   })
   .passthrough()
@@ -276,7 +285,7 @@ const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000; // 600s — covers conversation + DOM
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 
 /** Default route shape for a feature when the script doesn't override. */
-function defaultRoute(featureType: D5FeatureType): string {
+function defaultRoute(featureType: D5FeatureType, _ctx?: unknown): string {
   return `/demos/${featureType}`;
 }
 
@@ -678,7 +687,9 @@ export function createE2eParityDriver(
         const sideObservedAt = ctx.now().toISOString();
         for (const ft of requestedKnown) {
           const script = D5_REGISTRY.get(ft);
-          const route = (script?.preNavigateRoute ?? defaultRoute)(ft);
+          const route = (script?.preNavigateRoute ?? defaultRoute)(ft, {
+            demos: input.demos,
+          });
           const url = `${backendUrl}${route}`;
           await sideEmit(ctx, {
             key: `d6:${slug}/${ft}`,
@@ -909,7 +920,9 @@ export function createE2eParityDriver(
           for (const ft of runnable) {
             const script = D5_REGISTRY.get(ft);
             const sideKey = `d6:${slug}/${ft}`;
-            const route = (script?.preNavigateRoute ?? defaultRoute)(ft);
+            const route = (script?.preNavigateRoute ?? defaultRoute)(ft, {
+              demos: input.demos,
+            });
             const url = `${backendUrl}${route}`;
             await sideEmit(ctx, {
               key: sideKey,
@@ -955,7 +968,9 @@ export function createE2eParityDriver(
           const script = D5_REGISTRY.get(ft)!;
           const reference = referenceSnapshots.get(ft)!;
           const refPath = referencePaths.get(ft);
-          const route = (script.preNavigateRoute ?? defaultRoute)(ft);
+          const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
+            demos: input.demos,
+          });
           const url = `${backendUrl}${route}`;
 
           if (abort.signal.aborted) {

@@ -229,7 +229,7 @@ const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_PAGE_TIMEOUT_MS = 30 * 1000;
 
 /** Default route shape for a feature when the script doesn't override. */
-function defaultRoute(featureType: D5FeatureType): string {
+function defaultRoute(featureType: D5FeatureType, _ctx?: unknown): string {
   return `/demos/${featureType}`;
 }
 
@@ -617,7 +617,9 @@ export function createE2eDeepDriver(
         for (const ft of runnable) {
           const sideKey = `d5:${slug}/${ft}`;
           const script = D5_REGISTRY.get(ft)!;
-          const route = (script.preNavigateRoute ?? defaultRoute)(ft);
+          const route = (script.preNavigateRoute ?? defaultRoute)(ft, {
+            demos: input.demos,
+          });
           const url = `${backendUrl}${route}`;
 
           if (abort.signal.aborted) {
