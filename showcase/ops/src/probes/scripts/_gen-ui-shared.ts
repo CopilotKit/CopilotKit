@@ -28,6 +28,7 @@
 
 import {
   ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
+  ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
   ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
   type Page,
 } from "../helpers/conversation-runner.js";
@@ -43,9 +44,15 @@ import {
  *        showcases attach to the wrapper around `useComponent` output.
  *   4.   `.copilotkit-render-component` — class hook some custom-composer
  *        renderers attach when calling `useRenderToolCall`.
- *   5-6. Generic structural fallbacks — `[role="article"]` is what the
- *        chat-message renderer wraps each assistant message in; an SVG
- *        anywhere on the page indicates a chart-style component
+ *   5-7. Canonical V2 assistant-message scoped fallbacks. The V2 chat
+ *        wraps each assistant bubble in
+ *        `[data-testid="copilot-assistant-message"]`, and gen-UI
+ *        components materialise INSIDE that bubble (e.g. an SVG chart,
+ *        or a testid-tagged custom component). Try SVG first (chart
+ *        shape), then any nested testid, then the bubble itself.
+ *   8-9. Generic structural fallbacks — `[role="article"]` is what
+ *        older chat-message renderers wrap each assistant message in;
+ *        an SVG anywhere on the page indicates a chart-style component
  *        materialised. Both are last-resort and intentionally broad.
  *
  * Kept as a const tuple so the order is preserved across iteration.
@@ -55,6 +62,9 @@ export const GEN_UI_COMPONENT_SELECTORS = [
   '[data-testid="gen-ui-component"]',
   "[data-tool-name]",
   ".copilotkit-render-component",
+  '[data-testid="copilot-assistant-message"] svg',
+  '[data-testid="copilot-assistant-message"] [data-testid]',
+  '[data-testid="copilot-assistant-message"]',
   '[role="article"] svg',
   '[role="article"]',
 ] as const;
@@ -145,6 +155,9 @@ async function findFirstNonTrivial(
       '[data-testid="gen-ui-component"]',
       "[data-tool-name]",
       ".copilotkit-render-component",
+      '[data-testid="copilot-assistant-message"] svg',
+      '[data-testid="copilot-assistant-message"] [data-testid]',
+      '[data-testid="copilot-assistant-message"]',
       '[role="article"] svg',
       '[role="article"]',
     ];
@@ -260,11 +273,16 @@ export async function readLastAssistantText(page: Page): Promise<string> {
       const canonical = doc.querySelectorAll(${JSON.stringify(
         ASSISTANT_MESSAGE_PRIMARY_SELECTOR,
       )});
-      const list = canonical.length > 0
+      let list = canonical.length > 0
         ? canonical
         : doc.querySelectorAll(${JSON.stringify(
           ASSISTANT_MESSAGE_FALLBACK_SELECTOR,
         )});
+      if (list.length === 0) {
+        list = doc.querySelectorAll(${JSON.stringify(
+          ASSISTANT_MESSAGE_HEADLESS_SELECTOR,
+        )});
+      }
       if (list.length === 0) return "";
       const last = list[list.length - 1];
       return (last && last.textContent ? last.textContent : "").trim();
