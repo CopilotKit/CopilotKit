@@ -110,7 +110,7 @@ async function readLatestAssistantText(page: Page): Promise<string> {
       return text.toLowerCase();
     })()
   `;
-  const fn = new Function(`return ${code};`) as () => string;
+  const fn = new Function(`return ${code.trim()};`) as () => string;
   return page.evaluate(fn);
 }
 

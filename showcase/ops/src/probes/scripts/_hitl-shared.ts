@@ -282,7 +282,7 @@ export async function readAssistantCount(page: Page): Promise<number> {
         return fallback.length;
       })()
     `;
-    const fn = new Function(`return ${code};`) as () => number;
+    const fn = new Function(`return ${code.trim()};`) as () => number;
     return await page.evaluate(fn);
   } catch {
     return 0;
@@ -313,7 +313,7 @@ async function readLatestAssistantText(page: Page): Promise<string> {
         return (last && last.textContent ? last.textContent : "").trim();
       })()
     `;
-    const fn = new Function(`return ${code};`) as () => string;
+    const fn = new Function(`return ${code.trim()};`) as () => string;
     return await page.evaluate(fn);
   } catch {
     return "";

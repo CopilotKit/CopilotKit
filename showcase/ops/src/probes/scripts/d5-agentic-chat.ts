@@ -81,7 +81,7 @@ async function readAssistantTranscript(page: Page): Promise<string> {
       return out.toLowerCase();
     })()
   `;
-  const fn = new Function(`return ${code};`) as () => string;
+  const fn = new Function(`return ${code.trim()};`) as () => string;
   return page.evaluate(fn);
 }
 

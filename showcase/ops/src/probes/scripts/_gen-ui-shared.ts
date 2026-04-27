@@ -270,7 +270,7 @@ export async function readLastAssistantText(page: Page): Promise<string> {
       return (last && last.textContent ? last.textContent : "").trim();
     })()
   `;
-  const fn = new Function(`return ${code};`) as () => string;
+  const fn = new Function(`return ${code.trim()};`) as () => string;
   return await page.evaluate(fn);
 }
 
