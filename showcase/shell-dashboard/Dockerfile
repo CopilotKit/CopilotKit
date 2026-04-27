@@ -34,6 +34,13 @@ ARG NEXT_PUBLIC_SHELL_URL
 ENV NEXT_PUBLIC_SHELL_URL=${NEXT_PUBLIC_SHELL_URL}
 ARG NEXT_PUBLIC_POCKETBASE_URL
 ENV NEXT_PUBLIC_POCKETBASE_URL=${NEXT_PUBLIC_POCKETBASE_URL}
+# `next.config.ts` reads OPS_BASE_URL inside `rewrites()` and throws if it
+# is unset. `next build` evaluates rewrites at build time to generate the
+# routing manifest, so the value must be in the BUILDER environment — not
+# just runtime. Without this, `npx next build` aborts with the
+# "OPS_BASE_URL must be set" error from next.config.ts.
+ARG OPS_BASE_URL
+ENV OPS_BASE_URL=${OPS_BASE_URL}
 
 # Generate registry + docs status, then build Next.js
 RUN cd scripts && node node_modules/tsx/dist/cli.mjs generate-registry.ts \
