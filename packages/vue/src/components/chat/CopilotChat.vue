@@ -109,9 +109,29 @@ const activeConnectCycle = shallowRef<ActiveConnectCycle | null>(null);
 const resolvedAgentId = computed(
   () => props.agentId ?? existingConfig.value?.agentId ?? DEFAULT_AGENT_ID,
 );
+// "Provided" — supplied by either the caller's prop or a wrapping
+// CopilotChatConfigurationProvider. Distinct from `resolvedThreadId`, which
+// falls back to a locally minted UUID when neither source is set. We only
+// gate `/connect` on a provided id; the local UUID has never been seen by
+// the backend and would always 404.
+const providedThreadId = computed(
+  () => props.threadId ?? existingConfig.value?.threadId,
+);
 const resolvedThreadId = computed(
+  () => providedThreadId.value ?? generatedThreadId.value,
+);
+// "Explicit" means the caller actually picked this thread — via the
+// `threadId` prop on CopilotChat or a wrapping provider that flagged its
+// threadId as caller-chosen. An auto-minted UUID leaking down through a
+// CopilotChatConfigurationProvider does NOT count.
+const hasExplicitThreadId = computed(
+  () => !!props.threadId || !!existingConfig.value?.hasExplicitThreadId,
+);
+const lastConnectedThreadId = ref<string | null>(null);
+const isConnecting = computed(
   () =>
-    props.threadId ?? existingConfig.value?.threadId ?? generatedThreadId.value,
+    hasExplicitThreadId.value &&
+    lastConnectedThreadId.value !== resolvedThreadId.value,
 );
 const stableLabels = useShallowStableRef(computed(() => props.labels));
 const resolvedLabels = computed(() => stableLabels.value);
@@ -229,8 +249,18 @@ watch(
 );
 
 watch(
-  [isMounted, () => copilotkit.value, () => agent.value, resolvedThreadId],
-  ([mounted, core, currentAgent, threadId], _old, onCleanup) => {
+  [
+    isMounted,
+    () => copilotkit.value,
+    () => agent.value,
+    resolvedThreadId,
+    hasExplicitThreadId,
+  ],
+  (
+    [mounted, core, currentAgent, threadId, isExplicit],
+    _old,
+    onCleanup,
+  ) => {
     if (!mounted) {
       return;
     }
@@ -238,6 +268,13 @@ watch(
       return;
     }
     if (!currentAgent) {
+      return;
+    }
+    // When the caller hasn't picked a specific thread, resolvedThreadId is
+    // a UUID minted locally. The backend has never seen it, so /connect
+    // would always 404 — skip the call. A real thread is only created
+    // once the user runs the agent for the first time.
+    if (!isExplicit) {
       return;
     }
 
@@ -254,6 +291,9 @@ watch(
     const hasCustomConnectAgent =
       inspectableAgent.connectAgent !== abstractAgentPrototype.connectAgent;
     if (!hasCustomConnect && !hasCustomConnectAgent) {
+      // No custom connect to wait for — mark as connected so the welcome
+      // suppression / suggestion gating release immediately.
+      lastConnectedThreadId.value = threadId;
       return;
     }
 
@@ -292,6 +332,28 @@ watch(
             return;
           }
           console.error("CopilotChat: connectAgent failed", error);
+        })
+        .finally(() => {
+          // Whether the connect succeeded or failed, we're no longer in
+          // the transitional "connecting" state for this thread — release
+          // the welcome / suggestion gating so the view can settle.
+          //
+          // Defer one animation frame so any trailing reactive commits
+          // from the bootstrap replay (final assistant message content)
+          // paint before isConnecting flips off. Without this, suggestions
+          // can briefly render against an incompletely-laid-out message
+          // tree and visibly snap once the last text chunk lands.
+          if (cycle.detached) {
+            return;
+          }
+          const raf =
+            typeof requestAnimationFrame === "function"
+              ? requestAnimationFrame
+              : (cb: () => void) => setTimeout(cb, 16);
+          raf(() => {
+            if (cycle.detached) return;
+            lastConnectedThreadId.value = cycle.threadId;
+          });
         });
     }
 
@@ -540,6 +602,8 @@ const chatViewSlotProps = computed<CopilotChatViewOverrideSlotProps>(() => ({
   inputValue: inputValue.value,
   inputMode: effectiveMode.value,
   inputToolsMenu: props.inputToolsMenu,
+  isConnecting: isConnecting.value,
+  hasExplicitThreadId: hasExplicitThreadId.value,
   onSubmitMessage: handleSubmitMessage,
   onStop: shouldAllowStop.value ? handleStop : undefined,
   onInputChange: handleInputChange,
@@ -597,6 +661,7 @@ const defaultChatViewBindings = computed(() => {
   <CopilotChatConfigurationProvider
     :agent-id="resolvedAgentId"
     :thread-id="resolvedThreadId"
+    :has-explicit-thread-id="hasExplicitThreadId"
     :labels="resolvedLabels"
   >
     <div ref="attachmentContainerRef" style="display: contents">
@@ -640,6 +705,8 @@ const defaultChatViewBindings = computed(() => {
           :input-value="chatViewSlotProps.inputValue"
           :input-mode="chatViewSlotProps.inputMode"
           :input-tools-menu="chatViewSlotProps.inputToolsMenu"
+          :is-connecting="chatViewSlotProps.isConnecting"
+          :has-explicit-thread-id="chatViewSlotProps.hasExplicitThreadId"
           :on-finish-transcribe-with-audio="
             chatViewSlotProps.onFinishTranscribeWithAudio
           "

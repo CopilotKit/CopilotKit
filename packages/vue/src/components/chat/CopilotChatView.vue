@@ -40,6 +40,8 @@ const props = withDefaults(defineProps<CopilotChatViewProps>(), {
   inputValue: undefined,
   inputMode: "input",
   inputToolsMenu: () => [],
+  isConnecting: false,
+  hasExplicitThreadId: false,
   onFinishTranscribeWithAudio: undefined,
 });
 
@@ -139,7 +141,11 @@ const resolvedInputValue = computed(() =>
   isControlledInput.value ? (props.inputValue ?? "") : localInputValue.value,
 );
 const hasSuggestions = computed(
-  () => Array.isArray(props.suggestions) && props.suggestions.length > 0,
+  () =>
+    !props.isConnecting &&
+    !props.isRunning &&
+    Array.isArray(props.suggestions) &&
+    props.suggestions.length > 0,
 );
 const hasAttachments = computed(
   () => Array.isArray(props.attachments) && props.attachments.length > 0,
@@ -161,7 +167,11 @@ const forwardedMessageViewSlotNames = computed(() =>
   ),
 );
 const shouldShowWelcomeScreen = computed(
-  () => props.messages.length === 0 && props.welcomeScreen !== false,
+  () =>
+    props.messages.length === 0 &&
+    props.welcomeScreen !== false &&
+    !props.isConnecting &&
+    !props.hasExplicitThreadId,
 );
 const hasAddFileAction = computed(() => hasListener("onAddFile"));
 const hasStopAction = computed(() => hasListener("onStop"));

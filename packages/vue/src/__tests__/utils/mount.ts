@@ -60,9 +60,14 @@ export function renderWithCopilotKit(
   const resolvedAgents =
     options.agents ??
     (options.agent ? { [resolvedAgentId]: options.agent } : undefined);
+  // Default `hasExplicitThreadId: false` so the implicit wrapping does not
+  // force callers into "caller picked this thread" mode. Tests that want
+  // explicit-thread semantics (e.g. `/connect` gating, welcome suppression)
+  // override `configProps` to set `hasExplicitThreadId: true`.
   const configProps = options.configProps ?? {
     threadId: resolvedThreadId,
     agentId: resolvedAgentId,
+    hasExplicitThreadId: false,
   };
 
   return mountWithProvider(

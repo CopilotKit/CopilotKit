@@ -43,6 +43,21 @@ export interface CopilotChatViewProps {
   inputValue?: string;
   inputMode?: CopilotChatInputMode;
   inputToolsMenu?: (ToolsMenuItem | "-")[];
+  /**
+   * When `true`, suppresses the welcome screen while a thread's initial
+   * connect is in flight. Prevents the "How can I help you today?" flash
+   * that would otherwise appear between mounting an empty cloned agent and
+   * the bootstrap messages arriving from `/connect`.
+   */
+  isConnecting?: boolean;
+  /**
+   * When `true`, the caller has explicitly picked a thread (via `threadId`
+   * prop or `CopilotChatConfigurationProvider`). Suppresses the welcome
+   * screen unconditionally — a caller-managed thread targets a specific
+   * conversation and should render its messages (or an empty panel during
+   * connect) rather than a generic "start a new chat" greeting.
+   */
+  hasExplicitThreadId?: boolean;
   onRemoveAttachment?: (id: string) => void;
   onAddFile?: () => void;
   onDragOver?: (event: DragEvent) => void;

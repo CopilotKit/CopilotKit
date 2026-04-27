@@ -497,11 +497,163 @@ describe("CopilotChat", () => {
   });
 
   it("does not crash when a local agent connect() throws AGUIConnectNotImplementedError", async () => {
+    // Provide an explicit threadId so the new connect-gating logic actually
+    // exercises the connectAgent call path. Without one, /connect is skipped
+    // entirely (locally-minted UUID would 404), and this test would become
+    // a silent no-op.
     const agent = new StateCapturingAgent();
 
-    mountChat({}, { agents: { default: agent } });
+    mountChat(
+      { threadId: "explicit-thread" },
+      { agents: { default: agent } },
+    );
     await flushPromises();
 
     expect(agent.threadId).toBeDefined();
+  });
+
+  describe("connect-gating (ENT-314)", () => {
+    it("does not call connectAgent when no threadId is supplied", async () => {
+      // Locally-minted UUID has never been seen by the backend; calling
+      // /connect against it would always 404. Skip the call entirely.
+      const agent = new StateCapturingAgent();
+      const connectAgent = vi.spyOn(
+        CopilotKitCoreVue.prototype,
+        "connectAgent",
+      );
+
+      mountChat(
+        { welcomeScreen: false },
+        { agents: { default: agent } },
+      );
+      await flushPromises();
+
+      expect(connectAgent).not.toHaveBeenCalled();
+    });
+
+    it("calls connectAgent when threadId is supplied via props", async () => {
+      const agent = new StateCapturingAgent();
+      const connectAgent = vi.spyOn(
+        CopilotKitCoreVue.prototype,
+        "connectAgent",
+      );
+
+      mountChat(
+        { welcomeScreen: false, threadId: "user-thread-abc" },
+        { agents: { default: agent } },
+      );
+      await flushPromises();
+
+      expect(connectAgent).toHaveBeenCalled();
+    });
+
+    it("calls connectAgent when threadId is supplied via configuration provider", async () => {
+      const agent = new StateCapturingAgent();
+      const connectAgent = vi.spyOn(
+        CopilotKitCoreVue.prototype,
+        "connectAgent",
+      );
+
+      mountChat(
+        { welcomeScreen: false },
+        {
+          agents: { default: agent },
+          providerThreadId: "config-thread-xyz",
+        },
+      );
+      await flushPromises();
+
+      expect(connectAgent).toHaveBeenCalled();
+    });
+
+    it("does not call connectAgent when configuration provider supplies threadId with hasExplicitThreadId=false", async () => {
+      // Mirrors the "auto-minted UUID leaking down" scenario where a parent
+      // provider supplies a threadId but flags it as non-explicit. This is
+      // the Vue equivalent of React's CopilotKit → ThreadsProvider → UUID
+      // chain and must NOT trigger /connect.
+      const agent = new StateCapturingAgent();
+      const connectAgent = vi.spyOn(
+        CopilotKitCoreVue.prototype,
+        "connectAgent",
+      );
+
+      mount(CopilotKitProvider, {
+        props: {
+          agents__unsafe_dev_only: { default: agent },
+        },
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              {
+                threadId: "auto-minted-uuid",
+                hasExplicitThreadId: false,
+              },
+              {
+                default: () => h(CopilotChat, { welcomeScreen: false }),
+              },
+            ),
+        },
+      });
+      await flushPromises();
+
+      expect(connectAgent).not.toHaveBeenCalled();
+    });
+
+    it("flips isConnecting from true to false once connectAgent resolves (raf-deferred)", async () => {
+      // Capture isConnecting via the chat-view slot before and after the
+      // connect promise settles. The raf defer is handled in jsdom because
+      // requestAnimationFrame is polyfilled by the environment.
+      const agent = new StateCapturingAgent();
+      vi.spyOn(
+        CopilotKitCoreVue.prototype,
+        "connectAgent",
+      ).mockImplementation(async () => {
+        return { newMessages: [] } as Awaited<
+          ReturnType<CopilotKitCoreVue["connectAgent"]>
+        >;
+      });
+
+      const observed: Array<boolean | undefined> = [];
+
+      const Recorder = defineComponent({
+        props: {
+          isConnecting: { type: Boolean, default: undefined },
+        },
+        setup(slotProps) {
+          return () => {
+            observed.push(slotProps.isConnecting);
+            return null;
+          };
+        },
+      });
+
+      mount(CopilotKitProvider, {
+        props: {
+          agents__unsafe_dev_only: { default: agent },
+        },
+        slots: {
+          default: () =>
+            h(
+              CopilotChat,
+              { welcomeScreen: false, threadId: "explicit-thread" },
+              {
+                "chat-view": (slotProps: { isConnecting?: boolean }) =>
+                  h(Recorder, { isConnecting: slotProps.isConnecting }),
+              },
+            ),
+        },
+      });
+
+      await flushPromises();
+      // Wait one extra microtask + macrotask so raf callbacks fire.
+      await new Promise((resolve) => setTimeout(resolve, 32));
+      await nextTick();
+
+      // Initial render should have observed isConnecting=true at least once,
+      // and the latest observation should be false.
+      expect(observed.some((value) => value === true)).toBe(true);
+      expect(observed[observed.length - 1]).toBe(false);
+    });
   });
 });
