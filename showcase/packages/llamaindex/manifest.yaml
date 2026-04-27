@@ -37,7 +37,6 @@ features:
   - tool-rendering
   - tool-rendering-default-catchall
   - tool-rendering-custom-catchall
-  - gen-ui-tool-based
   - gen-ui-agent
   - declarative-gen-ui
   - a2ui-fixed-schema
@@ -49,10 +48,7 @@ features:
   - open-gen-ui
   - open-gen-ui-advanced
   - agent-config
-  - mcp-apps
-  - shared-state-read-write
   - shared-state-streaming
-  - subagents
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
@@ -153,17 +149,6 @@ demos:
       - src/app/demos/tool-rendering-custom-catchall/page.tsx
       - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
       - src/app/api/copilotkit/route.ts
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
-    highlight:
-      - src/app/demos/gen-ui-tool-based/agent.py
-      - src/app/demos/gen-ui-tool-based/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -175,17 +160,6 @@ demos:
       - src/app/demos/gen-ui-agent/agent.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
-    highlight:
-      - src/app/demos/shared-state-read-write/agent.py
-      - src/app/demos/shared-state-read-write/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -196,17 +170,6 @@ demos:
     highlight:
       - src/app/demos/shared-state-streaming/agent.py
       - src/app/demos/shared-state-streaming/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
-    animated_preview_url:
-    highlight:
-      - src/app/demos/subagents/agent.py
-      - src/app/demos/subagents/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
@@ -468,14 +431,3 @@ demos:
       - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
       - src/app/demos/open-gen-ui-advanced/suggestions.ts
       - src/app/api/copilotkit-ogui/route.ts
-  - id: mcp-apps
-    name: MCP Apps
-    description: MCP server-driven UI via activity renderers — Excalidraw MCP server exposes drawing tools wrapped in sandboxed iframes
-    tags:
-      - generative-ui
-    route: /demos/mcp-apps
-    animated_preview_url:
-    highlight:
-      - src/agents/mcp_apps_agent.py
-      - src/app/demos/mcp-apps/page.tsx
-      - src/app/api/copilotkit-mcp-apps/route.ts

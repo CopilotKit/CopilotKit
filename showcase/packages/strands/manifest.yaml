@@ -43,18 +43,12 @@ features:
   - frontend-tools-async
   - hitl-in-chat
   - hitl-in-app
-  - tool-rendering
-  - tool-rendering-default-catchall
-  - tool-rendering-custom-catchall
   - tool-rendering-reasoning-chain
-  - gen-ui-tool-based
   - gen-ui-agent
   - declarative-gen-ui
   - a2ui-fixed-schema
-  - shared-state-read-write
   - shared-state-streaming
   - readonly-state-agent-context
-  - subagents
   - multimodal
   - voice
   - auth
@@ -221,40 +215,6 @@ demos:
       - src/app/demos/hitl-in-app/page.tsx
       - src/app/demos/hitl-in-app/approval-dialog.tsx
       - src/app/api/copilotkit/route.ts
-  - id: tool-rendering
-    name: Tool Rendering
-    description: Backend agent tools rendered as UI components
-    tags:
-      - agent-capabilities
-    route: /demos/tool-rendering
-    animated_preview_url:
-    highlight:
-      - src/agents/agent.py
-      - src/app/demos/tool-rendering/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: tool-rendering-default-catchall
-    name: Tool Rendering (Default Catch-all)
-    description: Out-of-the-box tool rendering via useDefaultRenderTool
-    tags:
-      - generative-ui
-    route: /demos/tool-rendering-default-catchall
-    animated_preview_url:
-    highlight:
-      - src/app/demos/tool-rendering-default-catchall/page.tsx
-      - src/agents/agent.py
-      - src/app/api/copilotkit/route.ts
-  - id: tool-rendering-custom-catchall
-    name: Tool Rendering (Custom Catch-all)
-    description: Single branded wildcard renderer via useDefaultRenderTool
-    tags:
-      - generative-ui
-    route: /demos/tool-rendering-custom-catchall
-    animated_preview_url:
-    highlight:
-      - src/app/demos/tool-rendering-custom-catchall/page.tsx
-      - src/app/demos/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
-      - src/agents/agent.py
-      - src/app/api/copilotkit/route.ts
   - id: tool-rendering-reasoning-chain
     name: Tool Rendering + Reasoning Chain
     description: Sequential tool calls with reasoning tokens rendered side-by-side
@@ -266,13 +226,6 @@ demos:
       - src/agents/agent.py
       - src/app/demos/tool-rendering-reasoning-chain/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -303,13 +256,6 @@ demos:
       - src/agents/agent.py
       - src/app/demos/a2ui-fixed-schema/page.tsx
       - src/app/api/copilotkit-a2ui-fixed-schema/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -328,13 +274,6 @@ demos:
       - src/agents/agent.py
       - src/app/demos/readonly-state-agent-context/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
-    animated_preview_url:
   - id: multimodal
     name: Multimodal Attachments
     description: Image and PDF uploads via CopilotChat attachments

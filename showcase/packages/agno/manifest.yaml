@@ -31,11 +31,8 @@ features:
   - agentic-chat
   - hitl-in-chat
   - tool-rendering
-  - gen-ui-tool-based
   - gen-ui-agent
-  - shared-state-read-write
   - shared-state-streaming
-  - subagents
   - prebuilt-sidebar
   - prebuilt-popup
   - chat-slots
@@ -87,17 +84,6 @@ demos:
       - src/agents/main.py
       - src/app/demos/tool-rendering/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: gen-ui-tool-based
-    name: Tool-Based Generative UI
-    description: Agent uses tools to trigger UI generation
-    tags:
-      - generative-ui
-    route: /demos/gen-ui-tool-based
-    animated_preview_url:
-    highlight:
-      - src/agents/main.py
-      - src/app/demos/gen-ui-tool-based/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: gen-ui-agent
     name: Agentic Generative UI
     description: Long-running agent tasks with generated UI
@@ -109,17 +95,6 @@ demos:
       - src/agents/main.py
       - src/app/demos/gen-ui-agent/page.tsx
       - src/app/api/copilotkit/route.ts
-  - id: shared-state-read-write
-    name: Shared State (Read + Write)
-    description: Bidirectional agent state — UI writes preferences, agent writes notes back
-    tags:
-      - agent-state
-    route: /demos/shared-state-read-write
-    animated_preview_url:
-    highlight:
-      - src/agents/main.py
-      - src/app/demos/shared-state-read-write/page.tsx
-      - src/app/api/copilotkit/route.ts
   - id: shared-state-streaming
     name: State Streaming
     description: Per-token state delta streaming from agent to UI
@@ -130,17 +105,6 @@ demos:
     highlight:
       - src/agents/main.py
       - src/app/demos/shared-state-streaming/page.tsx
-      - src/app/api/copilotkit/route.ts
-  - id: subagents
-    name: Sub-Agents
-    description: Multiple agents with visible task delegation
-    tags:
-      - multi-agent
-    route: /demos/subagents
-    animated_preview_url:
-    highlight:
-      - src/agents/main.py
-      - src/app/demos/subagents/page.tsx
       - src/app/api/copilotkit/route.ts
   - id: prebuilt-sidebar
     name: "Pre-Built: Sidebar"
