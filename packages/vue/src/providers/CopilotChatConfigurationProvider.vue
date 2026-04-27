@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, inject, provide, ref } from "vue";
+import { computed, inject, provide, ref } from "vue";
 import type { ComputedRef } from "vue";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
 import { CopilotChatConfigurationKey } from "./keys";
@@ -8,9 +8,15 @@ import type { CopilotChatConfigurationValue, CopilotChatLabels } from "./types";
 import type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
 import { useShallowStableRef } from "../lib/shallow-stable";
 
+// Vue normalizes optional Boolean props to `false` when not supplied; declare
+// `undefined` defaults so we can faithfully distinguish "caller passed false"
+// from "caller did not pass the prop", matching React's prop semantics.
 const props = withDefaults(
   defineProps<CopilotChatConfigurationProviderProps>(),
-  {},
+  {
+    hasExplicitThreadId: undefined,
+    isModalDefaultOpen: undefined,
+  },
 );
 
 const parentConfig = inject<ComputedRef<CopilotChatConfigurationValue> | null>(
@@ -37,16 +43,15 @@ const resolvedThreadId = computed(() => {
   return randomUUID();
 });
 
-const initialVNodeProps = getCurrentInstance()?.vnode.props ?? {};
-const shouldCreateModalState =
-  Object.prototype.hasOwnProperty.call(
-    initialVNodeProps,
-    "isModalDefaultOpen",
-  ) ||
-  Object.prototype.hasOwnProperty.call(
-    initialVNodeProps,
-    "is-modal-default-open",
-  );
+const resolvedHasExplicitThreadId = computed(() => {
+  const ownExplicit =
+    props.hasExplicitThreadId !== undefined
+      ? props.hasExplicitThreadId
+      : !!props.threadId;
+  return ownExplicit || !!parentConfigValue.value?.hasExplicitThreadId;
+});
+
+const shouldCreateModalState = props.isModalDefaultOpen !== undefined;
 const resolvedDefaultOpen = props.isModalDefaultOpen ?? true;
 
 const internalModalOpen = ref<boolean>(
@@ -72,6 +77,7 @@ const configurationValue = computed<CopilotChatConfigurationValue>(() => ({
   labels: mergedLabels.value,
   agentId: resolvedAgentId.value,
   threadId: resolvedThreadId.value,
+  hasExplicitThreadId: resolvedHasExplicitThreadId.value,
   isModalOpen: resolvedIsModalOpen.value,
   setModalOpen: resolvedSetModalOpen.value,
 }));

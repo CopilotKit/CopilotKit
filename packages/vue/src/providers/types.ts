@@ -28,6 +28,13 @@ export interface CopilotChatConfigurationValue {
   labels: CopilotChatLabels;
   agentId: string;
   threadId: string;
+  /**
+   * True when the current `threadId` was chosen by the caller rather than
+   * silently minted inside the provider chain. Consumers that only make
+   * sense against a real backend thread (e.g. `/connect`, suppressing the
+   * welcome screen on switch) gate on this instead of `!!threadId`.
+   */
+  hasExplicitThreadId: boolean;
   isModalOpen?: boolean;
   setModalOpen?: (open: boolean) => void;
 }

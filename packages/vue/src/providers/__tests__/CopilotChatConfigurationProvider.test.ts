@@ -38,6 +38,11 @@ function makeDisplay() {
             { "data-testid": "modal" },
             String(config.value?.isModalOpen),
           ),
+          h(
+            "span",
+            { "data-testid": "explicit" },
+            String(config.value?.hasExplicitThreadId ?? "no-config"),
+          ),
         ]);
     },
   });
@@ -162,6 +167,96 @@ describe("CopilotChatConfigurationProvider", () => {
     const wrapper = mount(TemplateWrapper);
 
     expect(wrapper.find("[data-testid=modal]").text()).toBe("true");
+  });
+
+  describe("hasExplicitThreadId", () => {
+    it("infers true when threadId is supplied and hasExplicitThreadId is omitted", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: { threadId: "thread-1" },
+        slots: { default: () => h(Display) },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("true");
+    });
+
+    it("infers false when neither threadId nor hasExplicitThreadId is supplied", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: {},
+        slots: { default: () => h(Display) },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("false");
+    });
+
+    it("respects hasExplicitThreadId=false even when threadId is present", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: { threadId: "thread-1", hasExplicitThreadId: false },
+        slots: { default: () => h(Display) },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("false");
+    });
+
+    it("explicit parent overrides non-explicit child", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: { threadId: "outer-thread" },
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: "inner-thread", hasExplicitThreadId: false },
+              { default: () => h(Display) },
+            ),
+        },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("true");
+    });
+
+    it("propagates explicitness through a multi-level provider chain", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: { threadId: "level-1" },
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              {},
+              {
+                default: () =>
+                  h(
+                    CopilotChatConfigurationProvider,
+                    {},
+                    { default: () => h(Display) },
+                  ),
+              },
+            ),
+        },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("true");
+    });
+
+    it("non-explicit parent does not prevent an explicit child from being explicit", () => {
+      const Display = makeDisplay();
+      const wrapper = mount(CopilotChatConfigurationProvider, {
+        props: {},
+        slots: {
+          default: () =>
+            h(
+              CopilotChatConfigurationProvider,
+              { threadId: "child-thread" },
+              { default: () => h(Display) },
+            ),
+        },
+      });
+
+      expect(wrapper.find("[data-testid=explicit]").text()).toBe("true");
+    });
   });
 
   it("inherits modal state from parent when child does not define isModalDefaultOpen", async () => {
