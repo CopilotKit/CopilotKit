@@ -15,8 +15,6 @@ Pattern (ported from the LangGraph reference
 from __future__ import annotations
 
 import json
-import os
-import sys
 from textwrap import dedent
 from typing import Annotated
 
@@ -24,11 +22,7 @@ from agent_framework import Agent, BaseChatClient, tool
 from agent_framework_ag_ui import AgentFrameworkAgent
 from pydantic import Field
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
-from tools import build_a2ui_operations_from_tool_call  # noqa: E402
+from tools import build_a2ui_operations_from_tool_call
 
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 

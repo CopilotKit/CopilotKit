@@ -21,18 +21,12 @@ Pairs with the dedicated runtime route
 from __future__ import annotations
 
 import json
-import os
-import sys
 from typing import Annotated
 
 from llama_index.llms.openai import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
-from tools import build_a2ui_operations_from_tool_call  # noqa: E402
+from tools import build_a2ui_operations_from_tool_call
 
 CUSTOM_CATALOG_ID = "declarative-gen-ui-catalog"
 

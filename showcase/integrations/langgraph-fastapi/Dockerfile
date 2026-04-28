@@ -57,9 +57,9 @@ COPY --chown=app:app --from=frontend /app/public ./public
 COPY --chown=app:app langgraph.json ./
 COPY --chown=app:app src/agents/ ./src/agents/
 
-# Shared Python tools (copied into build context by CI)
-COPY --chown=app:app shared_python/ /app/shared/python/
-ENV PYTHONPATH=/app/shared/python
+# Shared Python tools (symlinked in source, copied into build context by CI)
+COPY --chown=app:app tools/ /app/tools/
+ENV PYTHONPATH=/app
 
 # Entrypoint
 COPY --chown=app:app entrypoint.sh ./

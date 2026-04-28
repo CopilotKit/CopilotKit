@@ -8,8 +8,6 @@ Adapted from examples/integrations/ms-agent-framework-python/agent/src/agent.py
 from __future__ import annotations
 
 import json
-import os
-import sys
 from textwrap import dedent
 from typing import Annotated
 
@@ -21,10 +19,6 @@ from pydantic import Field
 # Shared tool implementations
 # =====================================================================
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
 from tools import (
     get_weather_impl,
     query_data_impl,

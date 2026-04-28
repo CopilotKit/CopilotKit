@@ -1,8 +1,7 @@
 """Pytest configuration for strands showcase unit tests.
 
-Ensures ``src/`` (so ``agents.agent`` imports) and the shared-python tools
-directory are both on ``sys.path``. Mirrors the runtime layout produced by
-the Dockerfile (``src/`` → ``WORKDIR``, ``shared_python/`` → ``/app/shared/python``).
+Ensures ``src/`` (so ``agents.agent`` imports) is on ``sys.path``.
+Shared tools are accessible via the ``tools`` symlink at the project root.
 
 Also installs minimal stubs for ``ag_ui_strands`` and ``strands`` so the
 unit tests can run in environments where those heavy runtime deps aren't
@@ -19,8 +18,8 @@ _PKG_ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
 
 # src/ holds agent_server.py and agents/
 sys.path.insert(0, os.path.join(_PKG_ROOT, "src"))
-# shared_python/ holds tools/
-sys.path.insert(0, os.path.join(_PKG_ROOT, "shared_python"))
+# tools/ symlink at project root points to shared/python/tools
+sys.path.insert(0, _PKG_ROOT)
 
 
 class _Permissive:

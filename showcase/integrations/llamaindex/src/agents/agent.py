@@ -9,15 +9,12 @@ the full AG-UI protocol surface automatically.
 """
 
 import json
-import os
-import sys
 from typing import Annotated
 
 from llama_index.llms.openai import OpenAI
 from llama_index.protocols.ag_ui.router import get_ag_ui_workflow_router
 
 # Import shared tool implementations
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
 from tools import (
     get_weather_impl,
     query_data_impl,

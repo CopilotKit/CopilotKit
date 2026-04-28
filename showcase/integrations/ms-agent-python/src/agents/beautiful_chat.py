@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
-import sys
 import uuid
 from pathlib import Path
 from textwrap import dedent
@@ -28,11 +26,7 @@ from agent_framework_ag_ui import AgentFrameworkAgent
 from pydantic import Field
 
 # Shared tool implementations live in `showcase/shared/python/tools/`.
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
-from tools import (  # noqa: E402
+from tools import (
     build_a2ui_operations_from_tool_call,
     search_flights_impl,
 )

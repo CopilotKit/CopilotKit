@@ -31,7 +31,7 @@ import {
   searchFlightsImpl,
   generateA2uiImpl,
   buildA2uiOperationsFromToolCall,
-} from "./shared-tools";
+} from "../../shared-tools";
 
 // ---------------------------------------------------------------------------
 // 1. Agent state — extends CopilotKit state with a proverbs list

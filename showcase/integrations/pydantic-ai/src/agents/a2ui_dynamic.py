@@ -25,8 +25,6 @@ PydanticAI notes:
 from __future__ import annotations
 
 import json
-import os
-import sys
 from textwrap import dedent
 
 from pydantic import BaseModel
@@ -34,10 +32,6 @@ from pydantic_ai import Agent, RunContext
 from pydantic_ai.ag_ui import StateDeps
 from pydantic_ai.models.openai import OpenAIResponsesModel
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
 from tools import build_a2ui_operations_from_tool_call
 
 

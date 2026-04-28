@@ -4,15 +4,6 @@ LangGraph agent for the CopilotKit Showcase (FastAPI variant).
 Uses langgraph.prebuilt.create_react_agent with langgraph>=1.1.0.
 """
 
-import sys
-import os
-
-sys.path.insert(
-    0,
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "..", "..", "shared", "python"
-    ),
-)
 from tools import (
     get_weather_impl,
     query_data_impl,

@@ -18,13 +18,7 @@ from google.adk.tools import ToolContext
 from google.genai import errors as genai_errors
 from google.genai import types
 
-import sys
-import os
-
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
+# Shared tool implementations (via tools symlink -> ../../shared/python/tools)
 from tools import (
     get_weather_impl,
     query_data_impl,

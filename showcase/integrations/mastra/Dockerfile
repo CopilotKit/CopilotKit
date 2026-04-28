@@ -4,11 +4,11 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --legacy-peer-deps
 COPY . .
-# shared_typescript/tools/ is staged into the build context by CI
-# ("Copy shared modules into build context" step in showcase_deploy.yml).
-# The tsconfig.json path alias `@copilotkit/showcase-shared-tools` resolves
-# to ./shared_typescript/tools, so next build needs it present.
-COPY shared_typescript/tools/ ./shared_typescript/tools/
+# shared-tools/ is a symlink to ../../shared/typescript/tools — resolved at
+# build time by CI which copies the target into the build context. The
+# tsconfig.json path alias `@copilotkit/showcase-shared-tools` resolves
+# to ./shared-tools, so next build needs it present.
+COPY shared-tools/ ./shared-tools/
 RUN npx next build
 
 # Stage 2: Production image — runtime only (no build tools)

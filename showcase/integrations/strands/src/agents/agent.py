@@ -11,7 +11,6 @@ so import failures are localized and testable.
 import json
 import logging
 import os
-import sys
 import threading
 from collections.abc import Mapping
 from typing import Optional, TypedDict
@@ -31,9 +30,8 @@ from strands.hooks import (
 )
 from strands.models.openai import OpenAIModel
 
-# Import shared tool implementations
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
-from tools import (  # noqa: E402
+# Import shared tool implementations (symlinked at project root → ../../shared/python/tools)
+from tools import (
     get_weather_impl,
     query_data_impl,
     manage_sales_todos_impl,

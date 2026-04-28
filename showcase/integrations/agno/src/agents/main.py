@@ -7,13 +7,6 @@ from agno.models.openai import OpenAIChat
 from agno.tools import tool
 from dotenv import load_dotenv
 
-import sys
-import os
-
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"),
-)
 from tools import (
     get_weather_impl,
     query_data_impl,

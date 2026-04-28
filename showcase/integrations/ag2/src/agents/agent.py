@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from typing import Annotated, Any
 
 from autogen import ConversableAgent, LLMConfig
@@ -19,7 +18,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import shared tool implementations
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
 from tools import (
     get_weather_impl,
     query_data_impl,

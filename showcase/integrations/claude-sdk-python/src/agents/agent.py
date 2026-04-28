@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 from collections.abc import AsyncIterator
 from textwrap import dedent
 from typing import Any
@@ -52,8 +51,7 @@ class HealthMiddleware(BaseHTTPMiddleware):
 
 load_dotenv()
 
-# Import shared tool implementations
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"))
+# Import shared tool implementations (via tools symlink -> ../../shared/python/tools)
 from tools import (
     get_weather_impl,
     query_data_impl,

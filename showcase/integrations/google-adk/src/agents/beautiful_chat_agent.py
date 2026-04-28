@@ -8,19 +8,11 @@ fonts, theme tokens, and suggestion pills on the frontend.
 
 from __future__ import annotations
 
-import os
-import sys
-
 from google.adk.agents import LlmAgent
 from google.adk.tools import ToolContext
 
-sys.path.insert(
-    0,
-    os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "..", "shared", "python"
-    ),
-)
-from tools import (  # noqa: E402
+# Shared tool implementations (via tools symlink -> ../../shared/python/tools)
+from tools import (
     query_data_impl,
     search_flights_impl,
     schedule_meeting_impl,
