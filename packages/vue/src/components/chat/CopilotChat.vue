@@ -24,6 +24,8 @@ import type { Suggestion } from "@copilotkit/core";
 import CopilotChatConfigurationProvider from "../../providers/CopilotChatConfigurationProvider.vue";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { useCopilotKit } from "../../providers/useCopilotKit";
+import { useLicenseContext } from "../../providers/useLicenseContext";
+import InlineFeatureWarning from "../InlineFeatureWarning.vue";
 import { useAgent } from "../../hooks/use-agent";
 import { useSuggestions } from "../../hooks/use-suggestions";
 import { useAttachments } from "../../hooks/use-attachments";
@@ -149,6 +151,21 @@ const { agent } = useAgent({
 const { suggestions: autoSuggestions } = useSuggestions({
   agentId: resolvedAgentId,
 });
+
+const license = useLicenseContext();
+const isChatLicensed = computed(() => license.value.checkFeature("chat"));
+
+watch(
+  isChatLicensed,
+  (licensed) => {
+    if (!licensed) {
+      console.warn(
+        '[CopilotKit] Warning: "chat" feature is not licensed. Visit copilotkit.ai/pricing',
+      );
+    }
+  },
+  { immediate: true },
+);
 
 const isTranscriptionEnabled = computed(
   () => copilotkit.value.audioFileTranscriptionEnabled,
@@ -705,6 +722,7 @@ const defaultChatViewBindings = computed(() => {
         style="display: none"
         @change="(event) => void handleFileUpload(event)"
       />
+      <InlineFeatureWarning v-if="!isChatLicensed" feature-name="Chat" />
       <div
         v-if="transcriptionError"
         style="

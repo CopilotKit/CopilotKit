@@ -33,7 +33,13 @@ import {
   MCPAppsActivityType,
 } from "../components/MCPAppsActivityRenderer";
 import { CopilotKitKey, SandboxFunctionsKey } from "./keys";
+import {
+  LicenseContextKey,
+  createLicenseContextValue,
+  type LicenseContextValue,
+} from "./license-context";
 import CopilotKitInspector from "../components/CopilotKitInspector.vue";
+import LicenseWarningBanner from "../components/LicenseWarningBanner.vue";
 import type { CopilotKitProviderProps } from "./CopilotKitProvider.types";
 import type {
   SandboxFunction,
@@ -254,6 +260,7 @@ const allRenderCustomMessages = computed(
 );
 const runtimeA2UIEnabled = ref(false);
 const runtimeOpenGenerativeUIEnabled = ref(false);
+const runtimeLicenseStatus = ref<string | undefined>(undefined);
 const openGenerativeUIActive = computed(
   () => runtimeOpenGenerativeUIEnabled.value || !!props.openGenerativeUI,
 );
@@ -396,6 +403,7 @@ watch(
       onRuntimeConnectionStatusChanged: () => {
         runtimeA2UIEnabled.value = core.a2uiEnabled;
         runtimeOpenGenerativeUIEnabled.value = core.openGenerativeUIEnabled;
+        runtimeLicenseStatus.value = core.licenseStatus;
         triggerRef(copilotkit);
       },
     });
@@ -488,6 +496,7 @@ onMounted(() => {
   runtimeA2UIEnabled.value = copilotkit.value.a2uiEnabled;
   runtimeOpenGenerativeUIEnabled.value =
     copilotkit.value.openGenerativeUIEnabled;
+  runtimeLicenseStatus.value = copilotkit.value.licenseStatus;
   didMountRef.value = true;
 });
 
@@ -560,9 +569,36 @@ provide(CopilotKitKey, {
   a2uiIncludeSchema,
 });
 provide(SandboxFunctionsKey, sandboxFunctions);
+
+// License context — driven by server-reported `/info` license status.
+// Stays at the permissive default (`createLicenseContextValue(null)`)
+// to mirror React's current provider behavior; banner rendering below
+// is the sole consumer of `runtimeLicenseStatus`.
+const licenseContextValue = computed<LicenseContextValue>(() =>
+  createLicenseContextValue(null),
+);
+provide(LicenseContextKey, licenseContextValue);
+
+const showNoLicenseBanner = computed(
+  () => runtimeLicenseStatus.value === "none" && !resolvedPublicKey.value,
+);
+const showExpiredBanner = computed(
+  () => runtimeLicenseStatus.value === "expired",
+);
+const showInvalidBanner = computed(
+  () => runtimeLicenseStatus.value === "invalid",
+);
+const showExpiringBanner = computed(
+  () => runtimeLicenseStatus.value === "expiring",
+);
 </script>
 
 <template>
   <slot />
   <CopilotKitInspector v-if="shouldRenderInspector" :core="copilotkit" />
+  <!-- License warnings — driven by server-reported status -->
+  <LicenseWarningBanner v-if="showNoLicenseBanner" type="no_license" />
+  <LicenseWarningBanner v-if="showExpiredBanner" type="expired" />
+  <LicenseWarningBanner v-if="showInvalidBanner" type="invalid" />
+  <LicenseWarningBanner v-if="showExpiringBanner" type="expiring" />
 </template>

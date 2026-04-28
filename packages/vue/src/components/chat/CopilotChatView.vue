@@ -708,6 +708,7 @@ onBeforeUnmount(() => {
             positioning="static"
             :show-disclaimer="true"
             :keyboard-height="effectiveKeyboardHeight"
+            :bottom-anchored="true"
             v-bind="inputEventProps"
           />
         </slot>

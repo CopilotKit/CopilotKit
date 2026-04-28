@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed, watch } from "vue";
 import CopilotChat from "./CopilotChat.vue";
 import CopilotSidebarView from "./CopilotSidebarView.vue";
 import CopilotSidebarWelcomeScreen from "./CopilotSidebarWelcomeScreen.vue";
+import InlineFeatureWarning from "../InlineFeatureWarning.vue";
+import { useLicenseContext } from "../../providers/useLicenseContext";
 import type {
   CopilotChatMessageViewSlotProps,
   CopilotChatViewOverrideSlotProps,
@@ -67,9 +70,25 @@ defineEmits<{
   "cancel-transcribe": [];
   "finish-transcribe": [];
 }>();
+
+const license = useLicenseContext();
+const isSidebarLicensed = computed(() => license.value.checkFeature("sidebar"));
+
+watch(
+  isSidebarLicensed,
+  (licensed) => {
+    if (!licensed) {
+      console.warn(
+        '[CopilotKit] Warning: "sidebar" feature is not licensed. Visit copilotkit.ai/pricing',
+      );
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
+  <InlineFeatureWarning v-if="!isSidebarLicensed" feature-name="Sidebar" />
   <CopilotChat
     v-bind="props"
     @submit-message="$emit('submit-message', $event)"

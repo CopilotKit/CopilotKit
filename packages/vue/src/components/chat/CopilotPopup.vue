@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { computed, watch } from "vue";
 import CopilotChat from "./CopilotChat.vue";
 import CopilotPopupView from "./CopilotPopupView.vue";
 import CopilotPopupWelcomeScreen from "./CopilotPopupWelcomeScreen.vue";
+import InlineFeatureWarning from "../InlineFeatureWarning.vue";
+import { useLicenseContext } from "../../providers/useLicenseContext";
 import type {
   CopilotChatMessageViewSlotProps,
   CopilotChatViewOverrideSlotProps,
@@ -69,9 +72,25 @@ defineEmits<{
   "cancel-transcribe": [];
   "finish-transcribe": [];
 }>();
+
+const license = useLicenseContext();
+const isPopupLicensed = computed(() => license.value.checkFeature("popup"));
+
+watch(
+  isPopupLicensed,
+  (licensed) => {
+    if (!licensed) {
+      console.warn(
+        '[CopilotKit] Warning: "popup" feature is not licensed. Visit copilotkit.ai/pricing',
+      );
+    }
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
+  <InlineFeatureWarning v-if="!isPopupLicensed" feature-name="Popup" />
   <CopilotChat
     v-bind="props"
     @submit-message="$emit('submit-message', $event)"

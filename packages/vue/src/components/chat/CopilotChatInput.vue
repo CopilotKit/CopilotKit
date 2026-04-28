@@ -53,6 +53,20 @@ const props = withDefaults(
     keyboardHeight?: number;
     showDisclaimer?: boolean;
     maxRows?: number;
+    /**
+     * Set to `true` when the input sits at the bottom of its container as a
+     * flex-last-child (visible position is driven by layout, not CSS
+     * positioning). Triggers reservation of bottom space for the fixed
+     * CopilotKit license banner via the
+     * `--copilotkit-license-banner-offset` CSS var so the two don't overlap.
+     *
+     * Not needed when `positioning === "absolute"`; that mode already pins
+     * the input to the bottom and picks up the same reservation
+     * automatically. Leave unset (default `false`) for inputs rendered
+     * mid-layout such as the welcome screen, where the banner offset would
+     * push the input off-center.
+     */
+    bottomAnchored?: boolean;
   }>(),
   {
     disabled: false,
@@ -65,6 +79,7 @@ const props = withDefaults(
     keyboardHeight: 0,
     showDisclaimer: undefined,
     maxRows: 5,
+    bottomAnchored: false,
   },
 );
 
@@ -941,6 +956,9 @@ onBeforeUnmount(() => {
       transform:
         keyboardHeight > 0 ? `translateY(-${keyboardHeight}px)` : undefined,
       transition: 'transform 0.2s ease-out',
+      ...(positioning === 'absolute' || bottomAnchored
+        ? { paddingBottom: 'var(--copilotkit-license-banner-offset, 0px)' }
+        : {}),
     }"
     v-bind="rootAttrs"
   >

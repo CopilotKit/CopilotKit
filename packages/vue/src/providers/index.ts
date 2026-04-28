@@ -4,6 +4,13 @@ export type { DebugConfig } from "@copilotkit/shared";
 export { default as CopilotChatConfigurationProvider } from "./CopilotChatConfigurationProvider.vue";
 export type { CopilotChatConfigurationProviderProps } from "./CopilotChatConfigurationProvider.types";
 export { useCopilotKit } from "./useCopilotKit";
+export { useLicenseContext } from "./useLicenseContext";
+export {
+  LicenseContextKey,
+  createLicenseContextValue,
+  createDefaultLicenseRef,
+  type LicenseContextValue,
+} from "./license-context";
 export { useSandboxFunctions } from "./SandboxFunctionsContext";
 export { useCopilotChatConfiguration } from "./useCopilotChatConfiguration";
 export {
