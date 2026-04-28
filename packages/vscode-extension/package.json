@@ -149,10 +149,6 @@
         "command": "copilotkit.chat.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
-      },
-      {
-        "command": "copilotkit.chat.setApiKey",
-        "title": "CopilotKit: Set Playground LLM API Key"
       }
     ],
     "menus": {
