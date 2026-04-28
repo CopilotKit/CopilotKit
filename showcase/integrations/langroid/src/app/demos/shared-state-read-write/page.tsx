@@ -40,6 +40,7 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent-read]
   // Subscribe the component to agent state changes. Any time the agent
   // mutates its state (e.g. via its `set_notes` tool) the SSE pipeline
   // emits a STATE_SNAPSHOT, this hook fires, we re-render, and the
@@ -48,6 +49,7 @@ function DemoContent() {
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent-read]
 
   useConfigureSuggestions({
     suggestions: [
@@ -81,6 +83,7 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
   // On the agent's next turn, the Langroid handler reads this back out
   // of `RunAgentInput.state` and prepends a system message describing
@@ -91,6 +94,7 @@ function DemoContent() {
       notes, // preserve what the agent has written
     } as RWAgentState);
   };
+  // @endregion[use-agent-write]
 
   // WRITE-BACK: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {

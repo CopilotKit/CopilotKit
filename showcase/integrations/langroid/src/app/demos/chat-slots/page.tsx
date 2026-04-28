@@ -32,12 +32,18 @@ function Chat() {
     available: "always",
   });
 
+  // @region[register-welcome-slot]
   const welcomeScreen = CustomWelcomeScreen;
+  // @endregion[register-welcome-slot]
+  // @region[register-disclaimer-slot]
   const input = { disclaimer: CustomDisclaimer };
+  // @endregion[register-disclaimer-slot]
+  // @region[register-assistant-message-slot]
   const messageView = {
     assistantMessage:
       CustomAssistantMessage as unknown as typeof CopilotChatAssistantMessage,
   };
+  // @endregion[register-assistant-message-slot]
 
   return (
     <CopilotChat
