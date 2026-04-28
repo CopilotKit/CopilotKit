@@ -21,7 +21,7 @@
  *
  * Selector cascade: the LGP reference implementation marks the weather
  * card with `data-testid="weather-card"` (see
- * `showcase/packages/langgraph-python/src/app/demos/tool-rendering/weather-card.tsx`).
+ * `showcase/integrations/langgraph-python/src/app/demos/tool-rendering/weather-card.tsx`).
  * Other integrations may use different testids, class names, or
  * data-attributes for the same card. We probe a 4-selector cascade so
  * the script works across the fleet without a per-integration override:

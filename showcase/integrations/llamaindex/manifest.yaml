@@ -5,7 +5,7 @@ language: python
 logo: /logos/llamaindex.svg
 description: CopilotKit integration with LlamaIndex
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/llamaindex
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/llamaindex
 copilotkit_version: 2.0.0
 backend_url: https://showcase-llamaindex-production.up.railway.app
 deployed: true

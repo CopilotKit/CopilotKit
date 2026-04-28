@@ -57,7 +57,7 @@ NODE_PID=$!
 # returns and Railway restarts the container. The startup probe above
 # already gates the initial readiness window; this watchdog takes over for
 # steady-state monitoring. Generalized from
-# showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+# showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
 (
     FAILS=0
     while sleep 30; do

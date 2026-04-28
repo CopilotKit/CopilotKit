@@ -12,7 +12,7 @@ description: >-
   token state streaming, MCP-driven UI) are documented as skipped in
   PARITY_NOTES.md.
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/spring-ai
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai
 copilotkit_version: 2.0.0
 backend_url: https://showcase-spring-ai-production.up.railway.app
 deployed: true

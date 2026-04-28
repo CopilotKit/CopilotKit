@@ -11,8 +11,8 @@ import type {
 } from "../../types/index.js";
 
 // Driver-level tests for the QA ProbeDriver. The driver reads
-// `showcase/packages/<slug>/manifest.yaml` to get the demos list and checks
-// `showcase/packages/<slug>/qa/<feature>.md` for each demo. Green per-feature
+// `showcase/integrations/<slug>/manifest.yaml` to get the demos list and checks
+// `showcase/integrations/<slug>/qa/<feature>.md` for each demo. Green per-feature
 // rows are emitted for demos that have a qa file; red for those missing.
 // Aggregate (primary return) is green iff every demo has a qa file.
 //
@@ -57,7 +57,7 @@ interface FixtureOpts {
 }
 
 /**
- * Build a throwaway repo-root with `showcase/packages/<slug>/manifest.yaml`
+ * Build a throwaway repo-root with `showcase/integrations/<slug>/manifest.yaml`
  * and optionally some `qa/<feature>.md` files. Returns the repo root so
  * tests can point the driver at it via the QA_REPO_ROOT env var.
  */

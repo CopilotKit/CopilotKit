@@ -3,7 +3,7 @@
  *
  * Three-turn conversation that exercises the LangGraph Python (LGP)
  * `agentic_chat` agent (`/demos/agentic-chat`). The agent has no
- * backend tools (see `showcase/packages/langgraph-python/src/agents/
+ * backend tools (see `showcase/integrations/langgraph-python/src/agents/
  * agentic_chat.py`) — it is a plain conversational agent. The script
  * verifies basic conversational competence AND context retention
  * across turns:

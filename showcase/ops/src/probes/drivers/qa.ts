@@ -9,8 +9,8 @@ import type { ProbeContext, ProbeResult } from "../../types/index.js";
 /**
  * Phase 4A.1 — QA probe driver.
  *
- * Reads `showcase/packages/<slug>/manifest.yaml` to get the list of demos,
- * then checks `showcase/packages/<slug>/qa/<featureId>.md` for each demo.
+ * Reads `showcase/integrations/<slug>/manifest.yaml` to get the list of demos,
+ * then checks `showcase/integrations/<slug>/qa/<featureId>.md` for each demo.
  * Emits one side-row per feature (`qa:<slug>/<featureId>`, green when the
  * file exists, red when missing) plus an aggregate primary result
  * (`qa:<slug>`, green iff every demo has a matching QA file).

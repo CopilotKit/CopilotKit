@@ -1,11 +1,11 @@
 // create-integration.test.ts — exercises the real generator end-to-end
 // against FULLY ISOLATED tmpdir-backed packages and workflows directories.
 //
-// Previously the test pointed the generator at the real `showcase/packages/`
+// Previously the test pointed the generator at the real `showcase/integrations/`
 // and `.github/workflows/` trees and snapshotted the mutated files back to
 // HEAD in `afterEach`. Under `fileParallelism: true` that collided with
 // `generate-registry.test.ts` (concurrent `readdirSync` of
-// `showcase/packages/` saw partial state → ENOENT) AND with every suite that
+// `showcase/integrations/` saw partial state → ENOENT) AND with every suite that
 // healed workflow YAMLs via `git checkout HEAD --` (`.git/index.lock`).
 //
 // The generator now honors `CREATE_INTEGRATION_PACKAGES_DIR` and
@@ -84,9 +84,9 @@ jobs:
         with:
           filters: |
             fixture_a:
-              - 'showcase/packages/fixture-a/**'
+              - 'showcase/integrations/fixture-a/**'
             fixture_b:
-              - 'showcase/packages/fixture-b/**'
+              - 'showcase/integrations/fixture-b/**'
   check-lockfile:
     name: Check Lockfile
     runs-on: ubuntu-latest
@@ -139,7 +139,7 @@ function cleanup() {
 
 beforeAll(() => {
   TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), "create-integration-"));
-  TMP_PACKAGES_DIR = path.join(TMP_ROOT, "packages");
+  TMP_PACKAGES_DIR = path.join(TMP_ROOT, "integrations");
   TMP_WORKFLOWS_DIR = path.join(TMP_ROOT, "workflows");
   TEST_DIR = path.join(TMP_PACKAGES_DIR, TEST_SLUG);
   REGRESSION_DIR = path.join(TMP_PACKAGES_DIR, REGRESSION_SLUG);
@@ -450,7 +450,7 @@ describe("Template Generator", () => {
   // Regression guard — the test-integration-tmp leak.
   //
   // Before the cleanup fix, running the generator scaffolded a package into
-  // showcase/packages/ AND mutated two CI workflow YAMLs (showcase_deploy.yml
+  // showcase/integrations/ AND mutated two CI workflow YAMLs (showcase_deploy.yml
   // and test_smoke-starter.yml). cleanup() only removed the package dir; the
   // workflow mutations leaked into the working tree and on Node 20 CI produced
   // `Timeout calling "onTaskUpdate"` -> ELIFECYCLE on every PR.

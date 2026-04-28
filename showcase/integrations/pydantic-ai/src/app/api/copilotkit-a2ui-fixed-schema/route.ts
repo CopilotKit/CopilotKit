@@ -3,7 +3,7 @@
 // agent owns the `display_flight` tool which emits its own `a2ui_operations`
 // container.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-a2ui-fixed-schema/route.ts.
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-a2ui-fixed-schema/route.ts.
 
 import { NextRequest, NextResponse } from "next/server";
 import {

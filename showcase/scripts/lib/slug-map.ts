@@ -16,14 +16,14 @@
  */
 
 /**
- * Semantic alias: a slug that names a `showcase/packages/<slug>/`
+ * Semantic alias: a slug that names a `showcase/integrations/<slug>/`
  * directory. Structurally a plain string (so external callers can
  * compare against arbitrary strings without ceremony) but named
  * distinctly from `ExamplesDir` so the map signatures below document
  * their direction of mapping. The runtime invariant — every
  * ShowcaseSlug that appears in SLUG_MAP (as a value), SLUG_TO_EXAMPLES
  * (as a key), or FALLBACK_MAP (as a key) is an actual directory under
- * `showcase/packages/` — is enforced by slug-map.test.ts, not by the
+ * `showcase/integrations/` — is enforced by slug-map.test.ts, not by the
  * type system.
  *
  * We deliberately keep this as a type alias (not a branded type) to
@@ -140,7 +140,7 @@ function freezeMap2D<K extends string, V>(
  * edited in lockstep and silently fell out of sync.
  *
  * Entry shape:
- *   - slug           — the `showcase/packages/<slug>/` directory name
+ *   - slug           — the `showcase/integrations/<slug>/` directory name
  *   - bornInShowcase — true iff the package has no examples/integrations
  *                      counterpart (skip instead of warn downstream).
  *                      When true, `examples` MUST be empty.
@@ -150,7 +150,7 @@ function freezeMap2D<K extends string, V>(
  *   - fallback       — if true, expose an entry in FALLBACK_MAP that
  *                      points at `examples[0]`. FALLBACK_MAP documents
  *                      known SLUG_MAP staleness where the slug under
- *                      `showcase/packages/` no longer matches SLUG_MAP's
+ *                      `showcase/integrations/` no longer matches SLUG_MAP's
  *                      examples→slug direction.
  *
  * `SLUG_MAP` (examples → slug) is NOT derived — it reflects the
@@ -335,14 +335,14 @@ export const BORN_IN_SHOWCASE: ReadonlySet<ShowcaseSlug> = freezeSet(
  * examples/integrations, and validate-pins.ts's comments explicitly
  * call out that it is "known stale". FALLBACK_MAP (derived from
  * ENTRIES) documents the corrections where SLUG_MAP no longer matches
- * the current slug under `showcase/packages/`.
+ * the current slug under `showcase/integrations/`.
  *
- * Only entries whose VALUES correspond to real `showcase/packages/<slug>/`
+ * Only entries whose VALUES correspond to real `showcase/integrations/<slug>/`
  * directories are included. Dead entries (crewai-flows → crewai,
  * pydantic-ai → pydanticai, ms-agent-framework-dotnet → maf-dotnet,
  * etc.) were removed because they broke validate-pins.ts's reverse
  * lookup and forced FALLBACK_MAP to re-express the corrections. The
- * slug-map.test.ts pins this invariant against the real packages/ tree
+ * slug-map.test.ts pins this invariant against the real integrations/ tree
  * so future edits cannot reintroduce the drift.
  */
 export const SLUG_MAP: ReadonlyMap<ExamplesDir, ShowcaseSlug> = freezeMap(
@@ -393,7 +393,7 @@ export const SLUG_TO_EXAMPLES: Readonly<
 /**
  * Fallback map used by validate-pins.ts: showcase slug → examples dir
  * name. These entries document known SLUG_MAP staleness — the slug
- * under `showcase/packages/` no longer matches the value in SLUG_MAP,
+ * under `showcase/integrations/` no longer matches the value in SLUG_MAP,
  * so we override here. If SLUG_MAP is refreshed, clean up the
  * `fallback: true` flag on the corresponding ENTRIES row and this
  * map rebuilds to match.

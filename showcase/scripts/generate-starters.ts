@@ -46,12 +46,12 @@ const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const SHOWCASE = path.join(ROOT, "showcase");
 const TEMPLATE_DIR = path.join(SHOWCASE, "starters", "template");
 const STARTERS_DIR = path.join(SHOWCASE, "starters");
-const PACKAGES_DIR = path.join(SHOWCASE, "packages");
+const PACKAGES_DIR = path.join(SHOWCASE, "integrations");
 const SHARED_PYTHON_DIR = path.join(SHOWCASE, "shared", "python");
 const SHARED_TS_DIR = path.join(SHOWCASE, "shared", "typescript", "tools");
 
 // Shared regex for rewriting AGENT_URL port 8000 -> 8123 during .env.example
-// propagation from packages/ to starters/. Exported so the consistency test
+// propagation from integrations/ to starters/. Exported so the consistency test
 // (showcase/scripts/__tests__/starter-consistency.test.ts) can import this
 // exact pattern instead of duplicating a near-copy that drifts. The host
 // portion is deliberately scoped to localhost / 127.0.0.1 so documented
@@ -626,7 +626,7 @@ function getAgentHealthPath(fw: FrameworkDef): string {
  * unreachable agent), kills the agent so `wait -n` returns and Railway/ECS
  * restart the container.
  *
- * Generalized from showcase/packages/crewai-crews/entrypoint.sh (commits
+ * Generalized from showcase/integrations/crewai-crews/entrypoint.sh (commits
  * 9ce651330 + 9379b8855) which proved the shape in production.
  *
  * Parameters (substituted into the emitted shell):
@@ -904,11 +904,11 @@ ${AGENT_HEALTH_CHECK}`;
 function getAgentBuildSteps(fw: FrameworkDef): string {
   if (fw.slug === "claude-sdk-typescript") {
     // Compile agent/index.ts → /app/dist/agent/index.js. Flags match
-    // showcase/packages/claude-sdk-typescript/Dockerfile so starter and
+    // showcase/integrations/claude-sdk-typescript/Dockerfile so starter and
     // package produce equivalent runtime shapes.
     return `# Compile TypeScript agent server to JS so boot is a straight \`node\` call
 # instead of \`npx tsx\` (which does a fresh in-process TS compile on each
-# cold start). Flags match showcase/packages/claude-sdk-typescript/Dockerfile
+# cold start). Flags match showcase/integrations/claude-sdk-typescript/Dockerfile
 # so the starter and package produce equivalent runtime shapes. See also
 # getAgentBuildSteps() in showcase/scripts/generate-starters.ts.
 RUN npx tsc --outDir /app/dist --rootDir . \\

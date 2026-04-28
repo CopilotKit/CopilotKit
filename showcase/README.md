@@ -6,7 +6,7 @@ Per-framework demos of CopilotKit (LangGraph, CrewAI, Mastra, Claude Agent SDK, 
 
 ```
 showcase/
-  packages/<slug>/              # one per framework (17 total) — Dockerfile, src/app/demos/*/, src/agents/ or equivalent
+  integrations/<slug>/              # one per framework (17 total) — Dockerfile, src/app/demos/*/, src/agents/ or equivalent
   shell/                        # hub: home page, /matrix, canonical /integrations/[slug]/[demo]/{preview,code}
   shell-dashboard/              # internal-only feature × integration grid (port 3002)
   shared/
@@ -30,7 +30,7 @@ CI, `npm run build`, `npm run dev`) regenerates them automatically.
 
 | File                   | Generator                   | Shell apps                                     | What it does                                                                                                              |
 | ---------------------- | --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `registry.json`        | `generate-registry.ts`      | shell, shell-docs, shell-dojo, shell-dashboard | Integration manifest — scans `packages/*/manifest.yaml`, builds the full catalog with metadata, feature flags, categories |
+| `registry.json`        | `generate-registry.ts`      | shell, shell-docs, shell-dojo, shell-dashboard | Integration manifest — scans `integrations/*/manifest.yaml`, builds the full catalog with metadata, feature flags, categories |
 | `demo-content.json`    | `bundle-demo-content.ts`    | shell, shell-docs, shell-dojo                  | Bundled source code from every demo directory — powers the Code tab, Snippet components, dojo cell viewer                 |
 | `constraints.json`     | `generate-registry.ts`      | shell                                          | Filter facets for the integration explorer (categories, frameworks, features)                                             |
 | `search-index.json`    | `generate-search-index.ts`  | shell, shell-docs                              | Cmd-K search entries — scans MDX docs, AG-UI content, and registry data                                                   |
@@ -143,7 +143,7 @@ Column ordering lives in `shell-dashboard/src/lib/sort-order.ts` — internal to
 
 ## Iterating on a demo
 
-1. Edit the demo in `packages/<slug>/src/app/demos/<demo-id>/page.tsx` (and the backend under `src/agents/` if applicable).
+1. Edit the demo in `integrations/<slug>/src/app/demos/<demo-id>/page.tsx` (and the backend under `src/agents/` if applicable).
 2. Rebundle so `/code` in `shell` reflects the edit: `cd showcase && npx tsx scripts/bundle-demo-content.ts`.
 3. If you changed `manifest.yaml` or added a feature to `shared/feature-registry.json`: `npx tsx scripts/generate-registry.ts`.
 4. Rebuild + restart the container: `./scripts/dev-local.sh up <slug>`.
@@ -171,7 +171,7 @@ Key invariants:
 
 ### SOP 1: Wire a new demo on an existing integration
 
-1. Edit `showcase/packages/<slug>/manifest.yaml` — add the feature to `features[]` and a corresponding `demos[]` entry with a `route`.
+1. Edit `showcase/integrations/<slug>/manifest.yaml` — add the feature to `features[]` and a corresponding `demos[]` entry with a `route`.
 2. Run `pnpm generate-registry` — updates `registry.json` AND `catalog.json`. The cell flips from `unshipped` to `wired`. Parity tiers auto-recompute.
 3. Commit the manifest + both generated files. PR, merge.
 4. CI rebuilds the package image + dashboard image. Railway auto-deploys both.
@@ -179,14 +179,14 @@ Key invariants:
 
 ### SOP 2: Code fix on an existing demo (no manifest change)
 
-1. Edit code under `showcase/packages/<slug>/src/...`.
+1. Edit code under `showcase/integrations/<slug>/src/...`.
 2. PR, merge. No generator run needed (manifest unchanged).
 3. CI rebuilds the package image. Railway auto-deploys.
 4. Probes re-probe on the next tick. If the fix turns a red cell green, the dashboard updates live. Zero manual steps beyond the normal PR workflow.
 
 ### SOP 3: Add a brand-new integration
 
-1. Create `showcase/packages/<new-slug>/manifest.yaml` with `features[]` + `demos[]`.
+1. Create `showcase/integrations/<new-slug>/manifest.yaml` with `features[]` + `demos[]`.
 2. Add `{"slug": "<new-slug>", "name": "<Display Name>"}` to `showcase/shared/packages.json`.
 3. Provision a Railway service (manual: `railway service create` or Dashboard UI).
 4. Run `pnpm generate-registry` — catalog gains 38 new cells (mostly `unshipped`, some `wired`). Parity tier computed automatically.

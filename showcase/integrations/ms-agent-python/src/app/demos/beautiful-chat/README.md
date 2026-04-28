@@ -39,7 +39,7 @@ time to avoid per-request file I/O.
 ## Notes on framework parity
 
 The canonical reference is LangGraph + Python (see
-`showcase/packages/langgraph-python/src/app/demos/beautiful-chat/`).
+`showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/`).
 The MS Agent Framework port preserves the frontend tree verbatim and
 reimplements the tool surface on `agent_framework.Agent` with the shared
 Python tool helpers in `showcase/shared/python/tools/`.

@@ -1,6 +1,6 @@
 # Parity Notes
 
-Baseline: `showcase/packages/langgraph-python/`.
+Baseline: `showcase/integrations/langgraph-python/`.
 
 This package ports the frontend-composition demos satisfied by the shared
 Claude backend in `src/agents/agent.py`, plus dedicated ogui / headless

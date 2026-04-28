@@ -48,7 +48,7 @@ export interface Integration {
   demos: Demo[];
   /**
    * Per-column docs link overrides sourced from
-   * `showcase/packages/<slug>/docs-links.json`. The `shell_docs_path` is a
+   * `showcase/integrations/<slug>/docs-links.json`. The `shell_docs_path` is a
    * path relative to the shell root; callers combine it with the framework
    * slug to build framework-scoped URLs.
    */

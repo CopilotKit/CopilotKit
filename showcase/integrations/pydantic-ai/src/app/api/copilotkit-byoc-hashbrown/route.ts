@@ -1,6 +1,6 @@
 // Dedicated runtime for the BYOC hashbrown demo.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-byoc-hashbrown/route.ts
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-byoc-hashbrown/route.ts
 // but proxies to the PydanticAI backend's `/byoc_hashbrown/` mount
 // (see src/agent_server.py).
 

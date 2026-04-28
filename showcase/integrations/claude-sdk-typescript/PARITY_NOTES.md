@@ -1,6 +1,6 @@
 # Parity Notes
 
-Baseline: `showcase/packages/langgraph-python/`.
+Baseline: `showcase/integrations/langgraph-python/`.
 
 The Claude Agent SDK (TypeScript) backend is a single pass-through
 `agent_server.ts` that forwards AG-UI tool schemas (frontend-registered +

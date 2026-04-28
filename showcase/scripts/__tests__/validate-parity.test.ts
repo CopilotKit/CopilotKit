@@ -164,11 +164,11 @@ function makeMalformedManifestDir(): string {
   return tmp;
 }
 
-// Build a tree that main() expects: <root>/packages/<slug>/... so
+// Build a tree that main() expects: <root>/integrations/<slug>/... so
 // VALIDATE_PARITY_REPO_ROOT can point at the root.
 function makeMainTree(): { root: string; packagesDir: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "parity-main-"));
-  const packagesDir = path.join(root, "packages");
+  const packagesDir = path.join(root, "integrations");
   fs.mkdirSync(packagesDir, { recursive: true });
   return { root, packagesDir };
 }
@@ -1364,8 +1364,8 @@ describe("validate-parity", () => {
     it("listDirs surfaces ENOTDIR (path component is a file) as listing-failed, not silent 'missing'", () => {
       // Regression: ENOTDIR means "a component in the path is a
       // regular file, not a directory" — e.g. someone committed a
-      // stray file at packages/foo/tests and we try to walk into
-      // packages/foo/tests/e2e. That's a misconfiguration (not a
+      // stray file at integrations/foo/tests and we try to walk into
+      // integrations/foo/tests/e2e. That's a misconfiguration (not a
       // legitimately-absent directory), and collapsing it into
       // { kind: "missing" } silently drops the entire subtree from
       // parity checks with zero warning, zero anomaly surfaced.
@@ -1493,21 +1493,21 @@ describe("validate-parity", () => {
     });
 
     it("exits 3 (unreadable) when packages dir does not exist", () => {
-      // tree.root exists but packages/ was just removed.
+      // tree.root exists but integrations/ was just removed.
       fs.rmSync(tree.packagesDir, { recursive: true, force: true });
       const r = runCli([], {
         env: { VALIDATE_PARITY_REPO_ROOT: tree.root },
       });
       expect(r.status, (r.stdout ?? "") + (r.stderr ?? "")).toBe(3);
-      // Tighten from /packages/i — that would also match log lines that
-      // merely name the string "packages". Pin the actual failure
+      // Tighten from /integrations/i — that would also match log lines that
+      // merely name the string "integrations". Pin the actual failure
       // message so a regression that exits 3 for some other reason
       // can't slip through.
       expect(r.stderr).toMatch(/packages directory not found/);
     });
 
     it("exits 3 (unreadable) when readdirSync on packages dir throws", () => {
-      // Make packages/ exist but unreadable by the current process. Rather
+      // Make integrations/ exist but unreadable by the current process. Rather
       // than chmod 0 (flaky as root / on Windows), we invoke the script
       // with a packages dir that resolves to a regular file instead of a
       // directory — existsSync succeeds, readdirSync throws ENOTDIR. This
@@ -1524,7 +1524,7 @@ describe("validate-parity", () => {
     it("respects VALIDATE_PARITY_REPO_ROOT env-var override", () => {
       // Populate the fixture root and assert main() honors the env var
       // rather than the default packages dir (which would walk real
-      // packages under showcase/packages/).
+      // packages under showcase/integrations/).
       writeFixturePackage(tree.packagesDir, "only-pkg", {
         manifest: "slug: only-pkg\ndemos:\n  - id: chat\n    name: Chat\n",
         demoDirs: ["chat"],

@@ -17,7 +17,7 @@ import yaml from "yaml";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 
 interface Constraints {
   generative_ui: Record<string, { allowed?: string[]; excluded?: string[] }>;

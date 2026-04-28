@@ -5,7 +5,7 @@ language: python
 logo: /logos/pydantic-ai.svg
 description: CopilotKit integration with PydanticAI
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/pydantic-ai
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/pydantic-ai
 copilotkit_version: 2.0.0
 backend_url: https://showcase-pydantic-ai-production.up.railway.app
 deployed: true

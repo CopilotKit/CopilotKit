@@ -4,8 +4,8 @@ on:
   pull_request:
     paths:
       - "showcase/starters/**"
-      - "showcase/packages/*/src/agents/**"
-      - "showcase/packages/*/src/mastra/**"
+      - "showcase/integrations/*/src/agents/**"
+      - "showcase/integrations/*/src/mastra/**"
       - "showcase/scripts/generate-starters.ts"
       - "showcase/shared/python/**"
       - "showcase/shared/typescript/**"
@@ -13,8 +13,8 @@ on:
     branches: [main]
     paths:
       - "showcase/starters/**"
-      - "showcase/packages/*/src/agents/**"
-      - "showcase/packages/*/src/mastra/**"
+      - "showcase/integrations/*/src/agents/**"
+      - "showcase/integrations/*/src/mastra/**"
       - "showcase/scripts/generate-starters.ts"
       - "showcase/shared/python/**"
       - "showcase/shared/typescript/**"

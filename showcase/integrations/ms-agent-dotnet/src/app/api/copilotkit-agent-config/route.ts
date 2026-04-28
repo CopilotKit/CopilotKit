@@ -5,8 +5,8 @@
 // shared state and rebuilds its system prompt per turn.
 //
 // References:
-// - showcase/packages/ms-agent-dotnet/agent/AgentConfigAgent.cs
-// - showcase/packages/ms-agent-dotnet/src/app/demos/agent-config/page.tsx
+// - showcase/integrations/ms-agent-dotnet/agent/AgentConfigAgent.cs
+// - showcase/integrations/ms-agent-dotnet/src/app/demos/agent-config/page.tsx
 
 import { NextRequest, NextResponse } from "next/server";
 import {

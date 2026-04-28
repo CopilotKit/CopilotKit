@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
  * WHY THIS TEST EXISTS
  * ---------------------------------------------------------------------------
  * The langgraph-python showcase specs under
- * `showcase/packages/langgraph-python/tests/e2e/*.spec.ts` run against one of
+ * `showcase/integrations/langgraph-python/tests/e2e/*.spec.ts` run against one of
  * two agent backends:
  *
  *   1. Railway deployment with a real LLM — prompts can be freeform; the
@@ -75,7 +75,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_ROOT = path.resolve(__dirname, "../../../..");
 const SPEC_DIR = path.resolve(
   WORKSPACE_ROOT,
-  "showcase/packages/langgraph-python/tests/e2e",
+  "showcase/integrations/langgraph-python/tests/e2e",
 );
 const FIXTURE_FILE = path.resolve(
   WORKSPACE_ROOT,
@@ -96,7 +96,7 @@ const MIN_PROMPT_LEN = 12;
 /**
  * Hard-coded mapping from spec-file -> suggestion-pill -> actual user
  * message sent. This table mirrors the `useConfigureSuggestions` hook in
- * `showcase/packages/langgraph-python/src/app/demos/beautiful-chat/hooks/
+ * `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/hooks/
  * use-example-suggestions.tsx` and the `suggestions` prop on the chat-slots
  * and prebuilt-sidebar/popup demos. Hand-maintained — if a spec adds a new
  * pill click, its message must be added here.

@@ -18,8 +18,8 @@ on:
   push:
     branches: [main]
     paths:
-      - "showcase/packages/*/src/app/demos/**"
-      - "showcase/packages/*/manifest.yaml"
+      - "showcase/integrations/*/src/app/demos/**"
+      - "showcase/integrations/*/manifest.yaml"
 
 concurrency:
   group: showcase-capture-${{ github.ref }}
@@ -101,8 +101,8 @@ jobs:
         if: github.event_name == 'push'
         run: |
           # Find which package slugs had demo changes
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'showcase/packages/*/src/app/demos/' 'showcase/packages/*/manifest.yaml' | \
-            sed -n 's|showcase/packages/\([^/]*\)/.*|\1|p' | sort -u | tr '\n' ',' | sed 's/,$//')
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- 'showcase/integrations/*/src/app/demos/' 'showcase/integrations/*/manifest.yaml' | \
+            sed -n 's|showcase/integrations/\([^/]*\)/.*|\1|p' | sort -u | tr '\n' ',' | sed 's/,$//')
           echo "slugs=$CHANGED" >> $GITHUB_OUTPUT
           echo "Changed packages: $CHANGED"
 

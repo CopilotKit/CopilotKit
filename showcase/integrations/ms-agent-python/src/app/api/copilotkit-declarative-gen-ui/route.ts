@@ -6,7 +6,7 @@
 // the LLM.
 //
 // Reference:
-// - showcase/packages/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts
+// - showcase/integrations/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts
 // - src/agents/a2ui_dynamic.py (backend agent, mounted at `/a2ui_dynamic`)
 
 import { NextRequest, NextResponse } from "next/server";

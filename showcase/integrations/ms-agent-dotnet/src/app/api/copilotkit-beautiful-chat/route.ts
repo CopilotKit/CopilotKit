@@ -7,7 +7,7 @@
 // `/api/copilotkit` endpoint used by every other cell.
 //
 // References:
-// - showcase/packages/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
+// - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 // - ../copilotkit-multimodal/route.ts (dedicated-route pattern)
 
 import { NextRequest, NextResponse } from "next/server";

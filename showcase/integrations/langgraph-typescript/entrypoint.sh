@@ -69,7 +69,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # that gates the main Hono bind on :8123). After 3 consecutive failures
 # (~90s of unreachable agent), kill the agent process so `wait -n` returns
 # and Railway restarts the container. Generalized from
-# showcase/packages/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
+# showcase/integrations/crewai-crews/entrypoint.sh (PRs #4114 + #4115).
 #
 # Startup grace: langgraph-cli dev does a heavy cold-start (Studio IPC +
 # @langchain/langgraph-api spawn + graph compile). On fresh Railway

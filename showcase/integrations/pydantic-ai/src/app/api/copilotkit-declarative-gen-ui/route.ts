@@ -4,7 +4,7 @@
 // `generate_a2ui` tool itself, so double-binding from the runtime would
 // duplicate the tool slot and confuse the LLM.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts.
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-declarative-gen-ui/route.ts.
 
 import { NextRequest, NextResponse } from "next/server";
 import {

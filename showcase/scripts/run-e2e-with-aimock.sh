@@ -21,7 +21,7 @@ FILTER=${2:-}
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SHOWCASE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PKG_DIR="$SHOWCASE_DIR/packages/$SLUG"
+PKG_DIR="$SHOWCASE_DIR/integrations/$SLUG"
 
 if [ ! -d "$PKG_DIR" ]; then
   echo "[e2e] ERROR: Package directory not found: $PKG_DIR" >&2

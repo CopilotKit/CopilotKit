@@ -8,7 +8,7 @@ description: >-
   protocol. Full feature parity including generative UI, shared state,
   human-in-the-loop, sub-agents, and streaming.
 partner_docs: https://docs.copilotkit.ai/microsoft-agent-framework
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ms-agent-dotnet
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-dotnet
 copilotkit_version: 2.0.0
 backend_url: https://showcase-ms-agent-dotnet-production.up.railway.app
 deployed: true

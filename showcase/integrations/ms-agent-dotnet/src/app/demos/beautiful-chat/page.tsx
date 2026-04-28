@@ -3,7 +3,7 @@
 /**
  * Beautiful Chat — flagship CopilotKit showcase cell, ported from the
  * LangGraph reference at
- * `showcase/packages/langgraph-python/src/app/demos/beautiful-chat/` and
+ * `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/` and
  * rewired to point at the .NET backend's `/beautiful-chat` AG-UI mount.
  *
  * Runtime: dedicated endpoint `/api/copilotkit-beautiful-chat` with

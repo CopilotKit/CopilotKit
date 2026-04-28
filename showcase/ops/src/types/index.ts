@@ -31,7 +31,7 @@ export const DIMENSIONS = [
   "chat",
   "tools",
   // Phase 4A: QA dimension. The `qa` probe driver reads
-  // `showcase/packages/<slug>/qa/<feature>.md` file presence and emits one
+  // `showcase/integrations/<slug>/qa/<feature>.md` file presence and emits one
   // `qa:<slug>/<featureId>` row per manifest demo so the shell-dashboard
   // can render the per-cell QA badge (see shell-dashboard's
   // live-status.ts#resolveCell). The dimension does NOT contribute to the

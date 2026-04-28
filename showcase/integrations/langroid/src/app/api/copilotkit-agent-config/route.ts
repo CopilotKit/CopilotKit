@@ -44,7 +44,7 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 // moved into `forwardedProps.config.configurable.properties`.
 //
 // Keep this list in sync with the upstream canonical implementation:
-// `showcase/packages/langgraph-python/src/app/api/copilotkit-agent-config/route.ts`.
+// `showcase/integrations/langgraph-python/src/app/api/copilotkit-agent-config/route.ts`.
 const RESERVED_FORWARDED_PROPS_KEYS = new Set<string>([
   "config",
   "command",

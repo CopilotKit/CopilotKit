@@ -1,6 +1,6 @@
 # Parity Notes
 
-Baseline: `showcase/packages/langgraph-python/`.
+Baseline: `showcase/integrations/langgraph-python/`.
 
 This document lists demos present in the langgraph-python reference that
 are **not** ported to the PydanticAI showcase, with the reason for each

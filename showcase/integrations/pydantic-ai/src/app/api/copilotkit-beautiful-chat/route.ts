@@ -5,7 +5,7 @@
 // Apps on the same runtime as well; the PydanticAI port omits MCP Apps
 // (see PARITY_NOTES.md).
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts.
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts.
 
 import { NextRequest, NextResponse } from "next/server";
 import {

@@ -1,9 +1,9 @@
 # Probe: qa
 #
 # Per-feature QA checklist presence audit. For each `showcase-<slug>`
-# service the driver reads `showcase/packages/<slug>/manifest.yaml`,
+# service the driver reads `showcase/integrations/<slug>/manifest.yaml`,
 # enumerates the `demos[]` array, and file-stats
-# `showcase/packages/<slug>/qa/<featureId>.md` for each demo.
+# `showcase/integrations/<slug>/qa/<featureId>.md` for each demo.
 #
 # Rows emitted per driver invocation:
 #   - Primary `qa:<slug>`                 ProbeResult carrying the

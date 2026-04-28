@@ -22,7 +22,7 @@
  *   BASE_URL=http://localhost:3000 npx playwright test __tests__/e2e/starter-e2e.spec.ts
  *
  * Or against a package:
- *   cd showcase/packages/langgraph-python
+ *   cd showcase/integrations/langgraph-python
  *   pnpm dev &
  *   cd ../../scripts
  *   BASE_URL=http://localhost:3000 npx playwright test __tests__/e2e/starter-e2e.spec.ts

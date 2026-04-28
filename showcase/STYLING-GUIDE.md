@@ -127,7 +127,7 @@ Always build and test the Docker image locally before pushing:
 
 ```bash
 cd /proj/cpk/CopilotKit
-docker build -f showcase/packages/<slug>/Dockerfile -t <slug>-local showcase/packages/<slug>/
+docker build -f showcase/integrations/<slug>/Dockerfile -t <slug>-local showcase/integrations/<slug>/
 docker run -d --name <slug>-local -p 4444:10000 -e PORT=10000 <slug>-local
 
 # Verify CSS overrides survived the build

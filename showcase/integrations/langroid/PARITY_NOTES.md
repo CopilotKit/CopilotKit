@@ -1,6 +1,6 @@
 # Langroid showcase — parity notes
 
-Tracks demos from the canonical `showcase/packages/langgraph-python/manifest.yaml`
+Tracks demos from the canonical `showcase/integrations/langgraph-python/manifest.yaml`
 that are either deliberately skipped or deferred for the Langroid integration.
 
 Canonical list: 36 demos (excluding `cli-start`).

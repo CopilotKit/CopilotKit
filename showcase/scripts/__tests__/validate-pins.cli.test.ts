@@ -22,7 +22,7 @@ describe("validate-pins CLI exit codes", () => {
     fs.mkdirSync(path.join(repoRoot, "examples", "integrations"), {
       recursive: true,
     });
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations"), {
       recursive: true,
     });
   });
@@ -45,7 +45,7 @@ describe("validate-pins CLI exit codes", () => {
     // the EXIT_UNREADABLE path that missing/empty packages dirs now
     // take.
     const slug = "mastra";
-    const pkgDir = path.join(repoRoot, "showcase", "packages", slug);
+    const pkgDir = path.join(repoRoot, "showcase", "integrations", slug);
     const exDir = path.join(repoRoot, "examples", "integrations", slug);
     fs.mkdirSync(pkgDir, { recursive: true });
     fs.mkdirSync(exDir, { recursive: true });
@@ -69,7 +69,7 @@ describe("validate-pins CLI exit codes", () => {
 
   it("exits 0 when clean (all [OK]/[SKIP])", () => {
     // Create one born-in-showcase slug → [SKIP], FAIL=0, exit 0.
-    fs.mkdirSync(path.join(repoRoot, "showcase", "packages", "ag2"), {
+    fs.mkdirSync(path.join(repoRoot, "showcase", "integrations", "ag2"), {
       recursive: true,
     });
     const r = runCli();

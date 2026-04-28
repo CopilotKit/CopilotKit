@@ -12,7 +12,7 @@ import { AbstractAgent, HttpAgent } from "@ag-ui/client";
 // causes the CopilotKit provider's setTools effect to wipe per-demo
 // `useFrontendTool`/`useComponent` registrations in the default runtime.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-ogui/route.ts
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-ogui/route.ts
 // but proxies to dedicated PydanticAI mounts (see src/agent_server.py).
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";

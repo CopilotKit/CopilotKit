@@ -68,7 +68,7 @@ For each feature type, the authoring inputs were:
 
 | Feature           | LGP source files                                                                                                                                                   |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| agentic-chat      | `showcase/packages/langgraph-python/src/agents/agentic_chat.py`                                                                                                    |
+| agentic-chat      | `showcase/integrations/langgraph-python/src/agents/agentic_chat.py`                                                                                                    |
 | tool-rendering    | `src/agents/tool_rendering_agent.py` (`get_weather`) + `src/app/demos/tool-rendering/weather-card.tsx`                                                             |
 | shared-state      | `src/agents/shared_state_read_write.py` (`set_notes` tool, `Preferences` shared state) + `src/app/demos/shared-state-read-write/{notes-card,preferences-card}.tsx` |
 | hitl-approve-deny | `src/agents/hitl_in_app.py` + `src/app/demos/hitl-in-app/{page,approval-dialog}.tsx` (`request_user_approval` frontend tool)                                       |
@@ -91,8 +91,8 @@ exercising.
 When an LGP agent changes its tool surface, prompt, or expected behavior,
 re-author the affected fixture by hand following the existing pattern:
 
-1. Read the changed agent source in `showcase/packages/langgraph-python/src/agents/<name>.py`.
-2. Read the corresponding demo page in `showcase/packages/langgraph-python/src/app/demos/<id>/page.tsx`
+1. Read the changed agent source in `showcase/integrations/langgraph-python/src/agents/<name>.py`.
+2. Read the corresponding demo page in `showcase/integrations/langgraph-python/src/app/demos/<id>/page.tsx`
    to confirm what tool names the frontend registers / renders.
 3. Update the fixture file in this directory:
    - Match user-typed prompts via `userMessage` substring (unique per turn).

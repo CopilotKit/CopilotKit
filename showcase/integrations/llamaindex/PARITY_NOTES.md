@@ -1,6 +1,6 @@
 # LlamaIndex Parity Notes
 
-This package aligns with `showcase/packages/langgraph-python` in terms of demo coverage. The LlamaIndex package uses **AG-UI workflow routers** (`get_ag_ui_workflow_router`) as its backend primitive. The default router at `/` hosts the shared-tool agent that powers most demos; specialized routers (reasoning, A2UI dynamic/fixed, BYOC json-render, BYOC hashbrown, open-gen-ui, multimodal, voice, agent-config, auth, mcp-apps, tool-rendering-reasoning-chain) live at dedicated subpaths. Per-demo `agent.py` files in the demo directories are thin stubs pointing to the relevant backend module.
+This package aligns with `showcase/integrations/langgraph-python` in terms of demo coverage. The LlamaIndex package uses **AG-UI workflow routers** (`get_ag_ui_workflow_router`) as its backend primitive. The default router at `/` hosts the shared-tool agent that powers most demos; specialized routers (reasoning, A2UI dynamic/fixed, BYOC json-render, BYOC hashbrown, open-gen-ui, multimodal, voice, agent-config, auth, mcp-apps, tool-rendering-reasoning-chain) live at dedicated subpaths. Per-demo `agent.py` files in the demo directories are thin stubs pointing to the relevant backend module.
 
 ## Skipped Demos
 

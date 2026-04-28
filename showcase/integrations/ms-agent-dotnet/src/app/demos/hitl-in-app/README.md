@@ -52,4 +52,4 @@ Use `createPortal(content, document.body)` so the dialog overlays the whole app,
 
 The HITL agent has its own backend endpoint (`/hitl-in-app`) but reuses the main `/api/copilotkit` runtime. In the runtime, the `hitl-in-app` agent name points to `${AGENT_URL}/hitl-in-app` while the other agent names keep pointing at `/`.
 
-Reference parity: `showcase/packages/langgraph-python/src/app/demos/hitl-in-app/`.
+Reference parity: `showcase/integrations/langgraph-python/src/app/demos/hitl-in-app/`.

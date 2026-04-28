@@ -1,6 +1,6 @@
 // Dedicated runtime for the Voice demo.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-voice/route.ts.
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-voice/route.ts.
 // The underlying backing agent is the main sales agent at the root
 // PydanticAI mount — voice is an input-modality concern, not an
 // agent-behaviour concern, so we do NOT spin up a dedicated PydanticAI

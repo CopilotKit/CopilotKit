@@ -306,7 +306,7 @@ describe("parseManifest", () => {
 
   it("returns {kind:'malformed', subkind:'shape'} when demos[i].id is an empty string", () => {
     // Empty ids would round-trip as valid strings but make downstream
-    // demo-path construction (`packages/<slug>/src/app/demos/<id>`) collapse
+    // demo-path construction (`integrations/<slug>/src/app/demos/<id>`) collapse
     // onto the demos dir itself. Reject at validation time.
     const f = path.join(root, "manifest.yaml");
     write(f, 'slug: x\ndemos:\n  - id: ""\n');

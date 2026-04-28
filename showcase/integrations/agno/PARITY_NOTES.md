@@ -1,7 +1,7 @@
 # Agno — Parity Notes
 
 Tracking notes for feature-matrix parity between this package and
-`showcase/packages/langgraph-python/` (canonical reference).
+`showcase/integrations/langgraph-python/` (canonical reference).
 
 ## Ported
 

@@ -1,6 +1,6 @@
 // Dedicated runtime for the BYOC json-render demo.
 //
-// Mirrors showcase/packages/langgraph-python/src/app/api/copilotkit-byoc-json-render/route.ts
+// Mirrors showcase/integrations/langgraph-python/src/app/api/copilotkit-byoc-json-render/route.ts
 // but proxies to the PydanticAI backend's `/byoc_json_render/` mount
 // (see src/agent_server.py).
 

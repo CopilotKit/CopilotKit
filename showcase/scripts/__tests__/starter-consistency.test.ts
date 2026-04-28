@@ -29,7 +29,7 @@ function re8123(): RegExp {
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 const STARTERS_DIR = path.join(ROOT, "showcase", "starters");
-const PACKAGES_DIR = path.join(ROOT, "showcase", "packages");
+const PACKAGES_DIR = path.join(ROOT, "showcase", "integrations");
 const TEMPLATE_DIR = path.join(STARTERS_DIR, "template", "frontend");
 const EXPECTED_SLUGS = FRAMEWORKS.map((f) => f.slug);
 
@@ -207,7 +207,7 @@ describe("Cross-starter consistency", () => {
    * nor ``[nextjs]`` lines appeared in Railway logs) AND caused
    * ``/api/health`` to return 503 with ``agent:"down"`` — because
    * Next.js could not reach the Python agent on ``localhost:8123``. The
-   * package entrypoint (showcase/packages/langroid/entrypoint.sh) uses the
+   * package entrypoint (showcase/integrations/langroid/entrypoint.sh) uses the
    * plain-``&`` pattern and stays green on the same runtime, so we enforce
    * the same pattern here.
    *

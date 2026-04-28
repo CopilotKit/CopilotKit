@@ -6,7 +6,7 @@
 # Usage:
 #   docker compose -f docker-compose.packages.yml up -d aimock
 #   OPENAI_BASE_URL=http://localhost:4010/v1 OPENAI_API_KEY=test-key \
-#     cd ../packages/<slug> && pnpm dev &
+#     cd ../integrations/<slug> && pnpm dev &
 #   npx playwright test
 #
 # Or in CI, reference this as a service container alongside the test runner.

@@ -1,6 +1,6 @@
 // Registry Generator
 //
-// Scans showcase/packages/*/manifest.yaml, validates each against the
+// Scans showcase/integrations/*/manifest.yaml, validates each against the
 // manifest JSON schema, and produces showcase/shell/src/data/registry.json.
 //
 // Usage: npx tsx showcase/scripts/generate-registry.ts
@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const ROOT = path.resolve(__dirname, "..");
-const PACKAGES_DIR = path.join(ROOT, "packages");
+const PACKAGES_DIR = path.join(ROOT, "integrations");
 const SCHEMA_PATH = path.join(ROOT, "shared", "manifest.schema.json");
 const FEATURE_REGISTRY_PATH = path.join(
   ROOT,

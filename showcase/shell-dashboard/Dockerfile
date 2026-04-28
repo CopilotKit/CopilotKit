@@ -17,7 +17,7 @@ RUN cd scripts && npm ci \
 
 # Copy source
 COPY showcase/shared/ ./shared/
-COPY showcase/packages/ ./packages/
+COPY showcase/integrations/ ./packages/
 COPY showcase/scripts/ ./scripts/
 # probe-docs.ts checks for MDX files in shell-docs/src/content/docs/ to
 # determine docs reachability status. Only the content directory is needed.

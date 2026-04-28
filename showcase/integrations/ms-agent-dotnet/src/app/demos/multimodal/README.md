@@ -6,7 +6,7 @@ by a vision-capable ChatClientAgent on the .NET side.
 ## Architecture
 
 - Frontend: `page.tsx` + `sample-attachment-buttons.tsx` — same UX as the
-  LangGraph reference under `showcase/packages/langgraph-python/src/app/demos/multimodal/`.
+  LangGraph reference under `showcase/integrations/langgraph-python/src/app/demos/multimodal/`.
 - Runtime: `/api/copilotkit-multimodal` — proxies to the .NET backend over
   AG-UI (HTTP).
 - Agent: `agent/MultimodalAgent.cs` — a dedicated `ChatClientAgent` wired to

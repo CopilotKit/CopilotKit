@@ -1,7 +1,7 @@
 /**
  * Local types for the byoc-hashbrown demo.
  *
- * Ported from showcase/packages/langgraph-python/src/app/demos/byoc-hashbrown/types.ts.
+ * Ported from showcase/integrations/langgraph-python/src/app/demos/byoc-hashbrown/types.ts.
  */
 export const SALES_STAGES = [
   "prospect",

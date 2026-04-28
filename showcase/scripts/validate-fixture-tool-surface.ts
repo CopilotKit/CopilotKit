@@ -191,7 +191,7 @@ function parseBackendTools(agentFilePath: string): string[] {
 }
 
 /**
- * Parse packages/<slug>/src/app/api/copilotkit/route.ts for the
+ * Parse integrations/<slug>/src/app/api/copilotkit/route.ts for the
  * agentId→graphId map. Recognizes the two patterns the showcase uses:
  *   agents["agent-id"] = createAgent("graph_id")
  *   agents["agent-id"] = createAgent()         // defaults to sample_agent
@@ -288,16 +288,16 @@ function loadGraphs(packagesDir: string, slug: string): Record<string, string> {
 /**
  * Scan the showcase tree and produce a DemoSurface per discovered demo page.
  *
- * Conventions assumed (see showcase/packages/*):
- *   - One demo per directory under packages/<slug>/src/app/demos/<demoId>/
+ * Conventions assumed (see showcase/integrations/*):
+ *   - One demo per directory under integrations/<slug>/src/app/demos/<demoId>/
  *   - The demo's entry is page.tsx with `<CopilotKit agent="..." ...>`
  *   - Suggestions live in a useConfigureSuggestions({ suggestions: [...] }) call
  *     in the same file (or one of its hook imports — we walk hooks/*.tsx too)
- *   - Backend tools for each agentId live in packages/<slug>/src/agents/<agentId>.py
+ *   - Backend tools for each agentId live in integrations/<slug>/src/agents/<agentId>.py
  *     with hyphens mapped to underscores
  */
 export function collectDemoSurfaces(showcaseRoot: string): DemoSurface[] {
-  const packagesDir = path.join(showcaseRoot, "packages");
+  const packagesDir = path.join(showcaseRoot, "integrations");
   if (!fs.existsSync(packagesDir)) return [];
 
   const surfaces: DemoSurface[] = [];

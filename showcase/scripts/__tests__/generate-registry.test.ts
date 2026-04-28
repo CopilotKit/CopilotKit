@@ -114,7 +114,7 @@ describe("Registry Generator", () => {
     const manifestPath = path.resolve(
       SCRIPTS_DIR,
       "..",
-      "packages",
+      "integrations",
       "langgraph-python",
       "manifest.yaml",
     );

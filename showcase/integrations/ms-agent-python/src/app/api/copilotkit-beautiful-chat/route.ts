@@ -7,7 +7,7 @@
 // route enables the combined-runtime shape for the one cell that needs it.
 //
 // References:
-// - showcase/packages/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
+// - showcase/integrations/langgraph-python/src/app/api/copilotkit-beautiful-chat/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
 import {

@@ -5,7 +5,7 @@ language: python
 logo: /logos/ms-agent-python.svg
 description: CopilotKit integration with MS Agent Framework (Python)
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/ms-agent-python
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-python
 copilotkit_version: 2.0.0
 backend_url: https://showcase-ms-agent-python-production.up.railway.app
 deployed: true

@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
 
   langgraph-python:
-    build: ./packages/langgraph-python
+    build: ./integrations/langgraph-python
     image: showcase-langgraph-python:local
     container_name: showcase-langgraph-python
     env_file: .env
@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
 
   langgraph-typescript:
-    build: ./packages/langgraph-typescript
+    build: ./integrations/langgraph-typescript
     image: showcase-langgraph-typescript:local
     container_name: showcase-langgraph-typescript
     env_file: .env
@@ -34,7 +34,7 @@ services:
     restart: unless-stopped
 
   langgraph-fastapi:
-    build: ./packages/langgraph-fastapi
+    build: ./integrations/langgraph-fastapi
     image: showcase-langgraph-fastapi:local
     container_name: showcase-langgraph-fastapi
     env_file: .env
@@ -43,7 +43,7 @@ services:
     restart: unless-stopped
 
   google-adk:
-    build: ./packages/google-adk
+    build: ./integrations/google-adk
     image: showcase-google-adk:local
     container_name: showcase-google-adk
     env_file: .env
@@ -52,7 +52,7 @@ services:
     restart: unless-stopped
 
   mastra:
-    build: ./packages/mastra
+    build: ./integrations/mastra
     image: showcase-mastra:local
     container_name: showcase-mastra
     env_file: .env
@@ -61,7 +61,7 @@ services:
     restart: unless-stopped
 
   crewai-crews:
-    build: ./packages/crewai-crews
+    build: ./integrations/crewai-crews
     image: showcase-crewai-crews:local
     container_name: showcase-crewai-crews
     env_file: .env
@@ -70,7 +70,7 @@ services:
     restart: unless-stopped
 
   pydantic-ai:
-    build: ./packages/pydantic-ai
+    build: ./integrations/pydantic-ai
     image: showcase-pydantic-ai:local
     container_name: showcase-pydantic-ai
     env_file: .env
@@ -79,7 +79,7 @@ services:
     restart: unless-stopped
 
   claude-sdk-python:
-    build: ./packages/claude-sdk-python
+    build: ./integrations/claude-sdk-python
     image: showcase-claude-sdk-python:local
     container_name: showcase-claude-sdk-python
     env_file: .env
@@ -88,7 +88,7 @@ services:
     restart: unless-stopped
 
   claude-sdk-typescript:
-    build: ./packages/claude-sdk-typescript
+    build: ./integrations/claude-sdk-typescript
     image: showcase-claude-sdk-typescript:local
     container_name: showcase-claude-sdk-typescript
     env_file: .env
@@ -97,7 +97,7 @@ services:
     restart: unless-stopped
 
   agno:
-    build: ./packages/agno
+    build: ./integrations/agno
     image: showcase-agno:local
     container_name: showcase-agno
     env_file: .env
@@ -106,7 +106,7 @@ services:
     restart: unless-stopped
 
   ag2:
-    build: ./packages/ag2
+    build: ./integrations/ag2
     image: showcase-ag2:local
     container_name: showcase-ag2
     env_file: .env
@@ -115,7 +115,7 @@ services:
     restart: unless-stopped
 
   llamaindex:
-    build: ./packages/llamaindex
+    build: ./integrations/llamaindex
     image: showcase-llamaindex:local
     container_name: showcase-llamaindex
     env_file: .env
@@ -124,7 +124,7 @@ services:
     restart: unless-stopped
 
   strands:
-    build: ./packages/strands
+    build: ./integrations/strands
     image: showcase-strands:local
     container_name: showcase-strands
     env_file: .env
@@ -133,7 +133,7 @@ services:
     restart: unless-stopped
 
   langroid:
-    build: ./packages/langroid
+    build: ./integrations/langroid
     image: showcase-langroid:local
     container_name: showcase-langroid
     env_file: .env
@@ -142,7 +142,7 @@ services:
     restart: unless-stopped
 
   ms-agent-python:
-    build: ./packages/ms-agent-python
+    build: ./integrations/ms-agent-python
     image: showcase-ms-agent-python:local
     container_name: showcase-ms-agent-python
     env_file: .env
@@ -151,7 +151,7 @@ services:
     restart: unless-stopped
 
   ms-agent-dotnet:
-    build: ./packages/ms-agent-dotnet
+    build: ./integrations/ms-agent-dotnet
     image: showcase-ms-agent-dotnet:local
     container_name: showcase-ms-agent-dotnet
     env_file: .env
@@ -160,7 +160,7 @@ services:
     restart: unless-stopped
 
   spring-ai:
-    build: ./packages/spring-ai
+    build: ./integrations/spring-ai
     image: showcase-spring-ai:local
     container_name: showcase-spring-ai
     env_file: .env

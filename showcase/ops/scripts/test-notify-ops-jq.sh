@@ -25,11 +25,11 @@ set -euo pipefail
 # Fixture matching the real GitHub Actions jobs API shape: a single build
 # job per matrix leg, named `build (<all object fields, comma-separated>)`.
 BUILD_JOBS='[
-  {"name":"build (agno, showcase/packages/agno, showcase-agno, 32cab80b, 15, false, , , /api/health)","conclusion":"failure"},
+  {"name":"build (agno, showcase/integrations/agno, showcase-agno, 32cab80b, 15, false, , , /api/health)","conclusion":"failure"},
   {"name":"build (starter-agno, showcase/starters/agno, showcase-starter-agno, baf9f0db, 15, false, , , /api/health)","conclusion":"success"},
-  {"name":"build (ag2, showcase/packages/ag2, showcase-ag2, 4a37481b, 15, false, , , /api/health)","conclusion":"success"},
+  {"name":"build (ag2, showcase/integrations/ag2, showcase-ag2, 4a37481b, 15, false, , , /api/health)","conclusion":"success"},
   {"name":"build (starter-ag2, showcase/starters/ag2, showcase-starter-ag2, 0d7ce4ea, 15, false, , , /api/health)","conclusion":"failure"},
-  {"name":"build (mastra, showcase/packages/mastra, showcase-mastra, d7979eb7, 15, false, , , /api/health)","conclusion":"success"},
+  {"name":"build (mastra, showcase/integrations/mastra, showcase-mastra, d7979eb7, 15, false, , , /api/health)","conclusion":"success"},
   {"name":"build (starter-mastra, showcase/starters/mastra, showcase-starter-mastra, 315270a7, 15, false, , , /api/health)","conclusion":"success"}
 ]'
 

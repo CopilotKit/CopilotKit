@@ -36,7 +36,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 ## Test Infrastructure Details
 
-### Manual QA Checklists (`showcase/packages/*/qa/*.md`)
+### Manual QA Checklists (`showcase/integrations/*/qa/*.md`)
 
 - 153 files across 17 packages (17 × 9 demos)
 - All 17 packages have checklists for all 9 demos: agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents
@@ -59,7 +59,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 - `screenshots.spec.ts` -- screenshot capture
 - **Gap:** No shared E2E tests for gen-ui-tool-based, gen-ui-agent, shared-state-\*, subagents
 
-### Playwright E2E -- Per-Package (`showcase/packages/*/tests/e2e/`)
+### Playwright E2E -- Per-Package (`showcase/integrations/*/tests/e2e/`)
 
 - Every one of the 17 packages ships 9 per-demo spec files (agentic-chat, hitl-in-chat, tool-rendering, gen-ui-tool-based, gen-ui-agent, shared-state-read, shared-state-write, shared-state-streaming, subagents).
 - `langgraph-python` additionally ships a 10th spec (`renderer-selector.spec.ts`) covering the Sales Dashboard renderer-selector flow; no other package has this spec.

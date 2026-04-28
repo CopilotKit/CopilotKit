@@ -13,7 +13,7 @@ Flagship showcase cell that simultaneously exercises:
 ## Architecture
 
 - Frontend: verbatim port of the LangGraph reference at
-  `showcase/packages/langgraph-python/src/app/demos/beautiful-chat/`.
+  `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/`.
 - Runtime: `/api/copilotkit-beautiful-chat` — combines OGUI + A2UI + MCP
   flags on a single runtime, scoped to this cell only so other demos keep
   their per-cell feature boundaries.

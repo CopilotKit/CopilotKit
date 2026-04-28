@@ -211,7 +211,7 @@ jobs:
           fi
           # Strict slug whitelist: lowercase alphanumerics + hyphens only. This
           # blocks path traversal (`../`), absolute paths, command substitution,
-          # and anything else that could escape `showcase/packages/$SLUG`.
+          # and anything else that could escape `showcase/integrations/$SLUG`.
           case "$SLUG" in
             ''|*[!a-z0-9-]*)
               echo "::error::Invalid slug '$SLUG' — must match ^[a-z0-9-]+$"
@@ -220,8 +220,8 @@ jobs:
           esac
           # Belt-and-suspenders: the slug must correspond to an existing package
           # directory. Rejects typos and anything that bypasses the regex.
-          if [ ! -d "showcase/packages/$SLUG" ]; then
-            echo "::error::Slug '$SLUG' does not map to showcase/packages/$SLUG"
+          if [ ! -d "showcase/integrations/$SLUG" ]; then
+            echo "::error::Slug '$SLUG' does not map to showcase/integrations/$SLUG"
             exit 1
           fi
           echo "slug=$SLUG" >> "$GITHUB_OUTPUT"
@@ -239,7 +239,7 @@ jobs:
         id: pkg-type
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          PKG_DIR="showcase/packages/$SLUG"
+          PKG_DIR="showcase/integrations/$SLUG"
           if [ -f "$PKG_DIR/requirements.txt" ] || [ -f "$PKG_DIR/pyproject.toml" ]; then
             echo "has_python=true" >> "$GITHUB_OUTPUT"
           else
@@ -323,18 +323,18 @@ jobs:
           # tree on every PR run. Key scopes to the selected slug so each
           # package gets its own cache bucket keyed on its requirements.txt.
           cache: "pip"
-          cache-dependency-path: showcase/packages/${{ steps.slug.outputs.slug }}/requirements.txt
+          cache-dependency-path: showcase/integrations/${{ steps.slug.outputs.slug }}/requirements.txt
 
       - name: Start Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
         # NOTE: this workflow tests the SOURCE PACKAGE directly
-        # (showcase/packages/<slug>), whose dev script binds the agent on port
+        # (showcase/integrations/<slug>), whose dev script binds the agent on port
         # 8000. Generated STARTERS (showcase/starters/<slug>) instead bind on
         # port 8123 — that's the production scaffold users copy. If you're
         # debugging a scaffolded starter, the health checks here won't apply.
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           # SECURITY / RELIABILITY trade-off: `pip install` runs setup.py /
           # PEP 517 build hooks from PR-controlled packages. Unlike npm / pnpm
           # there is no `--ignore-scripts` flag for pip; the closest equivalent
@@ -401,7 +401,7 @@ jobs:
       - name: Install package dependencies
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           # `--ignore-scripts`: a trusted commenter can run `/test-aimock` on
           # a PR whose package.json is untrusted content. Without this flag
           # an attacker's postinstall script would execute on the runner with
@@ -412,7 +412,7 @@ jobs:
       - name: Start dev server
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           # Invoke `next dev` directly instead of `pnpm dev` — the package's
           # `pnpm dev` script spawns a SECOND uvicorn on :8000 via concurrently,
           # but the previous "Start Python agent" step already bound :8000. A
@@ -443,7 +443,7 @@ jobs:
 
       - name: Install Playwright
         run: |
-          cd "showcase/packages/${{ steps.slug.outputs.slug }}"
+          cd "showcase/integrations/${{ steps.slug.outputs.slug }}"
           npx playwright install chromium --with-deps
 
       - name: Re-probe aimock liveness
@@ -465,7 +465,7 @@ jobs:
       - name: Run Playwright tests
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
-          cd "showcase/packages/$SLUG"
+          cd "showcase/integrations/$SLUG"
           BASE_URL=http://localhost:3000 npx playwright test --reporter=list
         env:
           CI: "true"
@@ -494,7 +494,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ steps.slug.outputs.slug }}
-          path: showcase/packages/${{ steps.slug.outputs.slug }}/playwright-report/
+          path: showcase/integrations/${{ steps.slug.outputs.slug }}/playwright-report/
           retention-days: 7
           if-no-files-found: ignore
 

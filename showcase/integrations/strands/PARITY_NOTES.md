@@ -1,7 +1,7 @@
 # AWS Strands — LangGraph-Python Parity Notes
 
 This file documents the status of each showcase demo relative to the
-canonical LangGraph-Python showcase package (`showcase/packages/langgraph-python`).
+canonical LangGraph-Python showcase package (`showcase/integrations/langgraph-python`).
 
 The overall architectural difference between the two packages:
 
@@ -62,7 +62,7 @@ Wave-2 port status for the previously deferred demos:
   AND a dedicated runtime that enables `openGenerativeUI` + `a2ui` +
   `mcpApps` simultaneously. That is more work than all four other wave-2
   demos combined and deserves its own blitz. See the LangGraph-Python
-  reference in `showcase/packages/langgraph-python/src/app/demos/beautiful-chat/`
+  reference in `showcase/integrations/langgraph-python/src/app/demos/beautiful-chat/`
   for the full surface area.
 
 ### Per-demo prompt specialization caveat

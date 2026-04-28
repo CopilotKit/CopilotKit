@@ -9,7 +9,7 @@ description: >-
   middleware so the React-side CopilotKit components can drive real ADK agents
   end-to-end.
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/google-adk
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-adk
 copilotkit_version: 2.0.0
 backend_url: https://showcase-google-adk-production.up.railway.app
 deployed: true

@@ -5,7 +5,7 @@
  *   "Always pin agent framework and SDK versions to exact versions from
  *    the working Dojo example."
  *
- * For each showcase package at `showcase/packages/<slug>/`:
+ * For each showcase package at `showcase/integrations/<slug>/`:
  *   1. Resolve its corresponding `examples/integrations/<source>/` dir.
  *   2. Read its dependency files (`package.json`, `requirements.txt`,
  *      `pyproject.toml`).
@@ -46,7 +46,7 @@
  * --- NOTE: SLUG_MAP staleness ---
  *
  * The `SLUG_MAP` imported from `./lib/slug-map.js` can drift from the
- * current set of directory names under `showcase/packages/`. The
+ * current set of directory names under `showcase/integrations/`. The
  * `FALLBACK_MAP` in that shared module supplies the overrides
  * (e.g. `strands -> strands-python`, `ms-agent-dotnet ->
  * ms-agent-framework-dotnet`, `ms-agent-python ->
@@ -186,7 +186,7 @@ function paths() {
   return {
     REPO_ROOT: repoRoot,
     EXAMPLES_DIR: path.join(repoRoot, "examples", "integrations"),
-    PACKAGES_DIR: path.join(repoRoot, "showcase", "packages"),
+    PACKAGES_DIR: path.join(repoRoot, "showcase", "integrations"),
   };
 }
 
@@ -1192,7 +1192,7 @@ function parsePyprojectToml(file: string): DepMap {
 /**
  * Shape returned by `collectDepsFromDir` — used for both the Dojo side
  * (examples/integrations/<source>) and the showcase side
- * (showcase/packages/<slug>). Both sides walk the same
+ * (showcase/integrations/<slug>). Both sides walk the same
  * DEP_FILE_CANDIDATES list; the structure of the result is identical.
  *
  * `DojoDepSources` and `ShowcaseDepSources` are exported as aliases for

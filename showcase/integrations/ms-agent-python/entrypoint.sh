@@ -68,7 +68,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # and Railway restarts the container. We kill the agent (not the whole
 # script) first so `set -e` + `wait -n; exit $?` handles the restart
 # through the normal path rather than a forced `exit` that would bypass
-# logging. Generalized from showcase/packages/crewai-crews/entrypoint.sh
+# logging. Generalized from showcase/integrations/crewai-crews/entrypoint.sh
 # (PRs #4114 + #4115).
 (
   FAILS=0

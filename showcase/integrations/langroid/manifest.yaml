@@ -5,7 +5,7 @@ language: python
 logo: /logos/langroid.svg
 description: CopilotKit integration with Langroid
 partner_docs: null
-repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/packages/langroid
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langroid
 copilotkit_version: 2.0.0
 backend_url: https://showcase-langroid-production.up.railway.app
 deployed: true

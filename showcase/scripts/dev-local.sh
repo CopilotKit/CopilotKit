@@ -21,7 +21,7 @@ PORTS_FILE="$SHOWCASE_DIR/shared/local-ports.json"
 stage_shared() {
   local src_py="$SHOWCASE_DIR/shared/python"
   local src_ts="$SHOWCASE_DIR/shared/typescript/tools"
-  for pkg_dir in "$SHOWCASE_DIR"/packages/*/; do
+  for pkg_dir in "$SHOWCASE_DIR"/integrations/*/; do
     local pkg="$(basename "$pkg_dir")"
     if [ -d "$src_py" ] && grep -q "shared_python" "$pkg_dir/Dockerfile" 2>/dev/null; then
       rsync -a --delete "$src_py/" "$pkg_dir/shared_python/"

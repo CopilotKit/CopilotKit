@@ -4,7 +4,7 @@
 // (see `src/agents/a2ui_fixed.py`).
 //
 // Reference:
-// - showcase/packages/langgraph-python/src/app/api/copilotkit-a2ui-fixed-schema/route.ts
+// - showcase/integrations/langgraph-python/src/app/api/copilotkit-a2ui-fixed-schema/route.ts
 // - src/agents/a2ui_fixed.py (backend agent, mounted at `/a2ui_fixed`)
 
 import { NextRequest, NextResponse } from "next/server";

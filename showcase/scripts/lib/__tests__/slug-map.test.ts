@@ -21,7 +21,7 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const PACKAGES_DIR = path.resolve(__dirname, "..", "..", "..", "packages");
+const PACKAGES_DIR = path.resolve(__dirname, "..", "..", "..", "integrations");
 
 describe("BORN_IN_SHOWCASE", () => {
   it("contains the 5 known born-in-showcase slugs", () => {
@@ -56,11 +56,11 @@ describe("BORN_IN_SHOWCASE", () => {
 });
 
 describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
-  // This test reads the live showcase/packages/ tree. In sparse
+  // This test reads the live showcase/integrations/ tree. In sparse
   // checkouts (CI shards, partial clones) the directory may be absent;
   // skip rather than false-fail when that happens.
   it.skipIf(!fs.existsSync(PACKAGES_DIR))(
-    "has no dead entries — every target dir exists under showcase/packages/",
+    "has no dead entries — every target dir exists under showcase/integrations/",
     () => {
       // Regression guard: the old audit.ts map contained crewai-flows,
       // agent-spec-langgraph, and mcp-apps which produced phantom "no
@@ -70,7 +70,7 @@ describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
         const pkgPath = path.join(PACKAGES_DIR, slug);
         expect(
           fs.existsSync(pkgPath),
-          `SLUG_TO_EXAMPLES slug '${slug}' has no matching showcase/packages/${slug}/`,
+          `SLUG_TO_EXAMPLES slug '${slug}' has no matching showcase/integrations/${slug}/`,
         ).toBe(true);
       }
     },
@@ -78,9 +78,9 @@ describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
 
   // Companion to the skipIf test above — runs UNCONDITIONALLY against a
   // fixture tmpdir so the invariant ("every SLUG_TO_EXAMPLES key has a
-  // matching packages/<slug>/ dir") is still exercised on sparse
+  // matching integrations/<slug>/ dir") is still exercised on sparse
   // checkouts / CI shards / Docker build contexts where the real
-  // showcase/packages/ tree is absent. A skipIf without a contra-positive
+  // showcase/integrations/ tree is absent. A skipIf without a contra-positive
   // assertion is indistinguishable from "test was deleted."
   describe("fixture-based invariant (runs regardless of checkout layout)", () => {
     let fixtureDir: string;
@@ -88,10 +88,10 @@ describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
 
     beforeAll(() => {
       fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "slug-map-fixture-"));
-      fixturePackagesDir = path.join(fixtureDir, "packages");
+      fixturePackagesDir = path.join(fixtureDir, "integrations");
       fs.mkdirSync(fixturePackagesDir, { recursive: true });
       // Seed a directory for every SLUG_TO_EXAMPLES key. This mirrors the
-      // expected layout of showcase/packages/ — the invariant check below
+      // expected layout of showcase/integrations/ — the invariant check below
       // is identical in spirit to the skipIf test, just pointed at a
       // fixture whose contents we fully control.
       for (const slug of Object.keys(SLUG_TO_EXAMPLES)) {
@@ -109,7 +109,7 @@ describe("SLUG_TO_EXAMPLES (showcase slug → examples dir names)", () => {
         const pkgPath = path.join(fixturePackagesDir, slug);
         expect(
           fs.existsSync(pkgPath),
-          `fixture missing packages/${slug}/ — invariant seeding is broken`,
+          `fixture missing integrations/${slug}/ — invariant seeding is broken`,
         ).toBe(true);
         seen.push(slug);
       }
@@ -182,21 +182,21 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
     }
   });
 
-  // Reads the live showcase/packages/ tree — skip in sparse checkouts
+  // Reads the live showcase/integrations/ tree — skip in sparse checkouts
   // where that directory is not materialized.
   it.skipIf(!fs.existsSync(PACKAGES_DIR))(
-    "every VALUE in SLUG_MAP names a real showcase/packages/<slug>/ dir",
+    "every VALUE in SLUG_MAP names a real showcase/integrations/<slug>/ dir",
     () => {
       // Dead-entry guard: the old SLUG_MAP carried values like `crewai`,
       // `maf-dotnet`, `maf-python`, `aws-strands`, `agent-spec-langgraph`,
       // `a2a`, `mcp-apps`, `pydanticai` that did NOT exist under
-      // showcase/packages/. Those broke validate-pins.ts's reverse lookup
+      // showcase/integrations/. Those broke validate-pins.ts's reverse lookup
       // and forced FALLBACK_MAP to re-express the corrections.
       for (const [, slug] of SLUG_MAP) {
         const pkgPath = path.join(PACKAGES_DIR, slug);
         expect(
           fs.existsSync(pkgPath),
-          `SLUG_MAP value '${slug}' has no matching showcase/packages/${slug}/`,
+          `SLUG_MAP value '${slug}' has no matching showcase/integrations/${slug}/`,
         ).toBe(true);
       }
     },
@@ -204,7 +204,7 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
 
   // Companion to the skipIf test above — runs UNCONDITIONALLY against a
   // fixture tmpdir so the SLUG_MAP value invariant is exercised even
-  // when showcase/packages/ is absent. Without this, a sparse CI
+  // when showcase/integrations/ is absent. Without this, a sparse CI
   // checkout would silently skip the invariant and a regression
   // (reintroducing a dead value like `crewai` / `mcp-apps`) would pass.
   describe("fixture-based SLUG_MAP invariant (runs regardless of checkout layout)", () => {
@@ -213,7 +213,7 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
 
     beforeAll(() => {
       fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "slug-map-fixture-"));
-      fixturePackagesDir = path.join(fixtureDir, "packages");
+      fixturePackagesDir = path.join(fixtureDir, "integrations");
       fs.mkdirSync(fixturePackagesDir, { recursive: true });
       // Seed the fixture with every unique VALUE in SLUG_MAP plus every
       // FALLBACK_MAP target — those are the invariants we enforce.
@@ -235,7 +235,7 @@ describe("SLUG_MAP (examples dir → showcase slug)", () => {
         const pkgPath = path.join(fixturePackagesDir, slug);
         expect(
           fs.existsSync(pkgPath),
-          `fixture missing packages/${slug}/ — seeding is broken`,
+          `fixture missing integrations/${slug}/ — seeding is broken`,
         ).toBe(true);
         iter++;
       }
