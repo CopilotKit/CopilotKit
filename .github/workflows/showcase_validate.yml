@@ -585,7 +585,12 @@ jobs:
                 continue
               }
             fi
-            (cd "$pkg_dir" && python -m pytest tests/python/ -v) || failed=1
+            # Export PYTHONPATH so `from tools import ...` in agent modules
+            # resolves via the `tools` symlink at the integration root.
+            # Also include src/ so `from agents.X import ...` works even if
+            # a conftest.py omits the sys.path setup. Mirrors the local dev
+            # convention (`PYTHONPATH=. python ...` in package.json scripts).
+            (cd "$pkg_dir" && PYTHONPATH=".:src:${PYTHONPATH:-}" python -m pytest tests/python/ -v) || failed=1
           done
           if [ "$found" -eq 0 ]; then
             echo "::warning::No showcase/integrations/*/tests/python/ directories found"
