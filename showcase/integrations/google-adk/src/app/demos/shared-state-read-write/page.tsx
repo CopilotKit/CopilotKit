@@ -34,10 +34,12 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent-read]
   const { agent } = useAgent({
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent-read]
 
   useConfigureSuggestions({
     suggestions: [
@@ -89,6 +91,7 @@ function DemoContent() {
   // before React re-renders can still write the same snapshot twice —
   // CopilotKit's STATE_DELTA stream resolves the merge upstream and
   // either order is correct because both writes carry the full pair.
+  // @region[use-agent-write]
   const handlePreferencesChange = (next: Preferences) => {
     agent.setState({
       ...(agentState as object | undefined),
@@ -96,6 +99,7 @@ function DemoContent() {
       notes: agentState?.notes ?? [],
     } as RWAgentState);
   };
+  // @endregion[use-agent-write]
 
   const handleClearNotes = () => {
     agent.setState({

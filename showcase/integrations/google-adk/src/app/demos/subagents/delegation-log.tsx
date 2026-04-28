@@ -2,6 +2,7 @@
 
 import React from "react";
 
+// @region[delegation-log-frontend]
 export interface Delegation {
   id: string;
   sub_agent: "research_agent" | "writing_agent" | "critique_agent";
@@ -104,3 +105,4 @@ export function DelegationLog({ delegations }: { delegations: Delegation[] }) {
     </div>
   );
 }
+// @endregion[delegation-log-frontend]

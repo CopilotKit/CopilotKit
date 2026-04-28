@@ -33,10 +33,12 @@ function Chat() {
   return (
     <div className="flex justify-center items-center h-screen w-full bg-gray-50">
       <div className="h-full w-full max-w-4xl">
+        {/* @region[default-reasoning-zero-config] */}
         <CopilotChat
           agentId="reasoning_default_render"
           className="h-full rounded-2xl"
         />
+        {/* @endregion[default-reasoning-zero-config] */}
       </div>
     </div>
   );

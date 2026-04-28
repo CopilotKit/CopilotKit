@@ -24,6 +24,7 @@ export interface PreferencesCardProps {
   onChange: (next: Preferences) => void;
 }
 
+// @region[preferences-card-render]
 export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
   const set = <K extends keyof Preferences>(key: K, v: Preferences[K]) =>
     onChange({ ...value, [key]: v });
@@ -132,3 +133,4 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
     </div>
   );
 }
+// @endregion[preferences-card-render]

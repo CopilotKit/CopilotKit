@@ -37,10 +37,12 @@ function DemoContent() {
   return (
     <div className="flex justify-center items-center h-screen w-full bg-gray-50">
       <div className="h-full w-full max-w-4xl">
+        {/* @region[default-catchall-zero-config] */}
         <CopilotChat
           agentId="tool_rendering_default_catchall"
           className="h-full rounded-2xl"
         />
+        {/* @endregion[default-catchall-zero-config] */}
       </div>
     </div>
   );

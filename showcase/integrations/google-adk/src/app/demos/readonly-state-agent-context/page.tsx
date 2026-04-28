@@ -20,15 +20,19 @@ export default function ReadonlyStateAgentContextDemo() {
 }
 
 function DemoContent() {
+  // @region[context-provider-sketch]
   const [userName, setUserName] = useState("Daisy");
   const [role, setRole] = useState("Frontend engineer");
   const [project, setProject] = useState(
     "Building a CopilotKit + Google ADK showcase",
   );
+  // @endregion[context-provider-sketch]
 
+  // @region[use-agent-context-call]
   useAgentContext({ description: "User name", value: userName });
   useAgentContext({ description: "User role", value: role });
   useAgentContext({ description: "Current project", value: project });
+  // @endregion[use-agent-context-call]
 
   useConfigureSuggestions({
     suggestions: [

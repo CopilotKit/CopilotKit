@@ -24,10 +24,12 @@ export default function SharedStateStreamingDemo() {
 }
 
 function DemoContent() {
+  // @region[frontend-use-coagent-state]
   const { agent } = useAgent({
     agentId: "shared-state-streaming",
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
+  // @endregion[frontend-use-coagent-state]
 
   useConfigureSuggestions({
     suggestions: [

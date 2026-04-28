@@ -12,6 +12,8 @@ import { HttpAgent } from "@ag-ui/client";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
+// @region[minimal-runtime-flag]
+// @region[advanced-runtime-config]
 const runtime = new CopilotRuntime({
   // @ts-expect-error -- see main route.ts
   agents: {
@@ -29,6 +31,8 @@ const runtime = new CopilotRuntime({
     agents: ["open-gen-ui", "open-gen-ui-advanced"],
   },
 });
+// @endregion[advanced-runtime-config]
+// @endregion[minimal-runtime-flag]
 
 export const POST = async (req: NextRequest) => {
   try {

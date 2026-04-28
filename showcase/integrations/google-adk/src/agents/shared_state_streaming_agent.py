@@ -54,6 +54,7 @@ _INSTRUCTION = (
     "belongs in shared state and the UI renders it live as you type."
 )
 
+# @region[state-streaming-middleware]
 shared_state_streaming_agent = LlmAgent(
     name="SharedStateStreamingAgent",
     model=get_model(),
@@ -71,3 +72,4 @@ SHARED_STATE_STREAMING_PREDICT_STATE = [
         stream_tool_call=True,
     ),
 ]
+# @endregion[state-streaming-middleware]

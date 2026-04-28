@@ -31,6 +31,7 @@ function Chat() {
   // runtime emits `"inProgress" | "executing" | "complete"`; both
   // pre-completion states render identically, so collapse them to
   // "executing" before handing off to the renderer.
+  // @region[use-default-render-tool-wildcard]
   useDefaultRenderTool(
     {
       render: ({ name, parameters, status, result }) => (
@@ -44,6 +45,7 @@ function Chat() {
     },
     [],
   );
+  // @endregion[use-default-render-tool-wildcard]
 
   useConfigureSuggestions({
     suggestions: [

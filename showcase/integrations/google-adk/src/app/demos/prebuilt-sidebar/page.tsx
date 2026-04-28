@@ -9,9 +9,11 @@ import {
 
 export default function PrebuiltSidebarDemo() {
   return (
+    // @region[sidebar-basic-setup]
     <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt_sidebar">
       <DemoContent />
     </CopilotKit>
+    // @endregion[sidebar-basic-setup]
   );
 }
 
@@ -44,10 +46,12 @@ function DemoContent() {
           tools, no state. All the polish is on the frontend.
         </p>
       </main>
+      {/* @region[sidebar-configuration] */}
       <CopilotSidebar
         defaultOpen={true}
         labels={{ modalHeaderTitle: "AI Assistant" }}
       />
+      {/* @endregion[sidebar-configuration] */}
     </div>
   );
 }

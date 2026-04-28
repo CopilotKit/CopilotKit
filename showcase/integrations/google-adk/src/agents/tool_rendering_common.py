@@ -19,9 +19,11 @@ from tools import (
 )
 
 
+# @region[weather-tool-backend]
 def get_weather(tool_context: ToolContext, location: str) -> dict:
     """Get the weather for a given location."""
     return get_weather_impl(location)
+# @endregion[weather-tool-backend]
 
 
 def search_flights(tool_context: ToolContext, flights: list[dict]) -> dict:

@@ -2,6 +2,7 @@
 
 import React from "react";
 
+// @region[notes-card-render]
 export function NotesCard({
   notes,
   onClear,
@@ -58,3 +59,4 @@ export function NotesCard({
     </div>
   );
 }
+// @endregion[notes-card-render]

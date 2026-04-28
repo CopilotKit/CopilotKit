@@ -210,6 +210,7 @@ def _delegate(
     return {"status": "completed", "result": result}
 
 
+# @region[supervisor-delegation-tools]
 def research_agent(tool_context: ToolContext, topic: str) -> dict:
     """Delegate a research task to the research sub-agent.
 
@@ -253,6 +254,7 @@ def critique_agent(tool_context: ToolContext, draft: str) -> dict:
         system_prompt=_CRITIQUE_SYSTEM,
         task=draft,
     )
+# @endregion[supervisor-delegation-tools]
 
 
 _SUPERVISOR_INSTRUCTION = (
@@ -273,9 +275,11 @@ _SUPERVISOR_INSTRUCTION = (
     "every sub-agent delegation, including the in-flight 'running' state."
 )
 
+# @region[subagent-setup]
 subagents_root_agent = LlmAgent(
     name="SubagentsSupervisor",
     model=get_model(_SUB_MODEL),
     instruction=_SUPERVISOR_INSTRUCTION,
     tools=[research_agent, writing_agent, critique_agent],
 )
+# @endregion[subagent-setup]

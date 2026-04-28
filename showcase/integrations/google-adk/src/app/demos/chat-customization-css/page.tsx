@@ -7,7 +7,9 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
+// @region[theme-css-import]
 import "./theme.css";
+// @endregion[theme-css-import]
 
 export default function ChatCustomizationCssDemo() {
   return (
