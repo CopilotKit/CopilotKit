@@ -245,7 +245,7 @@ describe("defineToolCallRenderer", () => {
             email: z.string().email(),
           }),
           options: z.array(z.string()),
-          metadata: z.record(z.unknown()).optional(),
+          metadata: z.record(z.string(), z.unknown()).optional(),
         }),
         render: ({ args, status }) => {
           if (status === ToolCallStatus.Executing) {
