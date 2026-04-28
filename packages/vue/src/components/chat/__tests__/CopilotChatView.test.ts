@@ -88,9 +88,7 @@ describe("CopilotChatView", () => {
       wrapper.find("[data-testid='copilot-chat-view-welcome-screen']").exists(),
     ).toBe(false);
     expect(
-      wrapper
-        .find("[data-testid='copilot-chat-view-input-container']")
-        .exists(),
+      wrapper.find("[data-testid='copilot-input-overlay']").exists(),
     ).toBe(true);
   });
 

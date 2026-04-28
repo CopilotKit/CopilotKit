@@ -1118,7 +1118,7 @@ describe("CopilotChatView Slot System E2E Tests", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         const inputContainer = container.querySelector(
-          "[data-testid='copilot-chat-view-input-container']",
+          "[data-testid='copilot-input-overlay']",
         ) as HTMLElement | null;
         expect(inputContainer).not.toBeNull();
         // The input's absolute positioning wrapper inside the chat view

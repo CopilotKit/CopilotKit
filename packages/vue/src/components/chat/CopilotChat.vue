@@ -13,6 +13,7 @@ import {
   computed,
   onBeforeUnmount,
   onMounted,
+  provide,
   ref,
   shallowRef,
   useAttrs,
@@ -32,6 +33,10 @@ import {
   TranscriptionError,
 } from "../../lib/transcription-client";
 import CopilotChatView from "./CopilotChatView.vue";
+import {
+  LastUserMessageKey,
+  type LastUserMessageState,
+} from "./last-user-message-context";
 import type { Message } from "@ag-ui/core";
 import type { InputContent } from "@copilotkit/shared";
 import type {
@@ -181,6 +186,32 @@ const isRunning = computed(() => {
 const shouldAllowStop = computed(
   () => isRunning.value && messages.value.length > 0,
 );
+
+// Track the latest user message id so descendants (notably `usePinToSend`
+// inside `CopilotChatView`) can anchor to the most recent user turn.
+// Mirrors React `CopilotChat.tsx` `lastUserMessageId` + `sendNonce` state.
+const lastUserMessageId = computed<string | null>(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const message = messages.value[i];
+    if (message?.role === "user") return message.id;
+  }
+  return null;
+});
+const sendNonce = ref(0);
+// Seed with the current value so restoring a thread with existing messages
+// does not count as a new send. Only later id transitions bump.
+let prevLastUserMessageId: string | null = lastUserMessageId.value;
+watch(lastUserMessageId, (next) => {
+  if (next && next !== prevLastUserMessageId) {
+    sendNonce.value += 1;
+    prevLastUserMessageId = next;
+  }
+});
+const lastUserMessageState = computed<LastUserMessageState>(() => ({
+  id: lastUserMessageId.value,
+  sendNonce: sendNonce.value,
+}));
+provide(LastUserMessageKey, lastUserMessageState);
 
 watch(
   () => agent.value,

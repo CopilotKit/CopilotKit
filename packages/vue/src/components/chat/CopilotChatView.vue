@@ -15,11 +15,13 @@ import type { Attachment } from "@copilotkit/shared";
 import { useCopilotChatConfiguration } from "../../providers/useCopilotChatConfiguration";
 import { CopilotChatDefaultLabels } from "../../providers/types";
 import { useKeyboardHeight } from "../../hooks/use-keyboard-height";
+import { usePinToSend } from "../../hooks/use-pin-to-send";
 import { IconChevronDown } from "../icons";
 import CopilotChatInput from "./CopilotChatInput.vue";
 import CopilotChatAttachmentQueue from "./CopilotChatAttachmentQueue.vue";
 import CopilotChatMessageView from "./CopilotChatMessageView.vue";
 import CopilotChatSuggestionView from "./CopilotChatSuggestionView.vue";
+import { normalizeAutoScroll } from "./normalize-auto-scroll";
 import type {
   CopilotChatInputMode,
   CopilotChatInterruptSlotProps,
@@ -27,7 +29,9 @@ import type {
   ToolsMenuItem,
 } from "./types";
 
-const FEATHER_HEIGHT = 96;
+// Vertical gap between the scroll-to-bottom button and the input container.
+// Mirrors React `CopilotChatView` `SCROLL_BUTTON_OFFSET`.
+const SCROLL_BUTTON_OFFSET = 16;
 const SCROLL_BOTTOM_THRESHOLD = 12;
 
 const props = withDefaults(defineProps<CopilotChatViewProps>(), {
@@ -124,11 +128,33 @@ const componentSlots = useSlots();
 
 const scrollContainerRef = ref<HTMLElement | null>(null);
 const scrollContentRef = ref<HTMLElement | null>(null);
+const spacerRef = ref<HTMLElement | null>(null);
 const inputContainerRef = ref<HTMLElement | null>(null);
 const inputContainerHeight = ref(0);
 const isAtBottom = ref(true);
 const isControlledInput = computed(() => props.inputValue !== undefined);
 const localInputValue = ref(props.inputValue ?? "");
+
+// Normalize the `autoScroll` prop into the canonical mode triplet
+// (`pin-to-bottom` | `pin-to-send` | `none`). Boolean back-compat is
+// preserved by `normalizeAutoScroll` (parity with React).
+const autoScrollMode = computed(() => normalizeAutoScroll(props.autoScroll));
+const isPinToBottomMode = computed(
+  () => autoScrollMode.value === "pin-to-bottom",
+);
+const isPinToSendMode = computed(
+  () => autoScrollMode.value === "pin-to-send",
+);
+
+// `usePinToSend` is always wired but bails internally when the spacer ref
+// is null — i.e. unless `pin-to-send` mode is active and the spacer div
+// has been mounted in the template.
+usePinToSend({
+  scrollRef: scrollContainerRef,
+  contentRef: scrollContentRef,
+  spacerRef,
+  topOffset: 16,
+});
 
 // Track mobile keyboard state so the input can translate itself above the
 // on-screen keyboard (matches React CopilotChatView behavior).
@@ -187,9 +213,13 @@ const hasFinishTranscribeAction = computed(() =>
 const hasFinishTranscribeWithAudioAction = computed(
   () => typeof props.onFinishTranscribeWithAudio === "function",
 );
+// Mirrors React: `paddingBottom = inputContainerHeight + (hasSuggestions ? 4 : 32)`.
+// React intentionally does NOT add bonus padding for attachments — the
+// attachment queue lives inside the input overlay, so its height is already
+// captured by the overlay's measured `inputContainerHeight`.
 const messagePaddingBottom = computed(
   () =>
-    `${inputContainerHeight.value + FEATHER_HEIGHT + (hasSuggestions.value || hasAttachments.value ? 4 : 32)}px`,
+    `${inputContainerHeight.value + (hasSuggestions.value ? 4 : 32)}px`,
 );
 const showScrollToBottomButton = computed(
   () => !shouldShowWelcomeScreen.value && !isAtBottom.value,
@@ -212,7 +242,7 @@ watch(
   async () => {
     const wasAtBottom = isAtBottom.value;
     await nextTick();
-    if (!props.autoScroll || !wasAtBottom) {
+    if (!isPinToBottomMode.value || !wasAtBottom) {
       return;
     }
     scrollToBottom("auto");
@@ -352,7 +382,7 @@ onMounted(async () => {
   await nextTick();
   syncInputContainerHeight();
   updateIsAtBottom();
-  if (props.autoScroll) {
+  if (isPinToBottomMode.value) {
     scrollToBottom("auto");
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
@@ -362,11 +392,19 @@ onMounted(async () => {
   }
 
   if (typeof ResizeObserver !== "undefined" && inputContainerRef.value) {
-    inputResizeObserver = new ResizeObserver(() => {
+    // Read `entry.contentRect.height` rather than `offsetHeight` to mirror
+    // React's overlay-resize callback. `contentRect` is more reliable in
+    // jsdom (test environments) where layout isn't computed.
+    inputResizeObserver = new ResizeObserver((entries) => {
       const wasAtBottom = isAtBottom.value;
-      syncInputContainerHeight();
+      const measured = entries[0]?.contentRect?.height;
+      if (typeof measured === "number") {
+        inputContainerHeight.value = measured;
+      } else {
+        syncInputContainerHeight();
+      }
       updateIsAtBottom();
-      if (props.autoScroll && wasAtBottom) {
+      if (isPinToBottomMode.value && wasAtBottom) {
         scrollToBottom("auto");
       }
     });
@@ -377,7 +415,7 @@ onMounted(async () => {
     contentResizeObserver = new ResizeObserver(() => {
       const wasAtBottom = isAtBottom.value;
       updateIsAtBottom();
-      if (props.autoScroll && wasAtBottom) {
+      if (isPinToBottomMode.value && wasAtBottom) {
         scrollToBottom("auto");
       }
     });
@@ -532,6 +570,7 @@ onBeforeUnmount(() => {
           >
             <div
               ref="scrollContentRef"
+              data-testid="copilot-scroll-content"
               :style="{ paddingBottom: messagePaddingBottom }"
             >
               <div class="cpk:max-w-3xl cpk:mx-auto">
@@ -575,21 +614,36 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </div>
+            <!--
+              `pin-to-send` spacer. Sized to anchor the latest user message
+              near the top of the viewport while the assistant streams a
+              response. `usePinToSend` reads this ref and only activates
+              when the spacer is present in the tree.
+            -->
+            <div
+              v-if="isPinToSendMode"
+              ref="spacerRef"
+              data-pin-to-send-spacer
+              aria-hidden="true"
+              :style="{ height: '0px', flex: '0 0 auto' }"
+            />
           </div>
         </div>
       </slot>
 
       <slot name="feather">
-        <div
-          class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-4 cpk:h-24 cpk:pointer-events-none cpk:z-10 cpk:bg-linear-to-t cpk:from-white cpk:via-white cpk:to-transparent cpk:dark:from-[rgb(33,33,33)] cpk:dark:via-[rgb(33,33,33)]"
-          data-testid="copilot-chat-view-feather"
-        />
+        <!--
+          Default renders an empty div — no visual, but the element is
+          still in the tree so a slot override / consumer styling can
+          still apply (mirrors React `CopilotChatView.Feather`).
+        -->
+        <div data-testid="copilot-chat-view-feather" />
       </slot>
 
       <div
         v-if="showScrollToBottomButton"
         class="cpk:absolute cpk:inset-x-0 cpk:flex cpk:justify-center cpk:z-30 cpk:pointer-events-none"
-        :style="{ bottom: `${inputContainerHeight + FEATHER_HEIGHT + 16}px` }"
+        :style="{ bottom: `${inputContainerHeight + SCROLL_BUTTON_OFFSET}px` }"
       >
         <slot name="scroll-to-bottom-button" :on-click="() => scrollToBottom()">
           <button
@@ -605,22 +659,31 @@ onBeforeUnmount(() => {
         </slot>
       </div>
 
-      <div class="cpk:max-w-3xl cpk:mx-auto cpk:w-full">
-        <CopilotChatAttachmentQueue
-          v-if="hasAttachments"
-          :attachments="attachments ?? []"
-          class-name="cpk:px-4"
-          @remove-attachment="
-            (id: string) => onRemoveAttachment && onRemoveAttachment(id)
-          "
-        />
-      </div>
-
+      <!--
+        Input overlay. Mirrors React `CopilotChatView` `copilot-input-overlay`:
+        absolutely positioned at the bottom, holds both the attachment queue
+        and the chat input. The input itself uses `positioning="static"` so
+        the overlay wrapper alone owns the absolute positioning, and the
+        attachment queue is layered visually above the input via DOM order.
+        The welcome-screen path intentionally does NOT use this overlay.
+      -->
       <div
         ref="inputContainerRef"
         class="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
-        data-testid="copilot-chat-view-input-container"
+        data-testid="copilot-input-overlay"
       >
+        <div
+          v-if="hasAttachments"
+          class="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto"
+        >
+          <CopilotChatAttachmentQueue
+            :attachments="attachments ?? []"
+            class-name="cpk:px-4"
+            @remove-attachment="
+              (id: string) => onRemoveAttachment && onRemoveAttachment(id)
+            "
+          />
+        </div>
         <slot
           name="input"
           :model-value="resolvedInputValue"
@@ -642,7 +705,7 @@ onBeforeUnmount(() => {
             :is-running="isRunning"
             :mode="inputMode"
             :tools-menu="inputToolsMenu"
-            positioning="absolute"
+            positioning="static"
             :show-disclaimer="true"
             :keyboard-height="effectiveKeyboardHeight"
             v-bind="inputEventProps"

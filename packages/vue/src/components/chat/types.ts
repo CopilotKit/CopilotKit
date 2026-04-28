@@ -15,9 +15,11 @@ import type {
 } from "@copilotkit/shared";
 import type { CopilotChatLabels } from "../../providers/types";
 import type { InterruptEvent } from "../../types";
+import type { AutoScrollMode } from "./normalize-auto-scroll";
 
 export type CopilotChatInputMode = "input" | "transcribe" | "processing";
 export type { Attachment, AttachmentsConfig, AttachmentModality };
+export type { AutoScrollMode };
 
 export interface CopilotChatAttachmentRendererProps {
   type: AttachmentModality;
@@ -33,7 +35,19 @@ export interface CopilotChatAttachmentQueueProps {
 
 export interface CopilotChatViewProps {
   messages?: Message[];
-  autoScroll?: boolean;
+  /**
+   * Controls how the chat view scrolls as new messages stream in.
+   *
+   * Accepts the modern `AutoScrollMode` strings or the legacy boolean
+   * shorthand. Defaults to `"pin-to-bottom"` when unspecified.
+   *
+   * - `"pin-to-bottom"` / `true`: stick to the bottom while at the bottom.
+   * - `"pin-to-send"`: anchor the latest user message near the top of
+   *   the viewport while the assistant streams a response (parity with
+   *   React's `usePinToSend`).
+   * - `"none"` / `false`: never auto-scroll.
+   */
+  autoScroll?: AutoScrollMode | boolean;
   isRunning?: boolean;
   suggestions?: Suggestion[];
   suggestionLoadingIndexes?: ReadonlyArray<number>;
