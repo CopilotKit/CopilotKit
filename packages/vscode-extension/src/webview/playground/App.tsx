@@ -73,8 +73,8 @@ export function App(): React.JSX.Element {
         setBundleError(null);
       } else if (msg.type === "models-list") {
         setModels(msg.models);
-        if (!selectedModelId && msg.models[0]) {
-          setSelectedModelId(msg.models[0].id);
+        if (msg.models[0]) {
+          setSelectedModelId((prev) => prev || msg.models[0].id);
         }
       } else if (msg.type === "runtime-error") {
         setStateBanner({ message: `Runtime error: ${msg.message}` });
