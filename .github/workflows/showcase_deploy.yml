@@ -313,6 +313,22 @@ jobs:
             cp -r showcase/shared/typescript/tools "$CONTEXT/shared_typescript/tools"
           fi
 
+          # Dereference tools/ and shared-tools/ symlinks for Docker
+          # context. Integration directories use symlinks pointing to
+          # ../../shared/python/tools etc. Docker cannot follow symlinks
+          # outside the build context, so we replace each symlink with a
+          # real copy of its target.
+          for link_name in tools shared-tools; do
+            link_path="$CONTEXT/$link_name"
+            if [ -L "$link_path" ]; then
+              target="$(readlink -f "$link_path")"
+              if [ -d "$target" ]; then
+                rm "$link_path"
+                cp -r "$target" "$link_path"
+              fi
+            fi
+          done
+
       - name: Build and push
         uses: depot/build-push-action@v1
         with:

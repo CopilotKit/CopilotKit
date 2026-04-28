@@ -29,12 +29,13 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const SHOWCASE = resolve(__dirname, "..");
 const slug = process.argv[2];
-const outDir = process.argv[3] || join(SHOWCASE, "dist", "starters", slug);
 
 if (!slug) {
   console.error("Usage: extract-starter.ts <slug> [output-dir]");
   process.exit(1);
 }
+
+const outDir = process.argv[3] || join(SHOWCASE, "dist", "starters", slug);
 
 const src = join(SHOWCASE, "integrations", slug);
 if (!existsSync(src)) {
@@ -78,14 +79,11 @@ for (const name of STRIP) {
   if (existsSync(target)) rmSync(target, { recursive: true });
 }
 
-// Trim demo pages down to just the canonical sales-dashboard demo.
+// Remove demo pages entirely — the starter uses its own root page.tsx
+// from the template overlay, not integration demo pages.
 const demosDir = join(outDir, "src", "app", "demos");
 if (existsSync(demosDir)) {
-  for (const demo of readdirSync(demosDir)) {
-    if (demo !== "sales-dashboard") {
-      rmSync(join(demosDir, demo), { recursive: true });
-    }
-  }
+  rmSync(demosDir, { recursive: true });
 }
 
 // Trim API routes to just copilotkit and health endpoints.
@@ -97,5 +95,57 @@ if (existsSync(apiDir)) {
     }
   }
 }
+
+// Overlay starter template files (sales-dashboard frontend, renderers,
+// charts, hooks, etc.) so the extracted starter has a complete UI.
+const templateDir = join(SHOWCASE, "shared", "starter-template");
+if (existsSync(templateDir)) {
+  const templateApp = join(templateDir, "app");
+  if (existsSync(templateApp)) {
+    cpSync(templateApp, join(outDir, "src", "app"), {
+      recursive: true,
+      force: true,
+    });
+  }
+
+  const templateComponents = join(templateDir, "components");
+  if (existsSync(templateComponents)) {
+    cpSync(templateComponents, join(outDir, "src", "components"), {
+      recursive: true,
+      force: true,
+    });
+  }
+
+  const templateHooks = join(templateDir, "hooks");
+  if (existsSync(templateHooks)) {
+    cpSync(templateHooks, join(outDir, "src", "hooks"), {
+      recursive: true,
+      force: true,
+    });
+  }
+
+  const templateTypes = join(templateDir, "types.ts");
+  if (existsSync(templateTypes)) {
+    cpSync(templateTypes, join(outDir, "src", "types.ts"), { force: true });
+  }
+}
+
+// Recursively remove __tests__ and tests directories from the output.
+// The top-level STRIP list only catches root-level entries; shared tools
+// (e.g. tools/shared-tools/) can contain nested test directories.
+function stripTestDirs(dir: string) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === "__tests__" || entry.name === "tests") {
+        rmSync(fullPath, { recursive: true });
+      } else {
+        stripTestDirs(fullPath);
+      }
+    }
+  }
+}
+stripTestDirs(outDir);
 
 console.log(`Extracted starter: ${outDir}`);
