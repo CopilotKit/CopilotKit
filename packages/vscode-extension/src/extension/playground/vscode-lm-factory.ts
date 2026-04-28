@@ -1,3 +1,4 @@
+import * as crypto from "node:crypto";
 import * as vscode from "vscode";
 import type { RunAgentInput } from "@ag-ui/client";
 
@@ -18,38 +19,109 @@ export interface AgentFactoryContext {
   abortSignal: AbortSignal;
 }
 
-export interface VscodeLmFactoryOptions {
-  model: vscode.LanguageModelChat;
-  mode: "live"; // record + replay added in Task 4
+export interface RecordedCall {
+  matchKey: string;
+  /** Raw input snapshot — for human inspection of the fixture. Not used for matching. */
+  input: { messages: unknown; tools: unknown; modelId: string };
+  chunks: TanStackChunk[];
 }
+
+export type VscodeLmFactoryOptions =
+  | {
+      model: vscode.LanguageModelChat;
+      mode: "live";
+    }
+  | {
+      model: vscode.LanguageModelChat;
+      mode: "record";
+      onCallRecorded: (call: RecordedCall) => void;
+    }
+  | {
+      model: vscode.LanguageModelChat;
+      mode: "replay";
+      /** The full set of recorded calls from the loaded fixture. */
+      fixtureCalls: RecordedCall[];
+    };
 
 export function vscodeLmFactory(
   opts: VscodeLmFactoryOptions,
 ): (ctx: AgentFactoryContext) => AsyncIterable<TanStackChunk> {
+  // Replay state: how many times each matchKey has been consumed in this session.
+  const replayCursor = new Map<string, number>();
+  const fixtureCalls = opts.mode === "replay" ? opts.fixtureCalls : [];
+
   return async function* (ctx) {
+    const matchKey = computeMatchKey(ctx.input, opts.model.id);
+
+    if (opts.mode === "replay") {
+      const consumed = replayCursor.get(matchKey) ?? 0;
+      let seen = 0;
+      for (const call of fixtureCalls) {
+        if (call.matchKey !== matchKey) continue;
+        if (seen === consumed) {
+          replayCursor.set(matchKey, consumed + 1);
+          for (const c of call.chunks) yield c;
+          return;
+        }
+        seen++;
+      }
+      throw new Error(
+        `vscode-lm-factory: no fixture call matches matchKey=${matchKey} (consumed=${consumed})`,
+      );
+    }
+
+    // Live + record both call vscode.lm.
     const messages = toLmMessages(ctx.input);
     const tokenSource = new vscode.CancellationTokenSource();
     ctx.abortSignal.addEventListener("abort", () => tokenSource.cancel(), {
       once: true,
     });
 
+    const recordedChunks: TanStackChunk[] = [];
+
     try {
-      const response = await opts.model.sendRequest(
-        messages,
-        {},
-        tokenSource.token,
-      );
+      const response = await opts.model.sendRequest(messages, {}, tokenSource.token);
       for await (const part of response.stream) {
         if (ctx.abortSignal.aborted) break;
-        yield* translatePart(part);
+        for (const chunk of translatePart(part)) {
+          if (opts.mode === "record") recordedChunks.push(chunk);
+          yield chunk;
+        }
       }
     } finally {
       tokenSource.dispose();
     }
+
+    if (opts.mode === "record") {
+      opts.onCallRecorded({
+        matchKey,
+        input: {
+          messages: ctx.input.messages,
+          tools: ctx.input.tools,
+          modelId: opts.model.id,
+        },
+        chunks: recordedChunks,
+      });
+    }
   };
 }
 
-function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
+function computeMatchKey(input: RunAgentInput, modelId: string): string {
+  return crypto
+    .createHash("sha256")
+    .update(
+      JSON.stringify({
+        messages: input.messages,
+        tools: input.tools,
+        modelId,
+      }),
+    )
+    .digest("hex");
+}
+
+function toLmMessages(
+  input: RunAgentInput,
+): vscode.LanguageModelChatMessage[] {
   const out: vscode.LanguageModelChatMessage[] = [];
   for (const m of input.messages) {
     const text = typeof m.content === "string" ? m.content : "";
@@ -58,9 +130,6 @@ function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
     } else if (m.role === "assistant") {
       out.push(vscode.LanguageModelChatMessage.Assistant(text));
     }
-    // Other roles (system / developer / tool / reasoning / activity) are skipped
-    // for now — the runtime's input converter places system/developer content in
-    // systemPrompts which we'll thread through here in a follow-up.
   }
   return out;
 }
@@ -72,11 +141,7 @@ function* translatePart(part: unknown): Generator<TanStackChunk> {
   }
   if (part instanceof vscode.LanguageModelToolCallPart) {
     const toolCallId = part.callId;
-    yield {
-      type: "TOOL_CALL_START",
-      toolCallId,
-      toolCallName: part.name,
-    };
+    yield { type: "TOOL_CALL_START", toolCallId, toolCallName: part.name };
     yield {
       type: "TOOL_CALL_ARGS",
       toolCallId,
@@ -85,6 +150,4 @@ function* translatePart(part: unknown): Generator<TanStackChunk> {
     yield { type: "TOOL_CALL_END", toolCallId };
     return;
   }
-  // Unhandled part types are silently dropped — same posture as
-  // convertTanStackStream's "unhandled chunks ignored" comment.
 }
