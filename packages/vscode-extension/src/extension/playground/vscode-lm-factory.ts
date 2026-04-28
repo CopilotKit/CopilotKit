@@ -80,7 +80,11 @@ export function vscodeLmFactory(
     const recordedChunks: TanStackChunk[] = [];
 
     try {
-      const response = await opts.model.sendRequest(messages, {}, tokenSource.token);
+      const response = await opts.model.sendRequest(
+        messages,
+        {},
+        tokenSource.token,
+      );
       for await (const part of response.stream) {
         if (ctx.abortSignal.aborted) break;
         for (const chunk of translatePart(part)) {
@@ -119,9 +123,7 @@ function computeMatchKey(input: RunAgentInput, modelId: string): string {
     .digest("hex");
 }
 
-function toLmMessages(
-  input: RunAgentInput,
-): vscode.LanguageModelChatMessage[] {
+function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
   const out: vscode.LanguageModelChatMessage[] = [];
   for (const m of input.messages) {
     const text = typeof m.content === "string" ? m.content : "";

@@ -12,10 +12,7 @@ import {
 } from "./codegen/entry-codegen";
 import { bundlePlayground, type PlaygroundBundleResult } from "./bundler";
 import { detectMode, type RuntimeMode } from "./mode-detector";
-import {
-  startRuntimeHost,
-  type RuntimeHostHandle,
-} from "./runtime-host";
+import { startRuntimeHost, type RuntimeHostHandle } from "./runtime-host";
 import { listModels, pickModel } from "./model-picker";
 import {
   FixtureStore,
@@ -37,7 +34,9 @@ export interface PlaygroundDeps {
   ) => PlaygroundSources | null;
   bundle: (entryPath: string) => Promise<PlaygroundBundleResult>;
   detectMode: (runtimeUrl: unknown) => RuntimeMode;
-  pickModel: (opts?: { preferredId?: string }) => Promise<vscode.LanguageModelChat | null>;
+  pickModel: (opts?: {
+    preferredId?: string;
+  }) => Promise<vscode.LanguageModelChat | null>;
   listModels: () => Promise<vscode.LanguageModelChat[]>;
   startRuntimeHost: (opts: {
     model: vscode.LanguageModelChat;

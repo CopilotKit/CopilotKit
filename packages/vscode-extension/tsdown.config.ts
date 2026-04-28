@@ -309,19 +309,6 @@ export default defineConfig([
     sourcemap: true,
     plugins: [nodeResolveFallback()],
   },
-  // Runtime subprocess — Node.js, CJS. Spawned by the extension host to run
-  // CopilotRuntime + BuiltInAgent with the mock LLM base URL.
-  {
-    entry: { "subprocess-entry": "src/runtime/subprocess-entry.ts" },
-    format: ["cjs"],
-    platform: "node",
-    outDir: "dist/runtime",
-    external: [/^node:/],
-    sourcemap: true,
-    dts: false,
-    clean: false,
-    plugins: [nodeResolveFallback()],
-  },
   // Webview app — browser, ESM (loaded via <script type="module">)
   // ESM format is required because @copilotkit/a2ui-renderer has circular
   // dependencies that break in IIFE/CJS format. ESM handles them via live bindings.

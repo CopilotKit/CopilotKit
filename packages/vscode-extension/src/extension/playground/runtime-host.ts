@@ -103,7 +103,6 @@ function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
       onCallRecorded: opts.onCallRecorded,
     }) as FactoryFn;
   }
-  // replay
   return vscodeLmFactory({
     model: opts.model,
     mode: "replay",

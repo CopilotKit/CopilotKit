@@ -108,9 +108,7 @@ describe("vscodeLmFactory — live mode", () => {
 describe("vscodeLmFactory — record mode", () => {
   it("yields chunks AND reports each call to onCallRecorded", async () => {
     const { LanguageModelTextPart } = await import("vscode");
-    const model = makeModel([
-      new LanguageModelTextPart("Hi"),
-    ]);
+    const model = makeModel([new LanguageModelTextPart("Hi")]);
     const recorded: unknown[] = [];
     const factory = vscodeLmFactory({
       model,
@@ -129,7 +127,9 @@ describe("vscodeLmFactory — record mode", () => {
     expect(recorded).toHaveLength(1);
     const [call] = recorded as Array<{ matchKey: string; chunks: unknown[] }>;
     expect(call.matchKey).toMatch(/^[0-9a-f]{64}$/);
-    expect(call.chunks).toEqual([{ type: "TEXT_MESSAGE_CONTENT", delta: "Hi" }]);
+    expect(call.chunks).toEqual([
+      { type: "TEXT_MESSAGE_CONTENT", delta: "Hi" },
+    ]);
   });
 });
 
@@ -157,11 +157,11 @@ describe("vscodeLmFactory — replay mode", () => {
 
     // Now replay using a model that would throw if called.
     const replayModel = makeModel([]);
-    (replayModel.sendRequest as unknown as ReturnType<typeof vi.fn>).mockImplementation(
-      async () => {
-        throw new Error("replay must not call vscode.lm");
-      },
-    );
+    (
+      replayModel.sendRequest as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementation(async () => {
+      throw new Error("replay must not call vscode.lm");
+    });
     const factory = vscodeLmFactory({
       model: replayModel,
       mode: "replay",
@@ -196,9 +196,7 @@ describe("vscodeLmFactory — replay mode", () => {
   it("consumes same-key calls in order across multiple iterations", async () => {
     const baseInput = minimalInput;
     // Build matchKey for input by inspecting what record produces.
-    const recordModel = makeModel([
-      ({ kind: "text", value: "First" } as never),
-    ]);
+    const recordModel = makeModel([{ kind: "text", value: "First" } as never]);
     // We can't easily reuse record output here; compute matchKey directly from
     // the same hash function used in implementation by hashing the canonical input.
     const matchKey = crypto
@@ -212,8 +210,16 @@ describe("vscodeLmFactory — replay mode", () => {
       )
       .digest("hex");
     const calls = [
-      { matchKey, input: {}, chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "A" }] },
-      { matchKey, input: {}, chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "B" }] },
+      {
+        matchKey,
+        input: {},
+        chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "A" }],
+      },
+      {
+        matchKey,
+        input: {},
+        chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "B" }],
+      },
     ];
     const factory = vscodeLmFactory({
       model: recordModel,
@@ -231,8 +237,12 @@ describe("vscodeLmFactory — replay mode", () => {
       }
       return out;
     };
-    expect(await collect()).toEqual([{ type: "TEXT_MESSAGE_CONTENT", delta: "A" }]);
-    expect(await collect()).toEqual([{ type: "TEXT_MESSAGE_CONTENT", delta: "B" }]);
+    expect(await collect()).toEqual([
+      { type: "TEXT_MESSAGE_CONTENT", delta: "A" },
+    ]);
+    expect(await collect()).toEqual([
+      { type: "TEXT_MESSAGE_CONTENT", delta: "B" },
+    ]);
     await expect(collect()).rejects.toThrow();
   });
 });
