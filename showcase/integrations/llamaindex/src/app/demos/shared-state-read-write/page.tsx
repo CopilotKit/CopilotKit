@@ -38,6 +38,7 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent-read]
   // Subscribe the component to agent state changes. LlamaIndex's
   // AGUIChatWorkflow emits a StateSnapshotEvent on InputEvent and after
   // every tool call, so any time the agent's `set_notes` tool runs, this
@@ -46,6 +47,7 @@ function DemoContent() {
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent-read]
 
   useConfigureSuggestions({
     suggestions: [
@@ -79,6 +81,7 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
   // On the agent's next turn, AGUIChatWorkflow injects this state into
   // the user message via its <state>...</state> prelude — so the UI's
@@ -89,6 +92,7 @@ function DemoContent() {
       notes, // preserve what the agent has written
     } as RWAgentState);
   };
+  // @endregion[use-agent-write]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {

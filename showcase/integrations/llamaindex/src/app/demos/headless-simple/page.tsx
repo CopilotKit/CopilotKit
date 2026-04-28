@@ -34,6 +34,7 @@ function ShowCard({ title, body }: { title: string; body: string }) {
 }
 
 function HeadlessChat() {
+  // @region[use-agent-simple]
   const { agent } = useAgent({ agentId: "headless_simple" });
   const { copilotkit } = useCopilotKit();
   const [input, setInput] = useState("");
@@ -49,6 +50,7 @@ function HeadlessChat() {
   });
 
   const renderToolCall = useRenderToolCall();
+  // @endregion[use-agent-simple]
 
   const send = () => {
     const text = input.trim();
@@ -66,6 +68,7 @@ function HeadlessChat() {
     <div className="flex flex-col gap-3">
       <h1 className="text-xl font-semibold">Headless Chat (Simple)</h1>
       <div className="flex flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 min-h-[300px]">
+        {/* @region[message-list-simple] */}
         {agent.messages.length === 0 && (
           <div className="text-sm text-gray-400">No messages yet. Say hi!</div>
         )}
@@ -106,6 +109,7 @@ function HeadlessChat() {
         {agent.isRunning && (
           <div className="text-xs text-gray-400">Agent is thinking...</div>
         )}
+        {/* @endregion[message-list-simple] */}
       </div>
       <div className="flex gap-2">
         <textarea

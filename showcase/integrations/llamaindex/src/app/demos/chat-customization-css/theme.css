@@ -3,6 +3,7 @@
  * `.chat-css-demo-scope` so they do not leak out.
  */
 
+/* @region[css-variables] */
 .chat-css-demo-scope {
   --copilot-kit-primary-color: #ff006e;
   --copilot-kit-contrast-color: #ffffff;
@@ -13,6 +14,7 @@
   --copilot-kit-separator-color: #ff006e;
   --copilot-kit-muted-color: #c2185b;
 }
+/* @endregion[css-variables] */
 
 .chat-css-demo-scope .copilotKitMessages {
   font-family: "Georgia", "Cambria", "Times New Roman", serif;

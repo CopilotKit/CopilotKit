@@ -66,11 +66,13 @@ def book_call(
 
 # --- Backend tools (executed server-side, using shared implementations) ---
 
+# @region[weather-tool-backend]
 async def get_weather(
     location: Annotated[str, "The location to get the weather for."],
 ) -> str:
     """Get the weather for a given location. Returns temperature, conditions, humidity, wind speed, and feels-like temperature."""
     return json.dumps(get_weather_impl(location))
+# @endregion[weather-tool-backend]
 
 
 async def query_data(

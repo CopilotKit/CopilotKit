@@ -51,6 +51,7 @@ const ENTRY_BG_BY_STATUS: Record<Delegation["status"], string> = {
   failed: "border-red-200 bg-red-50/40",
 };
 
+// @region[delegation-log-frontend]
 /**
  * Live delegation log — renders the `delegations` slot of agent state.
  *
@@ -149,3 +150,4 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
     </div>
   );
 }
+// @endregion[delegation-log-frontend]

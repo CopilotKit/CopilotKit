@@ -9,6 +9,7 @@ import {
 
 export default function PrebuiltPopupDemo() {
   return (
+    // @region[popup-basic-setup]
     <CopilotKit runtimeUrl="/api/copilotkit" agent="prebuilt_popup">
       <MainContent />
       <CopilotPopup
@@ -18,6 +19,7 @@ export default function PrebuiltPopupDemo() {
       />
       <Suggestions />
     </CopilotKit>
+    // @endregion[popup-basic-setup]
   );
 }
 

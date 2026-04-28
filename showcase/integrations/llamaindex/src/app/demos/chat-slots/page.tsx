@@ -29,11 +29,15 @@ function Chat() {
     available: "always",
   });
 
+  // @region[register-welcome-slot]
+  const welcomeScreen = CustomWelcomeScreen;
+  // @endregion[register-welcome-slot]
+
   return (
     <CopilotChat
       agentId="chat_slots"
       className="h-full rounded-2xl"
-      welcomeScreen={CustomWelcomeScreen}
+      welcomeScreen={welcomeScreen}
     />
   );
 }

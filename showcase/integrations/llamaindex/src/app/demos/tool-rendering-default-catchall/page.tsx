@@ -31,7 +31,13 @@ export default function ToolRenderingDefaultCatchallDemo() {
 }
 
 function Chat() {
+  // @region[default-catchall-zero-config]
+  // Opt in to CopilotKit's built-in default tool-call card. Called with
+  // no config so the package-provided `DefaultToolCallRenderer` is used
+  // as the wildcard renderer — this is the "out-of-the-box" UI the cell
+  // is meant to showcase.
   useDefaultRenderTool();
+  // @endregion[default-catchall-zero-config]
 
   useConfigureSuggestions({
     suggestions: [

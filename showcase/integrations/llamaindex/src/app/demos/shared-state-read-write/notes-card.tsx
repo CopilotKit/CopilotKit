@@ -17,6 +17,7 @@ export interface NotesCardProps {
  * The "Clear" button is a write-back (UI -> agent state) to demonstrate
  * both directions on the same field.
  */
+// @region[notes-card-render]
 export function NotesCard({ notes, onClear }: NotesCardProps) {
   return (
     <div
@@ -68,3 +69,4 @@ export function NotesCard({ notes, onClear }: NotesCardProps) {
     </div>
   );
 }
+// @endregion[notes-card-render]

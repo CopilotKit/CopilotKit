@@ -30,6 +30,15 @@ export const POST = async (req: NextRequest) => {
     const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
       endpoint: "/api/copilotkit-ogui",
       serviceAdapter: new ExperimentalEmptyAdapter(),
+      // @region[minimal-runtime-flag]
+      // @region[advanced-runtime-config]
+      // Server-side config is identical for the minimal and advanced cells —
+      // the advanced behaviour (sandbox -> host function calls) is wired
+      // entirely on the frontend via `openGenerativeUI.sandboxFunctions` on
+      // the provider. The single `openGenerativeUI` flag below turns on
+      // Open Generative UI for the listed agent(s); the runtime middleware
+      // converts each agent's streamed `generateSandboxedUi` tool call into
+      // `open-generative-ui` activity events.
       runtime: new CopilotRuntime({
         // @ts-ignore -- see main route.ts
         agents,
@@ -37,6 +46,8 @@ export const POST = async (req: NextRequest) => {
           agents: ["open-gen-ui", "open-gen-ui-advanced"],
         },
       }),
+      // @endregion[advanced-runtime-config]
+      // @endregion[minimal-runtime-flag]
     });
     return await handleRequest(req);
   } catch (error: unknown) {
