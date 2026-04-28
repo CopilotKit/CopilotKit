@@ -6,10 +6,8 @@ import type { Attachment } from "@copilotkit/shared";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
 import CopilotChatView from "../CopilotChatView.vue";
-import {
-  LastUserMessageKey,
-  type LastUserMessageState,
-} from "../last-user-message-context";
+import { LastUserMessageKey } from "../last-user-message-context";
+import type { LastUserMessageState } from "../last-user-message-context";
 
 // Strict counterpart of React `CopilotChatView.inputOverlay.test.tsx`.
 // Keep case order, wording, and assertion shape aligned 1:1 with the
@@ -19,7 +17,8 @@ import {
 // which child — stays identical.
 
 beforeEach(() => {
-  HTMLElement.prototype.scrollTo = vi.fn() as unknown as typeof Element.prototype.scrollTo;
+  HTMLElement.prototype.scrollTo =
+    vi.fn() as unknown as typeof Element.prototype.scrollTo;
 });
 
 afterEach(() => {
@@ -61,11 +60,9 @@ function makeWrapper(viewProps: Record<string, unknown>) {
               { threadId: "test-thread" },
               {
                 default: () =>
-                  h(
-                    "div",
-                    { style: { height: "400px" } },
-                    [h(CopilotChatView, viewProps)],
-                  ),
+                  h("div", { style: { height: "400px" } }, [
+                    h(CopilotChatView, viewProps),
+                  ]),
               },
             ),
         });
@@ -125,6 +122,102 @@ describe("CopilotChatView input overlay layout", () => {
 
     // Welcome screen present → no overlay wrapper exists in this render.
     expect(screen.queryByTestId("copilot-input-overlay")).toBeNull();
+  });
+
+  it("attaches the overlay observer after transitioning from welcome screen to main chat", async () => {
+    // Regression: when the component first mounts with an empty messages
+    // array it renders the welcome screen. The input overlay div does not
+    // exist at that point, so the ResizeObserver setup in onMounted skips
+    // it. When messages later arrive and the overlay appears, the observer
+    // must still be wired up so inputContainerHeight is measured.
+    const callbacks: Array<{
+      cb: ResizeObserverCallback;
+      target: Element | null;
+    }> = [];
+    const OriginalRO = global.ResizeObserver;
+    class MockResizeObserver {
+      private cb: ResizeObserverCallback;
+      constructor(cb: ResizeObserverCallback) {
+        this.cb = cb;
+      }
+      observe(target: Element) {
+        callbacks.push({ cb: this.cb, target });
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (global as any).ResizeObserver = MockResizeObserver as any;
+
+    try {
+      // Start with empty messages → welcome screen renders, no overlay.
+      const messages = ref<Message[]>([]);
+      const ReactiveWrapper = defineComponent({
+        setup() {
+          provide(
+            LastUserMessageKey,
+            ref<LastUserMessageState>({ id: null, sendNonce: 0 }),
+          );
+          return () =>
+            h(CopilotKitProvider, null, {
+              default: () =>
+                h(
+                  CopilotChatConfigurationProvider,
+                  { threadId: "test-thread" },
+                  {
+                    default: () =>
+                      h("div", { style: { height: "400px" } }, [
+                        h(CopilotChatView, { messages: messages.value }),
+                      ]),
+                  },
+                ),
+            });
+        },
+      });
+
+      const screen = render(ReactiveWrapper);
+      await screen.findByTestId("copilot-chat-view-welcome-screen");
+      expect(screen.queryByTestId("copilot-input-overlay")).toBeNull();
+
+      // Clear callbacks from the welcome-screen mount phase.
+      const welcomeCallbackCount = callbacks.length;
+
+      // Transition to main chat by adding messages.
+      messages.value = sampleMessages;
+      await waitFor(() =>
+        expect(screen.queryByTestId("copilot-input-overlay")).not.toBeNull(),
+      );
+
+      // A new ResizeObserver must have been created for the overlay.
+      await waitFor(() =>
+        expect(callbacks.length).toBeGreaterThan(welcomeCallbackCount),
+      );
+
+      // Find the callback that was attached to the overlay element.
+      const overlayElement = screen.getByTestId("copilot-input-overlay");
+      const overlayCallback = callbacks.find(
+        (c) => c.target === overlayElement,
+      );
+      expect(overlayCallback).toBeDefined();
+
+      // Simulate the overlay reporting a height of 120px.
+      overlayCallback!.cb(
+        [
+          {
+            contentRect: { height: 120 } as DOMRectReadOnly,
+          } as ResizeObserverEntry,
+        ],
+        {} as ResizeObserver,
+      );
+
+      const scrollContent = screen.getByTestId("copilot-scroll-content");
+      await waitFor(() =>
+        expect(scrollContent.style.paddingBottom).toBe("152px"),
+      );
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (global as any).ResizeObserver = OriginalRO;
+    }
   });
 
   it("reserves inputContainerHeight as bottom padding on the scroll content", async () => {

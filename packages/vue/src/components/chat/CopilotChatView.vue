@@ -228,6 +228,65 @@ const showScrollToBottomButton = computed(
 let inputResizeObserver: ResizeObserver | null = null;
 let contentResizeObserver: ResizeObserver | null = null;
 
+function attachInputOverlayObserver() {
+  if (typeof ResizeObserver === "undefined") return;
+
+  inputResizeObserver?.disconnect();
+  inputResizeObserver = null;
+
+  const el = inputContainerRef.value;
+  if (!el) return;
+
+  inputResizeObserver = new ResizeObserver((entries) => {
+    const wasAtBottom = isAtBottom.value;
+    const measured = entries[0]?.contentRect?.height;
+    if (typeof measured === "number") {
+      inputContainerHeight.value = measured;
+    } else {
+      syncInputContainerHeight();
+    }
+    updateIsAtBottom();
+    if (isPinToBottomMode.value && wasAtBottom) {
+      scrollToBottom("auto");
+    }
+  });
+  inputResizeObserver.observe(el);
+}
+
+function attachScrollContentObserver() {
+  if (typeof ResizeObserver === "undefined") return;
+
+  contentResizeObserver?.disconnect();
+  contentResizeObserver = null;
+
+  const el = scrollContentRef.value;
+  if (!el) return;
+
+  contentResizeObserver = new ResizeObserver(() => {
+    const wasAtBottom = isAtBottom.value;
+    updateIsAtBottom();
+    if (isPinToBottomMode.value && wasAtBottom) {
+      scrollToBottom("auto");
+    }
+  });
+  contentResizeObserver.observe(el);
+}
+
+
+// When the welcome screen disappears and the main chat view (with the input
+// overlay) appears, the template-ref elements become non-null. Re-attach
+// observers that were skipped during the initial mount.
+watch(
+  shouldShowWelcomeScreen,
+  async (show) => {
+    if (show) return;
+    await nextTick();
+    syncInputContainerHeight();
+    attachInputOverlayObserver();
+    attachScrollContentObserver();
+  },
+);
+
 watch(
   () => props.inputValue,
   (next) => {
@@ -391,36 +450,8 @@ onMounted(async () => {
     }
   }
 
-  if (typeof ResizeObserver !== "undefined" && inputContainerRef.value) {
-    // Read `entry.contentRect.height` rather than `offsetHeight` to mirror
-    // React's overlay-resize callback. `contentRect` is more reliable in
-    // jsdom (test environments) where layout isn't computed.
-    inputResizeObserver = new ResizeObserver((entries) => {
-      const wasAtBottom = isAtBottom.value;
-      const measured = entries[0]?.contentRect?.height;
-      if (typeof measured === "number") {
-        inputContainerHeight.value = measured;
-      } else {
-        syncInputContainerHeight();
-      }
-      updateIsAtBottom();
-      if (isPinToBottomMode.value && wasAtBottom) {
-        scrollToBottom("auto");
-      }
-    });
-    inputResizeObserver.observe(inputContainerRef.value);
-  }
-
-  if (typeof ResizeObserver !== "undefined" && scrollContentRef.value) {
-    contentResizeObserver = new ResizeObserver(() => {
-      const wasAtBottom = isAtBottom.value;
-      updateIsAtBottom();
-      if (isPinToBottomMode.value && wasAtBottom) {
-        scrollToBottom("auto");
-      }
-    });
-    contentResizeObserver.observe(scrollContentRef.value);
-  }
+  attachInputOverlayObserver();
+  attachScrollContentObserver();
 });
 
 onBeforeUnmount(() => {
