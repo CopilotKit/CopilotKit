@@ -101,12 +101,12 @@ These are authored directly in `showcase/integrations/<slug>/` and are **exempt 
 Several packages have different names in `examples/integrations/` vs `showcase/integrations/`. The aliasing is historical — showcase standardized on shorter, marketing-friendly slugs while the Dojo kept the original framework-canonical names.
 
 | `showcase/integrations/` slug | `examples/integrations/` name | Why different                                             |
-| ------------------------- | ----------------------------- | --------------------------------------------------------- |
-| `google-adk`              | `adk`                         | Showcase prefixes with vendor for disambiguation          |
-| `langgraph-typescript`    | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
-| `ms-agent-dotnet`         | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
-| `ms-agent-python`         | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |
-| `strands`                 | `strands-python`              | Showcase drops the language suffix (no TS variant exists) |
+| ----------------------------- | ----------------------------- | --------------------------------------------------------- |
+| `google-adk`                  | `adk`                         | Showcase prefixes with vendor for disambiguation          |
+| `langgraph-typescript`        | `langgraph-js`                | Showcase prefers full language name (`-typescript`)       |
+| `ms-agent-dotnet`             | `ms-agent-framework-dotnet`   | Showcase shortens `-framework-` out of the slug           |
+| `ms-agent-python`             | `ms-agent-framework-python`   | Same — shorter slug in showcase                           |
+| `strands`                     | `strands-python`              | Showcase drops the language suffix (no TS variant exists) |
 
 When running `migrate-integration-examples.ts` or reasoning about drift, remember that the script internally maps these aliases — don't "fix" them by renaming one side.
 
@@ -192,8 +192,8 @@ LangGraph supports two agent authoring styles, and showcase uses both. When touc
 
 ### Current Showcase State
 
-| Package                                  | Style      | Evidence                                              |
-| ---------------------------------------- | ---------- | ----------------------------------------------------- |
+| Package                                      | Style      | Evidence                                              |
+| -------------------------------------------- | ---------- | ----------------------------------------------------- |
 | `showcase/integrations/langgraph-python`     | Prebuilt   | `create_react_agent` in `src/agents/main.py:53`       |
 | `showcase/integrations/langgraph-fastapi`    | Prebuilt   | `create_react_agent` in `src/agents/src/agent.py:166` |
 | `showcase/integrations/langgraph-typescript` | Node-based | `StateGraph` in `src/agent/graph.ts:271`              |

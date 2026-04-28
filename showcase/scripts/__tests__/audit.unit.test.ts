@@ -290,7 +290,13 @@ describe("auditPackage — EACCES on spec dir stat → unreadable-dir anomaly (n
       specs: ["a.spec.ts"],
       qaFiles: ["a.md"],
     });
-    const e2eDir = path.join(root, "integrations", "eacces-e2e", "tests", "e2e");
+    const e2eDir = path.join(
+      root,
+      "integrations",
+      "eacces-e2e",
+      "tests",
+      "e2e",
+    );
     const orig = fs.statSync;
     const spy = vi.spyOn(fs, "statSync").mockImplementation(((
       p: fs.PathLike,

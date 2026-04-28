@@ -30,7 +30,8 @@ const ROOT = path.resolve(__dirname, "..", "..");
 // env var (vs a CLI flag) keeps the public flag surface unchanged and is
 // trivial for test harnesses to set via `execFileSync`'s `env` option.
 const PACKAGES_DIR =
-  process.env.CREATE_INTEGRATION_PACKAGES_DIR ?? path.join(ROOT, "integrations");
+  process.env.CREATE_INTEGRATION_PACKAGES_DIR ??
+  path.join(ROOT, "integrations");
 const WORKFLOWS_DIR =
   process.env.CREATE_INTEGRATION_WORKFLOWS_DIR ??
   path.resolve(ROOT, "..", ".github", "workflows");
