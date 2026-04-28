@@ -371,12 +371,19 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
       ),
     );
     const nonce = getNonce();
+    // The bundled user app fetches the in-process runtime at
+    // http://127.0.0.1:<random-port>/api/copilotkit. CSP defaults to
+    // `default-src 'none'`, which would block that fetch. Allow only
+    // localhost on any port (the runtime-host picks a fresh port per
+    // session). No public origins are needed — vscode.lm runs in the
+    // extension host, not the webview.
     const csp = [
       `default-src 'none'`,
       `script-src 'nonce-${nonce}'`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `font-src ${webview.cspSource}`,
       `img-src ${webview.cspSource} data:`,
+      `connect-src http://127.0.0.1:* http://localhost:*`,
     ].join("; ");
     return `<!DOCTYPE html>
 <html>

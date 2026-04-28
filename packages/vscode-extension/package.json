@@ -183,15 +183,6 @@
     "configuration": {
       "title": "CopilotKit",
       "properties": {
-        "copilotkit.playground.provider": {
-          "type": "string",
-          "enum": [
-            "openai",
-            "anthropic"
-          ],
-          "default": "openai",
-          "description": "LLM provider for the Chat tab playground runtime."
-        },
         "copilotkit.playground.model": {
           "type": "string",
           "default": "",

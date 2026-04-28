@@ -79,10 +79,12 @@ export function vscodeLmFactory(
 
     const recordedChunks: TanStackChunk[] = [];
 
+    const tools = toLmTools(ctx.input.tools);
+
     try {
       const response = await opts.model.sendRequest(
         messages,
-        {},
+        tools.length > 0 ? { tools } : {},
         tokenSource.token,
       );
       for await (const part of response.stream) {
@@ -132,6 +134,28 @@ function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
     } else if (m.role === "assistant") {
       out.push(vscode.LanguageModelChatMessage.Assistant(text));
     }
+  }
+  return out;
+}
+
+/**
+ * Translates AG-UI tools (`{ name, description, parameters }`) into vscode.lm's
+ * `LanguageModelChatTool[]` shape. AG-UI's `parameters` is a JSON Schema object;
+ * `LanguageModelChatTool.inputSchema` accepts the same shape, so it passes
+ * through unchanged. Tools without a name are skipped (defensive).
+ */
+function toLmTools(
+  agUiTools: RunAgentInput["tools"] | undefined,
+): vscode.LanguageModelChatTool[] {
+  if (!agUiTools || agUiTools.length === 0) return [];
+  const out: vscode.LanguageModelChatTool[] = [];
+  for (const t of agUiTools) {
+    if (!t || typeof t !== "object" || typeof t.name !== "string") continue;
+    out.push({
+      name: t.name,
+      description: typeof t.description === "string" ? t.description : t.name,
+      inputSchema: t.parameters as object,
+    });
   }
   return out;
 }
