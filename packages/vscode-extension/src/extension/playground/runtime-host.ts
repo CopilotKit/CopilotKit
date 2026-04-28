@@ -53,19 +53,32 @@ export async function startRuntimeHost(
   // Wrap the listener for two reasons:
   //   1. Log every request to the output channel so silent failures
   //      (CSP blocks, wrong port, stale bundle, etc.) become visible.
-  //   2. Short-circuit `/threads*` requests with an empty list. CopilotKit's
-  //      thread routes require a CopilotKitIntelligence persistence layer
-  //      we don't ship in the playground; without the short-circuit the
-  //      runtime returns 422 and any consumer of `useThreads` errors out,
-  //      which can cascade into the chat input. The empty response keeps
-  //      the hooks happy without pretending threads exist.
+  //   2. Short-circuit non-OPTIONS `/threads*` requests with an empty
+  //      list. CopilotKit's thread routes require a CopilotKitIntelligence
+  //      persistence layer we don't ship in the playground; without the
+  //      short-circuit the runtime returns 422 and any consumer of
+  //      `useThreads` errors out. OPTIONS preflight has to pass through
+  //      to the underlying listener so it gets the proper
+  //      `Access-Control-Allow-Methods` / `-Headers` reply — without
+  //      those the browser blocks the follow-up GET.
   const threadsPath = "/api/copilotkit/threads";
   const loggedListener: http.RequestListener = (req, res) => {
     opts.log(`[runtime-host] ${req.method} ${req.url}`);
-    if (req.url && req.url.startsWith(threadsPath)) {
+    if (
+      req.method !== "OPTIONS" &&
+      req.url &&
+      req.url.startsWith(threadsPath)
+    ) {
       res.statusCode = 200;
       res.setHeader("content-type", "application/json");
+      // CORS open — the runtime's createCopilotNodeListener uses cors:true,
+      // we mirror its headers here so the browser accepts our short-circuit
+      // response after a successful preflight.
       res.setHeader("access-control-allow-origin", "*");
+      res.setHeader(
+        "access-control-allow-headers",
+        req.headers["access-control-request-headers"] ?? "*",
+      );
       res.end(JSON.stringify({ threads: [], hasMore: false }));
       return;
     }
