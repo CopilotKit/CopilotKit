@@ -921,10 +921,16 @@ def test_agent_module_imports_cleanly_without_openai_env(tmp_path):
     }
     # Ensure the child can import ``agents.agent`` via the package's src/
     # directory — mirrors what conftest.py does for the parent.
-    src_dir = Path(__file__).resolve().parents[2] / "src"
+    # Also include the integration root so the ``tools`` symlink (which
+    # lives at ``langroid/tools`` → ``../../shared/python/tools``) is
+    # importable — mirrors the ``PYTHONPATH=".:src:..."`` that the CI
+    # workflow and ``package.json`` dev script both set.
+    pkg_root = Path(__file__).resolve().parents[2]
+    src_dir = pkg_root / "src"
     existing_pp = env.get("PYTHONPATH", "")
+    new_pp = f"{pkg_root}{os.pathsep}{src_dir}"
     env["PYTHONPATH"] = (
-        f"{src_dir}{os.pathsep}{existing_pp}" if existing_pp else str(src_dir)
+        f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
     )
 
     # Run the import from ``tmp_path`` so any stray ``.env`` file in the
@@ -1819,10 +1825,14 @@ def test_agent_module_import_does_not_warn_about_openai_on_stderr(tmp_path):
         k: v for k, v in os.environ.items()
         if not k.startswith(("OPENAI_", "LANGROID_", "A2UI_"))
     }
-    src_dir = Path(__file__).resolve().parents[2] / "src"
+    # Include the integration root (for the ``tools`` symlink) and src/
+    # (for ``agents.*``).  Mirrors CI's ``PYTHONPATH=".:src:..."``.
+    pkg_root = Path(__file__).resolve().parents[2]
+    src_dir = pkg_root / "src"
     existing_pp = env.get("PYTHONPATH", "")
+    new_pp = f"{pkg_root}{os.pathsep}{src_dir}"
     env["PYTHONPATH"] = (
-        f"{src_dir}{os.pathsep}{existing_pp}" if existing_pp else str(src_dir)
+        f"{new_pp}{os.pathsep}{existing_pp}" if existing_pp else new_pp
     )
 
     result = subprocess.run(
