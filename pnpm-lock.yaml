@@ -2812,6 +2812,9 @@ importers:
 
   packages/vscode-extension:
     dependencies:
+      '@ag-ui/client':
+        specifier: 0.0.52
+        version: 0.0.52
       '@copilotkit/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -2850,7 +2853,7 @@ importers:
         specifier: ^19.0.2
         version: 19.2.3(@types/react@19.2.7)
       '@types/vscode':
-        specifier: ^1.85.0
+        specifier: ^1.90.0
         version: 1.116.0
       '@vscode/vsce':
         specifier: ^3.0.0
@@ -4575,9 +4578,6 @@ packages:
       dotenv: ^16.4.5
       openai: ^4.62.1
       zod: ^3.23.8
-
-  '@bufbuild/protobuf@2.10.2':
-    resolution: {integrity: sha512-uFsRXwIGyu+r6AMdz+XijIIZJYpoWeYzILt5yZ2d3mCjQrWUTVpVD9WL/jZAbvp+Ed04rOhrsk7FiTcEDseB5A==}
 
   '@bufbuild/protobuf@2.11.0':
     resolution: {integrity: sha512-sBXGT13cpmPR5BMgHE6UEEfEaShh5Ror6rfN3yEK5si7QVrtZg8LEPQb0VVhiLRUslD2yLnXtnRzG035J/mZXQ==}
@@ -23088,7 +23088,7 @@ snapshots:
   '@ag-ui/proto@0.0.36':
     dependencies:
       '@ag-ui/core': 0.0.36
-      '@bufbuild/protobuf': 2.10.2
+      '@bufbuild/protobuf': 2.11.0
       '@protobuf-ts/protoc': 2.11.1
 
   '@ag-ui/proto@0.0.42':
@@ -26709,8 +26709,6 @@ snapshots:
       - bufferutil
       - encoding
       - utf-8-validate
-
-  '@bufbuild/protobuf@2.10.2': {}
 
   '@bufbuild/protobuf@2.11.0': {}
 
