@@ -13,18 +13,17 @@ import {
 import { bundlePlayground, type PlaygroundBundleResult } from "./bundler";
 import { detectMode, type RuntimeMode } from "./mode-detector";
 import {
-  resolveLlmConfig,
-  parseEnvFile,
-  type LlmConfigResult,
-} from "./llm-config";
-import { startAimock, type AimockHandle } from "./aimock-lifecycle";
-import { spawnRuntime, type RuntimeHandle } from "./runtime-spawn";
+  startRuntimeHost,
+  type RuntimeHostHandle,
+} from "./runtime-host";
+import { listModels, pickModel } from "./model-picker";
 import {
   FixtureStore,
   type FixtureListEntry,
   type FixtureMetadata,
   type SavedFixture,
 } from "./fixture-store";
+import type { RecordedCall } from "./vscode-lm-factory";
 
 export interface PlaygroundCallbacks {
   onRefresh(): void | Promise<void>;
@@ -38,30 +37,25 @@ export interface PlaygroundDeps {
   ) => PlaygroundSources | null;
   bundle: (entryPath: string) => Promise<PlaygroundBundleResult>;
   detectMode: (runtimeUrl: unknown) => RuntimeMode;
-  resolveLlmConfig: () => Promise<LlmConfigResult>;
-  startAimock: (opts: {
-    provider: "openai" | "anthropic";
-    upstreamUrl: string;
-    replayFixturePath?: string;
-  }) => Promise<AimockHandle>;
-  spawnRuntime: (opts: {
-    entryScript: string;
-    config: {
-      port: number;
-      llmBaseUrl: string;
-      provider: "openai" | "anthropic";
-      model: string;
-      apiKey: string;
-    };
-  }) => Promise<RuntimeHandle>;
-  /** Absolute path to dist/runtime/subprocess-entry.cjs. */
-  runtimeEntryScript: string;
+  pickModel: (opts?: { preferredId?: string }) => Promise<vscode.LanguageModelChat | null>;
+  listModels: () => Promise<vscode.LanguageModelChat[]>;
+  startRuntimeHost: (opts: {
+    model: vscode.LanguageModelChat;
+    mode: "live" | "record" | "replay";
+    fixtureCalls?: RecordedCall[];
+    onCallRecorded?: (call: RecordedCall) => void;
+    log: (line: string) => void;
+  }) => Promise<RuntimeHostHandle>;
   fixtureStore: {
     list(): FixtureListEntry[];
     read(filePath: string): SavedFixture;
-    save(metadata: FixtureMetadata, body: { recording: unknown[] }): string;
+    save(metadata: FixtureMetadata, body: { calls: RecordedCall[] }): string;
     delete(filePath: string): void;
   };
+  /** Reads the `copilotkit.playground.model` setting. */
+  readPreferredModelId: () => string;
+  /** Persists the user's model selection (workspace-scoped). */
+  writePreferredModelId: (id: string) => Promise<void>;
 }
 
 export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
@@ -73,8 +67,9 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
   private latestBundle: PlaygroundExtensionToWebviewMessage | null = null;
   private bundleSeq = 0;
   private currentSession: {
-    aimock: AimockHandle;
-    runtime: RuntimeHandle;
+    runtime: RuntimeHostHandle;
+    recordedCalls: RecordedCall[];
+    model: vscode.LanguageModelChat;
   } | null = null;
   private replayFixturePath: string | null = null;
   private replayFixtureName: string | null = null;
@@ -120,6 +115,15 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
                 type: "fixtures-list",
                 fixtures: this.deps.fixtureStore.list(),
               });
+              this.post({
+                type: "models-list",
+                models: (await this.deps.listModels()).map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  family: m.family,
+                  vendor: m.vendor,
+                })),
+              });
               return;
             case "refresh":
               void this.callbacks.onRefresh();
@@ -129,23 +133,29 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
               return;
             case "save-fixture": {
               if (!this.currentSession) return;
-              const journal = this.currentSession.aimock.getJournal();
-              const config = await this.deps.resolveLlmConfig();
-              if (config.source === "missing") return;
               const filePath = this.deps.fixtureStore.save(
                 {
                   name: msg.name,
                   createdAt: new Date().toISOString(),
-                  provider: config.provider,
-                  model: config.model,
+                  modelId: this.currentSession.model.id,
+                  modelVendor: this.currentSession.model.vendor,
+                  version: 2,
                 },
-                { recording: journal },
+                { calls: this.currentSession.recordedCalls },
               );
-              this.post({ type: "fixture-saved", filePath });
               this.post({
                 type: "fixtures-list",
                 fixtures: this.deps.fixtureStore.list(),
               });
+              this.callbacks.onOpenSource(filePath);
+              return;
+            }
+            case "select-model": {
+              await this.deps.writePreferredModelId(msg.id);
+              if (this.latestResult) {
+                await this.stopSession();
+                void this.runBundle(this.latestResult);
+              }
               return;
             }
             case "load-fixture": {
@@ -197,15 +207,24 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 
   async stopSession(): Promise<void> {
     if (!this.currentSession) return;
-    const { aimock, runtime } = this.currentSession;
+    const { runtime } = this.currentSession;
     this.currentSession = null;
-    await Promise.allSettled([aimock.stop(), runtime.stop()]);
+    await Promise.allSettled([runtime.stop()]);
+  }
+
+  private log(line: string): void {
+    // No-op in the class itself; the real log is captured in createPlaygroundDeps.
+    void line;
   }
 
   private async runBundle(result: PlaygroundScanResult): Promise<void> {
     const seq = ++this.bundleSeq;
     let sources: PlaygroundSources | null = null;
-    let session: { aimock: AimockHandle; runtime: RuntimeHandle } | null = null;
+    let session: {
+      runtime: RuntimeHostHandle;
+      recordedCalls: RecordedCall[];
+      model: vscode.LanguageModelChat;
+    } | null = null;
 
     try {
       const provider = result.providers[0];
@@ -230,40 +249,35 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         return;
       }
 
-      // 2. LLM config.
-      const config = await this.deps.resolveLlmConfig();
-      if (config.source === "missing") {
-        this.emitBundle({ type: "llm-config-missing" });
+      // 3. Pick a model.
+      const model = await this.deps.pickModel({
+        preferredId: this.deps.readPreferredModelId(),
+      });
+      if (!model) {
+        this.emitBundle({ type: "no-model-available" });
         return;
       }
 
-      // 3-4. aimock + runtime.
-      const aimock = await this.deps.startAimock({
-        provider: config.provider,
-        upstreamUrl:
-          config.provider === "openai"
-            ? "https://api.openai.com"
-            : "https://api.anthropic.com",
-        replayFixturePath: this.replayFixturePath ?? undefined,
+      // 4. Start the runtime host (in-process).
+      const recordedCalls: RecordedCall[] = [];
+      const replayFixture = this.replayFixturePath
+        ? this.deps.fixtureStore.read(this.replayFixturePath)
+        : null;
+      const runtime = await this.deps.startRuntimeHost({
+        model,
+        mode: replayFixture ? "replay" : "record",
+        fixtureCalls: replayFixture?.calls,
+        onCallRecorded: (call) => recordedCalls.push(call),
+        log: (line) => this.log(line),
       });
-      const runtime = await this.deps.spawnRuntime({
-        entryScript: this.deps.runtimeEntryScript,
-        config: {
-          port: 0,
-          llmBaseUrl: aimock.url,
-          provider: config.provider,
-          model: config.model,
-          apiKey: config.apiKey,
-        },
-      });
-      session = { aimock, runtime };
+      session = { runtime, recordedCalls, model };
 
       // 5. Codegen with runtime URL override.
       sources = this.deps.writeSources(result, {
         runtimeUrlOverride: `${runtime.url}/api/copilotkit`,
       });
       if (!sources) {
-        await Promise.allSettled([aimock.stop(), runtime.stop()]);
+        await Promise.allSettled([runtime.stop()]);
         session = null;
         return;
       }
@@ -271,13 +285,13 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
       // 6. Bundle.
       const bundle = await this.deps.bundle(sources.entryPath);
       if (seq !== this.bundleSeq) {
-        await Promise.allSettled([aimock.stop(), runtime.stop()]);
+        await Promise.allSettled([runtime.stop()]);
         session = null;
         return;
       }
 
       if (!bundle.success || !bundle.code) {
-        await Promise.allSettled([aimock.stop(), runtime.stop()]);
+        await Promise.allSettled([runtime.stop()]);
         session = null;
         this.emitBundle({
           type: "bundle-error",
@@ -296,7 +310,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
       this.post({
         type: "session-info",
         runtimeUrl: runtime.url,
-        replayMode: aimock.isReplayMode,
+        replayMode: replayFixture !== null,
         fixtureName: this.replayFixtureName,
       });
       this.post({
@@ -319,10 +333,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
       }
       // Clean up any orphaned session (created but not transferred).
       if (session) {
-        await Promise.allSettled([
-          session.aimock.stop(),
-          session.runtime.stop(),
-        ]);
+        await Promise.allSettled([session.runtime.stop()]);
       }
     }
   }
@@ -385,7 +396,6 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 }
 
 export function createPlaygroundDeps(
-  context: vscode.ExtensionContext,
   workspaceRoot: string | null,
   log: (line: string) => void = () => {},
 ): PlaygroundDeps {
@@ -393,20 +403,22 @@ export function createPlaygroundDeps(
     writeSources: writePlaygroundSources,
     bundle: bundlePlayground,
     detectMode,
-    resolveLlmConfig: () =>
-      resolveLlmConfig(workspaceRoot ?? "", {
-        readSecret: (k) => Promise.resolve(context.secrets.get(k)),
-        readSetting: (k) => vscode.workspace.getConfiguration().get(k),
-        readEnvFile: parseEnvFile,
-      }),
-    startAimock,
-    spawnRuntime: (opts) => spawnRuntime({ ...opts, logger: log }),
-    runtimeEntryScript: vscode.Uri.joinPath(
-      context.extensionUri,
-      "dist",
-      "runtime",
-      "subprocess-entry.cjs",
-    ).fsPath,
-    fixtureStore: new FixtureStore(workspaceRoot ?? ""),
+    pickModel,
+    listModels,
+    startRuntimeHost: (opts) => startRuntimeHost({ ...opts, log }),
+    fixtureStore: new FixtureStore(workspaceRoot ?? "", { onWarn: log }),
+    readPreferredModelId: () =>
+      vscode.workspace
+        .getConfiguration()
+        .get<string>("copilotkit.playground.model", ""),
+    writePreferredModelId: async (id) => {
+      await vscode.workspace
+        .getConfiguration()
+        .update(
+          "copilotkit.playground.model",
+          id,
+          vscode.ConfigurationTarget.Workspace,
+        );
+    },
   };
 }

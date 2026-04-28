@@ -20,30 +20,25 @@ function makeDeps(overrides: Partial<PlaygroundDeps> = {}): PlaygroundDeps {
     writeSources: vi.fn(),
     bundle: vi.fn(),
     detectMode: vi.fn().mockReturnValue({ kind: "embed" }),
-    resolveLlmConfig: vi.fn().mockResolvedValue({
-      source: "explicit",
-      provider: "openai",
-      model: "gpt-4o-mini",
-      apiKey: "sk-test",
+    pickModel: vi.fn().mockResolvedValue({
+      id: "gpt-4o-mini",
+      name: "GPT-4o Mini",
+      family: "gpt-4o-mini",
+      vendor: "openai",
     }),
-    startAimock: vi.fn().mockResolvedValue({
-      url: "http://127.0.0.1:11111",
-      provider: "openai",
-      isReplayMode: false,
-      getJournal: () => [],
-      stop: vi.fn().mockResolvedValue(undefined),
-    }),
-    spawnRuntime: vi.fn().mockResolvedValue({
+    listModels: vi.fn().mockResolvedValue([]),
+    startRuntimeHost: vi.fn().mockResolvedValue({
       url: "http://127.0.0.1:22222",
       stop: vi.fn().mockResolvedValue(undefined),
     }),
-    runtimeEntryScript: "/fake/subprocess-entry.cjs",
     fixtureStore: {
       list: vi.fn().mockReturnValue([]),
       read: vi.fn(),
       save: vi.fn().mockReturnValue("/fake/.copilotkit/fixtures/x.json"),
       delete: vi.fn(),
     },
+    readPreferredModelId: vi.fn().mockReturnValue(""),
+    writePreferredModelId: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -315,12 +310,12 @@ describe("PlaygroundViewProvider — orchestration", () => {
     );
   });
 
-  it("posts llm-config-missing when config is empty", async () => {
+  it("posts no-model-available when no model is returned", async () => {
     const provider = new PlaygroundViewProvider(
       { fsPath: "/fake", scheme: "file" } as never,
       { onRefresh: vi.fn(), onOpenSource: vi.fn() },
       makeDeps({
-        resolveLlmConfig: vi.fn().mockResolvedValue({ source: "missing" }),
+        pickModel: vi.fn().mockResolvedValue(null),
       }),
     );
     const view = makeWebview();
@@ -342,11 +337,11 @@ describe("PlaygroundViewProvider — orchestration", () => {
     });
     await new Promise((r) => setTimeout(r, 10));
     expect(view.webview.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "llm-config-missing" }),
+      expect.objectContaining({ type: "no-model-available" }),
     );
   });
 
-  it("spawns aimock + runtime and passes runtime URL to codegen", async () => {
+  it("starts runtime host and passes runtime URL to codegen", async () => {
     const writeSourcesFn = vi.fn().mockReturnValue({
       outDir: "/tmp/ignored",
       entryPath: "/tmp/ignored/entry.tsx",
@@ -390,21 +385,7 @@ describe("PlaygroundViewProvider — orchestration", () => {
   it("stops the previous session when setScanResult is called again", async () => {
     const stop1 = vi.fn().mockResolvedValue(undefined);
     const stop2 = vi.fn().mockResolvedValue(undefined);
-    const aimock1 = {
-      url: "http://127.0.0.1:11111",
-      provider: "openai" as const,
-      isReplayMode: false,
-      getJournal: () => [],
-      stop: stop1,
-    };
-    const aimock2 = {
-      url: "http://127.0.0.1:22222",
-      provider: "openai" as const,
-      isReplayMode: false,
-      getJournal: () => [],
-      stop: stop1,
-    };
-    const runtime1 = { url: "http://127.0.0.1:33333", stop: stop2 };
+    const runtime1 = { url: "http://127.0.0.1:33333", stop: stop1 };
     const runtime2 = { url: "http://127.0.0.1:44444", stop: stop2 };
     const deps = makeDeps({
       writeSources: vi.fn().mockReturnValue({
@@ -412,11 +393,7 @@ describe("PlaygroundViewProvider — orchestration", () => {
         entryPath: "/tmp/ignored/entry.tsx",
       }),
       bundle: vi.fn().mockResolvedValue({ success: true, code: "var x;" }),
-      startAimock: vi
-        .fn()
-        .mockResolvedValueOnce(aimock1)
-        .mockResolvedValueOnce(aimock2),
-      spawnRuntime: vi
+      startRuntimeHost: vi
         .fn()
         .mockResolvedValueOnce(runtime1)
         .mockResolvedValueOnce(runtime2),
@@ -450,7 +427,6 @@ describe("PlaygroundViewProvider — orchestration", () => {
     await new Promise((r) => setTimeout(r, 60));
 
     expect(stop1).toHaveBeenCalled();
-    expect(stop2).toHaveBeenCalled();
   });
 
   it("saves a fixture when save-fixture is received", async () => {
@@ -461,26 +437,26 @@ describe("PlaygroundViewProvider — orchestration", () => {
         metadata: {
           name: "x",
           createdAt: "2026-04-23T12:00:00Z",
-          provider: "openai" as const,
-          model: "gpt-4o-mini",
+          modelId: "gpt-4o-mini",
+          modelVendor: "openai",
+          version: 2 as const,
         },
       },
     ]);
-    const journal = [{ request: { a: 1 }, response: { b: 2 } }];
+    const fakeModel = {
+      id: "gpt-4o-mini",
+      name: "GPT-4o Mini",
+      family: "gpt-4o-mini",
+      vendor: "openai",
+    };
     const deps = makeDeps({
       writeSources: vi.fn().mockReturnValue({
         outDir: "/tmp",
         entryPath: "/tmp/x.tsx",
       }),
       bundle: vi.fn().mockResolvedValue({ success: true, code: "var x;" }),
-      startAimock: vi.fn().mockResolvedValue({
-        url: "http://127.0.0.1:11111",
-        provider: "openai" as const,
-        isReplayMode: false,
-        getJournal: () => journal,
-        stop: vi.fn().mockResolvedValue(undefined),
-      }),
-      spawnRuntime: vi.fn().mockResolvedValue({
+      pickModel: vi.fn().mockResolvedValue(fakeModel),
+      startRuntimeHost: vi.fn().mockResolvedValue({
         url: "http://127.0.0.1:22222",
         stop: vi.fn().mockResolvedValue(undefined),
       }),
@@ -517,11 +493,16 @@ describe("PlaygroundViewProvider — orchestration", () => {
     view.send({ type: "save-fixture", name: "my-session" });
     await new Promise((r) => setTimeout(r, 30));
     expect(saveFn).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "my-session", provider: "openai" }),
-      { recording: journal },
+      expect.objectContaining({
+        name: "my-session",
+        modelId: "gpt-4o-mini",
+        modelVendor: "openai",
+        version: 2,
+      }),
+      { calls: [] },
     );
     expect(view.webview.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "fixture-saved" }),
+      expect.objectContaining({ type: "fixtures-list" }),
     );
   });
 });

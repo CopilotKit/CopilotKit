@@ -308,7 +308,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }
       },
     },
-    createPlaygroundDeps(context, workspaceRoot ?? null, (line) =>
+    createPlaygroundDeps(workspaceRoot ?? null, (line) =>
       playgroundOutputChannel.appendLine(line),
     ),
   );
@@ -325,32 +325,6 @@ export function activate(context: vscode.ExtensionContext): void {
       "copilotkit.chat.refresh",
       runPlaygroundScan,
     ),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand("copilotkit.chat.setApiKey", async () => {
-      const provider = await vscode.window.showQuickPick(
-        ["openai", "anthropic"],
-        {
-          title: "Playground LLM Provider",
-          placeHolder: "Select provider to set an API key for",
-        },
-      );
-      if (!provider) return;
-      const key = await vscode.window.showInputBox({
-        title: `${provider} API key`,
-        password: true,
-        ignoreFocusOut: true,
-        placeHolder: provider === "openai" ? "sk-..." : "sk-ant-...",
-      });
-      if (!key) return;
-      const secretKey = `copilotkit.${provider}.apiKey`;
-      await context.secrets.store(secretKey, key);
-      void vscode.window.showInformationMessage(
-        `Stored ${provider} API key in VSCode secret storage.`,
-      );
-      runPlaygroundScan();
-    }),
   );
 
   runPlaygroundScan();
