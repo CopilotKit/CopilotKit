@@ -137,7 +137,15 @@ export function App(): React.JSX.Element {
           />
         </div>
       )}
-      <MountedComponentsPanel bundle={bundle} bundleError={bundleError} />
+      <MountedComponentsPanel
+        bundle={bundle}
+        bundleError={bundleError}
+        scan={result}
+        mountErrors={mountErrors}
+        onOpenSource={(filePath, line) =>
+          sendToExtension({ type: "open-source", filePath, line })
+        }
+      />
       <DiagnosticsPanel
         mountErrors={mountErrors}
         runtimeUrl={sessionInfo.runtimeUrl || null}
