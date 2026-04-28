@@ -24,7 +24,16 @@ export type PlaygroundExtensionToWebviewMessage =
       kind: "proxy" | "dynamic-runtime-url";
       detail?: string;
     }
-  | { type: "llm-config-missing" }
+  | {
+      type: "models-list";
+      models: Array<{
+        id: string;
+        name: string;
+        family: string;
+        vendor: string;
+      }>;
+    }
+  | { type: "no-model-available" }
   | { type: "runtime-error"; message: string }
   | { type: "error"; message: string }
   // Plan #4 additions
@@ -43,6 +52,7 @@ export type PlaygroundWebviewToExtensionMessage =
   | { type: "ready" }
   | { type: "refresh" }
   | { type: "open-source"; filePath: string; line?: number }
+  | { type: "select-model"; id: string }
   // Plan #4 additions
   | { type: "save-fixture"; name: string }
   | { type: "load-fixture"; filePath: string }
