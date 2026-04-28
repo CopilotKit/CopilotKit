@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FixtureStore, type FixtureMetadata } from "../fixture-store";
+import type { RecordedCall } from "../vscode-lm-factory";
 
 let workspaceRoot: string;
 
@@ -16,55 +17,38 @@ afterEach(() => {
   }
 });
 
-describe("FixtureStore", () => {
+const meta: FixtureMetadata = {
+  name: "round-trip",
+  createdAt: "2026-04-28T12:00:00Z",
+  modelId: "claude-3-5-sonnet",
+  modelVendor: "github-copilot",
+  version: 2,
+};
+
+const sampleCall: RecordedCall = {
+  matchKey: "a".repeat(64),
+  input: { messages: [], tools: [], modelId: "claude-3-5-sonnet" },
+  chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "Hello" }],
+};
+
+describe("FixtureStore (v2)", () => {
   it("lists empty when the fixtures dir does not exist", () => {
     const store = new FixtureStore(workspaceRoot);
     expect(store.list()).toEqual([]);
   });
 
-  it("saves a fixture and lists it back with metadata", () => {
+  it("saves a v2 fixture and reads it back with calls[]", () => {
     const store = new FixtureStore(workspaceRoot);
-    const meta: FixtureMetadata = {
-      name: "my-session",
-      createdAt: "2026-04-23T12:00:00Z",
-      provider: "openai",
-      model: "gpt-4o-mini",
-    };
-    store.save(meta, { recording: [{ request: {}, response: {} }] });
-    const list = store.list();
-    expect(list).toHaveLength(1);
-    expect(list[0].metadata.name).toBe("my-session");
-    expect(list[0].filePath).toMatch(/my-session\.json$/);
-  });
-
-  it("reads a saved fixture by filePath", () => {
-    const store = new FixtureStore(workspaceRoot);
-    store.save(
-      {
-        name: "x",
-        createdAt: "2026-04-23T12:00:00Z",
-        provider: "openai",
-        model: "gpt-4o-mini",
-      },
-      { recording: [] },
-    );
-    const entry = store.list()[0];
-    const fixture = store.read(entry.filePath);
-    expect(fixture.metadata.name).toBe("x");
-    expect(fixture.recording).toEqual([]);
+    const file = store.save(meta, { calls: [sampleCall] });
+    const fixture = store.read(file);
+    expect(fixture.metadata.modelId).toBe("claude-3-5-sonnet");
+    expect(fixture.metadata.version).toBe(2);
+    expect(fixture.calls).toEqual([sampleCall]);
   });
 
   it("sanitizes unsafe filenames", () => {
     const store = new FixtureStore(workspaceRoot);
-    store.save(
-      {
-        name: "../../escape!",
-        createdAt: "2026-04-23T12:00:00Z",
-        provider: "openai",
-        model: "gpt-4o-mini",
-      },
-      { recording: [] },
-    );
+    store.save({ ...meta, name: "../../escape!" }, { calls: [] });
     const [entry] = store.list();
     expect(entry.filePath).not.toContain("..");
     expect(path.dirname(entry.filePath)).toBe(
@@ -72,61 +56,28 @@ describe("FixtureStore", () => {
     );
   });
 
-  it("emits aimock-native fixtures[] extracted from journal response.fixture", () => {
-    const store = new FixtureStore(workspaceRoot);
-    const journal = [
-      {
-        id: "j1",
-        timestamp: 1,
-        method: "POST",
-        path: "/v1/chat/completions",
-        response: {
-          status: 200,
-          fixture: {
-            match: { userMessage: "hi" },
-            response: { content: "hello" },
-          },
-        },
-      },
-      {
-        id: "j2",
-        timestamp: 2,
-        method: "POST",
-        path: "/v1/chat/completions",
-        response: { status: 503, fixture: null }, // unmatched — skipped
-      },
-    ];
-    const filePath = store.save(
-      {
-        name: "extract",
-        createdAt: "2026-04-24T00:00:00Z",
-        provider: "openai",
-        model: "gpt-4o-mini",
-      },
-      { recording: journal },
+  it("skips v1 (journal-shaped) fixtures with no version field", () => {
+    const dir = path.join(workspaceRoot, ".copilotkit", "fixtures");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "old.json"),
+      JSON.stringify({
+        metadata: { name: "old", createdAt: "2026-01-01T00:00:00Z" },
+        recording: [],
+      }),
+      "utf-8",
     );
-    const raw = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    expect(Array.isArray(raw.fixtures)).toBe(true);
-    expect(raw.fixtures).toHaveLength(1);
-    expect(raw.fixtures[0]).toEqual({
-      match: { userMessage: "hi" },
-      response: { content: "hello" },
+    const warnings: string[] = [];
+    const store = new FixtureStore(workspaceRoot, {
+      onWarn: (m) => warnings.push(m),
     });
-    // Recording still travels in the same file for debugging.
-    expect(raw.recording).toHaveLength(2);
+    expect(store.list()).toEqual([]);
+    expect(warnings.some((w) => w.includes("old.json"))).toBe(true);
   });
 
   it("deletes a fixture", () => {
     const store = new FixtureStore(workspaceRoot);
-    store.save(
-      {
-        name: "doomed",
-        createdAt: "2026-04-23T12:00:00Z",
-        provider: "openai",
-        model: "gpt-4o-mini",
-      },
-      { recording: [] },
-    );
+    store.save(meta, { calls: [] });
     const [entry] = store.list();
     store.delete(entry.filePath);
     expect(store.list()).toEqual([]);

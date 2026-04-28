@@ -1,16 +1,18 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import type { RecordedCall } from "./vscode-lm-factory";
 
 export interface FixtureMetadata {
   name: string;
   createdAt: string;
-  provider: "openai" | "anthropic";
-  model: string;
+  modelId: string;
+  modelVendor: string;
+  version: 2;
 }
 
 export interface SavedFixture {
   metadata: FixtureMetadata;
-  recording: unknown[];
+  calls: RecordedCall[];
 }
 
 export interface FixtureListEntry {
@@ -18,14 +20,25 @@ export interface FixtureListEntry {
   metadata: FixtureMetadata;
 }
 
+export interface FixtureStoreOptions {
+  onWarn?: (message: string) => void;
+}
+
 /**
  * Filesystem-backed store for playground chat fixtures. Each fixture is a
- * single JSON file under `<workspaceRoot>/.copilotkit/fixtures/`. Metadata +
- * recording travel together in the same file. The recording shape is
- * deliberately `unknown[]` — aimock's journal format is pass-through.
+ * single JSON file under `<workspaceRoot>/.copilotkit/fixtures/`. The v2
+ * format stores recorded vscode-lm calls; v1 (journal-shaped) files are
+ * skipped with a warning — they were dev artifacts only.
  */
 export class FixtureStore {
-  constructor(private readonly workspaceRoot: string) {}
+  private readonly onWarn: (message: string) => void;
+
+  constructor(
+    private readonly workspaceRoot: string,
+    opts: FixtureStoreOptions = {},
+  ) {
+    this.onWarn = opts.onWarn ?? (() => {});
+  }
 
   private fixturesDir(): string {
     return path.join(this.workspaceRoot, ".copilotkit", "fixtures");
@@ -39,17 +52,16 @@ export class FixtureStore {
       if (!name.endsWith(".json")) continue;
       const filePath = path.join(dir, name);
       try {
-        const content = JSON.parse(fs.readFileSync(filePath, "utf-8")) as
-          | SavedFixture
-          | { metadata?: FixtureMetadata };
-        if (content.metadata) {
-          entries.push({
-            filePath,
-            metadata: content.metadata as FixtureMetadata,
-          });
+        const content = JSON.parse(fs.readFileSync(filePath, "utf-8"));
+        if (content?.metadata?.version === 2) {
+          entries.push({ filePath, metadata: content.metadata });
+        } else {
+          this.onWarn(
+            `[fixture-store] skipping v1 fixture ${filePath} — pre-vscode.lm format`,
+          );
         }
       } catch {
-        // Corrupt file — skip.
+        // Corrupt file — skip silently.
       }
     }
     return entries.sort((a, b) =>
@@ -61,25 +73,18 @@ export class FixtureStore {
     if (!filePath.startsWith(this.fixturesDir())) {
       throw new Error("refusing to read file outside fixtures directory");
     }
-    const content = fs.readFileSync(filePath, "utf-8");
-    return JSON.parse(content) as SavedFixture;
+    const content = JSON.parse(
+      fs.readFileSync(filePath, "utf-8"),
+    ) as SavedFixture;
+    return content;
   }
 
-  save(metadata: FixtureMetadata, body: { recording: unknown[] }): string {
+  save(metadata: FixtureMetadata, body: { calls: RecordedCall[] }): string {
     const dir = this.fixturesDir();
     fs.mkdirSync(dir, { recursive: true });
     const safeName = sanitizeName(metadata.name) || "fixture";
     const filePath = path.join(dir, `${safeName}.json`);
-    // Translate aimock's JournalEntry[] → aimock-native `fixtures[]` shape
-    // so `mock.loadFixtureFile(path)` in replay mode actually matches
-    // incoming requests. aimock reads `.fixtures`; our metadata + raw
-    // recording ride alongside for the webview sidebar and debugging.
-    const fixtures = extractAimockFixtures(body.recording);
-    const payload = {
-      metadata,
-      fixtures,
-      recording: body.recording,
-    };
+    const payload: SavedFixture = { metadata, calls: body.calls };
     fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), "utf-8");
     return filePath;
   }
@@ -99,24 +104,4 @@ function sanitizeName(name: string): string {
     .replace(/[^\w.\-]/g, "_")
     .replace(/^\.+/, "")
     .slice(0, 100);
-}
-
-/**
- * Extracts aimock-native Fixture objects from a JournalEntry[] recording so
- * that `LLMock.loadFixtureFile()` can replay them. Each journal entry has
- * `response.fixture` set to the Fixture that matched (when aimock proxied +
- * recorded from upstream, it synthesizes one). Entries without a fixture
- * (unmatched replay misses) are skipped.
- */
-function extractAimockFixtures(recording: unknown[]): unknown[] {
-  const out: unknown[] = [];
-  for (const entry of recording) {
-    if (!entry || typeof entry !== "object") continue;
-    const e = entry as {
-      response?: { fixture?: unknown };
-    };
-    const fixture = e.response?.fixture;
-    if (fixture != null) out.push(fixture);
-  }
-  return out;
 }
