@@ -34,6 +34,7 @@ export interface PreferencesCardProps {
  * controller reads that same object out of the AG-UI state envelope and
  * injects it into the system prompt so the agent's reply visibly adapts.
  */
+// @region[preferences-card-render]
 export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
   const set = <K extends keyof Preferences>(key: K, v: Preferences[K]) =>
     onChange({ ...value, [key]: v });
@@ -142,3 +143,4 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
     </div>
   );
 }
+// @endregion[preferences-card-render]

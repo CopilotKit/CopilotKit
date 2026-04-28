@@ -62,6 +62,11 @@ public class DisplayFlightTool implements Function<DisplayFlightTool.Request, St
     @Override
     public String apply(Request request) {
         try {
+            // @region[backend-render-operations]
+            // The A2UI middleware detects the `a2ui_operations` container in
+            // this tool result and forwards the ops to the frontend renderer.
+            // The frontend catalog resolves component names to the local
+            // React components.
             var ops = List.of(
                     Map.of("type", "create_surface",
                             "surfaceId", SURFACE_ID,
@@ -79,6 +84,7 @@ public class DisplayFlightTool implements Function<DisplayFlightTool.Request, St
                             ))
             );
             return MAPPER.writeValueAsString(Map.of("a2ui_operations", ops));
+            // @endregion[backend-render-operations]
         } catch (Exception e) {
             return "{\"error\":\"" + e.getMessage().replace("\"", "'") + "\"}";
         }

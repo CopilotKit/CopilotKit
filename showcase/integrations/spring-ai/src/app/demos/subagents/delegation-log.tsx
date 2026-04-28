@@ -57,6 +57,7 @@ const STATUS_COLOR: Record<Delegation["status"], string> = {
  * STATE_SNAPSHOT, the frontend's `useAgent({ updates: [OnStateChanged] })`
  * subscription fires, and a new entry appears below.
  */
+// @region[delegation-log-frontend]
 export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
   return (
     <div
@@ -134,3 +135,4 @@ export function DelegationLog({ delegations, isRunning }: DelegationLogProps) {
     </div>
   );
 }
+// @endregion[delegation-log-frontend]

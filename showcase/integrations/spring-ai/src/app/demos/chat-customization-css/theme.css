@@ -6,6 +6,8 @@
  * https://docs.copilotkit.ai/custom-look-and-feel/customize-built-in-ui-components
  */
 
+/* @region[css-variables] */
+/* CopilotKit CSS variable overrides (accent colors, etc.) */
 .chat-css-demo-scope {
   --copilot-kit-primary-color: #ff006e;
   --copilot-kit-contrast-color: #ffffff;
@@ -16,6 +18,7 @@
   --copilot-kit-separator-color: #ff006e;
   --copilot-kit-muted-color: #c2185b;
 }
+/* @endregion[css-variables] */
 
 .chat-css-demo-scope .copilotKitMessages {
   font-family: "Georgia", "Cambria", "Times New Roman", serif;

@@ -103,6 +103,11 @@ public class SubagentsController {
             of every sub-agent delegation.
             """;
 
+    // @region[subagent-setup]
+    // Each sub-agent is its own Spring AI ChatClient call (built per-request
+    // in SubAgentHandler.apply), with its own system prompt. They don't
+    // share memory or tools with the supervisor — the supervisor only sees
+    // their return value as a tool result.
     private static final String RESEARCH_PROMPT =
             "You are a research sub-agent. Given a topic, produce a concise "
             + "bulleted list of 3-5 key facts. No preamble, no closing.";
@@ -113,6 +118,7 @@ public class SubagentsController {
     private static final String CRITIQUE_PROMPT =
             "You are an editorial critique sub-agent. Given a draft, give "
             + "2-3 crisp, actionable critiques. No preamble.";
+    // @endregion[subagent-setup]
 
     private final AgUiService agUiService;
     private final ChatModel chatModel;
@@ -190,6 +196,13 @@ public class SubagentsController {
             // tool-call ids returned by ChatResponse.
             List<HandlerInvocation> handlerInvocations = new CopyOnWriteArrayList<>();
 
+            // @region[supervisor-delegation-tools]
+            // Each sub-agent is exposed to the supervisor LLM as a Spring AI
+            // ToolCallback. When the supervisor invokes one, the matching
+            // SubAgentHandler runs a fresh ChatClient call with that
+            // sub-agent's system prompt, appends a Delegation entry to
+            // shared state, and returns the sub-agent's output to the
+            // supervisor as a tool result.
             ToolCallback researchTool = subAgentTool(
                     "research_agent", RESEARCH_PROMPT, runState, deferredEvents,
                     handlerInvocations, messageId,
@@ -207,6 +220,7 @@ public class SubagentsController {
                     handlerInvocations, messageId,
                     "Delegate a critique task to the critique sub-agent. "
                     + "Use for: reviewing a draft and suggesting concrete improvements.");
+            // @endregion[supervisor-delegation-tools]
 
             AssistantMessage assistantMessage = new AssistantMessage();
             assistantMessage.setId(messageId);
