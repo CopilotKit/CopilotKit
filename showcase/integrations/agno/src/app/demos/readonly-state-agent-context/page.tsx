@@ -37,13 +37,16 @@ const ACTIVITIES = [
 ];
 
 function DemoContent() {
+  // @region[context-provider-sketch]
   const [userName, setUserName] = useState("Atai");
   const [userTimezone, setUserTimezone] = useState("America/Los_Angeles");
   const [recentActivity, setRecentActivity] = useState<string[]>([
     ACTIVITIES[0],
     ACTIVITIES[2],
   ]);
+  // @endregion[context-provider-sketch]
 
+  // @region[use-agent-context-call]
   useAgentContext({
     description: "The currently logged-in user's display name",
     value: userName,
@@ -56,6 +59,7 @@ function DemoContent() {
     description: "The user's recent activity in the app, newest first",
     value: recentActivity,
   });
+  // @endregion[use-agent-context-call]
 
   useConfigureSuggestions({
     suggestions: [

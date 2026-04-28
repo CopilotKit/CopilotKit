@@ -37,6 +37,7 @@ export default function SharedStateReadWriteDemo() {
 }
 
 function DemoContent() {
+  // @region[use-agent-read]
   // Subscribe to agent state changes. The custom AGUI router for this
   // agent (see agent_server.py) emits a STATE_SNAPSHOT event after every
   // run, which fires this hook and re-renders the panels below.
@@ -44,6 +45,7 @@ function DemoContent() {
     agentId: "shared-state-read-write",
     updates: [UseAgentUpdate.OnStateChanged],
   });
+  // @endregion[use-agent-read]
 
   useConfigureSuggestions({
     suggestions: [
@@ -77,6 +79,7 @@ function DemoContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // @region[use-agent-write]
   // WRITE: every edit in the sidebar goes straight into agent state.
   // On the agent's next turn, the dynamic instructions function reads
   // this back out of session_state and adds it to the system prompt —
@@ -87,6 +90,7 @@ function DemoContent() {
       notes, // preserve what the agent has written
     } as RWAgentState);
   };
+  // @endregion[use-agent-write]
 
   // WRITE: let the user clear the agent-authored notes from the UI.
   const handleClearNotes = () => {

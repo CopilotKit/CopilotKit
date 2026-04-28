@@ -18,6 +18,11 @@ export interface NotesCardProps {
  * The "Clear" button is a write-back (UI -> agent state) to demonstrate
  * both directions on the same field.
  */
+// @region[notes-card-render]
+// Read-side render: this card reflects the agent-authored `notes` slice
+// of shared state. The parent page passes `state.notes` in; we never
+// touch agent state ourselves — we just render it. The Clear button is
+// a small write-back, exposed as an `onClear` prop.
 export function NotesCard({ notes, onClear }: NotesCardProps) {
   return (
     <div
@@ -69,3 +74,4 @@ export function NotesCard({ notes, onClear }: NotesCardProps) {
     </div>
   );
 }
+// @endregion[notes-card-render]

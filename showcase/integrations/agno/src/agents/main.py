@@ -20,6 +20,7 @@ from tools.types import Flight
 load_dotenv()
 
 
+# @region[weather-tool-backend]
 @tool
 def get_weather(location: str):
     """
@@ -32,6 +33,7 @@ def get_weather(location: str):
         str: Weather data as JSON.
     """
     return json.dumps(get_weather_impl(location))
+# @endregion[weather-tool-backend]
 
 
 @tool

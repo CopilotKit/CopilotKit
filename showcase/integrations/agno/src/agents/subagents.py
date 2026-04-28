@@ -37,6 +37,11 @@ logger = logging.getLogger(__name__)
 _SUB_MODEL_ID = "gpt-4o-mini"
 
 
+# @region[subagent-setup]
+# Each sub-agent is a full Agno `Agent(...)` with its own system prompt.
+# They don't share memory or tools with the supervisor — the supervisor
+# only sees their final text response, which is returned via the
+# delegation tool below.
 _research_agent = Agent(
     model=OpenAIChat(id=_SUB_MODEL_ID, timeout=120),
     description="Research sub-agent.",
@@ -64,6 +69,7 @@ _critique_agent = Agent(
         "2-3 crisp, actionable critiques. No preamble."
     ),
 )
+# @endregion[subagent-setup]
 
 
 def _invoke_sub_agent(sub_agent: Agent, task: str) -> str:
@@ -182,6 +188,12 @@ def _delegate(
 # ---------------------------------------------------------------------------
 
 
+# @region[supervisor-delegation-tools]
+# Each function is a tool exposed to the supervisor agent. The supervisor
+# LLM "calls" these to delegate work; each call synchronously runs the
+# matching sub-agent, records the delegation into shared state, and
+# returns the sub-agent's output as the tool result the supervisor reads
+# on its next step.
 def research_agent(run_context: RunContext, task: str) -> dict[str, Any]:
     """Delegate a research task to the research sub-agent.
 
@@ -224,6 +236,7 @@ def critique_agent(run_context: RunContext, task: str) -> dict[str, Any]:
         sub_agent=_critique_agent,
         task=task,
     )
+# @endregion[supervisor-delegation-tools]
 
 
 # ---------------------------------------------------------------------------

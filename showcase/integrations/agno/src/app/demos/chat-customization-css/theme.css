@@ -3,6 +3,7 @@
  * leak out and affect the rest of the showcase app.
  */
 
+/* @region[css-variables] */
 /* CopilotKit CSS variable overrides (accent colors, etc.) */
 .chat-css-demo-scope {
   --copilot-kit-primary-color: #ff006e;
@@ -14,6 +15,7 @@
   --copilot-kit-separator-color: #ff006e;
   --copilot-kit-muted-color: #c2185b;
 }
+/* @endregion[css-variables] */
 
 /* Messages container */
 .chat-css-demo-scope .copilotKitMessages {
