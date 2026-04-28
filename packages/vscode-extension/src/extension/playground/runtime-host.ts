@@ -50,11 +50,25 @@ export async function startRuntimeHost(
     cors: true,
   });
 
-  // Wrap the listener so we can see what hits the runtime. Without this it's
-  // impossible to tell from the output channel whether the webview actually
-  // reaches the server (CSP blocks, wrong port, stale bundle, etc.).
+  // Wrap the listener for two reasons:
+  //   1. Log every request to the output channel so silent failures
+  //      (CSP blocks, wrong port, stale bundle, etc.) become visible.
+  //   2. Short-circuit `/threads*` requests with an empty list. CopilotKit's
+  //      thread routes require a CopilotKitIntelligence persistence layer
+  //      we don't ship in the playground; without the short-circuit the
+  //      runtime returns 422 and any consumer of `useThreads` errors out,
+  //      which can cascade into the chat input. The empty response keeps
+  //      the hooks happy without pretending threads exist.
+  const threadsPath = "/api/copilotkit/threads";
   const loggedListener: http.RequestListener = (req, res) => {
     opts.log(`[runtime-host] ${req.method} ${req.url}`);
+    if (req.url && req.url.startsWith(threadsPath)) {
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/json");
+      res.setHeader("access-control-allow-origin", "*");
+      res.end(JSON.stringify({ threads: [], hasMore: false }));
+      return;
+    }
     return listener(req, res);
   };
 
