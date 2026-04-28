@@ -16,7 +16,7 @@ using System.ClientModel;
 // customer-affecting action is requested.
 //
 // Reference parity with:
-// showcase/packages/langgraph-python/src/agents/hitl_in_app.py
+// showcase/integrations/langgraph-python/src/agents/hitl_in_app.py
 public sealed class HitlInAppAgentFactory
 {
     private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";

@@ -27,7 +27,7 @@ import { getStaticGraphSchema } from "@langchain/langgraph-api/schema";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Liveness is now bound by liveness.mjs BEFORE this module is dynamic-imported
-// — see showcase/packages/langgraph-typescript/src/agent/liveness.mjs. The
+// — see showcase/integrations/langgraph-typescript/src/agent/liveness.mjs. The
 // previous sibling-probe implementation inside this file did not work: ES
 // module semantics resolve all top-level `import` statements before any
 // module-body code runs, so `import { startServer } from "@langchain/

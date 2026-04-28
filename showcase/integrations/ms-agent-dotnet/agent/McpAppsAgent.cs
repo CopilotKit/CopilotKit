@@ -14,7 +14,7 @@ using System.ClientModel;
 // the chat as a sandboxed iframe.
 //
 // Reference parity with:
-// showcase/packages/langgraph-python/src/agents/mcp_apps_agent.py
+// showcase/integrations/langgraph-python/src/agents/mcp_apps_agent.py
 public sealed class McpAppsAgentFactory
 {
     private const string DefaultOpenAiEndpoint = "https://models.inference.ai.azure.com";

@@ -33,7 +33,7 @@ COPY showcase/ops ./showcase/ops
 # script deps, and run the generator. The runtime stage copies the
 # resulting file via `COPY --from=build`.
 COPY showcase/shared/ ./showcase/shared/
-COPY showcase/packages/ ./showcase/packages/
+COPY showcase/integrations/ ./showcase/integrations/
 COPY showcase/scripts/package.json showcase/scripts/package-lock.json ./showcase/scripts/
 COPY showcase/scripts/ ./showcase/scripts/
 RUN cd showcase/scripts && npm ci --silent \

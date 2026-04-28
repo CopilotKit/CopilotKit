@@ -9,7 +9,7 @@ using OpenAI;
 // Vision-capable .NET agent for the Multimodal Attachments demo cell.
 //
 // Design mirrors the LangGraph reference
-// (showcase/packages/langgraph-python/src/agents/multimodal_agent.py):
+// (showcase/integrations/langgraph-python/src/agents/multimodal_agent.py):
 //  - Use a vision-capable chat model (gpt-4o / gpt-4o-mini) so images are
 //    consumed natively by the model via OpenAI's image content parts.
 //  - No tools are registered — the model handles image/PDF analysis directly.

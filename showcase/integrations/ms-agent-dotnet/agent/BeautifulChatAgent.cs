@@ -12,7 +12,7 @@ using OpenAI;
 //
 // Flagship showcase cell — simultaneously exercises A2UI (fixed + dynamic
 // schema), Open Generative UI, and MCP Apps. The LangGraph reference lives at
-// `showcase/packages/langgraph-python/src/agents/beautiful_chat.py`; the tool
+// `showcase/integrations/langgraph-python/src/agents/beautiful_chat.py`; the tool
 // set here is a near-verbatim port:
 //
 //  - `query_data` / `get_todos` / `manage_todos` — backend tools that power
