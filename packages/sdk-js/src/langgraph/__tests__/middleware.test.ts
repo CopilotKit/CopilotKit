@@ -9,6 +9,9 @@
  *   alongside the agent's own tools. Empty actions = no change.
  * - App context from `state.copilotkit.context` (or runtime.context) becomes
  *   a SystemMessage `"App Context:\n<json>"`. Idempotent across re-runs.
+ *   The middleware MUST emit at most one SystemMessage so Anthropic via
+ *   langchain-anthropic does not crash with "System message must be at
+ *   beginning of message list".
  * - `afterModel` peels frontend tool calls off the last AIMessage so the
  *   ToolNode does not execute them; `afterAgent` re-attaches them.
  * - The opt-in `exposeState` knob surfaces user state into
@@ -66,6 +69,10 @@ function systemContents(messages: any[]): string[] {
     }
   }
   return out;
+}
+
+function countSystemMessages(messages: any[]): number {
+  return messages.filter((m: any) => m._getType?.() === "system").length;
 }
 
 // ---------------------------------------------------------------------------
@@ -400,6 +407,97 @@ describe("beforeAgent", () => {
       s.startsWith("App Context:"),
     );
     expect(appContextMessages).toHaveLength(1);
+  });
+
+  // Anti-regression for CPK-7522: the middleware previously emitted a separate
+  // SystemMessage for the App Context, producing two SystemMessages whenever
+  // a user-authored system message was already present. langchain-anthropic
+  // rejects that with "System message must be at beginning of message list",
+  // crashing Anthropic-powered LangGraph agents (notably A2UI demos).
+  it("merges App Context into an existing system message instead of adding a second one", () => {
+    const state = {
+      messages: [
+        new SystemMessage("you are a helpful assistant"),
+        new HumanMessage("hi"),
+      ],
+      copilotkit: { context: { user: "Alice" } },
+    };
+
+    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
+
+    expect(result).toBeDefined();
+    expect(countSystemMessages(result!.messages)).toBe(1);
+    const [systemContent] = systemContents(result!.messages);
+    expect(systemContent).toContain("you are a helpful assistant");
+    expect(systemContent).toContain("App Context:");
+    expect(systemContent).toContain("Alice");
+  });
+
+  it("keeps a single system message across re-runs when one already exists", () => {
+    const state = {
+      messages: [
+        new SystemMessage("base prompt"),
+        new HumanMessage("hi"),
+      ],
+      copilotkit: { context: { user: "Alice" } },
+    };
+
+    const first = copilotkitMiddleware.beforeAgent(state, {} as any) ?? state;
+    const second =
+      copilotkitMiddleware.beforeAgent(
+        { ...first, copilotkit: { context: { user: "Bob" } } },
+        {} as any,
+      ) ?? first;
+
+    expect(countSystemMessages(second.messages)).toBe(1);
+    const [systemContent] = systemContents(second.messages);
+    expect(systemContent).toContain("base prompt");
+    expect(systemContent).toContain("Bob");
+    expect(systemContent).not.toContain("Alice");
+  });
+
+  it("removes a legacy standalone App Context system message persisted from older versions", () => {
+    // Older versions emitted a separate SystemMessage starting with
+    // "App Context:\n". Such a message can still exist in a checkpointed
+    // thread when the user upgrades CopilotKit; we must clean it up so we
+    // never send two SystemMessages to Anthropic.
+    const legacy = new SystemMessage("App Context:\nuser=Alice");
+    const state = {
+      messages: [
+        new SystemMessage("base prompt"),
+        legacy,
+        new HumanMessage("hi"),
+      ],
+      copilotkit: { context: { user: "Bob" } },
+    };
+
+    const result = copilotkitMiddleware.beforeAgent(state, {} as any);
+
+    expect(result).toBeDefined();
+    expect(countSystemMessages(result!.messages)).toBe(1);
+    const [systemContent] = systemContents(result!.messages);
+    expect(systemContent).toContain("base prompt");
+    expect(systemContent).toContain("Bob");
+    expect(systemContent).not.toContain("Alice");
+  });
+
+  it("strips a stale App Context block when context becomes empty", () => {
+    const initial = {
+      messages: [new SystemMessage("base prompt"), new HumanMessage("hi")],
+      copilotkit: { context: { user: "Alice" } },
+    };
+
+    const first =
+      copilotkitMiddleware.beforeAgent(initial, {} as any) ?? initial;
+    const second = copilotkitMiddleware.beforeAgent(
+      { ...first, copilotkit: { context: {} } },
+      {} as any,
+    );
+
+    expect(second).toBeDefined();
+    expect(countSystemMessages(second!.messages)).toBe(1);
+    const [systemContent] = systemContents(second!.messages);
+    expect(systemContent).toBe("base prompt");
   });
 });
 

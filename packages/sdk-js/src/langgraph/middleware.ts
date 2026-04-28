@@ -170,6 +170,40 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
   };
 };
 
+// Delimiters wrapping the CopilotKit-managed App Context block. When a system
+// message already exists, the block is merged into it so the model only sees a
+// single system message. Anthropic's API rejects messages with more than one
+// SystemMessage, so emitting a separate SystemMessage here would crash agents
+// running on Anthropic via langchain-anthropic.
+const APP_CONTEXT_BLOCK_START = "<!-- BEGIN COPILOTKIT APP CONTEXT -->";
+const APP_CONTEXT_BLOCK_END = "<!-- END COPILOTKIT APP CONTEXT -->";
+const LEGACY_APP_CONTEXT_PREFIX = "App Context:\n";
+
+const buildAppContextBlock = (contextContent: string): string =>
+  `${APP_CONTEXT_BLOCK_START}\nApp Context:\n${contextContent}\n${APP_CONTEXT_BLOCK_END}`;
+
+const stripAppContextBlock = (content: string): string => {
+  const startIdx = content.indexOf(APP_CONTEXT_BLOCK_START);
+  if (startIdx === -1) return content;
+  const endMarkerIdx = content.indexOf(APP_CONTEXT_BLOCK_END, startIdx);
+  if (endMarkerIdx === -1) return content;
+  const endIdx = endMarkerIdx + APP_CONTEXT_BLOCK_END.length;
+  // Also consume an immediately preceding/trailing blank line introduced when
+  // appending the block to existing content.
+  const before = content.slice(0, startIdx).replace(/\n{2,}$/, "\n");
+  const after = content.slice(endIdx).replace(/^\n+/, "");
+  if (before === "" && after === "") return "";
+  if (after === "") return before.replace(/\n+$/, "");
+  if (before === "") return after;
+  return `${before.replace(/\n+$/, "")}\n\n${after}`;
+};
+
+const getMessageContentString = (msg: any): string | null => {
+  if (typeof msg.content === "string") return msg.content;
+  if (Array.isArray(msg.content) && msg.content[0]?.text) return msg.content[0].text;
+  return null;
+};
+
 const createAppContextBeforeAgent = (state, runtime) => {
   const messages = state.messages;
 
@@ -186,8 +220,59 @@ const createAppContextBeforeAgent = (state, runtime) => {
     (typeof appContext === "string" && appContext.trim() === "") ||
     (typeof appContext === "object" && Object.keys(appContext).length === 0);
 
+  // Identify any legacy standalone App Context SystemMessages persisted from
+  // earlier versions of this middleware, plus the first user-authored
+  // system/developer message we should merge into.
+  let firstSystemIndex = -1;
+  const legacyContextIndices: number[] = [];
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    const type = msg._getType?.();
+    if (type !== "system" && type !== "developer") continue;
+    const content = getMessageContentString(msg) ?? "";
+    const isLegacyStandalone =
+      content.startsWith(LEGACY_APP_CONTEXT_PREFIX) &&
+      !content.includes(APP_CONTEXT_BLOCK_START);
+    if (isLegacyStandalone) {
+      legacyContextIndices.push(i);
+      continue;
+    }
+    if (firstSystemIndex === -1) firstSystemIndex = i;
+  }
+
+  const updatedMessages = [...messages];
+
+  // Drop legacy standalone App Context messages from highest index to lowest
+  // so prior indices remain valid.
+  for (let k = legacyContextIndices.length - 1; k >= 0; k--) {
+    const idx = legacyContextIndices[k];
+    updatedMessages.splice(idx, 1);
+    if (firstSystemIndex > idx) firstSystemIndex--;
+  }
+
   if (isEmptyContext) {
-    return;
+    // No context to inject; just remove any stale block from the existing
+    // system message and any legacy standalone messages.
+    if (firstSystemIndex !== -1) {
+      const target = updatedMessages[firstSystemIndex];
+      const original = getMessageContentString(target) ?? "";
+      const cleaned = stripAppContextBlock(original);
+      if (cleaned !== original) {
+        updatedMessages[firstSystemIndex] = new SystemMessage({
+          content: cleaned,
+          id: target.id,
+        });
+      } else if (legacyContextIndices.length === 0) {
+        return;
+      }
+    } else if (legacyContextIndices.length === 0) {
+      return;
+    }
+    return {
+      ...state,
+      messages: updatedMessages,
+    };
   }
 
   // Create the context content
@@ -195,66 +280,25 @@ const createAppContextBeforeAgent = (state, runtime) => {
     typeof appContext === "string"
       ? appContext
       : JSON.stringify(appContext, null, 2);
-  const contextMessageContent = `App Context:\n${contextContent}`;
-  const contextMessagePrefix = "App Context:\n";
+  const contextBlock = buildAppContextBlock(contextContent);
 
-  // Helper to get message content as string
-  const getContentString = (msg: any): string | null => {
-    if (typeof msg.content === "string") return msg.content;
-    if (Array.isArray(msg.content) && msg.content[0]?.text)
-      return msg.content[0].text;
-    return null;
-  };
-
-  // Find the first system/developer message (not our context message) to determine
-  // where to insert our context message (right after it)
-  let firstSystemIndex = -1;
-
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      // Skip if this is our own context message
-      if (content?.startsWith(contextMessagePrefix)) {
-        continue;
-      }
-      firstSystemIndex = i;
-      break;
-    }
-  }
-
-  // Check if our context message already exists
-  let existingContextIndex = -1;
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const type = msg._getType?.();
-    if (type === "system" || type === "developer") {
-      const content = getContentString(msg);
-      if (content?.startsWith(contextMessagePrefix)) {
-        existingContextIndex = i;
-        break;
-      }
-    }
-  }
-
-  // Create the context message
-  const contextMessage = new SystemMessage({ content: contextMessageContent });
-
-  let updatedMessages;
-
-  if (existingContextIndex !== -1) {
-    // Replace existing context message
-    updatedMessages = [...messages];
-    updatedMessages[existingContextIndex] = contextMessage;
+  if (firstSystemIndex !== -1) {
+    // Merge the App Context block into the existing system message so only a
+    // single SystemMessage reaches the model.
+    const target = updatedMessages[firstSystemIndex];
+    const baseContent = stripAppContextBlock(getMessageContentString(target) ?? "");
+    const mergedContent = baseContent
+      ? `${baseContent.replace(/\n+$/, "")}\n\n${contextBlock}`
+      : contextBlock;
+    updatedMessages[firstSystemIndex] = new SystemMessage({
+      content: mergedContent,
+      id: target.id,
+    });
   } else {
-    // Insert after the first system message, or at position 0 if no system message
-    const insertIndex = firstSystemIndex !== -1 ? firstSystemIndex + 1 : 0;
-    updatedMessages = [
-      ...messages.slice(0, insertIndex),
-      contextMessage,
-      ...messages.slice(insertIndex),
-    ];
+    // No existing system message — insert one at the start.
+    updatedMessages.unshift(
+      new SystemMessage({ content: `App Context:\n${contextContent}` }),
+    );
   }
 
   return {
