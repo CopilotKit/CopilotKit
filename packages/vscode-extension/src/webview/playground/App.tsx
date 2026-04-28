@@ -34,6 +34,10 @@ export function App(): React.JSX.Element {
     fixtureName: string | null;
   }>({ runtimeUrl: "", replayMode: false, fixtureName: null });
   const [mountErrors, setMountErrors] = React.useState<MountErrorPayload[]>([]);
+  const [models, setModels] = React.useState<
+    Array<{ id: string; name: string; family: string; vendor: string }>
+  >([]);
+  const [selectedModelId, setSelectedModelId] = React.useState("");
 
   React.useEffect(() => {
     const unsubscribe = onExtensionMessage((msg) => {
@@ -60,13 +64,18 @@ export function App(): React.JSX.Element {
         });
         setBundle(null);
         setBundleError(null);
-      } else if (msg.type === "llm-config-missing") {
+      } else if (msg.type === "no-model-available") {
         setStateBanner({
           message:
-            "Configure an LLM API key: run 'CopilotKit: Set Playground LLM API Key' or add OPENAI_API_KEY/ANTHROPIC_API_KEY to your workspace .env.",
+            "No language model available. Install GitHub Copilot or another VS Code language-model provider extension and reload.",
         });
         setBundle(null);
         setBundleError(null);
+      } else if (msg.type === "models-list") {
+        setModels(msg.models);
+        if (!selectedModelId && msg.models[0]) {
+          setSelectedModelId(msg.models[0].id);
+        }
       } else if (msg.type === "runtime-error") {
         setStateBanner({ message: `Runtime error: ${msg.message}` });
         setBundle(null);
@@ -115,6 +124,12 @@ export function App(): React.JSX.Element {
         fixtures={fixtures}
         currentFixtureName={sessionInfo.fixtureName}
         replayMode={sessionInfo.replayMode}
+        models={models}
+        selectedModelId={selectedModelId}
+        onSelectModel={(id) => {
+          setSelectedModelId(id);
+          sendToExtension({ type: "select-model", id });
+        }}
         onNewChat={() => sendToExtension({ type: "new-chat" })}
         onLoad={(filePath) =>
           sendToExtension({ type: "load-fixture", filePath })

@@ -1,10 +1,14 @@
 import * as React from "react";
 import type { FixtureListEntry } from "../../extension/playground/fixture-store";
+import { ModelPicker, type ModelInfo } from "./ModelPicker";
 
 interface Props {
   fixtures: FixtureListEntry[];
   currentFixtureName: string | null;
   replayMode: boolean;
+  models: ModelInfo[];
+  selectedModelId: string;
+  onSelectModel: (id: string) => void;
   onNewChat: () => void;
   onLoad: (filePath: string) => void;
   onSave: (name: string) => void;
@@ -15,6 +19,9 @@ export function ConversationSidebar({
   fixtures,
   currentFixtureName,
   replayMode,
+  models,
+  selectedModelId,
+  onSelectModel,
   onNewChat,
   onLoad,
   onSave,
@@ -24,6 +31,11 @@ export function ConversationSidebar({
 
   return (
     <aside className="playground-sidebar">
+      <ModelPicker
+        models={models}
+        selectedId={selectedModelId}
+        onSelect={onSelectModel}
+      />
       <header>
         <h3>Conversations</h3>
         <button type="button" onClick={onNewChat}>
@@ -79,7 +91,7 @@ export function ConversationSidebar({
                 </button>
                 <span className="muted">
                   {" "}
-                  — {f.metadata.provider}/{f.metadata.model}
+                  — {f.metadata.modelVendor} {f.metadata.modelId}
                 </span>
                 <button
                   type="button"

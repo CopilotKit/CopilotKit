@@ -11,6 +11,9 @@ describe("ConversationSidebar", () => {
         fixtures={[]}
         currentFixtureName={null}
         replayMode={false}
+        models={[]}
+        selectedModelId=""
+        onSelectModel={vi.fn()}
         onNewChat={vi.fn()}
         onLoad={vi.fn()}
         onSave={vi.fn()}
@@ -26,6 +29,9 @@ describe("ConversationSidebar", () => {
         fixtures={[]}
         currentFixtureName={null}
         replayMode={false}
+        models={[]}
+        selectedModelId=""
+        onSelectModel={vi.fn()}
         onNewChat={vi.fn()}
         onLoad={vi.fn()}
         onSave={vi.fn()}
@@ -51,13 +57,17 @@ describe("ConversationSidebar", () => {
             metadata: {
               name: "hello",
               createdAt: "2026-04-23T12:00:00Z",
-              provider: "openai",
-              model: "gpt-4o-mini",
+              modelId: "gpt-4o-mini",
+              modelVendor: "openai",
+              version: 2,
             },
           },
         ]}
         currentFixtureName={null}
         replayMode={false}
+        models={[]}
+        selectedModelId=""
+        onSelectModel={vi.fn()}
         onNewChat={vi.fn()}
         onLoad={onLoad}
         onSave={vi.fn()}
@@ -74,6 +84,9 @@ describe("ConversationSidebar", () => {
         fixtures={[]}
         currentFixtureName="saved-x"
         replayMode={true}
+        models={[]}
+        selectedModelId=""
+        onSelectModel={vi.fn()}
         onNewChat={vi.fn()}
         onLoad={vi.fn()}
         onSave={vi.fn()}
