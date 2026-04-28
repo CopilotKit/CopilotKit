@@ -2,6 +2,7 @@
 
 import React from "react";
 
+// @region[custom-bubbles]
 export function AssistantBubble({ children }: { children: React.ReactNode }) {
   if (isEmpty(children)) return null;
 
@@ -15,6 +16,7 @@ export function AssistantBubble({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+// @endregion[custom-bubbles]
 
 function isEmpty(node: React.ReactNode): boolean {
   if (node == null || node === false) return true;

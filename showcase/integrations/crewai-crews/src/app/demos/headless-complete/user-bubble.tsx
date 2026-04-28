@@ -2,6 +2,7 @@
 
 import React from "react";
 
+// @region[custom-bubbles]
 export function UserBubble({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-end">
@@ -11,3 +12,4 @@ export function UserBubble({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+// @endregion[custom-bubbles]

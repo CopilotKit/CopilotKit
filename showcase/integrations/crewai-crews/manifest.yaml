@@ -184,6 +184,9 @@ demos:
       - generative-ui
     route: /demos/open-gen-ui
     animated_preview_url:
+    highlight:
+      - src/app/demos/open-gen-ui/page.tsx
+      - src/app/api/copilotkit-ogui/route.ts
   - id: open-gen-ui-advanced
     name: "Open-Ended Gen UI (Advanced)"
     description: Agent-authored UI that invokes host sandbox functions from inside the iframe
@@ -191,6 +194,10 @@ demos:
       - generative-ui
     route: /demos/open-gen-ui-advanced
     animated_preview_url:
+    highlight:
+      - src/app/demos/open-gen-ui-advanced/page.tsx
+      - src/app/demos/open-gen-ui-advanced/sandbox-functions.ts
+      - src/app/api/copilotkit-ogui/route.ts
   - id: agent-config
     name: Agent Config Object
     description: Forward a typed config object (tone / expertise / response length) from the provider to the agent
@@ -233,6 +240,9 @@ demos:
       - generative-ui
     route: /demos/a2ui-fixed-schema
     animated_preview_url:
+    highlight:
+      - src/agents/a2ui_fixed.py
+      - src/app/demos/a2ui-fixed-schema/page.tsx
   - id: byoc-hashbrown
     name: BYOC (Hashbrown)
     description: Streaming structured output via @hashbrownai/react against a custom catalog

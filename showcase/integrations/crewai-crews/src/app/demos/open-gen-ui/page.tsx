@@ -39,6 +39,7 @@ const minimalSuggestions = [
 ];
 
 export default function OpenGenUiDemo() {
+  // @region[minimal-provider-setup]
   return (
     <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
@@ -52,6 +53,7 @@ export default function OpenGenUiDemo() {
       </div>
     </CopilotKit>
   );
+  // @endregion[minimal-provider-setup]
 }
 
 function Chat() {

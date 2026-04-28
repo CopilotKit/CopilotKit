@@ -32,10 +32,13 @@ CREW_NAME = "A2UIFixedSchema"
 
 _SCHEMAS_DIR = Path(__file__).parent / "a2ui_schemas"
 
+# @region[backend-schema-json-load]
 # Load flight schema at module load so the first request does not pay I/O
-# for the JSON parse.
+# for the JSON parse. The schema is authored as JSON so it can be reviewed
+# independently of the Python code.
 with (_SCHEMAS_DIR / "flight_schema.json").open() as _fp:
     _FLIGHT_SCHEMA = json.load(_fp)
+# @endregion[backend-schema-json-load]
 
 
 class DisplayFlightInput(BaseModel):
@@ -65,6 +68,10 @@ class DisplayFlightTool(BaseTool):
     args_schema: Type[BaseModel] = DisplayFlightInput
 
     def _run(self, origin: str, destination: str, airline: str, price: str) -> str:
+        # @region[backend-render-operations]
+        # The A2UI middleware detects the `a2ui_operations` container in this
+        # tool result and forwards the ops to the frontend renderer. The
+        # frontend catalog resolves component names to local React components.
         ops: list[dict[str, Any]] = [
             {
                 "type": "create_surface",
@@ -88,6 +95,7 @@ class DisplayFlightTool(BaseTool):
             },
         ]
         return json.dumps({"a2ui_operations": ops})
+        # @endregion[backend-render-operations]
 
 
 A2UI_FIXED_BACKSTORY = (
