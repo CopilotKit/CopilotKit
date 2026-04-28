@@ -1,5 +1,4 @@
 import * as React from "react";
-import { ScannerView } from "./ScannerView";
 import { MountedComponentsPanel } from "./MountedComponentsPanel";
 import { ChatSurface } from "./ChatSurface";
 import { ConversationSidebar } from "./ConversationSidebar";
@@ -141,15 +140,17 @@ export function App(): React.JSX.Element {
       />
       {bundle ? (
         <ChatSurface bundle={bundle} />
+      ) : bundleError ? (
+        <div className="playground-chat playground-chat-status">
+          <div role="alert" className="playground-bundle-error">
+            <strong>Bundle failed</strong>
+            <p>{bundleError}</p>
+          </div>
+        </div>
       ) : (
-        <div className="playground-chat">
-          <ScannerView
-            result={result}
-            onRefresh={() => sendToExtension({ type: "refresh" })}
-            onOpenSource={(filePath, line) =>
-              sendToExtension({ type: "open-source", filePath, line })
-            }
-          />
+        <div className="playground-chat playground-chat-status">
+          <div className="playground-spinner" aria-hidden="true" />
+          <p className="muted">Preparing chat surface…</p>
         </div>
       )}
       <MountedComponentsPanel

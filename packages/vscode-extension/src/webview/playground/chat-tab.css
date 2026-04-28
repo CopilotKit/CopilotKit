@@ -136,12 +136,49 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+}
+
+/* Make the bundle's `<ChatPlayground />` (and the user's intermediate
+   provider divs) stretch to fill the grid cell, with no horizontal
+   padding from CopilotChat's default `max-w-3xl mx-auto px-4` Tailwind
+   layout. The chat needs the full panel width inside the playground;
+   max-width centring is for full-page consumer apps, not a side panel. */
+.playground-chat > * {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: none;
 }
 
 .playground-chat-view {
   flex: 1;
   min-height: 0;
   background: var(--vscode-editor-background);
+}
+
+/* Loading + error states shown before the bundle is ready. */
+.playground-chat-status {
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.playground-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--vscode-panel-border);
+  border-top-color: var(--vscode-textLink-foreground);
+  border-radius: 50%;
+  animation: copilotkit-spin 0.8s linear infinite;
+}
+
+@keyframes copilotkit-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ----- Mounted components panel (right top) ----- */
