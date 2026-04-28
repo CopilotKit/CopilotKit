@@ -25,6 +25,7 @@ export interface PreferencesCardProps {
   onChange: (next: Preferences) => void;
 }
 
+// @region[preferences-card-render]
 /**
  * Sidebar card — the *only* place where the user edits their preferences.
  *
@@ -141,3 +142,4 @@ export function PreferencesCard({ value, onChange }: PreferencesCardProps) {
     </div>
   );
 }
+// @endregion[preferences-card-render]

@@ -39,11 +39,15 @@ def _load_schema(path: Path) -> list[dict]:
         return json.load(f)
 
 
+# @region[backend-schema-json-load]
+# Schemas are JSON so they can be authored and reviewed independently of
+# the Python code. ``_load_schema`` is just a thin ``json.load`` wrapper.
 FLIGHT_SCHEMA = _load_schema(_SCHEMAS_DIR / "flight_schema.json")
 # Kept for future use once action_handlers land on the PydanticAI A2UI
 # bridge; the frontend's ActionButton drives an optimistic transition
 # locally today.
 BOOKED_SCHEMA = _load_schema(_SCHEMAS_DIR / "booked_schema.json")
+# @endregion[backend-schema-json-load]
 
 
 class EmptyState(BaseModel):
@@ -81,6 +85,10 @@ def display_flight(
     Use short airport codes (e.g. "SFO", "JFK") for origin/destination and a
     price string like "$289".
     """
+    # @region[backend-render-operations]
+    # The A2UI middleware detects the `a2ui_operations` container in this
+    # tool result and forwards the ops to the frontend renderer. The
+    # frontend catalog resolves component names to local React components.
     operations = [
         {
             "type": "create_surface",
@@ -104,3 +112,4 @@ def display_flight(
         },
     ]
     return json.dumps({"a2ui_operations": operations})
+    # @endregion[backend-render-operations]

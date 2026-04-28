@@ -66,6 +66,10 @@ class SubagentsState(BaseModel):
 # ── Sub-agents (real PydanticAI Agents) ─────────────────────────────
 
 
+# @region[subagent-setup]
+# Each sub-agent is a full-fledged ``Agent(model=..., system_prompt=...)``
+# with its own system prompt. They don't share memory or tools with the
+# supervisor — the supervisor only sees their return value.
 _SUB_MODEL = OpenAIResponsesModel("gpt-4o-mini")
 
 _research_agent: Agent[None, str] = Agent(
@@ -92,6 +96,7 @@ _critique_agent: Agent[None, str] = Agent(
         "2-3 crisp, actionable critiques. No preamble."
     ),
 )
+# @endregion[subagent-setup]
 
 
 async def _invoke_sub_agent(sub_agent: Agent[None, str], task: str) -> str:
@@ -216,6 +221,12 @@ async def _delegate(
     return result
 
 
+# @region[supervisor-delegation-tools]
+# Each ``@agent.tool`` wraps a sub-agent invocation. The supervisor LLM
+# "calls" these tools to delegate work; each call asynchronously runs the
+# matching sub-agent, records the delegation into shared state, and
+# returns the sub-agent's output as a string the supervisor can read on
+# its next step.
 @agent.tool
 async def research_agent(
     ctx: RunContext[StateDeps[SubagentsState]],
@@ -267,6 +278,7 @@ async def critique_agent(
         sub_agent_obj=_critique_agent,
         task=task,
     )
+# @endregion[supervisor-delegation-tools]
 
 
 __all__: list[str] = [

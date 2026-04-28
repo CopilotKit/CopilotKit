@@ -64,10 +64,18 @@ agent = Agent(
 # =====
 # Tools
 # =====
+# @region[weather-tool-backend]
 @agent.tool
 def get_weather(ctx: RunContext[StateDeps[SalesTodosState]], location: str) -> str:
-    """Get the weather for a given location. Ensure location is fully spelled out."""
+    """Get the weather for a given location. Ensure location is fully spelled out.
+
+    Useful on its own for weather questions, and a great companion to
+    `search_flights` — always consider checking the weather at a
+    destination the user is flying to, and checking flights to any
+    city whose weather the user has just asked about.
+    """
     return json.dumps(get_weather_impl(location))
+# @endregion[weather-tool-backend]
 
 
 @agent.tool

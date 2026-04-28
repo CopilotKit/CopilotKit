@@ -7,6 +7,7 @@ export interface NotesCardProps {
   onClear: () => void;
 }
 
+// @region[notes-card-render]
 /**
  * Sidebar card that READS agent-authored notes out of shared state.
  *
@@ -68,3 +69,4 @@ export function NotesCard({ notes, onClear }: NotesCardProps) {
     </div>
   );
 }
+// @endregion[notes-card-render]
