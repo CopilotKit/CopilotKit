@@ -27,8 +27,13 @@ export function ModelPicker({
         value={selectedId || models[0].id}
         onChange={(e) => onSelect(e.target.value)}
       >
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
+        {models.map((m, i) => (
+          // VS Code's LM API does not guarantee `id` uniqueness across
+          // vendors — e.g. the GitHub Copilot extension and a hypothetical
+          // Anthropic extension can both expose `claude-sonnet-4.5`. Compose
+          // a unique React key from vendor/family/id (+ index as a final
+          // tiebreaker) so the option list renders without warnings.
+          <option key={`${m.vendor}:${m.family}:${m.id}:${i}`} value={m.id}>
             {m.name} ({m.vendor}: {m.family})
           </option>
         ))}

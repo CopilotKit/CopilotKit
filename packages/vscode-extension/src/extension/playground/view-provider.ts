@@ -370,6 +370,18 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         "playground.css",
       ),
     );
+    // CopilotKit v2 chat components ship a precompiled Tailwind bundle.
+    // The user normally imports it from their app entry; in the playground
+    // we mount their components in isolation, so we ship the stylesheet
+    // alongside playground.css and load it via a <link> tag here.
+    const v2StylesUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this.extensionUri,
+        "dist",
+        "webview",
+        "copilotkit-v2.css",
+      ),
+    );
     const nonce = getNonce();
     // The bundled user app fetches the in-process runtime at
     // http://127.0.0.1:<random-port>/api/copilotkit. CSP defaults to
@@ -390,6 +402,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="${csp}" />
+  <link rel="stylesheet" href="${v2StylesUri}" />
   <link rel="stylesheet" href="${stylesUri}" />
 </head>
 <body>

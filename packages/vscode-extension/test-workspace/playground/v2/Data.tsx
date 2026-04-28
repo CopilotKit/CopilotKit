@@ -29,9 +29,10 @@ export function Data() {
     instructions: "Suggest concise, context-aware follow-up questions.",
   });
 
-  // V2 data: access conversation threads
-  // @ts-expect-error – test-workspace only; agentId left blank for fixture
-  useThreads({});
+  // V2 data: access conversation threads (the playground runtime registers
+  // its agent under the name "default", which matches CopilotKitProvider's
+  // unconfigured fallback).
+  useThreads({ agentId: "default" });
 
   // V2 data: manage file/image attachments for the current thread
   useAttachments({ config: { enabled: false } });
