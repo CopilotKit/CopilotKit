@@ -51,6 +51,7 @@ export default function HeadlessCompleteDemo() {
 }
 
 function Chat() {
+  // @region[page-send-message]
   const threadId = useMemo(() => crypto.randomUUID(), []);
   const { agent } = useAgent({ agentId: AGENT_ID, threadId });
   const { copilotkit } = useCopilotKit();
@@ -101,6 +102,7 @@ function Chat() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
+  // @endregion[page-send-message]
 
   return (
     <CopilotChatConfigurationProvider agentId={AGENT_ID} threadId={threadId}>

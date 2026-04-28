@@ -54,6 +54,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_ANTHROPIC_MODEL = "claude-3-5-sonnet-20241022"
 
 
+# @region[subagent-setup]
+# Each sub-agent is defined by its own system prompt; `_invoke_sub_agent`
+# (below) issues a single-shot Anthropic call as that sub-agent. They
+# don't share memory or tools with the supervisor — the supervisor only
+# ever sees what the sub-agent returns as a tool result.
 # @region[subagents-system-prompts]
 SUB_AGENT_PROMPTS: dict[str, str] = {
     "research_agent": (
@@ -89,6 +94,14 @@ SUPERVISOR_SYSTEM_PROMPT = (
 )
 
 
+# @region[supervisor-delegation-tools]
+# The supervisor delegates by calling tools. Each entry in
+# `SUPERVISOR_TOOLS` is an Anthropic tool schema that the supervisor LLM
+# "calls" to delegate work; the run loop in `run_subagents_agent` (see
+# the subagents-delegation-flow region) runs the matching sub-agent
+# synchronously, records the delegation into shared agent state, and
+# returns the sub-agent's output as a tool_result the supervisor can
+# read on its next step.
 def _delegation_tool_schema(name: str, description: str) -> dict[str, Any]:
     return {
         "name": name,
@@ -128,6 +141,7 @@ SUPERVISOR_TOOLS: list[dict[str, Any]] = [
         "Delegate a critique task. Returns 2-3 actionable critiques.",
     ),
 ]
+# @endregion[supervisor-delegation-tools]
 
 
 # @region[subagents-invocation]
@@ -156,6 +170,7 @@ async def _invoke_sub_agent(
         raise RuntimeError("sub-agent returned empty response")
     return text
 # @endregion[subagents-invocation]
+# @endregion[subagent-setup]
 
 
 def _convert_messages(input_data: RunAgentInput) -> list[dict[str, Any]]:

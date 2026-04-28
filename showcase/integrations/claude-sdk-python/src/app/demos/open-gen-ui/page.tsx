@@ -87,6 +87,12 @@ const minimalSuggestions = [
 
 export default function OpenGenUiDemo() {
   return (
+    // @region[minimal-provider-setup]
+    // Minimal Open Generative UI frontend: the built-in activity renderer is
+    // registered by CopilotKitProvider, so a plain <CopilotChat /> is enough —
+    // no custom tool renderers, no activity-renderer registration.
+    // We DO pass `openGenerativeUI.designSkill` to swap in visualisation-tuned
+    // guidance in place of the default shadcn design skill.
     <CopilotKit
       runtimeUrl="/api/copilotkit-ogui"
       agent="open-gen-ui"
@@ -98,6 +104,7 @@ export default function OpenGenUiDemo() {
         </div>
       </div>
     </CopilotKit>
+    // @endregion[minimal-provider-setup]
   );
 }
 
