@@ -41,6 +41,7 @@
     "package": "vsce package --no-dependencies"
   },
   "dependencies": {
+    "@ag-ui/client": "0.0.52",
     "@copilotkit/runtime": "workspace:*",
     "ignore": "^7.0.5",
     "oxc-parser": "^0.72.0",
@@ -55,7 +56,7 @@
     "@testing-library/react": "^16.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@types/vscode": "^1.85.0",
+    "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.0.0",
     "jsdom": "^26.0.0",
     "react": "^19.0.0",

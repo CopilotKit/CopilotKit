@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import * as crypto from "node:crypto";
 import type { RunAgentInput } from "@ag-ui/client";
 import type { LanguageModelChat } from "vscode";
-import { vscodeLmFactory } from "../vscode-lm-factory";
+import { vscodeLmFactory, type RecordedCall } from "../vscode-lm-factory";
 
 vi.mock("vscode", () => ({
   LanguageModelTextPart: class {
@@ -138,7 +138,7 @@ describe("vscodeLmFactory — replay mode", () => {
     const { LanguageModelTextPart } = await import("vscode");
     // Record first to compute the matchKey deterministically.
     const recordModel = makeModel([new LanguageModelTextPart("Hi")]);
-    let recordedCall: { matchKey: string; chunks: unknown[] } | null = null;
+    let recordedCall: RecordedCall | null = null;
     const recordFactory = vscodeLmFactory({
       model: recordModel,
       mode: "record",
@@ -209,15 +209,20 @@ describe("vscodeLmFactory — replay mode", () => {
         }),
       )
       .digest("hex");
-    const calls = [
+    const inputSnapshot = {
+      messages: baseInput.messages,
+      tools: baseInput.tools,
+      modelId: "test-model",
+    };
+    const calls: RecordedCall[] = [
       {
         matchKey,
-        input: {},
+        input: inputSnapshot,
         chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "A" }],
       },
       {
         matchKey,
-        input: {},
+        input: inputSnapshot,
         chunks: [{ type: "TEXT_MESSAGE_CONTENT", delta: "B" }],
       },
     ];
