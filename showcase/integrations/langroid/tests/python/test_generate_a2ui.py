@@ -1,7 +1,7 @@
 """Unit tests for langroid's A2UI planner.
 
-Sibling tests to ``showcase/packages/google-adk/tests/python/test_generate_a2ui.py``
-and ``showcase/packages/strands/tests/python/test_generate_a2ui.py``. Covers:
+Sibling tests to ``showcase/integrations/google-adk/tests/python/test_generate_a2ui.py``
+and ``showcase/integrations/strands/tests/python/test_generate_a2ui.py``. Covers:
 
 - Provider-agnostic LLM routing through langroid's ``OpenAIGPT`` abstraction
   (which despite the name handles OpenAI / Anthropic / Gemini / any

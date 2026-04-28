@@ -8,8 +8,8 @@ runtime endpoint that enables A2UI (without injecting the default A2UI
 tool), Open Generative UI, and MCP Apps (pointed at Excalidraw by default).
 
 Reference:
-- showcase/packages/langgraph-python/src/agents/beautiful_chat.py
-- showcase/packages/ms-agent-python/src/agents/agent.py (shared tool patterns)
+- showcase/integrations/langgraph-python/src/agents/beautiful_chat.py
+- showcase/integrations/ms-agent-python/src/agents/agent.py (shared tool patterns)
 """
 
 from __future__ import annotations

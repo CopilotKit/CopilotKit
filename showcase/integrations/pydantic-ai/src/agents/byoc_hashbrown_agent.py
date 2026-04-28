@@ -1,6 +1,6 @@
 """PydanticAI agent backing the byoc-hashbrown demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/byoc_hashbrown_agent.py.
+Mirrors showcase/integrations/langgraph-python/src/agents/byoc_hashbrown_agent.py.
 Emits hashbrown-shaped structured output that the ported HashBrownDashboard
 renderer (`src/app/demos/byoc-hashbrown/hashbrown-renderer.tsx`)
 progressively parses via `@hashbrownai/react`'s `useJsonParser` +

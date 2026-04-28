@@ -1,6 +1,6 @@
 """Multimodal PydanticAI agent — accepts image + document (PDF) attachments.
 
-Ports showcase/packages/langgraph-python/src/agents/multimodal_agent.py to
+Ports showcase/integrations/langgraph-python/src/agents/multimodal_agent.py to
 PydanticAI. The vision-capable model (`gpt-4o`) is scoped to this agent
 only so other demos keep their cheaper text-only models.
 

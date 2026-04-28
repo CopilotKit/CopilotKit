@@ -1,6 +1,6 @@
 """PydanticAI agent for the Open-Ended Generative UI demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/open_gen_ui_agent.py
+Mirrors showcase/integrations/langgraph-python/src/agents/open_gen_ui_agent.py
 as closely as PydanticAI's `agent.to_ag_ui()` surface allows.
 
 The agent is ultra-minimal on purpose: all the heavy lifting happens in

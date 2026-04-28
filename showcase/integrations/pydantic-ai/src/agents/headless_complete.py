@@ -1,6 +1,6 @@
 """PydanticAI agent backing the Headless Chat (Complete) demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/headless_complete.py.
+Mirrors showcase/integrations/langgraph-python/src/agents/headless_complete.py.
 
 The cell exists to prove that every CopilotKit rendering surface works
 when the chat UI is composed manually (no <CopilotChatMessageView />

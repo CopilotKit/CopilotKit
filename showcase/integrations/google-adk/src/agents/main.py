@@ -73,8 +73,8 @@ class _A2uiError(TypedDict):
     summarizing the tool result) see a consistent surface.
 
     NOTE: Identical TypedDicts live in
-    `showcase/packages/strands/src/agents/agent.py` and
-    `showcase/packages/langroid/src/agents/agent.py`. Those siblings call
+    `showcase/integrations/strands/src/agents/agent.py` and
+    `showcase/integrations/langroid/src/agents/agent.py`. Those siblings call
     OpenAI directly; the google-adk sibling intentionally uses google.genai
     (forced-function-call via ToolConfig) to avoid a cross-provider openai
     dependency in a Gemini-primary package. The ERROR SHAPE still mirrors the

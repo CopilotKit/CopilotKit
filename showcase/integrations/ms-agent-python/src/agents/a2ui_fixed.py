@@ -8,7 +8,7 @@ at runtime. The frontend registers a matching catalog (see
 component names to real React implementations.
 
 Reference:
-    showcase/packages/langgraph-python/src/agents/a2ui_fixed.py
+    showcase/integrations/langgraph-python/src/agents/a2ui_fixed.py
 """
 
 from __future__ import annotations

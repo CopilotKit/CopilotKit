@@ -27,7 +27,7 @@ runtime. We therefore route on ``mimeType``, not the part ``type``:
   the model can read them without needing file-part support.
 
 Reference:
-- showcase/packages/langgraph-python/src/agents/multimodal_agent.py
+- showcase/integrations/langgraph-python/src/agents/multimodal_agent.py
 """
 
 from __future__ import annotations

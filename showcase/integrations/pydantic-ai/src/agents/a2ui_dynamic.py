@@ -1,6 +1,6 @@
 """PydanticAI agent for the Declarative Generative UI (A2UI — Dynamic Schema) demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/a2ui_dynamic.py.
+Mirrors showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py.
 
 Pattern:
 - The agent binds an explicit `generate_a2ui` tool. When called,

@@ -13,7 +13,7 @@ import type { AssistantMessage } from "@ag-ui/core";
 
 import { PieChart } from "../../charts/pie-chart";
 import { BarChart } from "../../charts/bar-chart";
-import type { SalesStage } from "../../types";
+import type { SalesStage } from "../../../types";
 
 // ---------------------------------------------------------------------------
 // Simple MetricCard with flat string props (optimized for structured output)

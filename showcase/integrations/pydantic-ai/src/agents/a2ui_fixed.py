@@ -1,6 +1,6 @@
 """PydanticAI agent for the Declarative Generative UI (A2UI — Fixed Schema) demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/a2ui_fixed.py.
+Mirrors showcase/integrations/langgraph-python/src/agents/a2ui_fixed.py.
 
 Fixed-schema A2UI: the component tree (schema) is authored ahead of time
 as JSON and loaded at module load. The agent only streams *data* into

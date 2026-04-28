@@ -16,8 +16,8 @@ NOTE ON DRIFT: This module is the canonical source. Starters are now
 extracted on-demand from this integration directory via
 ``showcase/scripts/extract-starter.ts``.
 Sibling provider-agnostic A2UI planner implementations live in
-``showcase/packages/google-adk/src/agents/main.py`` and
-``showcase/packages/strands/src/agents/agent.py`` — keep error shapes
+``showcase/integrations/google-adk/src/agents/main.py`` and
+``showcase/integrations/strands/src/agents/agent.py`` — keep error shapes
 aligned.
 """
 
@@ -77,8 +77,8 @@ from tools import (
 # ``A2UI_MODEL`` without touching the primary agent.
 #
 # Sibling implementations live in
-# ``showcase/packages/google-adk/src/agents/main.py`` (Gemini-native) and
-# ``showcase/packages/strands/src/agents/agent.py`` (OpenAI-only). Keep the
+# ``showcase/integrations/google-adk/src/agents/main.py`` (Gemini-native) and
+# ``showcase/integrations/strands/src/agents/agent.py`` (OpenAI-only). Keep the
 # error-surface shape (_A2uiError) consistent across all three so the
 # frontend renderer treats them identically.
 
@@ -104,8 +104,8 @@ class _A2uiError(TypedDict):
     summarizing the tool result) see a consistent surface.
 
     NOTE: Identical TypedDicts live in
-    ``showcase/packages/google-adk/src/agents/main.py`` and
-    ``showcase/packages/strands/src/agents/agent.py``. Keep all three in
+    ``showcase/integrations/google-adk/src/agents/main.py`` and
+    ``showcase/integrations/strands/src/agents/agent.py``. Keep all three in
     sync — any key additions / removals must land in every sibling so the
     A2UI error surface stays consistent across showcase adapters.
     """

@@ -1,6 +1,6 @@
 """PydanticAI agent for the Beautiful Chat flagship demo.
 
-Ports the behaviour of showcase/packages/langgraph-python/src/agents/beautiful_chat.py
+Ports the behaviour of showcase/integrations/langgraph-python/src/agents/beautiful_chat.py
 to PydanticAI while staying within what `agent.to_ag_ui()` currently
 supports. The frontend cell exercises:
 

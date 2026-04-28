@@ -1,6 +1,6 @@
 """PydanticAI agent backing the BYOC json-render demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/byoc_json_render_agent.py
+Mirrors showcase/integrations/langgraph-python/src/agents/byoc_json_render_agent.py
 so the PydanticAI port is functionally equivalent. Emits a single JSON
 object shaped like `@json-render/react`'s flat spec format
 (`{ root, elements }`) so the frontend can feed it directly into

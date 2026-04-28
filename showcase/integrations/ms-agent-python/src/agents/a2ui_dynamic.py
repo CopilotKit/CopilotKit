@@ -2,7 +2,7 @@
 MS Agent Framework agent for the Declarative Generative UI (A2UI — Dynamic Schema) demo.
 
 Pattern (ported from the LangGraph reference
-`showcase/packages/langgraph-python/src/agents/a2ui_dynamic.py`):
+`showcase/integrations/langgraph-python/src/agents/a2ui_dynamic.py`):
 
 - The agent binds an explicit `generate_a2ui` tool. When called, it invokes a
   secondary LLM bound to `render_a2ui` (tool_choice forced) and returns the

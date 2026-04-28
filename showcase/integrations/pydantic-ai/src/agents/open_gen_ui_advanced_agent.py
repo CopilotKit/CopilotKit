@@ -1,6 +1,6 @@
 """PydanticAI agent for the Open-Ended Generative UI (Advanced) demo.
 
-Mirrors showcase/packages/langgraph-python/src/agents/open_gen_ui_advanced_agent.py.
+Mirrors showcase/integrations/langgraph-python/src/agents/open_gen_ui_advanced_agent.py.
 
 The "advanced" variant adds sandbox-function calling: the agent-authored
 sandboxed UI can invoke frontend-registered functions defined at

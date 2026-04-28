@@ -19,8 +19,10 @@ import {
   rmSync,
   existsSync,
   readdirSync,
+  readFileSync,
+  writeFileSync,
   lstatSync,
-  readlinkSync,
+  realpathSync,
 } from "fs";
 import { join, resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -43,21 +45,31 @@ if (!existsSync(src)) {
   process.exit(1);
 }
 
+// Before copying, resolve symlink targets from the SOURCE directory so
+// relative symlinks (e.g. tools -> ../../shared/python/tools) resolve
+// correctly against the repo tree — not the output directory.
+const symlinkTargets: Record<string, string> = {};
+for (const entry of readdirSync(src)) {
+  const entryPath = join(src, entry);
+  if (lstatSync(entryPath).isSymbolicLink()) {
+    try {
+      symlinkTargets[entry] = realpathSync(entryPath);
+    } catch {
+      /* broken symlink — skip */
+    }
+  }
+}
+
 // Copy integration to output directory.
 if (existsSync(outDir)) rmSync(outDir, { recursive: true });
 cpSync(src, outDir, { recursive: true });
 
-// Dereference symlinks: cpSync preserves symlinks even with
-// dereference:true on some Node versions for directory symlinks.
-// Manually replace any symlinks with real copies of their targets.
-for (const entry of readdirSync(outDir)) {
-  const entryPath = join(outDir, entry);
-  if (lstatSync(entryPath).isSymbolicLink()) {
-    const target = resolve(dirname(entryPath), readlinkSync(entryPath));
-    rmSync(entryPath);
-    if (existsSync(target)) {
-      cpSync(target, entryPath, { recursive: true });
-    }
+// Replace preserved symlinks with real copies of their resolved targets.
+for (const [name, realTarget] of Object.entries(symlinkTargets)) {
+  const outLink = join(outDir, name);
+  if (existsSync(outLink)) rmSync(outLink, { recursive: true });
+  if (existsSync(realTarget)) {
+    cpSync(realTarget, outLink, { recursive: true });
   }
 }
 
@@ -129,6 +141,42 @@ if (existsSync(templateDir)) {
     cpSync(templateTypes, join(outDir, "src", "types.ts"), { force: true });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Substitute template placeholders (e.g. {{NAME}}, {{SLUG}}).
+// ---------------------------------------------------------------------------
+
+function substituteInFile(
+  filePath: string,
+  replacements: Record<string, string>,
+) {
+  if (!existsSync(filePath)) return;
+  let content = readFileSync(filePath, "utf-8");
+  for (const [placeholder, value] of Object.entries(replacements)) {
+    content = content.replaceAll(placeholder, value);
+  }
+  writeFileSync(filePath, content);
+}
+
+// Format slug into a display name: "langgraph-python" -> "Langgraph Python"
+const displayName = slug
+  .split("-")
+  .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+  .join(" ");
+
+const templateReplacements: Record<string, string> = {
+  "{{NAME}}": displayName,
+  "{{SLUG}}": slug,
+};
+
+substituteInFile(
+  join(outDir, "src", "app", "layout.tsx"),
+  templateReplacements,
+);
+substituteInFile(
+  join(outDir, "src", "app", "api", "health", "route.ts"),
+  templateReplacements,
+);
 
 // Recursively remove __tests__ and tests directories from the output.
 // The top-level STRIP list only catches root-level entries; shared tools

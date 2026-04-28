@@ -5,7 +5,7 @@ Backs three showcase cells:
     - reasoning-default-render     (CopilotKit's built-in reasoning card)
     - tool-rendering-reasoning-chain (reasoning + sequential tool calls)
 
-Mirrors `showcase/packages/langgraph-python/src/agents/reasoning_agent.py`
+Mirrors `showcase/integrations/langgraph-python/src/agents/reasoning_agent.py`
 (shared across the three reasoning demos there).
 
 Agno's AGUI interface emits REASONING_MESSAGE_* events (see
