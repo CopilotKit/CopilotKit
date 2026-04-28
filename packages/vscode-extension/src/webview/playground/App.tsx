@@ -45,7 +45,7 @@ export function App(): React.JSX.Element {
       else if (msg.type === "bundle-ready") {
         setStateBanner(null);
         setBundleError(null);
-        executePlaygroundBundle(msg.payload.code).then(
+        executePlaygroundBundle(msg.payload.code, msg.payload.css).then(
           (exports) => setBundle(exports),
           (err) => {
             setBundle(null);

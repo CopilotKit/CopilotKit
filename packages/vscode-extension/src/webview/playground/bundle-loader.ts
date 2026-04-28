@@ -63,8 +63,10 @@ function getScriptWindow(): Window & typeof globalThis {
  */
 export function executePlaygroundBundle(
   code: string,
+  css?: string,
 ): Promise<PlaygroundBundleExports> {
   return new Promise((resolve, reject) => {
+    if (css) injectBundleCss(css);
     const deps = {
       React,
       ReactDOM,
@@ -138,4 +140,22 @@ export function executePlaygroundBundle(
     }
     resolve(exports);
   });
+}
+
+/**
+ * Replaces (or appends) a single `<style id="copilotkit-bundle-css">` element
+ * with the CSS chunks the IIFE bundler collected from the user's tree (most
+ * notably `@copilotkit/react-core/dist/v2/index.css`, force-imported by the
+ * codegen entry). Replacing on every bundle means a re-bundle picks up new
+ * styles without leaking the old set into the page.
+ */
+function injectBundleCss(css: string): void {
+  const id = "copilotkit-bundle-css";
+  let style = document.getElementById(id) as HTMLStyleElement | null;
+  if (!style) {
+    style = document.createElement("style");
+    style.id = id;
+    document.head.appendChild(style);
+  }
+  style.textContent = css;
 }

@@ -26,32 +26,41 @@ export interface RecordedCall {
   chunks: TanStackChunk[];
 }
 
+type CommonOpts = {
+  /** Optional sink for diagnostic events (sends, errors, replay misses). */
+  log?: (line: string) => void;
+};
+
 export type VscodeLmFactoryOptions =
-  | {
+  | (CommonOpts & {
       model: vscode.LanguageModelChat;
       mode: "live";
-    }
-  | {
+    })
+  | (CommonOpts & {
       model: vscode.LanguageModelChat;
       mode: "record";
       onCallRecorded: (call: RecordedCall) => void;
-    }
-  | {
+    })
+  | (CommonOpts & {
       model: vscode.LanguageModelChat;
       mode: "replay";
       /** The full set of recorded calls from the loaded fixture. */
       fixtureCalls: RecordedCall[];
-    };
+    });
 
 export function vscodeLmFactory(
   opts: VscodeLmFactoryOptions,
 ): (ctx: AgentFactoryContext) => AsyncIterable<TanStackChunk> {
+  const log = opts.log ?? (() => {});
   // Replay state: how many times each matchKey has been consumed in this session.
   const replayCursor = new Map<string, number>();
   const fixtureCalls = opts.mode === "replay" ? opts.fixtureCalls : [];
 
   return async function* (ctx) {
     const matchKey = computeMatchKey(ctx.input, opts.model.id);
+    log(
+      `[vscode-lm-factory] run mode=${opts.mode} matchKey=${matchKey.slice(0, 12)}… messages=${ctx.input.messages.length} tools=${ctx.input.tools?.length ?? 0}`,
+    );
 
     if (opts.mode === "replay") {
       const consumed = replayCursor.get(matchKey) ?? 0;
@@ -82,18 +91,29 @@ export function vscodeLmFactory(
     const tools = toLmTools(ctx.input.tools);
 
     try {
+      log(
+        `[vscode-lm-factory] sendRequest model=${opts.model.id} tools=${tools.length}`,
+      );
       const response = await opts.model.sendRequest(
         messages,
         tools.length > 0 ? { tools } : {},
         tokenSource.token,
       );
+      let chunkCount = 0;
       for await (const part of response.stream) {
         if (ctx.abortSignal.aborted) break;
         for (const chunk of translatePart(part)) {
+          chunkCount++;
           if (opts.mode === "record") recordedChunks.push(chunk);
           yield chunk;
         }
       }
+      log(`[vscode-lm-factory] stream complete chunks=${chunkCount}`);
+    } catch (err) {
+      log(
+        `[vscode-lm-factory] sendRequest threw: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      throw err;
     } finally {
       tokenSource.dispose();
     }

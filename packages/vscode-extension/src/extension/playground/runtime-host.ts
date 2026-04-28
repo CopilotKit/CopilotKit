@@ -50,7 +50,15 @@ export async function startRuntimeHost(
     cors: true,
   });
 
-  const server = http.createServer(listener);
+  // Wrap the listener so we can see what hits the runtime. Without this it's
+  // impossible to tell from the output channel whether the webview actually
+  // reaches the server (CSP blocks, wrong port, stale bundle, etc.).
+  const loggedListener: http.RequestListener = (req, res) => {
+    opts.log(`[runtime-host] ${req.method} ${req.url}`);
+    return listener(req, res);
+  };
+
+  const server = http.createServer(loggedListener);
 
   const port: number = await new Promise((resolve, reject) => {
     server.once("error", reject);
@@ -91,7 +99,11 @@ type FactoryFn = (ctx: {
 
 function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
   if (opts.mode === "live") {
-    return vscodeLmFactory({ model: opts.model, mode: "live" }) as FactoryFn;
+    return vscodeLmFactory({
+      model: opts.model,
+      mode: "live",
+      log: opts.log,
+    }) as FactoryFn;
   }
   if (opts.mode === "record") {
     if (!opts.onCallRecorded) {
@@ -101,11 +113,13 @@ function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
       model: opts.model,
       mode: "record",
       onCallRecorded: opts.onCallRecorded,
+      log: opts.log,
     }) as FactoryFn;
   }
   return vscodeLmFactory({
     model: opts.model,
     mode: "replay",
     fixtureCalls: opts.fixtureCalls ?? [],
+    log: opts.log,
   }) as FactoryFn;
 }
