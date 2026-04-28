@@ -196,4 +196,4 @@ function stripTestDirs(dir: string) {
 }
 stripTestDirs(outDir);
 
-console.log(`Extracted starter: ${outDir}`);
+console.log(`Extracted starter for ${slug}: ${outDir}`);
