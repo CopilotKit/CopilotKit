@@ -428,9 +428,9 @@ describe("e2e-deep driver", () => {
     });
 
     const result = await driver.run(mkCtx(), {
-      key: "e2e-deep:showcase-starter-mastra",
-      publicUrl: "https://showcase-starter-mastra.example.com",
-      name: "showcase-starter-mastra",
+      key: "e2e-deep:showcase-mastra-starter",
+      publicUrl: "https://showcase-mastra-starter.example.com",
+      name: "showcase-mastra-starter",
       features: ["agentic-chat"],
       shape: "starter",
     });

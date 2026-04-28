@@ -2,10 +2,7 @@ import { z } from "zod";
 import fs from "node:fs";
 import path from "node:path";
 import yaml from "js-yaml";
-import {
-  resolveShape,
-  showcaseShapeSchema,
-} from "../discovery/railway-services.js";
+import { showcaseShapeSchema } from "../discovery/railway-services.js";
 import type { ProbeDriver } from "../types.js";
 import type { ProbeContext, ProbeResult } from "../../types/index.js";
 
@@ -110,11 +107,7 @@ export function createQaDriver(
 
       // Starter short-circuit: no /demos/* routing means no per-feature
       // QA coverage to check. Green aggregate, no side rows.
-      const shape = resolveShape(
-        { name: input.name, shape: input.shape },
-        { logger: ctx.logger },
-      );
-      if (shape === "starter") {
+      if (input.shape === "starter") {
         return {
           key: input.key,
           state: "green",
