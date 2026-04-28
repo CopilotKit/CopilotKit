@@ -1,5 +1,5 @@
 # Run the Railway-equivalent Docker image for every showcase package locally.
-# Prereq: run scripts/dev-local.sh which stages shared_python/ shared_typescript/ into each package build context first.
+# Prereq: run scripts/dev-local.sh which dereferences tools/ and shared-tools/ symlinks into each package build context first.
 # Ports come from shared/local-ports.json; internal port is always 10000 (Railway convention).
 
 services:
