@@ -12,12 +12,9 @@ The agent supports:
   - Frontend tool calls (change_background, generate_haiku, schedule_meeting)
   - Human-in-the-loop via schedule_meeting (frontend-rendered meeting time picker)
 
-NOTE ON DRIFT: This module is the canonical source. The starter copy at
-``showcase/starters/langroid/agent/agent.py`` is regenerated from this file
-by ``showcase/scripts/generate-starters.ts``, which rewrites
-``from tools import ...`` into ``from .tools import ...`` — a single
-relative import against the starter's bundled ``agent/tools/`` package.
-Any fix must land in BOTH files until the generator is re-run.
+NOTE ON DRIFT: This module is the canonical source. Starters are now
+extracted on-demand from this integration directory via
+``showcase/scripts/extract-starter.ts``.
 Sibling provider-agnostic A2UI planner implementations live in
 ``showcase/packages/google-adk/src/agents/main.py`` and
 ``showcase/packages/strands/src/agents/agent.py`` — keep error shapes

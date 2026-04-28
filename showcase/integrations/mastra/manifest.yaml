@@ -25,12 +25,12 @@ managed_platform:
   name: Mastra Cloud
   url: https://mastra.ai/cloud
 starter:
-  path: showcase/starters/mastra
+  path: showcase/integrations/mastra
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/mastra
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/mastra
   demo_url: https://showcase-starter-mastra-production-3a00.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/mastra my-copilotkit-app
 features:
   - cli-start
   - agentic-chat
@@ -62,7 +62,7 @@ demos:
     description: Copy-paste command to scaffold the canonical Mastra starter
     tags:
       - chat-ui
-    command: "npx degit CopilotKit/CopilotKit/showcase/starters/mastra my-copilotkit-app"
+    command: "npx degit CopilotKit/CopilotKit/showcase/integrations/mastra my-copilotkit-app"
   - id: agentic-chat
     name: Agentic Chat
     description: Natural conversation with frontend tool execution

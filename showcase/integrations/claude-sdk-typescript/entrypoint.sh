@@ -63,8 +63,7 @@ echo "[entrypoint] Next.js started (PID: $NEXTJS_PID)"
 # on Railway starting 04-20 16:54 UTC — the 90s (3-strike) budget was
 # shorter than the cold-start path on a fresh container. Wait up to 180s
 # for the first successful health probe before arming the strike counter
-# so slow cold-starts aren't killed in a loop. Matches the starter-level
-# grace emitted by getWatchdogGraceSeconds() in generate-starters.ts.
+# so slow cold-starts aren't killed in a loop.
 (
   GRACE=180
   echo "[watchdog] Startup grace: waiting up to ${GRACE}s for first successful health probe before arming strike counter"

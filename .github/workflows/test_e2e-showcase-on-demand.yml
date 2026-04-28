@@ -327,11 +327,9 @@ jobs:
 
       - name: Start Python agent
         if: steps.pkg-type.outputs.has_python == 'true'
-        # NOTE: this workflow tests the SOURCE PACKAGE directly
-        # (showcase/integrations/<slug>), whose dev script binds the agent on port
-        # 8000. Generated STARTERS (showcase/starters/<slug>) instead bind on
-        # port 8123 — that's the production scaffold users copy. If you're
-        # debugging a scaffolded starter, the health checks here won't apply.
+        # NOTE: this workflow tests the integration directly
+        # (showcase/integrations/<slug>), whose dev script binds the agent
+        # on port 8000.
         run: |
           SLUG="${{ steps.slug.outputs.slug }}"
           cd "showcase/integrations/$SLUG"

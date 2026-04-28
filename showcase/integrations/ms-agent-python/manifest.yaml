@@ -19,12 +19,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: showcase/starters/ms-agent-python
+  path: showcase/integrations/ms-agent-python
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ms-agent-python
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ms-agent-python
   demo_url: https://showcase-starter-ms-agent-python-production-d140.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ms-agent-python my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/ms-agent-python my-copilotkit-app
 features:
   - beautiful-chat
   - cli-start

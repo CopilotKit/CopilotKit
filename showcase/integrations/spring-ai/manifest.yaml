@@ -327,9 +327,9 @@ demos:
       - src/app/demos/multimodal/sample-attachment-buttons.tsx
       - src/app/api/copilotkit-multimodal/route.ts
 starter:
-  path: showcase/starters/spring-ai
+  path: showcase/integrations/spring-ai
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/spring-ai
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/spring-ai
   demo_url: https://showcase-starter-spring-ai-production.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/spring-ai my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/spring-ai my-copilotkit-app

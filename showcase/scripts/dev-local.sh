@@ -23,6 +23,7 @@ stage_shared() {
   local src_ts="$SHOWCASE_DIR/shared/typescript/tools"
   for pkg_dir in "$SHOWCASE_DIR"/integrations/*/; do
     local pkg="$(basename "$pkg_dir")"
+    # Legacy shared_python/shared_typescript dirs (Dockerfile COPY targets)
     if [ -d "$src_py" ] && grep -q "shared_python" "$pkg_dir/Dockerfile" 2>/dev/null; then
       rsync -a --delete "$src_py/" "$pkg_dir/shared_python/"
     fi
@@ -30,7 +31,31 @@ stage_shared() {
       mkdir -p "$pkg_dir/shared_typescript"
       rsync -a --delete "$src_ts/" "$pkg_dir/shared_typescript/tools/"
     fi
+    # Dereference symlinks for Docker build context. Docker COPY cannot
+    # follow symlinks that point outside the build context. Replace
+    # tools/ and shared-tools/ symlinks with real copies of their targets.
+    for link_name in tools shared-tools; do
+      local link_path="$pkg_dir/$link_name"
+      if [ -L "$link_path" ]; then
+        local target
+        target="$(readlink "$link_path")"
+        # Resolve relative symlink targets against the link's directory
+        if [[ "$target" != /* ]]; then
+          target="$(cd "$(dirname "$link_path")" && cd "$(dirname "$target")" && pwd)/$(basename "$target")"
+        fi
+        if [ -d "$target" ]; then
+          rm "$link_path"
+          rsync -a "$target/" "$link_path/"
+        fi
+      fi
+    done
   done
+}
+
+restore_symlinks() {
+  # Restore tools/ and shared-tools/ symlinks that stage_shared replaced
+  # with real directories. git checkout restores them from the index.
+  (cd "$SHOWCASE_DIR" && git checkout -- integrations/*/tools integrations/*/shared-tools 2>/dev/null || true)
 }
 
 require_env() {
@@ -47,10 +72,12 @@ case "$cmd" in
   up)
     require_env
     stage_shared
+    trap restore_symlinks EXIT
     docker compose -f "$COMPOSE_FILE" up -d --build "$@"
     ;;
   build)
     stage_shared
+    trap restore_symlinks EXIT
     docker compose -f "$COMPOSE_FILE" build "$@"
     ;;
   down)

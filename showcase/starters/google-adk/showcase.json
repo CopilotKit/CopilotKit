@@ -1,8 +1,0 @@
-{
-  "slug": "google-adk",
-  "name": "Google ADK",
-  "language": "python",
-  "agentDir": "agent",
-  "agentPort": 8123,
-  "generated": true
-}

@@ -27,7 +27,7 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 | Feature                         | Manual QA | Vitest Unit                                                      | Playwright E2E (smoke)                  | Playwright E2E (interaction)                    | Aimock Fixtures                    | CI Auto                                     |
 | ------------------------------- | --------- | ---------------------------------------------------------------- | --------------------------------------- | ----------------------------------------------- | ---------------------------------- | ------------------------------------------- |
-| **Sales Dashboard (page load)** | FAIL      | PASS generate-starters tests (17 starters exist, file structure) | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
+| **Sales Dashboard (page load)** | FAIL      | PASS extract-starter tests (on-demand extraction)                | PASS header, 4 renderer pills           | PASS pill switching, content verification       | WARN `sales`/`todo`/`deal` matches | WARN validate + aimock-e2e (manual trigger) |
 | **Renderer Selector**           | FAIL      | FAIL                                                             | PASS 4 pills visible, default selection | PASS mutual exclusion, content changes per mode | FAIL                               | WARN validate only                          |
 | **Tool-Based mode**             | FAIL      | FAIL                                                             | PASS pipeline heading, KPI cards        | PASS Add a deal, multiple deals, empty state    | WARN `sales`/`todo` matches        | WARN validate only                          |
 | **A2UI Catalog mode**           | FAIL      | FAIL                                                             | PASS same pipeline content              | FAIL                                            | FAIL                               | WARN validate only                          |
@@ -44,8 +44,6 @@ This matrix tracks what testing exists for each demo and the Sales Dashboard sta
 
 ### Vitest Unit Tests (`showcase/scripts/__tests__/*.test.ts`)
 
-- `generate-starters.test.ts` -- verifies all 17 starters generate correctly, file structure, Python import rewriting
-- `starter-consistency.test.ts` -- validates starter consistency across packages
 - `generate-registry.test.ts` -- registry generation
 - `validate-constraints.test.ts` -- constraint validation
 - `bundle-demo-content.test.ts` -- demo content bundling

@@ -220,12 +220,12 @@ demos:
       - src/app/demos/frontend-tools-async/notes-card.tsx
       - src/app/api/copilotkit/route.ts
 starter:
-  path: showcase/starters/ag2
+  path: showcase/integrations/ag2
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/ag2
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/ag2
   demo_url: https://showcase-starter-ag2-production.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/ag2 my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/ag2 my-copilotkit-app
 managed_platform:
   name: Agent OS
   url: https://ag2.ai/product

@@ -26,12 +26,12 @@ managed_platform:
   name: Google AI Studio
   url: https://aistudio.google.com
 starter:
-  path: showcase/starters/google-adk
+  path: showcase/integrations/google-adk
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/google-adk
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/google-adk
   demo_url: https://showcase-starter-google-adk-production-a56a.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/google-adk my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/google-adk my-copilotkit-app
 features:
   - beautiful-chat
   - cli-start

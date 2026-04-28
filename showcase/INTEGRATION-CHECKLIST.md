@@ -70,18 +70,18 @@ Two directories hold integration code, and they play different roles. Understand
 - **`examples/integrations/<name>/`** — the **Dojo example**. This is the dep-pinning source of truth: minimal, focused agent code used to prove a framework works against CopilotKit/AG-UI. The weekly drift-detection workflow and the "Always pin agent framework and SDK versions to exact versions from the working Dojo example" rule (see "Dependency Pinning" below) both treat this directory as canonical.
 - **`showcase/integrations/<slug>/`** — the **full triple-duty integration**:
   1. Partner-facing demo (lives on `showcase.copilotkit.dev`)
-  2. Cloneable starter source (composed into `showcase/starters/<slug>/` by `generate-starters.ts`)
+  2. Cloneable starter source (extracted on-demand via `extract-starter.ts`)
   3. Iframe-embedded experience inside the public showcase shell
 
 ### Automation Direction (one-way)
 
 ```
 examples/integrations/<name>/  ──(migrate-integration-examples.ts)──▶  showcase/integrations/<slug>/src/agents/
-showcase/integrations/<slug>/     ──(generate-starters.ts)────────────▶  showcase/starters/<slug>/
+showcase/integrations/<slug>/  ──(extract-starter.ts)────────────────▶  standalone starter (on-demand)
 ```
 
 - `showcase/scripts/migrate-integration-examples.ts` copies agent code **from** `examples/integrations/<name>/` **into** `showcase/integrations/<slug>/src/agents/`. It never runs in reverse.
-- `showcase/scripts/generate-starters.ts` composes a template frontend plus the showcase package into a self-contained starter under `showcase/starters/<slug>/`.
+- `showcase/scripts/extract-starter.ts` extracts a clean standalone starter from any integration on demand, dereferencing symlinks and stripping test/CI artifacts.
 - Do not hand-edit agent code inside `showcase/integrations/<slug>/src/agents/` if the package has a Dojo counterpart — fix it upstream in `examples/integrations/<name>/` and re-run the migration script.
 
 ### Born-in-Showcase Packages (no Dojo counterpart)

@@ -316,9 +316,9 @@ demos:
       - src/app/demos/auth/demo-token.ts
       - src/app/api/copilotkit-auth/route.ts
 starter:
-  path: showcase/starters/claude-sdk-python
+  path: showcase/integrations/claude-sdk-python
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/claude-sdk-python
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/claude-sdk-python
   demo_url: https://showcase-starter-claude-sdk-python-production.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/claude-sdk-python my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/claude-sdk-python my-copilotkit-app

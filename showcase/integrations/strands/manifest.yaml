@@ -22,12 +22,12 @@ interaction_modalities:
   - embedded
   - chat
 starter:
-  path: showcase/starters/strands
+  path: showcase/integrations/strands
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/strands
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/strands
   demo_url: https://showcase-starter-strands-production-1114.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/strands my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/strands my-copilotkit-app
 features:
   - cli-start
   - agentic-chat

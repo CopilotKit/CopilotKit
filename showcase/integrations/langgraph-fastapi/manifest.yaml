@@ -22,12 +22,12 @@ managed_platform:
   name: LangGraph Platform
   url: https://langsmith.com
 starter:
-  path: showcase/starters/langgraph-fastapi
+  path: showcase/integrations/langgraph-fastapi
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langgraph-fastapi
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-fastapi
   demo_url: https://showcase-starter-langgraph-fastapi-production-c7d2.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langgraph-fastapi my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/langgraph-fastapi my-copilotkit-app
 features:
   - agentic-chat
   - tool-rendering

@@ -9,11 +9,7 @@ on:
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
       - ".github/workflows/showcase_validate.yml"
-      # Also re-run when starter/workflow files change — the
-      # validate-workflow-starters step below verifies parity between
-      # showcase/starters/* and the SERVICES/options lists in these files.
       - ".github/workflows/showcase_deploy.yml"
-      - ".github/workflows/showcase_smoke-monitor.yml"
   push:
     branches: [main]
     paths:
@@ -200,17 +196,6 @@ jobs:
         # See showcase/scripts/validate-fixture-tool-surface.ts and the
         # postmortem linked from there.
         run: pnpm exec tsx validate-fixture-tool-surface.ts
-
-      - name: Run validate-workflow-starters (parity with workflows)
-        working-directory: showcase/scripts
-        # Gate: for every directory under showcase/starters/ (excluding
-        # template/), verify `starter-<slug>` is registered in
-        # showcase_deploy.yml (workflow_dispatch options AND the
-        # ALL_SERVICES matrix) and in showcase_smoke-monitor.yml's
-        # SERVICES array. Catches the silent-drift failure mode where a
-        # new starter ships on disk but is invisible to deploy dispatch
-        # or drift detection.
-        run: pnpm exec tsx validate-workflow-starters.ts
 
       - name: Run validate-pins (ratchet)
         working-directory: showcase/scripts

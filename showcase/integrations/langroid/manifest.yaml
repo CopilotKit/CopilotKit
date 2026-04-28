@@ -241,9 +241,9 @@ demos:
       - src/app/demos/agent-config/use-agent-config.ts
       - src/app/api/copilotkit-agent-config/route.ts
 starter:
-  path: showcase/starters/langroid
+  path: showcase/integrations/langroid
   name: Sales Dashboard
   description: Full-featured sales pipeline with 4 GenUI rendering strategies
-  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/starters/langroid
+  github_url: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langroid
   demo_url: https://showcase-starter-langroid-production.up.railway.app
-  clone_command: npx degit CopilotKit/CopilotKit/showcase/starters/langroid my-copilotkit-app
+  clone_command: npx degit CopilotKit/CopilotKit/showcase/integrations/langroid my-copilotkit-app

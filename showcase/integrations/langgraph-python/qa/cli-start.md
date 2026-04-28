@@ -4,7 +4,7 @@
 
 - Dashboard host accessible; the `cli-start` cell is an informational command cell (no `/demos/cli-start/` route)
 - Local machine with Node.js 18+, npm 9+, and Python 3.11+ available; network access to the npm registry and GitHub
-- Canonical starter for comparison: `showcase/starters/langgraph-python/` in the CopilotKit repo
+- Canonical starter for comparison: `showcase/integrations/langgraph-python/` in the CopilotKit repo
 
 ## Test Steps
 
@@ -17,7 +17,7 @@
 ### 2. Scaffold a Fresh Project
 
 - [ ] In a fresh, empty directory, run `npx copilotkit@latest init --framework langgraph-python`
-- [ ] Verify the CLI completes without errors and scaffolds a project tree that matches the canonical starter at `showcase/starters/langgraph-python/` (same top-level files: `package.json`, `next.config.ts`, `langgraph.json`, `showcase.json`, `tsconfig.json`, `postcss.config.mjs`, `Dockerfile`, `entrypoint.sh`, `src/`)
+- [ ] Verify the CLI completes without errors and scaffolds a project tree that matches the canonical starter at `showcase/integrations/langgraph-python/` (same top-level files: `package.json`, `next.config.ts`, `langgraph.json`, `showcase.json`, `tsconfig.json`, `postcss.config.mjs`, `Dockerfile`, `entrypoint.sh`, `src/`)
 - [ ] Verify `package.json` references `@copilotkit/*` at version `2.0.0` or newer (matches `copilotkit_version` in the provider manifest)
 
 ### 3. Install + Boot

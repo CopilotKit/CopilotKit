@@ -11,7 +11,7 @@
     "sync-qa": "tsx sync-qa-to-notion.ts",
     "sync-qa:dry": "DRY_RUN=true tsx sync-qa-to-notion.ts",
     "bundle-content": "tsx bundle-demo-content.ts",
-    "generate-starters": "tsx generate-starters.ts",
+    "extract-starter": "tsx extract-starter.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
