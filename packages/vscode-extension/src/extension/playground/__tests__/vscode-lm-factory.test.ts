@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as crypto from "node:crypto";
 import type { RunAgentInput } from "@ag-ui/client";
+import type { LanguageModelChat } from "vscode";
 import { vscodeLmFactory } from "../vscode-lm-factory";
 
 vi.mock("vscode", () => ({
@@ -39,7 +40,7 @@ function makeModel(streamParts: unknown[]) {
       })(),
       text: (async function* () {})(),
     })),
-  } as unknown as import("vscode").LanguageModelChat;
+  } as unknown as LanguageModelChat;
 }
 
 const minimalInput: RunAgentInput = {
