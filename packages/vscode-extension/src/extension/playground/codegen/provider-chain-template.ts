@@ -121,11 +121,19 @@ export function renderEntry(opts: RenderEntryOptions): string {
     "PlaygroundEntry",
   );
 
+  // Inside ChatPlayground the HooksAggregator exists only to register the
+  // user's CopilotKit hooks (useCopilotAction, useFrontendTool, etc.) so
+  // CopilotChat can see them. The components' actual return values
+  // ("v1 actions", "WeatherRadar", …) are visual noise we don't want in
+  // the chat surface — the right-side MountedComponentsPanel lists them
+  // separately from the scan result. Wrap in `display: none` so hooks
+  // still fire but the JSX they return is hidden. Error boundaries inside
+  // MountCard keep recording mount errors to `window.__copilotkit_playground_errors`.
   const chatPlayground = renderProviderChain(
     opts,
     renderables,
     skipped,
-    "<HooksAggregator />\n        <CopilotChat />",
+    `<div style={{ display: "none" }} aria-hidden="true">\n          <HooksAggregator />\n        </div>\n        <CopilotChat />`,
     "ChatPlayground",
   );
 
