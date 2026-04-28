@@ -8,7 +8,9 @@ import {
 import { defineComponent, ref, toRaw } from "vue";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AbstractAgent } from "@ag-ui/client";
+import { EventType } from "@ag-ui/client";
 import type { Theme } from "@copilotkit/a2ui-renderer";
+import { IntelligenceAgent } from "@copilotkit/core";
 import CopilotChat from "../CopilotChat.vue";
 import CopilotKitProvider from "../../../providers/CopilotKitProvider.vue";
 import CopilotChatConfigurationProvider from "../../../providers/CopilotChatConfigurationProvider.vue";
@@ -25,7 +27,12 @@ import {
   testId,
 } from "../../../__tests__/utils/test-helpers";
 
-const { mockWebsandboxCreate, mockWebsandboxDestroy } = vi.hoisted(() => {
+const {
+  mockWebsandboxCreate,
+  mockWebsandboxDestroy,
+  mockPhoenixSockets,
+  MockPhoenixSocket,
+} = vi.hoisted(() => {
   const mockDestroy = vi.fn();
   const mockCreate = vi.fn(() => ({
     iframe: document.createElement("iframe"),
@@ -34,17 +41,141 @@ const { mockWebsandboxCreate, mockWebsandboxDestroy } = vi.hoisted(() => {
     destroy: mockDestroy,
   }));
 
+  // Colocated Phoenix mock infrastructure (mirrors the React file).
+  // Kept here rather than in the generic Vue test helper because the
+  // gateway-replay package is the only suite that needs it.
+  const mockSockets: MockPhoenixSocket[] = [];
+
+  class MockPhoenixPush {
+    private callbacks = new Map<string, (response?: unknown) => void>();
+
+    receive(
+      status: string,
+      callback: (response?: unknown) => void,
+    ): MockPhoenixPush {
+      this.callbacks.set(status, callback);
+      return this;
+    }
+
+    trigger(status: string, response?: unknown): void {
+      this.callbacks.get(status)?.(response);
+    }
+  }
+
+  class MockPhoenixChannel {
+    public topic: string;
+    public params: Record<string, unknown>;
+    public left = false;
+
+    private handlers = new Map<
+      string,
+      Array<{ ref: number; callback: (payload: unknown) => void }>
+    >();
+    private joinPush = new MockPhoenixPush();
+    private nextRef = 1;
+
+    constructor(topic: string, params: Record<string, unknown>) {
+      this.topic = topic;
+      this.params = params;
+    }
+
+    on(event: string, callback: (payload: unknown) => void): number {
+      if (!this.handlers.has(event)) {
+        this.handlers.set(event, []);
+      }
+      const ref = this.nextRef;
+      this.nextRef += 1;
+      this.handlers.get(event)?.push({ ref, callback });
+      return ref;
+    }
+
+    off(event: string, ref?: number): void {
+      if (ref === undefined) {
+        this.handlers.delete(event);
+        return;
+      }
+      this.handlers.set(
+        event,
+        (this.handlers.get(event) ?? []).filter(
+          (handler) => handler.ref !== ref,
+        ),
+      );
+    }
+
+    join(): MockPhoenixPush {
+      return this.joinPush;
+    }
+
+    leave(): void {
+      this.left = true;
+    }
+
+    triggerJoin(status: string, response?: unknown): void {
+      this.joinPush.trigger(status, response);
+    }
+
+    serverPush(event: string, payload: unknown): void {
+      for (const { callback } of this.handlers.get(event) ?? []) {
+        callback(payload);
+      }
+    }
+  }
+
+  class MockPhoenixSocket {
+    public channels: MockPhoenixChannel[] = [];
+
+    constructor(
+      public url: string,
+      public opts: Record<string, unknown>,
+    ) {
+      mockSockets.push(this);
+    }
+
+    connect(): void {}
+
+    disconnect(): void {}
+
+    onOpen(): void {}
+
+    onError(): void {}
+
+    channel(
+      topic: string,
+      params: Record<string, unknown>,
+    ): MockPhoenixChannel {
+      const channel = new MockPhoenixChannel(topic, params);
+      this.channels.push(channel);
+      return channel;
+    }
+  }
+
   return {
     mockWebsandboxCreate: mockCreate,
     mockWebsandboxDestroy: mockDestroy,
+    mockPhoenixSockets: mockSockets,
+    MockPhoenixSocket,
   };
 });
+
+vi.mock("phoenix", () => ({
+  Socket: MockPhoenixSocket,
+}));
 
 vi.mock("@jetbrains/websandbox", () => ({
   default: {
     create: (...args: unknown[]) => mockWebsandboxCreate(...args),
   },
 }));
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    statusText: status === 200 ? "OK" : "Error",
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as Response;
+}
 
 async function submitMessageAndWaitForUserMessage(value: string) {
   await waitFor(() => {
@@ -322,8 +453,131 @@ describe("CopilotChat activity message rendering", () => {
     );
   });
 
-  // The IntelligenceAgent /connect gateway-replay variant is pending N3
-  // (requires porting React's mockPhoenixSockets infrastructure).
+  it("restores a completed A2UI surface from IntelligenceAgent /connect gateway replay", async () => {
+    const threadId = testId("intelligence-connect-thread");
+    const surfaceId = testId("intelligence-connect-surface");
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        threadId,
+        runId: null,
+        joinToken: "join-token-1",
+        realtime: {
+          clientUrl: "ws://localhost:4000/client",
+          topic: `thread:${threadId}`,
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mockPhoenixSockets.length = 0;
+
+    const agent = new IntelligenceAgent({
+      url: "ws://localhost:4000/client",
+      runtimeUrl: "http://localhost:4000",
+      agentId: "my-agent",
+    });
+    const a2uiRenderer = createA2UIMessageRenderer({
+      theme: {} as Theme,
+    });
+
+    try {
+      renderWithCopilotKit({
+        agent,
+        threadId,
+        renderActivityMessages: [a2uiRenderer],
+      });
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      await waitFor(() => {
+        expect(mockPhoenixSockets).toHaveLength(1);
+        expect(mockPhoenixSockets[0]?.channels).toHaveLength(1);
+      });
+
+      const channel = mockPhoenixSockets[0]!.channels[0]!;
+      expect(channel.topic).toBe(`thread:${threadId}`);
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId,
+        run_id: "backend-run-1",
+        input: {
+          messages: [
+            {
+              id: testId("connect-user-message"),
+              role: "user",
+              content: "show me the restored ui",
+            },
+          ],
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: testId("connect-a2ui-activity"),
+        activityType: "a2ui-surface",
+        content: {
+          a2ui_operations: [
+            {
+              version: "v0.9",
+              createSurface: {
+                surfaceId,
+                catalogId:
+                  "https://a2ui.org/specification/v0_9/basic_catalog.json",
+              },
+            },
+            {
+              version: "v0.9",
+              updateComponents: {
+                surfaceId,
+                components: [
+                  {
+                    id: "root",
+                    component: "Text",
+                    text: "Restored dashboard",
+                    variant: "body",
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+      });
+      channel.serverPush("stream_idle", { latestEventId: "event-3" });
+
+      await waitFor(() => {
+        expect(screen.getByText("show me the restored ui")).toBeDefined();
+      });
+      await waitFor(() => {
+        expect(
+          document.querySelector(`[data-surface-id='${surfaceId}']`),
+        ).not.toBeNull();
+      });
+
+      const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain("/agent/my-agent/connect");
+      expect(options.method).toBe("POST");
+
+      const requestBody = JSON.parse(String(options.body)) as {
+        threadId: string;
+        lastSeenEventId: string | null;
+        messages: unknown[];
+      };
+      expect(requestBody.threadId).toBe(threadId);
+      expect(requestBody.lastSeenEventId).toBeNull();
+      expect(requestBody.messages).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 
   it("restores a completed Open Generative UI activity after reconnect from an event-native baseline", async () => {
     mockWebsandboxCreate.mockClear();
