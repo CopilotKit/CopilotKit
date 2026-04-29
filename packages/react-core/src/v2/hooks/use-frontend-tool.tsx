@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useCopilotKit } from "../providers/CopilotKitProvider";
 import type { ReactFrontendTool } from "../types/frontend-tool";
 
@@ -10,7 +10,7 @@ export function useFrontendTool<
   const { copilotkit } = useCopilotKit();
   const extraDeps = deps ?? EMPTY_DEPS;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const name = tool.name;
 
     // Always register/override the tool for this name on mount

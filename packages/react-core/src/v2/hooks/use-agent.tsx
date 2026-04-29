@@ -330,6 +330,12 @@ export function useAgent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent, JSON.stringify(copilotkit.headers)]);
 
+  // Ensure the agent has the CopilotKit tool-injection middleware installed.
+  // This is idempotent (WeakSet guard) so it's safe to call on every render
+  // path — registry agents, provisionals, and per-thread clones all get
+  // middleware before the hook returns.
+  copilotkit.ensureToolMiddleware?.(agent);
+
   return {
     agent,
   };

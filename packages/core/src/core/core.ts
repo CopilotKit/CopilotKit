@@ -943,6 +943,15 @@ export class CopilotKitCore {
   }
 
   /**
+   * Installs a fallback AG-UI middleware on the agent that injects frontend
+   * tools, context, and forwarded properties for direct `agent.runAgent()`
+   * calls that bypass `copilotkit.runAgent()`. Idempotent.
+   */
+  ensureToolMiddleware(agent: import("@ag-ui/client").AbstractAgent): void {
+    this.runHandler.ensureToolMiddleware(agent);
+  }
+
+  /**
    * Called before each follow-up agent run (after tool execution).
    *
    * When a frontend tool handler calls framework state setters (e.g. React's

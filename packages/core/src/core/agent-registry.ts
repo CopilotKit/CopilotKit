@@ -295,6 +295,7 @@ export class AgentRegistry {
               debug: rawDebug ? resolveDebugConfig(rawDebug) : undefined,
             });
             this.applyHeadersToAgent(agent);
+            this.core.ensureToolMiddleware(agent);
             return [id, agent];
           },
         ),

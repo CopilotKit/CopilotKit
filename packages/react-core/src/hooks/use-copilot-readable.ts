@@ -62,7 +62,7 @@
  * ```
  */
 import { useCopilotKit } from "../v2";
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 
 /**
  * Options for the useCopilotReadable hook.
@@ -107,7 +107,7 @@ export function useCopilotReadable(
 ): string | undefined {
   const { copilotkit } = useCopilotKit();
   const ctxIdRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!copilotkit) return;
 
     const found = Object.entries(copilotkit.context).find(([id, ctxItem]) => {
