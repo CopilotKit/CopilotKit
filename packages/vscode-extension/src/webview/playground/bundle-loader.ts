@@ -67,6 +67,7 @@ export function executePlaygroundBundle(
 ): Promise<PlaygroundBundleExports> {
   return new Promise((resolve, reject) => {
     if (css) injectBundleCss(css);
+    instrumentFetch();
     const deps = {
       React,
       ReactDOM,
@@ -140,6 +141,51 @@ export function executePlaygroundBundle(
     }
     resolve(exports);
   });
+}
+
+/**
+ * Wraps `window.fetch` once so every URL the bundled webview tries to reach
+ * is logged with method + status. The runtime-host already logs every
+ * request that reaches it server-side; this fills in the matching client
+ * side. If the chat appears to do nothing on send, the most informative
+ * answer is in this output: did the webview fetch anything? If not,
+ * the bug is upstream of fetch (CopilotChat handler not firing). If yes
+ * but no matching server log appears, CSP or URL is wrong.
+ *
+ * Idempotent — multiple bundle loads only wrap once.
+ */
+function instrumentFetch(): void {
+  const w = window as Window & { __copilotkit_fetch_wrapped?: boolean };
+  if (w.__copilotkit_fetch_wrapped) return;
+  w.__copilotkit_fetch_wrapped = true;
+  const original = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof Request
+          ? input.url
+          : String(input);
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    // eslint-disable-next-line no-console
+    console.log(`[playground-fetch] -> ${method} ${url}`);
+    return original(input as RequestInfo, init).then(
+      (res) => {
+        // eslint-disable-next-line no-console
+        console.log(`[playground-fetch] <- ${res.status} ${method} ${url}`);
+        return res;
+      },
+      (err) => {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[playground-fetch] !! ${method} ${url} threw: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+        throw err;
+      },
+    );
+  };
 }
 
 /**
