@@ -3,16 +3,20 @@
  * a subset of exports to the real v2 package and falls through to capture-only
  * stubs for everything else — preserving Plan #2's TDZ-avoidance strategy.
  *
- * Known-real exports (Plan #4):
+ * Known-real exports:
  *   - CopilotKit / CopilotKitProvider  (provider)
+ *   - useCopilotKit / useAgent / useRenderToolCall  (used by PlaygroundChat
+ *     to drive runs and render the user's registered tool components)
  *   - useFrontendTool / useComponent / useHumanInTheLoop  (tool registration)
- *   - useRenderTool / useRenderToolCall / useRenderCustomMessages
- *     / useRenderActivityMessage / useDefaultRenderTool  (render hooks)
+ *   - useRenderTool / useRenderCustomMessages / useRenderActivityMessage
+ *     / useDefaultRenderTool  (render hooks)
  *   - useInterrupt  (interrupt)
- *   - useAgent / useAgentContext / useCapabilities / useSuggestions
+ *   - useAgentContext / useCapabilities / useSuggestions
  *     / useConfigureSuggestions / useThreads / useAttachments  (agent + data)
- *   - CopilotChat / CopilotChatInput / CopilotChatMessageView
- *     / CopilotChatAssistantMessage  (chat UI)
+ *
+ * `<CopilotChat />` and its sub-components are intentionally NOT here —
+ * the playground ships its own minimal chat (PlaygroundChat) that drives
+ * the runtime directly. See codegen/playground-chat-source.ts.
  *
  * Note: useCopilotAction, useCopilotReadable, and useCopilotChat are v1 hooks
  * and are NOT exported from @copilotkit/react-core/v2. They remain capture-only
@@ -26,56 +30,50 @@ import {
   // Provider + core
   CopilotKit,
   CopilotKitProvider,
+  // Hooks PlaygroundChat needs (use-*-* registry surface + send path)
+  useCopilotKit,
+  useAgent,
+  useRenderToolCall,
   // Tool / action registration
   useFrontendTool,
   useComponent,
   useHumanInTheLoop,
   // Render hooks
   useRenderTool,
-  useRenderToolCall,
   useRenderCustomMessages,
   useRenderActivityMessage,
   useDefaultRenderTool,
   useInterrupt,
   // Agent + data
-  useAgent,
   useAgentContext,
   useCapabilities,
   useSuggestions,
   useConfigureSuggestions,
   useThreads,
   useAttachments,
-  // Chat UI components
-  CopilotChat,
-  CopilotChatInput,
-  CopilotChatMessageView,
-  CopilotChatAssistantMessage,
 } from "@copilotkit/react-core/v2";
 import { createCopilotkitStubs } from "../hook-preview/copilotkit-stubs";
 
 const REAL: Record<string, unknown> = {
   CopilotKit,
   CopilotKitProvider,
+  useCopilotKit,
+  useAgent,
+  useRenderToolCall,
   useFrontendTool,
   useComponent,
   useHumanInTheLoop,
   useRenderTool,
-  useRenderToolCall,
   useRenderCustomMessages,
   useRenderActivityMessage,
   useDefaultRenderTool,
   useInterrupt,
-  useAgent,
   useAgentContext,
   useCapabilities,
   useSuggestions,
   useConfigureSuggestions,
   useThreads,
   useAttachments,
-  CopilotChat,
-  CopilotChatInput,
-  CopilotChatMessageView,
-  CopilotChatAssistantMessage,
 };
 
 export function createForwardingStubs(): Record<string, unknown> {

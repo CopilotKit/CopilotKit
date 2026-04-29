@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { PlaygroundScanResult } from "../types";
 import { ERROR_BOUNDARY_SOURCE } from "./error-boundary-source";
+import { PLAYGROUND_CHAT_SOURCE } from "./playground-chat-source";
 import { renderAggregator } from "./aggregator-template";
 import { renderEntry } from "./provider-chain-template";
 
@@ -36,6 +37,12 @@ export function writePlaygroundSources(
   fs.writeFileSync(
     path.join(outDir, "error-boundary.tsx"),
     ERROR_BOUNDARY_SOURCE,
+    "utf-8",
+  );
+
+  fs.writeFileSync(
+    path.join(outDir, "playground-chat.tsx"),
+    PLAYGROUND_CHAT_SOURCE,
     "utf-8",
   );
 

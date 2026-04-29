@@ -181,6 +181,170 @@
   }
 }
 
+/* ----- PlaygroundChat (the chat surface itself) ----- */
+
+.playground-chat-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--vscode-editor-background);
+}
+
+.playground-chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playground-chat-empty {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+  margin: auto 0;
+  text-align: center;
+  max-width: 320px;
+  align-self: center;
+  line-height: 1.5;
+}
+
+.playground-chat-bubble {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 90%;
+}
+
+.playground-chat-bubble-user {
+  align-self: flex-end;
+  background: var(--vscode-textLink-foreground);
+  color: var(--vscode-button-foreground);
+}
+
+.playground-chat-bubble-assistant {
+  align-self: flex-start;
+  background: var(--vscode-input-background);
+  border: 1px solid var(--vscode-panel-border);
+}
+
+.playground-chat-bubble-meta {
+  align-self: stretch;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  font-style: italic;
+  background: transparent;
+}
+
+.playground-chat-text {
+  margin: 0;
+}
+
+.playground-chat-toolcall {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+  border: 1px dashed var(--vscode-panel-border);
+}
+
+.playground-chat-toolcall:first-child {
+  margin-top: 0;
+}
+
+.playground-chat-toolcall-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.playground-chat-toolcall-header code {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-textLink-foreground);
+}
+
+.playground-chat-toolcall-args {
+  margin: 0;
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--vscode-foreground);
+}
+
+.playground-chat-running {
+  align-self: flex-start;
+  color: var(--vscode-descriptionForeground);
+  font-size: 18px;
+  letter-spacing: 4px;
+  padding: 4px 10px;
+}
+
+.playground-chat-error {
+  margin: 0 14px 8px;
+  padding: 6px 8px;
+  border-left: 2px solid var(--vscode-errorForeground);
+  background: var(--vscode-inputValidation-errorBackground);
+  color: var(--vscode-inputValidation-errorForeground);
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  white-space: pre-wrap;
+}
+
+.playground-chat-input-row {
+  display: flex;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--vscode-panel-border);
+  background: var(--vscode-editor-background);
+}
+
+.playground-chat-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 3px;
+  font-size: 12px;
+  font-family: var(--vscode-font-family);
+}
+
+.playground-chat-input:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.playground-chat-send {
+  padding: 6px 12px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.playground-chat-send:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.playground-chat-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ----- Mounted components panel (right top) ----- */
 
 .playground-mounted {
