@@ -80,6 +80,15 @@ export async function handleIntelligenceRun({
   }
   const userId = user.id;
 
+  // Surface the resolved user on the agent so MCP header resolvers (and any
+  // other per-run consumer) can read it via context. Snapshotted by the
+  // BuiltInAgent at run-start; runs that don't go through this Intelligence
+  // path leave `agent.user` undefined.
+  (agent as unknown as { user?: { id: string; name: string } }).user = {
+    id: user.id,
+    name: user.name,
+  };
+
   try {
     const { thread, created } = await runtime.intelligence.getOrCreateThread({
       threadId: input.threadId,
