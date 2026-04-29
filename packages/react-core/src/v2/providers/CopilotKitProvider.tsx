@@ -42,6 +42,7 @@ import { A2UICatalogContext } from "../a2ui/A2UICatalogContext";
 import { viewerTheme } from "@copilotkit/a2ui-renderer";
 import type { Theme as A2UITheme } from "@copilotkit/a2ui-renderer";
 import { CopilotKitCoreReact } from "../lib/react-core";
+import { HostPortalBridge } from "../lib/host-portal-bridge";
 import type {
   ReactActivityMessageRenderer,
   ReactToolCallRenderer,
@@ -791,6 +792,7 @@ export const CopilotKitProvider: React.FC<CopilotKitProviderProps> = ({
             />
           )}
           {children}
+          <HostPortalBridge copilotkit={copilotkit} />
           {shouldRenderInspector ? (
             <CopilotKitInspector
               core={copilotkit}

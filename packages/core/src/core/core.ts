@@ -29,6 +29,11 @@ import { DebugConfig } from "@copilotkit/shared";
 import { StateManager } from "./state-manager";
 import { ThreadStoreRegistry } from "./thread-store-registry";
 import { type ɵThreadStore } from "../threads";
+import {
+  ToolRenderBridge,
+  ToolRenderRegistry,
+  ToolRenderRequest,
+} from "./tool-render-bridge";
 
 /** Configuration options for `CopilotKitCore`. */
 export interface CopilotKitCoreConfig {
@@ -335,6 +340,7 @@ export class CopilotKitCore {
   private runHandler: RunHandler;
   private stateManager: StateManager;
   private threadStoreRegistry: ThreadStoreRegistry;
+  private toolRenderRegistry: ToolRenderRegistry = new ToolRenderRegistry();
 
   constructor({
     runtimeUrl,
@@ -674,6 +680,31 @@ export class CopilotKitCore {
 
   getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult {
     return this.suggestionEngine.getSuggestions(agentId);
+  }
+
+  /**
+   * Tool render bridges (host-portal pattern).
+   *
+   * Frameworks (React, Angular, vanilla) register a bridge that knows how to
+   * paint a tool call into a host DOM node. Surfaces like the inspector ask
+   * core to fill a slot; core dispatches to the first bridge that claims it.
+   * Lets the inspector show the customer's own gen-ui without taking a
+   * framework dependency.
+   */
+  addToolRenderBridge(bridge: ToolRenderBridge): () => void {
+    return this.toolRenderRegistry.addBridge(bridge);
+  }
+
+  canRenderTool(req: ToolRenderRequest): boolean {
+    return this.toolRenderRegistry.canRender(req);
+  }
+
+  attachToolRender(req: ToolRenderRequest, hostEl: HTMLElement): boolean {
+    return this.toolRenderRegistry.attach(req, hostEl);
+  }
+
+  detachToolRender(toolCallId: string): void {
+    this.toolRenderRegistry.detach(toolCallId);
   }
 
   /**
