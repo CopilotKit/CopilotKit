@@ -1,4 +1,12 @@
 import { logger } from "@copilotkit/shared";
+import type { MCPClientConfigHTTP } from "../../../agent";
+
+// Header name carrying the per-call end-user identity that the CopilotKit
+// Intelligence `/mcp` endpoint requires. Encapsulated inside the helper so
+// users of `intelligence.toMCPServer()` never need to know the wire-level
+// header name — they configure `identifyUser` once on the runtime and the
+// helper does the rest.
+const INTELLIGENCE_USER_ID_HEADER = "x-cpki-user-id";
 
 /**
  * Error thrown when an Intelligence platform HTTP request returns a non-2xx
@@ -338,6 +346,65 @@ export class CopilotKitIntelligence {
 
   ɵgetRunnerAuthToken(): string {
     return this.#apiKey;
+  }
+
+  /**
+   * Build an MCP-server config pre-wired for this Intelligence platform
+   * connection. Drop the result into a `BuiltInAgent`'s `mcpServers` to give
+   * the agent access to Intel's bash + thread tools with both auth axes
+   * correctly populated:
+   *
+   * - `Authorization: Bearer <apiKey>` is stamped on every outbound request
+   *   from this Intelligence client's project key.
+   * - `X-Cpki-User-Id` is read fresh per call from the agent's resolved user,
+   *   which is populated by the runtime's `identifyUser` callback. The
+   *   helper does not surface the header name to user code.
+   *
+   * @example
+   * ```ts
+   * const intelligence = new CopilotKitIntelligence({
+   *   apiUrl: "https://api.copilotkit.ai",
+   *   wsUrl:  "wss://api.copilotkit.ai",
+   *   apiKey: process.env.INTELLIGENCE_API_KEY!,
+   * });
+   *
+   * const runtime = new CopilotRuntime({
+   *   intelligence,
+   *   identifyUser: (request) => resolveUserFromSession(request),
+   *   agents: {
+   *     myAgent: new BuiltInAgent({
+   *       model: "openai/gpt-4o",
+   *       mcpServers: [intelligence.toMCPServer()],
+   *     }),
+   *   },
+   * });
+   * ```
+   *
+   * The resolver throws if no user is present — typically the runtime is
+   * misconfigured (no `identifyUser`) or `identifyUser` returned an invalid
+   * id. Silent fallthrough to an empty user-id would collapse every browser
+   * session for this project into one shared bash sandbox, which is the
+   * very isolation guarantee the per-call header exists to enforce.
+   */
+  toMCPServer(): MCPClientConfigHTTP {
+    const apiKey = this.#apiKey;
+    const url = `${this.#apiUrl}/mcp`;
+    return {
+      type: "http",
+      url,
+      headers: { Authorization: `Bearer ${apiKey}` },
+      getHeaders: ({ user }) => {
+        const userId = user?.id?.trim();
+        if (!userId) {
+          throw new Error(
+            "CopilotKitIntelligence.toMCPServer(): no user resolved for this run. " +
+              "Configure `identifyUser` on the CopilotRuntime so the agent " +
+              "knows which end-user each MCP call is on behalf of.",
+          );
+        }
+        return { [INTELLIGENCE_USER_ID_HEADER]: userId };
+      },
+    };
   }
 
   async #request<T>(method: string, path: string, body?: unknown): Promise<T> {
