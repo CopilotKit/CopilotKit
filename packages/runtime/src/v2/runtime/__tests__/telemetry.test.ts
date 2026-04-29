@@ -34,7 +34,7 @@ describe("TelemetryClient", () => {
     });
   });
 
-  it("forwards event properties (including cloud api key extraction) to the sink", async () => {
+  it("forwards event properties to the sink", async () => {
     const client = new TelemetryClient({
       telemetryDisabled: false,
       sampleRate: 1,
@@ -50,11 +50,34 @@ describe("TelemetryClient", () => {
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
     const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
     expect(arg.event).toBe("oss.runtime.copilot_request_created");
-    expect(arg.apiKey).toBe("ck_live_abc123def456ghij.secret-blob");
+    // Customer API keys are NOT used for telemetry attribution — only the
+    // license token is. The cloud.public_api_key property still rides in
+    // properties for downstream Segment/PostHog routing.
+    expect(arg.licenseToken).toBeUndefined();
     expect(arg.properties).toMatchObject({
       requestType: "run",
       "cloud.api_key_provided": true,
+      "cloud.public_api_key": "ck_live_abc123def456ghij.secret-blob",
     });
+  });
+
+  it("forwards license token (set via setLicenseToken) to the sink", async () => {
+    const client = new TelemetryClient({
+      telemetryDisabled: false,
+      sampleRate: 1,
+    });
+    client.setLicenseToken("header.payload.signature");
+
+    await client.capture("oss.runtime.instance_created", {
+      actionsAmount: 0,
+      endpointTypes: [],
+      endpointsAmount: 0,
+      "cloud.api_key_provided": false,
+    });
+
+    expect(lambdaSpy).toHaveBeenCalledTimes(1);
+    const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
+    expect(arg.licenseToken).toBe("header.payload.signature");
   });
 
   it("does not send events when telemetryDisabled is true", async () => {

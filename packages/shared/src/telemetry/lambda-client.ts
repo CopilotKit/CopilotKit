@@ -8,13 +8,19 @@
 // private.
 //
 // Two attribution modes:
-//   - Identified: API key parses as `ck_<env>_<id>.<secret>`. Request
-//     carries an `X-CopilotKit-Telemetry-Id: <id>` header; the Lambda uses
-//     the id to enrich events with the customer's email. The secret half
-//     is ignored — the Lambda doesn't verify signatures.
-//   - Anonymous: API key absent or unparseable (legacy CopilotCloud keys,
-//     OSS-only installs). No telemetry-id header; events still flow,
-//     attribution is best-effort from request-level signals (IP, UA).
+//   - Identified: a CopilotKit license token is configured. The token is
+//     a JWT (header.payload.sig) whose payload carries `telemetry_id`.
+//     The SDK base64url-decodes the payload — without verifying the
+//     Ed25519 signature, which is the license-verifier's job — and
+//     emits the id via `X-CopilotKit-Telemetry-Id`. The Lambda uses it
+//     to enrich events with the customer's email.
+//   - Anonymous: no license token, or a malformed/non-JWT one. No
+//     telemetry-id header; events still flow, attribution is best-effort
+//     from request-level signals (IP, UA).
+//
+// Note: CopilotCloud customer API keys (`ck_<env>_<id>.<secret>`) are
+// unrelated to telemetry attribution. They flow into Segment / PostHog
+// via the v1 shared TelemetryClient and never reach this code path.
 //
 // Best-effort: every error is swallowed. Telemetry must not break the
 // host application.
@@ -25,30 +31,46 @@ const TELEMETRY_SINK_URL =
 
 const FETCH_TIMEOUT_MS = 3000;
 
-// API key format issued by CopilotCloud:
-//   ck_<env>_<telemetry_id>.<secret>
-// The SDK extracts telemetry_id; the secret is retained in the regex for
-// shape-compatibility with existing keys but is no longer used. Older /
-// legacy keys do not match this regex and produce an anonymous send.
-const API_KEY_REGEX =
-  /^ck_(?:live|test)_([A-Za-z0-9_-]{16,64})\.([A-Za-z0-9_-]+)$/;
-
 export interface LambdaSendOptions {
   event: string;
   properties?: Record<string, unknown>;
   globalProperties?: Record<string, unknown>;
   packageName?: string;
   packageVersion?: string;
-  // The CopilotCloud API key, when one is configured. The sender
-  // attempts to parse it; unparseable keys cause an anonymous send.
-  apiKey?: string;
+  // The CopilotKit license token (Ed25519-signed JWT), when one is
+  // configured on the runtime. The sender base64url-decodes the payload
+  // segment to extract `telemetry_id`; missing or malformed tokens
+  // produce an anonymous send.
+  licenseToken?: string;
 }
 
-function parseTelemetryId(apiKey?: string): string | null {
-  if (!apiKey) return null;
-  const match = apiKey.match(API_KEY_REGEX);
-  if (!match) return null;
-  return match[1];
+// Pull telemetry_id out of a CopilotKit license token without verifying
+// the signature. The token shape is a standard JWT
+// (`<header>.<payload>.<sig>`) with base64url-encoded segments; the
+// payload is JSON with a `telemetry_id` string field.
+//
+// Verification (Ed25519, key rotation, expiry) is the license-verifier
+// package's job. For telemetry attribution we only need the claimed id —
+// the trust model is claim-only on the Lambda side anyway.
+function parseTelemetryIdFromLicense(token?: string): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    let b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padding = (4 - (b64.length % 4)) % 4;
+    b64 += "=".repeat(padding);
+    const json =
+      typeof atob === "function"
+        ? atob(b64)
+        : Buffer.from(b64, "base64").toString("utf8");
+    const decoded = JSON.parse(json) as { telemetry_id?: unknown };
+    return typeof decoded.telemetry_id === "string"
+      ? decoded.telemetry_id
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function send(opts: LambdaSendOptions): Promise<void> {
@@ -64,7 +86,7 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
       ts: Math.floor(Date.now() / 1000),
     });
 
-    const telemetryId = parseTelemetryId(opts.apiKey);
+    const telemetryId = parseTelemetryIdFromLicense(opts.licenseToken);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": opts.packageName

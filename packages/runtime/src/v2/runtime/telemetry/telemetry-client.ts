@@ -20,6 +20,11 @@ export class TelemetryClient {
   // sends 100% by default; customers who want to cap egress bandwidth can
   // set COPILOTKIT_TELEMETRY_SAMPLE_RATE explicitly.
   private sampleRate: number = 1.0;
+  // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
+  // client decodes its payload to read telemetry_id for the
+  // X-CopilotKit-Telemetry-Id header. Set once at runtime construction
+  // via setLicenseToken; absent values produce anonymous sends.
+  private licenseToken: string | null = null;
 
   constructor({
     telemetryDisabled,
@@ -38,24 +43,22 @@ export class TelemetryClient {
     return Math.random() < this.sampleRate;
   }
 
+  setLicenseToken(licenseToken: string) {
+    this.licenseToken = licenseToken;
+  }
+
   async capture<K extends keyof AnalyticsEvents>(
     event: K,
     properties: AnalyticsEvents[K],
   ) {
     if (!this.shouldSendEvent()) return;
 
-    const props = properties as Record<string, unknown>;
-    const apiKey =
-      typeof props?.["cloud.public_api_key"] === "string"
-        ? (props["cloud.public_api_key"] as string)
-        : undefined;
-
     await lambdaClient.send({
       event,
-      properties: props,
+      properties: properties as Record<string, unknown>,
       packageName: packageJson.name,
       packageVersion: packageJson.version,
-      apiKey,
+      licenseToken: this.licenseToken ?? undefined,
     });
   }
 

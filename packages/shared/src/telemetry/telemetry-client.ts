@@ -26,6 +26,10 @@ export class TelemetryClient {
   segment: Analytics | undefined;
   globalProperties: Record<string, any> = {};
   cloudConfiguration: { publicApiKey: string; baseUrl: string } | null = null;
+  // EIP / Intelligence license token (Ed25519-signed JWT). The lambda
+  // client decodes its payload to extract telemetry_id. Customer API
+  // keys are NOT used here — they flow only into Segment.
+  licenseToken: string | null = null;
   packageName: string;
   packageVersion: string;
   private telemetryDisabled: boolean = false;
@@ -110,7 +114,7 @@ export class TelemetryClient {
       globalProperties: this.globalProperties,
       packageName: this.packageName,
       packageVersion: this.packageVersion,
-      apiKey: this.cloudConfiguration?.publicApiKey,
+      licenseToken: this.licenseToken ?? undefined,
     });
 
     // Segment path retained for CopilotCloud-specific user analytics that
@@ -141,6 +145,13 @@ export class TelemetryClient {
         baseUrl: properties.baseUrl,
       },
     });
+  }
+
+  // The license token isn't added to globalProperties — we don't want
+  // the JWT itself shipped on every event. Only its decoded telemetry_id
+  // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
+  setLicenseToken(licenseToken: string) {
+    this.licenseToken = licenseToken;
   }
 
   private setSampleRate(sampleRate: number | undefined) {
