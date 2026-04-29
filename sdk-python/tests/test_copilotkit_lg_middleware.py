@@ -33,6 +33,7 @@ import pytest
 from langchain_core.messages import (
     AIMessage,
     HumanMessage,
+    RemoveMessage,
     SystemMessage,
     ToolMessage,
 )
@@ -390,7 +391,7 @@ def test_before_agent_idempotent_does_not_duplicate_context():
     sys_messages = [m for m in second["messages"] if isinstance(m, SystemMessage)]
     app_context_messages = [
         m for m in sys_messages
-        if isinstance(m.content, str) and m.content.startswith("App Context:")
+        if isinstance(m.content, str) and "App Context:" in m.content
     ]
     assert len(app_context_messages) == 1
 
@@ -457,20 +458,15 @@ def test_before_agent_keeps_single_system_message_across_re_runs():
     assert "Alice" not in content
 
 
-def test_before_agent_removes_legacy_standalone_app_context_message():
-    # Older versions of this middleware emitted a standalone SystemMessage
-    # whose content started with "App Context:\n". Such a message can still
-    # exist in a checkpointed thread when the user upgrades CopilotKit; we
-    # must clean it up so Anthropic never sees two SystemMessages.
+def test_before_agent_inserts_marker_wrapped_block_when_no_system_message_exists():
+    # The merge path stamps a ``<!-- BEGIN COPILOTKIT APP CONTEXT -->`` marker.
+    # The insert path must do the same so that on the next run the loop
+    # recognizes its own previous output as the existing system message and
+    # merges into it (rather than inserting a second SystemMessage).
     middleware = CopilotKitMiddleware()
-    legacy = SystemMessage("App Context:\nuser=Alice")
     state = {
-        "messages": [
-            SystemMessage("base prompt"),
-            legacy,
-            HumanMessage("hi"),
-        ],
-        "copilotkit": {"context": {"user": "Bob"}},
+        "messages": [HumanMessage("hi")],
+        "copilotkit": {"context": {"user": "Alice"}},
     }
     runtime = MagicMock(name="runtime", context=None)
 
@@ -480,9 +476,41 @@ def test_before_agent_removes_legacy_standalone_app_context_message():
     sys_messages = [m for m in result["messages"] if isinstance(m, SystemMessage)]
     assert len(sys_messages) == 1
     content = sys_messages[0].content
-    assert "base prompt" in content
-    assert "Bob" in content
-    assert "Alice" not in content
+    assert "<!-- BEGIN COPILOTKIT APP CONTEXT -->" in content
+    assert "<!-- END COPILOTKIT APP CONTEXT -->" in content
+    assert "Alice" in content
+
+
+def test_before_agent_drops_self_inserted_marker_only_message_when_context_becomes_empty():
+    # When the previous run had no existing system message, the middleware
+    # inserts a marker-wrapped ``SystemMessage`` holding only the App Context
+    # block. If the next run clears the context, stripping the block leaves
+    # the ``SystemMessage`` with empty content; that empty placeholder must
+    # not survive — emit a ``RemoveMessage`` so the reducer actually drops
+    # it from graph state.
+    middleware = CopilotKitMiddleware()
+    inserted = SystemMessage(
+        content=(
+            "<!-- BEGIN COPILOTKIT APP CONTEXT -->\n"
+            "App Context:\n{\n  \"user\": \"Alice\"\n}\n"
+            "<!-- END COPILOTKIT APP CONTEXT -->"
+        ),
+        id="sys-inserted-1",
+    )
+    state = {
+        "messages": [inserted, HumanMessage("hi")],
+        "copilotkit": {"context": {}},
+    }
+    runtime = MagicMock(name="runtime", context=None)
+
+    result = middleware.before_agent(state, runtime)
+
+    assert result is not None
+    sys_messages = [m for m in result["messages"] if isinstance(m, SystemMessage)]
+    assert sys_messages == []
+    remove_messages = [m for m in result["messages"] if isinstance(m, RemoveMessage)]
+    assert len(remove_messages) == 1
+    assert remove_messages[0].id == "sys-inserted-1"
 
 
 def test_before_agent_strips_stale_app_context_block_when_context_becomes_empty():

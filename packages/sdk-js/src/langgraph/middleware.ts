@@ -1,4 +1,5 @@
 import { createMiddleware, AIMessage, SystemMessage } from "langchain";
+import { RemoveMessage } from "@langchain/core/messages";
 import type { InteropZodObject } from "@langchain/core/utils/types";
 import type {
   StandardJSONSchemaV1,
@@ -177,7 +178,6 @@ const applyStateNote = (request: any, expose: ExposeStateOption): any => {
 // running on Anthropic via langchain-anthropic.
 const APP_CONTEXT_BLOCK_START = "<!-- BEGIN COPILOTKIT APP CONTEXT -->";
 const APP_CONTEXT_BLOCK_END = "<!-- END COPILOTKIT APP CONTEXT -->";
-const LEGACY_APP_CONTEXT_PREFIX = "App Context:\n";
 
 const buildAppContextBlock = (contextContent: string): string =>
   `${APP_CONTEXT_BLOCK_START}\nApp Context:\n${contextContent}\n${APP_CONTEXT_BLOCK_END}`;
@@ -221,58 +221,55 @@ const createAppContextBeforeAgent = (state, runtime) => {
     (typeof appContext === "string" && appContext.trim() === "") ||
     (typeof appContext === "object" && Object.keys(appContext).length === 0);
 
-  // Identify any legacy standalone App Context SystemMessages persisted from
-  // earlier versions of this middleware, plus the first user-authored
-  // system/developer message we should merge into.
+  // Find the first system/developer message we should merge into. Legacy
+  // standalone "App Context:\n…" SystemMessages persisted from earlier
+  // CopilotKit versions are intentionally NOT cleaned up here — touching
+  // pre-existing checkpoint state could remove a user-authored prompt that
+  // happens to share the prefix. Users upgrading with stale state must clear
+  // their checkpoint; this fix applies to fresh threads only.
   let firstSystemIndex = -1;
-  const legacyContextIndices: number[] = [];
-
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     const type = msg._getType?.();
     if (type !== "system" && type !== "developer") continue;
-    const content = getMessageContentString(msg) ?? "";
-    const isLegacyStandalone =
-      content.startsWith(LEGACY_APP_CONTEXT_PREFIX) &&
-      !content.includes(APP_CONTEXT_BLOCK_START);
-    if (isLegacyStandalone) {
-      legacyContextIndices.push(i);
-      continue;
-    }
-    if (firstSystemIndex === -1) firstSystemIndex = i;
+    firstSystemIndex = i;
+    break;
   }
 
   const updatedMessages = [...messages];
-
-  // Drop legacy standalone App Context messages from highest index to lowest
-  // so prior indices remain valid.
-  for (let k = legacyContextIndices.length - 1; k >= 0; k--) {
-    const idx = legacyContextIndices[k];
-    updatedMessages.splice(idx, 1);
-    if (firstSystemIndex > idx) firstSystemIndex--;
-  }
+  // RemoveMessage entries we need the `add_messages` reducer to actually drop
+  // from graph state (currently only the self-inserted marker-only system
+  // message when context becomes empty).
+  const removals: RemoveMessage[] = [];
 
   if (isEmptyContext) {
-    // No context to inject; just remove any stale block from the existing
-    // system message and any legacy standalone messages.
-    if (firstSystemIndex !== -1) {
-      const target = updatedMessages[firstSystemIndex];
-      const original = getMessageContentString(target) ?? "";
-      const cleaned = stripAppContextBlock(original);
-      if (cleaned !== original) {
-        updatedMessages[firstSystemIndex] = new SystemMessage({
-          content: cleaned,
-          id: target.id,
-        });
-      } else if (legacyContextIndices.length === 0) {
-        return;
-      }
-    } else if (legacyContextIndices.length === 0) {
+    // No context to inject; strip any stale block from the existing system
+    // message.
+    if (firstSystemIndex === -1) {
       return;
+    }
+    const target = updatedMessages[firstSystemIndex];
+    const original = getMessageContentString(target) ?? "";
+    const cleaned = stripAppContextBlock(original);
+    if (cleaned === original) {
+      return;
+    }
+    if (cleaned === "") {
+      // The system message held nothing but a CopilotKit block (one we
+      // inserted on a previous run when no user system message existed).
+      // Drop it entirely instead of leaving an empty SystemMessage in graph
+      // state.
+      updatedMessages.splice(firstSystemIndex, 1);
+      if (target.id) removals.push(new RemoveMessage({ id: target.id }));
+    } else {
+      updatedMessages[firstSystemIndex] = new SystemMessage({
+        content: cleaned,
+        id: target.id,
+      });
     }
     return {
       ...state,
-      messages: updatedMessages,
+      messages: [...removals, ...updatedMessages],
     };
   }
 
@@ -298,10 +295,10 @@ const createAppContextBeforeAgent = (state, runtime) => {
       id: target.id,
     });
   } else {
-    // No existing system message — insert one at the start.
-    updatedMessages.unshift(
-      new SystemMessage({ content: `App Context:\n${contextContent}` }),
-    );
+    // No existing system message — insert one at the start. Use the
+    // marker-wrapped form so subsequent runs detect the block via
+    // `stripAppContextBlock` and merge into it instead of inserting a second.
+    updatedMessages.unshift(new SystemMessage({ content: contextBlock }));
   }
 
   return {

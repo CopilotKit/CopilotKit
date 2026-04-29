@@ -18,7 +18,7 @@ import json
 import re
 from typing import Any, Callable, Awaitable, ClassVar, Iterable, List, Union
 
-from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
+from langchain_core.messages import AIMessage, RemoveMessage, SystemMessage, ToolMessage
 from langchain.agents.middleware import (
     AgentMiddleware,
     AgentState,
@@ -82,7 +82,6 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
     # via langchain-anthropic.
     APP_CONTEXT_BLOCK_START: ClassVar[str] = "<!-- BEGIN COPILOTKIT APP CONTEXT -->"
     APP_CONTEXT_BLOCK_END: ClassVar[str] = "<!-- END COPILOTKIT APP CONTEXT -->"
-    LEGACY_APP_CONTEXT_PREFIX: ClassVar[str] = "App Context:\n"
 
     @classmethod
     def _build_app_context_block(cls, context_content: str) -> str:
@@ -398,55 +397,54 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 return content[0].get("text")
             return None
 
-        # Identify any legacy standalone App Context SystemMessages persisted
-        # from earlier versions of this middleware, plus the first
-        # user-authored system/developer message we should merge into.
+        # Find the first system/developer message we should merge into.
+        # Legacy standalone "App Context:\n…" SystemMessages persisted from
+        # earlier CopilotKit versions are intentionally NOT cleaned up here —
+        # touching pre-existing checkpoint state could remove a user-authored
+        # prompt that happens to share the prefix. Users upgrading with stale
+        # state must clear their checkpoint; this fix applies to fresh
+        # threads only.
         first_system_index = -1
-        legacy_context_indices: list[int] = []
-
         for i, msg in enumerate(messages):
             msg_type = getattr(msg, "type", None)
             if msg_type not in ("system", "developer"):
                 continue
-            content = get_content_string(msg) or ""
-            is_legacy_standalone = (
-                content.startswith(self.LEGACY_APP_CONTEXT_PREFIX)
-                and self.APP_CONTEXT_BLOCK_START not in content
-            )
-            if is_legacy_standalone:
-                legacy_context_indices.append(i)
-                continue
-            if first_system_index == -1:
-                first_system_index = i
+            first_system_index = i
+            break
 
         updated_messages = list(messages)
-
-        # Drop legacy standalone App Context messages from highest index to
-        # lowest so prior indices remain valid.
-        for idx in reversed(legacy_context_indices):
-            del updated_messages[idx]
-            if first_system_index > idx:
-                first_system_index -= 1
+        # RemoveMessage entries we need the add_messages reducer to actually
+        # drop from graph state (currently only the self-inserted marker-only
+        # system message when context becomes empty).
+        removals: list[RemoveMessage] = []
 
         if is_empty_context:
-            # No context to inject; just remove any stale block from the
-            # existing system message and any legacy standalone messages.
-            mutated = bool(legacy_context_indices)
-            if first_system_index != -1:
-                target = updated_messages[first_system_index]
-                original = get_content_string(target) or ""
-                cleaned = self._strip_app_context_block(original)
-                if cleaned != original:
-                    updated_messages[first_system_index] = SystemMessage(
-                        content=cleaned,
-                        id=getattr(target, "id", None),
-                    )
-                    mutated = True
-            if not mutated:
+            # No context to inject; strip any stale block from the existing
+            # system message.
+            if first_system_index == -1:
                 return None
+            target = updated_messages[first_system_index]
+            original = get_content_string(target) or ""
+            cleaned = self._strip_app_context_block(original)
+            if cleaned == original:
+                return None
+            target_id = getattr(target, "id", None)
+            if cleaned == "":
+                # The system message held nothing but a CopilotKit block (one
+                # we inserted on a previous run when no user system message
+                # existed). Drop it entirely instead of leaving an empty
+                # SystemMessage in graph state.
+                del updated_messages[first_system_index]
+                if target_id is not None:
+                    removals.append(RemoveMessage(id=target_id))
+            else:
+                updated_messages[first_system_index] = SystemMessage(
+                    content=cleaned,
+                    id=target_id,
+                )
             return {
                 **state,
-                "messages": updated_messages,
+                "messages": [*removals, *updated_messages],
             }
 
         # Create the context content
@@ -484,11 +482,11 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 id=getattr(target, "id", None),
             )
         else:
-            # No existing system message — insert one at the start.
-            updated_messages.insert(
-                0,
-                SystemMessage(content=f"App Context:\n{context_content}"),
-            )
+            # No existing system message — insert one at the start. Use the
+            # marker-wrapped form so subsequent runs detect the block via
+            # `_strip_app_context_block` and merge into it instead of
+            # inserting a second.
+            updated_messages.insert(0, SystemMessage(content=context_block))
 
         return {
             **state,
