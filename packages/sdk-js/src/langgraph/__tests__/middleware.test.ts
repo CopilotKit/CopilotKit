@@ -482,7 +482,7 @@ describe("beforeAgent", () => {
     // actually drops it from graph state.
     const inserted = new SystemMessage({
       content:
-        "<!-- BEGIN COPILOTKIT APP CONTEXT -->\nApp Context:\n{\n  \"user\": \"Alice\"\n}\n<!-- END COPILOTKIT APP CONTEXT -->",
+        '<!-- BEGIN COPILOTKIT APP CONTEXT -->\nApp Context:\n{\n  "user": "Alice"\n}\n<!-- END COPILOTKIT APP CONTEXT -->',
       id: "sys-inserted-1",
     });
     const state = {
