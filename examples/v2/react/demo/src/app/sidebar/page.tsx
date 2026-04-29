@@ -6,6 +6,7 @@ import {
   defineToolCallRenderer,
   useConfigureSuggestions,
   useFrontendTool,
+  useRenderTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -91,5 +92,114 @@ function SidebarChat() {
     },
   });
 
+  // OSS-69 prototype: gen-ui tool that renders a real chart in chat AND in
+  // the inspector via the host-portal bridge.
+  useFrontendTool({
+    name: "showChart",
+    description:
+      "Render a small bar chart. Use when the user asks to visualize data.",
+    parameters: z.object({
+      title: z.string(),
+      bars: z
+        .array(z.object({ label: z.string(), value: z.number() }))
+        .min(1)
+        .max(8),
+    }),
+    handler: async ({ title }) => `Rendered chart: ${title}`,
+  });
+
+  useRenderTool(
+    {
+      name: "showChart",
+      parameters: z.object({
+        title: z.string(),
+        bars: z.array(z.object({ label: z.string(), value: z.number() })),
+      }),
+      render: ({ status, parameters }) => {
+        if (status === "inProgress") {
+          return (
+            <div className="text-xs text-slate-500">Building chart…</div>
+          );
+        }
+        return <BarChart title={parameters.title} bars={parameters.bars} />;
+      },
+    },
+    [],
+  );
+
   return <CopilotSidebar defaultOpen={true} width="50%" />;
+}
+
+function BarChart({
+  title,
+  bars,
+}: {
+  title: string;
+  bars: { label: string; value: number }[];
+}) {
+  const max = Math.max(1, ...bars.map((b) => b.value));
+  const width = 320;
+  const height = 160;
+  const barWidth = width / bars.length;
+  return (
+    <div
+      style={{
+        background: "white",
+        border: "1px solid #e2e8f0",
+        borderRadius: 8,
+        padding: 12,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+        fontFamily:
+          "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 500,
+          color: "#334155",
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      <svg width={width} height={height} style={{ display: "block" }}>
+        {bars.map((bar, i) => {
+          const h = (bar.value / max) * (height - 24);
+          const x = i * barWidth + 4;
+          const y = height - h - 16;
+          return (
+            <g key={i}>
+              <rect
+                x={x}
+                y={y}
+                width={barWidth - 8}
+                height={h}
+                fill="#6366f1"
+                rx={3}
+              />
+              <text
+                x={x + (barWidth - 8) / 2}
+                y={height - 4}
+                fontSize={10}
+                fill="#475569"
+                textAnchor="middle"
+              >
+                {bar.label}
+              </text>
+              <text
+                x={x + (barWidth - 8) / 2}
+                y={y - 2}
+                fontSize={10}
+                fill="#1e293b"
+                textAnchor="middle"
+              >
+                {bar.value}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
 }

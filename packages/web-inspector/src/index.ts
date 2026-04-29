@@ -1,5 +1,13 @@
 import { LitElement, css, html, nothing, unsafeCSS } from "lit";
 import { marked } from "marked";
+import "./tool-render-slot";
+import type { ToolRenderSlotData } from "./tool-render-slot";
+
+export {
+  TOOL_RENDER_SLOT_TAG,
+  CpkToolRenderSlot,
+  type ToolRenderSlotData,
+} from "./tool-render-slot";
 import { styleMap } from "lit/directives/style-map.js";
 import tailwindStyles from "./styles/generated.css";
 import inspectorLogoUrl from "./assets/inspector-logo.svg";
@@ -610,6 +618,7 @@ class CpkThreadDetails extends LitElement {
   static properties = {
     threadId: { attribute: false },
     thread: { attribute: false },
+    core: { attribute: false },
     runtimeUrl: { attribute: false },
     headers: { attribute: false },
     agentStateInput: { attribute: false },
@@ -635,6 +644,7 @@ class CpkThreadDetails extends LitElement {
 
   threadId: string | null = null;
   thread: ɵThread | null = null;
+  core: CopilotKitCore | null = null;
   runtimeUrl = "";
   headers: Record<string, string> = {};
   agentStateInput: Record<string, unknown> | null = null;
@@ -1714,6 +1724,23 @@ class CpkThreadDetails extends LitElement {
 
   private renderToolBlock(item: ConversationToolCall) {
     const expanded = this._expandedTools.has(item.id);
+    const slotData: ToolRenderSlotData = {
+      toolCallId: item.toolCallId,
+      toolName: item.toolName,
+      args: item.arguments,
+      result: item.result ?? undefined,
+    };
+    const hasHostRenderer = Boolean(
+      this.core &&
+        "canRenderTool" in this.core &&
+        (this.core as any).canRenderTool({
+          toolCallId: item.toolCallId,
+          toolName: item.toolName,
+          args: item.arguments,
+          result: item.result ?? undefined,
+          status: "complete",
+        }),
+    );
     return html`
       <div class="cpk-td__tool-block">
         <div
@@ -1745,6 +1772,21 @@ class CpkThreadDetails extends LitElement {
           expanded
             ? html`
               <div class="cpk-td__tool-body">
+                ${
+                  hasHostRenderer
+                    ? html`<div
+                        class="cpk-td__tool-section-label"
+                        style="margin-bottom:6px"
+                      >
+                        Generative UI
+                      </div>
+                      <cpk-tool-render-slot
+                        .core=${this.core}
+                        .toolCall=${slotData}
+                        style="display:block;margin-bottom:10px"
+                      ></cpk-tool-render-slot>`
+                    : nothing
+                }
                 <div class="cpk-td__tool-section-label">Arguments</div>
                 <pre class="cpk-td__tool-pre">
 ${unsafeHTML(highlightedJson(item.arguments))}</pre
@@ -2908,8 +2950,24 @@ export class WebInspectorElement extends LitElement {
             call.function?.name ?? call.toolName ?? "Unknown function";
           const callId =
             typeof call?.id === "string" ? call.id : `tool-call-${index + 1}`;
+          const args = this.parseToolCallArguments(call.function?.arguments);
           const argsString = this.formatToolCallArguments(
             call.function?.arguments,
+          );
+          const slotData: ToolRenderSlotData = {
+            toolCallId: callId,
+            toolName: functionName,
+            args,
+          };
+          const hasHostRenderer = Boolean(
+            this._core &&
+              "canRenderTool" in this._core &&
+              (this._core as any).canRenderTool({
+                toolCallId: callId,
+                toolName: functionName,
+                args,
+                status: "complete",
+              }),
           );
           return html`
             <div
@@ -2921,20 +2979,37 @@ export class WebInspectorElement extends LitElement {
                 <span>${functionName}</span>
                 <span class="text-[10px] text-gray-500">ID: ${callId}</span>
               </div>
-              ${
-                argsString
+              ${hasHostRenderer
+                ? html`<div class="mt-2">
+                    <cpk-tool-render-slot
+                      .core=${this._core}
+                      .toolCall=${slotData}
+                    ></cpk-tool-render-slot>
+                  </div>`
+                : argsString
                   ? html`<pre
-                    class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
-                  >
+                      class="mt-2 overflow-auto rounded bg-white p-2 text-[11px] leading-relaxed text-gray-800"
+                    >
 ${argsString}</pre
-                  >`
-                  : nothing
-              }
+                    >`
+                  : nothing}
             </div>
           `;
         })}
       </div>
     `;
+  }
+
+  private parseToolCallArguments(args: unknown): unknown {
+    if (args === undefined || args === null || args === "") return undefined;
+    if (typeof args === "string") {
+      try {
+        return JSON.parse(args);
+      } catch {
+        return args;
+      }
+    }
+    return args;
   }
 
   private formatToolCallArguments(args: unknown): string | null {
@@ -5654,6 +5729,7 @@ ${argsString}</pre
                   style="flex:1;min-width:0;"
                   .threadId=${this.selectedThreadId}
                   .thread=${selectedThread}
+                  .core=${this._core}
                   .runtimeUrl=${this._core?.runtimeUrl ?? ""}
                   .headers=${this._core?.headers ?? {}}
                   .agentStateInput=${
