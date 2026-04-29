@@ -435,10 +435,7 @@ describe("beforeAgent", () => {
 
   it("keeps a single system message across re-runs when one already exists", () => {
     const state = {
-      messages: [
-        new SystemMessage("base prompt"),
-        new HumanMessage("hi"),
-      ],
+      messages: [new SystemMessage("base prompt"), new HumanMessage("hi")],
       copilotkit: { context: { user: "Alice" } },
     };
 

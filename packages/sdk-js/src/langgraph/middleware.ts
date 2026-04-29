@@ -200,7 +200,8 @@ const stripAppContextBlock = (content: string): string => {
 
 const getMessageContentString = (msg: any): string | null => {
   if (typeof msg.content === "string") return msg.content;
-  if (Array.isArray(msg.content) && msg.content[0]?.text) return msg.content[0].text;
+  if (Array.isArray(msg.content) && msg.content[0]?.text)
+    return msg.content[0].text;
   return null;
 };
 
@@ -286,7 +287,9 @@ const createAppContextBeforeAgent = (state, runtime) => {
     // Merge the App Context block into the existing system message so only a
     // single SystemMessage reaches the model.
     const target = updatedMessages[firstSystemIndex];
-    const baseContent = stripAppContextBlock(getMessageContentString(target) ?? "");
+    const baseContent = stripAppContextBlock(
+      getMessageContentString(target) ?? "",
+    );
     const mergedContent = baseContent
       ? `${baseContent.replace(/\n+$/, "")}\n\n${contextBlock}`
       : contextBlock;
