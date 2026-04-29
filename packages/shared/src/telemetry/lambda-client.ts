@@ -44,13 +44,10 @@ export interface LambdaSendOptions {
   licenseToken?: string;
 }
 
-// Cloud API key fields routed by the v1 shared TelemetryClient land in
-// `globalProperties` for Segment's benefit, but the telemetry-sink
-// Lambda has no use for them — and the `.<secret>` half of
-// `ck_<env>_<id>.<secret>` must never leave the customer's runtime.
-// Strip both the snake_case (v2 event property) and camelCase (v1
-// globalProperties) variants at the wire boundary so callers can't
-// accidentally leak the key.
+// These fields aren't used by the telemetry service, so we strip them
+// at the wire boundary rather than rely on every caller to omit them.
+// Both the snake_case and camelCase variants are listed because callers
+// upstream use different conventions.
 const STRIPPED_KEYS = new Set(["cloud.public_api_key", "cloud.publicApiKey"]);
 
 function stripCloudKeys(
