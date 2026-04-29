@@ -44,6 +44,26 @@ export interface LambdaSendOptions {
   licenseToken?: string;
 }
 
+// Cloud API key fields routed by the v1 shared TelemetryClient land in
+// `globalProperties` for Segment's benefit, but the telemetry-sink
+// Lambda has no use for them — and the `.<secret>` half of
+// `ck_<env>_<id>.<secret>` must never leave the customer's runtime.
+// Strip both the snake_case (v2 event property) and camelCase (v1
+// globalProperties) variants at the wire boundary so callers can't
+// accidentally leak the key.
+const STRIPPED_KEYS = new Set(["cloud.public_api_key", "cloud.publicApiKey"]);
+
+function stripCloudKeys(
+  obj: Record<string, unknown> | undefined,
+): Record<string, unknown> {
+  if (!obj) return {};
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (!STRIPPED_KEYS.has(k)) out[k] = v;
+  }
+  return out;
+}
+
 // Pull telemetry_id out of a CopilotKit license token without verifying
 // the signature. The token shape is a standard JWT
 // (`<header>.<payload>.<sig>`) with base64url-encoded segments; the
@@ -77,8 +97,8 @@ export async function send(opts: LambdaSendOptions): Promise<void> {
   try {
     const body = JSON.stringify({
       event: opts.event,
-      properties: opts.properties || {},
-      global_properties: opts.globalProperties || {},
+      properties: stripCloudKeys(opts.properties),
+      global_properties: stripCloudKeys(opts.globalProperties),
       package: {
         name: opts.packageName,
         version: opts.packageVersion,
