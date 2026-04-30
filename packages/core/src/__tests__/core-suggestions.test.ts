@@ -265,6 +265,95 @@ describe("CopilotKitCore - Suggestions Config Management", () => {
     });
   });
 
+  describe("clearSuggestionsForRun", () => {
+    it("should preserve static always suggestions after clearing for a run", () => {
+      const agent = new MockAgent({ agentId: "default" });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: agent as any,
+      });
+
+      const staticConfig: StaticSuggestionsConfig = {
+        suggestions: [
+          { title: "Hello", message: "Hello there!", isLoading: false },
+        ],
+        available: "always",
+        consumerAgentId: "default",
+      };
+      copilotKitCore.addSuggestionsConfig(staticConfig);
+      copilotKitCore.reloadSuggestions("default");
+
+      const before = copilotKitCore.getSuggestions("default");
+      expect(before.suggestions.length).toBe(1);
+
+      // Simulate run start — clearSuggestionsForRun should restore "always"
+      (copilotKitCore as any).suggestionEngine.clearSuggestionsForRun(
+        "default",
+      );
+
+      const after = copilotKitCore.getSuggestions("default");
+      expect(after.suggestions.length).toBe(1);
+      expect(after.suggestions[0]!.title).toBe("Hello");
+    });
+
+    it("should clear non-always suggestions when clearing for a run", () => {
+      const agent = new MockAgent({ agentId: "default" });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: agent as any,
+      });
+
+      const staticConfig: StaticSuggestionsConfig = {
+        suggestions: [
+          {
+            title: "Ephemeral",
+            message: "This one goes away",
+            isLoading: false,
+          },
+        ],
+        available: "before-first-message",
+        consumerAgentId: "default",
+      };
+      copilotKitCore.addSuggestionsConfig(staticConfig);
+      copilotKitCore.reloadSuggestions("default");
+
+      const before = copilotKitCore.getSuggestions("default");
+      expect(before.suggestions.length).toBe(1);
+
+      (copilotKitCore as any).suggestionEngine.clearSuggestionsForRun(
+        "default",
+      );
+
+      const after = copilotKitCore.getSuggestions("default");
+      expect(after.suggestions.length).toBe(0);
+    });
+
+    it("should preserve always suggestions for global config (no consumerAgentId)", () => {
+      const agent = new MockAgent({ agentId: "default" });
+      copilotKitCore.addAgent__unsafe_dev_only({
+        id: "default",
+        agent: agent as any,
+      });
+
+      const staticConfig: StaticSuggestionsConfig = {
+        suggestions: [
+          { title: "Always", message: "Always here!", isLoading: false },
+        ],
+        available: "always",
+      };
+      copilotKitCore.addSuggestionsConfig(staticConfig);
+      copilotKitCore.reloadSuggestions("default");
+
+      (copilotKitCore as any).suggestionEngine.clearSuggestionsForRun(
+        "default",
+      );
+
+      const result = copilotKitCore.getSuggestions("default");
+      expect(result.suggestions.length).toBe(1);
+      expect(result.suggestions[0]!.title).toBe("Always");
+    });
+  });
+
   describe("Initialization with configs", () => {
     it("should accept suggestions configs in constructor", () => {
       const config1 = createSuggestionsConfig({ instructions: "First" });
