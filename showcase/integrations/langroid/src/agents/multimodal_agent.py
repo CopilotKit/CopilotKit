@@ -8,15 +8,16 @@ so the two demos exercise comparable behavior.
 
 Wire format
 ===========
-Attachments arrive in user-message content as either:
+Attachments arrive in user-message content as the modern AG-UI shape::
 
-1. ``{"type": "image", "source": {"type": "data", "value": "<b64>",
-   "mimeType": "image/png"}}`` — modern AG-UI shape that CopilotChat
-   emits natively.
-2. ``{"type": "binary", "mimeType": "application/pdf", "data": "<b64>"}``
-   — legacy AG-UI binary part the langgraph-python integration's
-   ``onRunInitialized`` shim normalizes to. Kept for interop in case a
-   future runtime path forwards through that converter.
+    {"type": "image" | "document",
+     "source": {"type": "data", "value": "<b64>", "mimeType": "..."}}
+
+Unlike the langgraph-python sibling, the Langroid path has no
+``@ag-ui/langgraph`` converter sitting between the runtime and the agent
+— ``HttpAgent`` forwards the AG-UI body unchanged to this FastAPI
+handler, so the modern shape arrives intact and no legacy ``binary``
+rewrite shim is needed on the page.
 
 Image parts are forwarded to OpenAI as ``image_url`` content parts with
 inline ``data:<mime>;base64,...`` URLs; gpt-4o reads them natively. PDF
@@ -113,7 +114,6 @@ def _normalize_part(part: Any) -> dict[str, Any] | None:
     - ``{"type": "text", "text": "..."}`` — passthrough.
     - ``{"type": "image", "source": {"type": "data", "value": "<b64>", "mimeType": "..."}}``
     - ``{"type": "document", "source": {"type": "data", "value": "<b64>", "mimeType": "..."}}``
-    - ``{"type": "binary", "mimeType": "...", "data": "<b64>"}`` (legacy)
     - ``{"type": "image_url", "image_url": {"url": "data:..."}}`` (already OpenAI shape)
     - bare strings (treated as text).
     """
@@ -161,26 +161,6 @@ def _normalize_part(part: Any) -> dict[str, Any] | None:
             }
         if "pdf" in mime.lower():
             text = _extract_pdf_text(value)
-            if not text:
-                return {
-                    "type": "text",
-                    "text": "[Attached document: PDF could not be read.]",
-                }
-            return {"type": "text", "text": f"[Attached document]\n{text}"}
-        return None
-
-    if ptype == "binary":
-        mime = part.get("mimeType") or ""
-        data = part.get("data")
-        if not isinstance(mime, str) or not isinstance(data, str):
-            return None
-        if mime.startswith("image/"):
-            return {
-                "type": "image_url",
-                "image_url": {"url": f"data:{mime};base64,{data}"},
-            }
-        if "pdf" in mime.lower():
-            text = _extract_pdf_text(data)
             if not text:
                 return {
                     "type": "text",
