@@ -13,14 +13,12 @@ Attachments arrive here after travelling through:
                                                    (ag-ui → LangChain converter)
               →  this agent (LangChain HumanMessage content parts)
 
-The ag-ui-langgraph converter only understands the legacy
-``{ type: "binary", mimeType, data | url }`` AG-UI part shape — the page
-at ``src/app/demos/multimodal/page.tsx`` installs an
-``onRunInitialized`` shim that rewrites the modern
-``{ type: "image" | "document", source: {...} }`` shape CopilotChat emits
-to the legacy shape before it hits the runtime. Once the converter has
-run, every attachment shows up in this agent as a LangChain
-``image_url`` content part::
+CopilotChat emits the modern AG-UI multimodal shape
+(``{ "type": "image" | "document", "source": { "type": "data", "value",
+"mimeType" } }``). The ``@ag-ui/langgraph`` converter (>= 0.0.28) routes
+every media type through LangChain's ``image_url`` block — that is the
+only multimodal block shape LangChain natively supports — so by the time
+a message reaches this agent each attachment looks like::
 
     {"type": "image_url", "image_url": {"url": "data:<mime>;base64,<payload>"}}
 
@@ -33,9 +31,9 @@ the model can read them without needing file-part support.
 
 References:
 - src/agents/main.py, src/agents/agentic_chat.py (baseline pattern)
-- packages/runtime/src/agent/converters/tanstack.ts (the modern content-
-  part shape — useful context when the runtime gets upgraded and this
-  agent can drop the pypdf flatten)
+- F:/projects/cpk/ag-ui/integrations/langgraph/python/ag_ui_langgraph/utils.py
+  (the upstream AG-UI → LangChain converter that produces the
+  ``image_url`` shape this agent consumes)
 """
 
 from __future__ import annotations
@@ -118,55 +116,36 @@ def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
     ``None`` if the part is not an attachment we recognise (plain text,
     unrelated dict, string, etc.).
 
-    Handles the shapes we actually see in practice:
+    The shape we see in practice is what the ``@ag-ui/langgraph``
+    converter emits for every modern AG-UI multimodal part:
 
     - ``{"type": "image_url", "image_url": {"url": "data:..."}}``
-      (what the ag-ui-langgraph converter emits for every attachment
-      after the page rewrites to legacy ``binary``).
     - ``{"type": "image_url", "image_url": "data:..."}``
-      (older LangChain/OpenAI shape where ``image_url`` is a raw string).
-    - ``{"type": "document", "source": {"type": "data",
-      "value": "<base64>", "mimeType": "application/pdf"}}``
-      (modern AG-UI shape — preserved for forward-compat if the runtime
-      ever starts forwarding modern parts directly).
+      (older LangChain/OpenAI shape where ``image_url`` is a raw string)
     """
     if not isinstance(part, dict):
         return None
-    part_type = part.get("type")
+    if part.get("type") != "image_url":
+        return None
 
-    if part_type == "image_url":
-        image_url = part.get("image_url")
-        url: str | None = None
-        if isinstance(image_url, str):
-            url = image_url
-        elif isinstance(image_url, dict):
-            raw_url = image_url.get("url")
-            if isinstance(raw_url, str):
-                url = raw_url
-        if not url:
-            return None
-        mime, payload = _extract_data_url_parts(url)
-        if not payload or not mime:
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, payload)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, payload)
-        return ("other", mime, payload)
-
-    if part_type == "document":
-        source = part.get("source")
-        if not isinstance(source, dict) or source.get("type") != "data":
-            return None
-        value = source.get("value")
-        mime = source.get("mimeType", "")
-        if not isinstance(value, str) or not isinstance(mime, str):
-            return None
-        if "pdf" in mime.lower():
-            return ("pdf", mime, value)
-        return ("other", mime, value)
-
-    return None
+    image_url = part.get("image_url")
+    url: str | None = None
+    if isinstance(image_url, str):
+        url = image_url
+    elif isinstance(image_url, dict):
+        raw_url = image_url.get("url")
+        if isinstance(raw_url, str):
+            url = raw_url
+    if not url:
+        return None
+    mime, payload = _extract_data_url_parts(url)
+    if not payload or not mime:
+        return None
+    if mime.startswith("image/"):
+        return ("image", mime, payload)
+    if "pdf" in mime.lower():
+        return ("pdf", mime, payload)
+    return ("other", mime, payload)
 
 
 def _preprocess_part(part: Any) -> Any:
