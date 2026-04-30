@@ -80,6 +80,26 @@ console.log(
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Anthropic Messages API only accepts these image mime types for base64
+// image blocks. The frontend's `accept="image/*"` is broader (svg, heic,
+// avif, bmp, ...), so we whitelist here and drop anything else with a
+// warning rather than forwarding an unsupported type and getting an
+// opaque 400 from the API.
+const ANTHROPIC_SUPPORTED_IMAGE_MIMES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+] as const;
+
+type AnthropicImageMime = (typeof ANTHROPIC_SUPPORTED_IMAGE_MIMES)[number];
+
+function isSupportedAnthropicImageMime(mime: string): mime is AnthropicImageMime {
+  return (ANTHROPIC_SUPPORTED_IMAGE_MIMES as readonly string[]).includes(mime);
+}
+
+const warnedUnsupportedImageMimes = new Set<string>();
+
 /**
  * Convert a modern AG-UI multimodal content part into an Anthropic
  * ContentBlock. Returns `null` if the part cannot be mapped (unsupported
@@ -110,11 +130,23 @@ function modernPartToAnthropic(part: {
 
   const mime = source.mimeType || "";
   const isImage = part.type === "image" || mime.startsWith("image/");
-  const isPdf =
-    part.type === "document" &&
-    (mime === "application/pdf" || mime.toLowerCase().includes("pdf"));
+  // Strict equality only — loose substring matching ("includes('pdf')")
+  // would match unrelated mimes like `text/pdf-spec` or
+  // `application/x-pdfanything`, which Anthropic then rejects when we
+  // forward them as `application/pdf`.
+  const isPdf = part.type === "document" && mime === "application/pdf";
 
   if (!isImage && !isPdf) return null;
+
+  if (isImage && !isSupportedAnthropicImageMime(mime)) {
+    if (!warnedUnsupportedImageMimes.has(mime)) {
+      warnedUnsupportedImageMimes.add(mime);
+      console.warn(
+        `[agent_server] dropping image attachment with unsupported mime type "${mime}"; Anthropic Messages only accepts ${ANTHROPIC_SUPPORTED_IMAGE_MIMES.join(", ")}.`,
+      );
+    }
+    return null;
+  }
 
   if (source.type === "data") {
     if (isImage) {
@@ -122,11 +154,7 @@ function modernPartToAnthropic(part: {
         type: "image",
         source: {
           type: "base64",
-          media_type: mime as
-            | "image/jpeg"
-            | "image/png"
-            | "image/gif"
-            | "image/webp",
+          media_type: mime as AnthropicImageMime,
           data: source.value,
         },
       };
@@ -297,6 +325,38 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
 }
 
 /**
+ * Returns true iff `modernPartToAnthropic(part)` would produce a
+ * non-null Anthropic ContentBlock. Centralizing the check keeps
+ * `messagesHaveAttachments` (model routing) and the body translation
+ * in sync — otherwise a user uploading e.g. a `.docx` document part
+ * would route to the more expensive vision model and then have its
+ * attachment silently dropped at conversion time.
+ */
+function isAnthropicSupportedPart(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const p = part as {
+    type?: unknown;
+    source?: { type?: string; value?: string; mimeType?: string };
+  };
+  if (
+    p.type !== "image" &&
+    p.type !== "document" &&
+    p.type !== "audio" &&
+    p.type !== "video"
+  ) {
+    return false;
+  }
+  return (
+    modernPartToAnthropic(
+      p as {
+        type: "image" | "audio" | "video" | "document";
+        source?: { type?: string; value?: string; mimeType?: string };
+      },
+    ) !== null
+  );
+}
+
+/**
  * Does the user messages contain any modern multimodal parts? Used to
  * route the run to the vision-capable Sonnet model instead of the default
  * Haiku. Matches the same set of part types that `modernPartToAnthropic`
@@ -308,13 +368,7 @@ function messagesHaveAttachments(messages: Message[]): boolean {
     const content = (msg as any).content;
     if (!Array.isArray(content)) continue;
     for (const part of content) {
-      if (!part || typeof part !== "object") continue;
-      if (
-        part.type === "image" ||
-        part.type === "document" ||
-        part.type === "audio" ||
-        part.type === "video"
-      ) {
+      if (isAnthropicSupportedPart(part)) {
         return true;
       }
     }
