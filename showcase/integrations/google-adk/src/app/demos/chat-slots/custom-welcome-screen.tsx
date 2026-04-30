@@ -2,17 +2,34 @@
 
 import React from "react";
 
-export function CustomWelcomeScreen() {
+// Custom welcomeScreen slot — a visibly distinct gradient card wrapping the
+// default input + suggestions props passed in by CopilotChatView.
+export function CustomWelcomeScreen({
+  input,
+  suggestionView,
+}: {
+  input: React.ReactElement;
+  suggestionView: React.ReactElement;
+}) {
   return (
-    <div className="flex h-full flex-col items-center justify-center text-center">
-      <div className="text-5xl mb-4">✨</div>
-      <h2 className="text-2xl font-semibold text-slate-800 mb-2">
-        Powered by Google ADK
-      </h2>
-      <p className="text-slate-600 max-w-sm">
-        This chat surface uses CopilotChat's slot system — the welcome screen,
-        message bubbles, and disclaimer can all be replaced via props.
-      </p>
+    <div
+      data-testid="custom-welcome-screen"
+      className="flex-1 flex flex-col items-center justify-center px-4"
+    >
+      <div className="w-full max-w-3xl flex flex-col items-center">
+        <div className="mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-6 text-white shadow-lg text-center">
+          <div className="inline-block rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider mb-3">
+            Custom Slot
+          </div>
+          <h1 className="text-2xl font-bold">Welcome to the Slots demo</h1>
+          <p className="mt-2 text-sm text-white/90">
+            This welcome card is rendered via the{" "}
+            <code className="font-mono">welcomeScreen</code> slot.
+          </p>
+        </div>
+        <div className="w-full">{input}</div>
+        <div className="mt-4 flex justify-center">{suggestionView}</div>
+      </div>
     </div>
   );
 }
