@@ -453,6 +453,61 @@ describe("CopilotChat welcome / connect integration", () => {
       // And after thread-b's connect resolves.
       expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
     });
+
+    it("keeps the welcome screen hidden when switching A to B to A", async () => {
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      const { rerender } = renderWithKit(
+        <CopilotChat threadId="thread-a" />,
+        agent,
+      );
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some((c) => c.threadId === "thread-a"),
+        ).toBe(true);
+      });
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      rerender(
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}
+        >
+          <div style={{ height: 400 }}>
+            <CopilotChat threadId="thread-b" />
+          </div>
+        </CopilotKitProvider>,
+      );
+
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some((c) => c.threadId === "thread-b"),
+        ).toBe(true);
+      });
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      rerender(
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ [DEFAULT_AGENT_ID]: agent }}
+        >
+          <div style={{ height: 400 }}>
+            <CopilotChat threadId="thread-a" />
+          </div>
+        </CopilotKitProvider>,
+      );
+
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.filter((c) => c.threadId === "thread-a"),
+        ).toHaveLength(2);
+      });
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+    });
   });
 
   describe("same-thread reconnect settlement", () => {

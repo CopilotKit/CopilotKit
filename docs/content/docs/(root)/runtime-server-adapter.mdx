@@ -33,6 +33,12 @@ The runtime supports two endpoint modes:
 
 Single-route mode is useful when your platform only allows a single route handler (e.g. a single serverless function), or when you prefer a simpler URL structure.
 
+For Intelligence-mode thread restore, `POST {basePath}/agent/:agentId/connect` has a small but important contract:
+
+- `200` means the runtime found a persisted thread and is returning realtime credentials for replay/resume.
+- `204` means the requested thread should be treated as fresh; this is expected for a brand-new explicit thread and should not be surfaced as an error.
+- `lastSeenEventId` is only meaningful for incremental reconnect after the client already has a replay baseline; otherwise the client should send `null` and expect a full restore.
+
 ## Fetch-Native Runtimes
 
 If your platform supports the Fetch API natively (Bun, Deno, Cloudflare Workers, etc.), you can use `createCopilotRuntimeHandler` directly — no adapter needed.

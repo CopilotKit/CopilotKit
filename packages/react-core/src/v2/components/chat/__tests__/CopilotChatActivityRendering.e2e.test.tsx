@@ -645,4 +645,122 @@ describe("CopilotChat activity message rendering", () => {
 
     expect(mockWebsandboxDestroy).toHaveBeenCalledTimes(1);
   });
+
+  it("restores a completed Open Generative UI activity from IntelligenceAgent /connect gateway replay", async () => {
+    mockWebsandboxCreate.mockClear();
+    mockWebsandboxDestroy.mockClear();
+
+    const threadId = testId("open-generative-ui-connect-thread");
+    const restoredHtml =
+      "<head></head><body><div>Restored open generative UI</div></body>";
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        threadId,
+        runId: null,
+        joinToken: "join-token-open-generative-ui",
+        realtime: {
+          clientUrl: "ws://localhost:4000/client",
+          topic: `thread:${threadId}`,
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    mockPhoenixSockets.length = 0;
+
+    const agent = new IntelligenceAgent({
+      url: "ws://localhost:4000/client",
+      runtimeUrl: "http://localhost:4000",
+      agentId: "my-agent",
+    });
+
+    try {
+      render(
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{ default: agent }}
+          openGenerativeUI={{}}
+        >
+          <CopilotChatConfigurationProvider
+            threadId={threadId}
+            hasExplicitThreadId
+          >
+            <div style={{ height: 400 }}>
+              <CopilotChat welcomeScreen={false} />
+            </div>
+          </CopilotChatConfigurationProvider>
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+      });
+
+      await waitFor(() => {
+        expect(mockPhoenixSockets).toHaveLength(1);
+        expect(mockPhoenixSockets[0]?.channels).toHaveLength(1);
+      });
+
+      const channel = mockPhoenixSockets[0]!.channels[0]!;
+      expect(channel.topic).toBe(`thread:${threadId}`);
+      expect(channel.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId,
+        run_id: "backend-run-open-generative-ui",
+        input: {
+          messages: [
+            {
+              id: testId("connect-open-generative-ui-user-message"),
+              role: "user",
+              content: "show me the restored app",
+            },
+          ],
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.ACTIVITY_SNAPSHOT,
+        messageId: testId("connect-open-generative-ui-activity"),
+        activityType: "open-generative-ui",
+        content: {
+          initialHeight: 180,
+          generating: false,
+          html: [restoredHtml],
+          htmlComplete: true,
+        },
+      });
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_FINISHED,
+      });
+      channel.serverPush("stream_idle", { latestEventId: "event-3" });
+
+      await waitFor(() => {
+        expect(screen.getByText("show me the restored app")).toBeDefined();
+      });
+      await waitFor(() => {
+        expect(mockWebsandboxCreate).toHaveBeenCalledTimes(1);
+      });
+      expect(mockWebsandboxCreate.mock.calls[0]?.[1]).toMatchObject({
+        frameContent: restoredHtml,
+      });
+
+      const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain("/agent/my-agent/connect");
+      expect(options.method).toBe("POST");
+
+      const requestBody = JSON.parse(String(options.body)) as {
+        threadId: string;
+        lastSeenEventId: string | null;
+        messages: unknown[];
+      };
+      expect(requestBody.threadId).toBe(threadId);
+      expect(requestBody.lastSeenEventId).toBeNull();
+      expect(requestBody.messages).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

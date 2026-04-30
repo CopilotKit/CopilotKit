@@ -1226,6 +1226,58 @@ describe("IntelligenceAgent", () => {
       expect(getSocket(agent)).toBeNull();
     });
 
+    it("collapses a non-OK connect response into the generic connect failure path", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        statusText: "Forbidden",
+        json: async () => ({
+          error: "Connect request rejected",
+          message: "Intelligence platform error 403",
+        }),
+        text: async () =>
+          JSON.stringify({
+            error: "Connect request rejected",
+            message: "Intelligence platform error 403",
+          }),
+      } as Response);
+
+      const agent = createAgent();
+      const result = await connectAgent(agent);
+
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("REST connect request failed");
+      expect(result.error!.message).toContain("Connect request rejected");
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBeNull();
+    });
+
+    it("collapses malformed 200 connect credentials into the generic connect failure path", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse({
+          threadId: "thread-1",
+          runId: null,
+          realtime: {
+            clientUrl: "ws://localhost:4000/client",
+            topic: "thread:thread-1",
+          },
+        }),
+      );
+
+      const agent = createAgent();
+      const result = await connectAgent(agent);
+
+      expect(result.completed).toBe(false);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("REST connect request failed");
+      expect(result.error!.message).toContain("missing joinToken");
+      expect(result.socket).toBeNull();
+      expect(result.channel).toBeNull();
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBeNull();
+    });
+
     it("errors the observable on join error", async () => {
       mockFetch.mockResolvedValueOnce(await jsonResponse(runtimeCredentials()));
 

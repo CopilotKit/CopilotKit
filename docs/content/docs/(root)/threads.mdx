@@ -229,6 +229,20 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
       </Step>
 
       <Step>
+        ### Understand `/connect` in Intelligence mode
+
+        `POST /agent/:agentId/connect` is the restore handshake for a caller-managed thread in Intelligence mode. It is used to answer one question: "does this thread already exist on the backend, and if so, where should the client resume replay?"
+
+        - Fresh local chat with no explicit `threadId`: do not call `/connect`. The UI stays on the local welcome screen until the first user message creates a real thread.
+        - Explicit `threadId` that does not exist yet: `/connect` is expected and may return `204 No Content`. That means "treat this as a brand-new thread" rather than an error.
+        - Explicit `threadId` that already exists: `/connect` returns `200` with realtime credentials and the canonical thread identity so the client can replay and resume safely.
+
+        `lastSeenEventId` is only for incremental reconnect. When the client has already observed replayed or live events for the current baseline, it sends the latest event id so the backend can resume from that cursor. When the client is doing a full restore from a blank baseline, it sends `lastSeenEventId: null` and expects a full replay.
+
+        Replay is assumed to be ordered. The client rebuilds messages, `STATE_SNAPSHOT`, and activity snapshots from replayed events, then treats observed connect-mode replay/control activity plus `stream_idle` as the signal that the restore is settled. `replay_complete` may be part of that sequence, but restore can still settle successfully without it.
+      </Step>
+
+      <Step>
         ### Add pagination for large thread lists
 
         For users with many conversations, use the `limit` parameter to enable cursor-based pagination.
@@ -258,6 +272,31 @@ CopilotKit threads enable persistent, resumable multi-turn conversations. The `u
     </TailoredContentOption>
   </TailoredContent>
 </Steps>
+
+## Connect Error Contract
+
+Intelligence-mode `/connect` has two client-visible success paths and one client-visible failure path:
+
+- `200 OK`: restored persisted thread; realtime credentials are valid and replay should begin.
+- `204 No Content`: explicit thread was brand new, or the platform intentionally chose a fresh-thread path; render the empty thread UX instead of treating it as a failure.
+- Any other connect failure currently surfaces to the chat layer as a generic connect failure. The runtime handler distinguishes rejected requests, malformed `200` payloads, and unexpected failures internally, but the current restore UX does not present a stable caller-visible `4xx` vs `5xx` taxonomy.
+- Malformed `200` payloads are rejected by the runtime connect handler rather than being used for a partial reconnect, but that still reaches the chat layer as a generic connect failure today.
+
+## Manual QA Matrix
+
+Use this matrix before rollout when thread restore behavior changes:
+
+| Scenario | Setup | Expected result |
+|---------|-------|-----------------|
+| Fresh local chat | Open chat with no explicit `threadId` | No `/connect`; welcome screen stays visible until first submit |
+| Brand-new explicit thread | Navigate directly to a new explicit `threadId` | `/connect` returns `204`; empty thread renders without error |
+| Hard refresh on persisted thread | Load an existing thread, refresh the browser | Messages, state, and active UI surfaces restore from replay |
+| Thread switch `A → B → A` | Open thread A, switch to B, then back to A | Original baseline returns without duplication or welcome-screen flash |
+| Mid-stream reconnect | Disconnect transport during a running thread | Client reconnects with `lastSeenEventId` and resumes incrementally |
+| Stale cursor fallback | Force reconnect before replay baseline advances | Client falls back to `lastSeenEventId: null` full restore safely |
+| State restore | Persist a thread with `STATE_SNAPSHOT` updates | Restored thread hydrates the latest agent state |
+| Activity restore | Persist A2UI or Open Generative UI activity | Restored thread rebuilds the same UI surface after replay |
+| Rejected thread | Use a thread the caller is not allowed to access | Connect fails. With `onError` you can surface it explicitly; otherwise the chat may settle back to the empty or welcome state instead of showing a distinct rejected-thread UI |
 
 ## Next steps
 
