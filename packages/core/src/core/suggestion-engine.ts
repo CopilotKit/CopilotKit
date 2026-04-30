@@ -67,14 +67,15 @@ export class SuggestionEngine {
 
     // Use the provided agent instance when available; fall back to the registry agent.
     // Per-thread clones hold the actual conversation messages; the registry agent does not.
+    // The agent may legitimately be missing here (e.g. runtime info still loading,
+    // or the consumer agent is configured but not yet registered) — static suggestions
+    // don't need it, only dynamic generation does. Treat that case as "no messages yet"
+    // and process static configs anyway.
     const agent =
       consumerAgent ??
       (this.core as unknown as CopilotKitCoreFriendsAccess).getAgent(agentId);
-    if (!agent) {
-      return;
-    }
 
-    const messageCount = agent.messages?.length ?? 0;
+    const messageCount = agent?.messages?.length ?? 0;
     let hasAnySuggestions = false;
 
     for (const config of Object.values(this._suggestionsConfig)) {
@@ -95,6 +96,12 @@ export class SuggestionEngine {
       const suggestionId = randomUUID();
 
       if (isDynamicSuggestionsConfig(config)) {
+        // Dynamic suggestions need a real agent (provider + consumer messages).
+        // Skip when the agent isn't ready yet — `reloadSuggestions` will be
+        // called again once it is.
+        if (!agent) {
+          continue;
+        }
         if (!hasAnySuggestions) {
           hasAnySuggestions = true;
           void this.notifySuggestionsStartedLoading(agentId);

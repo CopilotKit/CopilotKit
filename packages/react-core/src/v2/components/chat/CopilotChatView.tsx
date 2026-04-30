@@ -252,6 +252,11 @@ export function CopilotChatView({
   // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
   // suggestions would render against a still-assembling message tree and
   // visibly jump as each final text chunk reflows the layout.
+  //
+  // `available: "always"` controls *eligibility windows* (welcome screen vs
+  // after first message), not whether to render through these transitions —
+  // we still wait for the connect/run to settle and the end-of-run reload
+  // to repopulate against the new context.
   const hasSuggestions =
     !isConnecting &&
     !isRunning &&
