@@ -25,11 +25,19 @@ each attachment in-process:
   PDF beta access.
 - Anything else falls through as-is.
 
+The legacy ``binary`` shape is *not* handled here. The runtime route at
+``src/app/api/copilotkit-multimodal/route.ts`` does not install an
+``onRunInitialized`` shim that rewrites modern parts into ``binary``,
+and ``HttpAgent`` forwards parts through unchanged — so this backend
+only ever sees the modern AG-UI shape. If a future page somewhere in
+the chain ever needs to downgrade to ``binary``, fix it there rather
+than re-introducing a dead branch here.
+
 References:
 - packages/runtime/src/agent/converters/tanstack.ts (modern AG-UI parts)
-- langgraph-python multimodal_agent.py (baseline pattern; the legacy
-  ``binary`` shim is not needed here because HttpAgent forwards modern
-  parts through without rewriting them).
+- langgraph-python multimodal_agent.py (baseline pattern; that demo
+  needs a ``binary`` shim because the published ``@ag-ui/langgraph``
+  converter drops modern parts — Claude's HttpAgent path doesn't).
 """
 
 from __future__ import annotations
@@ -165,30 +173,6 @@ def convert_part_for_claude(part: Any) -> Any:
             "type": "text",
             "text": f"[Attached document: unsupported type {mime or 'unknown'}.]",
         }
-
-    # Legacy ``binary`` shape (defensive: if any adapter in the chain
-    # still rewrites to it, handle it here instead of dropping).
-    if part_type == "binary":
-        mime = (part.get("mimeType") or "").lower()
-        data = part.get("data")
-        if isinstance(data, str) and mime.startswith("image/"):
-            return {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": mime,
-                    "data": data,
-                },
-            }
-        if isinstance(data, str) and "pdf" in mime:
-            text = _extract_pdf_text(data)
-            if text:
-                return {"type": "text", "text": f"[Attached document]\n{text}"}
-            return {
-                "type": "text",
-                "text": "[Attached document: PDF could not be read.]",
-            }
-        return part
 
     return part
 
