@@ -44,7 +44,9 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    const content = screen.container.querySelector(
+      "[data-pin-to-send-content]",
+    );
     expect(content).not.toBeNull();
   });
 
@@ -55,7 +57,9 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    const content = screen.container.querySelector(
+      "[data-pin-to-send-content]",
+    );
     expect(content).toBeNull();
   });
 
@@ -66,7 +70,9 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    const content = screen.container.querySelector(
+      "[data-pin-to-send-content]",
+    );
     expect(content).toBeNull();
   });
 
@@ -77,7 +83,9 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    const content = screen.container.querySelector(
+      "[data-pin-to-send-content]",
+    );
     expect(content).toBeNull();
   });
 
@@ -88,7 +96,9 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    const content = screen.container.querySelector(
+      "[data-pin-to-send-content]",
+    );
     expect(content).toBeNull();
   });
 });
