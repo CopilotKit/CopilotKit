@@ -13,14 +13,12 @@ Attachments arrive here after travelling through:
                                                    (ag-ui → LangChain converter)
               →  this agent (LangChain HumanMessage content parts)
 
-The ag-ui-langgraph converter only understands the legacy
-``{ type: "binary", mimeType, data | url }`` AG-UI part shape — the page
-at ``src/app/demos/multimodal/page.tsx`` installs an
-``onRunInitialized`` shim that rewrites the modern
-``{ type: "image" | "document", source: {...} }`` shape CopilotChat emits
-to the legacy shape before it hits the runtime. Once the converter has
-run, every attachment shows up in this agent as a LangChain
-``image_url`` content part::
+CopilotChat emits the modern AG-UI multimodal shape
+``{ type: "image" | "document", source: { type: "data" | "url",
+value, mimeType } }``. The ``@ag-ui/langgraph`` converter
+(``convertAguiMultimodalToLangchain``) consumes this shape natively and
+routes every media kind through LangChain's ``image_url`` content block
+before it hits this agent::
 
     {"type": "image_url", "image_url": {"url": "data:<mime>;base64,<payload>"}}
 
@@ -29,13 +27,15 @@ regardless of whether the upstream modality was ``image`` or ``document``.
 We therefore route on ``mimeType``, not the part ``type``:
 ``image/*`` parts are forwarded to GPT-4o unchanged (vision-native);
 ``application/pdf`` parts are flattened to inline text via ``pypdf`` so
-the model can read them without needing file-part support.
+the model can read them without needing file-part support. The modern
+``document`` branch in ``_classify_attachment_part`` is kept as a
+forward-compat path in case a future converter forwards document parts
+through unchanged instead of flattening them to ``image_url``.
 
 References:
 - src/agents/main.py, src/agents/agentic_chat.py (baseline pattern)
 - packages/runtime/src/agent/converters/tanstack.ts (the modern content-
-  part shape — useful context when the runtime gets upgraded and this
-  agent can drop the pypdf flatten)
+  part shape on the JS side)
 """
 
 from __future__ import annotations
@@ -121,14 +121,16 @@ def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
     Handles the shapes we actually see in practice:
 
     - ``{"type": "image_url", "image_url": {"url": "data:..."}}``
-      (what the ag-ui-langgraph converter emits for every attachment
-      after the page rewrites to legacy ``binary``).
+      (what the ag-ui-langgraph converter emits for every attachment —
+      both ``image`` and ``document`` modern AG-UI parts are mapped to
+      LangChain's ``image_url`` block by ``convertAguiMultimodalToLangchain``).
     - ``{"type": "image_url", "image_url": "data:..."}``
       (older LangChain/OpenAI shape where ``image_url`` is a raw string).
     - ``{"type": "document", "source": {"type": "data",
       "value": "<base64>", "mimeType": "application/pdf"}}``
-      (modern AG-UI shape — preserved for forward-compat if the runtime
-      ever starts forwarding modern parts directly).
+      (modern AG-UI shape — preserved for forward-compat if a future
+      converter forwards document parts through unchanged instead of
+      flattening them to ``image_url``).
     """
     if not isinstance(part, dict):
         return None
