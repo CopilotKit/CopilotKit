@@ -76,7 +76,7 @@ SYSTEM_PROMPT = (
 )
 
 
-@tool
+@tool()
 def get_current_config(context_variables: ContextVariables) -> str:
     """Return the current rulebook (tone / expertise / length) for the assistant.
 

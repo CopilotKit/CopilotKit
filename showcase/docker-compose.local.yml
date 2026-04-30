@@ -94,7 +94,11 @@ services:
       start_period: 10s
 
   dashboard:
-    build: ./shell-dashboard
+    build:
+      context: ..
+      dockerfile: showcase/shell-dashboard/Dockerfile
+      args:
+        OPS_BASE_URL: http://localhost:3201
     image: showcase-dashboard:local
     container_name: showcase-dashboard
     environment:

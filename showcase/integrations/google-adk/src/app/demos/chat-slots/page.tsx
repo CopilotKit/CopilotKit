@@ -14,7 +14,7 @@ import { CustomDisclaimer } from "./custom-disclaimer";
 // Outer layer — provider + layout chrome.
 export default function ChatSlotsDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-slots">
+    <CopilotKit runtimeUrl="/api/copilotkit" agent="chat_slots">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           <Chat />
@@ -52,7 +52,7 @@ function Chat() {
 
   return (
     <CopilotChat
-      agentId="chat-slots"
+      agentId="chat_slots"
       className="h-full rounded-2xl"
       welcomeScreen={welcomeScreen}
       input={input}
