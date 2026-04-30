@@ -1,8 +1,7 @@
 """Multimodal PydanticAI agent — accepts image + document (PDF) attachments.
 
-Ports showcase/integrations/langgraph-python/src/agents/multimodal_agent.py to
-PydanticAI. The vision-capable model (`gpt-4o`) is scoped to this agent
-only so other demos keep their cheaper text-only models.
+The vision-capable model (`gpt-4o`) is scoped to this agent only so
+other demos keep their cheaper text-only models.
 
 Wire format the agent sees
 ==========================
@@ -11,23 +10,23 @@ Attachments arrive here after travelling through:
   CopilotChat  →  AG-UI message content parts  →  PydanticAI AG-UI bridge
               →  this agent (PydanticAI messages)
 
-The frontend page at ``src/app/demos/multimodal/page.tsx`` installs the
-same ``onRunInitialized`` shim used in the langgraph-python reference:
-modern ``{ type: "image" | "document", source: {...} }`` parts get
-rewritten to the legacy ``{ type: "binary", mimeType, data | url }``
-shape before the request reaches the runtime. This keeps the on-wire
-format compatible with AG-UI bridges that only understand the legacy
-shape.
+CopilotChat emits modern multimodal parts of the form
+``{ type: "image" | "document", source: { type: "data" | "url",
+value, mimeType } }``. The PydanticAI AG-UI adapter forwards
+``UserMessage.content`` through unchanged, so the parts arrive at this
+agent as plain ``dict``s in the AG-UI shape (the AG-UI client's
+``BackwardCompatibility_0_0_47`` middleware also upgrades any legacy
+``binary`` parts to the modern shape on the way in, so we never see
+the legacy form here).
 
 On the Python side we use a ``history_processor`` to preprocess user
 messages before each model call:
 
-- ``image/*`` legacy-binary parts are converted to PydanticAI's
-  ``ImageUrl`` content (which ``OpenAIResponsesModel`` forwards as a
-  vision-native ``image_url`` part to GPT-4o).
-- ``application/pdf`` legacy-binary parts are flattened to inline text
-  via ``pypdf`` so the model can read them without needing file-part
-  support — matching the langgraph-python behaviour exactly.
+- ``image/*`` parts are rewritten to OpenAI-style ``image_url`` dicts
+  with a ``data:`` URL embedded. ``OpenAIResponsesModel`` forwards
+  these as vision-native ``image_url`` parts to GPT-4o.
+- ``application/pdf`` parts are flattened to inline text via ``pypdf``
+  so the model can read them without needing file-part support.
 - Any other part shape passes through unchanged.
 """
 
@@ -85,60 +84,54 @@ def _extract_pdf_text(b64: str) -> str:
         return ""
 
 
-def _classify_binary_part(part: Any) -> tuple[str, str, str] | None:
+def _classify_modern_part(part: Any) -> tuple[str, str, str] | None:
     """Inspect an AG-UI content part and return ``(kind, mime, payload)``.
 
     ``kind`` is one of ``"image"``, ``"pdf"``, ``"other"``. Returns
-    ``None`` if the part is not an attachment we recognise.
+    ``None`` if the part is not a modern multimodal attachment with an
+    inline ``data`` source.
 
-    Handles both shapes that can arrive at the agent:
-
-    - Legacy binary: ``{"type": "binary", "mimeType": "...",
-      "data": "<base64>"}`` or ``"url": "..."``.
-    - Modern source: ``{"type": "image" | "document",
+    Recognises modern AG-UI shape only:
+    ``{"type": "image" | "document",
       "source": {"type": "data", "value": "<base64>", "mimeType": "..."}}``.
+
+    Legacy ``binary`` parts are handled upstream by the AG-UI client's
+    ``BackwardCompatibility_0_0_47`` middleware, which upgrades them to
+    the modern shape before they reach the agent.
     """
     if not isinstance(part, dict):
         return None
     part_type = part.get("type")
+    if part_type not in ("image", "document"):
+        return None
 
-    if part_type == "binary":
-        mime = part.get("mimeType") or ""
-        data = part.get("data")
-        if isinstance(data, str) and mime:
-            if mime.startswith("image/"):
-                return ("image", mime, data)
-            if "pdf" in mime.lower():
-                return ("pdf", mime, data)
-            return ("other", mime, data)
+    source = part.get("source")
+    if not isinstance(source, dict) or source.get("type") != "data":
+        return None
+    value = source.get("value")
+    mime = source.get("mimeType", "")
+    if not isinstance(value, str) or not isinstance(mime, str) or not mime:
+        return None
 
-    if part_type in ("image", "document"):
-        source = part.get("source")
-        if isinstance(source, dict) and source.get("type") == "data":
-            value = source.get("value")
-            mime = source.get("mimeType", "")
-            if isinstance(value, str) and isinstance(mime, str) and mime:
-                if mime.startswith("image/"):
-                    return ("image", mime, value)
-                if "pdf" in mime.lower():
-                    return ("pdf", mime, value)
-                return ("other", mime, value)
-
-    return None
+    if mime.startswith("image/"):
+        return ("image", mime, value)
+    if "pdf" in mime.lower():
+        return ("pdf", mime, value)
+    return ("other", mime, value)
 
 
 def _rewrite_part_for_model(part: Any) -> Any:
     """Rewrite a single content part into a model-friendly shape.
 
-    - Image binary parts → OpenAI-style ``image_url`` dict with a
-      ``data:`` URL embedded. ``OpenAIResponsesModel`` passes this
-      through natively, matching GPT-4o's vision input format.
-    - PDF binary parts → text part prefixed with ``[Attached document]``
-      and the extracted body; falls back to a structured placeholder if
+    - Image parts → OpenAI-style ``image_url`` dict with a ``data:``
+      URL embedded. ``OpenAIResponsesModel`` passes this through
+      natively, matching GPT-4o's vision input format.
+    - PDF parts → text part prefixed with ``[Attached document]`` and
+      the extracted body; falls back to a structured placeholder if
       extraction failed.
     - Everything else → unchanged.
     """
-    classified = _classify_binary_part(part)
+    classified = _classify_modern_part(part)
     if classified is None:
         return part
     kind, mime, payload = classified
@@ -167,7 +160,7 @@ def _rewrite_message_content(content: Any) -> Any:
     """Rewrite the ``content`` field of a single message.
 
     User messages carry lists of content parts; we walk the list and
-    rewrite any binary/image/document parts in place. String-only
+    rewrite any modern image/document parts in place. String-only
     content (assistant replies, system prompts) passes through.
     """
     if not isinstance(content, list):
