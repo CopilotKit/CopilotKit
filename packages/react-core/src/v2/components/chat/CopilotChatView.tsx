@@ -167,7 +167,17 @@ export function CopilotChatView({
   className,
   ...props
 }: CopilotChatViewProps) {
-  const inputContainerRef = useRef<HTMLDivElement>(null);
+  // Element-as-state via callback ref. The overlay wrapper only renders on the
+  // chat-view branch (the welcome-screen branch omits it), so a plain
+  // useRef + `[]` useEffect would observe `null` on mount whenever the chat
+  // starts on the welcome screen and never re-attach after the user sends
+  // their first message — leaving inputContainerHeight at 0 and the scroll
+  // content's reserved bottom padding at 32px instead of ~input height. The
+  // result is the last messages scrolling underneath the absolute-positioned
+  // input pill. Subscribing to element state lets the observer attach (and
+  // detach) reactively as the overlay mounts/unmounts.
+  const [inputContainerEl, setInputContainerEl] =
+    useState<HTMLDivElement | null>(null);
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -178,8 +188,14 @@ export function CopilotChatView({
 
   // Track input container height changes
   useEffect(() => {
-    const element = inputContainerRef.current;
-    if (!element) return;
+    const element = inputContainerEl;
+    if (!element) {
+      // Reset measured height so the scroll content's paddingBottom doesn't
+      // hold a stale value if the overlay unmounts (e.g. messages cleared
+      // and the welcome screen returns).
+      setInputContainerHeight(0);
+      return;
+    }
 
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -218,7 +234,7 @@ export function CopilotChatView({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, []);
+  }, [inputContainerEl]);
 
   const BoundMessageView = renderSlot(messageView, CopilotChatMessageView, {
     messages,
@@ -397,7 +413,7 @@ export function CopilotChatView({
       {BoundScrollView}
 
       <div
-        ref={inputContainerRef}
+        ref={setInputContainerEl}
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
       >
