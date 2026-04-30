@@ -1,0 +1,67 @@
+---
+title: "CopilotKit v1.56.5"
+icon: "lucide/Tag"
+description: "Debug mode for the runtime and client, thread-switch UX hardening, and a handful of fixes."
+hideTOC: true
+---
+
+CopilotKit `1.56.5` is now available. This is a patch release on the `1.56` line — no breaking API changes — but it ships a new debug mode and a meaningful round of thread-switch UX fixes that are worth calling out.
+
+## Install
+
+```npm
+npm install @copilotkit/react-core@1.56.5 @copilotkit/react-ui@1.56.5 @copilotkit/runtime@1.56.5
+```
+
+## Highlights
+
+### Debug mode for the runtime and the client
+
+`CopilotRuntime` and the `<CopilotKit>` provider now accept a `debug` option that turns on detailed event-pipeline logging. The server side uses Pino structured logs; the client passes the configuration through to the AG-UI transport so both ends of the stream can be inspected with one switch.
+
+```ts
+import { CopilotRuntime } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  debug: true,
+  // or, for granular control:
+  // debug: { events: true, lifecycle: true, verbose: false },
+});
+```
+
+```tsx
+<CopilotKit runtimeUrl="/api/copilotkit" debug>
+  {/* ... */}
+</CopilotKit>
+```
+
+Pass `true` for the default output, or an object — `{ events, lifecycle, verbose }` — to scope what gets logged.
+
+### Thread-switch UX is more stable
+
+Several quiet papercuts around threads and the chat shell have been cleaned up:
+
+- `CopilotChat` now skips the `connectAgent` call when no caller-supplied `threadId` is present. A locally-minted UUID has no backend record, so the previous behavior produced spurious `/connect` 404s against the intelligence platform.
+- A new `lastRunAt` field is exposed on `Thread` and used as the `useThreads` sort key (falling back to `updatedAt`, then `createdAt`). Metadata-only actions like archive and rename no longer reshuffle the list.
+- `useThreads` waits for `runtimeConnectionStatus === Connected` before dispatching, eliminating a speculative `/threads` fetch that fired before `/info` returned `wsUrl`.
+- The fixed "Powered by CopilotKit" license badge now publishes a `--copilotkit-license-banner-offset` CSS variable; the chat input consumes it when bottom-anchored so the two no longer overlap.
+- New `bottomAnchored` prop on `CopilotChatInput` for callers rendering it as a flex-last-child.
+
+#### Behavior change: chat suggestions during streaming
+
+`CopilotChatView` no longer renders suggestions while `isRunning` is `true`. Previously, suggestions could appear against a streaming-in message tree and visibly reflow as text chunks landed. After this release, suggestions appear only once the run finalizes (or the thread's initial connect completes). If your app relied on the old behavior, plan for the new gating.
+
+## Fixes
+
+- **MCP tool parameters:** `jsonSchema` structure is now preserved when extracting parameters from MCP tools, so nested schemas survive the round-trip into runtime tool definitions. (`@copilotkit/runtime`)
+- **`useRenderTool`:** the `toolCallId` is now passed through to render components, so custom renderers can correlate their UI with the originating tool call. (`@copilotkit/react-core`)
+- **Markdown:** `urlTransform` is now forwarded through `<CopilotChatMessageView>` to the underlying `ReactMarkdown` renderer, restoring control over link rewriting in chat messages. (`@copilotkit/react-ui`)
+- **License verifier:** bumped `@copilotkit/license-verifier` to `0.2.0`. The re-exported `LicensePayload` on `@copilotkit/shared` now requires a `telemetry_id` field on literals; existing runtime code paths that consume verified payloads continue to work unchanged.
+
+## Packages updated
+
+`@copilotkit/runtime`, `@copilotkit/react-core`, `@copilotkit/react-ui`, `@copilotkit/core`, `@copilotkit/shared`, `@copilotkit/runtime-client-gql`, `@copilotkit/sdk-js`, `@copilotkit/voice`, `@copilotkit/web-inspector`, `@copilotkit/a2ui-renderer`, `@copilotkit/react-textarea`, and `@copilotkit/sqlite-runner` were all published at `1.56.5`.
+
+## Feedback
+
+Run into something unexpected? Drop a note in the [CopilotKit Discord support channel](https://go.copilotkit.ai/discord) — patch-release feedback is the fastest way for us to land follow-ups.
