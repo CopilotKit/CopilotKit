@@ -6,7 +6,7 @@ import {
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../CopilotChat";
 import { CopilotKitCoreErrorCode } from "@copilotkit/core";
-import { type BaseEvent, type RunAgentInput } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
 import { Observable, EMPTY } from "rxjs";
 
 /**
@@ -44,6 +44,8 @@ describe("CopilotChat onError", () => {
 
     renderWithCopilotKit({
       agent,
+      threadId: "connect-error-thread",
+      hasExplicitThreadId: true,
       children: <CopilotChat welcomeScreen={false} onError={chatOnError} />,
     });
 
@@ -63,6 +65,8 @@ describe("CopilotChat onError", () => {
 
     renderWithCopilotKit({
       agent,
+      threadId: "healthy-connect-thread",
+      hasExplicitThreadId: true,
       children: <CopilotChat welcomeScreen={false} onError={chatOnError} />,
     });
 
