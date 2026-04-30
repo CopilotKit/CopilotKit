@@ -123,6 +123,31 @@ export class SuggestionEngine {
   }
 
   /**
+   * Clear suggestions at the start of a run, but immediately restore static
+   * suggestions that have `available: "always"` so they remain visible
+   * throughout the run.
+   */
+  public clearSuggestionsForRun(agentId: string): void {
+    this.clearSuggestions(agentId);
+
+    for (const config of Object.values(this._suggestionsConfig)) {
+      if (
+        config.consumerAgentId !== undefined &&
+        config.consumerAgentId !== "*" &&
+        config.consumerAgentId !== agentId
+      ) {
+        continue;
+      }
+      if (config.available !== "always") {
+        continue;
+      }
+      if (isStaticSuggestionsConfig(config)) {
+        this.addStaticSuggestions(randomUUID(), config, agentId);
+      }
+    }
+  }
+
+  /**
    * Get current suggestions for an agent
    */
   public getSuggestions(agentId: string): CopilotKitCoreGetSuggestionsResult {

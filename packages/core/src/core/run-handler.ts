@@ -261,7 +261,9 @@ export class RunHandler {
   }: CopilotKitCoreRunAgentParams): Promise<RunAgentResult> {
     // Agent ID is guaranteed to be set by validateAndAssignAgentId
     if (agent.agentId) {
-      void this._internal.suggestionEngine.clearSuggestions(agent.agentId);
+      void this._internal.suggestionEngine.clearSuggestionsForRun(
+        agent.agentId,
+      );
     }
 
     if (agent instanceof HttpAgent) {
