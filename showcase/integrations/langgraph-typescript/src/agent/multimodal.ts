@@ -41,7 +41,8 @@ import {
 } from "@langchain/langgraph";
 import { ChatOpenAI } from "@langchain/openai";
 import { CopilotKitStateAnnotation } from "@copilotkit/sdk-js/langgraph";
-import pdfParse from "pdf-parse";
+// Deep import bypasses pdf-parse's debug entrypoint, which reads a test fixture at import time.
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
 const SYSTEM_PROMPT =
   "You are a helpful assistant. The user may attach images or documents " +
