@@ -2,6 +2,12 @@ import { CopilotIntelligenceRuntimeLike } from "../../core/runtime";
 import { getPlatformErrorStatus } from "../shared/intelligence-utils";
 import { resolveIntelligenceUser } from "../shared/resolve-intelligence-user";
 import { isHandlerResponse } from "../shared/json-response";
+import { logger } from "@copilotkit/shared";
+import type { ConnectRestoreParameters } from "../shared/agent-utils";
+import {
+  InvalidConnectResponseError,
+  type ConnectThreadResponse,
+} from "../../intelligence-platform/client";
 
 /**
  * Builds browser-facing realtime connection metadata owned by the runtime.
@@ -21,6 +27,38 @@ interface HandleIntelligenceConnectParams {
   request: Request;
   agentId: string;
   threadId: string;
+  restore: ConnectRestoreParameters;
+}
+
+function summarizeInvalidConnectResult(
+  result: NonNullable<ConnectThreadResponse>,
+): {
+  canonicalThreadId?: string;
+  hasJoinToken: boolean;
+  fields: string[];
+} {
+  const candidate = result as Record<string, unknown>;
+
+  return {
+    ...(typeof result.threadId === "string"
+      ? { canonicalThreadId: result.threadId }
+      : {}),
+    hasJoinToken:
+      typeof candidate.joinToken === "string" && candidate.joinToken.length > 0,
+    fields: Object.keys(candidate),
+  };
+}
+
+function hasConnectResponseFields(
+  result: ConnectThreadResponse,
+): result is NonNullable<ConnectThreadResponse> {
+  return (
+    result !== null &&
+    typeof result.threadId === "string" &&
+    result.threadId.length > 0 &&
+    typeof result.joinToken === "string" &&
+    result.joinToken.length > 0
+  );
 }
 
 export async function handleIntelligenceConnect({
@@ -28,6 +66,7 @@ export async function handleIntelligenceConnect({
   request,
   agentId,
   threadId,
+  restore,
 }: HandleIntelligenceConnectParams): Promise<Response> {
   if (!runtime.intelligence) {
     return Response.json(
@@ -49,12 +88,32 @@ export async function handleIntelligenceConnect({
       threadId,
       userId: user.id,
       agentId,
+      ...restore,
     });
 
     if (result === null) {
       return new Response(null, {
         status: 204,
       });
+    }
+
+    if (!hasConnectResponseFields(result)) {
+      logger.error(
+        {
+          threadId,
+          agentId,
+          resultSummary: summarizeInvalidConnectResult(result),
+        },
+        "Intelligence connect returned malformed credentials",
+      );
+      return Response.json(
+        {
+          error: "Connect response invalid",
+          message:
+            "Intelligence platform did not return canonical threadId and joinToken",
+        },
+        { status: 502 },
+      );
     }
 
     return Response.json(
@@ -71,14 +130,26 @@ export async function handleIntelligenceConnect({
       },
     );
   } catch (error) {
+    if (error instanceof InvalidConnectResponseError) {
+      logger.error(
+        {
+          err: error,
+          threadId,
+          agentId,
+        },
+        "Intelligence connect returned invalid response",
+      );
+      return Response.json(
+        {
+          error: "Connect response invalid",
+          message: error.message,
+        },
+        { status: 502 },
+      );
+    }
+
     const status = getPlatformErrorStatus(error);
-    if (
-      status === 400 ||
-      status === 401 ||
-      status === 403 ||
-      status === 404 ||
-      status === 409
-    ) {
+    if (status !== undefined && status >= 400 && status < 500) {
       return Response.json(
         {
           error: "Connect request rejected",
@@ -91,12 +162,21 @@ export async function handleIntelligenceConnect({
       );
     }
 
-    console.error("Connect plan not available:", error);
+    logger.error(
+      {
+        err: error,
+        threadId,
+        agentId,
+      },
+      "Intelligence connect failed unexpectedly",
+    );
     return Response.json(
       {
-        error: "Connect plan not available",
+        error: "Connect request failed",
+        message: "Intelligence platform connect failed unexpectedly",
+        ...(error instanceof Error ? { details: error.message } : {}),
       },
-      { status: 404 },
+      { status: 500 },
     );
   }
 }

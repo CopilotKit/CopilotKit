@@ -23,6 +23,35 @@ export interface RunAgentParameters {
 
 export interface ConnectRequestBody extends RunAgentInput {
   lastSeenEventId?: string | null;
+  restore?: ConnectRestorePayload | null;
+}
+
+type ConnectJsonPrimitive = string | number | boolean | null;
+type ConnectJsonValue =
+  | ConnectJsonPrimitive
+  | ConnectJsonValue[]
+  | { [key: string]: ConnectJsonValue | undefined };
+
+export interface ConnectRestoreCursor {
+  lastEventId?: string | null;
+  [key: string]: ConnectJsonValue | undefined;
+}
+
+export interface ConnectRestorePayload {
+  intent?: string;
+  cursor?: ConnectRestoreCursor;
+  [key: string]: ConnectJsonValue | undefined;
+}
+
+export interface ConnectRestoreParameters {
+  lastSeenEventId?: string | null;
+  restore?: ConnectRestorePayload | null;
+}
+
+function isConnectRestorePayload(
+  value: unknown,
+): value is ConnectRestorePayload | null {
+  return value === null || (typeof value === "object" && !Array.isArray(value));
 }
 
 export async function cloneAgentForRequest(
@@ -121,13 +150,13 @@ export async function parseConnectRequest(request: Request): Promise<
   | Response
   | {
       input: RunAgentInput;
-      lastSeenEventId: string | null;
+      restore: ConnectRestoreParameters;
     }
 > {
   try {
     const requestBody = await request.json();
     const input = RunAgentInputSchema.parse(requestBody);
-    let lastSeenEventId: string | null = null;
+    const restore: ConnectRestoreParameters = {};
 
     if (
       "lastSeenEventId" in (requestBody as Record<string, unknown>) &&
@@ -135,11 +164,32 @@ export async function parseConnectRequest(request: Request): Promise<
         "string" ||
         (requestBody as Record<string, unknown>).lastSeenEventId === null)
     ) {
-      lastSeenEventId =
+      restore.lastSeenEventId =
         (requestBody as ConnectRequestBody).lastSeenEventId ?? null;
     }
 
-    return { input, lastSeenEventId };
+    if ("restore" in (requestBody as Record<string, unknown>)) {
+      if (
+        !isConnectRestorePayload(
+          (requestBody as Record<string, unknown>).restore,
+        )
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: "Invalid request body",
+            details: "restore must be an object or null",
+          }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      restore.restore = (requestBody as ConnectRequestBody).restore;
+    }
+
+    return { input, restore };
   } catch (error) {
     logger.error("Invalid connect request body:", error);
     return new Response(

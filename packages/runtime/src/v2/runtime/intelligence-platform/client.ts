@@ -28,6 +28,35 @@ export class PlatformRequestError extends Error {
   }
 }
 
+export class InvalidConnectResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidConnectResponseError";
+  }
+}
+
+function parseConnectResponseBody(text: string): ThreadConnectionResponse {
+  try {
+    const parsed = JSON.parse(text) as unknown;
+
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new InvalidConnectResponseError(
+        "Intelligence platform returned invalid connect response payload",
+      );
+    }
+
+    return parsed as ThreadConnectionResponse;
+  } catch (error) {
+    if (error instanceof InvalidConnectResponseError) {
+      throw error;
+    }
+
+    throw new InvalidConnectResponseError(
+      "Intelligence platform returned malformed connect response JSON",
+    );
+  }
+}
+
 /**
  * Client for the CopilotKit Intelligence Platform REST API.
  *
@@ -165,6 +194,14 @@ export interface SubscribeToThreadsRequest {
 
 export interface SubscribeToThreadsResponse {
   joinToken: string;
+}
+
+export interface ConnectThreadRequest {
+  threadId: string;
+  userId: string;
+  agentId: string;
+  lastSeenEventId?: string | null;
+  restore?: import("../handlers/shared/agent-utils").ConnectRestorePayload | null;
 }
 
 export type ConnectThreadResponse = ThreadConnectionResponse | null;
@@ -657,22 +694,56 @@ export class CopilotKitIntelligence {
     );
   }
 
-  async ɵconnectThread(params: {
-    threadId: string;
-    userId: string;
-    agentId: string;
-  }): Promise<ConnectThreadResponse> {
-    const result = await this.#request<ThreadConnectionResponse>(
-      "POST",
-      `/api/threads/${encodeURIComponent(params.threadId)}/connect`,
-      {
+  async ɵconnectThread(
+    params: ConnectThreadRequest,
+  ): Promise<ConnectThreadResponse> {
+    const path = `/api/threads/${encodeURIComponent(params.threadId)}/connect`;
+    const url = `${this.#apiUrl}${path}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.#apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
         userId: params.userId,
         agentId: params.agentId,
-      },
-    );
+        ...(params.lastSeenEventId !== undefined
+          ? { lastSeenEventId: params.lastSeenEventId }
+          : {}),
+        ...(params.restore !== undefined ? { restore: params.restore } : {}),
+      }),
+    });
 
-    // request() returns undefined for empty/204 responses
-    return result ?? null;
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      logger.error(
+        { status: response.status, body: text, path },
+        "Intelligence platform request failed",
+      );
+      throw new PlatformRequestError(
+        `Intelligence platform error ${response.status}: ${text || response.statusText}`,
+        response.status,
+      );
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      logger.error(
+        { status: response.status, path },
+        "Intelligence connect returned empty response body",
+      );
+      throw new InvalidConnectResponseError(
+        "Intelligence platform returned empty connect response body",
+      );
+    }
+
+    return parseConnectResponseBody(text);
   }
 }
 

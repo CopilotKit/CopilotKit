@@ -2,6 +2,7 @@ import { handleIntelligenceConnect } from "./intelligence/connect";
 import { handleSseConnect } from "./sse/connect";
 import { isIntelligenceRuntime } from "../core/runtime";
 import { telemetry } from "../telemetry";
+import { logger } from "@copilotkit/shared";
 import {
   parseConnectRequest,
   RunAgentParameters as ConnectAgentParameters,
@@ -45,6 +46,7 @@ export async function handleConnectAgent({
         request,
         agentId,
         threadId: connectRequest.input.threadId,
+        restore: connectRequest.restore,
       });
     }
 
@@ -55,20 +57,17 @@ export async function handleConnectAgent({
       threadId: connectRequest.input.threadId,
     });
   } catch (error) {
-    console.error("Error running agent:", error);
-    console.error(
-      "Error stack:",
-      error instanceof Error ? error.stack : "No stack trace",
+    logger.error(
+      {
+        err: error,
+        agentId,
+      },
+      "Connect request handling failed",
     );
-    console.error("Error details:", {
-      name: error instanceof Error ? error.name : "Unknown",
-      message: error instanceof Error ? error.message : String(error),
-      cause: error instanceof Error ? error.cause : undefined,
-    });
 
     return new Response(
       JSON.stringify({
-        error: "Failed to run agent",
+        error: "Failed to connect agent",
         message: error instanceof Error ? error.message : "Unknown error",
       }),
       {

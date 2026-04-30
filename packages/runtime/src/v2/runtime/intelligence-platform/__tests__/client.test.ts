@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { CopilotKitIntelligence } from "../client";
+import {
+  CopilotKitIntelligence,
+  InvalidConnectResponseError,
+} from "../client";
 
 const fetchMock = vi.fn();
 globalThis.fetch = fetchMock;
@@ -582,6 +585,36 @@ describe("CopilotKitIntelligence", () => {
       });
     });
 
+    it("forwards restore intent and replay cursor fields to the connect endpoint", async () => {
+      fetchMock.mockReturnValue(emptyResponse());
+
+      await client.ɵconnectThread({
+        threadId: "t-1",
+        userId: "user-1",
+        agentId: "agent-1",
+        lastSeenEventId: "event-9",
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: "event-9",
+          },
+        },
+      });
+
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(JSON.parse(opts.body)).toEqual({
+        userId: "user-1",
+        agentId: "agent-1",
+        lastSeenEventId: "event-9",
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: "event-9",
+          },
+        },
+      });
+    });
+
     it("returns credentials-only connect response", async () => {
       const payload = {
         threadId: "t-1",
@@ -596,6 +629,53 @@ describe("CopilotKitIntelligence", () => {
       });
 
       expect(result).toEqual(payload);
+    });
+
+    it("throws an invalid connect response error on empty 200 bodies", async () => {
+      fetchMock.mockReturnValue(emptyResponse(200));
+
+      await expect(
+        client.ɵconnectThread({
+          threadId: "t-1",
+          userId: "user-1",
+          agentId: "agent-1",
+        }),
+      ).rejects.toBeInstanceOf(InvalidConnectResponseError);
+    });
+
+    it("throws an invalid connect response error on 200 JSON null bodies", async () => {
+      fetchMock.mockReturnValue(jsonResponse(null));
+
+      await expect(
+        client.ɵconnectThread({
+          threadId: "t-1",
+          userId: "user-1",
+          agentId: "agent-1",
+        }),
+      ).rejects.toThrow(
+        "Intelligence platform returned invalid connect response payload",
+      );
+    });
+
+    it("throws an invalid connect response error on malformed 200 JSON bodies", async () => {
+      fetchMock.mockReturnValue(
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          statusText: "OK",
+          text: () => Promise.resolve("{not-json"),
+        } as Response),
+      );
+
+      await expect(
+        client.ɵconnectThread({
+          threadId: "t-1",
+          userId: "user-1",
+          agentId: "agent-1",
+        }),
+      ).rejects.toThrow(
+        "Intelligence platform returned malformed connect response JSON",
+      );
     });
   });
 });
