@@ -3,17 +3,27 @@
  * attachments scoped to the `/demos/multimodal` cell.
  *
  * Uses a *dedicated* vision-capable graph (gpt-4o) so other demos continue
- * to use cheaper, text-only models. Inputs forwarded by the runtime:
- *   - `{"type": "text", "text": "..."}`
- *   - `{"type": "image", "source": {"type": "data", "value": "<base64>",
- *      "mimeType": "image/png"}}`
- *   - `{"type": "document", "source": {"type": "data", "value": "<base64>",
- *      "mimeType": "application/pdf"}}`
+ * to use cheaper, text-only models.
  *
- * gpt-4o consumes `image` parts natively. For `document` parts (PDFs) we
- * extract text server-side via `pdf-parse` and inline it as a text part
- * with a clear delimiter — matching the Python reference's `pypdf`-backed
- * extraction so the TS multimodal demo reaches feature parity.
+ * Content-part shapes the agent has to handle
+ * --------------------------------------------
+ * Modern AG-UI shape (primary, what CopilotChat emits):
+ *   - `{ "type": "text", "text": "..." }`
+ *   - `{ "type": "image",    "source": { "type": "data", "value": "<base64>", "mimeType": "image/png" } }`
+ *   - `{ "type": "document", "source": { "type": "data", "value": "<base64>", "mimeType": "application/pdf" } }`
+ *
+ * Post-converter LangChain shape (what actually reaches the LangGraph
+ * deployment after `@ag-ui/langgraph`'s `aguiMessagesToLangChain`
+ * collapses every modern media type into LangChain's only multimodal
+ * primitive):
+ *   - `{ "type": "image_url", "image_url": { "url": "data:<mime>;base64,<payload>" } }`
+ *
+ * gpt-4o consumes `image_url` parts whose data URL has an `image/*` mime
+ * type natively. PDFs cannot be ingested as images, so we detect the
+ * `application/pdf` data URL and extract the text server-side via
+ * `pdf-parse`, replacing the part with an inline text part. The modern
+ * `document` shape is preserved as a fallback for any flow that
+ * forwards AG-UI parts directly without going through the converter.
  */
 
 import { RunnableConfig } from "@langchain/core/runnables";
@@ -48,19 +58,97 @@ type AgentState = typeof AgentStateAnnotation.State;
 interface ContentPart {
   type?: string;
   text?: string;
+  image_url?: string | { url?: string };
   source?: { type?: string; value?: string; mimeType?: string };
   [k: string]: unknown;
 }
 
+/** Parse a `data:<mime>;base64,<payload>` URL into its parts. */
+function parseDataUrl(url: string): { mime: string; payload: string } | null {
+  if (!url.startsWith("data:")) return null;
+  const commaIdx = url.indexOf(",");
+  if (commaIdx < 0) return null;
+  const header = url.slice(5, commaIdx); // strip "data:"
+  const payload = url.slice(commaIdx + 1);
+  // header is "<mime>;base64" (we only ever emit base64 data URLs here).
+  const mime = header.split(";", 1)[0] ?? "";
+  if (!mime || !payload) return null;
+  return { mime, payload };
+}
+
+/** Extract text from a base64-encoded PDF payload. Returns "" on failure. */
+async function extractPdfText(base64Payload: string): Promise<{
+  text: string;
+  pages: number;
+} | null> {
+  try {
+    const buffer = Buffer.from(base64Payload, "base64");
+    const parsed = await pdfParse(buffer);
+    return { text: parsed.text.trim(), pages: parsed.numpages };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[multimodal_agent] pdf-parse failed: ${message}`);
+    return null;
+  }
+}
+
+/** Build a `[Attached PDF]` text part from extracted PDF text. */
+function buildPdfTextPart(extracted: { text: string; pages: number } | null): {
+  type: "text";
+  text: string;
+} {
+  if (!extracted || !extracted.text) {
+    return {
+      type: "text",
+      text: "[Attached document: PDF could not be read.]",
+    };
+  }
+  const { text, pages } = extracted;
+  return {
+    type: "text",
+    text:
+      `[Attached PDF (${pages} page${pages === 1 ? "" : "s"}) — extracted text follows]\n\n` +
+      text,
+  };
+}
+
 /**
  * Rewrite a multimodal content part into a shape the OpenAI chat API
- * understands. Images are converted to OpenAI's `image_url` data-URL parts.
- * PDF `document` parts have their text extracted server-side via `pdf-parse`
- * and inlined. Plain text passes through unchanged.
+ * understands.
+ *
+ * - Post-converter `image_url` parts whose data URL is an image pass
+ *   through unchanged (gpt-4o consumes them natively).
+ * - Post-converter `image_url` parts whose data URL is a PDF have their
+ *   text extracted server-side and are replaced with a text part.
+ * - Modern AG-UI `image` parts are normalized to `image_url`.
+ * - Modern AG-UI `document` parts (PDFs) have their text extracted
+ *   server-side and are replaced with a text part.
+ * - Plain text and unrecognized parts pass through unchanged.
  */
 async function rewritePart(part: unknown): Promise<unknown> {
   if (!part || typeof part !== "object") return part;
   const p = part as ContentPart;
+
+  // Post-converter LangChain shape (what `@ag-ui/langgraph` emits today).
+  if (p.type === "image_url") {
+    const url =
+      typeof p.image_url === "string"
+        ? p.image_url
+        : (p.image_url?.url ?? "");
+    const parsed = parseDataUrl(url);
+    if (!parsed) return part;
+    if (parsed.mime.startsWith("image/")) {
+      return part;
+    }
+    if (parsed.mime.toLowerCase().includes("pdf")) {
+      const extracted = await extractPdfText(parsed.payload);
+      return buildPdfTextPart(extracted);
+    }
+    return part;
+  }
+
+  // Modern AG-UI shape — preserved for forward-compat / direct AG-UI flows
+  // that bypass the LangChain converter.
   if (p.type === "image" && p.source?.type === "data") {
     const mime = p.source.mimeType ?? "image/png";
     const value = p.source.value ?? "";
@@ -75,37 +163,20 @@ async function rewritePart(part: unknown): Promise<unknown> {
   if (p.type === "document" && p.source?.type === "data") {
     const mime = p.source.mimeType ?? "";
     const value = p.source.value ?? "";
-    if (mime === "application/pdf" && value) {
-      try {
-        // Strip data: prefix if present, then base64-decode.
-        const base64 = value.startsWith("data:")
-          ? value.slice(value.indexOf(",") + 1)
-          : value;
-        const buffer = Buffer.from(base64, "base64");
-        const parsed = await pdfParse(buffer);
-        const text = parsed.text.trim();
-        if (text) {
-          return {
-            type: "text",
-            text:
-              `[Attached PDF (${parsed.numpages} page${parsed.numpages === 1 ? "" : "s"}) — extracted text follows]\n\n` +
-              text,
-          };
-        }
-      } catch (err) {
-        // Fall through to the generic marker below on extraction failure.
-        const message = err instanceof Error ? err.message : String(err);
-        return {
-          type: "text",
-          text: `[Attached PDF — server-side extraction failed: ${message}]`,
-        };
-      }
+    if (mime.toLowerCase().includes("pdf") && value) {
+      // Strip data: prefix if present, then base64-decode.
+      const base64 = value.startsWith("data:")
+        ? value.slice(value.indexOf(",") + 1)
+        : value;
+      const extracted = await extractPdfText(base64);
+      return buildPdfTextPart(extracted);
     }
     return {
       type: "text",
       text: `[Attached document${mime ? ` (${mime})` : ""}: contents not extracted server-side; describe what you can infer from the filename/type if asked.]`,
     };
   }
+
   return part;
 }
 
