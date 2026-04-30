@@ -99,23 +99,39 @@ export function deriveDepth(
 
   // D1: health:<slug> green
   if (!isGreen(live, keyFor("health", cell.integration))) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   achieved = 1;
 
   // D2: agent:<slug> green
   if (!isGreen(live, keyFor("agent", cell.integration))) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   achieved = 2;
 
   // D3: e2e:<slug>/<featureId> green (per-cell)
   // Guard: skip D3+ if feature is null (no per-cell e2e to evaluate).
   if (cell.feature === null) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   if (!isGreen(live, keyFor("e2e", cell.integration, cell.feature))) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   achieved = 3;
 
@@ -123,13 +139,21 @@ export function deriveDepth(
   const chatGreen = isGreen(live, keyFor("chat", cell.integration));
   const toolsGreen = isGreen(live, keyFor("tools", cell.integration));
   if (!(chatGreen || toolsGreen)) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   achieved = 4;
 
   // D5: d5:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
   if (!isD5Green(live, cell.integration, cell.feature)) {
-    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+    return {
+      achieved,
+      isRegression: achieved < cell.max_depth,
+      unsupported: false,
+    };
   }
   achieved = 5;
 
@@ -138,5 +162,9 @@ export function deriveDepth(
     achieved = 6;
   }
 
-  return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
+  return {
+    achieved,
+    isRegression: achieved < cell.max_depth,
+    unsupported: false,
+  };
 }

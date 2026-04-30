@@ -66,7 +66,11 @@ vi.mock("@/components/depth-utils", async () => {
   >("@/components/depth-utils");
   return {
     ...actual,
-    deriveDepth: vi.fn(() => ({ achieved: 2, isRegression: false, unsupported: false })),
+    deriveDepth: vi.fn(() => ({
+      achieved: 2,
+      isRegression: false,
+      unsupported: false,
+    })),
   };
 });
 

@@ -300,7 +300,9 @@ function CategorySection({
                 (refCell && refDepth ? (
                   <RefDepthCell
                     depth={refDepth.achieved}
-                    status={refDepth.unsupported ? "unsupported" : refCell.status}
+                    status={
+                      refDepth.unsupported ? "unsupported" : refCell.status
+                    }
                     regression={refDepth.isRegression}
                   />
                 ) : (
