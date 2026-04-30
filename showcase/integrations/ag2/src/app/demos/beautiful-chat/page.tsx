@@ -113,7 +113,10 @@ export default function BeautifulChatDemo() {
       a2ui={{ catalog: myCatalog }}
       openGenerativeUI={{ designSkill: VISUALIZATION_DESIGN_SKILL }}
     >
-      <div className="flex justify-center items-center h-screen w-full">
+      <div
+        data-testid="demo-beautiful-chat"
+        className="flex justify-center items-center h-screen w-full"
+      >
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>

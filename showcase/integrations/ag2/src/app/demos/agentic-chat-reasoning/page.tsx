@@ -29,7 +29,10 @@ import { ReasoningBlock } from "./reasoning-block";
 export default function AgenticChatReasoningDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="agentic-chat-reasoning">
-      <div className="flex justify-center items-center h-screen w-full">
+      <div
+        data-testid="demo-agentic-chat-reasoning"
+        className="flex justify-center items-center h-screen w-full"
+      >
         <div className="h-full w-full max-w-4xl">
           <Chat />
         </div>

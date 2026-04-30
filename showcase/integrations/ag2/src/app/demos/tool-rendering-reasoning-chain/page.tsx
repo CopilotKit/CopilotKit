@@ -13,8 +13,8 @@
 //      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
+import { CopilotKit } from "@copilotkit/react-core";
 import {
-  CopilotKit,
   CopilotChat,
   CopilotChatReasoningMessage,
   useRenderTool,

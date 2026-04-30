@@ -65,18 +65,28 @@ export function JsonRenderAssistantMessage(
   // crash with `useVisibility must be used within a VisibilityProvider`).
   // `JSONUIProvider` wires all four in one; we don't use actions or
   // state here, so defaults are fine.
+  // Re-attach `data-testid="copilot-assistant-message"` — the harness'
+  // e2e-deep conversation runner uses that testid to count settled
+  // responses, and the messageView slot override would otherwise drop
+  // it. Same reasoning as byoc-hashbrown's renderer.
   return (
-    <div data-testid="json-render-root" className="w-full">
-      <JSONUIProvider registry={registry}>
-        <Renderer
-          spec={
-            parseResult.spec as unknown as Parameters<
-              typeof Renderer
-            >[0]["spec"]
-          }
-          registry={registry}
-        />
-      </JSONUIProvider>
+    <div
+      data-testid="copilot-assistant-message"
+      data-message-role="assistant"
+      className="w-full"
+    >
+      <div data-testid="json-render-root" className="w-full">
+        <JSONUIProvider registry={registry}>
+          <Renderer
+            spec={
+              parseResult.spec as unknown as Parameters<
+                typeof Renderer
+              >[0]["spec"]
+            }
+            registry={registry}
+          />
+        </JSONUIProvider>
+      </div>
     </div>
   );
 }

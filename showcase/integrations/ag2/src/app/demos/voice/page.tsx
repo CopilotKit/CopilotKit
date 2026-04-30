@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { SampleAudioButton } from "./sample-audio-button";
 
 const RUNTIME_URL = "/api/copilotkit-voice";
