@@ -316,10 +316,13 @@ Do NOT call \`read_me\`, do NOT iterate, do NOT make multiple calls. Ship on the
  * Vision-capable Mastra agent backing the Multimodal Attachments demo.
  *
  * gpt-4o supports image and PDF attachments in the messages array. The
- * AG-UI Mastra adapter forwards user-message `content` parts (image_url /
- * file) verbatim to the model. Kept on a dedicated agent (and dedicated
- * route) so the vision-tier cost is scoped to exactly the cell that
- * exercises it.
+ * AG-UI Mastra adapter (`convertAGUIMessagesToMastra` in `@ag-ui/mastra`)
+ * forwards modern AG-UI multimodal content parts — `image` to Mastra's
+ * `{ type: "image", image }` shape, and `audio` / `video` / `document`
+ * to Mastra's `{ type: "file", data, mimeType }` shape — directly to the
+ * model. No legacy `binary` rewrite is required. Kept on a dedicated
+ * agent (and dedicated route) so the vision-tier cost is scoped to
+ * exactly the cell that exercises it.
  */
 export const multimodalAgent = new Agent({
   id: "multimodal-demo",
