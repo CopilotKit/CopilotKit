@@ -264,14 +264,20 @@ export function CopilotChatView({
     ...(disclaimer !== undefined ? { disclaimer } : {}),
   } as CopilotChatInputProps);
 
-  // Hide suggestions while a thread is connecting (mid-replay would render
-  // against a still-assembling message tree and visibly jump as each final
-  // text chunk reflows the layout). Run-in-flight is handled by the
-  // SuggestionEngine: at run start, non-"always" suggestions are cleared and
-  // only "always" ones are restored — so a non-empty `suggestions` array
-  // here already means "this is something the user opted to keep visible."
+  // Hide suggestions while a thread is connecting or a run is in flight.
+  // Otherwise, mid-replay (bootstrap stream from /connect) or mid-run, the
+  // suggestions would render against a still-assembling message tree and
+  // visibly jump as each final text chunk reflows the layout.
+  //
+  // `available: "always"` controls *eligibility windows* (welcome screen vs
+  // after first message), not whether to render through these transitions —
+  // we still wait for the connect/run to settle and the end-of-run reload
+  // to repopulate against the new context.
   const hasSuggestions =
-    !isConnecting && Array.isArray(suggestions) && suggestions.length > 0;
+    !isConnecting &&
+    !isRunning &&
+    Array.isArray(suggestions) &&
+    suggestions.length > 0;
   const BoundSuggestionView = hasSuggestions
     ? renderSlot(suggestionView, CopilotChatSuggestionView, {
         suggestions,

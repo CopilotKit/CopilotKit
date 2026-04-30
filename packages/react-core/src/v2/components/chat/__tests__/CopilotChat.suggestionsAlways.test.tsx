@@ -87,7 +87,7 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     });
   });
 
-  it("should keep suggestions visible during a run", async () => {
+  it("should hide suggestions during a run and restore them after", async () => {
     const agent = new MockStepwiseAgent();
     renderChat({ agent, consumerAgentId: "default" });
 
@@ -111,14 +111,13 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     agent.emit(runStartedEvent());
     agent.emit(textChunkEvent(messageId, "Hello! How can I help?"));
 
-    // Suggestions must remain visible even while the run is still in progress
-    await waitFor(
-      () => {
-        expect(screen.getByText("Say hello")).toBeDefined();
-        expect(screen.getByText("Get help")).toBeDefined();
-      },
-      { timeout: 3000 },
-    );
+    // While the run is in flight, suggestions should be hidden — every run
+    // changes the conversation context, so we wait for the end-of-run reload
+    // before showing them again.
+    await waitFor(() => {
+      expect(screen.queryByText("Say hello")).toBeNull();
+      expect(screen.queryByText("Get help")).toBeNull();
+    });
 
     agent.emit(runFinishedEvent());
     agent.complete();
@@ -127,7 +126,7 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
       expect(screen.getByText("Hello! How can I help?")).toBeDefined();
     });
 
-    // And still visible after the run completes
+    // After the run, the static "always" config repopulates them.
     await waitFor(
       () => {
         expect(screen.getByText("Say hello")).toBeDefined();
@@ -137,7 +136,7 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     );
   });
 
-  it("should keep suggestions visible during a run in pin-to-send mode", async () => {
+  it("should hide suggestions during a run in pin-to-send mode", async () => {
     const agent = new MockStepwiseAgent();
     renderChat({ agent, autoScroll: "pin-to-send" });
 
@@ -161,14 +160,10 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
     agent.emit(runStartedEvent());
     agent.emit(textChunkEvent(messageId, "Hello! How can I help?"));
 
-    // Suggestions must remain visible even while the run is still in progress
-    await waitFor(
-      () => {
-        expect(screen.getByText("Say hello")).toBeDefined();
-        expect(screen.getByText("Get help")).toBeDefined();
-      },
-      { timeout: 3000 },
-    );
+    await waitFor(() => {
+      expect(screen.queryByText("Say hello")).toBeNull();
+      expect(screen.queryByText("Get help")).toBeNull();
+    });
 
     agent.emit(runFinishedEvent());
     agent.complete();
@@ -177,7 +172,6 @@ describe("CopilotChat - static suggestions with available:'always'", () => {
       expect(screen.getByText("Hello! How can I help?")).toBeDefined();
     });
 
-    // And still visible after the run completes
     await waitFor(
       () => {
         expect(screen.getByText("Say hello")).toBeDefined();
