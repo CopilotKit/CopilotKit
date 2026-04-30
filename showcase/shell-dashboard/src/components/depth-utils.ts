@@ -41,6 +41,13 @@ export interface DepthResult {
   achieved: AchievedDepth;
   /** Whether achieved depth is below the historical high-water mark (max_depth). */
   isRegression: boolean;
+  /**
+   * True when the cell's catalog status is "unsupported". Unsupported cells
+   * never advance on the depth ladder — their `achieved` is always 0 and
+   * `isRegression` is always false. Consumers should render the unsupported
+   * indicator (e.g. the no-entry chip) instead of a numeric depth.
+   */
+  unsupported: boolean;
 }
 
 function isGreen(live: LiveStatusMap, key: string): boolean {
@@ -74,11 +81,17 @@ export function deriveDepth(
   cell: CatalogCell,
   live: LiveStatusMap,
 ): DepthResult {
-  // Unshipped and unsupported cells never advance past D0 — neither has any
-  // probes attached, so there is no possibility of regression. (Unsupported
-  // is a hard architectural floor; unshipped is "just unbuilt".)
-  if (cell.status === "unshipped" || cell.status === "unsupported") {
-    return { achieved: 0, isRegression: false };
+  // Unsupported cells never enter the depth ladder at all — they're
+  // architectural exclusions, not "cells at D0". Flag them explicitly
+  // so consumers render the unsupported indicator instead of D0.
+  if (cell.status === "unsupported") {
+    return { achieved: 0, isRegression: false, unsupported: true };
+  }
+
+  // Unshipped cells never advance past D0 — no probes attached, no
+  // possibility of regression.
+  if (cell.status === "unshipped") {
+    return { achieved: 0, isRegression: false, unsupported: false };
   }
 
   // D0: cell exists (wired or stub) — always true if we reach here.
@@ -86,23 +99,23 @@ export function deriveDepth(
 
   // D1: health:<slug> green
   if (!isGreen(live, keyFor("health", cell.integration))) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   achieved = 1;
 
   // D2: agent:<slug> green
   if (!isGreen(live, keyFor("agent", cell.integration))) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   achieved = 2;
 
   // D3: e2e:<slug>/<featureId> green (per-cell)
   // Guard: skip D3+ if feature is null (no per-cell e2e to evaluate).
   if (cell.feature === null) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   if (!isGreen(live, keyFor("e2e", cell.integration, cell.feature))) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   achieved = 3;
 
@@ -110,13 +123,13 @@ export function deriveDepth(
   const chatGreen = isGreen(live, keyFor("chat", cell.integration));
   const toolsGreen = isGreen(live, keyFor("tools", cell.integration));
   if (!(chatGreen || toolsGreen)) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   achieved = 4;
 
   // D5: d5:<slug>/<d5FeatureType> green (per-cell, mapped via CATALOG_TO_D5_KEY)
   if (!isD5Green(live, cell.integration, cell.feature)) {
-    return { achieved, isRegression: achieved < cell.max_depth };
+    return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
   }
   achieved = 5;
 
@@ -125,5 +138,5 @@ export function deriveDepth(
     achieved = 6;
   }
 
-  return { achieved, isRegression: achieved < cell.max_depth };
+  return { achieved, isRegression: achieved < cell.max_depth, unsupported: false };
 }

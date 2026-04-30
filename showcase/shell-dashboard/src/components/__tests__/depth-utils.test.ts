@@ -59,11 +59,14 @@ describe("deriveDepth", () => {
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(0);
     expect(result.isRegression).toBe(false);
+    expect(result.unsupported).toBe(false);
   });
 
-  it("returns D0 with no regression for unsupported cells regardless of live data", () => {
-    // Unsupported cells have no probes — even if probes for the same
-    // integration are green, the cell stays at D0 with no regression.
+  it("returns unsupported=true for unsupported cells regardless of live data", () => {
+    // Unsupported cells are architectural exclusions — they never enter
+    // the depth ladder. Even if integration-scoped probes (D1/D2) are
+    // green, the result must flag unsupported so consumers render the
+    // no-entry indicator instead of a numeric depth like D2.
     const c = cell("lgp", "voice", "unsupported");
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -73,6 +76,17 @@ describe("deriveDepth", () => {
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(0);
     expect(result.isRegression).toBe(false);
+    expect(result.unsupported).toBe(true);
+  });
+
+  it("returns unsupported=false for wired cells", () => {
+    const c = cell("lgp", "agentic-chat");
+    const live = mapOf([
+      row("health:lgp", "health", "green"),
+      row("agent:lgp", "agent", "green"),
+    ]);
+    const result = deriveDepth(c, live);
+    expect(result.unsupported).toBe(false);
   });
 
   it("returns D0 for wired cell with no live data", () => {
