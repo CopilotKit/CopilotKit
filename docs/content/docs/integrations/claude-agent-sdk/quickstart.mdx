@@ -1,0 +1,678 @@
+---
+title: Quickstart
+description: Turn your Claude Agent SDK agents into an agent-native application in 10 minutes.
+icon: "lucide/Play"
+hideTOC: true
+---
+
+import {
+  TailoredContent,
+  TailoredContentOption,
+} from "@/components/react/tailored-content.tsx";
+import { Accordions, Accordion } from "fumadocs-ui/components/accordion";
+import {
+  UserIcon,
+  PaintbrushIcon,
+  WrenchIcon,
+  RepeatIcon,
+} from "lucide-react";
+import { Tabs, Tab } from "fumadocs-ui/components/tabs";
+
+<video
+  src="https://cdn.copilotkit.ai/docs/copilotkit/images/coagents/chat-example.mp4"
+  className="rounded-lg shadow-xl"
+  loop
+  playsInline
+  controls
+  autoPlay
+  muted
+/>
+
+## Prerequisites
+
+Before you begin, you'll need the following:
+
+- An Anthropic API key
+- Node.js 20+
+- Your favorite package manager
+
+## Getting started
+
+<Steps>
+    <TailoredContent
+        className="step"
+        id="agent"
+        header={
+            <div>
+                <p className="text-xl font-semibold">Choose your starting point</p>
+                <p className="text-base">
+                    You can either start fresh or integrate CopilotKit into your existing Claude Agent SDK agent.
+                </p>
+            </div>
+        }
+    >
+        <TailoredContentOption
+            id="starter"
+            title="Start from scratch"
+            description="Set up a new project with Claude Agent SDK and CopilotKit."
+        >
+            <Step>
+                ### Set up your agent project
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```bash
+                        mkdir my-agent && cd my-agent
+                        npm init -y
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        mkdir my-agent && cd my-agent
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### Install Claude Agent SDK with AG-UI
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```bash
+                        npm install @ag-ui/claude-agent-sdk @ag-ui/core @ag-ui/encoder @anthropic-ai/claude-agent-sdk zod
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        pip install ag-ui-claude-sdk claude-agent-sdk fastapi uvicorn
+                        ```
+                    </Tab>
+                </Tabs>
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. The `@ag-ui/claude-agent-sdk` package provides Claude Agent SDK integration that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Configure your environment
+
+                Set your Anthropic API key as an environment variable:
+
+                ```bash
+                export ANTHROPIC_API_KEY=your_anthropic_api_key
+                ```
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Create an agent file that exposes your Claude agent via the AG-UI protocol:
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```typescript title="server.ts"
+                        import http from "node:http";
+                        import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
+                        import type { RunAgentInput } from "@ag-ui/core";
+                        import { EventEncoder } from "@ag-ui/encoder";
+
+                        const adapter = new ClaudeAgentAdapter({
+                          agentId: "my_agent",
+                          model: "claude-haiku-4-5",
+                          systemPrompt: "You are a helpful assistant.",
+                        });
+
+                        const server = http.createServer(async (req, res) => {
+                          res.setHeader("Access-Control-Allow-Origin", "*");
+                          res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                          res.setHeader("Access-Control-Allow-Headers", "*");
+
+                          if (req.method === "OPTIONS") {
+                            res.writeHead(204);
+                            res.end();
+                            return;
+                          }
+
+                          if (req.method !== "POST") {
+                            res.writeHead(404);
+                            res.end();
+                            return;
+                          }
+
+                          const chunks: Buffer[] = [];
+                          for await (const chunk of req) chunks.push(chunk as Buffer);
+                          const body = Buffer.concat(chunks).toString("utf-8");
+
+                          let input: RunAgentInput;
+                          try {
+                            input = JSON.parse(body) as RunAgentInput;
+                          } catch {
+                            res.writeHead(400, { "Content-Type": "application/json" });
+                            res.end(JSON.stringify({ error: "Invalid JSON body" }));
+                            return;
+                          }
+
+                          const encoder = new EventEncoder({
+                            accept: req.headers.accept ?? "text/event-stream",
+                          });
+
+                          res.writeHead(200, {
+                            "Content-Type": encoder.getContentType(),
+                            "Cache-Control": "no-cache",
+                            Connection: "keep-alive",
+                          });
+
+                          adapter.run(input).subscribe({
+                            next: (event) => res.write(encoder.encode(event)),
+                            error: (err) => {
+                              console.error(err);
+                              res.end();
+                            },
+                            complete: () => res.end(),
+                          });
+                        });
+
+                        server.listen(8000, () => console.log("Agent running on http://localhost:8000"));
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```python title="server.py"
+                        from fastapi import FastAPI
+                        from ag_ui_claude_sdk import ClaudeAgentAdapter, add_claude_fastapi_endpoint
+
+                        adapter = ClaudeAgentAdapter(
+                            name="my_agent",
+                            options={
+                                "model": "claude-haiku-4-5",
+                                "system_prompt": "You are a helpful assistant.",
+                            },
+                        )
+
+                        app = FastAPI()
+                        add_claude_fastapi_endpoint(app, adapter, path="/")
+
+                        if __name__ == "__main__":
+                            import uvicorn
+                            uvicorn.run(app, host="localhost", port=8000)
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                cd ..
+                npx create-next-app@latest frontend
+                cd frontend
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route to connect CopilotKit to your Claude Agent SDK agent:
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
+
+                const serviceAdapter = new ExperimentalEmptyAdapter();
+
+                const runtime = new CopilotRuntime({
+                  agents: {
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+                  }
+                });
+
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+
+                  return handleRequest(req);
+                };
+               ```
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Wrap your application with the CopilotKit provider:
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
+
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
+                ```
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
+                  </main>
+                );
+              }
+              ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                In a separate terminal, from your agent directory, start the agent server:
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```bash
+                        cd ../my-agent
+                        npx tsx server.ts
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        cd ../my-agent
+                        python server.py
+                        ```
+                    </Tab>
+                </Tabs>
+
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In another terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd frontend
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd frontend
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd frontend
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd frontend
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+        </TailoredContentOption>
+        <TailoredContentOption
+            id="bring-your-own"
+            title="Use an existing agent"
+            description="I already have a Claude Agent SDK agent and want to add CopilotKit."
+        >
+            <Step>
+                ### Install AG-UI adapter
+
+                Add the AG-UI adapter for Claude Agent SDK to your existing agent project:
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```bash
+                        npm install @ag-ui/claude-agent-sdk @ag-ui/core @ag-ui/encoder zod
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        pip install ag-ui-claude-sdk fastapi uvicorn
+                        ```
+                    </Tab>
+                </Tabs>
+
+                <Callout type="info" title="What is AG-UI?">
+                  AG-UI is an open protocol for frontend-agent communication. The `@ag-ui/claude-agent-sdk` package provides Claude Agent SDK integration that CopilotKit can connect to.
+                </Callout>
+            </Step>
+            <Step>
+                ### Expose your agent via AG-UI
+
+                Wrap your existing Claude Agent SDK agent with the AG-UI adapter:
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```typescript title="server.ts"
+                        import http from "node:http";
+                        import { ClaudeAgentAdapter } from "@ag-ui/claude-agent-sdk";
+                        import type { RunAgentInput } from "@ag-ui/core";
+                        import { EventEncoder } from "@ag-ui/encoder";
+
+                        const adapter = new ClaudeAgentAdapter({
+                          agentId: "my_agent",
+                          model: "claude-haiku-4-5",
+                          systemPrompt: "You are a helpful assistant.",
+                        });
+
+                        const server = http.createServer(async (req, res) => {
+                          res.setHeader("Access-Control-Allow-Origin", "*");
+                          res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+                          res.setHeader("Access-Control-Allow-Headers", "*");
+
+                          if (req.method === "OPTIONS") {
+                            res.writeHead(204);
+                            res.end();
+                            return;
+                          }
+
+                          if (req.method !== "POST") {
+                            res.writeHead(404);
+                            res.end();
+                            return;
+                          }
+
+                          const chunks: Buffer[] = [];
+                          for await (const chunk of req) chunks.push(chunk as Buffer);
+                          const body = Buffer.concat(chunks).toString("utf-8");
+
+                          let input: RunAgentInput;
+                          try {
+                            input = JSON.parse(body) as RunAgentInput;
+                          } catch {
+                            res.writeHead(400, { "Content-Type": "application/json" });
+                            res.end(JSON.stringify({ error: "Invalid JSON body" }));
+                            return;
+                          }
+
+                          const encoder = new EventEncoder({
+                            accept: req.headers.accept ?? "text/event-stream",
+                          });
+
+                          res.writeHead(200, {
+                            "Content-Type": encoder.getContentType(),
+                            "Cache-Control": "no-cache",
+                            Connection: "keep-alive",
+                          });
+
+                          adapter.run(input).subscribe({
+                            next: (event) => res.write(encoder.encode(event)),
+                            error: (err) => {
+                              console.error(err);
+                              res.end();
+                            },
+                            complete: () => res.end(),
+                          });
+                        });
+
+                        server.listen(8000, () => console.log("Agent running on http://localhost:8000"));
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```python title="server.py"
+                        from fastapi import FastAPI
+                        from ag_ui_claude_sdk import ClaudeAgentAdapter, add_claude_fastapi_endpoint
+
+                        adapter = ClaudeAgentAdapter(
+                            name="my_agent",
+                            options={
+                                "model": "claude-haiku-4-5",
+                                "system_prompt": "You are a helpful assistant.",
+                            },
+                        )
+
+                        app = FastAPI()
+                        add_claude_fastapi_endpoint(app, adapter, path="/")
+
+                        if __name__ == "__main__":
+                            import uvicorn
+                            uvicorn.run(app, host="localhost", port=8000)
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+            <Step>
+                ### Create your frontend
+
+                CopilotKit works with any React-based frontend. We'll use Next.js for this example.
+
+                ```bash
+                npx create-next-app@latest frontend
+                cd frontend
+                ```
+            </Step>
+            <Step>
+                ### Install CopilotKit packages
+
+                ```npm
+                npm install @copilotkit/react-ui @copilotkit/react-core @copilotkit/runtime @ag-ui/client
+                ```
+            </Step>
+            <Step>
+                ### Setup Copilot Runtime
+
+                Create an API route to connect CopilotKit to your Claude Agent SDK agent:
+
+                ```tsx title="app/api/copilotkit/route.ts"
+                import {
+                  CopilotRuntime,
+                  ExperimentalEmptyAdapter,
+                  copilotRuntimeNextJSAppRouterEndpoint,
+                } from "@copilotkit/runtime";
+                import { HttpAgent } from "@ag-ui/client";
+                import { NextRequest } from "next/server";
+
+                const serviceAdapter = new ExperimentalEmptyAdapter();
+
+                const runtime = new CopilotRuntime({
+                  agents: {
+                    my_agent: new HttpAgent({ url: "http://localhost:8000/" }),
+                  }
+                });
+
+                export const POST = async (req: NextRequest) => {
+                  const { handleRequest } = copilotRuntimeNextJSAppRouterEndpoint({
+                    runtime,
+                    serviceAdapter,
+                    endpoint: "/api/copilotkit",
+                  });
+
+                  return handleRequest(req);
+                };
+               ```
+            </Step>
+            <Step>
+                ### Configure CopilotKit Provider
+
+                Wrap your application with the CopilotKit provider:
+
+                ```tsx title="app/layout.tsx"
+                import { CopilotKit } from "@copilotkit/react-core"; // [!code highlight]
+                import "@copilotkit/react-ui/v2/styles.css";
+
+                // ...
+
+                export default function RootLayout({ children }: {children: React.ReactNode}) {
+                  return (
+                    <html lang="en">
+                      <body>
+                        {/* [!code highlight:3] */}
+                        <CopilotKit runtimeUrl="/api/copilotkit" agent="my_agent">
+                          {children}
+                        </CopilotKit>
+                      </body>
+                    </html>
+                  );
+                }
+                ```
+            </Step>
+            <Step>
+              ### Add the chat interface
+
+              Add the CopilotSidebar component to your page:
+
+              ```tsx title="app/page.tsx"
+              import { CopilotSidebar } from "@copilotkit/react-core/v2"; // [!code highlight:1]
+
+              export default function Page() {
+                return (
+                  <main>
+                    <h1>Your App</h1>
+                    {/* [!code highlight:1] */}
+                    <CopilotSidebar />
+                  </main>
+                );
+              }
+              ```
+            </Step>
+            <Step>
+                ### Start your agent
+
+                From your agent directory, start the agent server:
+
+                <Tabs groupId="language" items={['TypeScript', 'Python']}>
+                    <Tab value="TypeScript">
+                        ```bash
+                        npx tsx server.ts
+                        ```
+                    </Tab>
+                    <Tab value="Python">
+                        ```bash
+                        python server.py
+                        ```
+                    </Tab>
+                </Tabs>
+
+                Your agent will be available at `http://localhost:8000`.
+            </Step>
+            <Step>
+                ### Start your UI
+
+                In a separate terminal, navigate to your frontend directory and start the development server:
+
+                <Tabs groupId="package-manager" items={['npm', 'pnpm', 'yarn', 'bun']}>
+                    <Tab value="npm">
+                        ```bash
+                        cd frontend
+                        npm run dev
+                        ```
+                    </Tab>
+                    <Tab value="pnpm">
+                        ```bash
+                        cd frontend
+                        pnpm dev
+                        ```
+                    </Tab>
+                    <Tab value="yarn">
+                        ```bash
+                        cd frontend
+                        yarn dev
+                        ```
+                    </Tab>
+                    <Tab value="bun">
+                        ```bash
+                        cd frontend
+                        bun dev
+                        ```
+                    </Tab>
+                </Tabs>
+            </Step>
+        </TailoredContentOption>
+    </TailoredContent>
+    <Step>
+        ### Start chatting!
+
+        Your AI agent is now ready to use! Navigate to `localhost:3000` and try asking it some questions:
+
+        ```
+        Can you tell me a joke?
+        ```
+
+        ```
+        Can you help me understand AI?
+        ```
+
+        ```
+        What do you think about React?
+        ```
+
+        <Accordions className="mb-4">
+            <Accordion title="Troubleshooting">
+                - If you're having connection issues, try using `0.0.0.0` or `127.0.0.1` instead of `localhost`
+                - Make sure your agent is running on port 8000
+                - Check that your Anthropic API key is correctly set
+                - Verify that the `@ag-ui/client` package is installed in your frontend
+            </Accordion>
+        </Accordions>
+
+    </Step>
+</Steps>
+
+## What's next?
+
+Now that you have your basic agent setup, explore these advanced features:
+
+<Cards>
+  <Card
+    title="Implement Human in the Loop"
+    description="Allow your users and agents to collaborate together on tasks."
+    href="/claude-agent-sdk/human-in-the-loop"
+    icon={<UserIcon />}
+  />
+  <Card
+    title="Utilize the Shared State"
+    description="Learn how to synchronize your agent's state with your UI's state, and vice versa."
+    href="/claude-agent-sdk/shared-state"
+    icon={<RepeatIcon />}
+  />
+  <Card
+    title="Add some generative UI"
+    description="Render your agent's progress and output in the UI."
+    href="/claude-agent-sdk/generative-ui/tool-rendering"
+    icon={<PaintbrushIcon />}
+  />
+  <Card
+    title="Setup frontend actions"
+    description="Give your agent the ability to call frontend tools, directly updating your application."
+    href="/claude-agent-sdk/frontend-tools"
+    icon={<WrenchIcon />}
+  />
+</Cards>

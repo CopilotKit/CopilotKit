@@ -14,7 +14,7 @@ import {
   getIntegration,
 } from "@/lib/integrations";
 import { hasIntegrationFeature } from "@/lib/integration-features";
-import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
+import { AgentSpecMarkIcon, A2AIcon, ClaudeAgentSdkIcon } from "@/lib/icons/custom-icons";
 import AdkIcon from "../ui/icons/adk";
 import Ag2Icon from "../ui/icons/ag2";
 import CrewaiIcon from "../ui/icons/crewai";
@@ -33,6 +33,7 @@ const INTEGRATION_ICONS: Record<
 > = {
   "built-in-agent": () => <p>🪁</p>,
   langgraph: LanggraphIcon,
+  "claude-agent-sdk": ClaudeAgentSdkIcon,
   adk: AdkIcon,
   "microsoft-agent-framework": MicrosoftIcon,
   "aws-strands": AwsStrandsIcon,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AgentSpecMarkIcon } from "@/lib/icons/custom-icons";
+import { AgentSpecMarkIcon, ClaudeAgentSdkIcon } from "@/lib/icons/custom-icons";
 import AdkIcon from "@/components/ui/icons/adk";
 import Ag2Icon from "@/components/ui/icons/ag2";
 import CrewaiIcon from "@/components/ui/icons/crewai";
@@ -16,6 +16,7 @@ import type { ComponentType } from "react";
 export type IntegrationName =
   | "built-in-agent"
   | "langgraph"
+  | "claude-agent-sdk"
   | "adk"
   | "microsoft-agent-framework"
   | "aws-strands"
@@ -47,6 +48,12 @@ const INTEGRATIONS: Integration[] = [
     label: "LangChain",
     description: "Build and deploy stateful AI agents with LangChain.",
     icon: LanggraphIcon,
+  },
+  {
+    name: "claude-agent-sdk",
+    label: "Claude Agent SDK",
+    description: "Anthropic's SDK for building AI agents with Claude.",
+    icon: ClaudeAgentSdkIcon,
   },
   {
     name: "adk",

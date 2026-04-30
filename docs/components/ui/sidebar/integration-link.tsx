@@ -17,7 +17,7 @@ import PydanticAiIcon from "../icons/pydantic-ai";
 import ChevronRightIcon from "../icons/chevron";
 import { MicrosoftIcon } from "../icons/microsoft";
 import { AwsStrandsIcon } from "../icons/aws-strands";
-import { AgentSpecMarkIcon, A2AIcon } from "@/lib/icons/custom-icons";
+import { AgentSpecMarkIcon, A2AIcon, ClaudeAgentSdkIcon } from "@/lib/icons/custom-icons";
 import { IntegrationId } from "@/lib/integrations";
 
 type Node = DocsLayoutProps["tree"]["children"][number] & {
@@ -44,6 +44,7 @@ const INTEGRATION_ICONS: Record<
   ag2: Ag2Icon,
   "agent-spec": AgentSpecMarkIcon,
   agno: AgnoIcon,
+  "claude-agent-sdk": ClaudeAgentSdkIcon,
   "crewai-flows": CrewaiIcon,
   "built-in-agent": CopilotKitMarkIcon,
   langgraph: LanggraphIcon,

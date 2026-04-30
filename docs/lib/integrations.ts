@@ -14,6 +14,7 @@
 export const INTEGRATION_ORDER = [
   "built-in-agent",
   "langgraph",
+  "claude-agent-sdk",
   "adk",
   "microsoft-agent-framework",
   "aws-strands",
@@ -51,6 +52,11 @@ export const INTEGRATION_METADATA: Record<
     label: "LangChain",
     href: "/langgraph",
     description: "Build and deploy stateful AI agents with LangChain.",
+  },
+  "claude-agent-sdk": {
+    label: "Claude Agent SDK",
+    href: "/claude-agent-sdk",
+    description: "Anthropic's SDK for building AI agents with Claude.",
   },
   adk: {
     label: "ADK",
