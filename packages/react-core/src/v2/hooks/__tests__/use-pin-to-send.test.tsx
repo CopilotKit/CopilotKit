@@ -33,9 +33,8 @@ function setHeight(el: HTMLElement, height: number) {
 function HarnessInner({ topOffset }: { topOffset: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const spacerRef = useRef<HTMLDivElement>(null);
 
-  usePinToSend({ scrollRef, contentRef, spacerRef, topOffset });
+  usePinToSend({ scrollRef, contentRef, topOffset });
 
   return (
     <div ref={scrollRef} data-testid="scroll">
@@ -50,7 +49,6 @@ function HarnessInner({ topOffset }: { topOffset: number }) {
           user msg 2
         </div>
       </div>
-      <div ref={spacerRef} data-testid="spacer" style={{ height: 0 }} />
     </div>
   );
 }
@@ -80,30 +78,42 @@ beforeEach(() => {
 });
 
 describe("usePinToSend", () => {
-  it("sets spacer height to viewportHeight - userMessageHeight - topOffset on new send", async () => {
+  it("sets content min-height to userMsgPos + viewportHeight - topOffset on new send", async () => {
     const { rerender, getByTestId } = render(
       <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
     );
 
     const scroll = getByTestId("scroll");
-    const spacer = getByTestId("spacer");
+    const content = getByTestId("content");
     setHeight(scroll, 800);
 
     const userMsg = scroll.querySelector(
       '[data-message-id="m3"]',
     ) as HTMLElement;
-    setHeight(userMsg, 40);
+    // Mock user msg at scroll offset 400, height 40, no top padding.
+    userMsg.getBoundingClientRect = () =>
+      ({
+        top: 400,
+        left: 0,
+        right: 100,
+        bottom: 440,
+        width: 100,
+        height: 40,
+        x: 0,
+        y: 400,
+        toJSON: () => ({}),
+      }) as DOMRect;
 
     act(() => {
       rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
     });
 
-    // viewport=800, userMsg=40, topOffset=16
-    // spacer = max(0, 800 - 40 - 16) = 744
-    expect(spacer.style.height).toBe("744px");
+    // userMsgPos=400, paddingTop=0, viewport=800, topOffset=16
+    // minHeight = 400 + 0 + 800 - 16 = 1184
+    expect(content.style.minHeight).toBe("1184px");
   });
 
-  it("calls scrollTo with targetEl.offsetTop - topOffset on new send", async () => {
+  it("calls scrollTo with userMsgPos + paddingTop - topOffset on new send", async () => {
     const { rerender, getByTestId } = render(
       <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
     );
@@ -115,7 +125,6 @@ describe("usePinToSend", () => {
     const userMsg = scroll.querySelector(
       '[data-message-id="m3"]',
     ) as HTMLElement;
-    setHeight(userMsg, 40);
     // computeOffsetTop uses getBoundingClientRect; mock top=400 on userMsg and top=0 on scroll
     // so that elRect.top - stopRect.top + scrollEl.scrollTop = 400 - 0 + 0 = 400.
     userMsg.getBoundingClientRect = () =>
@@ -146,50 +155,36 @@ describe("usePinToSend", () => {
     });
   });
 
-  it("shrinks spacer as content height grows (does not grow it)", async () => {
-    let observed: (() => void) | null = null;
-    const ROStub = vi.fn().mockImplementation((cb: () => void) => {
-      observed = cb;
-      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+  it("clears content min-height on cleanup so the next send resets the floor", async () => {
+    const { rerender, unmount, getByTestId } = render(
+      <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
+    );
+    const scroll = getByTestId("scroll");
+    const content = getByTestId("content");
+    setHeight(scroll, 800);
+    const userMsg = scroll.querySelector(
+      '[data-message-id="m3"]',
+    ) as HTMLElement;
+    userMsg.getBoundingClientRect = () =>
+      ({
+        top: 400,
+        left: 0,
+        right: 100,
+        bottom: 440,
+        width: 100,
+        height: 40,
+        x: 0,
+        y: 400,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    act(() => {
+      rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
     });
-    const prevRO = global.ResizeObserver;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    global.ResizeObserver = ROStub as any;
+    expect(content.style.minHeight).toBe("1184px");
 
-    try {
-      const { rerender, getByTestId } = render(
-        <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
-      );
-      const scroll = getByTestId("scroll");
-      const content = getByTestId("content");
-      const spacer = getByTestId("spacer");
-      setHeight(scroll, 800);
-      const userMsg = scroll.querySelector(
-        '[data-message-id="m3"]',
-      ) as HTMLElement;
-      setHeight(userMsg, 40);
-      setHeight(content, 200);
-
-      act(() => {
-        rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
-      });
-
-      // Initial: 800 - 40 - 16 = 744
-      expect(spacer.style.height).toBe("744px");
-
-      // Simulate content growing — spacer should shrink
-      setHeight(content, 600);
-      act(() => observed?.());
-      expect(parseInt(spacer.style.height, 10)).toBeLessThan(744);
-
-      // Simulate content shrinking — spacer should NOT grow back
-      setHeight(content, 100);
-      const shrunkHeight = spacer.style.height;
-      act(() => observed?.());
-      expect(spacer.style.height).toBe(shrunkHeight);
-    } finally {
-      global.ResizeObserver = prevRO;
-    }
+    unmount();
+    expect(content.style.minHeight).toBe("");
   });
 
   it("cancels the scheduled rAF on unmount (cleanup)", async () => {

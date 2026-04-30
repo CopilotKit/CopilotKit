@@ -35,7 +35,7 @@ async function waitForMount(screen: {
 }
 
 describe("CopilotChatView pin-to-send mode", () => {
-  it("renders the pin-to-send spacer element when autoScroll='pin-to-send'", async () => {
+  it("renders the pin-to-send content container when autoScroll='pin-to-send'", async () => {
     const screen = render(
       <TestWrapper>
         <LastUserMessageContext.Provider value={{ id: null, sendNonce: 0 }}>
@@ -44,30 +44,30 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
-    expect(spacer).not.toBeNull();
+    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    expect(content).not.toBeNull();
   });
 
-  it("does not render the spacer when autoScroll='pin-to-bottom'", async () => {
+  it("does not render the pin-to-send content marker when autoScroll='pin-to-bottom'", async () => {
     const screen = render(
       <TestWrapper>
         <CopilotChatView autoScroll="pin-to-bottom" messages={sampleMessages} />
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
-    expect(spacer).toBeNull();
+    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    expect(content).toBeNull();
   });
 
-  it("does not render the spacer when autoScroll='none'", async () => {
+  it("does not render the pin-to-send content marker when autoScroll='none'", async () => {
     const screen = render(
       <TestWrapper>
         <CopilotChatView autoScroll="none" messages={sampleMessages} />
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
-    expect(spacer).toBeNull();
+    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    expect(content).toBeNull();
   });
 
   it("boolean true still maps to pin-to-bottom (back-compat)", async () => {
@@ -77,8 +77,8 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
-    expect(spacer).toBeNull();
+    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    expect(content).toBeNull();
   });
 
   it("boolean false still maps to none (back-compat)", async () => {
@@ -88,7 +88,7 @@ describe("CopilotChatView pin-to-send mode", () => {
       </TestWrapper>,
     );
     await waitForMount(screen);
-    const spacer = screen.container.querySelector("[data-pin-to-send-spacer]");
-    expect(spacer).toBeNull();
+    const content = screen.container.querySelector("[data-pin-to-send-content]");
+    expect(content).toBeNull();
   });
 });

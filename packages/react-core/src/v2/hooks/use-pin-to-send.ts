@@ -4,19 +4,22 @@ import { LastUserMessageContext } from "../components/chat/last-user-message-con
 export type UsePinToSendOptions = {
   scrollRef: React.RefObject<HTMLElement | null>;
   contentRef: React.RefObject<HTMLElement | null>;
-  spacerRef: React.RefObject<HTMLElement | null>;
   topOffset?: number;
 };
 
+// Apply a transient min-height to the scroll content so the newly sent user
+// message can scroll to `topOffset` from the viewport top, then let natural
+// content (the streaming assistant response, suggestions, etc.) take over as
+// it grows past that floor. This mirrors the ChatGPT / Claude behavior:
+// user message pinned to top, response streams in below, no extra scrollable
+// whitespace tacked on after generation.
 export function usePinToSend({
   scrollRef,
   contentRef,
-  spacerRef,
   topOffset = 16,
 }: UsePinToSendOptions): void {
   const { id, sendNonce } = useContext(LastUserMessageContext);
   const lastNonceRef = useRef<number>(-1);
-  const currentSpacerHeightRef = useRef<number>(0);
 
   useEffect(() => {
     if (sendNonce === lastNonceRef.current) return;
@@ -25,8 +28,7 @@ export function usePinToSend({
     if (!id) return;
     const scrollEl = scrollRef.current;
     const contentEl = contentRef.current;
-    const spacerEl = spacerRef.current;
-    if (!scrollEl || !contentEl || !spacerEl) return;
+    if (!scrollEl || !contentEl) return;
 
     const escaped =
       typeof CSS !== "undefined" && CSS.escape
@@ -44,45 +46,34 @@ export function usePinToSend({
     // whatever was above the element too — including the previous message's
     // trailing copy button).
     const viewportHeight = scrollEl.clientHeight;
-    const userMessageHeight = targetEl.getBoundingClientRect().height;
     const paddingTop = parseFloat(getComputedStyle(targetEl).paddingTop) || 0;
-    const bubbleHeight = Math.max(0, userMessageHeight - paddingTop);
-    const spacerHeight = Math.max(0, viewportHeight - bubbleHeight - topOffset);
+    const userMsgOffsetInScroll = computeOffsetTop(targetEl, scrollEl);
 
-    spacerEl.style.height = `${spacerHeight}px`;
-    currentSpacerHeightRef.current = spacerHeight;
+    // The minimum scrollHeight that lets the bubble land at `topOffset` from
+    // the viewport top is: `bubbleTop + viewportHeight - topOffset`, where
+    // `bubbleTop = userMsgOffsetInScroll + paddingTop`. We apply this as a
+    // min-height on the content element. Once the natural content (response,
+    // padding, suggestions) grows past this floor, the floor is irrelevant
+    // and the layout reflects only the actual content — no leftover spacer
+    // whitespace at the bottom after generation.
+    const requiredScrollHeight =
+      userMsgOffsetInScroll + paddingTop + viewportHeight - topOffset;
+    contentEl.style.minHeight = `${Math.max(0, requiredScrollHeight)}px`;
 
     const raf = requestAnimationFrame(() => {
       // Scroll so the BUBBLE is `topOffset` from the viewport top — the
       // padding above the bubble ends up scrolled off-screen.
-      const targetTop =
-        computeOffsetTop(targetEl, scrollEl) + paddingTop - topOffset;
+      const targetTop = userMsgOffsetInScroll + paddingTop - topOffset;
       scrollEl.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
     });
 
-    // Shrink-only ResizeObserver: as the assistant response grows below the
-    // anchored user message, collapse the spacer by the same amount so total
-    // scrollable space below the bubble stays constant (and the bubble stays
-    // pinned). Never grow the spacer after initial sizing.
-    const ro = new ResizeObserver(() => {
-      if (!contentEl || !spacerEl || !scrollEl) return;
-      const contentHeight = contentEl.getBoundingClientRect().height;
-      const targetOffsetWithinContent = computeOffsetTop(targetEl, contentEl);
-      const consumedBelow =
-        contentHeight - targetOffsetWithinContent - userMessageHeight;
-      const remaining = Math.max(0, spacerHeight - consumedBelow);
-      if (remaining < currentSpacerHeightRef.current) {
-        spacerEl.style.height = `${remaining}px`;
-        currentSpacerHeightRef.current = remaining;
-      }
-    });
-    ro.observe(contentEl);
-
     return () => {
       cancelAnimationFrame(raf);
-      ro.disconnect();
+      // Clear the floor on cleanup so a subsequent send (with a different
+      // user-message position) starts from a clean slate.
+      contentEl.style.minHeight = "";
     };
-  }, [id, sendNonce, scrollRef, contentRef, spacerRef, topOffset]);
+  }, [id, sendNonce, scrollRef, contentRef, topOffset]);
 }
 
 // Compute the offset of el relative to stopAt, accounting for stopAt's current scrollTop.
