@@ -717,6 +717,7 @@ describe("HITL Thread Reconnection Bug", () => {
     // so the executing state is captured early and available when components mount.
 
     const agent = new MockReconnectableAgent();
+    const reconnectThreadId = "hitl-reconnect-thread";
 
     const HITLComponent: React.FC = () => {
       const hitlTool: ReactHumanInTheLoop<{ action: string }> = {
@@ -741,6 +742,8 @@ describe("HITL Thread Reconnection Bug", () => {
     // Phase 1: Initial render and run (user starts interaction)
     const { unmount } = renderWithCopilotKit({
       agent,
+      threadId: reconnectThreadId,
+      hasExplicitThreadId: true,
       children: (
         <>
           <HITLComponent />
@@ -797,6 +800,8 @@ describe("HITL Thread Reconnection Bug", () => {
     // Re-render with same thread (simulates reconnection)
     renderWithCopilotKit({
       agent,
+      threadId: reconnectThreadId,
+      hasExplicitThreadId: true,
       children: (
         <>
           <HITLComponent />

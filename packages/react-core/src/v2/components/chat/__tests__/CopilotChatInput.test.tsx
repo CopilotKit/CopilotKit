@@ -1522,24 +1522,42 @@ describe("CopilotChatInput", () => {
   describe("Scroll behavior", () => {
     it("does not call scrollIntoView when the textarea receives focus", async () => {
       const scrollIntoViewMock = vi.fn();
-      HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
-
-      renderWithProvider(
-        <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+      const originalScrollIntoViewDescriptor = Object.getOwnPropertyDescriptor(
+        HTMLElement.prototype,
+        "scrollIntoView",
       );
 
-      const textarea = screen.getByRole("textbox");
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        configurable: true,
+        value: scrollIntoViewMock,
+      });
 
-      // Trigger focus explicitly (autoFocus also triggers it, but let's be explicit)
-      fireEvent.focus(textarea);
+      try {
+        renderWithProvider(
+          <CopilotChatInput autoFocus onSubmitMessage={mockOnSubmitMessage} />,
+        );
 
-      // Wait long enough for the 300ms setTimeout inside the focus handler
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        const textarea = screen.getByRole("textbox");
 
-      expect(scrollIntoViewMock).not.toHaveBeenCalled();
+        // Trigger focus explicitly (autoFocus also triggers it, but let's be explicit)
+        fireEvent.focus(textarea);
 
-      // Clean up
-      delete (HTMLElement.prototype as any).scrollIntoView;
+        // Wait long enough for the 300ms setTimeout inside the focus handler
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        expect(scrollIntoViewMock).not.toHaveBeenCalled();
+      } finally {
+        if (originalScrollIntoViewDescriptor) {
+          Object.defineProperty(
+            HTMLElement.prototype,
+            "scrollIntoView",
+            originalScrollIntoViewDescriptor,
+          );
+        } else {
+          delete (HTMLElement.prototype as { scrollIntoView?: unknown })
+            .scrollIntoView;
+        }
+      }
     });
 
     it("does not auto-focus the textarea by default", () => {

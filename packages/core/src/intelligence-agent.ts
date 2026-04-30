@@ -59,6 +59,9 @@ interface IntelligenceAgentSharedState {
   lastSeenEventIds: Map<string, string>;
 }
 
+type ConnectRestoreIntent = "restore" | "reconnect";
+type ConnectRestoreOutcome = "fresh" | "restored";
+
 interface RealtimeConnectionInfo {
   clientUrl: string;
   topic: string;
@@ -99,6 +102,8 @@ export class IntelligenceAgent extends AbstractAgent {
   private activeChannel: Channel | null = null;
   private canonicalRunId: string | null = null;
   private sharedState: IntelligenceAgentSharedState;
+  private activeConnectReplayCursors = new Map<string, string | null>();
+  public lastConnectRestoreOutcome: ConnectRestoreOutcome | null = null;
 
   constructor(
     config: IntelligenceAgentConfig,
@@ -282,11 +287,20 @@ export class IntelligenceAgent extends AbstractAgent {
   protected connect(input: RunAgentInput): Observable<BaseEvent> {
     this.threadId = input.threadId;
     this.canonicalRunId = null;
-    this.clearReconnectCursor(input.threadId);
+    this.lastConnectRestoreOutcome = null;
+    const activeReplayThreadIds = new Set<string>([input.threadId]);
+    this.setActiveConnectReplayCursor(input.threadId, null);
+    let restoreObserved = false;
 
-    return defer(() => this.requestJoinCredentials$("connect", input)).pipe(
+    return defer(() =>
+      this.requestJoinCredentials$("connect", input, {
+        restoreIntent: "restore",
+      }),
+    ).pipe(
       switchMap((credentials) => {
         if (credentials === null) {
+          this.lastConnectRestoreOutcome = "fresh";
+          this.clearActiveConnectReplayCursors(activeReplayThreadIds);
           return EMPTY;
         }
 
@@ -295,11 +309,31 @@ export class IntelligenceAgent extends AbstractAgent {
           credentials,
           { fallbackToInputRunId: false },
         );
+        this.bindActiveConnectReplayCursor(
+          input.threadId,
+          canonicalInput.threadId,
+          activeReplayThreadIds,
+        );
 
         return this.observeThread$(canonicalInput, credentials, {
           completeOnRunError: false,
           streamMode: "connect",
-        });
+          replayCursor: null,
+          onRestoreObserved: () => {
+            restoreObserved = true;
+          },
+        }).pipe(
+          tap({
+            complete: () => {
+              if (restoreObserved) {
+                this.lastConnectRestoreOutcome = "restored";
+              }
+            },
+          }),
+        );
+      }),
+      finalize(() => {
+        this.clearActiveConnectReplayCursors(activeReplayThreadIds);
       }),
     );
   }
@@ -335,9 +369,19 @@ export class IntelligenceAgent extends AbstractAgent {
   private requestJoinCredentials$(
     mode: "run" | "connect",
     input: RunAgentInput,
+    options?: {
+      restoreIntent?: ConnectRestoreIntent;
+    },
   ): Observable<ThreadJoinCredentials | null> {
     return defer(async () => {
       try {
+        const connectRestore =
+          mode === "connect"
+            ? this.createConnectRestoreParameters(
+                input,
+                options?.restoreIntent ?? "restore",
+              )
+            : null;
         const response = await fetch(this.buildRuntimeUrl(mode), {
           method: "POST",
           headers: {
@@ -352,9 +396,7 @@ export class IntelligenceAgent extends AbstractAgent {
             context: input.context,
             state: input.state,
             forwardedProps: input.forwardedProps,
-            ...(mode === "connect"
-              ? { lastSeenEventId: this.getReconnectCursor(input) }
-              : {}),
+            ...(connectRestore ?? {}),
           }),
           ...(this.config.credentials
             ? { credentials: this.config.credentials }
@@ -439,6 +481,7 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      onRestoreObserved?: () => void;
     },
   ): Observable<BaseEvent> {
     return this.observeThreadSession$(input, credentials, options).pipe(
@@ -447,7 +490,9 @@ export class IntelligenceAgent extends AbstractAgent {
           return throwError(() => error);
         }
 
-        return this.requestJoinCredentials$("connect", input).pipe(
+        return this.requestJoinCredentials$("connect", input, {
+          restoreIntent: "reconnect",
+        }).pipe(
           switchMap((refreshedCredentials) =>
             refreshedCredentials === null
               ? EMPTY
@@ -476,6 +521,7 @@ export class IntelligenceAgent extends AbstractAgent {
       streamMode: "run" | "connect";
       channelMode?: "run" | "connect";
       replayCursor?: string | null;
+      onRestoreObserved?: () => void;
     },
   ): Observable<BaseEvent> {
     return defer(() => {
@@ -531,11 +577,13 @@ export class IntelligenceAgent extends AbstractAgent {
         input.threadId,
         channel$,
         REPLAY_COMPLETE_EVENT,
+        options,
       ).pipe(ignoreElements(), share());
       const streamIdle$ = this.observeControlEvent$(
         input.threadId,
         channel$,
         STREAM_IDLE_EVENT,
+        options,
       ).pipe(shareReplay({ bufferSize: 1, refCount: true }));
       const streamIdleCompletion$ =
         options.streamMode === "connect" ? streamIdle$.pipe(take(1)) : EMPTY;
@@ -574,7 +622,11 @@ export class IntelligenceAgent extends AbstractAgent {
   private observeThreadEvents$(
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
-    options: { completeOnRunError: boolean; streamMode: "run" | "connect" },
+    options: {
+      completeOnRunError: boolean;
+      streamMode: "run" | "connect";
+      onRestoreObserved?: () => void;
+    },
   ): Observable<BaseEvent> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
@@ -582,6 +634,7 @@ export class IntelligenceAgent extends AbstractAgent {
       ),
       tap((payload) => {
         this.updateLastSeenEventId(threadId, payload);
+        options.onRestoreObserved?.();
       }),
       mergeMap(
         (payload) =>
@@ -599,6 +652,7 @@ export class IntelligenceAgent extends AbstractAgent {
     threadId: string,
     channel$: Observable<ɵPhoenixChannelSession>,
     eventName: string,
+    options?: { onRestoreObserved?: () => void },
   ): Observable<unknown> {
     return channel$.pipe(
       switchMapOperator(({ channel }) =>
@@ -607,6 +661,9 @@ export class IntelligenceAgent extends AbstractAgent {
       tap((payload) =>
         this.updateLastSeenEventIdFromControl(threadId, payload),
       ),
+      tap(() => {
+        options?.onRestoreObserved?.();
+      }),
     );
   }
 
@@ -682,11 +739,72 @@ export class IntelligenceAgent extends AbstractAgent {
   }
 
   private getReconnectCursor(input: RunAgentInput): string | null {
+    if (this.activeConnectReplayCursors.has(input.threadId)) {
+      return this.activeConnectReplayCursors.get(input.threadId) ?? null;
+    }
     return this.getLastSeenEventId(input.threadId);
   }
 
-  private clearReconnectCursor(threadId: string): void {
-    this.sharedState.lastSeenEventIds.delete(threadId);
+  private setActiveConnectReplayCursor(
+    threadId: string,
+    eventId: string | null,
+  ): void {
+    this.activeConnectReplayCursors.set(threadId, eventId);
+  }
+
+  private bindActiveConnectReplayCursor(
+    sourceThreadId: string,
+    targetThreadId: string,
+    activeReplayThreadIds: Set<string>,
+  ): void {
+    activeReplayThreadIds.add(targetThreadId);
+
+    if (targetThreadId === sourceThreadId) {
+      return;
+    }
+
+    this.setActiveConnectReplayCursor(
+      targetThreadId,
+      this.activeConnectReplayCursors.get(sourceThreadId) ?? null,
+    );
+  }
+
+  private clearActiveConnectReplayCursor(threadId: string): void {
+    this.activeConnectReplayCursors.delete(threadId);
+  }
+
+  private clearActiveConnectReplayCursors(
+    threadIds: Iterable<string>,
+  ): void {
+    for (const threadId of threadIds) {
+      this.clearActiveConnectReplayCursor(threadId);
+    }
+  }
+
+  private createConnectRestoreParameters(
+    input: RunAgentInput,
+    restoreIntent: ConnectRestoreIntent,
+  ): {
+    lastSeenEventId: string | null;
+    restore: {
+      intent: ConnectRestoreIntent;
+      cursor: {
+        lastEventId: string | null;
+      };
+    };
+  } {
+    const lastEventId =
+      restoreIntent === "reconnect" ? this.getReconnectCursor(input) : null;
+
+    return {
+      lastSeenEventId: lastEventId,
+      restore: {
+        intent: restoreIntent,
+        cursor: {
+          lastEventId,
+        },
+      },
+    };
   }
 
   private updateLastSeenEventId(threadId: string, payload: BaseEvent): void {
@@ -696,6 +814,9 @@ export class IntelligenceAgent extends AbstractAgent {
     }
 
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    if (this.activeConnectReplayCursors.has(threadId)) {
+      this.setActiveConnectReplayCursor(threadId, eventId);
+    }
   }
 
   private updateLastSeenEventIdFromControl(
@@ -708,6 +829,9 @@ export class IntelligenceAgent extends AbstractAgent {
     }
 
     this.sharedState.lastSeenEventIds.set(threadId, eventId);
+    if (this.activeConnectReplayCursors.has(threadId)) {
+      this.setActiveConnectReplayCursor(threadId, eventId);
+    }
   }
 
   private readEventId(payload: BaseEvent): string | null {

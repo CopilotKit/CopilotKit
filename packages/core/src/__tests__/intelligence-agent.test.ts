@@ -118,6 +118,7 @@ interface IntelligenceAgentTestAccess {
   canonicalRunId: string | null;
   config: unknown;
   connect(input: RunAgentInput): Observable<BaseEvent>;
+  lastConnectRestoreOutcome: "fresh" | "restored" | null;
   messages: RunAgentInput["messages"];
   socket: MockSocket | null;
   threadId: string | undefined;
@@ -198,6 +199,12 @@ function getCanonicalRunIdForTest(
 
 function getConfigForTest(agent: IntelligenceAgentInstance): unknown {
   return getAgentTestAccess(agent).config;
+}
+
+function getLastConnectRestoreOutcomeForTest(
+  agent: IntelligenceAgentInstance,
+): "fresh" | "restored" | null {
+  return getAgentTestAccess(agent).lastConnectRestoreOutcome;
 }
 
 function replaceMessagesForTest(
@@ -687,6 +694,7 @@ describe("IntelligenceAgent", () => {
 
       const channel = getChannel(agent)!;
       channel.triggerJoin("ok");
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBeNull();
       channel.serverPush("ag_ui_event", {
         type: EventType.RUN_STARTED,
         threadId: "thread-1",
@@ -833,6 +841,15 @@ describe("IntelligenceAgent", () => {
       expect(channel.params).toEqual({
         stream_mode: "connect",
         last_seen_event_id: null,
+      });
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
+        lastSeenEventId: null,
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: null,
+          },
+        },
       });
 
       channel.triggerJoin("ok");
@@ -1006,6 +1023,7 @@ describe("IntelligenceAgent", () => {
       expect(result.events).toHaveLength(0);
       expect(result.socket).toBeNull();
       expect(result.channel).toBeNull();
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBe("fresh");
     });
 
     it("completes on RUN_ERROR from server", async () => {
@@ -1081,6 +1099,7 @@ describe("IntelligenceAgent", () => {
           content: "hello",
         },
       ]);
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBe("restored");
       expect(getCanonicalRunIdForTest(agent)).toBeNull();
       expect(channel.left).toBe(true);
     });
@@ -1185,6 +1204,7 @@ describe("IntelligenceAgent", () => {
         },
       });
       expect(completed).toBe(true);
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBe("restored");
       expect(getCanonicalRunIdForTest(agent)).toBeNull();
     });
 
@@ -1218,6 +1238,7 @@ describe("IntelligenceAgent", () => {
       const result = await promise;
       expect(result.error).toBeInstanceOf(Error);
       expect(result.error!.message).toContain("Failed to join channel");
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBeNull();
     });
 
     it("does not error the observable on a single channel crash (Phoenix retries)", async () => {
@@ -1240,7 +1261,7 @@ describe("IntelligenceAgent", () => {
       expect(error).toBeNull();
     });
 
-    it("reacquires connect credentials after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
+    it("reacquires connect credentials with a reconnect cursor after MAX_CONSECUTIVE_ERRORS socket errors", async () => {
       mockFetch.mockResolvedValueOnce(
         await jsonResponse(runtimeCredentials({ joinToken: "jt-1" })),
       );
@@ -1255,7 +1276,15 @@ describe("IntelligenceAgent", () => {
       });
       await waitForConnection(agent);
 
-      getChannel(agent)!.triggerJoin("ok");
+      const firstChannel = getChannel(agent)!;
+      firstChannel.triggerJoin("ok");
+      firstChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "event-2",
+          cpki_event_seq: 2,
+        },
+      } as BaseEvent);
 
       for (let i = 0; i < 5; i++) {
         getSocket(agent)!.triggerError(new Error("network failure"));
@@ -1264,8 +1293,211 @@ describe("IntelligenceAgent", () => {
       await waitForConnection(agent);
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(JSON.parse(mockFetch.mock.calls[0]![1].body)).toMatchObject({
+        lastSeenEventId: null,
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: null,
+          },
+        },
+      });
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: "event-2",
+        restore: {
+          intent: "reconnect",
+          cursor: {
+            lastEventId: "event-2",
+          },
+        },
+      });
       expect(getSocket(agent)!.opts.params).toMatchObject({
         join_token: "jt-2",
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: "event-2",
+      });
+    });
+
+    it("keeps a clean replay baseline across an early reconnect before replay advances", async () => {
+      const agent = createAgent();
+      agent.run(defaultInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const runChannel = getChannel(agent)!;
+      runChannel.triggerJoin("ok");
+      runChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "stale-event-9",
+          cpki_event_seq: 9,
+        },
+      } as BaseEvent);
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ joinToken: "jt-restore-1" })),
+      );
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ joinToken: "jt-restore-2" })),
+      );
+
+      connectWithTestAccess(agent, defaultInput).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const restoreChannel = getChannel(agent)!;
+      restoreChannel.triggerJoin("ok");
+
+      for (let index = 0; index < 5; index += 1) {
+        getSocket(agent)!.triggerError(new Error("network failure"));
+      }
+
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        lastSeenEventId: null,
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: null,
+          },
+        },
+      });
+      expect(JSON.parse(mockFetch.mock.calls[2]![1].body)).toMatchObject({
+        lastSeenEventId: null,
+        restore: {
+          intent: "reconnect",
+          cursor: {
+            lastEventId: null,
+          },
+        },
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
+      });
+    });
+
+    it("does not settle restored when replay is observed before reconnect fetch fails", async () => {
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(runtimeCredentials({ joinToken: "jt-restore-1" })),
+      );
+      mockFetch.mockRejectedValueOnce(new Error("reconnect fetch failed"));
+
+      const agent = createAgent();
+      const promise = connectAgent(agent);
+      await waitForConnection(agent);
+
+      const channel = getChannel(agent)!;
+      channel.triggerJoin("ok");
+      channel.serverPush("ag_ui_event", {
+        type: EventType.RUN_STARTED,
+        threadId: "thread-1",
+        run_id: "backend-run-1",
+        input: { messages: [] },
+      } as BaseEvent);
+      channel.serverPush("replay_complete", { latestEventId: "event-2" });
+
+      for (let index = 0; index < 5; index += 1) {
+        getSocket(agent)!.triggerError(new Error("network failure"));
+      }
+
+      const result = await promise;
+
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error!.message).toContain("REST connect request failed");
+      expect(result.events).toEqual([
+        {
+          type: EventType.RUN_STARTED,
+          threadId: "thread-1",
+          run_id: "backend-run-1",
+          input: { messages: [] },
+        },
+      ]);
+      expect(getLastConnectRestoreOutcomeForTest(agent)).toBeNull();
+    });
+
+    it("keeps the clean replay baseline across canonical thread remapping before replay advances", async () => {
+      const agent = createAgent();
+      const canonicalRunInput: RunAgentInput = {
+        ...defaultInput,
+        threadId: "canonical-thread",
+      };
+
+      agent.run(canonicalRunInput).subscribe({ next: () => {}, error: () => {} });
+      await waitForConnection(agent);
+
+      const canonicalRunChannel = getChannel(agent)!;
+      canonicalRunChannel.triggerJoin("ok");
+      canonicalRunChannel.serverPush("ag_ui_event", {
+        type: EventType.TEXT_MESSAGE_CONTENT,
+        metadata: {
+          cpki_event_id: "stale-canonical-event-4",
+          cpki_event_seq: 4,
+        },
+      } as BaseEvent);
+
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(
+          runtimeCredentials({
+            threadId: "canonical-thread",
+            joinToken: "jt-remap-1",
+          }),
+        ),
+      );
+      mockFetch.mockResolvedValueOnce(
+        await jsonResponse(
+          runtimeCredentials({
+            threadId: "canonical-thread",
+            joinToken: "jt-remap-2",
+          }),
+        ),
+      );
+
+      connectWithTestAccess(agent, {
+        ...defaultInput,
+        threadId: "alias-thread",
+      }).subscribe({
+        next: () => {},
+        error: () => {},
+      });
+      await waitForConnection(agent);
+
+      const remappedChannel = getChannel(agent)!;
+      remappedChannel.triggerJoin("ok");
+
+      for (let index = 0; index < 5; index += 1) {
+        getSocket(agent)!.triggerError(new Error("network failure"));
+      }
+
+      await waitForConnection(agent);
+
+      expect(JSON.parse(mockFetch.mock.calls[1]![1].body)).toMatchObject({
+        threadId: "alias-thread",
+        lastSeenEventId: null,
+        restore: {
+          intent: "restore",
+          cursor: {
+            lastEventId: null,
+          },
+        },
+      });
+      expect(JSON.parse(mockFetch.mock.calls[2]![1].body)).toMatchObject({
+        threadId: "canonical-thread",
+        lastSeenEventId: null,
+        restore: {
+          intent: "reconnect",
+          cursor: {
+            lastEventId: null,
+          },
+        },
+      });
+      expect(getChannel(agent)!.params).toEqual({
+        stream_mode: "connect",
+        last_seen_event_id: null,
       });
     });
 
@@ -1442,5 +1674,12 @@ describe("ProxiedCopilotRuntimeAgent (intelligence mode)", () => {
     await promise;
 
     expect(agent.state).toEqual(finalSnapshot);
+    expect(
+      (
+        agent as ProxiedCopilotRuntimeAgent & {
+          lastConnectRestoreOutcome: "fresh" | "restored" | null;
+        }
+      ).lastConnectRestoreOutcome,
+    ).toBe("restored");
   });
 });

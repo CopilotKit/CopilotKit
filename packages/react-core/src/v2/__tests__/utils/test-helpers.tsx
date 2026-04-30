@@ -164,6 +164,7 @@ export function renderWithCopilotKit({
   humanInTheLoop,
   agentId,
   threadId,
+  hasExplicitThreadId,
   defaultThrottleMs,
   children,
 }: {
@@ -176,12 +177,14 @@ export function renderWithCopilotKit({
   humanInTheLoop?: any[];
   agentId?: string;
   threadId?: string;
+  hasExplicitThreadId?: boolean;
   defaultThrottleMs?: number;
   children?: React.ReactNode;
 }): ReturnType<typeof render> {
   const resolvedAgents = agents || (agent ? { default: agent } : undefined);
   const resolvedAgentId = agentId ?? DEFAULT_AGENT_ID;
   const resolvedThreadId = threadId ?? "test-thread";
+  const resolvedHasExplicitThreadId = hasExplicitThreadId ?? false;
 
   return render(
     <CopilotKitProvider
@@ -196,6 +199,7 @@ export function renderWithCopilotKit({
       <CopilotChatConfigurationProvider
         agentId={resolvedAgentId}
         threadId={resolvedThreadId}
+        hasExplicitThreadId={resolvedHasExplicitThreadId}
       >
         {children || (
           <div style={{ height: 400 }}>

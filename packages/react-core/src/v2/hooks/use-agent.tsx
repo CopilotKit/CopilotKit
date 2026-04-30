@@ -15,6 +15,8 @@ export enum UseAgentUpdate {
   OnRunStatusChanged = "OnRunStatusChanged",
 }
 
+type ConnectRestoreOutcome = "fresh" | "restored";
+
 const ALL_UPDATES: UseAgentUpdate[] = [
   UseAgentUpdate.OnMessagesChanged,
   UseAgentUpdate.OnStateChanged,
@@ -70,6 +72,13 @@ function cloneForThread(
   clone.threadId = threadId;
   clone.setMessages([]);
   clone.setState({});
+  if ("lastConnectRestoreOutcome" in clone) {
+    (
+      clone as AbstractAgent & {
+        lastConnectRestoreOutcome?: ConnectRestoreOutcome | null;
+      }
+    ).lastConnectRestoreOutcome = null;
+  }
   if (clone instanceof HttpAgent) {
     clone.headers = { ...headers };
   }

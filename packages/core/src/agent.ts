@@ -31,6 +31,16 @@ interface RunnableAgent {
   run(input: RunAgentInput): Observable<BaseEvent>;
 }
 
+type ConnectRestoreOutcome = "fresh" | "restored";
+
+function hasConnectRestoreOutcome(
+  agent: AbstractAgent,
+): agent is AbstractAgent & {
+  lastConnectRestoreOutcome: ConnectRestoreOutcome | null;
+} {
+  return "lastConnectRestoreOutcome" in agent;
+}
+
 function hasHeaders(
   agent: AbstractAgent,
 ): agent is AbstractAgent & { headers?: Record<string, string> } {
@@ -88,6 +98,7 @@ export interface ProxiedCopilotRuntimeAgentConfig extends Omit<
 export class ProxiedCopilotRuntimeAgent extends HttpAgent {
   runtimeUrl?: string;
   credentials?: RequestCredentials;
+  public lastConnectRestoreOutcome: ConnectRestoreOutcome | null = null;
   private transport: CopilotRuntimeTransport;
   private singleEndpointUrl?: string;
   private runtimeMode: ResolvedRuntimeMode;
@@ -222,6 +233,8 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
       return super.connectAgent(parameters, subscriber);
     }
 
+    this.lastConnectRestoreOutcome = null;
+
     // If the delegate already has an active run (e.g. from a previous
     // connectAgent call that hasn't finished yet), detach it first.  This
     // ensures only one run is active on the delegate at a time — without it,
@@ -275,6 +288,9 @@ export class ProxiedCopilotRuntimeAgent extends HttpAgent {
 
     try {
       const result = await delegate.connectAgent(parameters, subscriber);
+      if (hasConnectRestoreOutcome(delegate)) {
+        this.lastConnectRestoreOutcome = delegate.lastConnectRestoreOutcome;
+      }
 
       // Final sync to guarantee the proxy reflects the delegate's end state.
       this.setMessages([...delegate.messages]);

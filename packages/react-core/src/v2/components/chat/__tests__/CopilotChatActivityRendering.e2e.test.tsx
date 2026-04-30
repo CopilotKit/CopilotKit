@@ -376,6 +376,7 @@ describe("CopilotChat activity message rendering", () => {
     const { unmount } = renderWithCopilotKit({
       agent,
       threadId,
+      hasExplicitThreadId: true,
       renderActivityMessages: [a2uiRenderer],
     });
 
@@ -435,6 +436,7 @@ describe("CopilotChat activity message rendering", () => {
     renderWithCopilotKit({
       agent,
       threadId,
+      hasExplicitThreadId: true,
       renderActivityMessages: [a2uiRenderer],
     });
 
@@ -475,6 +477,7 @@ describe("CopilotChat activity message rendering", () => {
       renderWithCopilotKit({
         agent,
         threadId,
+        hasExplicitThreadId: true,
         renderActivityMessages: [a2uiRenderer],
       });
 

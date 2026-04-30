@@ -102,6 +102,12 @@ export type CopilotChatViewProps = WithSlots<
      */
     hasExplicitThreadId?: boolean;
     /**
+     * Internal welcome-screen suppression flag used by CopilotChat to
+     * distinguish restored explicit threads from fresh/unknown outcomes
+     * without changing the meaning of `hasExplicitThreadId` for custom views.
+     */
+    suppressWelcomeScreen?: boolean;
+    /**
      * @deprecated Use the `input` slot's `disclaimer` prop instead:
      * ```tsx
      * <CopilotChat input={{ disclaimer: MyDisclaimer }} />
@@ -110,6 +116,8 @@ export type CopilotChatViewProps = WithSlots<
     disclaimer?: SlotValue<React.FC<React.HTMLAttributes<HTMLDivElement>>>;
   } & React.HTMLAttributes<HTMLDivElement>
 >;
+
+type EmptyInputSurface = "welcome" | "chat";
 
 function DropOverlay() {
   return (
@@ -161,6 +169,7 @@ export function CopilotChatView({
   onDrop,
   isConnecting = false,
   hasExplicitThreadId = false,
+  suppressWelcomeScreen,
   // Deprecated — forwarded to input slot
   disclaimer,
   children,
@@ -171,6 +180,7 @@ export function CopilotChatView({
   const [inputContainerHeight, setInputContainerHeight] = useState(0);
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const emptySurfaceBlurTimeoutRef = useRef<number | null>(null);
 
   // Track keyboard state for mobile
   const { isKeyboardOpen, keyboardHeight, availableHeight } =
@@ -291,6 +301,7 @@ export function CopilotChatView({
 
   // Welcome screen logic
   const isEmpty = messages.length === 0;
+  const hasDraftInput = (inputValue ?? "").trim().length > 0;
   // Type assertion needed because TypeScript doesn't fully propagate `| boolean` through WithSlots
   const welcomeScreenDisabled = (welcomeScreen as unknown) === false;
   // Suppress the welcome screen (1) while the initial connect is in flight
@@ -298,8 +309,78 @@ export function CopilotChatView({
   // managed case targets a conversation directly, so the generic welcome
   // greeting is never the right thing to show — even for a thread that
   // happens to have no messages yet.
+  const effectiveSuppressWelcomeScreen =
+    suppressWelcomeScreen !== undefined
+      ? suppressWelcomeScreen
+      : hasExplicitThreadId;
+
+  const shouldShowWelcomeScreenBase =
+    isEmpty &&
+    !welcomeScreenDisabled &&
+    !isConnecting &&
+    !effectiveSuppressWelcomeScreen;
+
+  const lastEmptySurfaceRef = useRef<"welcome" | "chat">(
+    shouldShowWelcomeScreenBase ? "welcome" : "chat",
+  );
+  const [focusedEmptySurface, setFocusedEmptySurface] =
+    useState<EmptyInputSurface | null>(null);
+
+  const clearEmptySurfaceBlurTimeout = useCallback(() => {
+    if (emptySurfaceBlurTimeoutRef.current !== null) {
+      window.clearTimeout(emptySurfaceBlurTimeoutRef.current);
+      emptySurfaceBlurTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearEmptySurfaceBlurTimeout();
+    };
+  }, [clearEmptySurfaceBlurTimeout]);
+
+  const handleEmptySurfaceFocus = useCallback(
+    (surface: EmptyInputSurface) => {
+      clearEmptySurfaceBlurTimeout();
+      lastEmptySurfaceRef.current = surface;
+      setFocusedEmptySurface(surface);
+    },
+    [clearEmptySurfaceBlurTimeout],
+  );
+
+  const handleEmptySurfaceBlur = useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const currentTarget = event.currentTarget;
+      clearEmptySurfaceBlurTimeout();
+      emptySurfaceBlurTimeoutRef.current = window.setTimeout(() => {
+        if (!currentTarget.contains(document.activeElement)) {
+          setFocusedEmptySurface(null);
+        }
+        emptySurfaceBlurTimeoutRef.current = null;
+      }, 0);
+    },
+    [clearEmptySurfaceBlurTimeout],
+  );
+
+  useEffect(() => {
+    if (isEmpty && !hasDraftInput) {
+      lastEmptySurfaceRef.current = shouldShowWelcomeScreenBase
+        ? "welcome"
+        : "chat";
+    }
+  }, [hasDraftInput, isEmpty, shouldShowWelcomeScreenBase]);
+
+  // Keep the active empty-state input surface stable while the first draft is
+  // in progress. Without this, an explicit thread that settles from
+  // connecting -> fresh/unknown can swap between the overlay input and the
+  // welcome-screen input mid-keystroke, dropping the first submit. The same
+  // race can occur slightly earlier, while the user is focused in the empty
+  // input but the controlled draft state has not propagated yet.
   const shouldShowWelcomeScreen =
-    isEmpty && !welcomeScreenDisabled && !isConnecting && !hasExplicitThreadId;
+    isEmpty &&
+    (hasDraftInput || focusedEmptySurface !== null
+      ? lastEmptySurfaceRef.current === "welcome"
+      : shouldShowWelcomeScreenBase);
 
   if (shouldShowWelcomeScreen) {
     // Create a separate input for welcome screen with static positioning and disclaimer visible
@@ -326,7 +407,11 @@ export function CopilotChatView({
     ) as SlotValue<React.FC<WelcomeScreenProps>> | undefined;
     // Wrap the input with attachment queue above it
     const inputWithAttachments = (
-      <div className="cpk:w-full">
+      <div
+        className="cpk:w-full"
+        onBlurCapture={handleEmptySurfaceBlur}
+        onFocusCapture={() => handleEmptySurfaceFocus("welcome")}
+      >
         {attachments && attachments.length > 0 && (
           <CopilotChatAttachmentQueue
             attachments={attachments}
@@ -401,6 +486,8 @@ export function CopilotChatView({
         ref={inputContainerRef}
         data-testid="copilot-input-overlay"
         className="cpk:absolute cpk:bottom-0 cpk:left-0 cpk:right-0 cpk:z-20 cpk:pointer-events-none"
+        onBlurCapture={handleEmptySurfaceBlur}
+        onFocusCapture={() => handleEmptySurfaceFocus("chat")}
       >
         {attachments && attachments.length > 0 && (
           <div className="cpk:max-w-3xl cpk:mx-auto cpk:w-full cpk:pointer-events-auto">

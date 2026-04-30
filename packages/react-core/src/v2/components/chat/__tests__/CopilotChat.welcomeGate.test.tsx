@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
 import { CopilotChatConfigurationProvider } from "../../../providers/CopilotChatConfigurationProvider";
@@ -17,21 +17,65 @@ class TrackingAgent extends MockStepwiseAgent {
     threadId: string | undefined;
     agentId: string | undefined;
   }> = [];
+  static connectPlans: Array<{
+    outcome: "fresh" | "restored" | null;
+    deferred?: boolean;
+    transientRestoreObserved?: boolean;
+    error?: Error;
+  }> = [{ outcome: "restored" }];
+  static pendingConnectResolvers: Array<() => void> = [];
+  public lastConnectRestoreOutcome: "fresh" | "restored" | null = null;
 
   static reset() {
     TrackingAgent.connectCalls = [];
+    TrackingAgent.connectPlans = [{ outcome: "restored" }];
+    TrackingAgent.pendingConnectResolvers = [];
+  }
+
+  static resolveNextConnect() {
+    const resolver = TrackingAgent.pendingConnectResolvers.shift();
+    resolver?.();
   }
 
   async connectAgent(
     _params: unknown,
     _subscriber: unknown,
   ): Promise<{ result: unknown; newMessages: [] }> {
+    const plan =
+      TrackingAgent.connectPlans.shift() ?? { outcome: "restored" as const };
+    this.lastConnectRestoreOutcome = plan.transientRestoreObserved
+      ? "restored"
+      : plan.outcome;
     TrackingAgent.connectCalls.push({
       threadId: this.threadId,
       agentId: this.agentId,
     });
+    if (plan.deferred) {
+      await new Promise<void>((resolve) => {
+        TrackingAgent.pendingConnectResolvers.push(resolve);
+      });
+    }
+    if (plan.error) {
+      this.lastConnectRestoreOutcome = plan.outcome;
+      throw plan.error;
+    }
     return { result: undefined, newMessages: [] };
   }
+}
+
+function CustomViewProbe({
+  hasExplicitThreadId,
+  isConnecting,
+}: {
+  hasExplicitThreadId?: boolean;
+  isConnecting?: boolean;
+}) {
+  return (
+    <div>
+      <div data-testid="custom-explicit">{String(hasExplicitThreadId)}</div>
+      <div data-testid="custom-connecting">{String(isConnecting)}</div>
+    </div>
+  );
 }
 
 function renderWithKit(ui: React.ReactNode, agent: TrackingAgent) {
@@ -61,6 +105,7 @@ describe("CopilotChat welcome / connect integration", () => {
 
   describe("v1 bridge scenario (config provider marks threadId as non-explicit)", () => {
     it("does not call connectAgent and shows the welcome screen", async () => {
+      TrackingAgent.connectPlans = [{ outcome: null }];
       const agent = new TrackingAgent();
       agent.agentId = DEFAULT_AGENT_ID;
 
@@ -80,6 +125,29 @@ describe("CopilotChat welcome / connect integration", () => {
       expect(TrackingAgent.connectCalls).toHaveLength(0);
       expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
     });
+
+    it("submits the first message from the non-explicit welcome path", async () => {
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(
+        <CopilotChatConfigurationProvider
+          threadId="auto-minted-uuid"
+          hasExplicitThreadId={false}
+        >
+          <CopilotChat />
+        </CopilotChatConfigurationProvider>,
+        agent,
+      );
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Bridge submit" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Bridge submit")).toBeDefined();
+      });
+    });
   });
 
   describe("plain CopilotChat (no threadId anywhere)", () => {
@@ -93,6 +161,21 @@ describe("CopilotChat welcome / connect integration", () => {
 
       expect(TrackingAgent.connectCalls).toHaveLength(0);
       expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+    });
+
+    it("submits the first message from the local welcome path", async () => {
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat />, agent);
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Local submit" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Local submit")).toBeDefined();
+      });
     });
   });
 
@@ -113,8 +196,196 @@ describe("CopilotChat welcome / connect integration", () => {
       ).toBe(true);
 
       // Welcome screen is suppressed even after connect resolves, because the
-      // thread was caller-picked (hasExplicitThreadId=true).
+      // thread resolved to a persisted restore rather than a fresh 204 thread.
       expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+    });
+
+    it("shows the welcome screen after an explicit thread settles as fresh", async () => {
+      TrackingAgent.connectPlans = [{ outcome: "fresh" }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="fresh-thread" />, agent);
+
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some((c) => c.threadId === "fresh-thread"),
+        ).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
+    });
+
+    it("shows the welcome screen after an explicit thread settles with an unknown outcome", async () => {
+      TrackingAgent.connectPlans = [{ outcome: null }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="unknown-thread" />, agent);
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some((c) => c.threadId === "unknown-thread"),
+        ).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
+    });
+
+    it("submits from the welcome-screen input after an explicit unknown settle", async () => {
+      TrackingAgent.connectPlans = [{ outcome: null }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="welcome-thread" />, agent);
+
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
+
+      const input = screen.getByRole("textbox");
+      fireEvent.change(input, { target: { value: "Welcome submit" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Welcome submit")).toBeDefined();
+      });
+    });
+
+    it("shows the welcome screen when replay is observed but connect still fails", async () => {
+      TrackingAgent.connectPlans = [
+        {
+          outcome: null,
+          transientRestoreObserved: true,
+          error: new Error("reconnect fetch failed"),
+        },
+      ];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="failed-restore-thread" />, agent);
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some(
+            (c) => c.threadId === "failed-restore-thread",
+          ),
+        ).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
+    });
+
+    it("preserves hasExplicitThreadId for custom chat views after a fresh outcome", async () => {
+      TrackingAgent.connectPlans = [{ outcome: "fresh" }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(
+        <CopilotChat
+          threadId="fresh-thread"
+          chatView={CustomViewProbe}
+          welcomeScreen={false}
+        />,
+        agent,
+      );
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some((c) => c.threadId === "fresh-thread"),
+        ).toBe(true);
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("custom-explicit").textContent).toBe("true");
+        expect(screen.getByTestId("custom-connecting").textContent).toBe(
+          "false",
+        );
+      });
+    });
+
+    it("does not drop the first submit when a fresh settle lands after typing begins", async () => {
+      TrackingAgent.connectPlans = [{ outcome: "fresh", deferred: true }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="fresh-thread" />, agent);
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "First submit" } });
+
+      TrackingAgent.resolveNextConnect();
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("First submit")).toBeDefined();
+      });
+
+      fireEvent.keyDown(screen.getByRole("textbox"), {
+        key: "Enter",
+        code: "Enter",
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("First submit")).toBeDefined();
+      });
+    });
+
+    it("does not drop the first submit when an unknown settle lands after typing begins", async () => {
+      TrackingAgent.connectPlans = [{ outcome: null, deferred: true }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="unknown-thread" />, agent);
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.change(input, { target: { value: "Unknown submit" } });
+
+      TrackingAgent.resolveNextConnect();
+
+      await waitFor(() => {
+        expect(screen.getByDisplayValue("Unknown submit")).toBeDefined();
+      });
+
+      fireEvent.keyDown(screen.getByRole("textbox"), {
+        key: "Enter",
+        code: "Enter",
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Unknown submit")).toBeDefined();
+      });
+    });
+
+    it("keeps the focused empty input stable when an unknown settle lands before draft state propagates", async () => {
+      TrackingAgent.connectPlans = [{ outcome: null, deferred: true }];
+      const agent = new TrackingAgent();
+      agent.agentId = DEFAULT_AGENT_ID;
+
+      renderWithKit(<CopilotChat threadId="unknown-thread" />, agent);
+
+      const input = await screen.findByRole("textbox");
+      fireEvent.focus(input);
+
+      TrackingAgent.resolveNextConnect();
+
+      await waitFor(() => {
+        expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+      });
+
+      fireEvent.change(input, { target: { value: "Focused submit" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+
+      await waitFor(() => {
+        expect(screen.getByText("Focused submit")).toBeDefined();
+      });
     });
   });
 
@@ -181,6 +452,68 @@ describe("CopilotChat welcome / connect integration", () => {
       });
       // And after thread-b's connect resolves.
       expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+    });
+  });
+
+  describe("same-thread reconnect settlement", () => {
+    it("re-enters the connecting path for a new same-thread connect attempt", async () => {
+      TrackingAgent.connectPlans = [{ outcome: "restored" }];
+      const firstAgent = new TrackingAgent();
+      firstAgent.agentId = "agent-a";
+      const secondAgent = new TrackingAgent();
+      secondAgent.agentId = "agent-b";
+
+      const { rerender } = render(
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "agent-a": firstAgent,
+            "agent-b": secondAgent,
+          }}
+        >
+          <div style={{ height: 400 }}>
+            <CopilotChat agentId="agent-a" threadId="same-thread" />
+          </div>
+        </CopilotKitProvider>,
+      );
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some(
+            (c) => c.threadId === "same-thread" && c.agentId === "agent-a",
+          ),
+        ).toBe(true);
+      });
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      TrackingAgent.connectPlans = [{ outcome: "fresh", deferred: true }];
+      rerender(
+        <CopilotKitProvider
+          agents__unsafe_dev_only={{
+            "agent-a": firstAgent,
+            "agent-b": secondAgent,
+          }}
+        >
+          <div style={{ height: 400 }}>
+            <CopilotChat agentId="agent-b" threadId="same-thread" />
+          </div>
+        </CopilotKitProvider>,
+      );
+
+      expect(screen.queryByTestId("copilot-welcome-screen")).toBeNull();
+
+      await waitFor(() => {
+        expect(
+          TrackingAgent.connectCalls.some(
+            (c) => c.threadId === "same-thread" && c.agentId === "agent-b",
+          ),
+        ).toBe(true);
+      });
+
+      TrackingAgent.resolveNextConnect();
+
+      await waitFor(() => {
+        expect(screen.getByTestId("copilot-welcome-screen")).toBeDefined();
+      });
     });
   });
 });

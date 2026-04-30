@@ -84,6 +84,46 @@ export type CopilotChatProps = Omit<
    */
   throttleMs?: number;
 };
+
+type ConnectRestoreOutcome = "fresh" | "restored";
+
+type ConnectSettlementState = {
+  attemptKey: string;
+  outcome: ConnectRestoreOutcome | "unknown";
+  status: "pending" | "settled";
+};
+
+const agentInstanceIds = new WeakMap<AbstractAgent, number>();
+let nextAgentInstanceId = 1;
+
+function getAgentInstanceId(agent: AbstractAgent): number {
+  const existingId = agentInstanceIds.get(agent);
+  if (existingId !== undefined) {
+    return existingId;
+  }
+
+  const assignedId = nextAgentInstanceId;
+  nextAgentInstanceId += 1;
+  agentInstanceIds.set(agent, assignedId);
+  return assignedId;
+}
+
+function readConnectRestoreOutcome(
+  agent: AbstractAgent,
+): ConnectRestoreOutcome | null {
+  if (!("lastConnectRestoreOutcome" in agent)) {
+    return null;
+  }
+
+  const outcome = (
+    agent as AbstractAgent & {
+      lastConnectRestoreOutcome?: unknown;
+    }
+  ).lastConnectRestoreOutcome;
+
+  return outcome === "fresh" || outcome === "restored" ? outcome : null;
+}
+
 export function CopilotChat({
   agentId,
   threadId,
@@ -204,17 +244,31 @@ export function CopilotChat({
     onStop: providedStopHandler,
     ...restProps
   } = props;
+  const connectAttemptCounterRef = useRef(0);
+  const connectTargetKey = hasExplicitThreadId
+    ? `${resolvedThreadId}:${resolvedAgentId}:${getAgentInstanceId(agent)}`
+    : null;
 
-  // Tracks the last threadId for which connectAgent has completed (success or
-  // failure). When the user supplies a threadId, we're in "resume existing
-  // thread" mode — the welcome screen should be suppressed until the connect
-  // resolves, otherwise switching threads flashes the welcome screen while the
-  // new thread's messages are still en route.
-  const [lastConnectedThreadId, setLastConnectedThreadId] = useState<
-    string | null
-  >(null);
-  const isConnecting =
-    hasExplicitThreadId && lastConnectedThreadId !== resolvedThreadId;
+  // Tracks the active connect attempt for the current explicit-thread target.
+  // Keying by an attempt id rather than threadId alone ensures same-thread
+  // reconnects or agent replacement re-enter the connecting path cleanly.
+  const [lastConnectSettlement, setLastConnectSettlement] =
+    useState<ConnectSettlementState | null>(null);
+  const activeConnectSettlement =
+    connectTargetKey &&
+    lastConnectSettlement?.attemptKey.startsWith(`${connectTargetKey}:`)
+      ? lastConnectSettlement
+      : null;
+  const settledOutcome =
+    activeConnectSettlement?.status === "settled"
+      ? activeConnectSettlement.outcome
+      : null;
+  const isConnecting = hasExplicitThreadId
+    ? activeConnectSettlement === null ||
+      activeConnectSettlement.status === "pending"
+    : false;
+  const shouldSuppressWelcomeForThread =
+    hasExplicitThreadId && settledOutcome === "restored";
 
   useEffect(() => {
     // When the caller hasn't picked a specific thread, resolvedThreadId is a
@@ -225,6 +279,13 @@ export function CopilotChat({
     if (!hasExplicitThreadId) return;
 
     let detached = false;
+    connectAttemptCounterRef.current += 1;
+    const connectAttemptKey = `${connectTargetKey}:${connectAttemptCounterRef.current}`;
+    setLastConnectSettlement({
+      attemptKey: connectAttemptKey,
+      outcome: "unknown",
+      status: "pending",
+    });
 
     // Create a fresh AbortController so we can cancel the HTTP request on cleanup.
     // HttpAgent (parent of ProxiedCopilotRuntimeAgent) uses this.abortController.signal
@@ -259,8 +320,15 @@ export function CopilotChat({
             typeof requestAnimationFrame === "function"
               ? requestAnimationFrame
               : (cb: () => void) => setTimeout(cb, 16);
+          const outcome = readConnectRestoreOutcome(agent) ?? "unknown";
           raf(() => {
-            if (!detached) setLastConnectedThreadId(resolvedThreadId);
+            if (!detached) {
+              setLastConnectSettlement({
+                attemptKey: connectAttemptKey,
+                outcome,
+                status: "settled",
+              });
+            }
           });
         }
       }
@@ -280,7 +348,7 @@ export function CopilotChat({
     };
     // copilotkit is intentionally excluded — it is a stable ref that never changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
+  }, [connectTargetKey, resolvedThreadId, agent, resolvedAgentId, hasExplicitThreadId]);
 
   const onSubmitInput = useCallback(
     async (value: string) => {
@@ -605,6 +673,7 @@ export function CopilotChat({
     onDrop: handleDrop,
     isConnecting,
     hasExplicitThreadId,
+    suppressWelcomeScreen: shouldSuppressWelcomeForThread,
   };
 
   // Always create a provider with merged values

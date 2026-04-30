@@ -26,11 +26,14 @@ const mockUseCopilotKit = useCopilotKit as ReturnType<typeof vi.fn>;
  * calls are meaningful (not vacuously true on an already-empty clone).
  */
 class CloneableAgent extends AbstractAgent {
+  public lastConnectRestoreOutcome: "fresh" | "restored" | null = "restored";
+
   clone(): CloneableAgent {
     const cloned = new CloneableAgent();
     cloned.agentId = this.agentId;
     // Copy messages so cloneForThread's setMessages([]) actually clears state
     cloned.setMessages([...this.messages]);
+    cloned.lastConnectRestoreOutcome = this.lastConnectRestoreOutcome;
     return cloned;
   }
 
@@ -209,6 +212,26 @@ describe("useAgent thread isolation", () => {
 
     expect(agents["a"]!.threadId).toBe("thread-a");
     expect(agents["b"]!.threadId).toBe("thread-b");
+  });
+
+  it("resets restore outcome metadata on fresh thread clones", () => {
+    let captured: AbstractAgent | undefined;
+
+    function Tracker() {
+      const { agent } = useAgent({ agentId: "my-agent", threadId: "thread-a" });
+      captured = agent;
+      return null;
+    }
+
+    render(<Tracker />);
+
+    expect(
+      (
+        captured as AbstractAgent & {
+          lastConnectRestoreOutcome?: "fresh" | "restored" | null;
+        }
+      ).lastConnectRestoreOutcome,
+    ).toBeNull();
   });
 
   it("invalidates stale clone when the registry agent is replaced", () => {

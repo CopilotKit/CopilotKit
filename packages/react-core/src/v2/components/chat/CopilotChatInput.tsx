@@ -459,16 +459,17 @@ export function CopilotChatInput({
       if (isProcessing) {
         onStop?.();
       } else {
-        send();
+        send(e.currentTarget.value);
       }
     }
   };
 
-  const send = () => {
+  const send = (submittedValue?: string) => {
     if (!onSubmitMessage) {
       return;
     }
-    const trimmed = resolvedValue.trim();
+    const nextValue = submittedValue ?? inputRef.current?.value ?? resolvedValue;
+    const trimmed = nextValue.trim();
     if (!trimmed) {
       return;
     }
