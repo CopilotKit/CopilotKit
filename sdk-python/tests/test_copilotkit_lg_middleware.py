@@ -563,3 +563,67 @@ def test_bedrock_fix_repairs_string_args_to_dicts():
 
     repaired = next(m for m in messages if isinstance(m, AIMessage))
     assert repaired.tool_calls[0]["args"] == {"q": "hello"}
+
+
+def test_bedrock_fix_strips_orphan_function_call_content_blocks_no_tool_calls():
+    """When tool_calls is empty (e.g. after_model intercepted the frontend tool),
+    any leftover OpenAI Responses 'function_call' content block must be stripped
+    so langchain-openai doesn't re-emit it as an unanswered Responses input
+    item ("No tool output found for function call call_..." 400 from OpenAI).
+    """
+    ai = AIMessage(
+        content=[
+            {"type": "text", "text": "calling tool"},
+            {
+                "type": "function_call",
+                "call_id": "call_orphan",
+                "name": "frontend_action",
+                "arguments": "{}",
+                "id": "fc_item_1",
+            },
+        ],
+        id="ai-1",
+    )
+    messages: list[Any] = [HumanMessage("hi"), ai]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    repaired = next(m for m in messages if isinstance(m, AIMessage))
+    assert isinstance(repaired.content, list)
+    types_left = [b.get("type") for b in repaired.content if isinstance(b, dict)]
+    assert "function_call" not in types_left
+    assert "text" in types_left
+
+
+def test_bedrock_fix_strips_orphan_function_call_blocks_when_tool_calls_partial():
+    """function_call content blocks whose call_id isn't in tool_calls must
+    be removed alongside their tool_calls peers."""
+    ai = AIMessage(
+        content=[
+            {
+                "type": "function_call",
+                "call_id": "call_kept",
+                "name": "search",
+                "arguments": "{}",
+            },
+            {
+                "type": "function_call",
+                "call_id": "call_orphan",
+                "name": "frontend_action",
+                "arguments": "{}",
+            },
+        ],
+        tool_calls=[{"id": "call_kept", "name": "search", "args": {}}],
+        id="ai-1",
+    )
+    answered = ToolMessage(content="ok", tool_call_id="call_kept")
+    messages: list[Any] = [HumanMessage("hi"), ai, answered]
+
+    CopilotKitMiddleware._fix_messages_for_bedrock(messages)
+
+    repaired = next(m for m in messages if isinstance(m, AIMessage))
+    call_ids = [
+        b.get("call_id") for b in repaired.content
+        if isinstance(b, dict) and b.get("type") == "function_call"
+    ]
+    assert call_ids == ["call_kept"]

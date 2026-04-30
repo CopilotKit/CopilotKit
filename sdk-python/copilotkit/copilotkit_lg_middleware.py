@@ -223,23 +223,34 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
 
             tool_calls = getattr(msg, 'tool_calls', None) or []
 
-            # 1. Sync content with tool_calls: remove tool_use content blocks
-            #    that aren't in msg.tool_calls (e.g. stripped by after_model
-            #    but content blocks left behind in checkpoint).
+            # 1. Sync content with tool_calls: remove tool_use (Anthropic) and
+            #    function_call (OpenAI Responses) content blocks that aren't in
+            #    msg.tool_calls (e.g. stripped by after_model but content blocks
+            #    left behind in checkpoint). Anthropic tool_use blocks key on
+            #    block["id"]; OpenAI function_call blocks key on block["call_id"]
+            #    (block["id"] on those is the item id, not the call id).
+            def _orphan_tool_block(block, tc_ids):
+                if not isinstance(block, dict):
+                    return False
+                btype = block.get('type')
+                if btype == 'tool_use':
+                    return block.get('id') not in tc_ids
+                if btype == 'function_call':
+                    return block.get('call_id') not in tc_ids
+                return False
+
             if tool_calls and isinstance(msg.content, list):
                 tc_ids = {tc.get('id') for tc in tool_calls}
                 msg.content = [
                     block for block in msg.content
-                    if not (isinstance(block, dict)
-                            and block.get('type') == 'tool_use'
-                            and block.get('id') not in tc_ids)
+                    if not _orphan_tool_block(block, tc_ids)
                 ]
             elif not tool_calls and isinstance(msg.content, list):
-                # No tool_calls at all — strip ALL tool_use content blocks
+                # No tool_calls at all — strip ALL tool_use / function_call blocks
                 msg.content = [
                     block for block in msg.content
                     if not (isinstance(block, dict)
-                            and block.get('type') == 'tool_use')
+                            and block.get('type') in ('tool_use', 'function_call'))
                 ]
 
             if not tool_calls:
@@ -263,13 +274,16 @@ class CopilotKitMiddleware(AgentMiddleware[StateSchema, Any]):
                 unanswered_ids = {tc['id'] for tc in unanswered}
                 msg.tool_calls = [tc for tc in tool_calls if tc.get('id') in adjacent_tc_ids]
 
-                # Also strip matching content blocks
+                # Also strip matching content blocks (tool_use + function_call)
                 if isinstance(msg.content, list):
                     msg.content = [
                         block for block in msg.content
-                        if not (isinstance(block, dict)
-                                and block.get('type') == 'tool_use'
-                                and block.get('id') in unanswered_ids)
+                        if not (isinstance(block, dict) and (
+                            (block.get('type') == 'tool_use'
+                             and block.get('id') in unanswered_ids)
+                            or (block.get('type') == 'function_call'
+                                and block.get('call_id') in unanswered_ids)
+                        ))
                     ]
 
             # 3. Fix string args in tool_calls
