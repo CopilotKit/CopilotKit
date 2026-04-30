@@ -62,11 +62,18 @@ describe("TelemetryClient", () => {
   });
 
   it("forwards license token (set via setLicenseToken) to the sink", async () => {
+    // Real JWT shape with telemetry_id in the payload — keeps
+    // setLicenseToken from emitting the unparseable-token warning.
+    const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
+      "base64url",
+    );
+    const token = `header.${payload}.sig`;
+
     const client = new TelemetryClient({
       telemetryDisabled: false,
       sampleRate: 1,
     });
-    client.setLicenseToken("header.payload.signature");
+    client.setLicenseToken(token);
 
     await client.capture("oss.runtime.instance_created", {
       actionsAmount: 0,
@@ -77,7 +84,42 @@ describe("TelemetryClient", () => {
 
     expect(lambdaSpy).toHaveBeenCalledTimes(1);
     const arg = lambdaSpy.mock.calls[0][0] as Record<string, unknown>;
-    expect(arg.licenseToken).toBe("header.payload.signature");
+    expect(arg.licenseToken).toBe(token);
+  });
+
+  it("warns once when setLicenseToken receives a token with no telemetry_id", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 1,
+      });
+      const payload = Buffer.from('{"license_id":"foo"}').toString("base64url");
+      client.setLicenseToken(`header.${payload}.sig`);
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][0]).toMatch(/telemetry_id/);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it("does not warn when setLicenseToken receives a token with telemetry_id", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const client = new TelemetryClient({
+        telemetryDisabled: false,
+        sampleRate: 1,
+      });
+      const payload = Buffer.from('{"telemetry_id":"abc-123"}').toString(
+        "base64url",
+      );
+      client.setLicenseToken(`header.${payload}.sig`);
+
+      expect(warnSpy).not.toHaveBeenCalled();
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it("does not send events when telemetryDisabled is true", async () => {

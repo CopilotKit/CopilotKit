@@ -69,7 +69,11 @@ function stripCloudKeys(
 // Verification (Ed25519, key rotation, expiry) is the license-verifier
 // package's job. For telemetry attribution we only need the claimed id —
 // the trust model is claim-only on the Lambda side anyway.
-function parseTelemetryIdFromLicense(token?: string): string | null {
+//
+// Exported so TelemetryClient setters can detect unparseable tokens at
+// configuration time and surface a single warning, instead of silently
+// emitting anonymous events on every capture.
+export function parseTelemetryIdFromLicense(token?: string): string | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;

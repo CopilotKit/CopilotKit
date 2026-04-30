@@ -1,5 +1,5 @@
 import { AnalyticsEvents } from "./events";
-import { lambdaClient } from "@copilotkit/shared";
+import { lambdaClient, parseTelemetryIdFromLicense } from "@copilotkit/shared";
 import * as packageJson from "../../../../package.json";
 
 export function isTelemetryDisabled(): boolean {
@@ -45,6 +45,14 @@ export class TelemetryClient {
 
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
+    if (!parseTelemetryIdFromLicense(licenseToken)) {
+      // Smoke signal during the issuer rollout: a token was provided
+      // but no telemetry_id came back. Surface it once at configuration
+      // time rather than silently degrading to anonymous on every send.
+      console.warn(
+        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
+      );
+    }
   }
 
   async capture<K extends keyof AnalyticsEvents>(

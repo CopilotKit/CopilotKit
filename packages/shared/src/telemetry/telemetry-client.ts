@@ -2,7 +2,7 @@ import { Analytics } from "@segment/analytics-node";
 import { AnalyticsEvents } from "./events";
 import { flattenObject } from "./utils";
 import { v4 as uuidv4 } from "uuid";
-import lambdaClient from "./lambda-client";
+import lambdaClient, { parseTelemetryIdFromLicense } from "./lambda-client";
 
 /**
  * Checks if telemetry is disabled via environment variables.
@@ -152,6 +152,14 @@ export class TelemetryClient {
   // travels, in the X-CopilotKit-Telemetry-Id header set by lambda-client.
   setLicenseToken(licenseToken: string) {
     this.licenseToken = licenseToken;
+    if (!parseTelemetryIdFromLicense(licenseToken)) {
+      // Smoke signal during the issuer rollout: a token was provided
+      // but no telemetry_id came back. Surface it once at configuration
+      // time rather than silently degrading to anonymous on every send.
+      console.warn(
+        "[CopilotKit] License token did not yield a telemetry_id; telemetry events will be sent anonymously.",
+      );
+    }
   }
 
   private setSampleRate(sampleRate: number | undefined) {
