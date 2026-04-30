@@ -133,9 +133,7 @@ async function rewritePart(part: unknown): Promise<unknown> {
   // Post-converter LangChain shape (what `@ag-ui/langgraph` emits today).
   if (p.type === "image_url") {
     const url =
-      typeof p.image_url === "string"
-        ? p.image_url
-        : (p.image_url?.url ?? "");
+      typeof p.image_url === "string" ? p.image_url : (p.image_url?.url ?? "");
     const parsed = parseDataUrl(url);
     if (!parsed) return part;
     if (parsed.mime.startsWith("image/")) {

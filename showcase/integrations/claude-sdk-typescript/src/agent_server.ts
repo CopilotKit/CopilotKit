@@ -94,7 +94,9 @@ const ANTHROPIC_SUPPORTED_IMAGE_MIMES = [
 
 type AnthropicImageMime = (typeof ANTHROPIC_SUPPORTED_IMAGE_MIMES)[number];
 
-function isSupportedAnthropicImageMime(mime: string): mime is AnthropicImageMime {
+function isSupportedAnthropicImageMime(
+  mime: string,
+): mime is AnthropicImageMime {
   return (ANTHROPIC_SUPPORTED_IMAGE_MIMES as readonly string[]).includes(mime);
 }
 
