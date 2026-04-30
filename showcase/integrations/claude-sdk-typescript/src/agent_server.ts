@@ -81,28 +81,42 @@ console.log(
 // ---------------------------------------------------------------------------
 
 /**
- * Convert an AG-UI `binary` content part into an Anthropic ContentBlock.
- * Returns `null` if the part cannot be mapped (unsupported mime/no payload).
+ * Convert a modern AG-UI multimodal content part into an Anthropic
+ * ContentBlock. Returns `null` if the part cannot be mapped (unsupported
+ * mime / missing payload).
+ *
+ * Modern AG-UI shape (>= @ag-ui/core 0.0.48) splits each attachment by
+ * media type and wraps the payload in a tagged `source`:
+ *   { type: "image"   | "audio" | "video" | "document",
+ *     source: { type: "data", value: <base64>,  mimeType }
+ *           | { type: "url",  value: <url>,     mimeType } }
  *
  * Claude's Messages API accepts `image` and `document` blocks natively;
  * images use `source: { type: "base64", media_type, data }` and PDFs use
- * `type: "document"` with the same source shape. URL-backed parts are
- * mapped to `source: { type: "url", url }`.
+ * `type: "document"` with the same source shape. URL-backed parts map to
+ * `source: { type: "url", url }`.
+ *
+ * Audio and video parts are dropped — Anthropic Messages doesn't accept
+ * those block types — but we don't crash the run. The frontend's
+ * `accept` attribute restricts uploads to image + PDF, so this is purely
+ * a defensive guard against future demo changes.
  */
-function binaryPartToAnthropic(part: {
-  type: "binary";
-  mimeType: string;
-  data?: string;
-  url?: string;
+function modernPartToAnthropic(part: {
+  type: "image" | "audio" | "video" | "document";
+  source?: { type?: string; value?: string; mimeType?: string };
 }): Anthropic.ContentBlockParam | null {
-  const mime = part.mimeType || "";
-  const isImage = mime.startsWith("image/");
+  const source = part.source;
+  if (!source || typeof source.value !== "string") return null;
+
+  const mime = source.mimeType || "";
+  const isImage = part.type === "image" || mime.startsWith("image/");
   const isPdf =
-    mime === "application/pdf" || mime.toLowerCase().includes("pdf");
+    part.type === "document" &&
+    (mime === "application/pdf" || mime.toLowerCase().includes("pdf"));
 
   if (!isImage && !isPdf) return null;
 
-  if (part.data) {
+  if (source.type === "data") {
     if (isImage) {
       return {
         type: "image",
@@ -113,7 +127,7 @@ function binaryPartToAnthropic(part: {
             | "image/png"
             | "image/gif"
             | "image/webp",
-          data: part.data,
+          data: source.value,
         },
       };
     }
@@ -122,21 +136,21 @@ function binaryPartToAnthropic(part: {
       source: {
         type: "base64",
         media_type: "application/pdf",
-        data: part.data,
+        data: source.value,
       },
     };
   }
 
-  if (part.url) {
+  if (source.type === "url") {
     if (isImage) {
       return {
         type: "image",
-        source: { type: "url", url: part.url },
+        source: { type: "url", url: source.value },
       };
     }
     return {
       type: "document",
-      source: { type: "url", url: part.url },
+      source: { type: "url", url: source.value },
     };
   }
 
@@ -150,14 +164,23 @@ function buildAnthropicMessages(messages: Message[]): Anthropic.MessageParam[] {
     if (msg.role === "user") {
       const raw = (msg as any).content;
       if (Array.isArray(raw)) {
-        // AG-UI content parts — map text + binary to Anthropic blocks.
+        // AG-UI content parts — map text + modern multimodal parts
+        // (image/document/audio/video, source-tagged) to Anthropic blocks.
+        // The AG-UI client's BackwardCompatibility_0_0_47 middleware
+        // upgrades any legacy `binary` parts to this modern shape before
+        // they reach this server, so there's no separate `binary` branch.
         const blocks: Anthropic.ContentBlockParam[] = [];
         for (const part of raw) {
           if (!part || typeof part !== "object") continue;
           if (part.type === "text" && typeof part.text === "string") {
             blocks.push({ type: "text", text: part.text });
-          } else if (part.type === "binary") {
-            const mapped = binaryPartToAnthropic(part);
+          } else if (
+            part.type === "image" ||
+            part.type === "document" ||
+            part.type === "audio" ||
+            part.type === "video"
+          ) {
+            const mapped = modernPartToAnthropic(part);
             if (mapped) blocks.push(mapped);
           }
         }
@@ -274,8 +297,10 @@ function buildTools(tools: RunAgentInput["tools"]): Anthropic.Tool[] {
 }
 
 /**
- * Does the user messages contain any binary parts? Used to route the run
- * to the vision-capable Sonnet model instead of the default Haiku.
+ * Does the user messages contain any modern multimodal parts? Used to
+ * route the run to the vision-capable Sonnet model instead of the default
+ * Haiku. Matches the same set of part types that `modernPartToAnthropic`
+ * accepts so the model selection and the body translation stay in sync.
  */
 function messagesHaveAttachments(messages: Message[]): boolean {
   for (const msg of messages) {
@@ -283,7 +308,13 @@ function messagesHaveAttachments(messages: Message[]): boolean {
     const content = (msg as any).content;
     if (!Array.isArray(content)) continue;
     for (const part of content) {
-      if (part && typeof part === "object" && part.type === "binary") {
+      if (!part || typeof part !== "object") continue;
+      if (
+        part.type === "image" ||
+        part.type === "document" ||
+        part.type === "audio" ||
+        part.type === "video"
+      ) {
         return true;
       }
     }
