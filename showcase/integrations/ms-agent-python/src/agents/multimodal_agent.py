@@ -15,16 +15,22 @@ Attachments arrive here after travelling through:
                                                        (AG-UI -> AF adapter)
                 ->  this agent
 
-The deployed AG-UI adapter recognizes the legacy
-``{ type: "binary", mimeType, data | url }`` AG-UI part shape. The page at
-``src/app/demos/multimodal/page.tsx`` installs an ``onRunInitialized`` shim
-that rewrites the modern ``{ type: "image" | "document", source: {...} }``
-shape CopilotChat emits to the legacy ``binary`` shape before it hits the
-runtime. We therefore route on ``mimeType``, not the part ``type``:
+CopilotChat emits the modern AG-UI multimodal content-part shape:
 
-- ``image/*`` parts are forwarded to GPT-4o-mini unchanged (vision-native).
-- ``application/pdf`` parts are flattened to inline text via ``pypdf`` so
-  the model can read them without needing file-part support.
+    {"type": "image", "source": {"type": "data", "value": "<base64>",
+                                 "mimeType": "image/png"}}
+    {"type": "document", "source": {"type": "data", "value": "<base64>",
+                                    "mimeType": "application/pdf"}}
+
+The MS-AF AG-UI adapter (>=1.0.0b260225) recognizes this shape directly
+in ``_parse_multimodal_media_part`` and converts it to Agent Framework
+``Content.from_uri`` / ``Content.from_data`` for the underlying chat
+client. We pre-process the AG-UI dicts on the way in so PDFs are flattened
+to text via ``pypdf`` (gpt-4o vision does not natively read PDFs).
+Images pass through untouched and are forwarded to the model natively.
+
+We also accept the legacy ``image_url`` shape some chat clients post-process
+into, purely as a defensive fallback -- modern shape is canonical.
 
 Reference:
 - showcase/integrations/langgraph-python/src/agents/multimodal_agent.py
@@ -35,7 +41,7 @@ from __future__ import annotations
 import base64
 import io
 from textwrap import dedent
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from agent_framework import Agent, BaseChatClient
 from agent_framework_ag_ui import AgentFrameworkAgent
@@ -107,21 +113,39 @@ def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
     ``kind`` is one of ``"image"``, ``"pdf"``, ``"other"``. Returns ``None``
     if the part is not an attachment we recognize.
 
-    Handles the shapes the MS-AF AG-UI adapter may surface:
+    Modern AG-UI shape (canonical, what CopilotChat emits):
+
+    - ``{"type": "image", "source": {"type": "data",
+      "value": "<base64>", "mimeType": "image/png"}}``
+    - ``{"type": "document", "source": {"type": "data",
+      "value": "<base64>", "mimeType": "application/pdf"}}``
+
+    Legacy fallback (some chat clients post-process modern parts into a
+    classic OpenAI-style ``image_url`` shape; we accept it defensively):
 
     - ``{"type": "image_url", "image_url": {"url": "data:..."}}``
-      (post-adapter, from the legacy-binary rewrite on the page).
-    - ``{"type": "image_url", "image_url": "data:..."}`` (older shape).
-    - ``{"type": "binary", "mimeType": "...", "data": "<base64>"}``
-      (direct legacy binary).
-    - ``{"type": "document", "source": {"type": "data",
-      "value": "<base64>", "mimeType": "application/pdf"}}`` (modern AG-UI).
-    - ``{"type": "image", "source": {...}}`` (modern AG-UI, for completeness).
+    - ``{"type": "image_url", "image_url": "data:..."}``
     """
     if not isinstance(part, dict):
         return None
     part_type = part.get("type")
 
+    # Modern AG-UI shape (canonical).
+    if part_type in ("image", "document"):
+        source = part.get("source")
+        if not isinstance(source, dict) or source.get("type") != "data":
+            return None
+        value = source.get("value")
+        mime = source.get("mimeType", "")
+        if not isinstance(value, str) or not isinstance(mime, str):
+            return None
+        if mime.startswith("image/"):
+            return ("image", mime, value)
+        if "pdf" in mime.lower():
+            return ("pdf", mime, value)
+        return ("other", mime, value)
+
+    # Defensive fallback: classic OpenAI-style image_url shape.
     if part_type == "image_url":
         image_url = part.get("image_url")
         url: str | None = None
@@ -141,31 +165,6 @@ def _classify_attachment_part(part: Any) -> tuple[str, str, str] | None:
         if "pdf" in mime.lower():
             return ("pdf", mime, payload)
         return ("other", mime, payload)
-
-    if part_type == "binary":
-        mime = part.get("mimeType", "")
-        data = part.get("data")
-        if not isinstance(mime, str) or not isinstance(data, str):
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, data)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, data)
-        return ("other", mime, data)
-
-    if part_type in ("document", "image"):
-        source = part.get("source")
-        if not isinstance(source, dict) or source.get("type") != "data":
-            return None
-        value = source.get("value")
-        mime = source.get("mimeType", "")
-        if not isinstance(value, str) or not isinstance(mime, str):
-            return None
-        if mime.startswith("image/"):
-            return ("image", mime, value)
-        if "pdf" in mime.lower():
-            return ("pdf", mime, value)
-        return ("other", mime, value)
 
     return None
 
@@ -193,38 +192,45 @@ def _preprocess_part(part: Any) -> Any:
     return {"type": "text", "text": f"[Attached document]\n{text}"}
 
 
-class _MultimodalAgent(AgentFrameworkAgent):
-    """Thin wrapper that pre-processes inbound messages before each run.
+def _flatten_messages(messages: Any) -> Any:
+    """Walk an AG-UI input ``messages`` list and rewrite PDF parts to text.
 
-    We flatten `document` (PDF) content parts to text so the model can reason
-    about them even when the underlying chat client does not accept the
-    `document` content-part shape. Images are untouched.
+    Operates on the raw AG-UI dict representation (before the adapter
+    converts to Agent Framework ``Message`` objects). Non-list / non-dict
+    structures pass through unchanged.
+    """
+    if not isinstance(messages, list):
+        return messages
+    rewritten: list[Any] = []
+    for message in messages:
+        if not isinstance(message, dict):
+            rewritten.append(message)
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            rewritten.append(message)
+            continue
+        new_parts = [_preprocess_part(part) for part in content]
+        rewritten.append({**message, "content": new_parts})
+    return rewritten
+
+
+class _MultimodalAgent(AgentFrameworkAgent):
+    """Pre-processes inbound AG-UI messages before each run.
+
+    PDF (``document``) content parts are flattened to text so the model can
+    reason about them even when the underlying chat client does not accept
+    document content natively (gpt-4o vision reads images but not PDFs).
+    Image parts are untouched and forwarded to the model via the MS-AF
+    adapter's modern multimodal pipeline.
     """
 
-    def _flatten_messages(self, messages: Any) -> Any:
-        if not isinstance(messages, list):
-            return messages
-        rewritten: list[Any] = []
-        for message in messages:
-            if not isinstance(message, dict):
-                rewritten.append(message)
-                continue
-            content = message.get("content")
-            if not isinstance(content, list):
-                rewritten.append(message)
-                continue
-            new_parts = [_preprocess_part(part) for part in content]
-            rewritten.append({**message, "content": new_parts})
-        return rewritten
-
-    async def run(self, *args: Any, **kwargs: Any) -> Any:  # type: ignore[override]
-        # AG-UI may hand us messages via a positional or keyword argument;
-        # normalize both shapes before delegating to the base implementation.
-        if "messages" in kwargs:
-            kwargs["messages"] = self._flatten_messages(kwargs["messages"])
-        elif args and isinstance(args[0], list):
-            args = (self._flatten_messages(args[0]), *args[1:])
-        return await super().run(*args, **kwargs)
+    async def run(self, input_data: dict[str, Any]) -> AsyncGenerator[Any, None]:  # type: ignore[override]
+        rewritten_messages = _flatten_messages(input_data.get("messages"))
+        if rewritten_messages is not input_data.get("messages"):
+            input_data = {**input_data, "messages": rewritten_messages}
+        async for event in super().run(input_data):
+            yield event
 
 
 def create_multimodal_agent(chat_client: BaseChatClient) -> AgentFrameworkAgent:
