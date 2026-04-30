@@ -76,8 +76,11 @@ app.mount("/declarative-gen-ui", a2ui_dynamic_app)
 app.mount("/a2ui-fixed-schema", a2ui_fixed_app)
 app.mount("/beautiful-chat", beautiful_chat_app)
 app.mount("/mcp-apps", mcp_apps_app)
-app.mount("/open-gen-ui", open_gen_ui_app)
+# IMPORTANT: mount /open-gen-ui-advanced BEFORE /open-gen-ui — Starlette
+# resolves mounts via prefix matching in registration order, so the shorter
+# prefix "/open-gen-ui" would shadow "/open-gen-ui-advanced" if it came first.
 app.mount("/open-gen-ui-advanced", open_gen_ui_advanced_app)
+app.mount("/open-gen-ui", open_gen_ui_app)
 app.mount(
     "/tool-rendering-reasoning-chain",
     tool_rendering_reasoning_chain_app,

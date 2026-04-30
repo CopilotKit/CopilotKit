@@ -21,7 +21,6 @@ const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 const authDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
 
 const runtime = new CopilotRuntime({
-  // @ts-ignore -- see main route.ts; published agents type generic mismatch
   agents: {
     "auth-demo": authDemoAgent,
     default: authDemoAgent,

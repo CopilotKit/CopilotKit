@@ -267,7 +267,7 @@ demos:
       - src/app/demos/headless-complete/page.tsx
       - src/app/demos/headless-complete/message-list.tsx
       - src/app/demos/headless-complete/use-rendered-messages.tsx
-      - src/app/api/copilotkit/route.ts
+      - src/app/api/copilotkit-mcp-apps/route.ts
   - id: readonly-state-agent-context
     name: Readonly State (Agent Context)
     description: Frontend provides read-only context to the agent via useAgentContext
