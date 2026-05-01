@@ -171,6 +171,18 @@ function ChatBody({
 
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Weather in Paris",
+        message: "What's the weather in Paris?",
+      },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Custom message",

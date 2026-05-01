@@ -100,6 +100,18 @@ function Recipe() {
 
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Create Italian recipe",
+        message: "Create a delicious Italian pasta recipe.",
+      },
+      {
+        title: "Make it healthier",
+        message: "Make the recipe healthier with more vegetables.",
+      },
+      {
+        title: "Suggest variations",
+        message: "Suggest some creative variations of this recipe.",
+      },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Italian pasta",

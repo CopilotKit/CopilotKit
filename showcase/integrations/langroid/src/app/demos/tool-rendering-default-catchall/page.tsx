@@ -39,6 +39,18 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Default catchall",
