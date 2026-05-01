@@ -33,8 +33,9 @@ function setHeight(el: HTMLElement, height: number) {
 function HarnessInner({ topOffset }: { topOffset: number }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const spacerRef = useRef<HTMLDivElement>(null);
 
-  usePinToSend({ scrollRef, contentRef, topOffset });
+  usePinToSend({ scrollRef, contentRef, spacerRef, topOffset });
 
   return (
     <div ref={scrollRef} data-testid="scroll">
@@ -49,6 +50,7 @@ function HarnessInner({ topOffset }: { topOffset: number }) {
           user msg 2
         </div>
       </div>
+      <div ref={spacerRef} data-testid="spacer" style={{ height: 0 }} />
     </div>
   );
 }
@@ -78,29 +80,31 @@ beforeEach(() => {
 });
 
 describe("usePinToSend", () => {
-  it("sets content min-height to userMsgPos + viewportHeight - topOffset on new send", async () => {
+  it("sets spacer height to required - contentHeight on new send (subtracting natural content, not over-allocating)", async () => {
     const { rerender, getByTestId } = render(
       <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
     );
 
     const scroll = getByTestId("scroll");
     const content = getByTestId("content");
+    const spacer = getByTestId("spacer");
     setHeight(scroll, 800);
+    setHeight(content, 200);
 
     const userMsg = scroll.querySelector(
       '[data-message-id="m3"]',
     ) as HTMLElement;
-    // Mock user msg at scroll offset 400, height 40, no top padding.
+    // userMsg at offset 100 in scrollEl, height 40, no top padding.
     userMsg.getBoundingClientRect = () =>
       ({
-        top: 400,
+        top: 100,
         left: 0,
         right: 100,
-        bottom: 440,
+        bottom: 140,
         width: 100,
         height: 40,
         x: 0,
-        y: 400,
+        y: 100,
         toJSON: () => ({}),
       }) as DOMRect;
 
@@ -108,12 +112,12 @@ describe("usePinToSend", () => {
       rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
     });
 
-    // userMsgPos=400, paddingTop=0, viewport=800, topOffset=16
-    // minHeight = 400 + 0 + 800 - 16 = 1184
-    expect(content.style.minHeight).toBe("1184px");
+    // required = userMsgOffset(100) + paddingTop(0) + viewport(800) - topOffset(16) = 884
+    // spacer = max(0, required - contentHeight(200)) = 684
+    expect(spacer.style.height).toBe("684px");
   });
 
-  it("calls scrollTo with userMsgPos + paddingTop - topOffset on new send", async () => {
+  it("calls scrollTo with userMsgOffset + paddingTop - topOffset on new send", async () => {
     const { rerender, getByTestId } = render(
       <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
     );
@@ -125,8 +129,7 @@ describe("usePinToSend", () => {
     const userMsg = scroll.querySelector(
       '[data-message-id="m3"]',
     ) as HTMLElement;
-    // computeOffsetTop uses getBoundingClientRect; mock top=400 on userMsg and top=0 on scroll
-    // so that elRect.top - stopRect.top + scrollEl.scrollTop = 400 - 0 + 0 = 400.
+    // mock top=400 on userMsg and top=0 on scroll → offset = 400.
     userMsg.getBoundingClientRect = () =>
       ({
         top: 400,
@@ -144,7 +147,6 @@ describe("usePinToSend", () => {
       rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
     });
 
-    // Allow rAF to fire
     await act(async () => {
       await new Promise((r) => setTimeout(r, 0));
     });
@@ -155,40 +157,189 @@ describe("usePinToSend", () => {
     });
   });
 
-  it("clears content min-height on cleanup so the next send resets the floor", async () => {
-    const { rerender, unmount, getByTestId } = render(
-      <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
-    );
-    const scroll = getByTestId("scroll");
-    const content = getByTestId("content");
-    setHeight(scroll, 800);
-    const userMsg = scroll.querySelector(
-      '[data-message-id="m3"]',
-    ) as HTMLElement;
-    userMsg.getBoundingClientRect = () =>
-      ({
-        top: 400,
-        left: 0,
-        right: 100,
-        bottom: 440,
-        width: 100,
-        height: 40,
-        x: 0,
-        y: 400,
-        toJSON: () => ({}),
-      }) as DOMRect;
-
-    act(() => {
-      rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
+  it("shrinks spacer as content height grows (does not grow it)", async () => {
+    let observed: (() => void) | null = null;
+    const ROStub = vi.fn().mockImplementation((cb: () => void) => {
+      observed = cb;
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
     });
-    expect(content.style.minHeight).toBe("1184px");
+    const prevRO = global.ResizeObserver;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    global.ResizeObserver = ROStub as any;
 
-    unmount();
-    expect(content.style.minHeight).toBe("");
+    try {
+      const { rerender, getByTestId } = render(
+        <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
+      );
+      const scroll = getByTestId("scroll");
+      const content = getByTestId("content");
+      const spacer = getByTestId("spacer");
+      setHeight(scroll, 800);
+      setHeight(content, 200);
+
+      const userMsg = scroll.querySelector(
+        '[data-message-id="m3"]',
+      ) as HTMLElement;
+      userMsg.getBoundingClientRect = () =>
+        ({
+          top: 100,
+          left: 0,
+          right: 100,
+          bottom: 140,
+          width: 100,
+          height: 40,
+          x: 0,
+          y: 100,
+          toJSON: () => ({}),
+        }) as DOMRect;
+
+      act(() => {
+        rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
+      });
+
+      // initial: required(884) - content(200) = 684
+      expect(spacer.style.height).toBe("684px");
+
+      // content grows: required(884) - content(600) = 284 < 684 → shrinks
+      setHeight(content, 600);
+      act(() => observed?.());
+      expect(spacer.style.height).toBe("284px");
+
+      // content shrinks back: required(884) - content(100) = 784 > 284 → does NOT grow
+      setHeight(content, 100);
+      act(() => observed?.());
+      expect(spacer.style.height).toBe("284px");
+    } finally {
+      global.ResizeObserver = prevRO;
+    }
+  });
+
+  it("re-anchors the user message on content resize so suggestions appearing keep it at topOffset", async () => {
+    let observed: (() => void) | null = null;
+    const ROStub = vi.fn().mockImplementation((cb: () => void) => {
+      observed = cb;
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+    });
+    const prevRO = global.ResizeObserver;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    global.ResizeObserver = ROStub as any;
+
+    try {
+      const { rerender, getByTestId } = render(
+        <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
+      );
+      const scroll = getByTestId("scroll");
+      const content = getByTestId("content");
+      setHeight(scroll, 800);
+      setHeight(content, 200);
+      const scrollTo = scroll.scrollTo as unknown as ReturnType<typeof vi.fn>;
+
+      const userMsg = scroll.querySelector(
+        '[data-message-id="m3"]',
+      ) as HTMLElement;
+      userMsg.getBoundingClientRect = () =>
+        ({
+          top: 400,
+          left: 0,
+          right: 100,
+          bottom: 440,
+          width: 100,
+          height: 40,
+          x: 0,
+          y: 400,
+          toJSON: () => ({}),
+        }) as DOMRect;
+
+      act(() => {
+        rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
+      });
+
+      // Initial scroll (smooth) on send.
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 400 - 16,
+        behavior: "smooth",
+      });
+
+      // Simulate suggestions appearing — user msg shifts to a new offset.
+      userMsg.getBoundingClientRect = () =>
+        ({
+          top: 460,
+          left: 0,
+          right: 100,
+          bottom: 500,
+          width: 100,
+          height: 40,
+          x: 0,
+          y: 460,
+          toJSON: () => ({}),
+        }) as DOMRect;
+      act(() => observed?.());
+
+      // Re-anchored to the new offset, instantly (no smooth animation fight).
+      expect(scrollTo).toHaveBeenLastCalledWith({
+        top: 460 - 16,
+        behavior: "auto",
+      });
+    } finally {
+      global.ResizeObserver = prevRO;
+    }
+  });
+
+  it("stops re-anchoring once the user scrolls (wheel)", async () => {
+    let observed: (() => void) | null = null;
+    const ROStub = vi.fn().mockImplementation((cb: () => void) => {
+      observed = cb;
+      return { observe: vi.fn(), unobserve: vi.fn(), disconnect: vi.fn() };
+    });
+    const prevRO = global.ResizeObserver;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    global.ResizeObserver = ROStub as any;
+
+    try {
+      const { rerender, getByTestId } = render(
+        <Harness lastUserMessage={{ id: null, sendNonce: 0 }} />,
+      );
+      const scroll = getByTestId("scroll");
+      const content = getByTestId("content");
+      setHeight(scroll, 800);
+      setHeight(content, 200);
+      const scrollTo = scroll.scrollTo as unknown as ReturnType<typeof vi.fn>;
+
+      const userMsg = scroll.querySelector(
+        '[data-message-id="m3"]',
+      ) as HTMLElement;
+      userMsg.getBoundingClientRect = () =>
+        ({
+          top: 400,
+          left: 0,
+          right: 100,
+          bottom: 440,
+          width: 100,
+          height: 40,
+          x: 0,
+          y: 400,
+          toJSON: () => ({}),
+        }) as DOMRect;
+
+      act(() => {
+        rerender(<Harness lastUserMessage={{ id: "m3", sendNonce: 1 }} />);
+      });
+
+      const callCountAfterSend = scrollTo.mock.calls.length;
+
+      // User scrolls (wheel), then content resizes — re-anchor must NOT fire.
+      act(() => {
+        scroll.dispatchEvent(new WheelEvent("wheel"));
+      });
+      act(() => observed?.());
+
+      expect(scrollTo.mock.calls.length).toBe(callCountAfterSend);
+    } finally {
+      global.ResizeObserver = prevRO;
+    }
   });
 
   it("cancels the scheduled rAF on unmount (cleanup)", async () => {
-    // Use a real rAF handle so we can assert the cancel was issued with it.
     const cancelSpy = vi.spyOn(global, "cancelAnimationFrame");
     try {
       const { rerender, unmount, getByTestId } = render(

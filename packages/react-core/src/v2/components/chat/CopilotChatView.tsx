@@ -518,9 +518,12 @@ export namespace CopilotChatView {
     className,
     ...props
   }) => {
+    const spacerRef = useRef<HTMLDivElement>(null);
+
     usePinToSend({
       scrollRef,
       contentRef,
+      spacerRef,
       topOffset: 16,
     });
 
@@ -546,11 +549,16 @@ export namespace CopilotChatView {
           >
             <div
               ref={contentRef}
-              data-pin-to-send-content
               className="cpk:px-4 cpk:sm:px-0 cpk:[div[data-sidebar-chat]_&]:px-8 cpk:[div[data-popup-chat]_&]:px-6"
             >
               {children}
             </div>
+            <div
+              ref={spacerRef}
+              data-pin-to-send-spacer
+              aria-hidden="true"
+              style={{ height: 0, flex: "0 0 auto" }}
+            />
           </div>
           {BoundFeather}
           {/* Scroll to bottom button */}
