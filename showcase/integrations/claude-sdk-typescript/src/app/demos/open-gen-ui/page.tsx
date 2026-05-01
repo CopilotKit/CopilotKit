@@ -134,6 +134,7 @@ function Chat() {
   // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
+      ...minimalSuggestions,
       {
         title: "Open block",
         message: "render an open gen-ui element",

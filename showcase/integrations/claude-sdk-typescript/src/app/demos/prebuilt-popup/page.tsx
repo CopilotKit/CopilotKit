@@ -45,12 +45,11 @@ function MainContent() {
 function Suggestions() {
   // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Popup hello",
-        message: "hi from the popup test",
-      },
-    ],
+    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }  {
+    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }    title: "Popup hello",
+    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }    message: "hi from the popup test",
+    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }  },
+    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
     available: "always",
   });
   return null;

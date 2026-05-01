@@ -29,6 +29,8 @@ function Chat() {
   // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Tell me a joke", message: "Tell me a short joke." },
       {
         title: "Slot wiring",
         message: "verify chat slots are wired",
