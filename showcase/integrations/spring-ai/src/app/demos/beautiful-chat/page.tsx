@@ -78,6 +78,7 @@ function Chat() {
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
+      ...BRAND_SUGGESTIONS,
       {
         title: "Pasta night",
         message: "suggest a vegetarian pasta dinner for four guests",

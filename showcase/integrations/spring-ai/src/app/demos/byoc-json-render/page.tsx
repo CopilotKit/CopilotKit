@@ -41,6 +41,10 @@ function Chat() {
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
+      ...BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+      })),
       {
         title: "Marketing overview",
         message: "outline a marketing overview with traffic breakdown",
