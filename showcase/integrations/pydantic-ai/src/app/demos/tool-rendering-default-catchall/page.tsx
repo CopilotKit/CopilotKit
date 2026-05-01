@@ -43,6 +43,18 @@ function Chat() {
         title: "Default catchall",
         message: "trigger the default catchall renderer for an unmapped tool",
       },
+      {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Schedule a meeting",
+        message: "Schedule a meeting for a demo call.",
+      },
+      {
+        title: "Add some todos",
+        message: "Add 3 sales todos for Q2 prospecting.",
+      },
     ],
     available: "always",
   });

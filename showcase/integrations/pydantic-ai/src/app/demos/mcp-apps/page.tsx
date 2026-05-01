@@ -56,6 +56,15 @@ function Chat() {
         title: "Excalidraw",
         message: "draw an excalidraw diagram of a router with two switches",
       },
+      {
+        title: "Draw a flowchart",
+        message: "Use Excalidraw to draw a simple flowchart with three steps.",
+      },
+      {
+        title: "Sketch a system diagram",
+        message:
+          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+      },
     ],
     available: "always",
   });

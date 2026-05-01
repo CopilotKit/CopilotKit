@@ -30,6 +30,14 @@ function DemoContent() {
         title: "Sourcing route",
         message: "draft a five-stage route for sourcing office greenery",
       },
+      {
+        title: "Simple plan",
+        message: "Please plan a trip to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please plan a pasta dish in 10 steps.",
+      },
     ],
     available: "always",
   });

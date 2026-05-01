@@ -44,11 +44,11 @@ export default function OpenGenUiAdvancedDemo() {
 }
 
 function Chat() {
-  void openGenUiSuggestions;
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
       { title: "Advanced flow", message: "continue the advanced gen-ui flow" },
+      ...openGenUiSuggestions,
     ],
     available: "always",
   });
