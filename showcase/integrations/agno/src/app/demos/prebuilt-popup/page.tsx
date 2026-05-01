@@ -50,6 +50,7 @@ function Suggestions() {
   // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi from the popup!" },
       {
         title: "Popup hello",
         message: "hi from the popup test",

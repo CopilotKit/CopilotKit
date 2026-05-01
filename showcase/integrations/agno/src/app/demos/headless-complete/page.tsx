@@ -179,6 +179,22 @@ function ChatBody({
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
+        title: "AAPL stock price",
+        message: "What's AAPL trading at right now?",
+      },
+      {
+        title: "Highlight a note",
+        message: "Highlight 'meeting at 3pm' in yellow.",
+      },
+      {
+        title: "Roll some dice",
+        message: "Roll a d20 and a d6 for me.",
+      },
+      {
         title: "Custom message",
         message: "send a sample message to populate the headless transcript",
       },

@@ -22,6 +22,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
+import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -52,6 +53,7 @@ function Chat() {
   // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      ...openGenUiSuggestions,
       {
         title: "Advanced flow",
         message: "continue the advanced gen-ui flow",

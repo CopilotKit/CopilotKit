@@ -32,6 +32,8 @@ function Chat() {
   // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Tell me a joke", message: "Tell me a short joke." },
       {
         title: "Slot wiring",
         message: "verify chat slots are wired",
