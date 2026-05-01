@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit, useLangGraphInterrupt } from "@copilotkit/react-core";
+import { useLangGraphInterrupt } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useHumanInTheLoop,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -23,15 +24,14 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Simple plan",
-        message: "Please plan a trip to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please plan a pasta dish in 10 steps.",
+        title: "Sourcing route",
+        message: "draft a five-stage route for sourcing office greenery",
       },
     ],
     available: "always",

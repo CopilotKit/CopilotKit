@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
@@ -27,8 +27,17 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+    suggestions: [
+      {
+        title: "Stream counter",
+        message: "stream the counter to 5",
+      },
+    ],
+    available: "always",
   });
 
   return (

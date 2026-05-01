@@ -108,4 +108,22 @@ test.describe("Sub-Agents", () => {
       timeout: 60000,
     });
   });
+
+  // Canonical e2e suggestion — single "Research draft" pill from
+  // _canonical-catalog.json. Selector falls back to [data-role="assistant"]
+  // (ag2 spec convention).
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Research draft" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60000,
+    });
+  });
 });

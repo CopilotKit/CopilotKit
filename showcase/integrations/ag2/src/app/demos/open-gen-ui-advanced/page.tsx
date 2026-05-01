@@ -20,7 +20,6 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
-import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -44,8 +43,16 @@ export default function OpenGenUiAdvancedDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: openGenUiSuggestions,
+    suggestions: [
+      {
+        title: "Advanced flow",
+        message: "continue the advanced gen-ui flow",
+      },
+    ],
     available: "always",
   });
 

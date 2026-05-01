@@ -149,4 +149,21 @@ test.describe("HITL in chat — booking flow", () => {
         .first(),
     ).toBeVisible({ timeout: 30000 });
   });
+
+  // Canonical e2e suggestion — single "Pick a slot" pill from
+  // _canonical-catalog.json. Confirms the inline time-picker card renders.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Pick a slot" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="time-picker-card"]').first(),
+    ).toBeVisible({ timeout: 60000 });
+  });
 });

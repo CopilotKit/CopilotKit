@@ -68,39 +68,6 @@ Output contract (in order):
 - initialHeight (480-560 typical), placeholderMessages (2-3 short lines), css (complete), html (one root container with title + SVG + legend).`;
 // @endregion[design-skill]
 
-const SUGGESTIONS = [
-  // A2UI suggestions — exercise the registered component catalog.
-  {
-    title: "KPI dashboard (A2UI)",
-    message:
-      "Show me a quick KPI dashboard with 3-4 metrics — revenue, signups, churn, NPS. Use the registered components.",
-  },
-  {
-    title: "Pie chart — sales by region (A2UI)",
-    message: "Show a pie chart of sales by region.",
-  },
-  {
-    title: "Bar chart — quarterly revenue (A2UI)",
-    message: "Render a bar chart of quarterly revenue.",
-  },
-  {
-    title: "Status report (A2UI)",
-    message:
-      "Give me a status report on system health — API, database, and background workers.",
-  },
-  // OGUI suggestions — exercise generateSandboxedUi for free-form visuals.
-  {
-    title: "How a neural network works (Open Gen UI)",
-    message:
-      "Animate how a simple feed-forward neural network processes an input. Show 3 layers (4 → 5 → 2) with activation pulses flowing forward in a loop. Label each layer.",
-  },
-  {
-    title: "Quicksort visualization (Open Gen UI)",
-    message:
-      "Visualize quicksort on ~10 bars of varying heights. Highlight the pivot in amber, compared elements in indigo, swaps in emerald. Auto-advance through the sort with a caption per step.",
-  },
-];
-
 export default function BeautifulChatDemo() {
   return (
     // @region[provider-combined]
@@ -127,8 +94,16 @@ export default function BeautifulChatDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: SUGGESTIONS,
+    suggestions: [
+      {
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
+      },
+    ],
     available: "always",
   });
 
