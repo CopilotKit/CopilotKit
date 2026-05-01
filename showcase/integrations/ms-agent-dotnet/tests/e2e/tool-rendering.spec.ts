@@ -62,8 +62,8 @@ test.describe("Tool Rendering", () => {
     await pill.click();
     // Catalog selector [data-testid="copilot-suggestion"] — fall back to
     // [data-role="assistant"] (Rule 4).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

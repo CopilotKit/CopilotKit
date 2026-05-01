@@ -113,6 +113,8 @@ test.describe("Sub-Agents", () => {
     const pill = page.getByRole("button", { name: /Research draft/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"copilot-assistant-message\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

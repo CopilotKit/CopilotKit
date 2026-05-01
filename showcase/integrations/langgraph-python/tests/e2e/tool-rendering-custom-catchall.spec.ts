@@ -167,6 +167,8 @@ test.describe("Tool Rendering — Custom Catch-all (branded wildcard)", () => {
     const pill = page.getByRole("button", { name: /Custom catchall/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"custom-catchall-card\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="custom-catchall-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

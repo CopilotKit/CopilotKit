@@ -127,6 +127,8 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     const pill = page.getByRole("button", { name: /Pause and pick/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"time-picker-card\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="time-picker-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

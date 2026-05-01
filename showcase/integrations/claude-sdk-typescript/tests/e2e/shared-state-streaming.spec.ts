@@ -144,8 +144,8 @@ test.describe("State Streaming", () => {
     await pill.click();
     // catalog primarySelector "[data-testid=\"status-display\"]" not rendered
     // by the current demo stub — falling back to generic assistant role
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

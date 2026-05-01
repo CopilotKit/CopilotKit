@@ -11,9 +11,7 @@ test.describe("HITL In-App", () => {
 
   test("canonical suggestion pill fires the prompt", async ({ page }) => {
     await page.goto("/demos/hitl-in-app");
-    const pill = page
-      .getByRole("button", { name: /Refund approval/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Refund approval/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(

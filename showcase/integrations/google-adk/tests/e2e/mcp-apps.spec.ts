@@ -14,7 +14,9 @@ test.describe("MCP Apps — canonical suggestion pill", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.getByText("draw an excalidraw diagram of a router with two switches"),
+      page.getByText(
+        "draw an excalidraw diagram of a router with two switches",
+      ),
     ).toBeVisible({ timeout: 30_000 });
   });
 });

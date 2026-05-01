@@ -99,6 +99,8 @@ test.describe("Frontend Tools (change_background)", () => {
     const pill = page.getByRole("button", { name: /Switch theme/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"background-container\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="background-container"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

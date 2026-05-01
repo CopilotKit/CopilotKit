@@ -67,8 +67,8 @@ test.describe("Agentic Generative UI", () => {
     await pill.click();
     // catalog primarySelector "[data-testid=\"agent-state-card\"]" not rendered
     // in this framework — falling back to generic assistant role
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

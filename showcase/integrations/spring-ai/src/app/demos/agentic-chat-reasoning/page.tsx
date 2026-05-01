@@ -53,7 +53,6 @@ function Chat() {
     available: "always",
   });
 
-
   // @region[reasoning-block-render]
   return (
     <CopilotChat

@@ -26,9 +26,7 @@ test("headless-complete loads without errors", async ({ page }) => {
 test("canonical suggestion prompt fires the feature", async ({ page }) => {
   await page.goto("/demos/headless-complete");
   const input = page.getByPlaceholder(/Type a message\.\.\./i).first();
-  await input.fill(
-    "send a sample message to populate the headless transcript",
-  );
+  await input.fill("send a sample message to populate the headless transcript");
   await input.press("Enter");
   await expect(
     page.locator('[data-testid="headless-complete-messages"]').first(),

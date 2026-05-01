@@ -131,9 +131,7 @@ function Chat() {
 
   // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: [
-      { title: "Async metric", message: "fetch the async metric" },
-    ],
+    suggestions: [{ title: "Async metric", message: "fetch the async metric" }],
     available: "always",
   });
 

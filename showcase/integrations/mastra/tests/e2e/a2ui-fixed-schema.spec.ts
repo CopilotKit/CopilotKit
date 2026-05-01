@@ -9,9 +9,7 @@ test.describe("A2UI Fixed Schema", () => {
 
   test("canonical suggestion pill fires the prompt", async ({ page }) => {
     await page.goto("/demos/a2ui-fixed-schema");
-    const pill = page
-      .getByRole("button", { name: /Block calendar/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Block calendar/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(

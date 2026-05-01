@@ -61,8 +61,7 @@ function Chat() {
     suggestions: [
       {
         title: "Custom catchall",
-        message:
-          "exercise the custom catchall renderer with an unknown tool",
+        message: "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",

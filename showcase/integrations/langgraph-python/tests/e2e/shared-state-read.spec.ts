@@ -58,6 +58,8 @@ test.describe("Shared State (Reading)", () => {
     const pill = page.getByRole("button", { name: /Italian pasta/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"copilot-assistant-message\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -180,8 +180,7 @@ function ChatBody({
     suggestions: [
       {
         title: "Custom message",
-        message:
-          "send a sample message to populate the headless transcript",
+        message: "send a sample message to populate the headless transcript",
       },
     ],
     available: "always",

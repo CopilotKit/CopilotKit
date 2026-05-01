@@ -12,13 +12,11 @@ test.describe("Gen Ui Interrupt", () => {
   // Canonical e2e suggestion — single pill wired via useConfigureSuggestions.
   // Title + message come from showcase/aimock/_canonical-catalog.json.
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page
-      .getByRole("button", { name: /Pause and pick/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Pause and pick/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"time-picker-card\"]").first(),
+      page.locator('[data-testid="time-picker-card"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

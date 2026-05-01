@@ -35,8 +35,8 @@ test.describe("Tool-Based Generative UI", () => {
     await pill.click();
     // Catalog selector [data-testid="bar-chart"] not present in this demo
     // (renders haiku cards); fall back to assistant message (Rule 4).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

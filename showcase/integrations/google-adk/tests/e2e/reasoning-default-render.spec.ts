@@ -17,7 +17,9 @@ test.describe("Reasoning (Default Render) — canonical suggestion pill", () => 
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.getByText("talk me through your default reasoning on a tricky riddle"),
+      page.getByText(
+        "talk me through your default reasoning on a tricky riddle",
+      ),
     ).toBeVisible({ timeout: 30_000 });
   });
 });

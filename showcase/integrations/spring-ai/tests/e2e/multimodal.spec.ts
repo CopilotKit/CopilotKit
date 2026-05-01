@@ -10,13 +10,11 @@ test.describe("Multimodal", () => {
   // Canonical e2e suggestion — single pill wired via useConfigureSuggestions.
   // Title + message come from showcase/aimock/_canonical-catalog.json.
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page
-      .getByRole("button", { name: /Sample image/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Sample image/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"copilot-assistant-message\"]").first(),
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

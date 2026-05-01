@@ -142,6 +142,8 @@ test.describe("State Streaming", () => {
     const pill = page.getByRole("button", { name: /Stream counter/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"status-display\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="status-display"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

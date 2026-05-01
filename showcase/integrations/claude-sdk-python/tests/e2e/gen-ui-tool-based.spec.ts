@@ -49,8 +49,8 @@ test.describe("Tool-Based Generative UI", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: 60_000 },
+    );
   });
 });

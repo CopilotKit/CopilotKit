@@ -174,8 +174,7 @@ function ChatBody({
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Custom message",
-        message:
-          "send a sample message to populate the headless transcript",
+        message: "send a sample message to populate the headless transcript",
       },
     ],
     available: "always",

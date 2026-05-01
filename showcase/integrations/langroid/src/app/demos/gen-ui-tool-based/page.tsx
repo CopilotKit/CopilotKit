@@ -31,8 +31,7 @@ function SidebarWithSuggestions() {
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Quarterly bars",
-        message:
-          "render a tool-based bar chart for last quarter deliveries",
+        message: "render a tool-based bar chart for last quarter deliveries",
       },
     ],
     available: "always",

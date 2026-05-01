@@ -50,7 +50,8 @@ function DemoContent() {
     suggestions: [
       {
         title: "Research draft",
-        message: "Research the benefits of remote work and draft a one-paragraph summary",
+        message:
+          "Research the benefits of remote work and draft a one-paragraph summary",
       },
     ],
     available: "always",

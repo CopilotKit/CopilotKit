@@ -124,6 +124,8 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
     const pill = page.getByRole("button", { name: /Block calendar/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="copilot-suggestion"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

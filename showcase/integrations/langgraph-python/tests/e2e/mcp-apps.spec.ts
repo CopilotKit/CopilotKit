@@ -95,6 +95,8 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
     const pill = page.getByRole("button", { name: /Excalidraw/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="copilot-suggestion"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -67,9 +67,7 @@ test.describe("Chat Customization (CSS)", () => {
 
     await expect(
       page
-        .locator(
-          '.chat-css-demo-scope [data-testid="copilot-user-message"]',
-        )
+        .locator('.chat-css-demo-scope [data-testid="copilot-user-message"]')
         .first(),
     ).toBeVisible({ timeout: 45000 });
   });

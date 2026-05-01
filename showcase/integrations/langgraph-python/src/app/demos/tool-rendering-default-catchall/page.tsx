@@ -53,8 +53,7 @@ function Chat() {
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Default catchall",
-        message:
-          "trigger the default catchall renderer for an unmapped tool",
+        message: "trigger the default catchall renderer for an unmapped tool",
       },
     ],
     available: "always",

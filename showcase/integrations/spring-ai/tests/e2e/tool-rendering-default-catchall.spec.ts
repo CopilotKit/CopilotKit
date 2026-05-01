@@ -15,7 +15,7 @@ test.describe("Tool Rendering (Default Catch-all)", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"custom-catchall-card\"]").first(),
+      page.locator('[data-testid="custom-catchall-card"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

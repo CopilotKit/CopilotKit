@@ -13,8 +13,8 @@ test.describe("Chat Customization (CSS) — canonical suggestion pill", () => {
     const pill = page.getByRole("button", { name: /Theme check/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(
-      page.getByText("verify the css theme rendering"),
-    ).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("verify the css theme rendering")).toBeVisible({
+      timeout: 30_000,
+    });
   });
 });

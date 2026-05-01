@@ -25,9 +25,9 @@
  *   code path — whatever works for one works for both.
  */
 
+import { useCallback } from "react";
 import {
-  useCallback } from "react";
-import { CopilotKit,
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";

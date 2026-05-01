@@ -71,5 +71,7 @@ function Chat() {
     available: "always",
   });
 
-  return <CopilotChat agentId="agent-config-demo" className="h-full rounded-md" />;
+  return (
+    <CopilotChat agentId="agent-config-demo" className="h-full rounded-md" />
+  );
 }

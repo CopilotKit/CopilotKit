@@ -46,8 +46,7 @@ function Chat() {
     suggestions: [
       {
         title: "Default reasoning",
-        message:
-          "talk me through your default reasoning on a tricky riddle",
+        message: "talk me through your default reasoning on a tricky riddle",
       },
     ],
     available: "always",

@@ -117,6 +117,8 @@ test.describe("Chat Slots", () => {
     const pill = page.getByRole("button", { name: /Slot wiring/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"custom-assistant-message\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="custom-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

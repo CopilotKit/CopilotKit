@@ -60,8 +60,7 @@ function Chat() {
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Custom catchall",
-        message:
-          "exercise the custom catchall renderer with an unknown tool",
+        message: "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",

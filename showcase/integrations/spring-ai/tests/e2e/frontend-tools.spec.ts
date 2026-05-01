@@ -12,13 +12,11 @@ test.describe("Frontend Tools", () => {
   // Canonical e2e suggestion — single pill wired via useConfigureSuggestions.
   // Title + message come from showcase/aimock/_canonical-catalog.json.
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page
-      .getByRole("button", { name: /Switch theme/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Switch theme/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"background-container\"]").first(),
+      page.locator('[data-testid="background-container"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

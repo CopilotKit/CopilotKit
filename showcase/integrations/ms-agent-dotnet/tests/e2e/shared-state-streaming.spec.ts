@@ -145,8 +145,8 @@ test.describe("State Streaming", () => {
     // Catalog selector [data-testid="status-display"] is from the document
     // editor variant — this stack's stub renders the assistant message instead
     // (Rule 4 fallback).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

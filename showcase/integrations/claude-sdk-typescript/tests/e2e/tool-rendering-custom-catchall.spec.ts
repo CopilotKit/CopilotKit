@@ -6,9 +6,7 @@ test.describe("Tool Rendering (Custom Catch-all)", () => {
   });
 
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page
-      .getByRole("button", { name: /Custom catchall/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Custom catchall/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(

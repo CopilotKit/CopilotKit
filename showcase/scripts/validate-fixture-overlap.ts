@@ -104,8 +104,7 @@ export function findOverlaps(
   // Filter to fixtures with a non-empty userMessage. Other matchers
   // (toolCallId, endpoint) are out of scope for this verifier.
   const usable = fixtures.filter(
-    (f) =>
-      typeof f.userMessage === "string" && f.userMessage.trim().length > 0,
+    (f) => typeof f.userMessage === "string" && f.userMessage.trim().length > 0,
   );
 
   // Noise check — exact-match against the noise list. A noise-token fixture

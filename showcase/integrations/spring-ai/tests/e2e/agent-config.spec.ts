@@ -21,7 +21,7 @@ test.describe("Agent Config", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"agent-config-card\"]").first(),
+      page.locator('[data-testid="agent-config-card"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

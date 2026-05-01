@@ -10,9 +10,7 @@ test.describe("Tool Rendering (Custom Catchall) — canonical pill", () => {
   test("Custom catchall canonical pill fires the catalog message", async ({
     page,
   }) => {
-    const pill = page
-      .getByRole("button", { name: /Custom catchall/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Custom catchall/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 

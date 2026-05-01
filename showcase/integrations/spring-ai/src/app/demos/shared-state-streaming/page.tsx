@@ -17,7 +17,10 @@ interface StreamingAgentState {
 
 export default function SharedStateStreamingDemo() {
   return (
-    <CopilotKit runtimeUrl="/api/copilotkit-shared-state-streaming" agent="shared-state-streaming">
+    <CopilotKit
+      runtimeUrl="/api/copilotkit-shared-state-streaming"
+      agent="shared-state-streaming"
+    >
       <DemoContent />
     </CopilotKit>
   );

@@ -140,9 +140,13 @@ test.describe("Agent Config Object", () => {
   });
 
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page.getByRole("button", { name: /Personalize tone/i }).first();
+    const pill = page
+      .getByRole("button", { name: /Personalize tone/i })
+      .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"agent-config-card\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="agent-config-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

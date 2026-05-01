@@ -14,8 +14,8 @@ test.describe("Reasoning (Default Render)", () => {
     // catalog primarySelector "[data-testid=\"copilot-reasoning-message\"]"
     // not emitted by the v2 CopilotChatReasoningMessage component — falling
     // back to generic assistant role
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

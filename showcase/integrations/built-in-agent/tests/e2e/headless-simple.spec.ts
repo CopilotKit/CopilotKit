@@ -19,9 +19,7 @@ test.describe("Headless Chat (Simple)", () => {
 
   test("canonical suggestion prompt fires the feature", async ({ page }) => {
     const input = page
-      .getByPlaceholder(
-        "Type a message. Ask me to 'show a card about cats'.",
-      )
+      .getByPlaceholder("Type a message. Ask me to 'show a card about cats'.")
       .first();
     await input.fill("show a small card body about hummingbirds");
     await page.getByRole("button", { name: "Send", exact: true }).click();

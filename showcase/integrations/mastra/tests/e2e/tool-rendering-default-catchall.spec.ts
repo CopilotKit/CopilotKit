@@ -16,8 +16,8 @@ test.describe("Tool Rendering (Default Catch-all)", () => {
     // Catalog primary selector is `custom-catchall-card`; this demo uses the
     // package-provided DefaultToolCallRenderer which doesn't expose that
     // data-testid, so assert on the assistant turn settling instead.
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

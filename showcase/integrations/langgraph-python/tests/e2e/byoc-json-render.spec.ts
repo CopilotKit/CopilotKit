@@ -78,9 +78,13 @@ test.describe("BYOC json-render", () => {
   });
 
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page.getByRole("button", { name: /Marketing overview/i }).first();
+    const pill = page
+      .getByRole("button", { name: /Marketing overview/i })
+      .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"json-render-root\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="json-render-root"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

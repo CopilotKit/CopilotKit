@@ -10,9 +10,7 @@ test.describe("A2UI Fixed Schema — canonical suggestion pill", () => {
   test("Block calendar suggestion pill fires the catalog prompt", async ({
     page,
   }) => {
-    const pill = page
-      .getByRole("button", { name: /Block calendar/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Block calendar/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     // Pill click sends the canonical message; the user bubble proves the

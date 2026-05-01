@@ -62,8 +62,8 @@ test.describe("Tool Rendering", () => {
     await pill.click();
     // Catalog primary selector is `copilot-suggestion`; assert on the
     // assistant turn settling so the pill click is verified end-to-end.
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

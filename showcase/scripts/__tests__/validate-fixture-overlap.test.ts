@@ -26,7 +26,11 @@ describe("findOverlaps", () => {
   it("flags an inner-substring pair", () => {
     const fixtures: Fixture[] = [
       { source: "a.json", index: 0, userMessage: "weather" },
-      { source: "a.json", index: 1, userMessage: "what is the weather in tokyo" },
+      {
+        source: "a.json",
+        index: 1,
+        userMessage: "what is the weather in tokyo",
+      },
     ];
     const overlaps = findOverlaps(fixtures, [], noise);
     expect(overlaps).toHaveLength(1);

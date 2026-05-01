@@ -49,8 +49,7 @@ function Chat() {
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Excalidraw",
-        message:
-          "draw an excalidraw diagram of a router with two switches",
+        message: "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",

@@ -91,6 +91,8 @@ test.describe("Pre-Built Popup", () => {
     const pill = page.getByRole("button", { name: /Popup hello/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"copilot-popup\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="copilot-popup"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -16,8 +16,8 @@ test.describe("Reasoning (Default Render)", () => {
     // Catalog primary selector is `copilot-reasoning-message`; the v2
     // reasoning component does not expose that data-testid, so assert on the
     // assistant turn settling instead.
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

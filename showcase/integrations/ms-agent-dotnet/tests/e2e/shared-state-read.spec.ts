@@ -60,8 +60,8 @@ test.describe("Shared State (Reading)", () => {
     await pill.click();
     // Catalog selector [data-testid="copilot-assistant-message"] — fall back to
     // [data-role="assistant"] which is what this stack emits (Rule 4).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

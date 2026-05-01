@@ -14,7 +14,10 @@ function ConfiguredChat() {
   useConfigureSuggestions({
     suggestions: [
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
-      { title: "Personalize tone", message: "introduce yourself per your config" },
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
     ],
     available: "always",
   });

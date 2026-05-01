@@ -22,9 +22,7 @@ test.describe("Tool Rendering (Custom Catch-all)", () => {
   }) => {
     // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
     await page.goto("/demos/tool-rendering-custom-catchall");
-    const pill = page
-      .getByRole("button", { name: /Custom catchall/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Custom catchall/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(

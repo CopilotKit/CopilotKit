@@ -13,8 +13,8 @@ test.describe("Tool Rendering (Default Catchall)", () => {
     await pill.click();
     // Catalog selector [data-testid="custom-catchall-card"] not present in
     // this demo (uses default renderer); fall back to assistant (Rule 4).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

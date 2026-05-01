@@ -21,8 +21,7 @@ function Chat() {
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Default reasoning",
-        message:
-          "talk me through your default reasoning on a tricky riddle",
+        message: "talk me through your default reasoning on a tricky riddle",
       },
     ],
     available: "always",

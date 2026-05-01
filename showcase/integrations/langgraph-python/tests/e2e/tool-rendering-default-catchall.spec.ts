@@ -124,9 +124,13 @@ test.describe("Tool Rendering — Default Catch-all", () => {
   });
 
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page.getByRole("button", { name: /Default catchall/i }).first();
+    const pill = page
+      .getByRole("button", { name: /Default catchall/i })
+      .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
-    await expect(page.locator("[data-testid=\"custom-catchall-card\"]").first()).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator('[data-testid="custom-catchall-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

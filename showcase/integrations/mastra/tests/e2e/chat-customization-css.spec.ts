@@ -13,9 +13,7 @@ test.describe("Chat Customization (CSS)", () => {
     await pill.click();
     await expect(
       page
-        .locator(
-          '.chat-css-demo-scope [data-testid="copilot-user-message"]',
-        )
+        .locator('.chat-css-demo-scope [data-testid="copilot-user-message"]')
         .first(),
     ).toBeVisible({ timeout: 60_000 });
   });

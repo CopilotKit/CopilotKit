@@ -45,8 +45,7 @@ function Chat() {
     suggestions: [
       {
         title: "Default catchall",
-        message:
-          "trigger the default catchall renderer for an unmapped tool",
+        message: "trigger the default catchall renderer for an unmapped tool",
       },
     ],
     available: "always",

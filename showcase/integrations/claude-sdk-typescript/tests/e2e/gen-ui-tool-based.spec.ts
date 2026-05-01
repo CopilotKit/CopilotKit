@@ -48,8 +48,8 @@ test.describe("Tool-Based Generative UI", () => {
     await pill.click();
     // catalog primarySelector "[data-testid=\"bar-chart\"]" not rendered
     // in this framework — falling back to generic assistant role
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

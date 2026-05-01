@@ -15,8 +15,8 @@ test.describe("Tool Rendering (Default Catch-all)", () => {
     // emitted only by the custom-catchall renderer; the default-catchall
     // variant uses CopilotKit's built-in card — falling back to generic
     // assistant role
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

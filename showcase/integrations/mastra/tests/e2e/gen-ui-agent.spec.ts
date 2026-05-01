@@ -62,9 +62,7 @@ test.describe("Agentic Generative UI", () => {
   });
 
   test("canonical suggestion pill fires the prompt", async ({ page }) => {
-    const pill = page
-      .getByRole("button", { name: /Launch outline/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     // Catalog primary selector is `agent-state-card`; mastra's gen-ui-agent

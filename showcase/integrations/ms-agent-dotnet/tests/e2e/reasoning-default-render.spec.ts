@@ -13,8 +13,8 @@ test.describe("Reasoning (Default Render)", () => {
     await pill.click();
     // Catalog selector [data-testid="copilot-reasoning-message"] does not
     // exist in V2 react-core; fall back to assistant message (Rule 4).
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

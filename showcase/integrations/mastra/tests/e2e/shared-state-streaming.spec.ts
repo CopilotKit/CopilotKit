@@ -145,8 +145,8 @@ test.describe("State Streaming", () => {
     // Catalog primary selector is `status-display`; mastra's
     // shared-state-streaming page is a TODO stub that does not render that
     // surface, so assert on the assistant turn settling instead.
-    await expect(
-      page.locator('[data-role="assistant"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

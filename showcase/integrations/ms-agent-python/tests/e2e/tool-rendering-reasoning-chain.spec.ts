@@ -10,9 +10,7 @@ test.describe("Tool Rendering (Reasoning Chain) — canonical pill", () => {
   test("Kyoto itinerary canonical pill fires the catalog message", async ({
     page,
   }) => {
-    const pill = page
-      .getByRole("button", { name: /Kyoto itinerary/i })
-      .first();
+    const pill = page.getByRole("button", { name: /Kyoto itinerary/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 

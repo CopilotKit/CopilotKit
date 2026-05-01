@@ -15,7 +15,7 @@ test.describe("Reasoning Default Render", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"copilot-reasoning-message\"]").first(),
+      page.locator('[data-testid="copilot-reasoning-message"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

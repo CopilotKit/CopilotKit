@@ -15,7 +15,7 @@ test.describe("Headless Simple", () => {
     await textarea.fill("show a small card body about hummingbirds");
     await page.getByRole("button", { name: "Send" }).first().click();
     await expect(
-      page.locator("[data-message-role=\"assistant\"]").first(),
+      page.locator('[data-message-role="assistant"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

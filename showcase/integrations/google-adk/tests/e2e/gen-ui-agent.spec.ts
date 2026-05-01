@@ -70,7 +70,9 @@ test.describe("Agentic Generative UI", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.getByText("lay out a five-stage launch outline for our beta product"),
+      page.getByText(
+        "lay out a five-stage launch outline for our beta product",
+      ),
     ).toBeVisible({ timeout: 30_000 });
   });
 });

@@ -18,7 +18,7 @@ test.describe("Byoc Json Render", () => {
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"json-render-root\"]").first(),
+      page.locator('[data-testid="json-render-root"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

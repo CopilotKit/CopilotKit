@@ -20,14 +20,10 @@
 // from chat internals in the unauthenticated state so the page never white-
 // screens — instead, the user sees a clear in-page message.
 
+import { Component, useCallback, useMemo, useState } from "react";
+import type { ErrorInfo, ReactNode } from "react";
 import {
-  Component,
-  useCallback,
-  useMemo,
-  useState } from "react";
-import type { ErrorInfo,
-  ReactNode } from "react";
-import { CopilotKit,
+  CopilotKit,
   CopilotChat,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
