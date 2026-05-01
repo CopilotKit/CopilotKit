@@ -108,4 +108,15 @@ test.describe("Sub-Agents", () => {
       timeout: 60000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Research draft/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Langroid renders assistant bubbles with [data-role="assistant"] rather
+    // than the canonical [data-testid="copilot-assistant-message"].
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

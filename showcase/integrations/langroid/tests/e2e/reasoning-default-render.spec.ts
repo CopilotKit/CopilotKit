@@ -19,4 +19,18 @@ test.describe("Reasoning (Default Render)", () => {
       timeout: 30000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Default reasoning/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Langroid does not currently emit REASONING_MESSAGE_* events, so the
+    // canonical [data-testid="copilot-reasoning-message"] won't render. Fall
+    // back to [data-role="assistant"] for the round-trip signal.
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

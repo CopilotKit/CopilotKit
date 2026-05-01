@@ -171,17 +171,11 @@ function ChatBody({
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Weather in Paris",
-        message: "What's the weather in Paris?",
+        title: "Custom message",
+        message:
+          "send a sample message to populate the headless transcript",
       },
     ],
     available: "always",

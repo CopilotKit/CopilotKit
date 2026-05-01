@@ -24,4 +24,16 @@ test.describe("Readonly State (Agent Context)", () => {
       timeout: 30000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Recall pref/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primarySelector is [data-testid="copilot-suggestion"] (the
+    // pill itself). Assert on the round-trip [data-role="assistant"]
+    // bubble — Langroid's stable post-click signal.
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

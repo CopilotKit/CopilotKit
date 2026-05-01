@@ -46,14 +46,11 @@ export default function MCPAppsDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
+        title: "Excalidraw",
         message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+          "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",

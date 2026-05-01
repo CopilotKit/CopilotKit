@@ -55,4 +55,16 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Pie chart/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primarySelector is [data-testid="copilot-suggestion"] (the
+    // pill itself). Assert on the round-trip [data-role="assistant"]
+    // bubble — Langroid's stable post-click signal.
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });
