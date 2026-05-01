@@ -44,14 +44,20 @@ export default function A2UIFixedSchemaDemo() {
 }
 
 function Chat() {
-  // Canonical e2e suggestion — exact catalog match for a2ui-fixed-schema.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Find SFO → JFK",
+        message: "Find me a flight from SFO to JFK on United for $289.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Block calendar",
         message: "block out my tuesday with three meetings and a gym slot",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

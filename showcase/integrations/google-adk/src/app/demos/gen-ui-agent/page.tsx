@@ -32,14 +32,24 @@ function Chat() {
 
   const agentState = agent.state as AgentState | undefined;
 
-  // Canonical e2e suggestion — exact catalog match for gen-ui-agent.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Simple plan",
+        message: "Please build a plan to go to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please build a plan to make pizza in 10 steps.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Launch outline",
         message: "lay out a five-stage launch outline for our beta product",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

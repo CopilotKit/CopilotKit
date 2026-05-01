@@ -24,14 +24,24 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
-  // Canonical e2e suggestion — exact catalog match for hitl.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Simple plan",
+        message: "Please plan a trip to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please plan a pasta dish in 10 steps.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Sourcing route",
         message: "draft a five-stage route for sourcing office greenery",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

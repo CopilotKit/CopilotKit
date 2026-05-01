@@ -18,14 +18,24 @@ export default function PrebuiltSidebarDemo() {
 }
 
 function DemoContent() {
-  // Canonical e2e suggestion — exact catalog match for prebuilt-sidebar.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Help me focus",
+        message: "Suggest 3 ways to focus on my work today.",
+      },
+      {
+        title: "Daily standup",
+        message: "Help me draft a 3-bullet daily standup update.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Sidebar hello",
         message: "hi from the sidebar test",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

@@ -44,14 +44,24 @@ function Chat() {
   });
   // @endregion[frontend-tool-registration]
 
-  // Canonical e2e suggestion — exact catalog match for frontend-tools.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Change background",
+        message: "Change the background to a blue-to-purple gradient.",
+      },
+      {
+        title: "Sunset theme",
+        message: "Make the background a sunset-themed gradient.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Switch theme",
         message: "switch theme to dark mode",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });
