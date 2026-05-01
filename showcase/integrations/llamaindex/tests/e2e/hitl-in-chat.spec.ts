@@ -149,4 +149,16 @@ test.describe("HITL in chat — booking flow", () => {
         .first(),
     ).toBeVisible({ timeout: 30000 });
   });
+
+  test("canonical 'Pick a slot' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Pick a slot/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="time-picker-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

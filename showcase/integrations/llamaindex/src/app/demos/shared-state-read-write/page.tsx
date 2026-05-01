@@ -49,21 +49,18 @@ function DemoContent() {
   });
   // @endregion[use-agent-read]
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
-      { title: "Greet me", message: "Say hi and introduce yourself." },
       {
-        title: "Remember something",
-        message:
-          "Remember that I prefer morning meetings and that I don't eat dairy.",
-      },
-      {
-        title: "Plan a weekend",
-        message: "Suggest a weekend plan based on my interests.",
+        title: "Weekend plan",
+        message: "build me a weekend itinerary based on saved interests",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   const agentState = agent.state as RWAgentState | undefined;
   const preferences = agentState?.preferences ?? INITIAL_PREFERENCES;

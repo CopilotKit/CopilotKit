@@ -60,4 +60,22 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  test("canonical 'Launch outline' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    // Catalog primarySelector points at agent-state-card; this demo renders a
+    // task-progress card driven by agent state — assert on either.
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page
+        .locator(
+          '[data-testid="agent-state-card"], [data-testid="task-progress"]',
+        )
+        .first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

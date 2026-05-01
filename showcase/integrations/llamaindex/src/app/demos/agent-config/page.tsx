@@ -1,10 +1,33 @@
 "use client";
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 
 import { ConfigCard } from "./config-card";
 import { useAgentConfig } from "./use-agent-config";
+
+function ChatWithSuggestions() {
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
+  });
+  // @endregion[configure-suggestions]
+
+  return (
+    <CopilotChat agentId="agent-config-demo" className="h-full rounded-md" />
+  );
+}
 
 export default function AgentConfigDemoPage() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
@@ -47,10 +70,7 @@ export default function AgentConfigDemoPage() {
           onResponseLengthChange={setResponseLength}
         />
         <div className="flex-1 overflow-hidden rounded-md border border-[var(--border)]">
-          <CopilotChat
-            agentId="agent-config-demo"
-            className="h-full rounded-md"
-          />
+          <ChatWithSuggestions />
         </div>
       </div>
     </CopilotKit>

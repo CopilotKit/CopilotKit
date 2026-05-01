@@ -27,9 +27,13 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+    suggestions: [{ title: "Stream counter", message: "stream the counter to 5" }],
+    available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>

@@ -55,19 +55,19 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Custom catchall",
+        message:
+          "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <CopilotChat

@@ -18,4 +18,16 @@ test.describe("Agentic Chat (Reasoning)", () => {
       timeout: 45000,
     });
   });
+
+  test("canonical 'Show reasoning' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Show reasoning/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="reasoning-block"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

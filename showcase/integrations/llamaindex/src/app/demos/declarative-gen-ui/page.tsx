@@ -43,29 +43,15 @@ export default function DeclarativeGenUIDemo() {
 }
 
 function Chat() {
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Show a KPI dashboard",
-        message:
-          "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
-      },
-      {
-        title: "Pie chart — sales by region",
-        message: "Show a pie chart of sales by region.",
-      },
-      {
-        title: "Bar chart — quarterly revenue",
-        message: "Render a bar chart of quarterly revenue.",
-      },
-      {
-        title: "Status report",
-        message:
-          "Give me a status report on system health — API, database, and background workers.",
-      },
+      { title: "Show card", message: "render the declarative card" },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <CopilotChat agentId="declarative-gen-ui" className="h-full rounded-2xl" />

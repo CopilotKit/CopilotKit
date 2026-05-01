@@ -53,4 +53,16 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  test("canonical 'Italian pasta' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Italian pasta/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

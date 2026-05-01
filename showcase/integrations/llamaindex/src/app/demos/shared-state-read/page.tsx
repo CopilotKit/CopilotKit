@@ -98,23 +98,18 @@ function Recipe() {
   });
   const { copilotkit } = useCopilotKit();
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Create Italian recipe",
-        message: "Create a delicious Italian pasta recipe.",
-      },
-      {
-        title: "Make it healthier",
-        message: "Make the recipe healthier with more vegetables.",
-      },
-      {
-        title: "Suggest variations",
-        message: "Suggest some creative variations of this recipe.",
+        title: "Italian pasta",
+        message: "compose an italian pasta recipe with seasonal greens",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   const agentState = agent.state as RecipeAgentState | undefined;
   const setAgentState = (s: RecipeAgentState) => agent.setState(s);

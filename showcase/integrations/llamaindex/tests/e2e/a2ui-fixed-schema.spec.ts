@@ -18,4 +18,16 @@ test.describe("A2UI Fixed Schema", () => {
       timeout: 60000,
     });
   });
+
+  test("canonical 'Block calendar' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Block calendar/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

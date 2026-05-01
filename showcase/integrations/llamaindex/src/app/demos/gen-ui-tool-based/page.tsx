@@ -112,23 +112,18 @@ function Chat() {
   });
   // @endregion[haiku-renderer]
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Sales bar chart",
-        message: "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
-      },
-      {
-        title: "Traffic pie chart",
-        message: "Show me a pie chart of website traffic by source.",
-      },
-      {
-        title: "Nature haiku",
-        message: "Write me a haiku about nature",
+        title: "Quarterly bars",
+        message: "render a tool-based bar chart for last quarter deliveries",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <div className="flex justify-center items-center h-screen w-full">

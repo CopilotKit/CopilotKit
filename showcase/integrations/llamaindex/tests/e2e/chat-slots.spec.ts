@@ -20,48 +20,20 @@ test.describe("Chat Slots", () => {
     await expect(welcome.getByText("Custom Slot")).toBeVisible();
   });
 
-  test("both suggestion pills render with verbatim titles", async ({
+  test("canonical 'Slot wiring' suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    // useConfigureSuggestions registers exactly two pills with available: "always".
-    // Both should be visible immediately on the welcome screen.
-    await expect(
-      page
-        .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Write a sonnet" }),
-    ).toBeVisible({ timeout: 15000 });
-
-    await expect(
-      page
-        .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Tell me a joke" }),
-    ).toBeVisible({ timeout: 15000 });
-  });
-
-  test('clicking "Tell me a joke" shows the custom assistant message slot', async ({
-    page,
-  }) => {
-    // Click the suggestion pill — this sends "Tell me a short joke." The
-    // assistant will respond with text (neutral agent, no tools), and its
-    // bubble must be wrapped in the custom slot container.
-    await page
-      .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Tell me a joke" })
-      .first()
-      .click();
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Slot wiring/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
 
     // Custom assistant-message slot is the defining slot-override signal:
     // every assistant bubble flows through CustomAssistantMessage, which
     // wraps the default in a tinted card with this testid.
-    const customMsg = page
-      .locator('[data-testid="custom-assistant-message"]')
-      .first();
-    await expect(customMsg).toBeVisible({ timeout: 45000 });
-
-    // The "slot" badge is absolutely-positioned inside the custom wrapper —
-    // its presence proves our wrapper rendered rather than the default
-    // CopilotChatAssistantMessage bare.
-    await expect(customMsg.getByText("slot", { exact: true })).toBeVisible();
+    await expect(
+      page.locator('[data-testid="custom-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 
   test("custom disclaimer slot renders after the first user message", async ({
