@@ -60,4 +60,16 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  test("Launch outline suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="agent-state-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

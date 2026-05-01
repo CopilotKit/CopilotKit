@@ -38,10 +38,29 @@
  */
 
 import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
+
+function Suggestions() {
+  // @region[configure-suggestions]
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sample image",
+        message: "describe the sample image",
+      },
+    ],
+    available: "always",
+  });
+  // @endregion[configure-suggestions]
+  return null;
+}
 
 /**
  * `onUpload` must resolve to an `AttachmentUploadResult` (data or url). We
@@ -105,6 +124,7 @@ export default function MultimodalDemoPage() {
 
   return (
     <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+      <Suggestions />
       <div
         data-testid="multimodal-demo-root"
         className="mx-auto flex h-screen max-w-4xl flex-col gap-3 p-4 sm:p-6"

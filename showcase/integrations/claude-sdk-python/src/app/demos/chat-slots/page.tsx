@@ -26,13 +26,17 @@ export default function ChatSlotsDemo() {
 
 // The actual view — just the chat, with two slot overrides.
 function Chat() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
-      { title: "Tell me a joke", message: "Tell me a short joke." },
+      {
+        title: "Slot wiring",
+        message: "verify chat slots are wired",
+      },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   // Each slot is wired in as a prop on <CopilotChat>. Extracting the
   // overrides up here keeps the JSX readable and gives the docs something

@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("HITL in chat — booking flow", () => {
+test.describe("Gen UI Interrupt", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/hitl-in-chat");
+    await page.goto("/demos/gen-ui-interrupt");
   });
 
   test("page loads with chat input", async ({ page }) => {
@@ -11,10 +11,10 @@ test.describe("HITL in chat — booking flow", () => {
     });
   });
 
-  test("Pick a slot suggestion pill fires the canonical prompt", async ({
+  test("Pause and pick suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    const pill = page.getByRole("button", { name: /Pick a slot/i }).first();
+    const pill = page.getByRole("button", { name: /Pause and pick/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 

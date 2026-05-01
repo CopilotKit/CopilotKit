@@ -21,7 +21,6 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
-import { BYOC_JSON_RENDER_SUGGESTIONS } from "./suggestions";
 
 const AGENT_ID = "byoc_json_render";
 
@@ -38,13 +37,17 @@ export default function ByocJsonRenderDemo() {
 }
 
 function Chat() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
-    suggestions: BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-    })),
+    suggestions: [
+      {
+        title: "Marketing overview",
+        message: "outline a marketing overview with traffic breakdown",
+      },
+    ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   // `messageView.assistantMessage` replaces CopilotChat's default assistant
   // bubble. The cast mirrors the pattern used in `demos/chat-slots/page.tsx`

@@ -17,4 +17,16 @@ test.describe("Pre-Built Sidebar", () => {
       page.locator('textarea, [placeholder*="message"]').first(),
     ).toBeVisible({ timeout: 10000 });
   });
+
+  test("Sidebar hello suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Sidebar hello/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-sidebar"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

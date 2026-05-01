@@ -11,11 +11,17 @@ test.describe("BYOC json-render", () => {
     ).toBeVisible({ timeout: 10000 });
   });
 
-  test("suggestion pills are rendered", async ({ page }) => {
+  test("Marketing overview suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .getByRole("button", { name: /Marketing overview/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
     await expect(
-      page.getByText("Sales dashboard", { exact: false }).first(),
-    ).toBeVisible({
-      timeout: 10000,
-    });
+      page.locator('[data-testid="json-render-root"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -41,4 +41,16 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  test("Quarterly bars suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Quarterly bars/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="bar-chart"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

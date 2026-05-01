@@ -19,4 +19,16 @@ test.describe("Multimodal attachments", () => {
       page.locator('[data-testid="multimodal-sample-pdf-button"]'),
     ).toBeVisible();
   });
+
+  test("Sample image suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Sample image/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("HITL in chat — booking flow", () => {
+test.describe("MCP Apps", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/hitl-in-chat");
+    await page.goto("/demos/mcp-apps");
   });
 
   test("page loads with chat input", async ({ page }) => {
@@ -11,15 +11,15 @@ test.describe("HITL in chat — booking flow", () => {
     });
   });
 
-  test("Pick a slot suggestion pill fires the canonical prompt", async ({
+  test("Excalidraw suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    const pill = page.getByRole("button", { name: /Pick a slot/i }).first();
+    const pill = page.getByRole("button", { name: /Excalidraw/i }).first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 
     await expect(
-      page.locator('[data-testid="time-picker-card"]').first(),
+      page.locator('[data-testid="copilot-suggestion"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

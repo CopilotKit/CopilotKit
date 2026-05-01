@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("HITL in chat — booking flow", () => {
+test.describe("Reasoning (Default Render)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/hitl-in-chat");
+    await page.goto("/demos/reasoning-default-render");
   });
 
   test("page loads with chat input", async ({ page }) => {
@@ -11,15 +11,17 @@ test.describe("HITL in chat — booking flow", () => {
     });
   });
 
-  test("Pick a slot suggestion pill fires the canonical prompt", async ({
+  test("Default reasoning suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    const pill = page.getByRole("button", { name: /Pick a slot/i }).first();
+    const pill = page
+      .getByRole("button", { name: /Default reasoning/i })
+      .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 
     await expect(
-      page.locator('[data-testid="time-picker-card"]').first(),
+      page.locator('[data-testid="copilot-reasoning-message"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

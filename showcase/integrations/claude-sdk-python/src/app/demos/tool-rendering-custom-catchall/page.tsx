@@ -55,23 +55,18 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Check financial data",
-        message: "Show me the latest financial data.",
+        title: "Custom catchall",
+        message:
+          "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <CopilotChat

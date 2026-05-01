@@ -15,4 +15,19 @@ test.describe("Headless Chat (Simple)", () => {
   test("send button is disabled when input is empty", async ({ page }) => {
     await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
   });
+
+  test("Card body canonical prompt yields an assistant response", async ({
+    page,
+  }) => {
+    // Headless-simple uses a custom textarea (no pill UX) — type the
+    // catalog message directly and verify an assistant message renders.
+    const textarea = page.locator("textarea").first();
+    await expect(textarea).toBeVisible({ timeout: 10_000 });
+    await textarea.fill("show a small card body about hummingbirds");
+    await textarea.press("Enter");
+
+    await expect(
+      page.locator('[data-message-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
