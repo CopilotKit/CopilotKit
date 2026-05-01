@@ -11,4 +11,15 @@ test.describe("Headless Chat — Complete (Langroid)", () => {
     ).toBeVisible();
     await expect(page.getByPlaceholder("Send a message…")).toBeVisible();
   });
+
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    const input = page.getByPlaceholder("Send a message…").first();
+    await input.fill(
+      "send a sample message to populate the headless transcript",
+    );
+    await input.press("Enter");
+    await expect(
+      page.locator('[data-testid="headless-complete-messages"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

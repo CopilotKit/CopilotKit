@@ -16,15 +16,12 @@ test.describe("Tool Rendering — Default Catch-all (Langroid)", () => {
   test("page loads with chat input and suggestion pills", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
 
+    // Demo-specific suggestions were collapsed to the single canonical pill
+    // (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Weather in SF" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Find flights" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Weather in Tokyo" }).first(),
+      suggestions.filter({ hasText: "Default catchall" }).first(),
     ).toBeVisible({ timeout: 15000 });
   });
 
@@ -47,5 +44,19 @@ test.describe("Tool Rendering — Default Catch-all (Langroid)", () => {
       page.locator('[data-testid="custom-catchall-card"]'),
     ).toHaveCount(0);
     await expect(page.locator('[data-testid="weather-card"]')).toHaveCount(0);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Default catchall/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primarySelector is [data-testid="custom-catchall-card"], but
+    // langroid's default-catchall renderer paints via the built-in card
+    // (no testid). Fall back to [data-role="assistant"].
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
   });
 });

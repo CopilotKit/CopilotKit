@@ -28,4 +28,13 @@ test.describe("Tool Rendering — Custom Catch-all (Langroid)", () => {
       card.locator('[data-testid="custom-catchall-tool-name"]'),
     ).toContainText("get_weather");
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Custom catchall/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="custom-catchall-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

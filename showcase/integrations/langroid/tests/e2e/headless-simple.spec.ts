@@ -24,4 +24,13 @@ test.describe("Headless Simple", () => {
       timeout: 10000,
     });
   });
+
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    const input = page.locator("textarea").first();
+    await input.fill("show a small card body about hummingbirds");
+    await input.press("Enter");
+    await expect(
+      page.locator('[data-message-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

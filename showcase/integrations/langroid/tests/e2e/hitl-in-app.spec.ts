@@ -25,4 +25,15 @@ test.describe("HITL In-App", () => {
       page.locator('[data-testid="approval-dialog"]'),
     ).not.toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Refund approval/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Langroid uses [data-testid="approval-dialog"] rather than the canonical
+    // [data-testid="approval-dialog-overlay"].
+    await expect(
+      page.locator('[data-testid="approval-dialog"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

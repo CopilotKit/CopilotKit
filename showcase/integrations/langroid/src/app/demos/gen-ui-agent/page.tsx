@@ -34,13 +34,10 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Simple plan",
-        message: "Please build a plan to go to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please build a plan to make pizza in 10 steps.",
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
       },
     ],
     available: "always",
