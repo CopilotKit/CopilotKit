@@ -502,7 +502,7 @@
     },
     {
       "match": {
-        "userMessage": "this PDF"
+        "userMessage": "CopilotKit Quickstart\nAdd AI copilots to your React application"
       },
       "response": {
         "content": "The attached PDF is the CopilotKit Quickstart guide. It walks through three steps: install `@copilotkit/react-core` and `@copilotkit/react-ui`, wrap your app in a `<CopilotKit runtimeUrl=\"/api/copilotkit\">` provider, and drop a `<CopilotChat />` wherever you want the assistant to appear."
@@ -518,38 +518,6 @@
     },
     {
       "match": {
-        "userMessage": "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise."
-      },
-      "response": {
-        "content": "Here's a tight 3-day Tokyo loop for a solo traveler who wants food, art, and architecture in equal measure.\n\n**Day 1 — Shibuya & Harajuku**\n- Morning: breakfast at a kissaten in Shibuya, then walk Cat Street to Harajuku.\n- Afternoon: Nezu Museum (architecture by Kengo Kuma + traditional garden).\n- Evening: izakaya in Nonbei Yokocho.\n\n**Day 2 — Roppongi & Ginza**\n- Morning: Mori Art Museum and the Tokyo City View deck.\n- Afternoon: stroll Ginza, stop into Itoya, lunch at a sushi counter.\n- Evening: jazz at a Ginza basement bar.\n\n**Day 3 — Yanaka & Asakusa**\n- Morning: Yanaka Ginza for old-Tokyo atmosphere and craft shops.\n- Afternoon: Senso-ji and the Asakusa back-streets; consider the Sumida River walk to the Tadao Ando-designed 21_21 if you want one more architecture stop.\n- Evening: ramen near Ueno before catching the train.\n\nLet me know if you want a vegetarian variant or a more architecture-heavy version."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Explain retrieval-augmented generation as if I were 12. Use a simple analogy."
-      },
-      "response": {
-        "content": "Imagine you're taking an open-book test.\n\nA regular language model is like a kid who studied really hard but isn't allowed to look at the textbook during the test — they have to answer from memory, and sometimes they confidently make stuff up.\n\nRetrieval-Augmented Generation (RAG) is the same kid, but now they're allowed to flip through the textbook before answering each question. First they look up the relevant pages (that's the *retrieval* step), then they write the answer using what they just read (that's the *generation* step).\n\nSo RAG = \"look it up, then answer.\" The model still talks like itself, but the facts come from the book instead of from its memory — which means fewer made-up answers, and you can swap the book out whenever your information changes."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Draft a short, upbeat launch email announcing a new AI-powered chat feature. 3 short paragraphs max."
-      },
-      "response": {
-        "content": "**Subject:** Meet your new AI co-pilot — now built right into the app\n\nHi there,\n\nWe just shipped something we're really excited about: an AI-powered chat that lives inside the product you already use. Ask it questions, hand off tasks, or just have it summarize what you're looking at — it has full context of your workspace, so you don't have to copy-paste anything.\n\nIt's rolling out today to every account, no setup required. Open the app, look for the new chat button in the corner, and try it on your messiest task. We'd love to hear what you build with it.\n\n— The team"
-      }
-    },
-    {
-      "match": {
-        "userMessage": "hi"
-      },
-      "response": {
-        "content": "Hi there! I'm your showcase assistant. I can help with weather, charts, meetings, sales todos, flights, and theme toggling. What would you like to try?"
-      }
-    },
-    {
-      "match": {
         "userMessage": "Based on the following context, write a concise"
       },
       "response": {
@@ -558,7 +526,8 @@
     },
     {
       "match": {
-        "userMessage": "plan"
+        "userMessage": "plan",
+        "model": "gpt-4o-mini"
       },
       "response": {
         "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
@@ -566,7 +535,8 @@
     },
     {
       "match": {
-        "userMessage": "steps"
+        "userMessage": "steps",
+        "model": "gpt-4o-mini"
       },
       "response": {
         "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
@@ -574,7 +544,8 @@
     },
     {
       "match": {
-        "userMessage": "mars"
+        "userMessage": "mars",
+        "model": "gpt-4o-mini"
       },
       "response": {
         "content": "Here is my plan:\n1. Research the topic\n2. Outline key points\n3. Draft the content\n4. Review and refine\n5. Finalize"
@@ -582,7 +553,8 @@
     },
     {
       "match": {
-        "userMessage": "dashboard"
+        "userMessage": "dashboard",
+        "model": "gpt-4o-mini"
       },
       "response": {
         "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
@@ -590,7 +562,8 @@
     },
     {
       "match": {
-        "userMessage": "report"
+        "userMessage": "report",
+        "model": "gpt-4o-mini"
       },
       "response": {
         "content": "Working on your request. Step 1: Gathering data... Step 2: Analyzing results... Step 3: Generating report. Done!"
@@ -671,52 +644,6 @@
           {
             "name": "search_flights",
             "arguments": "{\"flights\":[{\"airline\":\"Air France\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=airfrance.com&sz=128\",\"flightNumber\":\"AF85\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"16:00\",\"arrivalTime\":\"11:30+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$780\",\"currency\":\"USD\"},{\"airline\":\"United Airlines\",\"airlineLogo\":\"https://www.google.com/s2/favicons?domain=united.com&sz=128\",\"flightNumber\":\"UA990\",\"origin\":\"SFO\",\"destination\":\"CDG\",\"date\":\"Mon, Apr 21\",\"departureTime\":\"18:15\",\"arrivalTime\":\"13:45+1\",\"duration\":\"10h 30m\",\"status\":\"On Time\",\"statusColor\":\"#22c55e\",\"price\":\"$720\",\"currency\":\"USD\"}]}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "toolCallId": "call_hitl_book_intro_sales_001"
-      },
-      "response": {
-        "content": "Booked the intro call with the sales team for the time you selected — calendar invite is on its way."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Please book an intro call with the sales team to discuss pricing.",
-        "toolName": "book_call"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_hitl_book_intro_sales_001",
-            "name": "book_call",
-            "arguments": "{\"topic\":\"Intro call — discuss pricing\",\"attendee\":\"Sales team\"}"
-          }
-        ]
-      }
-    },
-    {
-      "match": {
-        "toolCallId": "call_hitl_book_1on1_alice_001"
-      },
-      "response": {
-        "content": "Booked the 1:1 with Alice for the time you selected — calendar invite is on its way."
-      }
-    },
-    {
-      "match": {
-        "userMessage": "Schedule a 1:1 with Alice next week to review Q2 goals.",
-        "toolName": "book_call"
-      },
-      "response": {
-        "toolCalls": [
-          {
-            "id": "call_hitl_book_1on1_alice_001",
-            "name": "book_call",
-            "arguments": "{\"topic\":\"1:1 with Alice — review Q2 goals\",\"attendee\":\"Alice\"}"
           }
         ]
       }

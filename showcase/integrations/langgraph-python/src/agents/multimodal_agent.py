@@ -216,25 +216,36 @@ def _rewrite_messages(messages: list[Any]) -> list[Any]:
 
 
 class _PdfFlattenMiddleware(AgentMiddleware):
-    """Flatten PDF content parts to text before the model call.
+    """Flatten PDF content parts to text for the model call only.
 
-    We run this in ``before_model`` so every model invocation — including
-    retries after tool calls — sees the flattened view. The middleware is
-    idempotent: once a part has been rewritten to ``{"type": "text", ...}``
-    it is returned unchanged on subsequent passes.
+    Uses ``wrap_model_call`` instead of ``before_model`` so the PDF→text
+    rewrite is scoped to the outgoing model request and never persists
+    back into agent state. This matters because the agent state is
+    streamed verbatim to the chat UI: if we mutated state with a
+    ``{"type": "text", "text": "[Attached document]\\n<pdf body>"}``
+    part, the chat would render that flattened text inline in the user
+    message bubble (in addition to the PDF chip preview the modern
+    ``document`` part already drives), turning a clean attachment chip
+    into a wall of raw PDF text.
+
+    With ``wrap_model_call`` we copy the request, rewrite messages on
+    the copy, hand the copy to the model, and return the model's
+    response unchanged. The handler closure keeps state untouched.
     """
 
-    def before_model(self, state, runtime):  # type: ignore[override]
-        del runtime  # unused
-        messages = state.get("messages") if isinstance(state, dict) else None
-        if not messages:
-            return None
+    def wrap_model_call(self, request, handler):  # type: ignore[override]
+        messages = list(request.messages) if request.messages else []
         rewritten = _rewrite_messages(messages)
-        # Only emit a patch if anything actually changed — avoids a
-        # superfluous state update on every model hop.
         if rewritten == messages:
-            return None
-        return {"messages": rewritten}
+            return handler(request)
+        return handler(request.override(messages=rewritten))
+
+    async def awrap_model_call(self, request, handler):  # type: ignore[override]
+        messages = list(request.messages) if request.messages else []
+        rewritten = _rewrite_messages(messages)
+        if rewritten == messages:
+            return await handler(request)
+        return await handler(request.override(messages=rewritten))
 
 
 # Vision-capable model. gpt-4o consumes `image_url` content parts natively.

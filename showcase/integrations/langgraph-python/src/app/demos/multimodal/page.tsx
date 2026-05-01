@@ -63,12 +63,6 @@ type DataUploadResult = Extract<AttachmentUploadResult, { type: "data" }>;
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 const ACCEPT_MIME = "image/*,application/pdf";
-/**
- * Selector used by <SampleAttachmentButtons /> to locate CopilotChat's
- * hidden file input. Kept as a constant so the wrapper element and the
- * sample buttons cannot drift.
- */
-const CHAT_ROOT_SELECTOR = "[data-multimodal-demo-chat-root]";
 
 /**
  * Convert a File into the `AttachmentsConfig.onUpload` result shape —
@@ -109,22 +103,26 @@ function fileToDataAttachment(file: File): Promise<DataUploadResult> {
 }
 
 /**
- * Rewrites a single `InputContent` part from the modern multimodal shape
- * (`type: "image" | "document" | "audio" | "video"`, `source.{type,value,mimeType}`)
- * to the legacy binary shape (`type: "binary"`, `mimeType`, `data` | `url`).
+ * Builds the legacy `binary` content part that mirrors a modern
+ * `image | document | audio | video` part. Returns `null` if the input
+ * is not a multimodal part we need to mirror, or if the part is already
+ * a legacy `binary` (idempotent).
  *
- * The published `@ag-ui/langgraph` converter (see `aguiMessagesToLangChain`
- * in that package) only recognizes legacy `binary` parts — modern parts
- * are silently filtered out, so the LangGraph agent never sees them.
- * Returning the legacy shape keeps the attachment visible to the agent
- * while leaving everything else (CopilotChat UI, upload pipeline, etc.)
- * untouched. Text parts and already-legacy parts pass through unchanged.
+ * The published `@ag-ui/langgraph` converter (see `aguiMessagesToLangChain`)
+ * only recognizes legacy `binary` parts; modern parts are silently
+ * filtered out. We APPEND the legacy mirror alongside the modern part
+ * rather than replacing it, because `CopilotChatUserMessage`'s
+ * `getMediaParts` only renders `image|audio|video|document` — replacing
+ * the modern part with `binary` makes the attachment visually disappear
+ * from the chat once the agent run completes (the run-state snapshot
+ * round-trips through state and re-renders the user message). Keeping
+ * both forms gives the UI something to render AND the converter
+ * something to read.
  */
-function rewriteMultimodalPart(part: unknown): unknown {
-  if (!part || typeof part !== "object") return part;
+function legacyBinaryFor(part: unknown): unknown | null {
+  if (!part || typeof part !== "object") return null;
   const candidate = part as {
     type?: string;
-    text?: string;
     source?: {
       type?: string;
       value?: string;
@@ -138,38 +136,32 @@ function rewriteMultimodalPart(part: unknown): unknown {
     type !== "audio" &&
     type !== "video"
   ) {
-    return part;
+    return null;
   }
   const source = candidate.source;
   if (!source || typeof source.value !== "string") {
-    return part;
+    return null;
   }
   const mimeType = source.mimeType ?? "application/octet-stream";
   if (source.type === "data") {
-    return {
-      type: "binary",
-      mimeType,
-      data: source.value,
-    };
+    return { type: "binary", mimeType, data: source.value };
   }
   if (source.type === "url") {
-    return {
-      type: "binary",
-      mimeType,
-      url: source.value,
-    };
+    return { type: "binary", mimeType, url: source.value };
   }
-  return part;
+  return null;
 }
 
 /**
- * Walks a message list and rewrites user-message multimodal content parts
- * to the legacy `binary` shape. Non-user messages and plain-string user
- * messages pass through untouched. Idempotent: already-legacy `binary`
- * parts are a no-op for `rewriteMultimodalPart`.
+ * Walks a message list and APPENDS a legacy `binary` mirror after every
+ * modern `image|document|audio|video` part on user messages, so the
+ * outgoing payload contains both forms. Non-user messages, plain-string
+ * user messages, and parts that already have a sibling `binary` mirror
+ * pass through untouched (idempotent: re-running on already-augmented
+ * messages is a no-op).
  *
- * Returns the same array reference if nothing changed so the subscriber
- * in `onRunInitialized` can skip an unnecessary state write.
+ * Returns null if nothing changed so the subscriber in
+ * `onRunInitialized` can skip a superfluous state write.
  */
 function rewriteMessagesForLegacyConverter(
   messages: ReadonlyArray<Readonly<AgentMessage>>,
@@ -179,17 +171,43 @@ function rewriteMessagesForLegacyConverter(
     if (message.role !== "user") return message as AgentMessage;
     const content = message.content;
     if (!Array.isArray(content)) return message as AgentMessage;
+
+    // Build a key set of `binary` parts already in the message so we
+    // don't double-append on a second run.
+    const existingBinaryKeys = new Set<string>();
+    for (const part of content) {
+      if (
+        part &&
+        typeof part === "object" &&
+        (part as { type?: string }).type === "binary"
+      ) {
+        const p = part as { mimeType?: string; data?: string; url?: string };
+        existingBinaryKeys.add(`${p.mimeType ?? ""}::${p.data ?? p.url ?? ""}`);
+      }
+    }
+
     let partMutated = false;
-    const rewrittenParts = content.map((part) => {
-      const rewritten = rewriteMultimodalPart(part);
-      if (rewritten !== part) partMutated = true;
-      return rewritten;
-    });
+    const augmentedParts: unknown[] = [];
+    for (const part of content) {
+      augmentedParts.push(part);
+      const mirror = legacyBinaryFor(part);
+      if (!mirror) continue;
+      const m = mirror as {
+        mimeType?: string;
+        data?: string;
+        url?: string;
+      };
+      const key = `${m.mimeType ?? ""}::${m.data ?? m.url ?? ""}`;
+      if (existingBinaryKeys.has(key)) continue;
+      existingBinaryKeys.add(key);
+      augmentedParts.push(mirror);
+      partMutated = true;
+    }
     if (!partMutated) return message as AgentMessage;
     mutated = true;
     return {
       ...(message as object),
-      content: rewrittenParts,
+      content: augmentedParts,
     } as AgentMessage;
   });
   return mutated ? next : null;
@@ -202,6 +220,92 @@ function rewriteMessagesForLegacyConverter(
  * rewrite messages on the *same* agent instance CopilotChat dispatches
  * through, even when threads are cloned or swapped.
  */
+/**
+ * Normalize + dedupe media content parts within each user message:
+ *
+ * 1. **Type normalization.** The @ag-ui/langgraph round-trip through
+ *    LangChain emits incoming media parts as `type: "image"` regardless
+ *    of the actual mimeType — including `application/pdf` and other
+ *    non-image documents — because the converter generates them from
+ *    LangChain `image_url` parts indiscriminately. The chat
+ *    user-message renderer dispatches by `type` to either
+ *    `ImageAttachment` (renders an `<img>`) or `DocumentAttachment`
+ *    (renders an icon + filename). A PDF tagged as `image` falls to
+ *    `<img>`, fails to load, and shows "Failed to load image" instead
+ *    of a PDF chip. Re-key the part type from the mimeType so the
+ *    correct renderer fires.
+ *
+ * 2. **Dedupe by source value.** The same attachment ends up in the
+ *    user message twice: once as the modern part the client added,
+ *    once as the re-converted shape the snapshot pushes. Strip
+ *    duplicates by `source.value` (or `source.url`) regardless of
+ *    type so both forms collapse to a single chip.
+ */
+function normalizePartType(type: string, mimeType: string | undefined): string {
+  if (type !== "image" && type !== "document") return type;
+  if (!mimeType) return type;
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (mimeType.startsWith("video/")) return "video";
+  return "document";
+}
+
+function dedupeUserMessageMedia(
+  messages: ReadonlyArray<Readonly<AgentMessage>>,
+): AgentMessage[] | null {
+  let mutated = false;
+  const next = messages.map((message) => {
+    if (message.role !== "user") return message as AgentMessage;
+    const content = message.content;
+    if (!Array.isArray(content)) return message as AgentMessage;
+    const seen = new Set<string>();
+    let kept: unknown[] = [];
+    let partMutated = false;
+    for (const part of content) {
+      if (!part || typeof part !== "object") {
+        kept.push(part);
+        continue;
+      }
+      const p = part as {
+        type?: string;
+        source?: { value?: string; url?: string; mimeType?: string };
+        data?: string;
+        url?: string;
+        mimeType?: string;
+      };
+      const isMedia =
+        p.type === "image" ||
+        p.type === "document" ||
+        p.type === "audio" ||
+        p.type === "video";
+      if (!isMedia) {
+        kept.push(part);
+        continue;
+      }
+      const sourceValue = p.source?.value ?? p.source?.url ?? "";
+      if (seen.has(sourceValue)) {
+        partMutated = true;
+        continue;
+      }
+      seen.add(sourceValue);
+      const normalizedType = normalizePartType(
+        p.type ?? "",
+        p.source?.mimeType ?? p.mimeType,
+      );
+      if (normalizedType !== p.type) {
+        kept.push({ ...p, type: normalizedType });
+        partMutated = true;
+      } else {
+        kept.push(part);
+      }
+    }
+    if (!partMutated) return message as AgentMessage;
+    mutated = true;
+    return { ...(message as object), content: kept } as AgentMessage;
+  });
+  return mutated ? next : null;
+}
+
 function LegacyConverterShim() {
   const { agent } = useAgent({ agentId: "multimodal-demo" });
 
@@ -215,6 +319,30 @@ function LegacyConverterShim() {
         const rewritten = rewriteMessagesForLegacyConverter(messages);
         if (!rewritten) return;
         return { messages: rewritten };
+      },
+      // After every messages snapshot from the server, strip duplicate
+      // media parts and normalize types that the @ag-ui/langgraph
+      // round-trip mangled. We hook both `onMessagesSnapshotEvent` and
+      // `onMessagesChanged` to catch incremental events too — the
+      // snapshot fires once at run end, the changed handler fires on
+      // every streamed update.
+      onMessagesSnapshotEvent: ({
+        messages,
+      }: {
+        messages: ReadonlyArray<Readonly<AgentMessage>>;
+      }) => {
+        const deduped = dedupeUserMessageMedia(messages);
+        if (!deduped) return;
+        return { messages: deduped };
+      },
+      onRunFinalized: ({
+        messages,
+      }: {
+        messages: ReadonlyArray<Readonly<AgentMessage>>;
+      }) => {
+        const deduped = dedupeUserMessageMedia(messages);
+        if (!deduped) return;
+        return { messages: deduped };
       },
     }),
     [],
@@ -259,7 +387,7 @@ export default function MultimodalDemoPage() {
           </p>
         </header>
 
-        <SampleAttachmentButtons rootSelector={CHAT_ROOT_SELECTOR} />
+        <SampleAttachmentButtons agentId="multimodal-demo" />
 
         <div
           data-multimodal-demo-chat-root
