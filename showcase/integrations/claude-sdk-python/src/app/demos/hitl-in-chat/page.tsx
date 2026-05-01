@@ -36,6 +36,16 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Book a call with sales",
+        message:
+          "Please book an intro call with the sales team to discuss pricing.",
+      },
+      {
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Pick a slot",
         message: "set up a quick demo call with the design folks",
       },

@@ -59,6 +59,19 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Check financial data",
+        message: "Show me the latest financial data.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Custom catchall",
         message: "exercise the custom catchall renderer with an unknown tool",
       },

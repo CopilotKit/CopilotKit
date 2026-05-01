@@ -19,6 +19,7 @@ import {
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
+import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -45,6 +46,8 @@ function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      ...openGenUiSuggestions,
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Advanced flow",
         message: "continue the advanced gen-ui flow",

@@ -136,6 +136,19 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Find project-planning notes",
+        message: "Find my notes about project planning.",
+      },
+      {
+        title: "Search for 'auth'",
+        message: "Search my notes for anything related to auth.",
+      },
+      {
+        title: "What do I have about reading?",
+        message: "Do I have any notes tagged reading?",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Async metric",
         message: "fetch the async metric",
       },

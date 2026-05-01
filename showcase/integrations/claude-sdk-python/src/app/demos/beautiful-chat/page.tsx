@@ -30,6 +30,24 @@ import {
 
 const AGENT_ID = "beautiful-chat";
 
+const BRAND_SUGGESTIONS = [
+  {
+    title: "Plan a 3-day Tokyo trip",
+    message:
+      "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise.",
+  },
+  {
+    title: "Explain RAG like I'm 12",
+    message:
+      "Explain retrieval-augmented generation as if I were 12. Use a simple analogy.",
+  },
+  {
+    title: "Draft a launch email",
+    message:
+      "Draft a short, upbeat launch email announcing a new AI-powered chat feature. 3 short paragraphs max.",
+  },
+];
+
 export default function BeautifulChatPage() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent={AGENT_ID}>
@@ -78,6 +96,8 @@ function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      ...BRAND_SUGGESTIONS,
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Pasta night",
         message: "suggest a vegetarian pasta dinner for four guests",
