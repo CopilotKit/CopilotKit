@@ -30,4 +30,16 @@ test.describe("Tool Rendering + Reasoning Chain", () => {
       page.locator('[data-testid="flight-list-card"]').first(),
     ).toBeVisible({ timeout: 45000 });
   });
+
+  test("canonical 'Kyoto itinerary' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Kyoto itinerary/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

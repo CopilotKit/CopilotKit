@@ -113,19 +113,13 @@ function Chat() {
     },
   });
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Find project-planning notes",
-        message: "Find my notes about project planning.",
-      },
-      {
-        title: "Search for 'auth'",
-        message: "Search my notes for anything related to auth.",
-      },
-    ],
+    suggestions: [{ title: "Async metric", message: "fetch the async metric" }],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <CopilotChat

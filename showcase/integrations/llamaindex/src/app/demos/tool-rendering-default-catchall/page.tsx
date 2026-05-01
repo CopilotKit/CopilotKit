@@ -39,19 +39,18 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
+        title: "Default catchall",
+        message: "trigger the default catchall renderer for an unmapped tool",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <CopilotChat

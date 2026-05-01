@@ -32,23 +32,18 @@ export default function BeautifulChatDemo() {
 }
 
 function PageShell() {
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco today?",
-      },
-      {
-        title: "Quick haiku",
-        message: "Write me a short haiku about building with AI agents.",
-      },
-      {
-        title: "Pep talk",
-        message: "Give me a one-sentence pep talk before I ship a new feature.",
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <div

@@ -20,4 +20,16 @@ test.describe("BYOC Hashbrown", () => {
       timeout: 60000,
     });
   });
+
+  test("canonical 'Sales overview' suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+    const pill = page.getByRole("button", { name: /Sales overview/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="metric-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

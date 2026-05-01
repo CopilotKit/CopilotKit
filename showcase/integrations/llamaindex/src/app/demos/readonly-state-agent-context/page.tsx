@@ -61,19 +61,15 @@ function DemoContent() {
   });
   // @endregion[use-agent-context-call]
 
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Who am I?",
-        message: "What do you know about me from my context?",
-      },
-      {
-        title: "Suggest next steps",
-        message: "Based on my recent activity, what should I try next?",
-      },
+      { title: "Recall pref", message: "recall the user preference" },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   const toggleActivity = (activity: string) => {
     setRecentActivity((prev) =>

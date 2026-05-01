@@ -120,13 +120,20 @@ function ChatBody({
   handleSubmit: () => void;
   handleStop: () => void;
 }) {
+  // @region[configure-suggestions]
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  // Headless demo doesn't render suggestion pills (custom textarea); the
+  // catalog message is asserted via textarea-fill in the e2e spec.
   useConfigureSuggestions({
     suggestions: [
-      { title: "Say hi", message: "Say hi!" },
-      { title: "Tell a joke", message: "Tell me a short joke." },
+      {
+        title: "Custom message",
+        message: "send a sample message to populate the headless transcript",
+      },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
