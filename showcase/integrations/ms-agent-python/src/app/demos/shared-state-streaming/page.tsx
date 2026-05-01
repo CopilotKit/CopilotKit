@@ -32,6 +32,7 @@ function DemoContent() {
   // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
       {
         title: "Stream counter",
         message: "stream the counter to 5",

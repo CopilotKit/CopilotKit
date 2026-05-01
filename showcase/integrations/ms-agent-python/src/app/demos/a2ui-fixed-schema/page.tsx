@@ -50,6 +50,10 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Find SFO → JFK",
+        message: "Find me a flight from SFO to JFK on United for $289.",
+      },
+      {
         title: "Block calendar",
         message: "block out my tuesday with three meetings and a gym slot",
       },

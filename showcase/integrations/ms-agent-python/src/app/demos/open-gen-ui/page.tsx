@@ -134,6 +134,7 @@ function Chat() {
   // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      ...minimalSuggestions,
       {
         title: "Open block",
         message: "render an open gen-ui element",
