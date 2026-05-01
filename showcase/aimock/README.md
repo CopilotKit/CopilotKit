@@ -17,6 +17,18 @@ The showcase deployment runs aimock in proxy mode — `--proxy-only` with real u
 
 Fixture match semantics: `userMessage` is a substring match against the last user turn. First fixture to match wins, so more specific prompts should appear before more generic ones (see the `"Based on the following context, write a concise"` entry that precedes the generic `report` / `plan` fixtures to protect CrewAI's startup probe).
 
+## Canonical e2e suggestions
+
+`d5-all.json` contains a per-demo canonical fixture whose `match.userMessage` is the message of a `useConfigureSuggestions` pill rendered in that demo. The catalog mapping demoId → { title, message, primarySelector, fixtureResponseKind } lives in `_canonical-catalog.json` and is consumed by:
+
+- the demo's `page.tsx` via `useConfigureSuggestions`,
+- the demo's e2e spec via the "canonical suggestion pill fires the feature" test,
+- per-framework Phase 2 agents that wire the same suggestion into each non-north-star framework.
+
+Canonical messages are kept substring-disjoint from every other fixture (and from a curated noise list of common chat fragments) by `showcase/scripts/validate-fixture-overlap.ts`, run on every PR. Intentional substring relationships go in `d5-all.allowlist.json` with a free-form `reason` so future readers know why each escape was granted.
+
+To add a new canonical fixture: extend `_canonical-catalog.json`, append the matching fixture to `d5-all.json`, run `pnpm --filter @copilotkit/showcase-scripts test fixture-overlap`. The verifier blocks the merge if the new prompt collides with anything.
+
 ## Sync policy
 
 **Fixtures are hand-maintained.** There is no automated capture, no scheduled re-recording, and no drift-detection job that compares fixture responses against what a real LLM would say. The authoritative behavior is whatever is checked in.

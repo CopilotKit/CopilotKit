@@ -517,6 +517,219 @@
       }
     },
     {
+      "_comment": "Canonical e2e suggestion (a2ui-fixed-schema). Catalog: _canonical-catalog.json#demos.a2ui-fixed-schema",
+      "match": {
+        "userMessage": "block out my tuesday with three meetings and a gym slot"
+      },
+      "response": {
+        "content": "{\"root\":\"week-grid\",\"elements\":{\"week-grid\":{\"type\":\"WeekGrid\",\"props\":{\"day\":\"Tuesday\",\"slots\":[{\"label\":\"Standup\",\"start\":\"09:00\",\"end\":\"09:30\"},{\"label\":\"Design review\",\"start\":\"11:00\",\"end\":\"12:00\"},{\"label\":\"1:1 with manager\",\"start\":\"15:00\",\"end\":\"15:30\"},{\"label\":\"Gym\",\"start\":\"18:00\",\"end\":\"19:00\"}]}}}}"
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (beautiful-chat).",
+      "match": {
+        "userMessage": "suggest a vegetarian pasta dinner for four guests"
+      },
+      "response": {
+        "content": "Try a creamy lemon-pea orecchiette: blanch peas, toss with lemon zest, a splash of pasta water, and ricotta. Pair with a simple arugula salad and crusty sourdough. Scales cleanly to four — about 320g of pasta, 250g peas, one ricotta tub."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (byoc-hashbrown). Hashbrown JSON tree.",
+      "match": {
+        "userMessage": "sketch the sales overview with quarterly bars"
+      },
+      "response": {
+        "content": "{\"$component\":\"MetricCard\",\"props\":{\"label\":\"Total Revenue (FY)\",\"value\":\"$3.92M\",\"trend\":\"+14% YoY\"},\"children\":[{\"$component\":\"BarChart\",\"props\":{\"title\":\"Quarterly Revenue\",\"data\":[{\"label\":\"Q1\",\"value\":820000},{\"label\":\"Q2\",\"value\":910000},{\"label\":\"Q3\",\"value\":1010000},{\"label\":\"Q4\",\"value\":1180000}]}}]}"
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (byoc-json-render).",
+      "match": {
+        "userMessage": "outline a marketing overview with traffic breakdown"
+      },
+      "response": {
+        "content": "{\"root\":\"mkt-overview\",\"elements\":{\"mkt-overview\":{\"type\":\"MetricCard\",\"props\":{\"label\":\"Sessions (30d)\",\"value\":\"482K\",\"trend\":\"+9% MoM\"},\"children\":[\"mkt-pie\"]},\"mkt-pie\":{\"type\":\"PieChart\",\"props\":{\"title\":\"Traffic by source\",\"data\":[{\"label\":\"Organic\",\"value\":52},{\"label\":\"Direct\",\"value\":21},{\"label\":\"Referral\",\"value\":15},{\"label\":\"Paid\",\"value\":12}]}}}}"
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (gen-ui-agent). Agent populates state-card with launch outline.",
+      "match": {
+        "userMessage": "lay out a five-stage launch outline for our beta product"
+      },
+      "response": {
+        "content": "I have populated the agent state card with five launch-plan steps: scope the launch brief, lock messaging and assets, ship a private beta, run the dry-run rehearsal, and execute launch day. Each step is shown in the agent-step list and advances as I work through it."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (gen-ui-tool-based). Tool call renders a bar chart.",
+      "match": {
+        "userMessage": "render a tool-based bar chart for last quarter deliveries"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_gen_ui_tool_based_001",
+            "name": "barChart",
+            "arguments": "{\"title\":\"Last Quarter Deliveries\",\"description\":\"Units delivered per month over the trailing quarter\",\"data\":[{\"label\":\"Month 1\",\"value\":4200},{\"label\":\"Month 2\",\"value\":4810},{\"label\":\"Month 3\",\"value\":5305}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (headless-complete). Plain content into headless transcript.",
+      "match": {
+        "userMessage": "send a sample message to populate the headless transcript"
+      },
+      "response": {
+        "content": "Sample reply received. The headless transcript now contains a user turn and this assistant turn — useful for verifying the headless message-list renderer wires through correctly."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (headless-simple). Tool call invokes show_card.",
+      "match": {
+        "userMessage": "show a small card body about hummingbirds"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_headless_simple_001",
+            "name": "show_card",
+            "arguments": "{\"title\":\"Hummingbirds\",\"body\":\"The smallest birds on earth — tiny, iridescent, and capable of hovering via figure-eight wing strokes. Their hearts can beat over 1200 times per minute mid-flight.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (hitl). Tool call returns generate_task_steps.",
+      "match": {
+        "userMessage": "draft a five-stage route for sourcing office greenery"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_hitl_001",
+            "name": "generate_task_steps",
+            "arguments": "{\"steps\":[{\"description\":\"Inventory current light levels and floor space\",\"status\":\"enabled\"},{\"description\":\"Pick five low-maintenance species suited to indirect light\",\"status\":\"enabled\"},{\"description\":\"Get quotes from two local nurseries and one online vendor\",\"status\":\"enabled\"},{\"description\":\"Place the order and schedule a delivery window\",\"status\":\"enabled\"},{\"description\":\"Set up a watering rota with two volunteers\",\"status\":\"enabled\"}]}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (hitl-in-app). Tool call triggers approval modal.",
+      "match": {
+        "userMessage": "process a refund for the late delivery ticket"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_hitl_in_app_001",
+            "name": "request_user_approval",
+            "arguments": "{\"message\":\"Process a refund for the late delivery ticket.\",\"context\":\"Customer reports the package arrived four days past the promised window.\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (hitl-in-chat). Tool call renders inline time-picker.",
+      "match": {
+        "userMessage": "set up a quick demo call with the design folks"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_hitl_in_chat_001",
+            "name": "book_call",
+            "arguments": "{\"topic\":\"Quick demo call with the design folks\",\"attendee\":\"Design team\"}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (mcp-apps). Excalidraw via MCP tool.",
+      "match": {
+        "userMessage": "draw an excalidraw diagram of a router with two switches"
+      },
+      "response": {
+        "content": "I drew a small network diagram in Excalidraw — a central router connected to two switches, each linked to two endpoint computers. The diagram is open in the canvas; you can edit shapes or labels in place."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (reasoning-default-render). Default reasoning slot.",
+      "match": {
+        "userMessage": "talk me through your default reasoning on a tricky riddle"
+      },
+      "response": {
+        "content": "Reasoning: I parsed the riddle, listed each clue, and tested two candidate answers against every clue before committing. The default reasoning slot above shows the intermediate steps; the final answer is the only candidate that satisfied every clue."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (shared-state-read).",
+      "match": {
+        "userMessage": "compose an italian pasta recipe with seasonal greens"
+      },
+      "response": {
+        "content": "Spring orecchiette with broccoli rabe, lemon, and breadcrumbs. Blanch the rabe briefly, then toss with toasted breadcrumbs, a fistful of grated pecorino, lemon zest, garlic in olive oil, and a splash of pasta water to bind. Served from your saved shared-state preferences (lighter sauces, plenty of greens)."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (shared-state-read-write).",
+      "match": {
+        "userMessage": "build me a weekend itinerary based on saved interests"
+      },
+      "response": {
+        "content": "Saturday: morning hike at the bay-view trail (matches your saved hiking interest), lunch at a small ramen counter, afternoon at the modern art wing, sunset run along the waterfront. Sunday: bookstore loop in the morning, brunch with a friend, and a quiet afternoon of reading. Itinerary written back to shared state so the agent can refine it next turn."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (tool-rendering-custom-catchall). Unknown tool falls through.",
+      "match": {
+        "userMessage": "exercise the custom catchall renderer with an unknown tool"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_custom_catchall_001",
+            "name": "unmapped_canonical_tool",
+            "arguments": "{\"intent\":\"render via the demo's custom catchall\",\"payload\":{\"label\":\"Canonical custom catchall probe\",\"value\":\"ok\"}}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (tool-rendering-default-catchall). Distinct tool name from custom-catchall demo.",
+      "match": {
+        "userMessage": "trigger the default catchall renderer for an unmapped tool"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_canon_default_catchall_001",
+            "name": "another_unmapped_tool",
+            "arguments": "{\"intent\":\"render via the demo's default catchall\",\"payload\":{\"label\":\"Canonical default catchall probe\",\"value\":\"ok\"}}"
+          }
+        ]
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (tool-rendering-reasoning-chain). Multi-step itinerary; content keeps assertion stable.",
+      "match": {
+        "userMessage": "draft a 3-day kyoto itinerary with a 1500 dollar budget"
+      },
+      "response": {
+        "content": "Day 1 (≈$420): arrive Kyoto Station, drop bags at a small inn near Gion, walk Yasaka Shrine into Maruyama Park, kaiseki dinner in Pontocho. Day 2 (≈$540): Fushimi Inari at sunrise, lunch at a noodle stand, afternoon at Tofukuji's wooden bridges, evening at a cafe on the Kamo riverbank. Day 3 (≈$540): Arashiyama bamboo grove and Tenryuji, lunch on the hill, train back to the city, last dinner at a quiet izakaya in Kiyamachi. Total: $1,500."
+      }
+    },
+    {
+      "_comment": "Canonical e2e suggestion (voice). Text fallback path for the voice demo.",
+      "match": {
+        "userMessage": "transcribe my voice memo about wednesday standup notes"
+      },
+      "response": {
+        "content": "Transcribed standup notes: ship the auth fix today, review the new dashboard layout with design tomorrow, push the refactor PR by Thursday, and book a follow-up with the platform team on Friday. The text path mirrors what the voice transcription endpoint would return."
+      }
+    },
+    {
       "match": {
         "endpoint": "transcription"
       },

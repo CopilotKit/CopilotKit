@@ -1,5 +1,156 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$description": "Intentional substring relationships between aimock fixture userMessages. Every entry is a deliberate ordering decision (e.g. CrewAI startup probe matches a longer prefix before falling through to a generic short fixture). Adding entries here is an escape hatch — prefer fixing the fixture's userMessage to be more specific. The validate-fixture-overlap test consumes this list.",
-  "entries": []
+  "$description": "Intentional substring relationships between aimock fixture userMessages. Every entry is a deliberate ordering decision (e.g. CrewAI startup probe matches a longer prefix before falling through to a generic short fixture, or a multi-framework fixture set keeps short broad-match keys as fallbacks for legacy tests). Adding entries here is an escape hatch — prefer fixing the fixture's userMessage to be more specific. The fixture-overlap test consumes this list. d5-all.json is loaded BEFORE feature-parity.json, so d5-all.json fixtures take precedence at runtime when both would match.",
+  "entries": [
+    {
+      "outer": "hi",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework greeting fallback in feature-parity.json. The bare 'hi' fixture acts as a broad catch-all for greeting demos in older showcase packages. Canonical demos use longer, distinctive prompts so they don't bleed into 'hi'."
+    },
+    {
+      "outer": "hello",
+      "inner": "hello",
+      "reason": "Pre-existing legacy multi-framework greeting fallback in feature-parity.json. Same rationale as 'hi'."
+    },
+    {
+      "outer": "Hello",
+      "inner": "Hello",
+      "reason": "Pre-existing legacy multi-framework greeting fallback in feature-parity.json. Capitalized variant kept for case-sensitive frameworks."
+    },
+    {
+      "outer": "help",
+      "inner": "help",
+      "reason": "Pre-existing legacy multi-framework help-prompt fallback in feature-parity.json. Returns the demo capability summary when a user types 'help'."
+    },
+    {
+      "outer": "hi from the popup test",
+      "inner": "hi",
+      "reason": "Pre-existing greeting demo prompts (popup/sidebar) live in d5-all.json which loads before feature-parity.json, so they match first. The bare 'hi' in feature-parity is a legacy multi-framework greeting fallback."
+    },
+    {
+      "outer": "hi from the sidebar test",
+      "inner": "hi",
+      "reason": "Pre-existing greeting demo prompts (popup/sidebar) live in d5-all.json which loads before feature-parity.json, so they match first."
+    },
+    {
+      "outer": "this PDF",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework fallback ordering. 'hi' is a generic greeting fallback and 'this PDF' is a multimodal probe; both intentional in feature-parity.json."
+    },
+    {
+      "outer": "this image",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework fallback ordering."
+    },
+    {
+      "outer": "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise.",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework fallback ordering. 'hi' is a broad-match greeting fallback ordered after specific prompts."
+    },
+    {
+      "outer": "Plan a 3-day Tokyo trip for a solo traveler interested in food, art, and architecture. Keep it concise.",
+      "inner": "plan",
+      "reason": "Pre-existing legacy multi-framework fallback ordering. 'plan' is a broad-match fallback ordered after specific prompts."
+    },
+    {
+      "outer": "Describe this image",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework fallback ordering."
+    },
+    {
+      "outer": "Describe this image",
+      "inner": "this image",
+      "reason": "Pre-existing intentional ordering. The specific Describe variant is matched ahead of the generic 'this image' fallback."
+    },
+    {
+      "outer": "Summarize this document",
+      "inner": "hi",
+      "reason": "Pre-existing legacy multi-framework fallback ordering."
+    },
+    {
+      "outer": "Summarize this document",
+      "inner": "summarize",
+      "reason": "Pre-existing intentional ordering. Specific 'Summarize this document' prompt is matched ahead of the generic 'summarize' fallback."
+    },
+    {
+      "outer": "summarize the sample document",
+      "inner": "summarize",
+      "reason": "d5-all.json loads before feature-parity.json. Specific multimodal prompt matches first; 'summarize' in feature-parity is a legacy fallback."
+    },
+    {
+      "outer": "weather in Tokyo",
+      "inner": "weather",
+      "reason": "d5-all.json loads before feature-parity.json. Specific weather-in-Tokyo fixtures match first; bare 'weather' in feature-parity is a legacy multi-framework fallback."
+    },
+    {
+      "outer": "weather summary",
+      "inner": "weather",
+      "reason": "Pre-existing intentional ordering. 'weather summary' is a more specific variant matched before the bare 'weather' fallback."
+    },
+    {
+      "outer": "trip to mars",
+      "inner": "mars",
+      "reason": "d5-all.json loads before feature-parity.json. The specific trip-to-mars fixture (with hasToolResult disambiguation) matches first; bare 'mars' in feature-parity is a legacy short-key fallback."
+    },
+    {
+      "outer": "Show me the sales dashboard with metrics and a revenue chart",
+      "inner": "dashboard",
+      "reason": "Pre-existing intentional ordering. Specific dashboard prompts are matched ahead of the bare 'dashboard' fallback in feature-parity.json."
+    },
+    {
+      "outer": "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
+      "inner": "dashboard",
+      "reason": "Pre-existing intentional ordering."
+    },
+    {
+      "outer": "remember that my favorite color is blue",
+      "inner": "favorite color",
+      "reason": "Pre-existing intentional ordering. The 'remember that my favorite color is blue' prompt is matched ahead of the bare 'favorite color' recall fallback."
+    },
+    {
+      "outer": "Research the benefits of remote work and draft a one-paragraph summary",
+      "inner": "Benefits of remote work",
+      "reason": "d5-all.json sub-agent fixture chain. The nested 'Benefits of remote work' is a writing/research sub-agent invocation; the parent prompt is matched at the top-level agent turn first."
+    },
+    {
+      "outer": "One-paragraph summary on the benefits of remote work",
+      "inner": "Benefits of remote work",
+      "reason": "d5-all.json sub-agent fixture chain — both are sub-agent prompts invoked in sequence."
+    },
+    {
+      "outer": "Break down revenue by category as a pie chart",
+      "inner": "revenue by category as a pie chart",
+      "reason": "Pre-existing intentional ordering. Specific 'Break down revenue …' a2ui prompt is matched ahead of the shorter generic variant in feature-parity.json."
+    },
+    {
+      "outer": "Show me monthly expenses as a bar chart",
+      "inner": "monthly expenses as a bar chart",
+      "reason": "Pre-existing intentional ordering."
+    },
+    {
+      "outer": "sample deals",
+      "inner": "deal",
+      "reason": "Pre-existing intentional ordering. 'sample deals' is matched ahead of the bare 'deal' fallback."
+    },
+    {
+      "outer": "Book a 30-minute onboarding call for Alice",
+      "inner": "alice",
+      "reason": "Pre-existing intentional ordering. Specific HITL prompts are matched ahead of the bare 'alice' / 'Alice' name-recall fallback."
+    },
+    {
+      "outer": "Book a 30-minute onboarding call for Alice",
+      "inner": "Alice",
+      "reason": "Pre-existing intentional ordering."
+    },
+    {
+      "outer": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      "inner": "alice",
+      "reason": "Pre-existing intentional ordering."
+    },
+    {
+      "outer": "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      "inner": "Alice",
+      "reason": "Pre-existing intentional ordering."
+    }
+  ]
 }

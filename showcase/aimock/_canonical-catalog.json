@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$description": "Per-demo canonical e2e suggestion. Consumed by demos (useConfigureSuggestions), e2e specs (pill-click test), and Phase 2 blitz agents. Every entry's message MUST appear as a fixture in d5-all.json with a matching response. Messages are kept substring-disjoint from every other fixture and from a curated noise list — see showcase/scripts/validate-fixture-overlap.ts.",
+  "demos": {
+    "agentic-chat-reasoning": {
+      "title": "Show reasoning",
+      "message": "show your reasoning step by step",
+      "primarySelector": "[data-testid=\"reasoning-block\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Custom reasoning slot renders the reasoning-block testid."
+    },
+    "a2ui-fixed-schema": {
+      "title": "Block calendar",
+      "message": "block out my tuesday with three meetings and a gym slot",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Fixture returns an a2ui JSON tree which the fixed-catalog renderer materializes."
+    },
+    "agent-config": {
+      "title": "Personalize tone",
+      "message": "introduce yourself per your config",
+      "primarySelector": "[data-testid=\"agent-config-card\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Demo asserts on config card; chat is secondary."
+    },
+    "agentic-chat": {
+      "title": "Goldfish name",
+      "message": "good name for a goldfish",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Plain content response into chat surface."
+    },
+    "auth": {
+      "title": "Auth check",
+      "message": "auth check turn 1",
+      "primarySelector": "[data-testid=\"auth-banner\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Auth banner is the primary observable; chat works once authenticated."
+    },
+    "beautiful-chat": {
+      "title": "Pasta night",
+      "message": "suggest a vegetarian pasta dinner for four guests",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Beautiful chat is a presentation demo — content response is fine."
+    },
+    "byoc-hashbrown": {
+      "title": "Sales overview",
+      "message": "sketch the sales overview with quarterly bars",
+      "primarySelector": "[data-testid=\"metric-card\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Hashbrown renderer materializes JSON-of-components from content."
+    },
+    "byoc-json-render": {
+      "title": "Marketing overview",
+      "message": "outline a marketing overview with traffic breakdown",
+      "primarySelector": "[data-testid=\"json-render-root\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Json-render-renderer materializes assistant JSON content into UI."
+    },
+    "chat-customization-css": {
+      "title": "Theme check",
+      "message": "verify the css theme rendering",
+      "primarySelector": ".chat-css-demo-scope [data-testid=\"copilot-user-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. CSS scoping is the observable; content works."
+    },
+    "chat-slots": {
+      "title": "Slot wiring",
+      "message": "verify chat slots are wired",
+      "primarySelector": "[data-testid=\"custom-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Custom assistant message slot is the observable."
+    },
+    "declarative-gen-ui": {
+      "title": "Show card",
+      "message": "render the declarative card",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Declarative gen-ui materializes a card from descriptor."
+    },
+    "frontend-tools": {
+      "title": "Switch theme",
+      "message": "switch theme to dark mode",
+      "primarySelector": "[data-testid=\"background-container\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Frontend tool dispatched client-side; bg flips."
+    },
+    "frontend-tools-async": {
+      "title": "Async metric",
+      "message": "fetch the async metric",
+      "primarySelector": "[data-testid=\"notes-card\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Async tool resolves and forwards result."
+    },
+    "gen-ui-agent": {
+      "title": "Launch outline",
+      "message": "lay out a five-stage launch outline for our beta product",
+      "primarySelector": "[data-testid=\"agent-state-card\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Agent state card shows step progression; content prompts the agent to populate state."
+    },
+    "gen-ui-interrupt": {
+      "title": "Pause and pick",
+      "message": "request the gen-ui interrupt",
+      "primarySelector": "[data-testid=\"time-picker-card\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Gen-ui interrupt pauses and renders choice."
+    },
+    "gen-ui-tool-based": {
+      "title": "Quarterly bars",
+      "message": "render a tool-based bar chart for last quarter deliveries",
+      "primarySelector": "[data-testid=\"bar-chart\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool-call response invokes the demo's bar-chart tool registered via useComponent."
+    },
+    "headless-complete": {
+      "title": "Custom message",
+      "message": "send a sample message to populate the headless transcript",
+      "primarySelector": "[data-testid=\"headless-complete-messages\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Headless demo doesn't render suggestions — catalog message used by Phase 2 e2e to type."
+    },
+    "headless-simple": {
+      "title": "Card body",
+      "message": "show a small card body about hummingbirds",
+      "primarySelector": "[data-message-role=\"assistant\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Headless-simple uses textarea — pill UX not present. Phase 2 will type this."
+    },
+    "hitl": {
+      "title": "Sourcing route",
+      "message": "draft a five-stage route for sourcing office greenery",
+      "primarySelector": "[data-testid=\"select-steps\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool call returns generate_task_steps; demo renders selectable steps."
+    },
+    "hitl-in-app": {
+      "title": "Refund approval",
+      "message": "process a refund for the late delivery ticket",
+      "primarySelector": "[data-testid=\"approval-dialog-overlay\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool call triggers in-app approval modal."
+    },
+    "hitl-in-chat": {
+      "title": "Pick a slot",
+      "message": "set up a quick demo call with the design folks",
+      "primarySelector": "[data-testid=\"time-picker-card\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool call renders an inline time-picker card inside the chat."
+    },
+    "interrupt-headless": {
+      "title": "Headless interrupt",
+      "message": "trigger the headless interrupt",
+      "primarySelector": "[data-message-role=\"assistant\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Interrupt resolved with yes follow-up."
+    },
+    "mcp-apps": {
+      "title": "Excalidraw",
+      "message": "draw an excalidraw diagram of a router with two switches",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "MCP app exercises Excalidraw tool through the runtime."
+    },
+    "multimodal": {
+      "title": "Sample image",
+      "message": "describe the sample image",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Multimodal binary upload round-trip."
+    },
+    "open-gen-ui": {
+      "title": "Open block",
+      "message": "render an open gen-ui element",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Open gen-ui materializes arbitrary JSON."
+    },
+    "open-gen-ui-advanced": {
+      "title": "Advanced flow",
+      "message": "continue the advanced gen-ui flow",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Continues from a prior turn."
+    },
+    "prebuilt-popup": {
+      "title": "Popup hello",
+      "message": "hi from the popup test",
+      "primarySelector": "[data-testid=\"copilot-popup\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Popup wired and reachable."
+    },
+    "prebuilt-sidebar": {
+      "title": "Sidebar hello",
+      "message": "hi from the sidebar test",
+      "primarySelector": "[data-testid=\"copilot-sidebar\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Sidebar wired and reachable."
+    },
+    "readonly-state-agent-context": {
+      "title": "Recall pref",
+      "message": "recall the user preference",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Read-only context flows to the agent."
+    },
+    "reasoning-default-render": {
+      "title": "Default reasoning",
+      "message": "talk me through your default reasoning on a tricky riddle",
+      "primarySelector": "[data-testid=\"copilot-reasoning-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Default reasoning slot — distinct from agentic-chat-reasoning's custom override."
+    },
+    "shared-state-read": {
+      "title": "Italian pasta",
+      "message": "compose an italian pasta recipe with seasonal greens",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Recipe output reflects shared read-state preferences."
+    },
+    "shared-state-read-write": {
+      "title": "Weekend plan",
+      "message": "build me a weekend itinerary based on saved interests",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Read-write demo updates shared state; content carries the plan."
+    },
+    "shared-state-streaming": {
+      "title": "Stream counter",
+      "message": "stream the counter to 5",
+      "primarySelector": "[data-testid=\"status-display\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Existing fixture in d5-all.json — reused. Counter streams 0→5 via shared state."
+    },
+    "subagents": {
+      "title": "Research draft",
+      "message": "Research the benefits of remote work and draft a one-paragraph summary",
+      "primarySelector": "[data-testid=\"copilot-assistant-message\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Existing fixture in d5-all.json — reused. Multi-turn sub-agent: research → write → critique."
+    },
+    "tool-rendering": {
+      "title": "Pie chart",
+      "message": "Show me a pie chart of revenue by category",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Existing fixture in d5-all.json — reused. Tool-call render_pie_chart."
+    },
+    "tool-rendering-custom-catchall": {
+      "title": "Custom catchall",
+      "message": "exercise the custom catchall renderer with an unknown tool",
+      "primarySelector": "[data-testid=\"custom-catchall-card\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool call uses an unregistered tool name to fall through to custom catch-all."
+    },
+    "tool-rendering-default-catchall": {
+      "title": "Default catchall",
+      "message": "trigger the default catchall renderer for an unmapped tool",
+      "primarySelector": "[data-testid=\"custom-catchall-card\"]",
+      "fixtureResponseKind": "toolCalls",
+      "notes": "Tool call falls through to the default catch-all card."
+    },
+    "tool-rendering-reasoning-chain": {
+      "title": "Kyoto itinerary",
+      "message": "draft a 3-day kyoto itinerary with a 1500 dollar budget",
+      "primarySelector": "[data-testid=\"copilot-suggestion\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Reasoning chain interleaves multi-step tool calls; content path keeps the assertion stable."
+    },
+    "voice": {
+      "title": "Voice transcript",
+      "message": "transcribe my voice memo about wednesday standup notes",
+      "primarySelector": "[data-testid=\"copilot-chat-input\"]",
+      "fixtureResponseKind": "content",
+      "notes": "Voice demo's primary path is STT — pill is fallback for the text-flow assertion."
+    }
+  }
+}

@@ -14,6 +14,11 @@ const AIMOCK_DIR = path.join(REPO_ROOT, "showcase", "aimock");
 const fixtureFiles: string[] = [
   ...readdirSync(AIMOCK_DIR)
     .filter((f) => f.endsWith(".json"))
+    // Skip non-fixture sidecar files: the canonical-catalog (per-demo
+    // suggestion metadata) and the substring-overlap allowlist. Both live
+    // alongside fixtures but use different schemas.
+    .filter((f) => !f.endsWith(".allowlist.json"))
+    .filter((f) => !f.startsWith("_"))
     .map((f) => path.join(AIMOCK_DIR, f)),
   ...globSync("examples/integrations/*/fixtures/*.json", {
     cwd: REPO_ROOT,

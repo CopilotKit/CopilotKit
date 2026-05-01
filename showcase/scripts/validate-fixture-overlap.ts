@@ -108,14 +108,19 @@ export function findOverlaps(
       typeof f.userMessage === "string" && f.userMessage.trim().length > 0,
   );
 
-  // Noise check — exact-match against the noise list.
+  // Noise check — exact-match against the noise list. A noise-token fixture
+  // can be allowlisted by adding an entry with inner === outer === <token>
+  // (case-insensitive). This is the escape hatch for pre-existing legacy
+  // fallback fixtures whose userMessage is intentionally a noise token.
   for (const fixture of usable) {
     const message = (fixture.userMessage as string).trim().toLowerCase();
     if (noiseLower.has(message)) {
+      const userMessage = fixture.userMessage as string;
+      if (isAllowlisted(userMessage, userMessage, allowlist)) continue;
       overlaps.push({
         kind: "noise",
-        inner: fixture.userMessage as string,
-        outer: fixture.userMessage as string,
+        inner: userMessage,
+        outer: userMessage,
         innerSource: fixture.source,
         innerIndex: fixture.index,
         outerSource: fixture.source,
