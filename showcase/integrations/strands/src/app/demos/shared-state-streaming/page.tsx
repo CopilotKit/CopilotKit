@@ -28,7 +28,7 @@ function DemoContent() {
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
   useConfigureSuggestions({
-    suggestions: [
+    suggestions: [{ title: "Get started", message: "Hello! What can you do?" },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       { title: "Stream counter", message: "stream the counter to 5" },
     ],

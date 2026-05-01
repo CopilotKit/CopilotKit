@@ -57,6 +57,18 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Roll a d20",
+        message: "Roll a 20-sided die.",
+      },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Custom catchall",

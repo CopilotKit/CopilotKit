@@ -27,6 +27,8 @@ import {
   HashBrownDashboard,
   useHashBrownMessageRenderer,
 } from "./hashbrown-renderer";
+import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
+
 
 /**
  * The hashbrown JSON envelope the frontend's `useJsonParser` expects. Injected
@@ -116,6 +118,13 @@ function ChatBody() {
 
   useConfigureSuggestions({
     suggestions: [
+      ...BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
+      title: s.label,
+      message: s.prompt,
+      className: `byoc-hashbrown-suggestion-${s.label
+        .toLowerCase()
+        .replace(/\s+/g, "-")}`,
+    })),
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Sales overview",
