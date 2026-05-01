@@ -65,6 +65,14 @@ function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Who am I?",
+        message: "What do you know about me from my context?",
+      },
+      {
+        title: "Suggest next steps",
+        message: "Based on my recent activity, what should I try next?",
+      },
+      {
         title: "Recall pref",
         message: "recall the user preference",
       },

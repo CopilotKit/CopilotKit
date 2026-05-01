@@ -34,6 +34,11 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Book a call with sales",
+        message:
+          "Please book an intro call with the sales team to discuss pricing. Use the schedule_meeting tool.",
+      },
+      {
         title: "Pick a slot",
         message: "set up a quick demo call with the design folks",
       },

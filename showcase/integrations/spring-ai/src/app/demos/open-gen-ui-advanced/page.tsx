@@ -44,6 +44,7 @@ function Chat() {
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
+      ...openGenUiSuggestions,
       {
         title: "Advanced flow",
         message: "continue the advanced gen-ui flow",

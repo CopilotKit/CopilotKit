@@ -109,6 +109,7 @@ function Chat() {
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
+      ...minimalSuggestions,
       {
         title: "Open block",
         message: "render an open gen-ui element",
