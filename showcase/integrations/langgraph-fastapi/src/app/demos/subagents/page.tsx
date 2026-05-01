@@ -31,12 +31,6 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Research draft",
-        message:
-          "Research the benefits of remote work and draft a one-paragraph summary",
-      },
       {
         title: "Write a blog post",
         message:
@@ -51,6 +45,12 @@ function DemoContent() {
         title: "Summarize a topic",
         message:
           "Summarize the current state of reusable rockets in 1 polished paragraph, with research and critique.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Research draft",
+        message:
+          "Research the benefits of remote work and draft a one-paragraph summary",
       },
     ],
     available: "always",

@@ -52,11 +52,6 @@ function Layout() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Headless interrupt",
-        message: "trigger the headless interrupt",
-      },
       {
         title: "Book a call with sales",
         message: "Book an intro call with the sales team to discuss pricing.",
@@ -64,6 +59,11 @@ function Layout() {
       {
         title: "Schedule a 1:1 with Alice",
         message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Headless interrupt",
+        message: "trigger the headless interrupt",
       },
     ],
     available: "always",

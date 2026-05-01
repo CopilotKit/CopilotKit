@@ -29,9 +29,9 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
       // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
       { title: "Stream counter", message: "stream the counter to 5" },
-      { title: "Get started", message: "Hello! What can you do?" },
     ],
   });
 

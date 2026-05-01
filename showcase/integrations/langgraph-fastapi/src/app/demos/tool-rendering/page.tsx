@@ -66,11 +66,6 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Pie chart",
-        message: "Show me a pie chart of revenue by category",
-      },
       {
         title: "Weather in San Francisco",
         message: "What's the weather like in San Francisco?",
@@ -82,6 +77,11 @@ function Chat() {
       {
         title: "Weather in Tokyo",
         message: "How's the weather in Tokyo today?",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
       },
     ],
     available: "always",
