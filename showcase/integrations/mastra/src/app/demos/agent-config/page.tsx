@@ -11,7 +11,11 @@
 
 import { useMemo } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useAgentContext } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useAgentContext,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 import { ConfigCard } from "./config-card";
 import { useAgentConfig } from "./use-agent-config";
@@ -41,6 +45,17 @@ function Inner() {
       "Agent configuration: tone, expertise, and response length preferences. " +
       "The agent should adapt its answers to match these.",
     value: stableConfig,
+  });
+
+  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
   });
 
   return (

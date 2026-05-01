@@ -22,4 +22,14 @@ test.describe("Auth", () => {
     );
     await expect(page.getByTestId("auth-authenticate-button")).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    await page.goto("/demos/auth");
+    const pill = page.getByRole("button", { name: /Auth check/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.getByTestId("auth-banner")).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

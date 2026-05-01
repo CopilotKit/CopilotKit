@@ -60,4 +60,18 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Launch outline/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primary selector is `agent-state-card`; mastra's gen-ui-agent
+    // renders the same notion under `task-progress` (TaskProgress card driven
+    // by agent.state.steps). Asserting on the rendered selector here.
+    await expect(
+      page.locator('[data-testid="task-progress"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

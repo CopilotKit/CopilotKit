@@ -137,4 +137,16 @@ test.describe("State Streaming", () => {
     await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Stream counter/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primary selector is `status-display`; mastra's
+    // shared-state-streaming page is a TODO stub that does not render that
+    // surface, so assert on the assistant turn settling instead.
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

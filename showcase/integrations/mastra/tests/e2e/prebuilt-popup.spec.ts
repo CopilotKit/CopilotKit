@@ -7,4 +7,14 @@ test.describe("Pre-Built Popup", () => {
       page.getByRole("heading", { name: /Popup demo/i }),
     ).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    await page.goto("/demos/prebuilt-popup");
+    const pill = page.getByRole("button", { name: /Popup hello/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="copilot-popup"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
