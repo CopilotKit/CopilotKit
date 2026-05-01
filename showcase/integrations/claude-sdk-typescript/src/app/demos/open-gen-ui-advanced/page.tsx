@@ -47,6 +47,7 @@ function Chat() {
   // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
+      ...openGenUiSuggestions,
       {
         title: "Advanced flow",
         message: "continue the advanced gen-ui flow",

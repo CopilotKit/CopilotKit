@@ -24,18 +24,16 @@ function DemoContent() {
   //   useRenderTool({ name: "tool_name", render: ({ args }) => <Component /> })
   //   useHumanInTheLoop({ name, description, parameters, handler: ({ args, respond }) => ... })
   //   useAgentContext({ description, value })
+  //   // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+  //   useConfigureSuggestions({ suggestions: [{ title, message }  {
+  //   useConfigureSuggestions({ suggestions: [{ title, message }    title: "Stream counter",
+  //   useConfigureSuggestions({ suggestions: [{ title, message }    message: "stream the counter to 5",
+  //   useConfigureSuggestions({ suggestions: [{ title, message }  },
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
-    suggestions: [
-      {
-        title: "Stream counter",
-        message: "stream the counter to 5",
-      },
-    ],
-    available: "always",
+    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
   });
 
   return (
