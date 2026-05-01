@@ -43,6 +43,7 @@ function Suggestions() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Sidebar hello", message: "hi from the sidebar test" },
+      { title: "Say hi", message: "Say hi!" },
     ],
     available: "always",
   });

@@ -28,6 +28,8 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Slot wiring", message: "verify chat slots are wired" },
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Tell me a joke", message: "Tell me a short joke." },
     ],
     available: "always",
   });

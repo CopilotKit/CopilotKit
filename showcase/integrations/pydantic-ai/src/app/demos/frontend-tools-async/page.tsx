@@ -131,7 +131,21 @@ function Chat() {
 
   // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: [{ title: "Async metric", message: "fetch the async metric" }],
+    suggestions: [
+      { title: "Async metric", message: "fetch the async metric" },
+      {
+        title: "Find project-planning notes",
+        message: "Find my notes about project planning.",
+      },
+      {
+        title: "Search for 'auth'",
+        message: "Search my notes for anything related to auth.",
+      },
+      {
+        title: "What do I have about reading?",
+        message: "Do I have any notes tagged reading?",
+      },
+    ],
     available: "always",
   });
 

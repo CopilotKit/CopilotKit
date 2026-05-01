@@ -31,6 +31,7 @@ function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Stream counter", message: "stream the counter to 5" },
+      { title: "Get started", message: "Hello! What can you do?" },
     ],
   });
 

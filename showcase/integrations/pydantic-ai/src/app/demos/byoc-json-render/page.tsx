@@ -38,7 +38,6 @@ export default function ByocJsonRenderDemo() {
 }
 
 function Chat() {
-  void BYOC_JSON_RENDER_SUGGESTIONS;
   // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
@@ -46,6 +45,10 @@ function Chat() {
         title: "Marketing overview",
         message: "outline a marketing overview with traffic breakdown",
       },
+      ...BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+      })),
     ],
     available: "always",
   });

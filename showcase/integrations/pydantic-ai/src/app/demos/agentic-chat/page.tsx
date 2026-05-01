@@ -28,6 +28,7 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       { title: "Goldfish name", message: "good name for a goldfish" },
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
     ],
     available: "always",
   });

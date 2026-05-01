@@ -33,6 +33,9 @@ function SidebarWithSuggestions() {
         title: "Quarterly bars",
         message: "render a tool-based bar chart for last quarter deliveries",
       },
+      { title: "Nature Haiku", message: "Write me a haiku about nature." },
+      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
+      { title: "Spring Haiku", message: "Generate a haiku about spring." },
     ],
     available: "always",
   });
