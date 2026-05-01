@@ -43,8 +43,9 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
+    suggestions: [{ title: "Popup hello", message: "hi from the popup test" }],
     available: "always",
   });
   return null;

@@ -27,8 +27,11 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+    suggestions: [
+      { title: "Stream counter", message: "stream the counter to 5" },
+    ],
   });
 
   return (

@@ -22,6 +22,7 @@ import {
   CopilotKit,
   CopilotChat,
   CopilotChatReasoningMessage,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 
@@ -38,6 +39,17 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Show reasoning",
+        message: "show your reasoning step by step",
+      },
+    ],
+    available: "always",
+  });
+
   // @region[reasoning-block-render]
   return (
     <CopilotChat

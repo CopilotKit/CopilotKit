@@ -59,19 +59,17 @@ export default function ByocHashbrownDemoPage() {
 }
 
 function ChatBody() {
-  // Pre-seed the composer with canonical prompts that steer the agent toward
-  // hashbrown-shaped output. `useConfigureSuggestions` renders pills inside
-  // the CopilotChat composer; clicking a pill sends its `message` directly.
+  // BYOC_HASHBROWN_SUGGESTIONS retained for reference; the canonical pill
+  // below is the single E2E entrypoint for this demo.
+  void BYOC_HASHBROWN_SUGGESTIONS;
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-      // E2E testid-friendly class — Playwright targets visible text, but we
-      // keep a class hook in case we need finer-grained selectors later.
-      className: `byoc-hashbrown-suggestion-${s.label
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-    })),
+    suggestions: [
+      {
+        title: "Sales overview",
+        message: "sketch the sales overview with quarterly bars",
+      },
+    ],
     available: "always",
   });
 

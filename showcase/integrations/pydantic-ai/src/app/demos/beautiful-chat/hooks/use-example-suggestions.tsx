@@ -15,48 +15,15 @@ import showcaseConfig from "../showcase.json";
 const showcase = showcaseConfig.showcase;
 
 export const useExampleSuggestions = () => {
+  // @canonical-suggestion
+  // Showcase variable is preserved for future use; current canonical pill
+  // has no showcase-conditional styling.
+  void showcase;
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Pie Chart (Controlled Generative UI)",
-        message:
-          "Show me a pie chart of our revenue distribution by category. Use the query_data tool to fetch the data first, then render it with the pieChart component.",
-      },
-      {
-        title: "Bar Chart (Controlled Generative UI)",
-        message:
-          "Show me a bar chart of our expenses by category. Use the query_data tool to fetch the data first, then render it with the barChart component.",
-      },
-      {
-        title: "Schedule Meeting (Human In The Loop)",
-        message:
-          "I'd like to schedule a 30-minute meeting to learn about CopilotKit. Please use the scheduleTime tool to let me pick a time.",
-      },
-      {
-        title: "Search Flights (A2UI Fixed Schema)",
-        message: "Find flights from SFO to JFK for next Tuesday.",
-        className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
-      },
-      {
-        title: "Sales Dashboard (A2UI Dynamic)",
-        message:
-          "First use the query_data tool to fetch the financial sales data, then using A2UI, show me a sales dashboard with total revenue, new customers, and conversion rate metrics. Include a pie chart of revenue by category and a bar chart of monthly sales.",
-        className: showcase === "a2ui" ? "a2ui-highlight" : undefined,
-      },
-      {
-        title: "Calculator App (Open Generative UI)",
-        message:
-          "Using the generateSandboxedUi tool, build a modern calculator with standard buttons plus labeled metric shortcut buttons that insert their values into the display when clicked. Use sample company data.",
-        className: showcase === "opengenui" ? "opengenui-highlight" : undefined,
-      },
-      {
-        title: "Toggle Theme (Frontend Tools)",
-        message: "Toggle the app theme using the toggleTheme tool.",
-      },
-      {
-        title: "Task Manager (Shared State)",
-        message:
-          "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
       },
     ],
     available: "always",

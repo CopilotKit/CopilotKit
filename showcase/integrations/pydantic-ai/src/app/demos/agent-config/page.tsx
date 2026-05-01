@@ -1,10 +1,28 @@
 "use client";
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 
 import { ConfigCard } from "./config-card";
 import { useAgentConfig } from "./use-agent-config";
+
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 export default function AgentConfigDemoPage() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
@@ -53,6 +71,7 @@ export default function AgentConfigDemoPage() {
           />
         </div>
       </div>
+      <CanonicalSuggestions />
     </CopilotKit>
     // @endregion[provider-setup]
   );
