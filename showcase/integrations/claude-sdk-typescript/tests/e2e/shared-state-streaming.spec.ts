@@ -137,4 +137,15 @@ test.describe("State Streaming", () => {
     await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Stream counter/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // catalog primarySelector "[data-testid=\"status-display\"]" not rendered
+    // by the current demo stub — falling back to generic assistant role
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

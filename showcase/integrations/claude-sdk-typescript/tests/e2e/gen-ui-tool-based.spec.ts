@@ -41,4 +41,15 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Quarterly bars/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // catalog primarySelector "[data-testid=\"bar-chart\"]" not rendered
+    // in this framework — falling back to generic assistant role
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

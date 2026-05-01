@@ -49,14 +49,14 @@ export default function ByocHashbrownDemoPage() {
 }
 
 function ChatBody() {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
-    suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-      className: `byoc-hashbrown-suggestion-${s.label
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-    })),
+    suggestions: [
+      {
+        title: "Sales overview",
+        message: "sketch the sales overview with quarterly bars",
+      },
+    ],
     available: "always",
   });
 

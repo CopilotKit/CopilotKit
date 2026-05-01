@@ -38,11 +38,14 @@ export default function ByocJsonRenderDemo() {
 }
 
 function Chat() {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
-    suggestions: BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-    })),
+    suggestions: [
+      {
+        title: "Marketing overview",
+        message: "outline a marketing overview with traffic breakdown",
+      },
+    ],
     available: "always",
   });
 

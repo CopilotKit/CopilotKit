@@ -7,8 +7,17 @@ test.describe("BYOC json-render", () => {
 
   test("page loads with chat input and suggestion pills", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
-    await expect(page.getByText("Sales dashboard")).toBeVisible();
-    await expect(page.getByText("Revenue by category")).toBeVisible();
-    await expect(page.getByText("Expense trend")).toBeVisible();
+    await expect(page.getByText("Marketing overview")).toBeVisible();
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Marketing overview/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="json-render-root"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
   });
 });
