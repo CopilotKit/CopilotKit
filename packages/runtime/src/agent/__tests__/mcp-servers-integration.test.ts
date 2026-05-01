@@ -704,7 +704,9 @@ describe("mcpServers — real MCP server integration", () => {
 
         const events = await collectEvents(agent["run"](baseInput));
 
-        expect(events.find((e) => e.type === EventType.RUN_ERROR)).toBeUndefined();
+        expect(
+          events.find((e) => e.type === EventType.RUN_ERROR),
+        ).toBeUndefined();
         expect(recorder.records.length).toBe(0);
         // Skip happens before the transport opens — resolver never invoked.
         expect(resolver).not.toHaveBeenCalled();
