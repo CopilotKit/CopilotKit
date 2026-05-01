@@ -58,12 +58,27 @@ type DialogState =
 function Layout() {
   const [dialog, setDialog] = useState<DialogState>({ open: false });
 
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Approve refund for #12345",
+        message:
+          "Please approve a $50 refund to Jordan Rivera on ticket #12345 for the duplicate charge.",
+      },
+      {
+        title: "Downgrade plan for #12346",
+        message:
+          "Please downgrade Priya Shah (#12346) to the Starter plan effective next billing cycle.",
+      },
+      {
+        title: "Escalate ticket #12347",
+        message:
+          "Please escalate ticket #12347 to the payments team — Morgan Lee's payment is stuck.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Refund approval",
         message: "process a refund for the late delivery ticket",
       },

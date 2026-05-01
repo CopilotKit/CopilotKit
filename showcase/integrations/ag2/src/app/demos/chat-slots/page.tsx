@@ -24,12 +24,14 @@ export default function ChatSlotsDemo() {
 }
 
 function Chat() {
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Tell me a joke", message: "Tell me a short joke." },
       {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Slot wiring",
         message: "verify chat slots are wired",
       },

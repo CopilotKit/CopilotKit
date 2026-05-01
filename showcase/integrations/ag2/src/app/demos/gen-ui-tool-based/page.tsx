@@ -40,12 +40,15 @@ export default function GenUiToolBasedDemo() {
 function Chat() {
   const [haikus, setHaikus] = useState<Haiku[]>([]);
 
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Nature Haiku", message: "Write me a haiku about nature." },
+      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
+      { title: "Spring Haiku", message: "Generate a haiku about spring." },
       {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Quarterly bars",
         message: "render a tool-based bar chart for last quarter deliveries",
       },

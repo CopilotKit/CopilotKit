@@ -29,15 +29,29 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Research draft",
+        title: "Write a blog post",
         message:
-          "Research the benefits of remote work and draft a one-paragraph summary",
+          "Produce a short blog post about the benefits of cold exposure training. Research first, then write, then critique.",
+      },
+      {
+        title: "Explain a topic",
+        message:
+          "Explain how large language models handle tool calling. Research, write a paragraph, then critique.",
+      },
+      {
+        title: "Summarize a topic",
+        message:
+          "Summarize the current state of reusable rockets in 1 polished paragraph, with research and critique.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
+        title: "Research draft",
+        message: "Research the benefits of remote work and draft a one-paragraph summary",
       },
     ],
     available: "always",

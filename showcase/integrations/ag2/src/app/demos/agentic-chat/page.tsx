@@ -71,14 +71,20 @@ function Chat() {
   });
 
   // @region[configure-suggestions]
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
-  // in showcase/aimock/d5-all.json so the local stack renders
-  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Change background",
+        message: "Change the background to something new.",
+      },
+      {
+        title: "Generate sonnet",
+        message: "Write a short sonnet about AI.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Goldfish name",
         message: "good name for a goldfish",
       },
