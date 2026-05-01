@@ -26,11 +26,14 @@ export default function GenUiToolBasedDemo() {
 }
 
 function SidebarWithSuggestions() {
+  // Canonical e2e suggestion — exact catalog match for gen-ui-tool-based.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Nature Haiku", message: "Write me a haiku about nature." },
-      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
-      { title: "Spring Haiku", message: "Generate a haiku about spring." },
+      {
+        title: "Quarterly bars",
+        message: "render a tool-based bar chart for last quarter deliveries",
+      },
     ],
     available: "always",
   });

@@ -26,4 +26,19 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for gen-ui-tool-based.
+  test("Quarterly bars suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Quarterly bars/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText(
+        "render a tool-based bar chart for last quarter deliveries",
+      ),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

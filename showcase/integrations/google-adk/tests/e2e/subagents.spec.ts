@@ -108,4 +108,19 @@ test.describe("Sub-Agents", () => {
       timeout: 60000,
     });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for subagents.
+  test("Research draft suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Research draft/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText(
+        "Research the benefits of remote work and draft a one-paragraph summary",
+      ),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

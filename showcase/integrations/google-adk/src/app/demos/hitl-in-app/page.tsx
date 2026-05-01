@@ -105,15 +105,13 @@ function DemoContent() {
     },
   });
 
+  // Canonical e2e suggestion — exact catalog match for hitl-in-app.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Charge customer",
-        message: "I want to charge the customer $100 for the upgrade.",
-      },
-      {
-        title: "Delete record",
-        message: "Delete the duplicate user record for atai@example.com.",
+        title: "Refund approval",
+        message: "process a refund for the late delivery ticket",
       },
     ],
     available: "always",

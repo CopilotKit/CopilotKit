@@ -60,4 +60,17 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for gen-ui-agent.
+  test("Launch outline suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText("lay out a five-stage launch outline for our beta product"),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

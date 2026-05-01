@@ -55,4 +55,17 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for tool-rendering.
+  test("Pie chart suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Pie chart/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText("Show me a pie chart of revenue by category"),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

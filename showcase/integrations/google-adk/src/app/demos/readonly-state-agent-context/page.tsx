@@ -34,13 +34,13 @@ function DemoContent() {
   useAgentContext({ description: "Current project", value: project });
   // @endregion[use-agent-context-call]
 
+  // Canonical e2e suggestion — exact catalog match for readonly-state-agent-context.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Who am I?", message: "What do you know about me?" },
       {
-        title: "Project advice",
-        message:
-          "Given my role and current project, what should I prioritise this week?",
+        title: "Recall pref",
+        message: "recall the user preference",
       },
     ],
     available: "always",

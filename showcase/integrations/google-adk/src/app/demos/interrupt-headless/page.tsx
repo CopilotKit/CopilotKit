@@ -60,15 +60,13 @@ function Layout() {
   // or cancels from the external popup.
   const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
+  // Canonical e2e suggestion — exact catalog match for interrupt-headless.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a call with sales",
-        message: "Book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        title: "Headless interrupt",
+        message: "trigger the headless interrupt",
       },
     ],
     available: "always",

@@ -70,4 +70,17 @@ test.describe("Agentic Chat", () => {
       timeout: 15000,
     });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for agentic-chat.
+  test("Goldfish name suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Goldfish name/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.getByText("good name for a goldfish")).toBeVisible({
+      timeout: 30_000,
+    });
+  });
 });

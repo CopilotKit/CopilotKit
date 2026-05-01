@@ -43,8 +43,15 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // Canonical e2e suggestion — exact catalog match for prebuilt-popup.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
+    suggestions: [
+      {
+        title: "Popup hello",
+        message: "hi from the popup test",
+      },
+    ],
     available: "always",
   });
   return null;

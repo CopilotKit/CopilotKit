@@ -43,16 +43,13 @@ export default function MCPAppsDemo() {
 }
 
 function Chat() {
+  // Canonical e2e suggestion — exact catalog match for mcp-apps.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+        title: "Excalidraw",
+        message: "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",
