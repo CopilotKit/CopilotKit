@@ -1,23 +1,26 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+import {
+  useAgent,
+  useFrontendTool,
+  useRenderTool,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
+import { CSSProperties, useState } from "react";
+import { z } from "zod";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/guides/frontend-actions
+  useFrontendTool({
     name: "setThemeColor",
-    parameters: [
-      {
-        name: "themeColor",
-        description: "The theme color to set. Make sure to pick nice colors.",
-        required: true,
-      },
-    ],
-    handler({ themeColor }) {
+    parameters: z.object({
+      themeColor: z
+        .string()
+        .describe("The theme color to set. Make sure to pick nice colors."),
+    }),
+    handler: async ({ themeColor }) => {
       setThemeColor(themeColor);
     },
   });
@@ -25,7 +28,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as CSSProperties
       }
     >
       <CopilotSidebar
@@ -72,43 +75,41 @@ type AgentState = {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "sample_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
+  const { agent } = useAgent({
+    agentId: "sample_agent",
   });
 
-  // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useCopilotAction({
-    name: "updateProverb",
-    parameters: [
-      {
-        name: "proverbs",
-        type: "string[]",
-        description:
-          "The proverbs to be committed into state. Make them witty, short and concise.",
-        required: true,
+  // 🪁 Frontend Tools: https://docs.copilotkit.ai/coagents/frontend-actions
+  useFrontendTool(
+    {
+      name: "updateProverb",
+      parameters: z.object({
+        proverbs: z
+          .array(z.string())
+          .describe(
+            "The proverbs to be committed into state. Make them witty, short and concise.",
+          ),
+      }),
+      handler: async ({ proverbs }) => {
+        agent.setState({
+          ...agent.state,
+          proverbs: [...proverbs],
+        });
       },
-    ],
-    handler: ({ proverbs }) => {
-      setState({
-        ...state,
-        proverbs: [...proverbs],
-      });
     },
-  });
+    [agent],
+  );
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useCopilotAction({
+  useRenderTool({
     name: "get_weather",
-    description: "Get the weather for a given location.",
-    available: "disabled",
-    parameters: [{ name: "location", type: "string", required: true }],
-    render: ({ args }) => {
-      return <WeatherCard location={args.location} themeColor={themeColor} />;
+    parameters: z.object({
+      location: z.string(),
+    }),
+    render: ({ parameters }) => {
+      return (
+        <WeatherCard location={parameters.location} themeColor={themeColor} />
+      );
     },
   });
 
@@ -126,7 +127,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
         </p>
         <hr className="border-white/20 my-6" />
         <div className="flex flex-col gap-3">
-          {state.proverbs?.map((proverb, index) => (
+          {agent.state?.proverbs?.map((proverb, index) => (
             <div
               key={index}
               className="bg-white/15 p-4 rounded-xl text-white relative group hover:bg-white/20 transition-all"
@@ -134,9 +135,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
               <p className="pr-8">{proverb}</p>
               <button
                 onClick={() =>
-                  setState({
-                    ...state,
-                    proverbs: state.proverbs?.filter((_, i) => i !== index),
+                  agent.setState({
+                    ...agent.state,
+                    proverbs: agent.state?.proverbs?.filter(
+                      (_: string, i: number) => i !== index,
+                    ),
                   })
                 }
                 className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity
@@ -147,7 +150,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
             </div>
           ))}
         </div>
-        {state.proverbs?.length === 0 && (
+        {agent.state?.proverbs?.length === 0 && (
           <p className="text-center text-white/80 italic my-8">
             No proverbs yet. Ask the assistant to add some!
           </p>

@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@copilotkit/react-core": "^1.54.0",
-    "@copilotkit/react-ui": "^1.54.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.7",

@@ -4,15 +4,20 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import {
+  useAgent,
+  useFrontendTool,
+  useRenderToolCall,
+  useHumanInTheLoop,
+} from "@copilotkit/react-core/v2";
+import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/microsoft-agent-framework/frontend-actions
-  useCopilotAction({
+  useFrontendTool({
     name: "setThemeColor",
     parameters: [
       {
@@ -75,7 +80,7 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/microsoft-agent-framework/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "my_agent",
     initialState: {
       proverbs: [
@@ -85,11 +90,10 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/microsoft-agent-framework/generative-ui
-  useCopilotAction(
+  useRenderToolCall(
     {
       name: "get_weather",
       description: "Get the weather for a given location.",
-      available: "disabled",
       parameters: [{ name: "location", type: "string", required: true }],
       render: ({ args }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;
@@ -99,13 +103,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   );
 
   // 🪁 Human In the Loop: https://docs.copilotkit.ai/microsoft-agent-framework/human-in-the-loop
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "go_to_moon",
-      description:
-        "Go to the moon on request. This action requires human approval and will render the MoonCard UI for confirmation.",
-      available: "disabled",
-      renderAndWaitForResponse: ({ respond, status }) => {
+      description: "Go to the moon on request.",
+      render: ({ respond, status }) => {
         return (
           <MoonCard themeColor={themeColor} status={status} respond={respond} />
         );

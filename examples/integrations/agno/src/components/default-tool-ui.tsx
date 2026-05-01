@@ -1,13 +1,16 @@
-import { CatchAllActionRenderProps } from "@copilotkit/react-core";
 import { useState } from "react";
 
-export type BackendToolsProps = CatchAllActionRenderProps & {
+export type BackendToolsProps = {
+  name: string;
+  parameters: unknown;
+  status: "inProgress" | "executing" | "complete";
+  result: string | undefined;
   themeColor: string;
 };
 
 export function DefaultToolComponent({
   name,
-  args,
+  parameters,
   status,
   result,
   themeColor,
@@ -85,7 +88,7 @@ export function DefaultToolComponent({
       </div>
 
       {/* Arguments */}
-      {args && Object.keys(args).length > 0 && (
+      {parameters && typeof parameters === "object" && Object.keys(parameters as Record<string, unknown>).length > 0 && (
         <div className="mb-3">
           <button
             onClick={() => setShowArgs(!showArgs)}
@@ -108,7 +111,7 @@ export function DefaultToolComponent({
           </button>
           {showArgs && (
             <div className="bg-black/20 rounded p-2 space-y-1">
-              {Object.entries(args).map(([key, value]) => (
+              {Object.entries(parameters as Record<string, unknown>).map(([key, value]) => (
                 <div key={key} className="flex gap-2">
                   <span className="text-white/50 text-xs">{key}:</span>
                   <span className="text-white/80 text-xs font-mono">

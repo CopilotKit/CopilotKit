@@ -1,15 +1,14 @@
 "use client";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { use, useEffect, useState } from "react";
+import { useAgent, CopilotSidebar } from "@copilotkit/react-core/v2";
+import { CSSProperties, useEffect, useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as CSSProperties
       }
     >
       <YourMainContent themeColor={themeColor} />
@@ -27,13 +26,13 @@ export default function CopilotKitPage() {
 }
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
-  const { state, setState } = useCoAgent({
-    name: "starterAgent",
+  const { agent } = useAgent({
+    agentId: "starterAgent",
   });
 
   useEffect(() => {
-    console.log(state);
-  }, [state]);
+    console.log(agent.state);
+  }, [agent.state]);
 
   return (
     <div

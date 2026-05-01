@@ -3,14 +3,13 @@
 import { useState } from "react";
 import { WeatherCard } from "@/components/WeatherCard";
 
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { useAgent, useFrontendTool, CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/guides/frontend-actions
-  useCopilotAction({
+  useFrontendTool({
     name: "change_theme_color",
     parameters: [
       {
@@ -27,7 +26,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
       <YourMainContent themeColor={themeColor} />
@@ -51,7 +50,7 @@ type AgentState = {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/coagents/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "sample_agent",
     initialState: {
       proverbs: [
@@ -61,7 +60,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/coagents/frontend-actions
-  useCopilotAction({
+  useFrontendTool({
     name: "add_proverb",
     parameters: [
       {
@@ -79,7 +78,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/coagents/generative-ui
-  useCopilotAction({
+  useFrontendTool({
     name: "get_weather",
     description: "Get the weather for a given location.",
     available: "disabled",

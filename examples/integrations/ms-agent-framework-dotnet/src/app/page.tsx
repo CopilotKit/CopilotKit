@@ -4,12 +4,11 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import {
-  useCoAgent,
+  useAgent,
   useFrontendTool,
   useHumanInTheLoop,
-  useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
 import { useState } from "react";
 import { AgentState } from "@/lib/types";
 
@@ -36,7 +35,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
       <CopilotSidebar
@@ -82,7 +81,7 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "my_agent",
     initialState: {
       proverbs: [
@@ -92,10 +91,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/pydantic-ai/generative-ui
-  useRenderToolCall(
+  useFrontendTool(
     {
       name: "get_weather",
       description: "Get the weather for a given location.",
+      available: "disabled",
       parameters: [{ name: "location", type: "string", required: true }],
       render: ({ args }) => {
         return <WeatherCard location={args.location} themeColor={themeColor} />;

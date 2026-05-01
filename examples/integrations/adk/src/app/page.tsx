@@ -4,14 +4,14 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { AgentState } from "@/lib/types";
 import {
-  useCoAgent,
-  useDefaultTool,
+  useAgent,
+  useDefaultRenderTool,
   useFrontendTool,
   useHumanInTheLoop,
-  useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
-import { useState } from "react";
+  useRenderTool,
+  CopilotSidebar,
+} from "@copilotkit/react-core/v2";
+import React, { useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
@@ -34,7 +34,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
       <CopilotSidebar
@@ -77,23 +77,18 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/adk/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
-    name: "my_agent",
-    initialState: {
-      proverbs: [
-        "CopilotKit may be new, but its the best thing since sliced bread.",
-      ],
-    },
+  const { agent } = useAgent({
+    agentId: "my_agent",
   });
+  const state = (agent.state ?? { proverbs: ["CopilotKit may be new, but its the best thing since sliced bread."] }) as AgentState;
+  const setState = (newState: AgentState) => agent.setState(newState);
 
   //🪁 Generative UI: https://docs.copilotkit.ai/adk/generative-ui
-  useRenderToolCall(
+  useRenderTool(
     {
       name: "get_weather",
-      description: "Get the weather for a given location.",
-      parameters: [{ name: "location", type: "string", required: true }],
-      render: ({ args, result }) => {
-        return <WeatherCard location={args.location} themeColor={themeColor} />;
+      render: ({ parameters, result }) => {
+        return <WeatherCard location={(parameters as any)?.location} themeColor={themeColor} />;
       },
     },
     [themeColor],

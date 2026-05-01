@@ -5,13 +5,12 @@ import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
 import {
-  useCoAgent,
-  useDefaultTool,
+  useAgent,
   useFrontendTool,
   useHumanInTheLoop,
   useRenderToolCall,
-} from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+} from "@copilotkit/react-core/v2";
+import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
@@ -81,7 +80,7 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/pydantic-ai/shared-state
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "my_agent",
     initialState: {
       proverbs: [

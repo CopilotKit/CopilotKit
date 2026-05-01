@@ -4,15 +4,14 @@ import { ProverbsCard } from "@/components/proverbs";
 import { WeatherCard } from "@/components/weather";
 import { MoonCard } from "@/components/moon";
 import { AgentState } from "@/lib/types";
-import { useCoAgent, useCopilotAction } from "@copilotkit/react-core";
-import { CopilotKitCSSProperties, CopilotSidebar } from "@copilotkit/react-ui";
+import { useAgent, useFrontendTool, useHumanInTheLoop, CopilotSidebar } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
 export default function CopilotKitPage() {
   const [themeColor, setThemeColor] = useState("#6366f1");
 
   // 🪁 Frontend Actions: https://docs.copilotkit.ai/mastra/frontend-actions
-  useCopilotAction({
+  useFrontendTool({
     name: "setThemeColor",
     parameters: [
       {
@@ -29,7 +28,7 @@ export default function CopilotKitPage() {
   return (
     <main
       style={
-        { "--copilot-kit-primary-color": themeColor } as CopilotKitCSSProperties
+        { "--copilot-kit-primary-color": themeColor } as React.CSSProperties
       }
     >
       <CopilotSidebar
@@ -75,7 +74,7 @@ export default function CopilotKitPage() {
 
 function YourMainContent({ themeColor }: { themeColor: string }) {
   // 🪁 Shared State: https://docs.copilotkit.ai/mastra/shared-state/in-app-agent-read
-  const { state, setState } = useCoAgent<AgentState>({
+  const { state, setState } = useAgent<AgentState>({
     name: "weatherAgent",
     initialState: {
       proverbs: [
@@ -85,7 +84,7 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   });
 
   //🪁 Generative UI: https://docs.copilotkit.ai/mastra/generative-ui/tool-based
-  useCopilotAction(
+  useFrontendTool(
     {
       name: "weatherTool",
       description: "Get the weather for a given location.",
@@ -99,11 +98,11 @@ function YourMainContent({ themeColor }: { themeColor: string }) {
   );
 
   // 🪁 Human In the Loop: https://docs.copilotkit.ai/mastra/human-in-the-loop
-  useCopilotAction(
+  useHumanInTheLoop(
     {
       name: "go_to_moon",
       description: "Go to the moon on request.",
-      renderAndWaitForResponse: ({ respond, status }) => {
+      render: ({ respond, status }) => {
         return (
           <MoonCard themeColor={themeColor} status={status} respond={respond} />
         );
