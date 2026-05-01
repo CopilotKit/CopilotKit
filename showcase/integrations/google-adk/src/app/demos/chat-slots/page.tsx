@@ -26,10 +26,14 @@ export default function ChatSlotsDemo() {
 
 // The actual view — just the chat, with two slot overrides.
 function Chat() {
+  // Canonical e2e suggestion — exact catalog match for chat-slots.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
-      { title: "Tell me a joke", message: "Tell me a short joke." },
+      {
+        title: "Slot wiring",
+        message: "verify chat slots are wired",
+      },
     ],
     available: "always",
   });

@@ -1,0 +1,20 @@
+import { test, expect } from "@playwright/test";
+
+// Canonical e2e suggestion pill — message must match
+// showcase/aimock/_canonical-catalog.json (frozen) for open-gen-ui-advanced.
+test.describe("Open Gen UI (Advanced) — canonical suggestion pill", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/demos/open-gen-ui-advanced");
+  });
+
+  test("Advanced flow suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Advanced flow/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText("continue the advanced gen-ui flow"),
+    ).toBeVisible({ timeout: 30_000 });
+  });
+});

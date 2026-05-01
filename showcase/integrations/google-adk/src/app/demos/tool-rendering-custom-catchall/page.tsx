@@ -47,16 +47,13 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // Canonical e2e suggestion — exact catalog match for tool-rendering-custom-catchall.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      { title: "Find flights", message: "Find flights from SFO to JFK." },
-      {
-        title: "Sales chart",
-        message: "Show me a quarterly revenue pie chart.",
+        title: "Custom catchall",
+        message: "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",

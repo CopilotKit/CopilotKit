@@ -33,15 +33,13 @@ function DemoContent() {
     },
   });
 
+  // Canonical e2e suggestion — exact catalog match for frontend-tools-async.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find Q4 plan",
-        message: "What's our Q4 strategy? Look it up in my notes.",
-      },
-      {
-        title: "Reading list?",
-        message: "Show me my current reading list.",
+        title: "Async metric",
+        message: "fetch the async metric",
       },
     ],
     available: "always",

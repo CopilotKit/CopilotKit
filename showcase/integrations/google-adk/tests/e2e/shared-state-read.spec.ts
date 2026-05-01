@@ -53,4 +53,17 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for shared-state-read.
+  test("Italian pasta suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Italian pasta/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText("compose an italian pasta recipe with seasonal greens"),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

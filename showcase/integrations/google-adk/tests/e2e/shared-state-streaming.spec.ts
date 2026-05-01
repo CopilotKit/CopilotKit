@@ -137,4 +137,17 @@ test.describe("State Streaming", () => {
     await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for shared-state-streaming.
+  test("Stream counter suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Stream counter/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.getByText("stream the counter to 5")).toBeVisible({
+      timeout: 30_000,
+    });
+  });
 });

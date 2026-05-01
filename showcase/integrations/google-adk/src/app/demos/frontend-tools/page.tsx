@@ -44,15 +44,13 @@ function Chat() {
   });
   // @endregion[frontend-tool-registration]
 
+  // Canonical e2e suggestion — exact catalog match for frontend-tools.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to a blue-to-purple gradient.",
-      },
-      {
-        title: "Sunset theme",
-        message: "Make the background a sunset-themed gradient.",
+        title: "Switch theme",
+        message: "switch theme to dark mode",
       },
     ],
     available: "always",

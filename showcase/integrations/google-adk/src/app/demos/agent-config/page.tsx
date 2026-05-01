@@ -29,12 +29,13 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
+  // Canonical e2e suggestion — exact catalog match for agent-config.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Greet me", message: "Greet me — show off your tone." },
       {
-        title: "Explain WebSockets",
-        message: "Explain WebSockets at the configured expertise level.",
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
       },
     ],
     available: "always",

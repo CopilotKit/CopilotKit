@@ -149,4 +149,17 @@ test.describe("HITL in chat — booking flow", () => {
         .first(),
     ).toBeVisible({ timeout: 30000 });
   });
+
+  // Canonical e2e suggestion pill — message must match
+  // showcase/aimock/_canonical-catalog.json (frozen) for hitl-in-chat.
+  test("Pick a slot suggestion pill fires the catalog prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Pick a slot/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.getByText("set up a quick demo call with the design folks"),
+    ).toBeVisible({ timeout: 30_000 });
+  });
 });

@@ -16,16 +16,13 @@ export default function BeautifulChatDemo() {
 }
 
 function DemoContent() {
+  // Canonical e2e suggestion — exact catalog match for beautiful-chat.
+  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Sales pulse", message: "Show me Q3 revenue split by region." },
       {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK next Friday.",
-      },
-      {
-        title: "Book a sync",
-        message: "Book me a 30-minute sync with our designer.",
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
       },
     ],
     available: "always",
