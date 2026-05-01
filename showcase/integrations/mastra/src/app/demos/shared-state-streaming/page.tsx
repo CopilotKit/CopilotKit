@@ -27,15 +27,15 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
-  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Stream counter",
         message: "stream the counter to 5",
       },
     ],
-    available: "always",
   });
 
   return (

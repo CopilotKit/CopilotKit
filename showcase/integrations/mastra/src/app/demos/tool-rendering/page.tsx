@@ -64,9 +64,21 @@ function Chat() {
   });
   // @endregion[render-weather-tool]
 
-  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather in San Francisco",
+        message: "What's the weather like in San Francisco?",
+      },
+      {
+        title: "Weather in New York",
+        message: "Tell me about the weather in New York.",
+      },
+      {
+        title: "Weather in Tokyo",
+        message: "How's the weather in Tokyo today?",
+      },
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Pie chart",
         message: "Show me a pie chart of revenue by category",

@@ -44,9 +44,17 @@ function Chat() {
   });
   // @endregion[frontend-tool-registration]
 
-  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Change background",
+        message: "Change the background to a blue-to-purple gradient.",
+      },
+      {
+        title: "Sunset theme",
+        message: "Make the background a sunset-themed gradient.",
+      },
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Switch theme",
         message: "switch theme to dark mode",
