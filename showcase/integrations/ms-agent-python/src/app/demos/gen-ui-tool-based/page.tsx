@@ -37,23 +37,19 @@ function Chat() {
   });
   // @endregion[pie-chart-renderer]
 
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Sales bar chart",
-        message: "Show me a bar chart of quarterly sales for Q1, Q2, Q3, Q4.",
-      },
-      {
-        title: "Traffic pie chart",
-        message: "Show me a pie chart of website traffic by source.",
-      },
-      {
-        title: "Market share",
-        message: "Show a pie chart of smartphone market share by brand.",
+        title: "Quarterly bars",
+        message: "render a tool-based bar chart for last quarter deliveries",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <div className="flex justify-center items-center h-screen w-full">

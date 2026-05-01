@@ -17,6 +17,7 @@ import React from "react";
 import {
   CopilotKit,
   CopilotChat,
+  useConfigureSuggestions,
   useRenderTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -38,6 +39,20 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Show reasoning",
+        message: "show your reasoning step by step",
+      },
+    ],
+    available: "always",
+  });
+  // @endregion[canonical-e2e-suggestion]
+
   // @region[reasoning-block-render]
   useRenderTool({
     name: "think",

@@ -137,23 +137,19 @@ function Chat() {
     },
   });
 
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find project-planning notes",
-        message: "Find my notes about project planning.",
-      },
-      {
-        title: "Search for 'auth'",
-        message: "Search my notes for anything related to auth.",
-      },
-      {
-        title: "What do I have about reading?",
-        message: "Do I have any notes tagged reading?",
+        title: "Async metric",
+        message: "fetch the async metric",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <CopilotChat

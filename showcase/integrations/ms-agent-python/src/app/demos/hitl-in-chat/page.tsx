@@ -32,20 +32,19 @@ export default function HitlInChatDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a call with sales",
-        message:
-          "Please book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        title: "Pick a slot",
+        message: "set up a quick demo call with the design folks",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   // @region[hitl-hook]
   useHumanInTheLoop({

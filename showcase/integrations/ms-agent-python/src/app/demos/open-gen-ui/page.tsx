@@ -129,10 +129,19 @@ export default function OpenGenUiDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
-    suggestions: minimalSuggestions,
+    suggestions: [
+      {
+        title: "Open block",
+        message: "render an open gen-ui element",
+      },
+    ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return <CopilotChat agentId="open-gen-ui" className="flex-1 rounded-2xl" />;
 }

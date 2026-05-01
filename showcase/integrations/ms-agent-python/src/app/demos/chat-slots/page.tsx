@@ -26,13 +26,19 @@ export default function ChatSlotsDemo() {
 
 // The actual view — just the chat, with two slot overrides.
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
-      { title: "Tell me a joke", message: "Tell me a short joke." },
+      {
+        title: "Slot wiring",
+        message: "verify chat slots are wired",
+      },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   // Each slot is wired in as a prop on <CopilotChat>. Extracting the
   // overrides up here keeps the JSX readable and gives the docs something

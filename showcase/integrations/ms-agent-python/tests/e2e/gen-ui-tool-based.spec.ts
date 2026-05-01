@@ -41,4 +41,19 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion pill — see showcase/aimock/_canonical-catalog.json.
+  test("Quarterly bars canonical pill fires the catalog message", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Quarterly bars/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    // Selector divergence fallback: assistant message rather than bar-chart
+    // testid since the mock fixture may not always materialize the chart.
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

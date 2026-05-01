@@ -28,7 +28,6 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
-import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -52,10 +51,19 @@ export default function OpenGenUiAdvancedDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
-    suggestions: openGenUiSuggestions,
+    suggestions: [
+      {
+        title: "Advanced flow",
+        message: "continue the advanced gen-ui flow",
+      },
+    ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <div className="flex h-full w-full flex-col p-3">
