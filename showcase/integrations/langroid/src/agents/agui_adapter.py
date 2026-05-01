@@ -465,8 +465,16 @@ async def _call_openai(
     return response.choices[0].message
 
 
-async def handle_run(request: Request) -> StreamingResponse:
-    """Handle an AG-UI /run endpoint — parse input, run agent, stream events."""
+async def handle_run(
+    request: Request, *, disable_tools: bool = False
+) -> StreamingResponse:
+    """Handle an AG-UI /run endpoint — parse input, run agent, stream events.
+
+    When ``disable_tools`` is True, the OpenAI call omits tool definitions.
+    Used by the /voice demo so aimock's tool-free fallback fixture is matched
+    (returning a direct text answer) instead of a tool-call response that
+    the frontend would not execute.
+    """
     # Parse request body defensively. A malformed body (bad JSON, missing
     # required fields, wrong types) previously propagated up as a raw
     # FastAPI 422/500 with no correlation id — hard to match back to a
@@ -529,7 +537,7 @@ async def handle_run(request: Request) -> StreamingResponse:
         run_input.messages or [], system_prompt
     )
     model = os.getenv("LANGROID_MODEL", "gpt-4.1")
-    oai_tools = _get_openai_tools()
+    oai_tools = [] if disable_tools else _get_openai_tools()
 
     # Compute the effective thread_id ONCE so every event emitted for this
     # run (RUN_STARTED, RUN_FINISHED, ...) references the same thread.

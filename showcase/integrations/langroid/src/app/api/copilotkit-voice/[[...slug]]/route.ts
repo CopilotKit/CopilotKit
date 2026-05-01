@@ -34,7 +34,10 @@ import OpenAI from "openai";
 
 const AGENT_URL = process.env.AGENT_URL || "http://localhost:8000";
 
-const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/` });
+// Point at the tool-free /voice endpoint so aimock returns a direct text
+// answer instead of a tool call that the frontend cannot execute (the voice
+// page does not register any frontend tools).
+const voiceDemoAgent = new HttpAgent({ url: `${AGENT_URL}/voice/` });
 
 /**
  * Transcription service wrapper that reports a clean, typed auth error when

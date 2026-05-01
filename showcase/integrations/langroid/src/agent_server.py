@@ -59,6 +59,18 @@ async def run_agent(request: Request):
     return await handle_run(request)
 
 
+@app.post("/voice")
+async def run_voice(request: Request):
+    """Voice demo endpoint — chat without tools.
+
+    The /demos/voice page does not register frontend tools; if the LLM
+    returns a tool call, the run finishes with no text and the assistant
+    message lands empty. Disable tools for this endpoint so aimock's
+    text-only fallback fixture is matched and we get a direct answer.
+    """
+    return await handle_run(request, disable_tools=True)
+
+
 # Per-demo endpoints for cells that need state-aware behavior the unified
 # agent does not provide. Each handler implements its own AG-UI SSE
 # pipeline (RUN_STARTED / STATE_SNAPSHOT / TEXT_* / TOOL_CALL_* / RUN_FINISHED)

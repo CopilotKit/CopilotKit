@@ -40,7 +40,11 @@ const LANGGRAPH_URL =
 
 const voiceDemoAgent = new LangGraphAgent({
   deploymentUrl: `${LANGGRAPH_URL}/`,
-  graphId: "sample_agent",
+  // server.mjs registers the chat graph under "starterAgent" (matching the
+  // main copilotkit/route.ts default). The langgraph.json file lists
+  // sample_agent as an alias but the runtime server only registers
+  // starterAgent, so the voice route must use the same name.
+  graphId: "starterAgent",
 });
 
 /**
