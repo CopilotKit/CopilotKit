@@ -60,4 +60,15 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog selector [data-testid="agent-state-card"] not present in this demo;
+    // fall back to assistant message (Rule 4).
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

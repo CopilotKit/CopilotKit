@@ -147,24 +147,12 @@ function Chat() {
     [],
   );
 
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo? Then find flights from SFO.",
-      },
-      {
-        title: "Flights + destination weather",
-        message:
-          "Find flights from SFO to JFK, then tell me the weather in New York.",
-      },
-      {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Sales pipeline",
-        message: "Show me the current sales pipeline.",
+        title: "Kyoto itinerary",
+        message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
       },
     ],
     available: "always",

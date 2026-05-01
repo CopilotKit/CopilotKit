@@ -54,19 +54,12 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
+        title: "Custom catchall",
+        message: "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",
