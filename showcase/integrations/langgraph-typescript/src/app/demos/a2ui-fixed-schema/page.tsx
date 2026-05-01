@@ -44,11 +44,12 @@ export default function A2UIFixedSchemaDemo() {
 }
 
 function Chat() {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find SFO → JFK",
-        message: "Find me a flight from SFO to JFK on United for $289.",
+        title: "Block calendar",
+        message: "block out my tuesday with three meetings and a gym slot",
       },
     ],
     available: "always",
