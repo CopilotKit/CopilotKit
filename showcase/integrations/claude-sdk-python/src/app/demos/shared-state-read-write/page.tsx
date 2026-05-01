@@ -53,6 +53,17 @@ function DemoContent() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      { title: "Greet me", message: "Say hi and introduce yourself." },
+      {
+        title: "Remember something",
+        message:
+          "Remember that I prefer morning meetings and that I don't eat dairy.",
+      },
+      {
+        title: "Plan a weekend",
+        message: "Suggest a weekend plan based on my interests.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Weekend plan",
         message: "build me a weekend itinerary based on saved interests",

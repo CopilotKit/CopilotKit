@@ -30,6 +30,8 @@ function DemoContent() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Stream counter",
         message: "stream the counter to 5",

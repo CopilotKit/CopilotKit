@@ -29,6 +29,9 @@ function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Tell me a joke", message: "Tell me a short joke." },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Slot wiring",
         message: "verify chat slots are wired",

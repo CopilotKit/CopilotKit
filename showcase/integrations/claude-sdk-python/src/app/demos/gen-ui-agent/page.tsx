@@ -36,6 +36,15 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Simple plan",
+        message: "Please build a plan to go to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please build a plan to make pizza in 10 steps.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Launch outline",
         message: "lay out a five-stage launch outline for our beta product",
       },

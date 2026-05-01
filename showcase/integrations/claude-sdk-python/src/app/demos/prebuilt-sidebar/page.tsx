@@ -42,6 +42,8 @@ function Suggestions() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi!" },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Sidebar hello",
         message: "hi from the sidebar test",

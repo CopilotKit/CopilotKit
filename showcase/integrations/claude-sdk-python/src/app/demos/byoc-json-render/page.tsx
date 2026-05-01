@@ -21,6 +21,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
+import { BYOC_JSON_RENDER_SUGGESTIONS } from "./suggestions";
 
 const AGENT_ID = "byoc_json_render";
 
@@ -40,6 +41,11 @@ function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      ...BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+      })),
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
       {
         title: "Marketing overview",
         message: "outline a marketing overview with traffic breakdown",

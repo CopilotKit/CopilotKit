@@ -74,6 +74,15 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Change background",
+        message: "Change the background to something new.",
+      },
+      {
+        title: "Generate sonnet",
+        message: "Write a short sonnet about AI.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Goldfish name",
         message: "good name for a goldfish",
       },

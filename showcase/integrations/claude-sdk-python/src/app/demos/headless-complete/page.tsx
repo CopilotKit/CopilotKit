@@ -139,6 +139,19 @@ function ChatBody({
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
+        title: "Sales pipeline",
+        message: "Show me the current sales pipeline.",
+      },
+      {
+        title: "Highlight a note",
+        message: "Highlight 'meeting at 3pm' in yellow.",
+      },
+      // canonical e2e pill — keep last so e2e tests can target it deterministically
+      {
         title: "Custom message",
         message: "send a sample message to populate the headless transcript",
       },
