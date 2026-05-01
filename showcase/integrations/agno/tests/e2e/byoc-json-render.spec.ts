@@ -44,22 +44,22 @@ test.describe("BYOC json-render — pill suggestion regression", () => {
     await expect(
       page.locator('[data-testid="metric-card"]').first(),
     ).toBeVisible({ timeout: SUGGESTION_TIMEOUT_MS });
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: SUGGESTION_TIMEOUT_MS });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: SUGGESTION_TIMEOUT_MS },
+    );
   });
 
   test("Revenue by category pill renders a pie chart", async ({ page }) => {
     await page.getByRole("button", { name: "Revenue by category" }).click();
-    await expect(
-      page.locator('[data-testid="pie-chart"]').first(),
-    ).toBeVisible({ timeout: SUGGESTION_TIMEOUT_MS });
+    await expect(page.locator('[data-testid="pie-chart"]').first()).toBeVisible(
+      { timeout: SUGGESTION_TIMEOUT_MS },
+    );
   });
 
   test("Expense trend pill renders a bar chart", async ({ page }) => {
     await page.getByRole("button", { name: "Expense trend" }).click();
-    await expect(
-      page.locator('[data-testid="bar-chart"]').first(),
-    ).toBeVisible({ timeout: SUGGESTION_TIMEOUT_MS });
+    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
+      { timeout: SUGGESTION_TIMEOUT_MS },
+    );
   });
 });
