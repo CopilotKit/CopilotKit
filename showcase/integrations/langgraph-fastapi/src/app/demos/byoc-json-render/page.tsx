@@ -39,10 +39,17 @@ export default function ByocJsonRenderDemo() {
 
 function Chat() {
   useConfigureSuggestions({
-    suggestions: BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-    })),
+    suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Marketing overview",
+        message: "outline a marketing overview with traffic breakdown",
+      },
+      ...BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+      })),
+    ],
     available: "always",
   });
 

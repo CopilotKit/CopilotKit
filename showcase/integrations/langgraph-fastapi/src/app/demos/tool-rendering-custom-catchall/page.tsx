@@ -57,6 +57,11 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Custom catchall",
+        message: "exercise the custom catchall renderer with an unknown tool",
+      },
       {
         title: "Weather in SF",
         message: "What's the weather in San Francisco?",

@@ -34,6 +34,11 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
+      },
       {
         title: "Simple plan",
         message: "Please build a plan to go to mars in 5 steps.",

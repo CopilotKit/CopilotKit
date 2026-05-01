@@ -28,7 +28,11 @@ function DemoContent() {
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
   useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+    suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Stream counter", message: "stream the counter to 5" },
+      { title: "Get started", message: "Hello! What can you do?" },
+    ],
   });
 
   return (

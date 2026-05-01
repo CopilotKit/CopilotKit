@@ -145,6 +145,8 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Async metric", message: "fetch the async metric" },
       {
         title: "Find project-planning notes",
         message: "Find my notes about project planning.",

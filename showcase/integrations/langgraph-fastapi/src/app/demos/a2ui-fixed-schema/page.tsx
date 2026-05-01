@@ -46,6 +46,11 @@ export default function A2UIFixedSchemaDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Block calendar",
+        message: "block out my tuesday with three meetings and a gym slot",
+      },
       {
         title: "Find SFO → JFK",
         message: "Find me a flight from SFO to JFK on United for $289.",
