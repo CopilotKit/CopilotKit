@@ -43,7 +43,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createVertex } from "@ai-sdk/google-vertex";
-import { safeParseToolArgs } from "@copilotkit/shared";
+import { logger, safeParseToolArgs } from "@copilotkit/shared";
 import { z } from "zod";
 import type { StandardSchemaV1, InferSchemaOutput } from "@copilotkit/shared";
 import { schemaToJsonSchema } from "@copilotkit/shared";
@@ -149,6 +149,8 @@ export interface MCPClientConfigHTTP {
   getHeaders?: (
     ctx: MCPRequestContext,
   ) => Record<string, string> | Promise<Record<string, string>>;
+  /** If true, the server is skipped at run-start when `agent.user` is unset. */
+  requiresUser?: boolean;
 }
 
 /**
@@ -1266,6 +1268,18 @@ export class BuiltInAgent extends AbstractAgent {
             const user = this.user ? { ...this.user } : undefined;
 
             for (const serverConfig of this.config.mcpServers) {
+              if (
+                serverConfig.type === "http" &&
+                serverConfig.requiresUser &&
+                !user
+              ) {
+                logger.warn(
+                  { url: serverConfig.url },
+                  "Skipping MCP server: requiresUser is set but no user is resolved for this run",
+                );
+                continue;
+              }
+
               const mcpClient = await openMcpClient(serverConfig, {
                 requestHeaders,
                 input,

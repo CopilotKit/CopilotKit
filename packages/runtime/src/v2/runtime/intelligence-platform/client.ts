@@ -393,6 +393,7 @@ export class CopilotKitIntelligence {
       type: "http",
       url,
       headers: { Authorization: `Bearer ${apiKey}` },
+      requiresUser: true,
       getHeaders: ({ user }) => {
         const userId = user?.id?.trim();
         if (!userId) {

@@ -136,7 +136,17 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
     }
   });
 
-  it("throws when no user has been resolved (runtime missing identifyUser)", async () => {
+  it("returned config has requiresUser=true so user-less sub-runs skip the server", () => {
+    const intelligence = new CopilotKitIntelligence({
+      apiUrl: "https://api.example.com",
+      wsUrl: "wss://ws.example.com",
+      apiKey: "k",
+    });
+
+    expect(intelligence.toMCPServer().requiresUser).toBe(true);
+  });
+
+  it("agent run with intelligence.toMCPServer() and no user completes without error (the thread-naming sub-run shape)", async () => {
     const { url, server } = await startMcpMock();
     llm = server;
 
@@ -146,35 +156,27 @@ describe("CopilotKitIntelligence.toMCPServer()", () => {
       apiKey: "cpk-proj_short_long",
     });
 
-    const agent = new BasicAgent({
-      model: "openai/gpt-4o",
-      mcpServers: [intelligence.toMCPServer()],
-    });
-    // Deliberately leave `agent.user` unset — this is the case the helper
-    // must reject loudly so a misconfigured runtime doesn't silently collapse
-    // every browser session into one shared bash sandbox.
-
-    vi.mocked(streamText).mockReturnValue(
-      mockStreamTextResponse([finish()]) as any,
-    );
-
-    const events: any[] = [];
+    const recorder = spyOnFetch(url);
     try {
-      await new Promise((resolve, reject) => {
-        agent["run"](baseInput).subscribe({
-          next: (event) => events.push(event),
-          error: (err) => reject(err),
-          complete: () => resolve(events),
-        });
+      const agent = new BasicAgent({
+        model: "openai/gpt-4o",
+        mcpServers: [intelligence.toMCPServer()],
       });
-    } catch {
-      // expected
-    }
+      // No agent.user — mirrors the cloned naming sub-run.
 
-    const runError = events.find((e: any) => e.type === EventType.RUN_ERROR);
-    expect(runError).toBeDefined();
-    expect(runError?.message).toContain("no user resolved");
-    expect(runError?.message).toContain("identifyUser");
+      vi.mocked(streamText).mockReturnValue(
+        mockStreamTextResponse([finish()]) as any,
+      );
+
+      const events = await collectEvents(agent["run"](baseInput));
+
+      expect(
+        events.find((e: any) => e.type === EventType.RUN_ERROR),
+      ).toBeUndefined();
+      expect(recorder.records.length).toBe(0);
+    } finally {
+      recorder.restore();
+    }
   });
 
   it("URL is composed from apiUrl + /mcp (trailing slash on apiUrl is normalized)", () => {
