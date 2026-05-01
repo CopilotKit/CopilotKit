@@ -24,9 +24,10 @@ export default function AgenticChatDemo() {
 // @region[chat-component]
 function Chat() {
   // @region[configure-suggestions]
+  // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      { title: "Goldfish name", message: "good name for a goldfish" },
     ],
     available: "always",
   });

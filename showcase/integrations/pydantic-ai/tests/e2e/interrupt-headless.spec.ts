@@ -1,20 +1,22 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Frontend Tools (Async)", () => {
+test.describe("Headless Interrupt", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/frontend-tools-async");
+    await page.goto("/demos/interrupt-headless");
   });
 
-  test("page loads with chat", async ({ page }) => {
+  test("page loads with chat input", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
   test("canonical suggestion pill fires the feature", async ({ page }) => {
-    const pill = page.getByRole("button", { name: /Async metric/i }).first();
+    const pill = page
+      .getByRole("button", { name: /Headless interrupt/i })
+      .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator('[data-testid="notes-card"]').first(),
-    ).toBeVisible({ timeout: 60_000 });
+      page.locator('[data-testid="copilot-user-message"]').first(),
+    ).toBeVisible({ timeout: 30_000 });
   });
 });

@@ -22,9 +22,22 @@
 
 import { Component, useCallback, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [{ title: "Auth check", message: "auth check turn 1" }],
+    available: "always",
+  });
+  return null;
+}
 
 interface ChatErrorBoundaryProps {
   authenticated: boolean;
@@ -166,6 +179,7 @@ export default function AuthDemoPage() {
             <CopilotChat agentId="auth-demo" className="h-full" />
           </ChatErrorBoundary>
         </div>
+        <CanonicalSuggestions />
         {lastError && (
           <div
             role="alert"

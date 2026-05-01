@@ -17,4 +17,13 @@ test.describe("Pre-Built Sidebar", () => {
       timeout: 10000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Sidebar hello/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator('[data-testid="copilot-sidebar"]')).toBeVisible({
+      timeout: 30_000,
+    });
+  });
 });

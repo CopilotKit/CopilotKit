@@ -8,4 +8,13 @@ test.describe("Open Generative UI (Minimal)", () => {
   test("chat UI renders", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Open block/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="copilot-suggestion"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

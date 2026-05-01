@@ -49,19 +49,13 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Schedule a meeting",
-        message: "Schedule a meeting for a demo call.",
-      },
-      {
-        title: "Add some todos",
-        message: "Add 3 sales todos for Q2 prospecting.",
+        title: "Custom catchall",
+        message:
+          "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",
