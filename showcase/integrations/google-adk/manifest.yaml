@@ -424,15 +424,18 @@ demos:
       - src/app/api/copilotkit-byoc-json-render/route.ts
   - id: beautiful-chat
     name: Beautiful Chat
-    description: Canonical polished starter chat — brand fonts, theme tokens, suggestion pills
+    description: Canonical flagship starter — brand fonts, suggestion pills, charts, flight cards, meeting picker, todo canvas, dynamic A2UI, MCP Excalidraw
     tags:
       - chat-ui
     route: /demos/beautiful-chat
     animated_preview_url:
     highlight:
       - src/agents/beautiful_chat_agent.py
+      - src/agents/beautiful_chat_data/db.csv
       - src/app/demos/beautiful-chat/page.tsx
-      - src/app/api/copilotkit/route.ts
+      - src/app/demos/beautiful-chat/hooks/use-generative-ui-examples.tsx
+      - src/app/demos/beautiful-chat/declarative-generative-ui/renderers.tsx
+      - src/app/api/copilotkit-beautiful-chat/route.ts
   - id: multimodal
     name: Multimodal Attachments
     description: Image and PDF uploads via CopilotChat attachments, processed by a Gemini multimodal agent

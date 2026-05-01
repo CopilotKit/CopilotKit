@@ -167,7 +167,20 @@ AGENT_REGISTRY: dict[str, AgentSpec] = {
     "open_gen_ui": AgentSpec(open_gen_ui_agent),
     "open_gen_ui_advanced": AgentSpec(open_gen_ui_advanced_agent),
     # ----- Beautiful chat -----
-    "beautiful_chat": AgentSpec(beautiful_chat_agent),
+    # PredictStateMapping streams `state["todos"]` as `manage_todos.todos`
+    # arguments arrive, so the canvas TodoList renders cards as the agent
+    # is still composing them — same UX as langgraph-python's beautiful-chat
+    # via StateStreamingMiddleware.
+    "beautiful_chat": AgentSpec(
+        beautiful_chat_agent,
+        predict_state=[
+            PredictStateMapping(
+                state_key="todos",
+                tool="manage_todos",
+                tool_argument="todos",
+            ),
+        ],
+    ),
     # ----- Auth (uses simple chat — auth gate is in route.ts) -----
     "auth": AgentSpec(_simple_chat),
     # ----- Interrupt-adapted demos (Strategy B: useFrontendTool) -----
