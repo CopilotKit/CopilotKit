@@ -40,10 +40,11 @@ function MainContent() {
 
 function Suggestions() {
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // Single-click prompt that matches the aimock fixture in
-  // showcase/aimock/d5-all.json so the local stack renders deterministically.
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi!" },
       {
         title: "Sidebar hello",
         message: "hi from the sidebar test",

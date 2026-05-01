@@ -27,13 +27,13 @@ export default function ChatSlotsDemo() {
 // The actual view — just the chat, with slot overrides.
 function Chat() {
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      { title: "Slot wiring", message: "verify chat slots are wired" },
       { title: "Write a sonnet", message: "Write a short sonnet about AI." },
       { title: "Tell me a joke", message: "Tell me a short joke." },
+      { title: "Slot wiring", message: "verify chat slots are wired" },
     ],
     available: "always",
   });

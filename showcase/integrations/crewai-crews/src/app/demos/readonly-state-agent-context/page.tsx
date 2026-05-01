@@ -62,14 +62,10 @@ function DemoContent() {
   // @endregion[use-agent-context-call]
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Recall pref",
-        message: "recall the user preference",
-      },
       {
         title: "Who am I?",
         message: "What do you know about me from my context?",
@@ -82,6 +78,10 @@ function DemoContent() {
         title: "Plan my morning",
         message:
           "What time is it in my timezone and what should I do for the next hour?",
+      },
+      {
+        title: "Recall pref",
+        message: "recall the user preference",
       },
     ],
     available: "always",

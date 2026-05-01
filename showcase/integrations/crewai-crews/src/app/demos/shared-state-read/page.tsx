@@ -99,14 +99,10 @@ function Recipe() {
   const { copilotkit } = useCopilotKit();
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Italian pasta",
-        message: "compose an italian pasta recipe with seasonal greens",
-      },
       {
         title: "Create Italian recipe",
         message: "Create a delicious Italian pasta recipe.",
@@ -118,6 +114,10 @@ function Recipe() {
       {
         title: "Suggest variations",
         message: "Suggest some creative variations of this recipe.",
+      },
+      {
+        title: "Italian pasta",
+        message: "compose an italian pasta recipe with seasonal greens",
       },
     ],
     available: "always",
