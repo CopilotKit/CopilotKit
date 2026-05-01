@@ -39,9 +39,16 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi!" }],
+    suggestions: [
+      {
+        title: "Sidebar hello",
+        message: "hi from the sidebar test",
+      },
+    ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
   return null;
 }

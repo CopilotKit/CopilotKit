@@ -22,9 +22,28 @@
 
 import { Component, useCallback, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+
+function Suggestions() {
+  // @region[configure-suggestions]
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Auth check",
+        message: "auth check turn 1",
+      },
+    ],
+    available: "always",
+  });
+  // @endregion[configure-suggestions]
+  return null;
+}
 
 interface ChatErrorBoundaryProps {
   authenticated: boolean;
@@ -144,6 +163,7 @@ export default function AuthDemoPage() {
       onError={onError}
       useSingleEndpoint={false}
     >
+      <Suggestions />
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
           authenticated={auth.authenticated}

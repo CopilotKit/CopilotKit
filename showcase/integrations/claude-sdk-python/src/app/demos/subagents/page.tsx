@@ -32,26 +32,18 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
+  // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Write a blog post",
+        title: "Research draft",
         message:
-          "Produce a short blog post about the benefits of cold exposure training. Research first, then write, then critique.",
-      },
-      {
-        title: "Explain a topic",
-        message:
-          "Explain how large language models handle tool calling. Research, write a paragraph, then critique.",
-      },
-      {
-        title: "Summarize a topic",
-        message:
-          "Summarize the current state of reusable rockets in 1 polished paragraph, with research and critique.",
+          "Research the benefits of remote work and draft a one-paragraph summary",
       },
     ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   const agentState = agent.state as SubagentsAgentState | undefined;
   const delegations = agentState?.delegations ?? [];

@@ -67,24 +67,6 @@ Output contract (in order):
 Accessibility:
 - Text contrast >= 4.5:1 against its background.`;
 
-const minimalSuggestions = [
-  {
-    title: "3D axis visualization (model airplane)",
-    message:
-      "Visualize pitch, yaw, and roll using a 3D model airplane. Render a simple airplane silhouette (SVG or CSS-3D) at the origin, with three labelled axes. Animate the airplane cycling through each rotation in turn — rotate about X, pause, rotate about Y, pause, rotate about Z, pause — with a legend showing which axis is active.",
-  },
-  {
-    title: "How a neural network works",
-    message:
-      "Animate how a simple feed-forward neural network processes an input. Show 3 layers (input 4 nodes, hidden 5 nodes, output 2 nodes) with connections whose thickness encodes weight magnitude. Animate activations pulsing forward in a loop. Use indigo for active signal, slate for quiescent.",
-  },
-  {
-    title: "Quicksort visualization",
-    message:
-      "Visualize quicksort on an array of ~10 bars of varying heights. At each step highlight the pivot in amber, elements being compared in indigo, and swapped elements in emerald; fade sorted elements to slate.",
-  },
-];
-
 export default function OpenGenUiDemo() {
   return (
     // @region[minimal-provider-setup]
@@ -109,10 +91,17 @@ export default function OpenGenUiDemo() {
 }
 
 function Chat() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
-    suggestions: minimalSuggestions,
+    suggestions: [
+      {
+        title: "Open block",
+        message: "render an open gen-ui element",
+      },
+    ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return <CopilotChat agentId="open-gen-ui" className="flex-1 rounded-2xl" />;
 }

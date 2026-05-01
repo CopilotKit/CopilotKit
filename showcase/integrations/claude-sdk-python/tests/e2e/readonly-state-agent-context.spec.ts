@@ -13,4 +13,16 @@ test.describe("Readonly State (Agent Context)", () => {
     await expect(page.getByTestId("ctx-name")).toBeVisible();
     await expect(page.getByTestId("ctx-timezone")).toBeVisible();
   });
+
+  test("Recall pref suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Recall pref/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-suggestion"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

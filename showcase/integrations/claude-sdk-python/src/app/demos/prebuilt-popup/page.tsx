@@ -43,9 +43,16 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi from the popup!" }],
+    suggestions: [
+      {
+        title: "Popup hello",
+        message: "hi from the popup test",
+      },
+    ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
   return null;
 }

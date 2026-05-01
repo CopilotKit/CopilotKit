@@ -19,7 +19,6 @@ import {
 } from "@copilotkit/react-core/v2";
 import { CopilotKit } from "@copilotkit/react-core";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
-import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -43,10 +42,17 @@ export default function OpenGenUiAdvancedDemo() {
 }
 
 function Chat() {
+  // @region[configure-suggestions]
   useConfigureSuggestions({
-    suggestions: openGenUiSuggestions,
+    suggestions: [
+      {
+        title: "Advanced flow",
+        message: "continue the advanced gen-ui flow",
+      },
+    ],
     available: "always",
   });
+  // @endregion[configure-suggestions]
 
   return (
     <div className="flex h-full w-full flex-col p-3">

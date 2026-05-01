@@ -15,4 +15,18 @@ test.describe("HITL In-App", () => {
       page.locator('textarea, [placeholder*="message"]').first(),
     ).toBeVisible({ timeout: 10000 });
   });
+
+  test("Refund approval suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .getByRole("button", { name: /Refund approval/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="approval-dialog-overlay"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

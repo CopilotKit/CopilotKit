@@ -14,4 +14,16 @@ test.describe("Frontend Tools", () => {
       page.locator('textarea, [placeholder*="message"]').first(),
     ).toBeVisible({ timeout: 10000 });
   });
+
+  test("Switch theme suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Switch theme/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="background-container"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
