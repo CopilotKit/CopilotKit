@@ -41,4 +41,17 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion — single pill wired via useConfigureSuggestions.
+  // Title + message come from showcase/aimock/_canonical-catalog.json.
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Quarterly bars/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator("[data-testid=\"bar-chart\"]").first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

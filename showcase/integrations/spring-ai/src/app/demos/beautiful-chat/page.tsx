@@ -75,8 +75,14 @@ export default function BeautifulChatPage() {
 }
 
 function Chat() {
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: BRAND_SUGGESTIONS,
+    suggestions: [
+      {
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
+      },
+    ],
     available: "always",
   });
 

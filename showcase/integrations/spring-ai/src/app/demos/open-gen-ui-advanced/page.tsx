@@ -41,8 +41,14 @@ export default function OpenGenUiAdvancedDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: openGenUiSuggestions,
+    suggestions: [
+      {
+        title: "Advanced flow",
+        message: "continue the advanced gen-ui flow",
+      },
+    ],
     available: "always",
   });
 

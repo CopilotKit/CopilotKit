@@ -20,9 +20,17 @@
 // from chat internals in the unauthenticated state so the page never white-
 // screens — instead, the user sees a clear in-page message.
 
-import { Component, useCallback, useMemo, useState } from "react";
-import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  Component,
+  useCallback,
+  useMemo,
+  useState } from "react";
+import type { ErrorInfo,
+  ReactNode } from "react";
+import { CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
 
@@ -90,6 +98,20 @@ class ChatErrorBoundary extends Component<
   }
 }
 
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Auth check",
+        message: "auth check turn 1",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
+
 export default function AuthDemoPage() {
   const auth = useDemoAuth();
   const [lastError, setLastError] = useState<string | null>(null);
@@ -144,6 +166,7 @@ export default function AuthDemoPage() {
       onError={onError}
       useSingleEndpoint={false}
     >
+      <CanonicalSuggestions />
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
           authenticated={auth.authenticated}

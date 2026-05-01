@@ -64,19 +64,12 @@ function Chat() {
   });
   // @endregion[render-weather-tool]
 
+  // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco?",
-      },
-      {
-        title: "Weather in New York",
-        message: "Tell me about the weather in New York.",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
       },
     ],
     available: "always",

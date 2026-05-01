@@ -106,8 +106,14 @@ export default function OpenGenUiDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: minimalSuggestions,
+    suggestions: [
+      {
+        title: "Open block",
+        message: "render an open gen-ui element",
+      },
+    ],
     available: "always",
   });
 
