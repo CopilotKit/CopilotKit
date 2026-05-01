@@ -28,15 +28,15 @@ function DemoContent() {
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
       {
         title: "Stream counter",
         message: "stream the counter to 5",
       },
-      { title: "Get started", message: "Hello! What can you do?" },
     ],
     available: "always",
   });

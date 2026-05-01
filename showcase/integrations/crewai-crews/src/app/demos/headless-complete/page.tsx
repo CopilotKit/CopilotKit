@@ -126,15 +126,11 @@ function ChatBody({
   useHeadlessCompleteToolRenderers();
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json.
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json.
   // Headless demo doesn't render suggestions in its custom composer, but the
   // catalog message is exercised by the textarea-fill spec.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Custom message",
-        message: "send a sample message to populate the headless transcript",
-      },
       {
         title: "Weather in Tokyo",
         message: "What's the weather in Tokyo?",
@@ -142,6 +138,10 @@ function ChatBody({
       {
         title: "Highlight a note",
         message: "Highlight 'meeting at 3pm' in yellow.",
+      },
+      {
+        title: "Custom message",
+        message: "send a sample message to populate the headless transcript",
       },
     ],
     available: "always",

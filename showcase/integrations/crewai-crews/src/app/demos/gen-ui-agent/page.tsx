@@ -33,14 +33,10 @@ function Chat() {
   const agentState = agent.state as AgentState | undefined;
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Launch outline",
-        message: "lay out a five-stage launch outline for our beta product",
-      },
       {
         title: "Simple plan",
         message: "Please build a plan to go to mars in 5 steps.",
@@ -48,6 +44,10 @@ function Chat() {
       {
         title: "Complex plan",
         message: "Please build a plan to make pizza in 10 steps.",
+      },
+      {
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
       },
     ],
     available: "always",

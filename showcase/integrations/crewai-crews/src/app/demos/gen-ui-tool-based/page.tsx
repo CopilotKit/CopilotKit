@@ -27,18 +27,18 @@ export default function GenUiToolBasedDemo() {
 
 function SidebarWithSuggestions() {
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Nature Haiku", message: "Write me a haiku about nature." },
+      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
+      { title: "Spring Haiku", message: "Generate a haiku about spring." },
       {
         title: "Quarterly bars",
         message:
           "render a tool-based bar chart for last quarter deliveries",
       },
-      { title: "Nature Haiku", message: "Write me a haiku about nature." },
-      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
-      { title: "Spring Haiku", message: "Generate a haiku about spring." },
     ],
     available: "always",
   });

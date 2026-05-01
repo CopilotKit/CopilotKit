@@ -47,14 +47,10 @@ function Chat() {
   // @endregion[frontend-tool]
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Switch theme",
-        message: "switch theme to dark mode",
-      },
       {
         title: "Change background",
         message: "Change the background to a blue-to-purple gradient.",
@@ -62,6 +58,10 @@ function Chat() {
       {
         title: "Sunset theme",
         message: "Make the background a sunset-themed gradient.",
+      },
+      {
+        title: "Switch theme",
+        message: "switch theme to dark mode",
       },
     ],
     available: "always",

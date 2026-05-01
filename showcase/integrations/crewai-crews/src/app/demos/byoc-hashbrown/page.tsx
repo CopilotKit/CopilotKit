@@ -57,14 +57,10 @@ export default function ByocHashbrownDemoPage() {
 
 function ChatBody() {
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Sales overview",
-        message: "sketch the sales overview with quarterly bars",
-      },
       ...BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
         title: s.label,
         message: s.prompt,
@@ -72,6 +68,10 @@ function ChatBody() {
           .toLowerCase()
           .replace(/\s+/g, "-")}`,
       })),
+      {
+        title: "Sales overview",
+        message: "sketch the sales overview with quarterly bars",
+      },
     ],
     available: "always",
   });

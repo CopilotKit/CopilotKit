@@ -68,14 +68,10 @@ function Chat() {
   // @endregion[render-weather-tool]
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Pie chart",
-        message: "Show me a pie chart of revenue by category",
-      },
       {
         title: "Weather in San Francisco",
         message: "What's the weather like in San Francisco?",
@@ -87,6 +83,10 @@ function Chat() {
       {
         title: "Weather in Tokyo",
         message: "How's the weather in Tokyo today?",
+      },
+      {
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
       },
     ],
     available: "always",

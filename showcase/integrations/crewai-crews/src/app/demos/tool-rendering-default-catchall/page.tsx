@@ -37,14 +37,10 @@ function Chat() {
   // @endregion[default-catchall-zero-config]
 
   // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
-  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // Last entry matches the aimock fixture in showcase/aimock/d5-all.json
   // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      {
-        title: "Default catchall",
-        message: "trigger the default catchall renderer for an unmapped tool",
-      },
       {
         title: "Weather in SF",
         message: "What's the weather in San Francisco?",
@@ -52,6 +48,10 @@ function Chat() {
       {
         title: "Find flights",
         message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Default catchall",
+        message: "trigger the default catchall renderer for an unmapped tool",
       },
     ],
     available: "always",
