@@ -26,4 +26,20 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Quarterly bars suggestion pill renders the bar chart", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Quarterly bars" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="bar-chart"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

@@ -23,8 +23,15 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Sourcing route",
+        message: "draft a five-stage route for sourcing office greenery",
+      },
       {
         title: "Simple plan",
         message: "Please plan a trip to mars in 5 steps.",

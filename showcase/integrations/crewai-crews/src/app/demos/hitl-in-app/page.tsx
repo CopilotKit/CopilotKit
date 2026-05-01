@@ -50,8 +50,15 @@ type DialogState =
 function Layout() {
   const [dialog, setDialog] = useState<DialogState>({ open: false });
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Refund approval",
+        message: "process a refund for the late delivery ticket",
+      },
       {
         title: "Approve refund for #12345",
         message:

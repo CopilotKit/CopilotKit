@@ -26,9 +26,29 @@
 
 import { Component, useCallback, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+
+function CanonicalSuggestion() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // Single-click prompt matches the aimock fixture in
+  // showcase/aimock/d5-all.json so the local stack renders deterministically.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Auth check",
+        message: "auth check turn 1",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 interface ChatErrorBoundaryProps {
   authenticated: boolean;
@@ -148,6 +168,7 @@ export default function AuthDemoPage() {
       onError={onError}
       useSingleEndpoint={false}
     >
+      <CanonicalSuggestion />
       <div className="flex h-screen flex-col gap-3 p-6">
         <AuthBanner
           authenticated={auth.authenticated}

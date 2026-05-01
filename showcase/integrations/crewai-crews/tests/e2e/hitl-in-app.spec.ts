@@ -10,4 +10,20 @@ test.describe("In-App HITL", () => {
     await expect(page.locator('[data-testid="ticket-12345"]')).toBeVisible();
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Refund approval suggestion pill renders the approval dialog", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Refund approval" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="approval-dialog-overlay"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

@@ -16,4 +16,20 @@ test.describe("Pre-Built Popup", () => {
       page.getByPlaceholder("Ask the popup anything..."),
     ).toBeVisible();
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Popup hello suggestion pill keeps the popup visible", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Popup hello" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-popup"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

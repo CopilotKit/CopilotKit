@@ -31,4 +31,20 @@ test.describe("Authentication", () => {
     const banner = page.locator('[data-testid="auth-banner"]');
     await expect(banner).toHaveAttribute("data-authenticated", "true");
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Auth check suggestion pill keeps the auth banner visible", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Auth check" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="auth-banner"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

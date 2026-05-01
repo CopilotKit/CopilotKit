@@ -49,8 +49,15 @@ export default function DeclarativeGenUIDemo() {
 }
 
 function Chat() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Show card",
+        message: "render the declarative card",
+      },
       {
         title: "Show a KPI dashboard",
         message:

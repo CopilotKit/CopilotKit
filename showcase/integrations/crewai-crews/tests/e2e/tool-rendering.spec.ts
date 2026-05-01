@@ -55,4 +55,20 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Pie chart suggestion pill exercises the catalog message", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Pie chart" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-suggestion"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

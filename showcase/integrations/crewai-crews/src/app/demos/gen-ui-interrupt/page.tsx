@@ -50,8 +50,15 @@ function Chat() {
   // adaptation of the LangGraph `resolve(...)` callback.
   const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Pause and pick",
+        message: "request the gen-ui interrupt",
+      },
       {
         title: "Book a call with sales",
         message: "Book an intro call with the sales team to discuss pricing.",

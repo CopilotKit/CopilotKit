@@ -45,8 +45,15 @@ export default function A2UIFixedSchemaDemo() {
 }
 
 function Chat() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Block calendar",
+        message: "block out my tuesday with three meetings and a gym slot",
+      },
       {
         title: "Find SFO → JFK",
         message: "Find me a flight from SFO to JFK on United for $289.",

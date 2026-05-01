@@ -60,4 +60,20 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Launch outline suggestion pill renders the agent state card", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Launch outline" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="agent-state-card"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
