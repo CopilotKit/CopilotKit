@@ -1,26 +1,23 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Beautiful Chat", () => {
+test.describe("Multimodal", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/beautiful-chat");
+    await page.goto("/demos/multimodal");
   });
 
-  test("page loads with heading and chat", async ({ page }) => {
-    await expect(
-      page.getByRole("heading", { name: "Beautiful Chat" }),
-    ).toBeVisible();
-    await expect(page.getByTestId("copilot-chat-textarea")).toBeVisible();
+  test("page loads with chat input", async ({ page }) => {
+    await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  // Canonical e2e suggestion — single "Pasta night" pill from
+  // Canonical e2e suggestion — single "Sample image" pill from
   // _canonical-catalog.json. Clicking it dispatches the canonical message
-  // and renders an assistant response.
+  // and the multimodal cell renders an assistant response.
   test("canonical suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
     const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Pasta night" })
+      .filter({ hasText: "Sample image" })
       .first();
     await expect(pill).toBeVisible({ timeout: 15000 });
     await pill.click();

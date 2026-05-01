@@ -27,4 +27,20 @@ test.describe("Headless Chat (Complete)", () => {
       timeout: 60000,
     });
   });
+
+  // Canonical e2e suggestion — the headless-complete cell does NOT render
+  // suggestion pills (no <CopilotChat />), so the test types the canonical
+  // message into the textarea instead. The catalog message is mirrored in
+  // the demo's useConfigureSuggestions for parity / discoverability.
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    const input = page.getByPlaceholder(/type a message/i);
+    await input.fill(
+      "send a sample message to populate the headless transcript",
+    );
+    await input.press("Enter");
+
+    await expect(
+      page.locator('[data-testid="headless-complete-messages"]'),
+    ).toBeVisible({ timeout: 30000 });
+  });
 });

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useAgentContext,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -61,20 +61,16 @@ function DemoContent() {
   });
   // @endregion[use-agent-context-call]
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Who am I?",
-        message: "What do you know about me from my context?",
-      },
-      {
-        title: "Suggest next steps",
-        message: "Based on my recent activity, what should I try next?",
-      },
-      {
-        title: "Plan my morning",
-        message:
-          "What time is it in my timezone and what should I do for the next hour?",
+        title: "Recall pref",
+        message: "recall the user preference",
       },
     ],
     available: "always",

@@ -51,4 +51,26 @@ test.describe("Chat Customization (CSS)", () => {
     );
     expect(fontFamily).toMatch(/Georgia/);
   });
+
+  // Canonical e2e suggestion — single "Theme check" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // through the themed scope and renders an assistant response.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Theme check" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page
+        .locator(
+          '.chat-css-demo-scope [data-testid="copilot-user-message"]',
+        )
+        .first(),
+    ).toBeVisible({ timeout: 45000 });
+  });
 });

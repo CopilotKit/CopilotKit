@@ -38,4 +38,22 @@ test.describe("Tool Rendering (Reasoning Chain)", () => {
         .first(),
     ).toBeVisible({ timeout: 60000 });
   });
+
+  // Canonical e2e suggestion — single "Kyoto itinerary" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and the reasoning-chain pipeline produces an assistant response.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Kyoto itinerary" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60000 });
+  });
 });

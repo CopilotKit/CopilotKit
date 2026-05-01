@@ -15,7 +15,11 @@
  */
 
 import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
@@ -77,21 +81,46 @@ export default function MultimodalDemoPage() {
           data-multimodal-demo-chat-root
           className="min-h-0 flex-1 overflow-hidden rounded-lg border border-black/10 dark:border-white/10"
         >
-          <CopilotChat
-            agentId="multimodal-demo"
-            className="h-full"
-            attachments={{
-              enabled: true,
-              accept: ACCEPT_MIME,
-              maxSize: MAX_FILE_SIZE_BYTES,
-              onUpload,
-              onUploadFailed: (err) => {
-                console.warn("[multimodal-demo] attachment rejected", err);
-              },
-            }}
-          />
+          <Chat onUpload={onUpload} />
         </div>
       </div>
     </CopilotKit>
+  );
+}
+
+function Chat({
+  onUpload,
+}: {
+  onUpload: (file: File) => Promise<DataUploadResult>;
+}) {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sample image",
+        message: "describe the sample image",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotChat
+      agentId="multimodal-demo"
+      className="h-full"
+      attachments={{
+        enabled: true,
+        accept: ACCEPT_MIME,
+        maxSize: MAX_FILE_SIZE_BYTES,
+        onUpload,
+        onUploadFailed: (err) => {
+          console.warn("[multimodal-demo] attachment rejected", err);
+        },
+      }}
+    />
   );
 }

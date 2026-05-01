@@ -70,4 +70,22 @@ test.describe("Agentic Chat", () => {
       timeout: 15000,
     });
   });
+
+  // Canonical e2e suggestion — single "Goldfish name" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and renders an assistant response.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Goldfish name" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 45000 });
+  });
 });

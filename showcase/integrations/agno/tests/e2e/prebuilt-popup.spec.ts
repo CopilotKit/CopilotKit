@@ -23,16 +23,19 @@ test.describe("Pre-Built Popup", () => {
     ).toBeVisible();
   });
 
-  test('"Say hi" suggestion pill renders and produces an assistant response', async ({
+  // Canonical e2e suggestion — single "Popup hello" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and produces an assistant response inside the popup.
+  test("canonical suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    const sayHiPill = page
+    const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Say hi" })
+      .filter({ hasText: "Popup hello" })
       .first();
-    await expect(sayHiPill).toBeVisible({ timeout: 15000 });
+    await expect(pill).toBeVisible({ timeout: 15000 });
 
-    await sayHiPill.click();
+    await pill.click();
 
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),

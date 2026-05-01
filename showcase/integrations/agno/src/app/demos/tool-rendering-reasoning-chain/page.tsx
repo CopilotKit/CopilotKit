@@ -135,17 +135,16 @@ function Chat() {
     [],
   );
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
-      {
-        title: "Flights SFO → JFK",
-        message: "Find flights from SFO to JFK.",
+        title: "Kyoto itinerary",
+        message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
       },
     ],
     available: "always",

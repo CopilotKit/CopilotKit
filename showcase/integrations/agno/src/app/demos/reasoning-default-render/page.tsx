@@ -11,7 +11,11 @@
 // Zero configuration — reasoning just shows up.
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 export default function ReasoningDefaultRenderDemo() {
   return (
@@ -19,13 +23,34 @@ export default function ReasoningDefaultRenderDemo() {
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           {/* @region[default-reasoning-zero-config] */}
-          <CopilotChat
-            agentId="reasoning-default-render"
-            className="h-full rounded-2xl"
-          />
+          <Chat />
           {/* @endregion[default-reasoning-zero-config] */}
         </div>
       </div>
     </CopilotKit>
+  );
+}
+
+function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Default reasoning",
+        message: "talk me through your default reasoning on a tricky riddle",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotChat
+      agentId="reasoning-default-render"
+      className="h-full rounded-2xl"
+    />
   );
 }

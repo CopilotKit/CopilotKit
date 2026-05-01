@@ -25,10 +25,17 @@ export default function ChatSlotsDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
-      { title: "Tell me a joke", message: "Tell me a short joke." },
+      {
+        title: "Slot wiring",
+        message: "verify chat slots are wired",
+      },
     ],
     available: "always",
   });

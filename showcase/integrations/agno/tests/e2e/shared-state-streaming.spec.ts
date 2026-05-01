@@ -137,4 +137,22 @@ test.describe("State Streaming", () => {
     await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
+
+  // Canonical e2e suggestion — single "Stream counter" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and the streaming agent responds.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Stream counter" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 45000,
+    });
+  });
 });

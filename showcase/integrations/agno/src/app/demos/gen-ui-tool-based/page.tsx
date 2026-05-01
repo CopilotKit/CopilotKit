@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotSidebar,
   useFrontendTool,
   useConfigureSuggestions,
@@ -26,11 +26,17 @@ export default function GenUiToolBasedDemo() {
 }
 
 function SidebarWithSuggestions() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
-      { title: "Nature Haiku", message: "Write me a haiku about nature." },
-      { title: "Ocean Haiku", message: "Create a haiku about the ocean." },
-      { title: "Spring Haiku", message: "Generate a haiku about spring." },
+      {
+        title: "Quarterly bars",
+        message: "render a tool-based bar chart for last quarter deliveries",
+      },
     ],
     available: "always",
   });

@@ -53,4 +53,22 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  // Canonical e2e suggestion — single "Italian pasta" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and the assistant responds with shared-state context applied.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Italian pasta" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 45000,
+    });
+  });
 });

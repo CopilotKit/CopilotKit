@@ -44,11 +44,16 @@ export default function A2UIFixedSchemaDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find SFO → JFK",
-        message: "Find me a flight from SFO to JFK on United for $289.",
+        title: "Block calendar",
+        message: "block out my tuesday with three meetings and a gym slot",
       },
     ],
     available: "always",

@@ -21,7 +21,6 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
-import { BYOC_JSON_RENDER_SUGGESTIONS } from "./suggestions";
 
 const AGENT_ID = "byoc_json_render";
 
@@ -38,11 +37,18 @@ export default function ByocJsonRenderDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
-    suggestions: BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-    })),
+    suggestions: [
+      {
+        title: "Marketing overview",
+        message: "outline a marketing overview with traffic breakdown",
+      },
+    ],
     available: "always",
   });
 
