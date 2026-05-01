@@ -60,6 +60,11 @@ function Layout() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Refund approval",
+        message: "process a refund for the late delivery ticket",
+      },
       {
         title: "Approve refund for #12345",
         message:

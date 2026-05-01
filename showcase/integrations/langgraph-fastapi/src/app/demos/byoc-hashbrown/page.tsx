@@ -63,15 +63,22 @@ function ChatBody() {
   // hashbrown-shaped output. `useConfigureSuggestions` renders pills inside
   // the CopilotChat composer; clicking a pill sends its `message` directly.
   useConfigureSuggestions({
-    suggestions: BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
-      title: s.label,
-      message: s.prompt,
-      // E2E testid-friendly class — Playwright targets visible text, but we
-      // keep a class hook in case we need finer-grained selectors later.
-      className: `byoc-hashbrown-suggestion-${s.label
-        .toLowerCase()
-        .replace(/\s+/g, "-")}`,
-    })),
+    suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Sales overview",
+        message: "sketch the sales overview with quarterly bars",
+      },
+      ...BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+        // E2E testid-friendly class — Playwright targets visible text, but we
+        // keep a class hook in case we need finer-grained selectors later.
+        className: `byoc-hashbrown-suggestion-${s.label
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`,
+      })),
+    ],
     available: "always",
   });
 

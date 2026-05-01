@@ -63,6 +63,8 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Recall pref", message: "recall the user preference" },
       {
         title: "Who am I?",
         message: "What do you know about me from my context?",

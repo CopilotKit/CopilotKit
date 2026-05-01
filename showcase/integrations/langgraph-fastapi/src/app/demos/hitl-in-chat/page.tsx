@@ -34,6 +34,11 @@ export default function HitlInChatDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Pick a slot",
+        message: "set up a quick demo call with the design folks",
+      },
       {
         title: "Book a call with sales",
         message:

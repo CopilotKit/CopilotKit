@@ -130,6 +130,11 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Kyoto itinerary",
+        message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
+      },
       {
         title: "Weather + flights to Tokyo",
         message: "What's the weather in Tokyo?",

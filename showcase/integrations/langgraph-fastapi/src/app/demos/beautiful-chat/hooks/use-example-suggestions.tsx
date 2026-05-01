@@ -17,6 +17,11 @@ const showcase = showcaseConfig.showcase;
 export const useExampleSuggestions = () => {
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
+      },
       {
         title: "Pie Chart (Controlled Generative UI)",
         message:

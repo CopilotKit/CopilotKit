@@ -48,6 +48,8 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Switch theme", message: "switch theme to dark mode" },
       {
         title: "Change background",
         message: "Change the background to a blue-to-purple gradient.",

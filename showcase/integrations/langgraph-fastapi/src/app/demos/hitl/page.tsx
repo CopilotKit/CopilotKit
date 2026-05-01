@@ -25,6 +25,11 @@ export default function HitlDemo() {
 function DemoContent() {
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Sourcing route",
+        message: "draft a five-stage route for sourcing office greenery",
+      },
       {
         title: "Simple plan",
         message: "Please plan a trip to mars in 5 steps.",

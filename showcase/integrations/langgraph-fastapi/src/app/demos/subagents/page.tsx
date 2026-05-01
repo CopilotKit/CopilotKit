@@ -31,6 +31,12 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Research draft",
+        message:
+          "Research the benefits of remote work and draft a one-paragraph summary",
+      },
       {
         title: "Write a blog post",
         message:

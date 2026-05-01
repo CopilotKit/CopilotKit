@@ -53,6 +53,8 @@ export default function DeclarativeGenUIDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Show card", message: "render the declarative card" },
       {
         title: "Show a KPI dashboard",
         message:
