@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$description": "Intentional substring relationships between aimock fixture userMessages. Every entry is a deliberate ordering decision (e.g. CrewAI startup probe matches a longer prefix before falling through to a generic short fixture). Adding entries here is an escape hatch — prefer fixing the fixture's userMessage to be more specific. The validate-fixture-overlap test consumes this list.",
+  "entries": []
+}
