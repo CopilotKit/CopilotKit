@@ -17,7 +17,7 @@ export const BYOC_HASHBROWN_SUGGESTIONS: Suggestion[] = [
   {
     label: "Sales dashboard",
     prompt:
-      "Show me a Q4 sales dashboard. Include a total-revenue metric card (with trend), a pie chart of revenue by segment, and a bar chart of monthly revenue trend.",
+      "Show me a Q4 sales dashboard. Include a total-revenue metric card, a pie chart of revenue by segment, and a bar chart of monthly revenue.",
   },
   {
     label: "Revenue by category",
