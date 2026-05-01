@@ -1,10 +1,28 @@
 "use client";
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 
 import { ConfigCard } from "./config-card";
 import { useAgentConfig } from "./use-agent-config";
+
+function AgentConfigSuggestions() {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 export default function AgentConfigDemoPage() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
@@ -29,6 +47,7 @@ export default function AgentConfigDemoPage() {
       agent="agent-config-demo"
       properties={providerProperties}
     >
+      <AgentConfigSuggestions />
       <div className="flex h-screen flex-col gap-3 p-6">
         <header>
           <h1 className="text-lg font-semibold">Agent Config Object</h1>
