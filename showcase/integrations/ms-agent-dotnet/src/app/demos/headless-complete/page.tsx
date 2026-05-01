@@ -172,12 +172,28 @@ function ChatBody({
 }) {
   useHeadlessCompleteToolRenderers();
 
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
-  // (headless-complete renders a custom UI; e2e types the catalog message
-  // into the textarea)
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
+        title: "Flights SFO → JFK",
+        message: "Search for flights from SFO to JFK.",
+      },
+      {
+        title: "Highlight a note",
+        message: "Highlight 'meeting at 3pm' in yellow.",
+      },
+      {
+        title: "Show a card",
+        message: "Show a card titled 'Reminder' with body 'Call the client.'",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Custom message",
         message: "send a sample message to populate the headless transcript",
       },
