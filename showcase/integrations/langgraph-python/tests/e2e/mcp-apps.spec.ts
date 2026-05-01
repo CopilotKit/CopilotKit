@@ -42,15 +42,15 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
     await expect(page.locator("iframe[sandbox]")).toHaveCount(0);
   });
 
-  test("both suggestion pills render with verbatim titles", async ({
+  test("the canonical suggestion pill renders with its verbatim title", async ({
     page,
   }) => {
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Draw a flowchart" }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      suggestions.filter({ hasText: "Sketch a system diagram" }).first(),
+      suggestions.filter({ hasText: "Excalidraw" }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -60,11 +60,11 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
   // iframe at all when the Excalidraw MCP server is slow. See W8-9.
   // Un-skip when the MCP Apps middleware / Excalidraw upstream
   // stabilises on Railway.
-  test.skip("Draw-a-flowchart pill renders a sandboxed activity iframe", async ({
+  test.skip("Excalidraw pill renders a sandboxed activity iframe", async ({
     page,
   }) => {
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Draw a flowchart" }).first().click();
+    await suggestions.filter({ hasText: "Excalidraw" }).first().click();
 
     // The built-in MCPAppsActivityRenderer always sets the `sandbox`
     // attribute on the UI-resource iframe (that is the load-bearing
@@ -89,5 +89,12 @@ test.describe("MCP Apps (Excalidraw activity iframe)", () => {
 
     const iframe = page.locator("iframe[sandbox]").first();
     await expect(iframe).toBeVisible({ timeout: 90_000 });
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Excalidraw/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

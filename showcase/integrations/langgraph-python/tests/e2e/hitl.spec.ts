@@ -81,4 +81,11 @@ test.describe("Human in the Loop", () => {
     const confirmed = page.locator("text=/Accepted|Confirmed|selected/i");
     await expect(confirmed.first()).toBeVisible({ timeout: 10000 });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Sourcing route/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"select-steps\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

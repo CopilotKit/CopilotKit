@@ -41,24 +41,19 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect(page.locator(".recharts-responsive-container")).toHaveCount(0);
   });
 
-  test("all 4 suggestion pills render with verbatim titles", async ({
+  test("the canonical suggestion pill renders with verbatim title", async ({
     page,
   }) => {
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    const expected = [
-      "Show a KPI dashboard",
-      "Pie chart — sales by region",
-      "Bar chart — quarterly revenue",
-      "Status report",
-    ];
-    for (const title of expected) {
-      await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
-        timeout: 15_000,
-      });
-    }
+    await expect(
+      suggestions.filter({ hasText: "Show card" }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test("PieChart pill renders a donut SVG with slice circles + legend %", async ({
+  test("PieChart prompt renders a donut SVG with slice circles + legend %", async ({
     page,
   }) => {
     // The custom DonutChart renderer (a2ui/renderers.tsx) builds an inline
@@ -66,11 +61,9 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     // slice, wrapped in `transform: scaleX(-1)`. The legend rows end in a
     // percentage like "45%". This is the strongest visual fingerprint of a
     // correctly-bound catalog PieChart node.
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Pie chart — sales by region" })
-      .first()
-      .click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Show a pie chart of sales by region.");
+    await input.press("Enter");
 
     // At least background circle + 2 slice circles. 90s budget: on
     // cold starts the secondary-LLM `generate_a2ui` pass can eat most
@@ -86,7 +79,7 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     });
   });
 
-  test("BarChart pill renders a recharts bar chart with rectangles", async ({
+  test("BarChart prompt renders a recharts bar chart with rectangles", async ({
     page,
   }) => {
     // BarChart renderer uses a recharts ResponsiveContainer (height 280) +
@@ -94,11 +87,9 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     // assert on stable recharts markers (class names unchanged across
     // versions) — the keyframe-specific CSS is a visual detail not worth
     // asserting via DOM.
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Bar chart — quarterly revenue" })
-      .first()
-      .click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Render a bar chart of quarterly revenue.");
+    await input.press("Enter");
 
     // 90s budget for the same cold-start reason as PieChart above.
     const barChartRoot = page.locator(".recharts-responsive-container").first();
@@ -116,14 +107,14 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
   // multiple Metric tiles. On Railway this path is the slowest of the 4
   // pills and regularly exceeds 60s when the secondary LLM stalls. See
   // W8-7. Un-skip when the agent deployment stabilises.
-  test.skip("KPI dashboard pill renders at least 3 Metric tiles", async ({
+  test.skip("KPI dashboard prompt renders at least 3 Metric tiles", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions
-      .filter({ hasText: "Show a KPI dashboard" })
-      .first()
-      .click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill(
+      "Show me a quick KPI dashboard with 3-4 metrics (revenue, signups, churn).",
+    );
+    await input.press("Enter");
 
     // Each Metric renders an uppercase label with `letterSpacing: 0.12em`
     // above a large number. The label styling is the stable fingerprint;
@@ -138,11 +129,14 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
 
   // SKIP: StatusReport prompt expects at least one Card + StatusBadge pill.
   // Same Railway slowness as KPI — often exceeds 60s. See W8-7.
-  test.skip("Status report pill renders a Card with a StatusBadge pill", async ({
+  test.skip("Status report prompt renders a Card with a StatusBadge pill", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Status report" }).first().click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill(
+      "Give me a status report on system health — API, database, and background workers.",
+    );
+    await input.press("Enter");
 
     // StatusBadge style: `borderRadius: 999` (pill), uppercase + 0.1em
     // letter-spacing. This combo is unique to the badge renderer.
@@ -152,5 +146,12 @@ test.describe("Declarative Generative UI (A2UI dynamic schema)", () => {
     await expect
       .poll(async () => await badges.count(), { timeout: 90_000 })
       .toBeGreaterThanOrEqual(1);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Show card/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

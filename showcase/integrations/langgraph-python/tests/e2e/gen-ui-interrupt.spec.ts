@@ -35,13 +35,13 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     );
   });
 
-  test("both suggestion pills render", async ({ page }) => {
+  test("the canonical suggestion pill renders", async ({ page }) => {
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Book a call with sales" }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      suggestions.filter({ hasText: "Schedule a 1:1 with Alice" }).first(),
+      suggestions.filter({ hasText: "Pause and pick" }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -121,5 +121,12 @@ test.describe("Gen UI via useInterrupt (inline time picker)", () => {
     await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
       timeout: 45_000,
     });
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Pause and pick/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"time-picker-card\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

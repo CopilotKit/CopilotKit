@@ -28,7 +28,8 @@ function Chat() {
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
-      { title: "Write a sonnet", message: "Write a short sonnet about AI." },
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Goldfish name", message: "good name for a goldfish" },
     ],
     available: "always",
   });

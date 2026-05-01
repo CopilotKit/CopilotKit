@@ -31,9 +31,10 @@ function Chat() {
   // stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Show reasoning",
-        message: "show your reasoning step by step",
+        title: "Default reasoning",
+        message: "talk me through your default reasoning on a tricky riddle",
       },
     ],
     available: "always",

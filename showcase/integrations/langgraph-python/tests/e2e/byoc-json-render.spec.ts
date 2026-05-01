@@ -14,7 +14,7 @@ test.describe("BYOC json-render", () => {
     await page.goto("/demos/byoc-json-render");
   });
 
-  test("page loads with chat composer and suggestion pills", async ({
+  test("page loads with chat composer and the canonical suggestion pill", async ({
     page,
   }) => {
     // Chat composer
@@ -22,13 +22,12 @@ test.describe("BYOC json-render", () => {
       page.locator('textarea, [placeholder*="message"]').first(),
     ).toBeVisible({ timeout: 10000 });
 
-    // Suggestion pills driven by useConfigureSuggestions. The
-    // CopilotChat welcome screen renders titles as buttons/links.
-    await expect(page.getByText("Sales dashboard")).toBeVisible({
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
+    await expect(page.getByText("Marketing overview")).toBeVisible({
       timeout: 10000,
     });
-    await expect(page.getByText("Revenue by category")).toBeVisible();
-    await expect(page.getByText("Expense trend")).toBeVisible();
   });
 
   test("sales dashboard request renders a json-render tree", async ({
@@ -76,5 +75,12 @@ test.describe("BYOC json-render", () => {
     await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
       { timeout: 60000 },
     );
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Marketing overview/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"json-render-root\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

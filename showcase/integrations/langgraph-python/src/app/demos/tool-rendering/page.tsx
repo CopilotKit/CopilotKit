@@ -137,21 +137,10 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Stock price",
-        message: "What's the current price of AAPL?",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
       },
     ],
     available: "always",

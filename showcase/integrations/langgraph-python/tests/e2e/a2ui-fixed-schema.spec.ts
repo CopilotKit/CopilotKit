@@ -51,17 +51,24 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
   test("single suggestion pill renders with verbatim title", async ({
     page,
   }) => {
+    // Demo-specific suggestion title was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Find SFO → JFK" }).first(),
+      suggestions.filter({ hasText: "Block calendar" }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 
   test("search-flights pill renders a flight card matching flight_schema", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Find SFO → JFK" }).first().click();
+    // Schema demo round-trip — typed prompt drives `display_flight` directly
+    // because the canonical-catalog pill now triggers a different (catalog-
+    // pinned) prompt to keep messages disjoint across demos.
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Find me a flight from SFO to JFK on United for $289.");
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     // Title is a literal in flight_schema.json ("Flight Details").
     // 90s budget: on cold starts the `display_flight` tool call + the
@@ -92,8 +99,9 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
   test("Book flight button transitions to Booked on click", async ({
     page,
   }) => {
-    const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    await suggestions.filter({ hasText: "Find SFO → JFK" }).first().click();
+    const input = page.getByPlaceholder("Type a message");
+    await input.fill("Find me a flight from SFO to JFK on United for $289.");
+    await page.locator('[data-testid="copilot-send-button"]').first().click();
 
     // Render budget is 90s here: the first click after cold-start can
     // burn most of a minute before `display_flight` emits the
@@ -110,5 +118,12 @@ test.describe("A2UI Fixed Schema (flight card)", () => {
       timeout: 10_000,
     });
     await expect(page.getByRole("button", { name: "Booked" })).toBeDisabled();
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Block calendar/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

@@ -15,4 +15,11 @@ test.describe("Interrupt Headless (testing)", () => {
       page.getByRole("heading", { name: "Scheduling" }),
     ).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Headless interrupt/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-message-role=\"assistant\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

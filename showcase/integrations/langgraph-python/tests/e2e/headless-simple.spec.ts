@@ -95,4 +95,11 @@ test.describe("Headless Chat (Simple)", () => {
       timeout: 10000,
     });
   });
+
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    const input = page.getByPlaceholder(/Type a message\. Ask me to 'show a card about cats'\./i).first();
+    await input.fill("show a small card body about hummingbirds");
+    await input.press("Enter");
+    await expect(page.locator("[data-message-role=\"assistant\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

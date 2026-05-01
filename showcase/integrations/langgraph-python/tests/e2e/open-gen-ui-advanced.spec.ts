@@ -34,25 +34,21 @@ test.describe("Open Generative UI (advanced)", () => {
     await page.goto("/demos/open-gen-ui-advanced");
   });
 
-  test("page loads with chat composer and 3 suggestion pills", async ({
+  test("page loads with chat composer and the canonical suggestion pill", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: 15_000,
     });
 
-    // Suggestion titles are verbatim from openGenUiSuggestions.
-    const expected = [
-      "Calculator (calls evaluateExpression)",
-      "Ping the host (calls notifyHost)",
-      "Inline expression evaluator",
-    ];
+    // Suggestion title is verbatim from the canonical catalog (see
+    // showcase/aimock/_canonical-catalog.json). The previous demo-specific
+    // pill set was collapsed to a single canonical pill so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    for (const title of expected) {
-      await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
-        timeout: 15_000,
-      });
-    }
+    await expect(
+      suggestions.filter({ hasText: "Advanced flow" }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   // SKIP: same Railway latency as the minimal open-gen-ui demo — the
@@ -66,7 +62,7 @@ test.describe("Open Generative UI (advanced)", () => {
   }) => {
     const suggestion = page
       .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
+        hasText: "Advanced flow",
       })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
@@ -98,7 +94,7 @@ test.describe("Open Generative UI (advanced)", () => {
 
     const suggestion = page
       .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Ping the host (calls notifyHost)",
+        hasText: "Advanced flow",
       })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
@@ -124,5 +120,12 @@ test.describe("Open Generative UI (advanced)", () => {
         { timeout: 30_000 },
       )
       .toBe(true);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Advanced flow/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

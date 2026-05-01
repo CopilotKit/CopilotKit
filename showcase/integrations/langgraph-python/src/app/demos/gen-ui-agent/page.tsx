@@ -53,18 +53,10 @@ function Chat() {
 
   useConfigureSuggestions({
     suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Plan a product launch",
-        message: "Plan a product launch for a new mobile app.",
-      },
-      {
-        title: "Organize a team offsite",
-        message: "Organize a three-day engineering team offsite.",
-      },
-      {
-        title: "Research a competitor",
-        message:
-          "Research our top competitor and summarize their strengths and weaknesses.",
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
       },
     ],
     available: "always",

@@ -74,11 +74,11 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
   // message DOM node (no deterministic side effect to race against).
   // Un-skip when the agent deployment is stable or a
   // `data-testid="assistant-message"` marker is added. See W8-READONLY-1.
-  test.skip('"Who am I?" suggestion round-trips to an assistant reply', async ({
+  test.skip('"Recall pref" suggestion round-trips to an assistant reply', async ({
     page,
   }) => {
     const suggestion = page.locator('[data-testid="copilot-suggestion"]', {
-      hasText: "Who am I?",
+      hasText: "Recall pref",
     });
     await expect(suggestion.first()).toBeVisible({ timeout: 15_000 });
     await suggestion.click();
@@ -105,5 +105,12 @@ test.describe("Readonly Agent Context (useAgentContext)", () => {
       '[data-message-role="assistant"], [data-role="assistant"]',
     );
     await expect(assistant.first()).toBeVisible({ timeout: 60_000 });
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Recall pref/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

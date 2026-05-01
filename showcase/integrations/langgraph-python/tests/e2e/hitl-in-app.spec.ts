@@ -34,16 +34,13 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     ).toHaveCount(0);
   });
 
-  test("suggestion pills reference each open ticket", async ({ page }) => {
+  test("the canonical suggestion pill is rendered", async ({ page }) => {
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Approve refund for #12345" }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      suggestions.filter({ hasText: "Downgrade plan for #12346" }).first(),
-    ).toBeVisible({ timeout: 15_000 });
-    await expect(
-      suggestions.filter({ hasText: "Escalate ticket #12347" }).first(),
+      suggestions.filter({ hasText: "Refund approval" }).first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -135,5 +132,12 @@ test.describe("HITL In-App (approval dialog portaled to <body>)", () => {
     await expect(
       page.locator('[data-testid="approval-dialog-overlay"]'),
     ).toHaveCount(0, { timeout: 5_000 });
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Refund approval/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"approval-dialog-overlay\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

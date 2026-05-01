@@ -29,19 +29,21 @@ test.describe("Pre-Built Popup", () => {
     ).toBeVisible();
   });
 
-  test('"Say hi" suggestion pill renders and produces an assistant response', async ({
+  test('"Popup hello" suggestion pill renders and produces an assistant response', async ({
     page,
   }) => {
-    // useConfigureSuggestions registers "Say hi" with available: "always".
-    const sayHiPill = page
+    // Demo-specific suggestion was collapsed to the single canonical pill
+    // (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
+    const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Say hi" })
+      .filter({ hasText: "Popup hello" })
       .first();
-    await expect(sayHiPill).toBeVisible({ timeout: 15000 });
+    await expect(pill).toBeVisible({ timeout: 15000 });
 
-    await sayHiPill.click();
+    await pill.click();
 
-    // Pill sends "Say hi from the popup!" — neutral agent replies with text.
+    // Pill sends "hi from the popup test" — neutral agent replies with text.
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45000 });
@@ -83,5 +85,12 @@ test.describe("Pre-Built Popup", () => {
 
     // URL unchanged — toggling is pure client-side state.
     await expect(page).toHaveURL(/\/demos\/prebuilt-popup$/);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Popup hello/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-popup\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

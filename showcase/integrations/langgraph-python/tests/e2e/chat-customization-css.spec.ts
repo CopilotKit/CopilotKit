@@ -106,4 +106,11 @@ test.describe("Chat Customization (CSS)", () => {
     // background-color, so a mismatch proves the theme lost the cascade.
     await expect(assistant).toHaveCSS("background-color", "rgb(253, 224, 71)");
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Theme check/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator(".chat-css-demo-scope [data-testid=\"copilot-user-message\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

@@ -21,19 +21,17 @@ test.describe("Tool Rendering — Default Catch-all", () => {
     await page.goto("/demos/tool-rendering-default-catchall");
   });
 
-  test("page loads with chat input and suggestion pills", async ({ page }) => {
+  test("page loads with chat input and the canonical suggestion pill", async ({
+    page,
+  }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
 
-    // useConfigureSuggestions registers three pills with available: "always".
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
     await expect(
-      suggestions.filter({ hasText: "Weather in SF" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Find flights" }).first(),
-    ).toBeVisible({ timeout: 15000 });
-    await expect(
-      suggestions.filter({ hasText: "Roll a d20" }).first(),
+      suggestions.filter({ hasText: "Default catchall" }).first(),
     ).toBeVisible({ timeout: 15000 });
   });
 
@@ -123,5 +121,12 @@ test.describe("Tool Rendering — Default Catch-all", () => {
       page.locator('[data-testid="custom-catchall-card"]'),
     ).toHaveCount(0);
     await expect(page.locator('[data-testid="weather-card"]')).toHaveCount(0);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Default catchall/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"custom-catchall-card\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

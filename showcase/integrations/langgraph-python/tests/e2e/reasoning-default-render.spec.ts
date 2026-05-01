@@ -39,4 +39,11 @@ test.describe("Reasoning (Default Render)", () => {
       .first();
     await expect(reasoningRole).toBeVisible({ timeout: 60_000 });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Default reasoning/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-reasoning-message\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

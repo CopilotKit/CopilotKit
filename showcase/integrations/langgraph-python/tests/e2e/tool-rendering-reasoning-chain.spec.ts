@@ -12,4 +12,11 @@ test.describe("Tool Rendering Reasoning Chain (testing)", () => {
       page.locator('[data-testid="copilot-chat-input"]'),
     ).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Kyoto itinerary/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });

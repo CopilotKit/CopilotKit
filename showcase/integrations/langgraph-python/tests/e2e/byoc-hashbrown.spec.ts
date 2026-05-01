@@ -16,44 +16,22 @@ test.describe("BYOC Hashbrown", () => {
     await page.goto("/demos/byoc-hashbrown");
   });
 
-  test("page loads with header, suggestion pills, and chat composer", async ({
+  test("page loads with header, canonical suggestion pill, and chat composer", async ({
     page,
   }) => {
     await expect(
       page.getByRole("heading", { name: "BYOC: Hashbrown" }),
     ).toBeVisible();
-    await expect(page.getByText("Sales dashboard").first()).toBeVisible();
-    await expect(page.getByText("Revenue by category").first()).toBeVisible();
-    await expect(page.getByText("Expense trend").first()).toBeVisible();
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
+    await expect(page.getByText("Sales overview").first()).toBeVisible();
   });
 
-  test("sales-dashboard suggestion triggers a hashbrown render", async ({
-    page,
-  }) => {
-    await page.getByText("Sales dashboard").first().click();
-
-    const metricCard = page.locator('[data-testid="metric-card"]').first();
-    const chart = page
-      .locator('[data-testid="bar-chart"], [data-testid="pie-chart"]')
-      .first();
-
-    await expect(metricCard).toBeVisible({ timeout: 60000 });
-    await expect(chart).toBeVisible({ timeout: 60000 });
-  });
-
-  test("revenue-by-category suggestion renders a pie chart", async ({
-    page,
-  }) => {
-    await page.getByText("Revenue by category").first().click();
-    await expect(page.locator('[data-testid="pie-chart"]').first()).toBeVisible(
-      { timeout: 60000 },
-    );
-  });
-
-  test("expense-trend suggestion renders a bar chart", async ({ page }) => {
-    await page.getByText("Expense trend").first().click();
-    await expect(page.locator('[data-testid="bar-chart"]').first()).toBeVisible(
-      { timeout: 60000 },
-    );
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Sales overview/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"metric-card\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

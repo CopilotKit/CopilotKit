@@ -24,22 +24,24 @@ test.describe("Pre-Built Sidebar", () => {
     ).toBeVisible();
   });
 
-  test('"Say hi" suggestion pill renders and sends on click', async ({
+  test('"Sidebar hello" suggestion pill renders and sends on click', async ({
     page,
   }) => {
-    // useConfigureSuggestions registers a single "Say hi" pill with
-    // available: "always", so it should render inside the sidebar on load.
-    const sayHiPill = page
+    // Demo-specific suggestion was collapsed to the single canonical pill
+    // (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
+    const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Say hi" })
+      .filter({ hasText: "Sidebar hello" })
       .first();
-    await expect(sayHiPill).toBeVisible({ timeout: 15000 });
+    await expect(pill).toBeVisible({ timeout: 15000 });
 
-    await sayHiPill.click();
+    await pill.click();
 
-    // The pill sends "Say hi!". We assert on the assistant message testid
-    // rather than response text since this demo has no frontend tools — the
-    // round-trip signal is simply "an assistant bubble appeared".
+    // The pill sends "hi from the sidebar test". We assert on the
+    // assistant message testid rather than response text since this demo
+    // has no frontend tools — the round-trip signal is simply "an
+    // assistant bubble appeared".
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45000 });
@@ -92,5 +94,12 @@ test.describe("Pre-Built Sidebar", () => {
 
     // URL unchanged — toggling is pure client-side state.
     await expect(page).toHaveURL(/\/demos\/prebuilt-sidebar$/);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Sidebar hello/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-sidebar\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

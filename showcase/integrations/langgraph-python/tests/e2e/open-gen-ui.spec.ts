@@ -29,26 +29,20 @@ test.describe("Open Generative UI (minimal)", () => {
     await page.goto("/demos/open-gen-ui");
   });
 
-  test("page loads with chat composer and 4 suggestion pills", async ({
+  test("page loads with chat composer and the canonical suggestion pill", async ({
     page,
   }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible({
       timeout: 15_000,
     });
 
-    // Suggestion titles are verbatim from minimalSuggestions in page.tsx.
-    const expected = [
-      "3D axis visualization (model airplane)",
-      "How a neural network works",
-      "Quicksort visualization",
-      "Fourier: square wave from sines",
-    ];
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     const suggestions = page.locator('[data-testid="copilot-suggestion"]');
-    for (const title of expected) {
-      await expect(suggestions.filter({ hasText: title }).first()).toBeVisible({
-        timeout: 15_000,
-      });
-    }
+    await expect(
+      suggestions.filter({ hasText: "Open block" }).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
   // SKIP: the open-generative-ui pipeline on Railway (design-skill-tuned
@@ -67,7 +61,7 @@ test.describe("Open Generative UI (minimal)", () => {
   }) => {
     const suggestion = page
       .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "Quicksort visualization",
+        hasText: "Open block",
       })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
@@ -93,7 +87,7 @@ test.describe("Open Generative UI (minimal)", () => {
   }) => {
     const suggestion = page
       .locator('[data-testid="copilot-suggestion"]', {
-        hasText: "How a neural network works",
+        hasText: "Open block",
       })
       .first();
     await expect(suggestion).toBeVisible({ timeout: 15_000 });
@@ -112,5 +106,12 @@ test.describe("Open Generative UI (minimal)", () => {
         timeout: 30_000,
       });
     }
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Open block/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"copilot-suggestion\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

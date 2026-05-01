@@ -132,7 +132,10 @@ export default function OpenGenUiDemo() {
 
 function Chat() {
   useConfigureSuggestions({
-    suggestions: minimalSuggestions,
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Open block", message: "render an open gen-ui element" },
+    ],
     available: "always",
   });
 

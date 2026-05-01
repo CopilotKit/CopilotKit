@@ -20,33 +20,28 @@ test.describe("Chat Slots", () => {
     await expect(welcome.getByText("Custom Slot")).toBeVisible();
   });
 
-  test("both suggestion pills render with verbatim titles", async ({
+  test("the canonical suggestion pill renders with its verbatim title", async ({
     page,
   }) => {
-    // useConfigureSuggestions registers exactly two pills with available: "always".
-    // Both should be visible immediately on the welcome screen.
+    // Demo-specific suggestion set was collapsed to the single canonical
+    // pill (see showcase/aimock/_canonical-catalog.json) so the e2e fixture
+    // remains substring-disjoint with every other demo.
     await expect(
       page
         .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Write a sonnet" }),
-    ).toBeVisible({ timeout: 15000 });
-
-    await expect(
-      page
-        .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Tell me a joke" }),
+        .filter({ hasText: "Slot wiring" }),
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test('clicking "Tell me a joke" shows the custom assistant message slot', async ({
+  test("clicking the canonical pill shows the custom assistant message slot", async ({
     page,
   }) => {
-    // Click the suggestion pill — this sends "Tell me a short joke." The
-    // assistant will respond with text (neutral agent, no tools), and its
-    // bubble must be wrapped in the custom slot container.
+    // Click the canonical suggestion pill — the assistant will respond
+    // with text (neutral agent, no tools), and its bubble must be wrapped
+    // in the custom slot container.
     await page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Tell me a joke" })
+      .filter({ hasText: "Slot wiring" })
       .first()
       .click();
 
@@ -116,5 +111,12 @@ test.describe("Chat Slots", () => {
         { timeout: 45000 },
       )
       .toBeGreaterThanOrEqual(2);
+  });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Slot wiring/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(page.locator("[data-testid=\"custom-assistant-message\"]").first()).toBeVisible({ timeout: 60_000 });
   });
 });

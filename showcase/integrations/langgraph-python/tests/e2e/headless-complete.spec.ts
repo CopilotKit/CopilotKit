@@ -129,4 +129,11 @@ test.describe("Headless Chat (Complete)", () => {
       )
       .toBeGreaterThanOrEqual(2);
   });
+
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    const input = page.getByPlaceholder(/Type a message\.\.\./i).first();
+    await input.fill("send a sample message to populate the headless transcript");
+    await input.press("Enter");
+    await expect(page.locator("[data-testid=\"headless-complete-messages\"]").first()).toBeVisible({ timeout: 60_000 });
+  });
 });
