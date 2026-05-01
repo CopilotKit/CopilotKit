@@ -30,8 +30,10 @@ function DemoContent() {
   // @region[configure-suggestions]
   // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
-    suggestions: [{ title: "Stream counter", message: "stream the counter to 5" }],
-    available: "always",
+    suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
+      { title: "Stream counter", message: "stream the counter to 5" },
+    ],
   });
   // @endregion[configure-suggestions]
 

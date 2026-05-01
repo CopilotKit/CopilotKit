@@ -42,6 +42,7 @@ function Suggestions() {
   // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi from the popup!" },
       { title: "Popup hello", message: "hi from the popup test" },
     ],
     available: "always",

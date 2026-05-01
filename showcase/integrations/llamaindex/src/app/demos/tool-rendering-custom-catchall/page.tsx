@@ -60,6 +60,14 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Weather in Tokyo",
+        message: "What's the weather in Tokyo?",
+      },
+      {
         title: "Custom catchall",
         message:
           "exercise the custom catchall renderer with an unknown tool",

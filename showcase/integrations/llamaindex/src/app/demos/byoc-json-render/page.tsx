@@ -21,6 +21,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
+import { BYOC_JSON_RENDER_SUGGESTIONS } from "./suggestions";
 
 const AGENT_ID = "byoc_json_render";
 
@@ -41,6 +42,10 @@ function Chat() {
   // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
+      ...BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+      })),
       {
         title: "Marketing overview",
         message: "outline a marketing overview with traffic breakdown",
