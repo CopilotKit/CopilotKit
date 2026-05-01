@@ -38,10 +38,31 @@
  */
 
 import { useCallback, useEffect, useMemo } from "react";
-import { CopilotKit, CopilotChat, useAgent } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useAgent,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
+
+function CanonicalSuggestion() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // Single-click prompt matches the aimock fixture in
+  // showcase/aimock/d5-all.json so the local stack renders deterministically.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sample image",
+        message: "describe the sample image",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 /**
  * Minimal structural shape of an AG-UI message. `@ag-ui/client`'s exported
@@ -221,6 +242,7 @@ export default function MultimodalDemoPage() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
       <LegacyConverterShim />
+      <CanonicalSuggestion />
       <div
         data-testid="multimodal-demo-root"
         className="mx-auto flex h-screen max-w-4xl flex-col gap-3 p-4 sm:p-6"

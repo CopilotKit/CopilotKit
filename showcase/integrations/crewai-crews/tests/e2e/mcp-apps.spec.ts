@@ -1,30 +1,27 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Frontend Tools", () => {
+test.describe("MCP Apps", () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto("/demos/frontend-tools");
+    await page.goto("/demos/mcp-apps");
   });
 
-  test("background container and chat are visible", async ({ page }) => {
-    await expect(
-      page.locator('[data-testid="background-container"]'),
-    ).toBeVisible();
+  test("chat input is visible", async ({ page }) => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
   // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
-  test("Switch theme suggestion pill keeps the background container visible", async ({
+  test("Excalidraw suggestion pill exercises the catalog message", async ({
     page,
   }) => {
     const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Switch theme" })
+      .filter({ hasText: "Excalidraw" })
       .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
 
     await expect(
-      page.locator('[data-testid="background-container"]').first(),
+      page.locator('[data-testid="copilot-suggestion"]').first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

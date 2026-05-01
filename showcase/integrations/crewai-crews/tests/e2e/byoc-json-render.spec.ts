@@ -10,4 +10,20 @@ test.describe("BYOC: json-render", () => {
       page.locator('[data-testid="byoc-json-render-root"]'),
     ).toBeVisible();
   });
+
+  // Canonical e2e suggestion — see showcase/aimock/_canonical-catalog.json.
+  test("Marketing overview suggestion pill renders a json-render root", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Marketing overview" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="json-render-root"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

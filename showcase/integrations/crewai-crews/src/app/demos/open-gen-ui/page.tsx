@@ -57,8 +57,17 @@ export default function OpenGenUiDemo() {
 }
 
 function Chat() {
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
-    suggestions: minimalSuggestions,
+    suggestions: [
+      {
+        title: "Open block",
+        message: "render an open gen-ui element",
+      },
+      ...minimalSuggestions,
+    ],
     available: "always",
   });
 

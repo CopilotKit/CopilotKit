@@ -120,8 +120,15 @@ function Chat() {
     [],
   );
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Kyoto itinerary",
+        message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
+      },
       {
         title: "Weather in Tokyo",
         message: "What's the weather in Tokyo?",

@@ -29,8 +29,16 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged, UseAgentUpdate.OnRunStatusChanged],
   });
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Research draft",
+        message:
+          "Research the benefits of remote work and draft a one-paragraph summary",
+      },
       {
         title: "Write a blog post",
         message:

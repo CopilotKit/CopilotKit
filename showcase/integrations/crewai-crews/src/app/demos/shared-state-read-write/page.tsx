@@ -53,8 +53,15 @@ function DemoContent() {
   // @endregion[use-agent-read]
   // @endregion[use-agent]
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weekend plan",
+        message: "build me a weekend itinerary based on saved interests",
+      },
       { title: "Greet me", message: "Say hi and introduce yourself." },
       {
         title: "Remember something",

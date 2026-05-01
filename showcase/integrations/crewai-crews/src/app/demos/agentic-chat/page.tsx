@@ -70,9 +70,16 @@ function Chat() {
     },
   });
 
+  // @canonical: pill exercises catalog message — see showcase/aimock/_canonical-catalog.json
+  // First entry matches the aimock fixture in showcase/aimock/d5-all.json
+  // so the local stack renders deterministically without a real LLM call.
   // @region[configure-suggestions]
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Goldfish name",
+        message: "good name for a goldfish",
+      },
       {
         title: "Change background",
         message: "Change the background to something new.",
