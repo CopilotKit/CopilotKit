@@ -1,8 +1,8 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotSidebar,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -39,8 +39,18 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi!" }],
+    suggestions: [
+      {
+        title: "Sidebar hello",
+        message: "hi from the sidebar test",
+      },
+    ],
     available: "always",
   });
   return null;

@@ -28,4 +28,22 @@ test.describe("Frontend Tools", () => {
       timeout: 15000,
     });
   });
+
+  // Canonical e2e suggestion — single "Switch theme" pill from
+  // _canonical-catalog.json. Clicking it fires the canonical message and
+  // the background-container responds via the change_background tool.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Switch theme" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="background-container"]'),
+    ).toBeVisible();
+  });
 });

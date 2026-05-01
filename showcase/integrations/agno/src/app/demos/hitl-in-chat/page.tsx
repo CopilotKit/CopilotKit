@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useHumanInTheLoop,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -30,16 +30,16 @@ export default function HitlInChatDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a call with sales",
-        message:
-          "Please book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        title: "Pick a slot",
+        message: "set up a quick demo call with the design folks",
       },
     ],
     available: "always",

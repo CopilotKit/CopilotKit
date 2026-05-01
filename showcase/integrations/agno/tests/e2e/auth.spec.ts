@@ -99,4 +99,22 @@ test.describe("Authentication", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion — single "Auth check" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and (while signed in) renders an assistant response.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Auth check" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 45000,
+    });
+  });
 });

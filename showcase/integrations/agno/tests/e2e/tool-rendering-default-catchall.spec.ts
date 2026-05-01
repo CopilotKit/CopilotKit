@@ -5,30 +5,27 @@ test.describe("Tool Rendering (Default Catch-all)", () => {
     await page.goto("/demos/tool-rendering-default-catchall");
   });
 
-  test("page loads with suggestion pills", async ({ page }) => {
+  test("page loads with the canonical suggestion pill", async ({ page }) => {
     await expect(
       page
         .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Weather in SF" }),
-    ).toBeVisible({ timeout: 15000 });
-
-    await expect(
-      page
-        .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Roll a d20" }),
+        .filter({ hasText: "Default catchall" }),
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test("clicking a suggestion surfaces a tool-call card", async ({ page }) => {
+  // Canonical e2e suggestion — single "Default catchall" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and the wildcard default-catchall renderer surfaces an assistant
+  // message.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
     await page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Weather in SF" })
+      .filter({ hasText: "Default catchall" })
       .first()
       .click();
 
-    // The default tool-call card exposes either the tool name or a generic
-    // status pill. We assert on an assistant bubble round-tripping with a tool
-    // call — the wildcard renderer fires for every call.
     await expect(
       page.locator('[data-testid="copilot-assistant-message"]').first(),
     ).toBeVisible({ timeout: 45000 });

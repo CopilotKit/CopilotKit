@@ -35,4 +35,18 @@ test.describe("Headless Simple", () => {
       timeout: 30000,
     });
   });
+
+  // Canonical e2e suggestion — headless-simple uses a plain textarea (no
+  // <CopilotChat />, no suggestion pills), so the test types the canonical
+  // catalog message directly to drive the show_card tool path.
+  test("canonical suggestion prompt fires the feature", async ({ page }) => {
+    await page
+      .getByPlaceholder(/Type a message/)
+      .fill("show a small card body about hummingbirds");
+    await page.getByRole("button", { name: "Send" }).click();
+
+    await expect(
+      page.locator('[data-message-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60000 });
+  });
 });

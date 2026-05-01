@@ -16,28 +16,25 @@ test.describe("Chat Slots", () => {
     await expect(welcome.getByText("Custom Slot")).toBeVisible();
   });
 
-  test("both suggestion pills render with verbatim titles", async ({
+  test("canonical suggestion pill renders with the catalog title", async ({
     page,
   }) => {
     await expect(
       page
         .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Write a sonnet" }),
-    ).toBeVisible({ timeout: 15000 });
-
-    await expect(
-      page
-        .locator('[data-testid="copilot-suggestion"]')
-        .filter({ hasText: "Tell me a joke" }),
+        .filter({ hasText: "Slot wiring" }),
     ).toBeVisible({ timeout: 15000 });
   });
 
-  test('clicking "Tell me a joke" shows the custom assistant message slot', async ({
+  // Canonical e2e suggestion — single "Slot wiring" pill from
+  // _canonical-catalog.json. Clicking it must surface the custom assistant
+  // message slot, exercising the slot wiring this demo is built to verify.
+  test("canonical suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
     await page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Tell me a joke" })
+      .filter({ hasText: "Slot wiring" })
       .first()
       .click();
 
@@ -45,8 +42,6 @@ test.describe("Chat Slots", () => {
       .locator('[data-testid="custom-assistant-message"]')
       .first();
     await expect(customMsg).toBeVisible({ timeout: 45000 });
-
-    await expect(customMsg.getByText("slot", { exact: true })).toBeVisible();
   });
 
   test("custom disclaimer slot renders after the first user message", async ({

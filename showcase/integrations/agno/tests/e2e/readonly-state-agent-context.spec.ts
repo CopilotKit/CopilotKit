@@ -25,4 +25,22 @@ test.describe("Readonly State (Agent Context)", () => {
     const json = page.locator('[data-testid="ctx-state-json"]');
     await expect(json).toContainText("Europe/London");
   });
+
+  // Canonical e2e suggestion — single "Recall pref" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and the agent (with the user's read-only context) responds.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Recall pref" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 45000,
+    });
+  });
 });

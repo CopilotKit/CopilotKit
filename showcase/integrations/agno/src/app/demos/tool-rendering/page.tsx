@@ -1,9 +1,9 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useRenderTool,
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
@@ -62,19 +62,16 @@ function Chat() {
     },
   });
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in San Francisco",
-        message: "What's the weather like in San Francisco?",
-      },
-      {
-        title: "Weather in New York",
-        message: "Tell me about the weather in New York.",
-      },
-      {
-        title: "Weather in Tokyo",
-        message: "How's the weather in Tokyo today?",
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
       },
     ],
     available: "always",

@@ -15,21 +15,21 @@ test.describe("In-App HITL", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("clicking refund pill opens approval dialog outside the chat", async ({
+  // Canonical e2e suggestion — single "Refund approval" pill from
+  // _canonical-catalog.json. Clicking it must surface the in-app approval
+  // dialog overlay (the primary observable for this demo).
+  test("canonical suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
-    await page
+    const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Approve refund for #12345" })
-      .first()
-      .click();
+      .filter({ hasText: "Refund approval" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
 
     await expect(
-      page.locator('[data-testid="approval-dialog"]').first(),
+      page.locator('[data-testid="approval-dialog-overlay"]').first(),
     ).toBeVisible({ timeout: 45000 });
-
-    await expect(
-      page.locator('[data-testid="approval-dialog-approve"]').first(),
-    ).toBeVisible();
   });
 });

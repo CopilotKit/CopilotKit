@@ -5,8 +5,11 @@
 // only <CopilotChat /> is visibly re-themed.
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 // @region[theme-css-import]
 import "./theme.css";
 // @endregion[theme-css-import]
@@ -16,12 +19,33 @@ export default function ChatCustomizationCssDemo() {
     <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-customization-css">
       <div className="flex justify-center items-center h-screen w-full">
         <div className="chat-css-demo-scope h-full w-full max-w-4xl">
-          <CopilotChat
-            agentId="chat-customization-css"
-            className="h-full rounded-2xl"
-          />
+          <Chat />
         </div>
       </div>
     </CopilotKit>
+  );
+}
+
+function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Theme check",
+        message: "verify the css theme rendering",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotChat
+      agentId="chat-customization-css"
+      className="h-full rounded-2xl"
+    />
   );
 }

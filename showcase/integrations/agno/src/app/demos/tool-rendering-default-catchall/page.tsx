@@ -5,9 +5,9 @@
 // useDefaultRenderTool() (no config). No per-tool renderers, no custom wildcard.
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useConfigureSuggestions,
   useDefaultRenderTool,
 } from "@copilotkit/react-core/v2";
@@ -36,19 +36,17 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
+        title: "Default catchall",
+        message:
+          "trigger the default catchall renderer for an unmapped tool",
       },
     ],
     available: "always",

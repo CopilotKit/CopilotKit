@@ -44,16 +44,16 @@ export default function MCPAppsDemo() {
 }
 
 function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+        title: "Excalidraw",
+        message: "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",

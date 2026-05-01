@@ -72,21 +72,15 @@ Accessibility:
 - Text contrast >= 4.5:1 against its background.
 - Do not rely on colour alone to distinguish series.`;
 
+// @canonical-suggestion-pill
+// Single canonical e2e pill — title + message come straight from
+// showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+// in showcase/aimock/d5-all.json so the local stack renders
+// deterministically without a real LLM call.
 const minimalSuggestions = [
   {
-    title: "3D axis visualization (model airplane)",
-    message:
-      "Visualize pitch, yaw, and roll using a 3D model airplane. Render a simple airplane silhouette (SVG or CSS-3D) at the origin, with three labelled axes (X=pitch, Y=yaw, Z=roll). Animate the airplane cycling through each rotation in turn — rotate about X, pause, rotate about Y, pause, rotate about Z, pause — with a legend showing which axis is active.",
-  },
-  {
-    title: "How a neural network works",
-    message:
-      "Animate how a simple feed-forward neural network processes an input. Show 3 layers (input 4 nodes, hidden 5 nodes, output 2 nodes) with connections whose thickness encodes weight magnitude. Animate activations pulsing forward from input -> hidden -> output in a loop, brightening each node as it fires. Label each layer.",
-  },
-  {
-    title: "Quicksort visualization",
-    message:
-      "Visualize quicksort on an array of ~10 bars of varying heights. At each step highlight the pivot in amber, elements being compared in indigo, and swapped elements in emerald; fade sorted elements to slate. Auto-advance through the sort in a loop (~600ms per step) with a caption showing the current operation.",
+    title: "Open block",
+    message: "render an open gen-ui element",
   },
 ];
 

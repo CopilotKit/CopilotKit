@@ -55,4 +55,22 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  // Canonical e2e suggestion — single "Pie chart" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and surfaces a suggestion-driven assistant response.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Pie chart" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 45000,
+    });
+  });
 });

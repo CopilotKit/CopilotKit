@@ -5,12 +5,12 @@ test.describe("In-Chat HITL (Booking)", () => {
     await page.goto("/demos/hitl-in-chat");
   });
 
-  test("clicking the book-a-call pill renders the time picker", async ({
+  test("clicking the canonical pill renders the time picker", async ({
     page,
   }) => {
     await page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Book a call with sales" })
+      .filter({ hasText: "Pick a slot" })
       .first()
       .click();
 
@@ -24,7 +24,7 @@ test.describe("In-Chat HITL (Booking)", () => {
   }) => {
     await page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Book a call with sales" })
+      .filter({ hasText: "Pick a slot" })
       .first()
       .click();
 

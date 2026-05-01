@@ -22,4 +22,22 @@ test.describe("Reasoning (Default Render)", () => {
       timeout: 60000,
     });
   });
+
+  // Canonical e2e suggestion — single "Default reasoning" pill from
+  // _canonical-catalog.json. Clicking it dispatches the canonical message
+  // and surfaces the built-in reasoning card.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Default reasoning" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.getByText(/thought|thinking/i).first()).toBeVisible({
+      timeout: 60000,
+    });
+  });
 });

@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   useFrontendTool,
   useConfigureSuggestions,
   CopilotChat,
+  CopilotKit,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 import { NotesCard, type Note } from "./notes-card";
@@ -130,19 +130,16 @@ function Chat() {
     },
   });
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find project-planning notes",
-        message: "Find my notes about project planning.",
-      },
-      {
-        title: "Search for 'auth'",
-        message: "Search my notes for anything related to auth.",
-      },
-      {
-        title: "What do I have about reading?",
-        message: "Do I have any notes tagged reading?",
+        title: "Async metric",
+        message: "fetch the async metric",
       },
     ],
     available: "always",

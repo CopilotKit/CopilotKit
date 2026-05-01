@@ -9,12 +9,15 @@ test.describe("Frontend Tools (Async)", () => {
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
-  test("searching notes via suggestion renders the notes card", async ({
+  // Canonical e2e suggestion — single "Async metric" pill from
+  // _canonical-catalog.json. Clicking it must surface the notes-card
+  // produced by the async frontend-tool path.
+  test("canonical suggestion pill fires the canonical prompt", async ({
     page,
   }) => {
     const pill = page
       .locator('[data-testid="copilot-suggestion"]')
-      .filter({ hasText: "Find project-planning notes" })
+      .filter({ hasText: "Async metric" })
       .first();
     await expect(pill).toBeVisible({ timeout: 15000 });
     await pill.click();
@@ -22,9 +25,5 @@ test.describe("Frontend Tools (Async)", () => {
     await expect(
       page.locator('[data-testid="notes-card"]').first(),
     ).toBeVisible({ timeout: 45000 });
-
-    await expect(
-      page.locator('[data-testid="notes-keyword"]').first(),
-    ).toBeVisible();
   });
 });

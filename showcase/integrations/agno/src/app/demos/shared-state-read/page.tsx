@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
+  CopilotKit,
   CopilotSidebar,
   useAgent,
   UseAgentUpdate,
@@ -98,19 +98,16 @@ function Recipe() {
   });
   const { copilotkit } = useCopilotKit();
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The wording matches a fixture
+  // in showcase/aimock/d5-all.json so the local stack renders
+  // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Create Italian recipe",
-        message: "Create a delicious Italian pasta recipe.",
-      },
-      {
-        title: "Make it healthier",
-        message: "Make the recipe healthier with more vegetables.",
-      },
-      {
-        title: "Suggest variations",
-        message: "Suggest some creative variations of this recipe.",
+        title: "Italian pasta",
+        message: "compose an italian pasta recipe with seasonal greens",
       },
     ],
     available: "always",

@@ -60,4 +60,22 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  // Canonical e2e suggestion — single "Launch outline" pill from
+  // _canonical-catalog.json. Clicking it must dispatch the canonical
+  // message and surface the gen-ui agent's task progress card.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Launch outline" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-message-list"]'),
+    ).toBeVisible({ timeout: 30000 });
+  });
 });
