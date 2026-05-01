@@ -3,6 +3,7 @@
 import {
   CopilotKitProvider,
   CopilotChat,
+  useConfigureSuggestions,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -28,6 +29,17 @@ function Demo() {
     render: ApprovalCard,
   });
   // @endregion[hitl-hook]
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Sourcing route",
+        message: "draft a five-stage route for sourcing office greenery",
+      },
+    ],
+    available: "always",
+  });
 
   return (
     <main className="p-8">

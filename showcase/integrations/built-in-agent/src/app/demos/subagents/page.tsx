@@ -4,6 +4,7 @@ import {
   CopilotKitProvider,
   CopilotChat,
   useComponent,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 export default function Subagents() {
@@ -26,6 +27,18 @@ function Demo() {
   useComponent({
     name: "critique_agent",
     render: DelegationCard,
+  });
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Research draft",
+        message:
+          "Research the benefits of remote work and draft a one-paragraph summary",
+      },
+    ],
+    available: "always",
   });
 
   return (

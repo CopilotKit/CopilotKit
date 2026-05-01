@@ -15,7 +15,25 @@
  * (https://mcp.excalidraw.com).
  */
 
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+
+function McpAppsSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Excalidraw",
+        message: "draw an excalidraw diagram of a router with two switches",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 export default function MCPAppsDemo() {
   // @region[no-frontend-renderer-needed]
@@ -31,6 +49,7 @@ export default function MCPAppsDemo() {
           steps.&rdquo; The agent invokes a remote MCP tool and the associated
           UI resource renders inline in chat.
         </p>
+        <McpAppsSuggestions />
         <CopilotChat />
       </main>
     </CopilotKitProvider>

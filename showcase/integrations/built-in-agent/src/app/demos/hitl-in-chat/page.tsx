@@ -12,6 +12,7 @@
 import {
   CopilotKit,
   CopilotChat,
+  useConfigureSuggestions,
   useHumanInTheLoop,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -59,6 +60,17 @@ function Demo() {
         onSubmit={(result) => respond?.(result)}
       />
     ),
+  });
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Pick a slot",
+        message: "set up a quick demo call with the design folks",
+      },
+    ],
+    available: "always",
   });
 
   return (

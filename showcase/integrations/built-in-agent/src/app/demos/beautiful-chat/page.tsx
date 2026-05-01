@@ -97,12 +97,11 @@ function Card({
 function Suggestions() {
   useConfigureSuggestions({
     suggestions: [
-      { title: "Say hi", message: "Say hi!" },
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
-        title: "Weather check",
-        message: "What's the weather in San Francisco?",
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
       },
-      { title: "Compose a haiku", message: "Write a haiku about coffee." },
     ],
     available: "always",
   });

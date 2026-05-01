@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   CopilotKitProvider,
   CopilotChat,
+  useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
@@ -41,6 +42,14 @@ function Demo() {
   });
   // @endregion[frontend-tool-registration]
   // @endregion[frontend-tool]
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Goldfish name", message: "good name for a goldfish" },
+    ],
+    available: "always",
+  });
 
   return (
     <main style={{ background: bg, minHeight: "100vh" }} className="p-8">

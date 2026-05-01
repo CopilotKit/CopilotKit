@@ -4,6 +4,7 @@ import {
   CopilotKitProvider,
   CopilotChat,
   useComponent,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 export default function GenUiToolBased() {
@@ -18,6 +19,17 @@ function Demo() {
   useComponent({
     name: "generate_haiku",
     render: HaikuCard,
+  });
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Quarterly bars",
+        message: "render a tool-based bar chart for last quarter deliveries",
+      },
+    ],
+    available: "always",
   });
 
   return (

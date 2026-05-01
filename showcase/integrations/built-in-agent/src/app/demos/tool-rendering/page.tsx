@@ -5,6 +5,7 @@ import {
   CopilotChat,
   useRenderTool,
   useDefaultRenderTool,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { z } from "zod";
 
@@ -38,6 +39,17 @@ function Demo() {
     render: GenericToolCard,
   });
   // @endregion[catchall-renderer]
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Pie chart",
+        message: "Show me a pie chart of revenue by category",
+      },
+    ],
+    available: "always",
+  });
 
   return (
     <main className="p-8">

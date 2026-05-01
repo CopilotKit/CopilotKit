@@ -14,3 +14,13 @@ test("shared-state-write: editable inputs allow user to mutate agent state", asy
   // two write paths into agent state.
   await expect(page.getByRole("textbox")).toHaveCount(2, { timeout: 15_000 });
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/shared-state-read-write");
+  const pill = page.getByRole("button", { name: /Weekend plan/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="copilot-assistant-message"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});
