@@ -31,14 +31,30 @@ function DemoContent() {
   });
   // @endregion[frontend-use-coagent-state]
 
-  // Canonical e2e suggestion — exact catalog match for shared-state-streaming.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Write a short poem",
+        message: "Write a short poem about autumn leaves.",
+      },
+      {
+        title: "Draft an email",
+        message:
+          "Draft a polite email declining a meeting next Tuesday afternoon.",
+      },
+      {
+        title: "Explain quantum computing",
+        message:
+          "Write a 2-paragraph explanation of quantum computing for a curious teenager.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Stream counter",
         message: "stream the counter to 5",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

@@ -22,6 +22,7 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { JsonRenderAssistantMessage } from "./json-render-renderer";
+import { BYOC_JSON_RENDER_SUGGESTIONS } from "./suggestions";
 
 // Match the sibling byoc-hashbrown-demo / a2ui-fixed-schema kebab-case
 // convention so a future copy-paste of `"byoc-json-render-demo"` from one
@@ -41,14 +42,20 @@ export default function ByocJsonRenderDemo() {
 }
 
 function Chat() {
-  // Canonical e2e suggestion — exact catalog match for byoc-json-render.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      ...(BYOC_JSON_RENDER_SUGGESTIONS.map((s) => ({
+      title: s.label,
+      message: s.prompt,
+    }))),
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Marketing overview",
         message: "outline a marketing overview with traffic breakdown",
       },
+    // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

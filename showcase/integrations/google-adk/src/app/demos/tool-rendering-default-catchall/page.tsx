@@ -19,14 +19,25 @@ export default function ToolRenderingDefaultCatchallDemo() {
 }
 
 function DemoContent() {
-  // Canonical e2e suggestion — exact catalog match for tool-rendering-default-catchall.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get weather", message: "What's the weather in Tokyo?" },
+      {
+        title: "Find flights",
+        message: "Find me flights from SFO to LAX next Tuesday.",
+      },
+      {
+        title: "Sales chart",
+        message: "Show me a quarterly revenue pie chart.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Default catchall",
         message: "trigger the default catchall renderer for an unmapped tool",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

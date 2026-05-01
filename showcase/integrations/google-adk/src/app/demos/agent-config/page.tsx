@@ -29,14 +29,21 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  // Canonical e2e suggestion — exact catalog match for agent-config.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      { title: "Greet me", message: "Greet me — show off your tone." },
+      {
+        title: "Explain WebSockets",
+        message: "Explain WebSockets at the configured expertise level.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Personalize tone",
         message: "introduce yourself per your config",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

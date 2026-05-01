@@ -19,14 +19,26 @@ export default function ToolRenderingReasoningChainDemo() {
 }
 
 function DemoContent() {
-  // Canonical e2e suggestion — exact catalog match for tool-rendering-reasoning-chain.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather then flight",
+        message:
+          "Check the weather in Tokyo, then find me flights there from SFO if it looks nice.",
+      },
+      {
+        title: "Multi-step planning",
+        message:
+          "Plan a quick getaway: pick a destination, check the weather, then suggest 2-3 flights.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Kyoto itinerary",
         message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

@@ -16,14 +16,26 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
-  // Canonical e2e suggestion — exact catalog match for agentic-chat-reasoning.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Logic puzzle",
+        message:
+          "If a train leaves Tokyo at 9:15 going 90km/h and another leaves Osaka at 9:45 going 110km/h, when do they meet given Tokyo and Osaka are 515km apart? Show your reasoning.",
+      },
+      {
+        title: "Tradeoff analysis",
+        message:
+          "I have $5k. Should I invest in upgrading my work laptop or buying a course bundle? Reason through it.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Show reasoning",
         message: "show your reasoning step by step",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

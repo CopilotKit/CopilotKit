@@ -64,14 +64,28 @@ function Chat() {
   });
   // @endregion[render-weather-tool]
 
-  // Canonical e2e suggestion — exact catalog match for tool-rendering.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Weather in San Francisco",
+        message: "What's the weather like in San Francisco?",
+      },
+      {
+        title: "Weather in New York",
+        message: "Tell me about the weather in New York.",
+      },
+      {
+        title: "Weather in Tokyo",
+        message: "How's the weather in Tokyo today?",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Pie chart",
         message: "Show me a pie chart of revenue by category",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

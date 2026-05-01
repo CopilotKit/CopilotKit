@@ -29,15 +29,27 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  // Canonical e2e suggestion — exact catalog match for subagents.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Quick brief",
+        message:
+          "Plan a 1-paragraph brief on the benefits of pair programming.",
+      },
+      {
+        title: "Marketing post",
+        message:
+          "Draft and critique a LinkedIn post announcing CopilotKit 2.0.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Research draft",
         message:
           "Research the benefits of remote work and draft a one-paragraph summary",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

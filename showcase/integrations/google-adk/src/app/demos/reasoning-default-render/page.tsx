@@ -16,14 +16,24 @@ export default function ReasoningDefaultRenderDemo() {
 }
 
 function Chat() {
-  // Canonical e2e suggestion — exact catalog match for reasoning-default-render.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Reason through",
+        message: "Reason through whether a hot dog is a sandwich.",
+      },
+      {
+        title: "Multi-step",
+        message: "Walk me step-by-step through how to deduplicate a JS array.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Default reasoning",
         message: "talk me through your default reasoning on a tricky riddle",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

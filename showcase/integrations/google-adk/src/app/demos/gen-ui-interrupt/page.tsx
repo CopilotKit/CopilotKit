@@ -50,14 +50,24 @@ function Chat() {
   // adaptation of the LangGraph `resolve(...)` callback.
   const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
-  // Canonical e2e suggestion — exact catalog match for gen-ui-interrupt.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
   useConfigureSuggestions({
     suggestions: [
+      {
+        title: "Book a call with sales",
+        message: "Book an intro call with the sales team to discuss pricing.",
+      },
+      {
+        title: "Schedule a 1:1 with Alice",
+        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Pause and pick",
         message: "request the gen-ui interrupt",
       },
+      // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });

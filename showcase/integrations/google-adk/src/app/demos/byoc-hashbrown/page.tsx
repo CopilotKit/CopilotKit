@@ -31,6 +31,7 @@ import {
   HashBrownDashboard,
   useHashBrownMessageRenderer,
 } from "./hashbrown-renderer";
+import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
 
 export default function ByocHashbrownDemoPage() {
   return (
@@ -58,14 +59,28 @@ export default function ByocHashbrownDemoPage() {
 }
 
 function ChatBody() {
-  // Canonical e2e suggestion — exact catalog match for byoc-hashbrown.
-  // See showcase/aimock/_canonical-catalog.json (frozen).
+  // Pre-seed the composer with canonical prompts that steer the agent toward
+  // hashbrown-shaped output. `useConfigureSuggestions` renders pills inside
+  // the CopilotChat composer; clicking a pill sends its `message` directly.
   useConfigureSuggestions({
     suggestions: [
+      ...(BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
+      title: s.label,
+      message: s.prompt,
+      // E2E testid-friendly class — Playwright targets visible text, but we
+      // keep a class hook in case we need finer-grained selectors later.
+      className: `byoc-hashbrown-suggestion-${s.label
+        .toLowerCase()
+        .replace(/\s+/g, "-")}`,
+    }))),
+      // @region[canonical-e2e-suggestion]
+      // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+      // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
       {
         title: "Sales overview",
         message: "sketch the sales overview with quarterly bars",
       },
+    // @endregion[canonical-e2e-suggestion]
     ],
     available: "always",
   });
