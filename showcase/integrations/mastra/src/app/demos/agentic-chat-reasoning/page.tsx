@@ -11,6 +11,7 @@ import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
   CopilotChatReasoningMessage,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { ReasoningBlock } from "./reasoning-block";
 
@@ -27,6 +28,17 @@ export default function AgenticChatReasoningDemo() {
 }
 
 function Chat() {
+  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Show reasoning",
+        message: "show your reasoning step by step",
+      },
+    ],
+    available: "always",
+  });
+
   // @region[reasoning-block-render]
   return (
     <CopilotChat

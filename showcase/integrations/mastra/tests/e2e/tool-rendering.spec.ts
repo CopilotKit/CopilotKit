@@ -55,4 +55,15 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Pie chart/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primary selector is `copilot-suggestion`; assert on the
+    // assistant turn settling so the pill click is verified end-to-end.
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

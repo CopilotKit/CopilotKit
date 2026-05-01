@@ -86,4 +86,13 @@ test.describe("Human in the Loop", () => {
     // that does NOT match the pre-click "N/N selected" counter text.
     await expect(actionBtn.first()).not.toBeVisible({ timeout: 10000 });
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Sourcing route/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator('[data-testid="select-steps"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

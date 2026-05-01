@@ -55,19 +55,13 @@ function Chat() {
   );
   // @endregion[use-default-render-tool-wildcard]
 
+  // Canonical e2e suggestion (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in SF",
-        message: "What's the weather in San Francisco?",
-      },
-      {
-        title: "Find flights",
-        message: "Find flights from SFO to JFK.",
-      },
-      {
-        title: "Roll a d20",
-        message: "Roll a 20-sided die.",
+        title: "Custom catchall",
+        message:
+          "exercise the custom catchall renderer with an unknown tool",
       },
     ],
     available: "always",

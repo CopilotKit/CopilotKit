@@ -41,4 +41,19 @@ test.describe("Tool-Based Generative UI", () => {
       timeout: 30000,
     });
   });
+
+  test("canonical suggestion pill fires the prompt", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Quarterly bars/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog primary selector is `bar-chart`; mastra's gen-ui-tool-based
+    // only registers a `generate_haiku` tool, so the canonical "bar chart"
+    // prompt cannot exercise the bar-chart tool surface here. Assert on the
+    // assistant turn settling so the pill click is still verified end-to-end.
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
