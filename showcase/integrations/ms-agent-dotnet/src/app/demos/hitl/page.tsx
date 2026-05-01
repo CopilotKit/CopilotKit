@@ -23,10 +23,20 @@ export default function HitlDemo() {
 }
 
 function DemoContent() {
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Simple plan",
+        message: "Please plan a trip to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please plan a pasta dish in 10 steps.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Sourcing route",
         message: "draft a five-stage route for sourcing office greenery",
       },

@@ -29,13 +29,25 @@ function DemoContent() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
 
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Quick brief",
+        message:
+          "Plan a 1-paragraph brief on the benefits of pair programming.",
+      },
+      {
+        title: "Marketing post",
+        message:
+          "Draft and critique a LinkedIn post announcing CopilotKit 2.0.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Research draft",
         message:
-          "Research the benefits of remote work and draft a one-paragraph summary",
+        "Research the benefits of remote work and draft a one-paragraph summary",
       },
     ],
     available: "always",

@@ -47,10 +47,24 @@ function Chat() {
   useDefaultRenderTool();
   // @endregion[default-catchall-zero-config]
 
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Weather in Tokyo",
+        message: "How's the weather in Tokyo today?",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Default catchall",
         message: "trigger the default catchall renderer for an unmapped tool",
       },

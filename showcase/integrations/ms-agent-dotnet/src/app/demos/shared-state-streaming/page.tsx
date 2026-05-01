@@ -27,15 +27,17 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
-  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
       {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Stream counter",
         message: "stream the counter to 5",
       },
     ],
-    available: "always",
   });
 
   return (
