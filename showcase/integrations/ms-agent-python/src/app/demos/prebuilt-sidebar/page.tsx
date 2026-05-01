@@ -44,6 +44,7 @@ function Suggestions() {
   // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi!" },
       {
         title: "Sidebar hello",
         message: "hi from the sidebar test",

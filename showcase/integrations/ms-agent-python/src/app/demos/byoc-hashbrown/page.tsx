@@ -31,6 +31,7 @@ import {
   HashBrownDashboard,
   useHashBrownMessageRenderer,
 } from "./hashbrown-renderer";
+import { BYOC_HASHBROWN_SUGGESTIONS } from "./suggestions";
 
 export default function ByocHashbrownDemoPage() {
   return (
@@ -63,6 +64,15 @@ function ChatBody() {
   // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
+      ...BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
+        title: s.label,
+        message: s.prompt,
+        // E2E testid-friendly class -- Playwright targets visible text, but we
+        // keep a class hook in case we need finer-grained selectors later.
+        className: `byoc-hashbrown-suggestion-${s.label
+          .toLowerCase()
+          .replace(/\s+/g, "-")}`,
+      })),
       {
         title: "Sales overview",
         message: "sketch the sales overview with quarterly bars",

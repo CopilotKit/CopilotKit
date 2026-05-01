@@ -54,6 +54,18 @@ function Chat() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Weather in SF",
+        message: "What's the weather in San Francisco?",
+      },
+      {
+        title: "Find flights",
+        message: "Find flights from SFO to JFK.",
+      },
+      {
+        title: "Roll a d20",
+        message: "Roll a 20-sided die.",
+      },
+      {
         title: "Default catchall",
         message:
           "trigger the default catchall renderer for an unmapped tool",

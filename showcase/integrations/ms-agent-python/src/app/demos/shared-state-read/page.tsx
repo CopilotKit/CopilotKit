@@ -104,6 +104,18 @@ function Recipe() {
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Create Italian recipe",
+        message: "Create a delicious Italian pasta recipe.",
+      },
+      {
+        title: "Make it healthier",
+        message: "Make the recipe healthier with more vegetables.",
+      },
+      {
+        title: "Suggest variations",
+        message: "Suggest some creative variations of this recipe.",
+      },
+      {
         title: "Italian pasta",
         message: "compose an italian pasta recipe with seasonal greens",
       },
