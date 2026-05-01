@@ -15,11 +15,30 @@
 // up automatically.
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Default reasoning",
+        message: "talk me through your default reasoning on a tricky riddle",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 export default function ReasoningDefaultRenderDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="reasoning-default-render">
+      <CanonicalSuggestions />
       <div className="flex justify-center items-center h-screen w-full">
         <div className="h-full w-full max-w-4xl">
           {/* @region[default-reasoning-zero-config] */}

@@ -25,8 +25,12 @@
  *   code path — whatever works for one works for both.
  */
 
-import { useCallback } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  useCallback } from "react";
+import { CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
@@ -57,6 +61,20 @@ const CHAT_ROOT_SELECTOR = "[data-multimodal-demo-chat-root]";
  * prefix so the runtime forwards the raw base64 value (what the agent
  * expects in `source.value`).
  */
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sample image",
+        message: "describe the sample image",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
+
 function fileToDataAttachment(file: File): Promise<DataUploadResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -95,6 +113,7 @@ export default function MultimodalDemoPage() {
 
   return (
     <CopilotKit runtimeUrl="/api/copilotkit-multimodal" agent="multimodal-demo">
+      <CanonicalSuggestions />
       <div
         data-testid="multimodal-demo-root"
         className="mx-auto flex h-screen max-w-4xl flex-col gap-3 p-4 sm:p-6"

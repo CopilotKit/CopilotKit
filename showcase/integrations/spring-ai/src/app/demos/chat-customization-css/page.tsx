@@ -8,14 +8,33 @@
 // spring-ai-agent service. This page is a frontend-only variant.
 
 import React from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 // @region[theme-css-import]
 import "./theme.css";
 // @endregion[theme-css-import]
 
+function CanonicalSuggestions() {
+  // @canonical-suggestion
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Theme check",
+        message: "verify the css theme rendering",
+      },
+    ],
+    available: "always",
+  });
+  return null;
+}
+
 export default function ChatCustomizationCssDemo() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit" agent="chat-customization-css">
+      <CanonicalSuggestions />
       <div className="flex justify-center items-center h-screen w-full">
         <div className="chat-css-demo-scope h-full w-full max-w-4xl">
           <CopilotChat

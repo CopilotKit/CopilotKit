@@ -70,22 +70,16 @@ function Chat() {
     },
   });
 
-  // @region[configure-suggestions]
+  // @canonical-suggestion
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to something new.",
-      },
-      {
-        title: "Generate sonnet",
-        message: "Write a short sonnet about AI.",
+        title: "Goldfish name",
+        message: "good name for a goldfish",
       },
     ],
     available: "always",
   });
-  // @endregion[configure-suggestions]
-
   return (
     <div
       className="flex justify-center items-center h-screen w-full"

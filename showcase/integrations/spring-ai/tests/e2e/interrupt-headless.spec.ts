@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Tool Rendering (Custom Catch-all)", () => {
+test.describe("Interrupt Headless", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/demos/interrupt-headless");
+  });
+
   test("page loads with chat input", async ({ page }) => {
-    await page.goto("/demos/tool-rendering-custom-catchall");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
 
@@ -10,12 +13,12 @@ test.describe("Tool Rendering (Custom Catch-all)", () => {
   // Title + message come from showcase/aimock/_canonical-catalog.json.
   test("canonical suggestion pill fires the feature", async ({ page }) => {
     const pill = page
-      .getByRole("button", { name: /Custom catchall/i })
+      .getByRole("button", { name: /Headless interrupt/i })
       .first();
     await expect(pill).toBeVisible({ timeout: 30_000 });
     await pill.click();
     await expect(
-      page.locator("[data-testid=\"custom-catchall-card\"]").first(),
+      page.locator("[data-message-role=\"assistant\"]").first(),
     ).toBeVisible({ timeout: 60_000 });
   });
 });

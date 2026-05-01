@@ -37,8 +37,14 @@ function MainContent() {
 }
 
 function Suggestions() {
+  // @canonical-suggestion
   useConfigureSuggestions({
-    suggestions: [{ title: "Say hi", message: "Say hi!" }],
+    suggestions: [
+      {
+        title: "Sidebar hello",
+        message: "hi from the sidebar test",
+      },
+    ],
     available: "always",
   });
   return null;

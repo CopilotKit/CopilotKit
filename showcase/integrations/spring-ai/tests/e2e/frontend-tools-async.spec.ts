@@ -5,4 +5,17 @@ test.describe("Frontend Tools (Async)", () => {
     await page.goto("/demos/frontend-tools-async");
     await expect(page.getByPlaceholder("Type a message")).toBeVisible();
   });
+
+  // Canonical e2e suggestion — single pill wired via useConfigureSuggestions.
+  // Title + message come from showcase/aimock/_canonical-catalog.json.
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page
+      .getByRole("button", { name: /Async metric/i })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    await expect(
+      page.locator("[data-testid=\"notes-card\"]").first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });
