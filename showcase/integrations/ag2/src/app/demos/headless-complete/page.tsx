@@ -169,23 +169,16 @@ function ChatBody({
 }) {
   useHeadlessCompleteToolRenderers();
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e prompt — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json. The headless-complete cell
+  // doesn't actually render suggestion pills (no <CopilotChat />), so the
+  // matching e2e test types this message into the textarea directly.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather in Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      {
-        title: "AAPL stock price",
-        message: "What's AAPL trading at right now?",
-      },
-      {
-        title: "Highlight a note",
-        message: "Highlight 'meeting at 3pm' in yellow.",
-      },
-      {
-        title: "Sketch a diagram",
-        message: "Use Excalidraw to sketch a simple system diagram.",
+        title: "Custom message",
+        message: "send a sample message to populate the headless transcript",
       },
     ],
     available: "always",

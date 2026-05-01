@@ -19,9 +19,9 @@
 // different mechanism.
 
 import React, { useRef, useState } from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
+  CopilotKit,
   useConfigureSuggestions,
   useFrontendTool,
 } from "@copilotkit/react-core/v2";
@@ -60,15 +60,14 @@ function Layout() {
   // or cancels from the external popup.
   const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a call with sales",
-        message: "Book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        title: "Headless interrupt",
+        message: "trigger the headless interrupt",
       },
     ],
     available: "always",

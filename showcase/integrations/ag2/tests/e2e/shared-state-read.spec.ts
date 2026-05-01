@@ -53,4 +53,22 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  // Canonical e2e suggestion — single "Italian pasta" pill from
+  // _canonical-catalog.json. Selector falls back to [data-role="assistant"]
+  // (ag2 spec convention).
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Italian pasta" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60000,
+    });
+  });
 });

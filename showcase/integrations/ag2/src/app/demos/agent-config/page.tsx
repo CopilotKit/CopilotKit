@@ -10,7 +10,11 @@
 // References:
 // - src/agents/agent_config_agent.py — the AG2 ConversableAgent backing this.
 
-import { CopilotChat, CopilotKit } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  CopilotKit,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useMemo } from "react";
 
 import { ConfigCard } from "./config-card";
@@ -58,9 +62,26 @@ export default function AgentConfigDemoPage() {
           onResponseLengthChange={setResponseLength}
         />
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
-          <CopilotChat agentId={AGENT_ID} className="h-full rounded-md" />
+          <Chat />
         </div>
       </div>
     </CopilotKit>
   );
+}
+
+function Chat() {
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
+  });
+
+  return <CopilotChat agentId={AGENT_ID} className="h-full rounded-md" />;
 }

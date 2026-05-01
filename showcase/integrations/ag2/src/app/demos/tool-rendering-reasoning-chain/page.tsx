@@ -13,10 +13,10 @@
 //      mirroring the `tool-rendering` (primary) cell.
 
 import React from "react";
-import { CopilotKit } from "@copilotkit/react-core";
 import {
   CopilotChat,
   CopilotChatReasoningMessage,
+  CopilotKit,
   useRenderTool,
   useDefaultRenderTool,
   useConfigureSuggestions,
@@ -128,17 +128,14 @@ function Chat() {
     [],
   );
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Weather + flights to Tokyo",
-        message: "What's the weather in Tokyo?",
-      },
-      { title: "Compare two stocks", message: "How is AAPL doing?" },
-      { title: "Chain of dice rolls", message: "Roll a 20-sided die for me." },
-      {
-        title: "Flights + destination weather",
-        message: "Find flights from SFO to JFK.",
+        title: "Kyoto itinerary",
+        message: "draft a 3-day kyoto itinerary with a 1500 dollar budget",
       },
     ],
     available: "always",

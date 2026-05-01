@@ -5,8 +5,8 @@ import {
   useFrontendTool,
   useConfigureSuggestions,
   CopilotChat,
+  CopilotKit,
 } from "@copilotkit/react-core/v2";
-import { CopilotKit } from "@copilotkit/react-core";
 import { z } from "zod";
 
 export default function FrontendToolsDemo() {
@@ -46,15 +46,14 @@ function Chat() {
   // @endregion[frontend-tool-registration]
   // @endregion[frontend-tool]
 
+  // @canonical-suggestion-pill
+  // Single canonical e2e pill — title + message come straight from
+  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to a blue-to-purple gradient.",
-      },
-      {
-        title: "Sunset theme",
-        message: "Make the background a sunset-themed gradient.",
+        title: "Switch theme",
+        message: "switch theme to dark mode",
       },
     ],
     available: "always",

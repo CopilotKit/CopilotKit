@@ -10,4 +10,23 @@ test.describe("Frontend Tools", () => {
       page.locator('[data-testid="background-container"]'),
     ).toBeVisible();
   });
+
+  // Canonical e2e suggestion — single "Switch theme" pill from
+  // _canonical-catalog.json. Confirms the frontend tool dispatches and
+  // the background container remains observable.
+  test("canonical suggestion pill fires the canonical prompt", async ({
+    page,
+  }) => {
+    await page.goto("/demos/frontend-tools");
+    const pill = page
+      .locator('[data-testid="copilot-suggestion"]')
+      .filter({ hasText: "Switch theme" })
+      .first();
+    await expect(pill).toBeVisible({ timeout: 15000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="background-container"]'),
+    ).toBeVisible({ timeout: 30000 });
+  });
 });
