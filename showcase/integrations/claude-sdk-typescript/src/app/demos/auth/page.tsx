@@ -22,7 +22,11 @@
 
 import { Component, useCallback, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
 
@@ -163,7 +167,7 @@ export default function AuthDemoPage() {
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
           <ChatErrorBoundary authenticated={auth.authenticated}>
-            <CopilotChat agentId="auth-demo" className="h-full" />
+            <AuthChat />
           </ChatErrorBoundary>
         </div>
         {lastError && (
@@ -178,4 +182,19 @@ export default function AuthDemoPage() {
       </div>
     </CopilotKit>
   );
+}
+
+function AuthChat() {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Auth check",
+        message: "auth check turn 1",
+      },
+    ],
+    available: "always",
+  });
+
+  return <CopilotChat agentId="auth-demo" className="h-full" />;
 }

@@ -19,7 +19,12 @@
  */
 
 import { useCallback, useEffect, useMemo } from "react";
-import { CopilotKit, CopilotChat, useAgent } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useAgent,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
@@ -183,21 +188,42 @@ export default function MultimodalDemoPage() {
           data-multimodal-demo-chat-root
           className="min-h-0 flex-1 overflow-hidden rounded-lg border border-black/10 dark:border-white/10"
         >
-          <CopilotChat
-            agentId="multimodal-demo"
-            className="h-full"
-            attachments={{
-              enabled: true,
-              accept: ACCEPT_MIME,
-              maxSize: MAX_FILE_SIZE_BYTES,
-              onUpload,
-              onUploadFailed: (err) => {
-                console.warn("[multimodal-demo] attachment rejected", err);
-              },
-            }}
-          />
+          <MultimodalChat onUpload={onUpload} />
         </div>
       </div>
     </CopilotKit>
+  );
+}
+
+function MultimodalChat({
+  onUpload,
+}: {
+  onUpload: (file: File) => Promise<DataUploadResult>;
+}) {
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Sample image",
+        message: "describe the sample image",
+      },
+    ],
+    available: "always",
+  });
+
+  return (
+    <CopilotChat
+      agentId="multimodal-demo"
+      className="h-full"
+      attachments={{
+        enabled: true,
+        accept: ACCEPT_MIME,
+        maxSize: MAX_FILE_SIZE_BYTES,
+        onUpload,
+        onUploadFailed: (err) => {
+          console.warn("[multimodal-demo] attachment rejected", err);
+        },
+      }}
+    />
   );
 }

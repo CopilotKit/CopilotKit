@@ -60,15 +60,12 @@ function Layout() {
   // or cancels from the external popup.
   const resolverRef = useRef<((result: PickerResult) => void) | null>(null);
 
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Book a call with sales",
-        message: "Book an intro call with the sales team to discuss pricing.",
-      },
-      {
-        title: "Schedule a 1:1 with Alice",
-        message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+        title: "Headless interrupt",
+        message: "trigger the headless interrupt",
       },
     ],
     available: "always",
