@@ -53,4 +53,15 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Italian pasta/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog selector [data-testid="copilot-assistant-message"] — fall back to
+    // [data-role="assistant"] which is what this stack emits (Rule 4).
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

@@ -55,4 +55,15 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Pie chart/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Catalog selector [data-testid="copilot-suggestion"] — fall back to
+    // [data-role="assistant"] (Rule 4).
+    await expect(
+      page.locator('[data-role="assistant"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

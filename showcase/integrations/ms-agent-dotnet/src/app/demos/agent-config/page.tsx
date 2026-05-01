@@ -2,7 +2,11 @@
 
 import { useEffect } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat, useAgent } from "@copilotkit/react-core/v2";
+import {
+  CopilotChat,
+  useAgent,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 
 import { ConfigCard } from "./config-card";
 import { useAgentConfig } from "./use-agent-config";
@@ -20,6 +24,17 @@ export default function AgentConfigDemoPage() {
 function AgentConfigInner() {
   const { config, setTone, setExpertise, setResponseLength } = useAgentConfig();
   const { agent } = useAgent({ agentId: AGENT_ID });
+
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Personalize tone",
+        message: "introduce yourself per your config",
+      },
+    ],
+    available: "always",
+  });
 
   // Push the typed config into shared state so the .NET agent can read it on
   // every run (as `ag_ui_state`) and rebuild its system prompt accordingly.

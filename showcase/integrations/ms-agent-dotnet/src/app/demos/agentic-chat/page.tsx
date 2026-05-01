@@ -71,15 +71,12 @@ function Chat() {
   });
 
   // @region[configure-suggestions]
+  // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to something new.",
-      },
-      {
-        title: "Generate sonnet",
-        message: "Write a short sonnet about AI.",
+        title: "Goldfish name",
+        message: "good name for a goldfish",
       },
     ],
     available: "always",
