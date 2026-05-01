@@ -46,6 +46,7 @@ function Suggestions() {
   // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi!" },
       {
         title: "Sidebar hello",
         message: "hi from the sidebar test",

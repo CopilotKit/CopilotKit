@@ -34,6 +34,7 @@ function DemoContent() {
   // deterministically without a real LLM call.
   useConfigureSuggestions({
     suggestions: [
+      { title: "Get started", message: "Hello! What can you do?" },
       {
         title: "Stream counter",
         message: "stream the counter to 5",
