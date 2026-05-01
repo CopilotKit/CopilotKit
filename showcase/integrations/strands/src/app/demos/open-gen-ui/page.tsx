@@ -20,6 +20,29 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
+const minimalSuggestions = [
+  {
+    title: "3D axis visualization (model airplane)",
+    message:
+      "Visualize pitch, yaw, and roll using a 3D model airplane. Render a simple airplane silhouette at the origin, with three labelled axes (X=pitch, Y=yaw, Z=roll). Animate the airplane cycling through each rotation in turn with a legend showing which axis is active.",
+  },
+  {
+    title: "How a neural network works",
+    message:
+      "Animate how a simple feed-forward neural network processes an input. Show 3 layers (input 4 nodes, hidden 5 nodes, output 2 nodes) with connections whose thickness encodes weight magnitude. Animate activations pulsing forward from input -> hidden -> output in a loop, brightening each node as it fires.",
+  },
+  {
+    title: "Quicksort visualization",
+    message:
+      "Visualize quicksort on an array of ~10 bars of varying heights. At each step highlight the pivot in amber, elements being compared in indigo, and swapped elements in emerald; fade sorted elements to slate. Auto-advance through the sort in a loop.",
+  },
+  {
+    title: "Fourier: square wave from sines",
+    message:
+      "Visualize how a square wave is built from the sum of odd-harmonic sine waves. Show 3 rotating circles on the left (epicycles at frequencies 1, 3, 5 with amplitudes 1, 1/3, 1/5), the running sum traced as a point, and the resulting waveform scrolling to the right over time.",
+  },
+];
+
 const VISUALIZATION_DESIGN_SKILL = `When generating UI with generateSandboxedUi, your goal is to produce a polished, intricate, EDUCATIONAL visualisation that teaches the concept the user asked about. Treat the output like a figure from a well-designed textbook or explorable-explanation — not a bare-bones demo.
 
 Geometry + rendering:
@@ -82,6 +105,7 @@ export default function OpenGenUiDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      ...minimalSuggestions,
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       { title: "Open block", message: "render an open gen-ui element" },
     ],
