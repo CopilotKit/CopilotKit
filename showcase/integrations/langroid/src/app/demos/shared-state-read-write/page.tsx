@@ -53,6 +53,16 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
+      { title: "Greet me", message: "Say hi and introduce yourself." },
+      {
+        title: "Remember something",
+        message:
+          "Remember that I prefer morning meetings and that I don't eat dairy.",
+      },
+      {
+        title: "Plan a weekend",
+        message: "Suggest a weekend plan based on my interests.",
+      },
       // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
       {
         title: "Weekend plan",
