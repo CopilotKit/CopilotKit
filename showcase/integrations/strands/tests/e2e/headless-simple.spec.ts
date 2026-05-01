@@ -22,3 +22,15 @@ test("headless-simple loads without errors", async ({ page }) => {
     `page errors on /demos/headless-simple: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion prompt fires the feature", async ({ page }) => {
+  await page.goto("/demos/headless-simple");
+  const input = page
+    .getByPlaceholder(/Type a message\. Ask me to 'show a card about cats'\./i)
+    .first();
+  await input.fill("show a small card body about hummingbirds");
+  await input.press("Enter");
+  await expect(
+    page.locator('[data-message-role="assistant"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

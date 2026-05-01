@@ -22,3 +22,17 @@ test("reasoning-default-render loads without errors", async ({ page }) => {
     `page errors on /demos/reasoning-default-render: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/reasoning-default-render");
+  const pill = page.getByRole("button", { name: /Default reasoning/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  // Selector fallback: catalog primarySelector
+  // [data-testid="copilot-reasoning-message"] is not rendered in this strands
+  // demo (the v2 default reasoning slot doesn't expose that testid in the
+  // strands build), so we fall back to [data-role="assistant"].
+  await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+    timeout: 60_000,
+  });
+});

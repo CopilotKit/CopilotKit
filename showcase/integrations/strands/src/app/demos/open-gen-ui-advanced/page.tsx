@@ -14,7 +14,6 @@ import {
   useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 import { openGenUiSandboxFunctions } from "./sandbox-functions";
-import { openGenUiSuggestions } from "./suggestions";
 
 export default function OpenGenUiAdvancedDemo() {
   return (
@@ -39,7 +38,10 @@ export default function OpenGenUiAdvancedDemo() {
 
 function Chat() {
   useConfigureSuggestions({
-    suggestions: openGenUiSuggestions,
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Advanced flow", message: "continue the advanced gen-ui flow" },
+    ],
     available: "always",
   });
 

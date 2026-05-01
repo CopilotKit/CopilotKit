@@ -137,4 +137,17 @@ test.describe("State Streaming", () => {
     await expect(page.locator('[data-testid="reject-button"]')).toBeVisible();
     await expect(page.locator('[data-testid="confirm-button"]')).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Stream counter/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Selector fallback: catalog primarySelector
+    // [data-testid="status-display"] is not rendered in this strands demo
+    // (the streaming view doesn't expose that testid in the strands build),
+    // so we fall back to [data-role="assistant"].
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

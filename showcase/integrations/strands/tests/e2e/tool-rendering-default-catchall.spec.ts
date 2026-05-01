@@ -24,3 +24,13 @@ test("tool-rendering-default-catchall loads without errors", async ({
     `page errors on /demos/tool-rendering-default-catchall: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/tool-rendering-default-catchall");
+  const pill = page.getByRole("button", { name: /Default catchall/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="custom-catchall-card"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});
