@@ -60,4 +60,19 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  // Canonical e2e suggestion pill — see showcase/aimock/_canonical-catalog.json.
+  test("Launch outline canonical pill fires the catalog message", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    // Selector divergence fallback: assertion on assistant message presence
+    // since the agent-state-card may not always render under the mock fixture.
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

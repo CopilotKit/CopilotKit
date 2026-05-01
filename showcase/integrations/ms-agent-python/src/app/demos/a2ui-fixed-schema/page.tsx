@@ -44,15 +44,19 @@ export default function A2UIFixedSchemaDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Find SFO → JFK",
-        message: "Find me a flight from SFO to JFK on United for $289.",
+        title: "Block calendar",
+        message: "block out my tuesday with three meetings and a gym slot",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <CopilotChat agentId="a2ui-fixed-schema" className="h-full rounded-2xl" />

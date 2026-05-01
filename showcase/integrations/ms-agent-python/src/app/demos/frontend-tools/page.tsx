@@ -44,19 +44,19 @@ function Chat() {
   });
   // @endregion[frontend-tool-registration]
 
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to a blue-to-purple gradient.",
-      },
-      {
-        title: "Sunset theme",
-        message: "Make the background a sunset-themed gradient.",
+        title: "Switch theme",
+        message: "switch theme to dark mode",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <div

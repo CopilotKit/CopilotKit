@@ -55,4 +55,17 @@ test.describe("Tool Rendering", () => {
       timeout: 5000,
     });
   });
+
+  // Canonical e2e suggestion pill — see showcase/aimock/_canonical-catalog.json.
+  test("Pie chart canonical pill fires the catalog message", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Pie chart/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

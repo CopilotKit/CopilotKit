@@ -70,4 +70,17 @@ test.describe("Agentic Chat", () => {
       timeout: 15000,
     });
   });
+
+  // Canonical e2e suggestion pill — see showcase/aimock/_canonical-catalog.json.
+  test("Goldfish name canonical pill fires the catalog message", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Goldfish name/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

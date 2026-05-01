@@ -53,4 +53,17 @@ test.describe("Shared State (Reading)", () => {
       timeout: 10000,
     });
   });
+
+  // Canonical e2e suggestion pill — see showcase/aimock/_canonical-catalog.json.
+  test("Italian pasta canonical pill fires the catalog message", async ({
+    page,
+  }) => {
+    const pill = page.getByRole("button", { name: /Italian pasta/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+
+    await expect(
+      page.locator('[data-testid="copilot-assistant-message"]').first(),
+    ).toBeVisible({ timeout: 60_000 });
+  });
 });

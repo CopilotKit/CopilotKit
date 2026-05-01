@@ -32,19 +32,19 @@ function Chat() {
 
   const agentState = agent.state as AgentState | undefined;
 
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Simple plan",
-        message: "Please build a plan to go to mars in 5 steps.",
-      },
-      {
-        title: "Complex plan",
-        message: "Please build a plan to make pizza in 10 steps.",
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   const steps = agentState?.steps;
 

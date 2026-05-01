@@ -22,9 +22,30 @@
 
 import { Component, useCallback, useMemo, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
-import { CopilotKit, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKit,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import { useDemoAuth } from "./use-demo-auth";
 import { AuthBanner } from "./auth-banner";
+
+function ConfigureSuggestionsBridge() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
+  useConfigureSuggestions({
+    suggestions: [
+      {
+        title: "Auth check",
+        message: "auth check turn 1",
+      },
+    ],
+    available: "always",
+  });
+  // @endregion[canonical-e2e-suggestion]
+  return null;
+}
 
 interface ChatErrorBoundaryProps {
   authenticated: boolean;
@@ -161,6 +182,7 @@ export default function AuthDemoPage() {
         </header>
         <div className="flex-1 overflow-hidden rounded-md border border-neutral-200">
           <ChatErrorBoundary authenticated={auth.authenticated}>
+            <ConfigureSuggestionsBridge />
             <CopilotChat agentId="auth-demo" className="h-full" />
           </ChatErrorBoundary>
         </div>

@@ -71,19 +71,19 @@ function Chat() {
   });
 
   // @region[configure-suggestions]
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Change background",
-        message: "Change the background to something new.",
-      },
-      {
-        title: "Generate sonnet",
-        message: "Write a short sonnet about AI.",
+        title: "Goldfish name",
+        message: "good name for a goldfish",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
   // @endregion[configure-suggestions]
 
   return (

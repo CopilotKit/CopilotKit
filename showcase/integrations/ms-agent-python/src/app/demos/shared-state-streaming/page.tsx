@@ -27,9 +27,19 @@ function DemoContent() {
   //   useConfigureSuggestions({ suggestions: [{ title, message }] })
   //   useInterrupt({ render: ({ event, resolve }) => <Component /> })
 
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
-    suggestions: [{ title: "Get started", message: "Hello! What can you do?" }],
+    suggestions: [
+      {
+        title: "Stream counter",
+        message: "stream the counter to 5",
+      },
+    ],
+    available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>

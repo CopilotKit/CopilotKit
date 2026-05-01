@@ -43,20 +43,19 @@ export default function MCPAppsDemo() {
 }
 
 function Chat() {
+  // @region[canonical-e2e-suggestion]
+  // Canonical e2e suggestion — single pill keyed to the aimock fixture in
+  // showcase/aimock/d5-all.json (see showcase/aimock/_canonical-catalog.json).
   useConfigureSuggestions({
     suggestions: [
       {
-        title: "Draw a flowchart",
-        message: "Use Excalidraw to draw a simple flowchart with three steps.",
-      },
-      {
-        title: "Sketch a system diagram",
-        message:
-          "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+        title: "Excalidraw",
+        message: "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",
   });
+  // @endregion[canonical-e2e-suggestion]
 
   return <CopilotChat agentId="mcp-apps" className="h-full rounded-2xl" />;
 }
