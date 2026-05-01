@@ -14,3 +14,13 @@ test("byoc-hashbrown loads without errors", async ({ page }) => {
     `page errors on /demos/byoc-hashbrown: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/byoc-hashbrown");
+  const pill = page.getByRole("button", { name: /Sales overview/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="metric-card"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

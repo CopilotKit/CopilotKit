@@ -22,3 +22,13 @@ test("prebuilt-sidebar loads without errors", async ({ page }) => {
     `page errors on /demos/prebuilt-sidebar: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/prebuilt-sidebar");
+  const pill = page.getByRole("button", { name: /Sidebar hello/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="copilot-sidebar"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

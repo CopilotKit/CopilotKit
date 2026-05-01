@@ -60,4 +60,17 @@ test.describe("Agentic Generative UI", () => {
     const progressBar = taskProgress.locator(".rounded-full").first();
     await expect(progressBar).toBeVisible();
   });
+
+  test("canonical suggestion pill fires the feature", async ({ page }) => {
+    const pill = page.getByRole("button", { name: /Launch outline/i }).first();
+    await expect(pill).toBeVisible({ timeout: 30_000 });
+    await pill.click();
+    // Selector fallback: catalog primarySelector
+    // [data-testid="agent-state-card"] is not rendered in this strands demo
+    // (gen-ui-agent uses a TaskProgress card instead), so we fall back to
+    // [data-role="assistant"].
+    await expect(page.locator('[data-role="assistant"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+  });
 });

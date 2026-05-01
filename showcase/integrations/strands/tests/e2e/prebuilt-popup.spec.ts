@@ -22,3 +22,13 @@ test("prebuilt-popup loads without errors", async ({ page }) => {
     `page errors on /demos/prebuilt-popup: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/prebuilt-popup");
+  const pill = page.getByRole("button", { name: /Popup hello/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="copilot-popup"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

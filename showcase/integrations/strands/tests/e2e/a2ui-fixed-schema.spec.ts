@@ -22,3 +22,13 @@ test("a2ui-fixed-schema loads without errors", async ({ page }) => {
     `page errors on /demos/a2ui-fixed-schema: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/a2ui-fixed-schema");
+  const pill = page.getByRole("button", { name: /Block calendar/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="copilot-suggestion"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

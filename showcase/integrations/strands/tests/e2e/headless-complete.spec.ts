@@ -22,3 +22,15 @@ test("headless-complete loads without errors", async ({ page }) => {
     `page errors on /demos/headless-complete: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion prompt fires the feature", async ({ page }) => {
+  await page.goto("/demos/headless-complete");
+  const input = page.getByPlaceholder(/Type a message\.\.\./i).first();
+  await input.fill(
+    "send a sample message to populate the headless transcript",
+  );
+  await input.press("Enter");
+  await expect(
+    page.locator('[data-testid="headless-complete-messages"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});

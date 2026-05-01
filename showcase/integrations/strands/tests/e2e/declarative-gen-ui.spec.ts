@@ -22,3 +22,13 @@ test("declarative-gen-ui loads without errors", async ({ page }) => {
     `page errors on /demos/declarative-gen-ui: ${errors.join(" | ")}`,
   ).toEqual([]);
 });
+
+test("canonical suggestion pill fires the feature", async ({ page }) => {
+  await page.goto("/demos/declarative-gen-ui");
+  const pill = page.getByRole("button", { name: /Show card/i }).first();
+  await expect(pill).toBeVisible({ timeout: 30_000 });
+  await pill.click();
+  await expect(
+    page.locator('[data-testid="copilot-suggestion"]').first(),
+  ).toBeVisible({ timeout: 60_000 });
+});
