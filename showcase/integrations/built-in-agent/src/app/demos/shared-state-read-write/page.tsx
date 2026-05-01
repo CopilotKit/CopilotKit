@@ -6,6 +6,7 @@ import {
   CopilotChat,
   useAgent,
   UseAgentUpdate,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 type Recipe = {
@@ -46,6 +47,17 @@ function Demo() {
       agent.state = { ...defaultRecipe } as unknown as typeof agent.state;
     }
   }, [agent]);
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Weekend plan",
+        message: "build me a weekend itinerary based on saved interests",
+      },
+    ],
+    available: "always",
+  });
 
   const recipe = (agent.state as Partial<Recipe>) ?? {};
   const title = recipe.title ?? defaultRecipe.title;

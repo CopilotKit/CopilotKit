@@ -5,6 +5,7 @@ import {
   CopilotChat,
   useAgent,
   UseAgentUpdate,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 export default function SharedStateStreaming() {
@@ -22,6 +23,14 @@ function Demo() {
     updates: [UseAgentUpdate.OnStateChanged],
   });
   // @endregion[frontend-use-coagent-state]
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Stream counter", message: "stream the counter to 5" },
+    ],
+    available: "always",
+  });
 
   const document = (agent.state as { document?: string }).document ?? "";
 

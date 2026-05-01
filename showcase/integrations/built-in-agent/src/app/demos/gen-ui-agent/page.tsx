@@ -5,6 +5,7 @@ import {
   CopilotChat,
   useAgent,
   UseAgentUpdate,
+  useConfigureSuggestions,
 } from "@copilotkit/react-core/v2";
 
 type Step = {
@@ -24,6 +25,17 @@ function Demo() {
   const { agent } = useAgent({
     agentId: "default",
     updates: [UseAgentUpdate.OnStateChanged],
+  });
+
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      {
+        title: "Launch outline",
+        message: "lay out a five-stage launch outline for our beta product",
+      },
+    ],
+    available: "always",
   });
 
   const steps = (agent.state as { steps?: Step[] }).steps ?? [];

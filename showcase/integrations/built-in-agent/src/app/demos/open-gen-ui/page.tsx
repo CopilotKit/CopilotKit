@@ -10,7 +10,22 @@
  * iframe. No custom sandbox functions, no custom tools — just chat.
  */
 
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
+
+function OpenGenUiSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Open block", message: "render an open gen-ui element" },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 const VISUALIZATION_DESIGN_SKILL = `When generating UI with generateSandboxedUi, your goal is to produce a polished, intricate, EDUCATIONAL visualisation that teaches the concept the user asked about. Treat the output like a figure from a well-designed textbook or explorable-explanation — not a bare-bones demo.
 
@@ -53,6 +68,7 @@ export default function OpenGenUiDemo() {
           pass.&rdquo; The agent authors HTML + CSS that mounts inside a
           sandboxed iframe inline in the chat.
         </p>
+        <OpenGenUiSuggestions />
         <CopilotChat />
       </main>
     </CopilotKitProvider>

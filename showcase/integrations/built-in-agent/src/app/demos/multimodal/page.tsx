@@ -14,10 +14,25 @@
  */
 
 import { useCallback } from "react";
-import { CopilotKitProvider, CopilotChat } from "@copilotkit/react-core/v2";
+import {
+  CopilotKitProvider,
+  CopilotChat,
+  useConfigureSuggestions,
+} from "@copilotkit/react-core/v2";
 import type { AttachmentUploadResult } from "@copilotkit/shared";
 
 import { SampleAttachmentButtons } from "./sample-attachment-buttons";
+
+function MultimodalSuggestions() {
+  useConfigureSuggestions({
+    suggestions: [
+      // canonical e2e pill — see showcase/aimock/_canonical-catalog.json
+      { title: "Sample image", message: "describe the sample image" },
+    ],
+    available: "always",
+  });
+  return null;
+}
 
 type DataUploadResult = Extract<AttachmentUploadResult, { type: "data" }>;
 
@@ -79,6 +94,7 @@ export default function MultimodalDemoPage() {
           data-multimodal-demo-chat-root
           className="min-h-0 flex-1 overflow-hidden rounded-lg border border-black/10"
         >
+          <MultimodalSuggestions />
           <CopilotChat
             className="h-full"
             attachments={{
