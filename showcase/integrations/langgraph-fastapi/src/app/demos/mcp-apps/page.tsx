@@ -45,11 +45,6 @@ export default function MCPAppsDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Excalidraw",
-        message: "draw an excalidraw diagram of a router with two switches",
-      },
       {
         title: "Draw a flowchart",
         message: "Use Excalidraw to draw a simple flowchart with three steps.",
@@ -58,6 +53,11 @@ function Chat() {
         title: "Sketch a system diagram",
         message:
           "Open Excalidraw and sketch a system diagram with a client, server, and database.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Excalidraw",
+        message: "draw an excalidraw diagram of a router with two switches",
       },
     ],
     available: "always",

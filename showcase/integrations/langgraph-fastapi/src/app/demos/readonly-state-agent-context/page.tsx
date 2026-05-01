@@ -63,8 +63,6 @@ function DemoContent() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      { title: "Recall pref", message: "recall the user preference" },
       {
         title: "Who am I?",
         message: "What do you know about me from my context?",
@@ -78,6 +76,8 @@ function DemoContent() {
         message:
           "What time is it in my timezone and what should I do for the next hour?",
       },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Recall pref", message: "recall the user preference" },
     ],
     available: "always",
   });

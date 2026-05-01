@@ -31,8 +31,6 @@ export default function GenUiInterruptDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      { title: "Pause and pick", message: "request the gen-ui interrupt" },
       {
         title: "Book a call with sales",
         message: "Book an intro call with the sales team to discuss pricing.",
@@ -41,6 +39,8 @@ function Chat() {
         title: "Schedule a 1:1 with Alice",
         message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
       },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      { title: "Pause and pick", message: "request the gen-ui interrupt" },
     ],
     available: "always",
   });

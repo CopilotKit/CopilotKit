@@ -46,9 +46,9 @@ export default function OpenGenUiAdvancedDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
+      ...openGenUiSuggestions,
       // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
       { title: "Advanced flow", message: "continue the advanced gen-ui flow" },
-      ...openGenUiSuggestions,
     ],
     available: "always",
   });

@@ -60,11 +60,6 @@ function Layout() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Refund approval",
-        message: "process a refund for the late delivery ticket",
-      },
       {
         title: "Approve refund for #12345",
         message:
@@ -79,6 +74,11 @@ function Layout() {
         title: "Escalate ticket #12347",
         message:
           "Please escalate ticket #12347 to the payments team — Morgan Lee's payment is stuck.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Refund approval",
+        message: "process a refund for the late delivery ticket",
       },
     ],
     available: "always",

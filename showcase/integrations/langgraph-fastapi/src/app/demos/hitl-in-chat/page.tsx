@@ -34,11 +34,6 @@ export default function HitlInChatDemo() {
 function Chat() {
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Pick a slot",
-        message: "set up a quick demo call with the design folks",
-      },
       {
         title: "Book a call with sales",
         message:
@@ -47,6 +42,11 @@ function Chat() {
       {
         title: "Schedule a 1:1 with Alice",
         message: "Schedule a 1:1 with Alice next week to review Q2 goals.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Pick a slot",
+        message: "set up a quick demo call with the design folks",
       },
     ],
     available: "always",

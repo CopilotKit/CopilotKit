@@ -17,11 +17,6 @@ const showcase = showcaseConfig.showcase;
 export const useExampleSuggestions = () => {
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Pasta night",
-        message: "suggest a vegetarian pasta dinner for four guests",
-      },
       {
         title: "Pie Chart (Controlled Generative UI)",
         message:
@@ -67,6 +62,11 @@ export const useExampleSuggestions = () => {
         title: "Task Manager (Shared State)",
         message:
           "Enable app mode and add three todos about learning CopilotKit: one about reading the docs, one about building a prototype, and one about exploring agent state.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Pasta night",
+        message: "suggest a vegetarian pasta dinner for four guests",
       },
     ],
     available: "always",

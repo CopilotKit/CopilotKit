@@ -45,6 +45,7 @@ function MainContent() {
 function Suggestions() {
   useConfigureSuggestions({
     suggestions: [
+      { title: "Say hi", message: "Say hi from the popup!" },
       // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
       { title: "Popup hello", message: "hi from the popup test" },
     ],

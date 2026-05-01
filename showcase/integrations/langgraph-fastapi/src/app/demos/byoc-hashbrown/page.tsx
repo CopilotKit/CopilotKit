@@ -64,11 +64,6 @@ function ChatBody() {
   // the CopilotChat composer; clicking a pill sends its `message` directly.
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Sales overview",
-        message: "sketch the sales overview with quarterly bars",
-      },
       ...BYOC_HASHBROWN_SUGGESTIONS.map((s) => ({
         title: s.label,
         message: s.prompt,
@@ -78,6 +73,11 @@ function ChatBody() {
           .toLowerCase()
           .replace(/\s+/g, "-")}`,
       })),
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Sales overview",
+        message: "sketch the sales overview with quarterly bars",
+      },
     ],
     available: "always",
   });

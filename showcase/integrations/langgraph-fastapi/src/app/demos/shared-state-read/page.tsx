@@ -100,11 +100,6 @@ function Recipe() {
 
   useConfigureSuggestions({
     suggestions: [
-      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
-      {
-        title: "Italian pasta",
-        message: "compose an italian pasta recipe with seasonal greens",
-      },
       {
         title: "Create Italian recipe",
         message: "Create a delicious Italian pasta recipe.",
@@ -116,6 +111,11 @@ function Recipe() {
       {
         title: "Suggest variations",
         message: "Suggest some creative variations of this recipe.",
+      },
+      // canonical-suggestion-pill (showcase/aimock/_canonical-catalog.json)
+      {
+        title: "Italian pasta",
+        message: "compose an italian pasta recipe with seasonal greens",
       },
     ],
     available: "always",
