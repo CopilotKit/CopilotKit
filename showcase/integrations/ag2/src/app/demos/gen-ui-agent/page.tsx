@@ -32,12 +32,20 @@ function Chat() {
 
   const agentState = agent.state as AgentState | undefined;
 
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Simple plan",
+        message: "Please build a plan to go to mars in 5 steps.",
+      },
+      {
+        title: "Complex plan",
+        message: "Please build a plan to make pizza in 10 steps.",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Launch outline",
         message: "lay out a five-stage launch outline for our beta product",
       },

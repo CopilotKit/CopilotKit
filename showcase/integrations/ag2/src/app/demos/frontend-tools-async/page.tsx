@@ -143,12 +143,24 @@ function Chat() {
   // @endregion[frontend-tool-async-registration]
   // @endregion[frontend-tool-async]
 
-  // @canonical-suggestion-pill
-  // Single canonical e2e pill — title + message come straight from
-  // showcase/aimock/_canonical-catalog.json.
   useConfigureSuggestions({
     suggestions: [
       {
+        title: "Find project-planning notes",
+        message: "Find my notes about project planning.",
+      },
+      {
+        title: "Search for 'auth'",
+        message: "Search my notes for anything related to auth.",
+      },
+      {
+        title: "What do I have about reading?",
+        message: "Do I have any notes tagged reading?",
+      },
+      {
+        // @canonical-suggestion-pill
+        // Canonical e2e pill — title/message resolve to a fixture in
+        // showcase/aimock/_canonical-catalog.json.
         title: "Async metric",
         message: "fetch the async metric",
       },
