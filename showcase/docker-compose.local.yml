@@ -93,14 +93,17 @@ services:
       retries: 5
       start_period: 10s
 
-  dashboard:
+  shell-dashboard:
     build:
       context: ../
       dockerfile: showcase/shell-dashboard/Dockerfile
       args:
+        NEXT_PUBLIC_POCKETBASE_URL: http://localhost:8090
         OPS_BASE_URL: http://localhost:3200
-    image: showcase-dashboard:local
-    container_name: showcase-dashboard
+        COMMIT_SHA: local
+        BRANCH: local
+    image: ghcr.io/copilotkit/showcase-shell-dashboard
+    container_name: showcase-shell-dashboard
     environment:
       - POCKETBASE_URL=http://pocketbase:8090
       - SHOWCASE_LOCAL=1
