@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <main style={{ padding: "2rem", maxWidth: "800px", margin: "0 auto" }}>
-      <h1>LangChain (TypeScript)</h1>
+      <h1>LangGraph (TypeScript)</h1>
       <p>Integration ID: langgraph-typescript</p>
       <h2 style={{ marginTop: "2rem" }}>Demos</h2>
       <div style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>

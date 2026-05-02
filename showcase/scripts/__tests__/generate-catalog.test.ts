@@ -297,7 +297,7 @@ describe("Catalog Generator", () => {
       (c: any) => c.id === "langgraph-python/agentic-chat",
     );
     expect(lgpAgenticChat).toBeDefined();
-    expect(lgpAgenticChat.integration_name).toBe("LangChain (Python)");
+    expect(lgpAgenticChat.integration_name).toBe("LangGraph (Python)");
     expect(lgpAgenticChat.feature_name).toBe("Pre-Built CopilotChat");
     expect(lgpAgenticChat.category_name).toBe("Chat & UI");
 

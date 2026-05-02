@@ -51,7 +51,7 @@ describe("Registry Generator", () => {
     const stdout = runGenerator();
 
     expect(stdout).toContain("Generating integration registry");
-    expect(stdout).toContain("LangChain (Python)");
+    expect(stdout).toContain("LangGraph (Python)");
 
     const registryPath = path.join(SHELL_DATA_DIR, "registry.json");
     expect(fs.existsSync(registryPath)).toBe(true);
@@ -65,7 +65,7 @@ describe("Registry Generator", () => {
       (i: any) => i.slug === "langgraph-python",
     );
     expect(langgraph).toBeDefined();
-    expect(langgraph.name).toBe("LangChain (Python)");
+    expect(langgraph.name).toBe("LangGraph (Python)");
     expect(langgraph.category).toBe("popular");
     expect(langgraph.language).toBe("python");
     expect(langgraph.features.length).toBe(40);

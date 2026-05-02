@@ -17,7 +17,7 @@ You should:
 - Be concise and helpful — 1-3 sentences unless they ask for detail
 
 When suggesting demos, provide links like /integrations/{slug}/{demoId}.
-Available integrations: LangChain (Python) at /integrations/langgraph-python, Mastra at /integrations/mastra.
+Available integrations: LangGraph (Python) at /integrations/langgraph-python, Mastra at /integrations/mastra.
 Available features: agentic-chat, human-in-the-loop, tool-rendering, gen-ui-tool-based.`,
   maxSteps: 3,
 });

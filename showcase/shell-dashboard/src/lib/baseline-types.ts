@@ -226,9 +226,9 @@ export const FEATURE_CATEGORIES: Record<string, string[]> = {
 /* ------------------------------------------------------------------ */
 
 export const BASELINE_PARTNERS: readonly { name: string; slug: string }[] = [
-  { name: "LangChain (Python)", slug: "langgraph-python" },
-  { name: "LangChain (TypeScript)", slug: "langgraph-typescript" },
-  { name: "LangChain (FastAPI)", slug: "langgraph-fastapi" },
+  { name: "LangGraph (Python)", slug: "langgraph-python" },
+  { name: "LangGraph (TypeScript)", slug: "langgraph-typescript" },
+  { name: "LangGraph (FastAPI)", slug: "langgraph-fastapi" },
   { name: "Google ADK", slug: "google-adk" },
   { name: "MS Agent Framework (Python)", slug: "ms-agent-python" },
   { name: "MS Agent Framework (.NET)", slug: "ms-agent-dotnet" },

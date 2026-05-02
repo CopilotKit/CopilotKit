@@ -1,9 +1,9 @@
-name: LangChain (FastAPI)
+name: LangGraph (FastAPI)
 slug: langgraph-fastapi
 category: emerging
 language: python
 logo: /logos/langgraph-fastapi.svg
-description: CopilotKit integration with LangChain (FastAPI)
+description: CopilotKit integration with LangGraph (FastAPI)
 partner_docs: null
 repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/langgraph-fastapi
 copilotkit_version: 2.0.0
