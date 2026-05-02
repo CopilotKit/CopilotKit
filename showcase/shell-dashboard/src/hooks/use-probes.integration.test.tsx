@@ -1,14 +1,14 @@
 /**
- * Integration test: `useProbes` → `lib/ops-api` → `fetch`, with no module
+ * Integration test: `useProbes` → `lib/harness-api` → `fetch`, with no module
  * mocks between the hook and the real client. This is the missing
  * coverage that masked the production bug where the dashboard rendered
  * "All probes idle" because the resolved URL was hitting the dashboard
  * origin (404) instead of the showcase-harness proxy path.
  *
  * Why both layers must be exercised together:
- *   - `use-probes.test.ts` mocks the entire `lib/ops-api` module, so it
+ *   - `use-probes.test.ts` mocks the entire `lib/harness-api` module, so it
  *     never validates URL resolution.
- *   - `lib/ops-api.test.ts` mocks `globalThis.fetch`, but it imports the
+ *   - `lib/harness-api.test.ts` mocks `globalThis.fetch`, but it imports the
  *     client directly and never goes through the hook layer that the page
  *     actually uses.
  *
@@ -21,10 +21,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { useProbes } from "./use-probes";
-import type { ProbesResponse } from "../lib/ops-api";
+import type { ProbesResponse } from "../lib/harness-api";
 
 let fetchSpy: ReturnType<typeof vi.fn>;
-let savedOpsBaseUrl: string | undefined;
+let savedHarnessBaseUrl: string | undefined;
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -36,25 +36,25 @@ function jsonResponse(body: unknown): Response {
 beforeEach(() => {
   fetchSpy = vi.fn();
   vi.stubGlobal("fetch", fetchSpy);
-  // Snapshot + clear NEXT_PUBLIC_OPS_BASE_URL so the resolveBaseUrl()
+  // Snapshot + clear NEXT_PUBLIC_HARNESS_BASE_URL so the resolveBaseUrl()
   // fallback path is exercised. Restored in afterEach so test ordering
   // never leaks env state to the next file.
-  savedOpsBaseUrl = process.env.NEXT_PUBLIC_OPS_BASE_URL;
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  savedHarnessBaseUrl = process.env.NEXT_PUBLIC_HARNESS_BASE_URL;
+  delete process.env.NEXT_PUBLIC_HARNESS_BASE_URL;
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  if (savedOpsBaseUrl !== undefined) {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = savedOpsBaseUrl;
+  if (savedHarnessBaseUrl !== undefined) {
+    process.env.NEXT_PUBLIC_HARNESS_BASE_URL = savedHarnessBaseUrl;
   } else {
-    delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+    delete process.env.NEXT_PUBLIC_HARNESS_BASE_URL;
   }
 });
 
-describe("useProbes → ops-api → fetch wiring", () => {
-  it("hits the relative same-origin proxy path /api/ops/probes by default", async () => {
+describe("useProbes → harness-api → fetch wiring", () => {
+  it("hits the relative same-origin proxy path /api/harness/probes by default", async () => {
     const body: ProbesResponse = {
       probes: [
         {
@@ -73,12 +73,12 @@ describe("useProbes → ops-api → fetch wiring", () => {
     const { result } = renderHook(() => useProbes());
     await waitFor(() => expect(result.current.data?.probes).toHaveLength(1));
 
-    // The hook must call fetch through ops-api with the same-origin proxy
-    // path. Anything else (the dashboard origin + /api/ops, or an inlined
-    // ops base URL) means the rewrite contract is broken.
+    // The hook must call fetch through harness-api with the same-origin proxy
+    // path. Anything else (the dashboard origin + /api/harness, or an inlined
+    // harness base URL) means the rewrite contract is broken.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const url = String(fetchSpy.mock.calls[0]![0]);
-    expect(url).toBe("/api/ops/probes");
+    expect(url).toBe("/api/harness/probes");
 
     // Lock in the request shape the proxy contract depends on: GET (no
     // method override), no-store cache (live polling, never serve a stale
@@ -131,7 +131,7 @@ describe("useProbes → ops-api → fetch wiring", () => {
 
   it("surfaces a useful error when the proxy path returns 404 (regression)", async () => {
     // Production failure mode this guards against: the rewrite is missing
-    // and /api/ops/probes 404s against the dashboard's own origin. The
+    // and /api/harness/probes 404s against the dashboard's own origin. The
     // hook must surface the 404 with the URL in the message so the
     // operator can grep their way back to "the rewrite is missing"
     // instead of seeing a vague "All probes idle" empty state.
@@ -146,7 +146,7 @@ describe("useProbes → ops-api → fetch wiring", () => {
     // changes the error format (status/statusText/url ordering) trips this
     // test instead of silently regressing the operator-facing message.
     expect(result.current.error?.message).toMatch(
-      /^ops-api request failed: 404 Not Found at \/api\/ops\/probes/,
+      /^harness-api request failed: 404 Not Found at \/api\/harness\/probes/,
     );
     expect(result.current.data).toBeNull();
   });

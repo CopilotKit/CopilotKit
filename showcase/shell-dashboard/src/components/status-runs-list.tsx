@@ -18,7 +18,7 @@
  */
 import { Fragment, useEffect, useState, useCallback } from "react";
 import { formatDuration, formatRelative } from "./status-table";
-import type { ProbeRun, ProbeRunServiceResult } from "../lib/ops-api";
+import type { ProbeRun, ProbeRunServiceResult } from "../lib/harness-api";
 
 export interface StatusRunsListProps {
   runs: ProbeRun[];

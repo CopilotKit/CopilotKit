@@ -14,7 +14,7 @@ import {
 
 const STORAGE_KEY = "dashboard:overlays";
 const HASH_PREFIX = "matrix:";
-const OPS_PROBE_PREFIX = "ops:probe=";
+const STATUS_PROBE_PREFIX = "status:probe=";
 
 // ---------------------------------------------------------------------------
 // URL hash helpers
@@ -22,7 +22,7 @@ const OPS_PROBE_PREFIX = "ops:probe=";
 
 /** Parse the current URL hash into tab + overlay set + optional probe ID. */
 function parseHash(): {
-  tab: "matrix" | "baseline" | "ops";
+  tab: "matrix" | "baseline" | "status";
   overlays: OverlaySet | null;
   probeId: string | null;
 } {
@@ -30,10 +30,16 @@ function parseHash(): {
     typeof window !== "undefined" ? window.location.hash.slice(1) : "";
   if (!raw) return { tab: "matrix", overlays: null, probeId: null };
 
-  // #ops:probe=<id> — ops tab with probe detail drilldown
-  if (raw.startsWith(OPS_PROBE_PREFIX)) {
-    const probeId = decodeURIComponent(raw.slice(OPS_PROBE_PREFIX.length));
-    return { tab: "ops", overlays: null, probeId: probeId || null };
+  // #status:probe=<id> — status tab with probe detail drilldown
+  if (raw.startsWith(STATUS_PROBE_PREFIX)) {
+    const probeId = decodeURIComponent(raw.slice(STATUS_PROBE_PREFIX.length));
+    return { tab: "status", overlays: null, probeId: probeId || null };
+  }
+
+  // #ops:probe=<id> — legacy redirect (bookmarks from before ops→status rename)
+  if (raw.startsWith("ops:probe=")) {
+    const probeId = decodeURIComponent(raw.slice("ops:probe=".length));
+    return { tab: "status", overlays: null, probeId: probeId || null };
   }
 
   // #baseline — switch to baseline tab
@@ -41,17 +47,22 @@ function parseHash(): {
     return { tab: "baseline", overlays: null, probeId: null };
   }
 
-  // #ops — switch to ops tab
+  // #status — switch to status tab
+  if (raw === "status") {
+    return { tab: "status", overlays: null, probeId: null };
+  }
+
+  // #ops — legacy redirect to status tab
   if (raw === "ops") {
-    return { tab: "ops", overlays: null, probeId: null };
+    return { tab: "status", overlays: null, probeId: null };
   }
 
   // Legacy redirect check
   if (raw in LEGACY_REDIRECTS) {
     const mapped = LEGACY_REDIRECTS[raw];
-    // "status" redirects to ops tab
+    // Empty overlay set → status tab redirect
     if (mapped.length === 0) {
-      return { tab: "ops", overlays: null, probeId: null };
+      return { tab: "status", overlays: null, probeId: null };
     }
     const set = new Set(mapped) as OverlaySet;
     return { tab: "matrix", overlays: set, probeId: null };
@@ -86,7 +97,7 @@ function parseHash(): {
  * replaceState (used for initial mount sync to avoid polluting history).
  */
 function writeHash(
-  tab: "matrix" | "baseline" | "ops",
+  tab: "matrix" | "baseline" | "status",
   overlays?: OverlaySet,
   probeId?: string | null,
   push = false,
@@ -98,10 +109,10 @@ function writeHash(
     window.history[method](null, "", "#baseline");
     return;
   }
-  if (tab === "ops") {
+  if (tab === "status") {
     const hash = probeId
-      ? `#${OPS_PROBE_PREFIX}${encodeURIComponent(probeId)}`
-      : "#ops";
+      ? `#${STATUS_PROBE_PREFIX}${encodeURIComponent(probeId)}`
+      : "#status";
     window.history[method](null, "", hash);
     return;
   }
@@ -149,10 +160,10 @@ function saveToStorage(overlays: OverlaySet): void {
 
 export interface UseOverlaysReturn {
   overlays: OverlaySet;
-  activeTab: "matrix" | "baseline" | "ops";
+  activeTab: "matrix" | "baseline" | "status";
   toggle: (overlay: Overlay) => void;
   applyPreset: (presetId: string) => void;
-  setTab: (tab: "matrix" | "baseline" | "ops") => void;
+  setTab: (tab: "matrix" | "baseline" | "status") => void;
   activePreset: string | null;
   showFilters: boolean;
   has: (overlay: Overlay) => boolean;
@@ -166,7 +177,7 @@ export function useOverlays(): UseOverlaysReturn {
   const [overlays, setOverlays] = useState<OverlaySet>(
     () => new Set(DEFAULT_OVERLAYS) as OverlaySet,
   );
-  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "ops">("matrix");
+  const [activeTab, setActiveTabRaw] = useState<"matrix" | "baseline" | "status">("matrix");
   const [selectedProbeId, setSelectedProbeIdRaw] = useState<string | null>(
     null,
   );
@@ -243,7 +254,7 @@ export function useOverlays(): UseOverlaysReturn {
   );
 
   const setTab = useCallback(
-    (tab: "matrix" | "baseline" | "ops") => {
+    (tab: "matrix" | "baseline" | "status") => {
       setActiveTabRaw(tab);
       setSelectedProbeIdRaw(null);
       writeHash(tab, overlays, null, true);
@@ -253,7 +264,7 @@ export function useOverlays(): UseOverlaysReturn {
 
   const selectProbe = useCallback((probeId: string | null) => {
     setSelectedProbeIdRaw(probeId);
-    writeHash("ops", undefined, probeId, true);
+    writeHash("status", undefined, probeId, true);
   }, []);
 
   const activePreset = useMemo(() => {

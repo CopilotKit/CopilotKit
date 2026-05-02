@@ -10,21 +10,21 @@
  *
  * `baseUrl` resolution order (per call):
  *   1. explicit `baseUrl` param (overrides everything; used in tests + SSR)
- *   2. `process.env.NEXT_PUBLIC_OPS_BASE_URL` — opt-in escape hatch for
+ *   2. `process.env.NEXT_PUBLIC_HARNESS_BASE_URL` — opt-in escape hatch for
  *      direct cross-origin calls; production does NOT use this because
  *      showcase-harness has no CORS allowlist. Note: Next inlines `NEXT_PUBLIC_*`
  *      into the client bundle at build time, but this module ALSO runs in
  *      SSR + tests where `process.env` is read live at call time — so
- *      `delete process.env.NEXT_PUBLIC_OPS_BASE_URL` in a test does take
+ *      `delete process.env.NEXT_PUBLIC_HARNESS_BASE_URL` in a test does take
  *      effect on subsequent `resolveBaseUrl()` calls.
- *   3. `/api/ops` — same-origin path served by the Next.js rewrite in
+ *   3. `/api/harness` — same-origin path served by the Next.js rewrite in
  *      `next.config.ts`. This is the production contract, not a guess: the
- *      rewrite forwards `/api/ops/:path*` to `${OPS_BASE_URL}/api/:path*`
+ *      rewrite forwards `/api/harness/:path*` to `${HARNESS_BASE_URL}/api/:path*`
  *      on the server side, so the browser only ever sees same-origin calls
- *      and `OPS_BASE_URL` stays out of the client bundle.
+ *      and `HARNESS_BASE_URL` stays out of the client bundle.
  *
  * The trigger token is supplied by the caller (typically read from
- * `process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN` at the React layer).
+ * `process.env.NEXT_PUBLIC_HARNESS_TRIGGER_TOKEN` at the React layer).
  */
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -135,21 +135,21 @@ export interface TriggerResponse {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────
 
-const FALLBACK_BASE_URL = "/api/ops";
+const FALLBACK_BASE_URL = "/api/harness";
 
 /**
  * Resolve the API base URL with the precedence documented at the top of
  * this module. Trailing slashes are stripped so callers don't end up with
  * a double-slash like `http://host//probes` that some servers reject.
  *
- * `NEXT_PUBLIC_OPS_BASE_URL` is treated as missing when it is undefined,
+ * `NEXT_PUBLIC_HARNESS_BASE_URL` is treated as missing when it is undefined,
  * empty, or whitespace-only. `??` only falls through on `null`/`undefined`,
  * so without this an env var set to `""` would silently produce
- * `baseUrl === ""` and URLs like `"/probes"` (no `/api/ops` prefix) — a
+ * `baseUrl === ""` and URLs like `"/probes"` (no `/api/harness` prefix) — a
  * silent failure mode where the dashboard hits its own origin and 404s.
  */
 function resolveBaseUrl(explicit?: string): string {
-  const envBase = process.env.NEXT_PUBLIC_OPS_BASE_URL?.trim();
+  const envBase = (process.env.NEXT_PUBLIC_HARNESS_BASE_URL ?? process.env.NEXT_PUBLIC_OPS_BASE_URL)?.trim();
   const raw = explicit ?? (envBase || undefined) ?? FALLBACK_BASE_URL;
   return raw.replace(/\/+$/, "");
 }
@@ -190,7 +190,7 @@ async function ensureOk(response: Response, url: string): Promise<void> {
     detail = ` (body read failed: ${msg})`;
   }
   throw new Error(
-    `ops-api request failed: ${response.status} ${response.statusText} at ${url}${detail}`,
+    `harness-api request failed: ${response.status} ${response.statusText} at ${url}${detail}`,
   );
 }
 
@@ -209,7 +209,7 @@ async function parseJson<T>(response: Response, url: string): Promise<T> {
     const msg = (parseErr as Error)?.message ?? "unknown";
     // Preserve the original error as `cause` so debuggers can walk back to
     // the SyntaxError name/stack without re-parsing the wrapped message.
-    throw new Error(`ops-api JSON parse failed at ${url}: ${msg}`, {
+    throw new Error(`harness-api JSON parse failed at ${url}: ${msg}`, {
       cause: parseErr,
     });
   }

@@ -1,7 +1,7 @@
 /**
  * Tests for `useProbes`, `useProbeDetail`, and `useTriggerProbe`.
  *
- * These hooks wrap the `lib/ops-api` client and add 10s polling +
+ * These hooks wrap the `lib/harness-api` client and add 10s polling +
  * AbortController-based cancellation. We mock the client module so the
  * tests focus on hook semantics (interval cadence, abort-on-unmount,
  * error surfaces, refetch).
@@ -14,10 +14,10 @@ import type {
   ProbeScheduleEntry,
   ProbeRun,
   TriggerResponse,
-} from "../lib/ops-api";
+} from "../lib/harness-api";
 
 // Mocked module — the hooks under test consume this.
-vi.mock("../lib/ops-api", () => {
+vi.mock("../lib/harness-api", () => {
   return {
     fetchProbes: vi.fn(),
     fetchProbeDetail: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("../lib/ops-api", () => {
   };
 });
 
-import * as opsApi from "../lib/ops-api";
+import * as opsApi from "../lib/harness-api";
 import { useProbes, useProbeDetail, useTriggerProbe } from "./use-probes";
 
 const fetchProbesMock = opsApi.fetchProbes as unknown as ReturnType<

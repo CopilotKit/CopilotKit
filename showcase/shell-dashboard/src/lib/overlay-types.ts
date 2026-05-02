@@ -36,7 +36,8 @@ export const LEGACY_REDIRECTS: Record<string, readonly Overlay[]> = {
   cells: ["depth"],
   parity: ["depth", "parity"],
   packages: ["health"],
-  status: [], // special case: redirects to #ops
+  status: [], // special case: redirects to status tab
+  ops: [],    // legacy alias for status tab
 } as const;
 
 /** Overlays that trigger the contextual filter bar */

@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { render } from "@testing-library/react";
 import { StatusRunsList } from "./status-runs-list";
-import type { ProbeRun } from "../lib/ops-api";
+import type { ProbeRun } from "../lib/harness-api";
 
 const NOW = new Date("2026-04-25T12:00:00Z").getTime();
 

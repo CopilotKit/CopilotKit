@@ -239,13 +239,13 @@ describe("useOverlays", () => {
     expect(result.current.overlays.size).toBe(2);
   });
 
-  // 12. Legacy hash "status" → ops tab
-  it('legacy hash "status" sets tab to ops', async () => {
+  // 12. Legacy hash "status" → status tab
+  it('legacy hash "status" sets tab to status', async () => {
     hashValue = "#status";
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    expect(result.current.activeTab).toBe("ops");
+    expect(result.current.activeTab).toBe("status");
   });
 
   // 13. Hash #matrix:links,depth parses correctly
@@ -261,12 +261,12 @@ describe("useOverlays", () => {
   });
 
   // 14. Hash #ops sets tab to ops
-  it("hash #ops sets tab to ops", async () => {
+  it("hash #ops sets tab to status (legacy redirect)", async () => {
     hashValue = "#ops";
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
-    expect(result.current.activeTab).toBe("ops");
+    expect(result.current.activeTab).toBe("status");
   });
 
   // 15. URL hash updates on toggle
@@ -314,19 +314,19 @@ describe("useOverlays", () => {
     expect(result.current.has("docs")).toBe(false);
   });
 
-  // Extra: setTab switches between matrix and ops
-  it("setTab switches between matrix and ops", async () => {
+  // Extra: setTab switches between matrix and status
+  it("setTab switches between matrix and status", async () => {
     const useOverlays = await importHook();
     const { result } = renderHook(() => useOverlays());
 
     expect(result.current.activeTab).toBe("matrix");
 
     act(() => {
-      result.current.setTab("ops");
+      result.current.setTab("status");
     });
 
-    expect(result.current.activeTab).toBe("ops");
-    expect(hashValue).toBe("#ops");
+    expect(result.current.activeTab).toBe("status");
+    expect(hashValue).toBe("#status");
 
     act(() => {
       result.current.setTab("matrix");

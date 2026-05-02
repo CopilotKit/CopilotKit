@@ -99,7 +99,7 @@ services:
       dockerfile: showcase/shell-dashboard/Dockerfile
       args:
         NEXT_PUBLIC_POCKETBASE_URL: http://localhost:8090
-        OPS_BASE_URL: http://localhost:3200
+        HARNESS_BASE_URL: http://localhost:3200
         COMMIT_SHA: local
         BRANCH: local
     image: ghcr.io/copilotkit/showcase-shell-dashboard

@@ -1,7 +1,7 @@
 "use client";
 // Feature matrix: composable overlay-driven 2-tab layout.
 // Matrix tab: overlay toggles control which visual layers render.
-// Ops tab: probe status grid (unchanged from legacy).
+// Status tab: probe status grid (unchanged from legacy).
 import { useCallback, useMemo } from "react";
 import { FeatureGrid } from "@/components/feature-grid";
 import type { CellContext } from "@/components/feature-grid";
@@ -41,7 +41,7 @@ export default function Page() {
 
   const connection = allStatus.status;
 
-  // R2-D.1: real probe wiring. `useProbes` polls the ops API every 10s and
+  // R2-D.1: real probe wiring. `useProbes` polls the harness API every 10s and
   // feeds the schedule grid; `useTriggerProbe` POSTs to /trigger with the
   // operator token. If the token is unset, the trigger callback throws
   // a clear "token required" error from useTriggerProbe — fail-loud so
@@ -51,7 +51,7 @@ export default function Page() {
     () => probesQuery.data?.probes ?? [],
     [probesQuery.data],
   );
-  const triggerToken = process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN;
+  const triggerToken = process.env.NEXT_PUBLIC_HARNESS_TRIGGER_TOKEN ?? process.env.NEXT_PUBLIC_OPS_TRIGGER_TOKEN;
   const { trigger } = useTriggerProbe({ token: triggerToken });
   const handleTrigger = useCallback(
     async (probeId: string, slugs?: string[]): Promise<void> => {
@@ -214,15 +214,15 @@ export default function Page() {
         </button>
         <button
           type="button"
-          data-testid="tab-ops"
-          onClick={() => setTab("ops")}
+          data-testid="tab-status"
+          onClick={() => setTab("status")}
           className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
-            activeTab === "ops"
+            activeTab === "status"
               ? "text-[var(--accent)] border-b-2 border-[var(--accent)] -mb-px"
               : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
           }`}
         >
-          Ops
+          Status
         </button>
         <div className="ml-auto flex items-center pr-1">
           <ThemeToggle />
@@ -268,7 +268,7 @@ export default function Page() {
 
       {activeTab === "baseline" && <BaselineTab />}
 
-      {activeTab === "ops" && (
+      {activeTab === "status" && (
         <div className="flex-1 min-h-0 overflow-auto">
           <StatusTab
             entries={probeEntries}

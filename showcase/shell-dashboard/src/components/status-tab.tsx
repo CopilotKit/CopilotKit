@@ -4,10 +4,10 @@
  * panel. Owns no data of its own; the parent passes in `entries` and a
  * trigger callback.
  *
- * `ProbeScheduleEntry` is re-exported from `lib/ops-api` so existing
+ * `ProbeScheduleEntry` is re-exported from `lib/harness-api` so existing
  * imports from `./status-tab` keep working while the canonical wire-shape
  * lives in one place. The canonical definition is the source of truth for
- * the showcase-harness HTTP contract — drift between this file and ops-api
+ * the showcase-harness HTTP contract — drift between this file and harness-api
  * was a real problem (e.g. local lacked `error?` / `finishedAt?` on
  * service progress, and used `string` instead of the `ProbeKind` union).
  */
@@ -17,8 +17,8 @@ import { StatusDetailPanel } from "./status-detail-panel";
 
 // Re-export the canonical type for backwards compatibility with existing
 // `import type { ProbeScheduleEntry } from './status-tab'` call sites.
-export type { ProbeScheduleEntry } from "../lib/ops-api";
-import type { ProbeScheduleEntry } from "../lib/ops-api";
+export type { ProbeScheduleEntry } from "../lib/harness-api";
+import type { ProbeScheduleEntry } from "../lib/harness-api";
 
 export interface StatusTabProps {
   entries: ProbeScheduleEntry[];

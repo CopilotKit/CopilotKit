@@ -1,6 +1,6 @@
 "use client";
 /**
- * React hooks layered on top of `lib/ops-api`. Provide:
+ * React hooks layered on top of `lib/harness-api`. Provide:
  *   - `useProbes()`           — list view, polled every `intervalMs` (default 10s).
  *   - `useProbeDetail(id)`    — single-probe drilldown, polled.
  *   - `useTriggerProbe()`     — POST /trigger mutation with a `pending` flag.
@@ -27,7 +27,7 @@ import {
   type ProbeScheduleEntry,
   type ProbeRun,
   type TriggerResponse,
-} from "../lib/ops-api";
+} from "../lib/harness-api";
 
 const DEFAULT_INTERVAL_MS = 10_000;
 

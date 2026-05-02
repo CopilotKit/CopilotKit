@@ -122,7 +122,7 @@ function lastRunTone(lastRun: ProbeScheduleEntry["lastRun"]): Tone {
   if (!lastRun) return "gray";
   if (lastRun.state === "failed") return "red";
   // summary may be null on a "completed" run produced by a failure path
-  // (see ops-api ProbeLastRun contract). Without per-service counts we
+  // (see harness-api ProbeLastRun contract). Without per-service counts we
   // can't claim green — match the runs-list "unknown" semantics.
   if (!lastRun.summary) return "gray";
   if (lastRun.summary.failed > 0) return "red";

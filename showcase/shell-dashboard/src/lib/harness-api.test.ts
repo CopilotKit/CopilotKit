@@ -7,8 +7,8 @@
  *   - GET  <base>/probes/<id>             → { probe, runs }
  *   - POST <base>/probes/<id>/trigger     → TriggerResponse
  *
- * `baseUrl` resolution order is: explicit param → NEXT_PUBLIC_OPS_BASE_URL
- * → fallback `/api/ops` (proxy). The trigger token is supplied per-call;
+ * `baseUrl` resolution order is: explicit param → NEXT_PUBLIC_HARNESS_BASE_URL
+ * → fallback `/api/harness` (proxy). The trigger token is supplied per-call;
  * the client just attaches it as a Bearer header.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -21,7 +21,7 @@ import {
   type TriggerResponse,
   type ProbeScheduleEntry,
   type ProbeRun,
-} from "./ops-api";
+} from "./harness-api";
 
 type FetchInit = Parameters<typeof fetch>[1];
 
@@ -74,7 +74,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchSpy);
   // Reset env across tests so explicit-param vs env-var resolution is
   // exercised cleanly.
-  delete process.env.NEXT_PUBLIC_OPS_BASE_URL;
+  delete process.env.NEXT_PUBLIC_HARNESS_BASE_URL;
 });
 
 afterEach(() => {
@@ -92,15 +92,15 @@ describe("fetchProbes", () => {
     expect(String(url)).toBe("http://ops.test/probes");
   });
 
-  it("falls back to /api/ops when no baseUrl is supplied", async () => {
+  it("falls back to /api/harness when no baseUrl is supplied", async () => {
     fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
     await fetchProbes();
     const [url] = fetchSpy.mock.calls[0]!;
-    expect(String(url)).toBe("/api/ops/probes");
+    expect(String(url)).toBe("/api/harness/probes");
   });
 
-  it("uses NEXT_PUBLIC_OPS_BASE_URL when explicit param omitted", async () => {
-    process.env.NEXT_PUBLIC_OPS_BASE_URL = "https://ops.example.com";
+  it("uses NEXT_PUBLIC_HARNESS_BASE_URL when explicit param omitted", async () => {
+    process.env.NEXT_PUBLIC_HARNESS_BASE_URL = "https://ops.example.com";
     fetchSpy.mockResolvedValue(jsonResponse(emptyProbesResponse()));
     await fetchProbes();
     const [url] = fetchSpy.mock.calls[0]!;
