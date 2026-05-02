@@ -73,47 +73,29 @@ function isD5Green(
   featureId: string,
 ): boolean {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  // No D5 mapping = no CV test exists for this feature = cannot be D5.
-  // Previously fell back to a direct key lookup which could resolve true
-  // from stale/shared PB rows, granting D5 to cells without CV tests.
-  if (!d5Keys || d5Keys.length === 0) {
-    return false;
-  }
+  if (!d5Keys || d5Keys.length === 0) return false;
   return d5Keys.every((d5Key) => isGreen(live, keyFor("d5", slug, d5Key)));
 }
 
 /**
- * Compute the maximum possible depth for a cell based on probe EXISTENCE.
- * This checks whether the structural prerequisites for each depth level
- * exist (key mappings, feature ID), NOT whether probes are currently green.
- *
- * - D0: always possible for wired/stub cells
- * - D1-D4: always possible if the cell has a feature ID
- * - D5: possible only if CATALOG_TO_D5_KEY[featureId] exists and has entries
- * - D6: always possible if D5 is possible (d6 keys are per-feature)
+ * Compute the maximum possible depth for a cell.
+ * CATALOG_TO_D5_KEY is the sole source of truth — if a feature has
+ * a mapping, D5 is achievable. Otherwise D4 is the ceiling.
+ * The CV badge may render via resolveD5Row's fallback, but that's
+ * a display concern — it doesn't affect depth calculation.
  */
 function computeMaxPossible(cell: CatalogCell): AchievedDepth {
-  // Unsupported/unshipped: max possible is 0.
   if (cell.status === "unsupported" || cell.status === "unshipped") {
     return 0;
   }
-
-  // No feature ID: can only reach D2 (integration-scoped probes).
   if (cell.feature === null) {
     return 2;
   }
-
-  // Check if D5 is structurally possible (mapping exists).
   const d5Keys = CATALOG_TO_D5_KEY[cell.feature];
-  if (!d5Keys || d5Keys.length === 0) {
-    // No D5 mapping: max possible is D4.
-    return 4;
+  if (d5Keys && d5Keys.length > 0) {
+    return 5;
   }
-
-  // D5 mapping exists. D6 is NOT assumed — D6 probes are rare and
-  // only exist for specific features. maxPossible = 5 unless we add
-  // a D6 mapping check in the future.
-  return 5;
+  return 4;
 }
 
 /**

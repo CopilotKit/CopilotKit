@@ -494,5 +494,41 @@ describe("deriveDepth", () => {
       expect(result.maxPossible).toBe(2);
       expect(result.isRegression).toBe(false);
     });
+
+    // ── CATALOG_TO_D5_KEY is sole source of truth for depth ──
+    // D5 PB rows found via resolveD5Row fallback are a DISPLAY concern
+    // (CV badge renders), NOT a depth concern. Only mapped features can
+    // achieve D5 or have maxPossible=5.
+
+    it("NO D5 mapping + d5 PB row exists → still maxPossible=4, D4=GREEN", () => {
+      // Feature not in CATALOG_TO_D5_KEY. PB has a d5 row (CV badge
+      // renders via fallback), but depth calculation ignores it.
+      const c = cell("lgp", "no-mapping-feature");
+      const live = mapOf([
+        row("health:lgp", "health", "green"),
+        row("agent:lgp", "agent", "green"),
+        row("e2e:lgp/no-mapping-feature", "e2e", "green"),
+        row("chat:lgp", "chat", "green"),
+        row("d5:lgp/no-mapping-feature", "d5", "green"),
+      ]);
+      const result = deriveDepth(c, live);
+      expect(result.achieved).toBe(4); // D5 not achievable without mapping
+      expect(result.maxPossible).toBe(4);
+      expect(result.isRegression).toBe(false); // at ceiling → green
+    });
+
+    it("NO D5 mapping, NO d5 PB row → maxPossible=4, D4=GREEN", () => {
+      const c = cell("lgp", "no-mapping-feature");
+      const live = mapOf([
+        row("health:lgp", "health", "green"),
+        row("agent:lgp", "agent", "green"),
+        row("e2e:lgp/no-mapping-feature", "e2e", "green"),
+        row("chat:lgp", "chat", "green"),
+      ]);
+      const result = deriveDepth(c, live);
+      expect(result.achieved).toBe(4);
+      expect(result.maxPossible).toBe(4);
+      expect(result.isRegression).toBe(false);
+    });
   });
 });
