@@ -103,7 +103,9 @@ function DepthLayer({
   );
   const apiGreen = cell.d2.tone === "green";
   const rtGreen = cell.e2e.tone === "green";
-  const cvVisible = cell.d5.label !== "?";
+  // CV badge is hidden for testing-kind features (cell-pieces.tsx !isTesting guard)
+  const isTesting = ctx.feature.kind === "testing";
+  const cvVisible = !isTesting && cell.d5.label !== "?";
   const cvGreen = cvVisible && cell.d5.tone === "green";
 
   let chipDepth: 0 | 1 | 2 | 3 | 4 | 5 | 6;
