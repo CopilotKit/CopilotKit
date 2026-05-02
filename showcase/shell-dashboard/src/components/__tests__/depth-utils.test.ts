@@ -500,9 +500,10 @@ describe("deriveDepth", () => {
     // (CV badge renders), NOT a depth concern. Only mapped features can
     // achieve D5 or have maxPossible=5.
 
-    it("NO D5 mapping + d5 PB row exists → still maxPossible=4, D4=GREEN", () => {
-      // Feature not in CATALOG_TO_D5_KEY. PB has a d5 row (CV badge
-      // renders via fallback), but depth calculation ignores it.
+    it("NO D5 mapping + d5 PB row exists green → achieved=5 via fallback", () => {
+      // Feature not in CATALOG_TO_D5_KEY but PB has a green d5 row.
+      // isD5Green falls back to direct key → true → achieved=5.
+      // Chip color is determined by composed-cell from badge states, not here.
       const c = cell("lgp", "no-mapping-feature");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -512,9 +513,9 @@ describe("deriveDepth", () => {
         row("d5:lgp/no-mapping-feature", "d5", "green"),
       ]);
       const result = deriveDepth(c, live);
-      expect(result.achieved).toBe(4); // D5 not achievable without mapping
-      expect(result.maxPossible).toBe(4);
-      expect(result.isRegression).toBe(false); // at ceiling → green
+      expect(result.achieved).toBe(5);
+      expect(result.maxPossible).toBe(4); // CATALOG_TO_D5_KEY only
+      expect(result.isRegression).toBe(false); // achieved > maxPossible is fine
     });
 
     it("NO D5 mapping, NO d5 PB row → maxPossible=4, D4=GREEN", () => {

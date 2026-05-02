@@ -20,13 +20,9 @@ export interface DepthChipProps {
   status: "wired" | "stub" | "unshipped" | "unsupported";
   /** When true, chip renders in red regardless of depth. */
   regression?: boolean;
-  /**
-   * Maximum achievable depth for this cell. When provided, the chip turns
-   * green when `depth >= maxDepth` (i.e. at ceiling), amber when 1-2 levels
-   * below, and red when 3+ levels below. This lets cells whose probes only
-   * go to D4 show green at D4 instead of the old hardcoded amber.
-   */
   maxDepth?: number;
+  /** Direct color class override — bypasses depthColorClass entirely. */
+  colorOverride?: string;
 }
 
 /**
@@ -54,7 +50,7 @@ export function depthColorClass(depth: number, regression?: boolean, maxDepth?: 
   return "bg-[var(--danger)] text-white";
 }
 
-export function DepthChip({ depth, status, regression, maxDepth }: DepthChipProps) {
+export function DepthChip({ depth, status, regression, maxDepth, colorOverride }: DepthChipProps) {
   if (status === "unshipped") {
     return (
       <span
@@ -84,7 +80,7 @@ export function DepthChip({ depth, status, regression, maxDepth }: DepthChipProp
     );
   }
 
-  const colorClass = depthColorClass(depth, regression, maxDepth);
+  const colorClass = colorOverride ?? depthColorClass(depth, regression, maxDepth);
 
   return (
     <span

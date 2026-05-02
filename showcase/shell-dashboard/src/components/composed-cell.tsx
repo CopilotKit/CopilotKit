@@ -15,7 +15,7 @@ import { CommandCell } from "@/components/command-cell";
 import { DepthChip } from "@/components/depth-chip";
 import { deriveDepth } from "@/components/depth-utils";
 import type { CatalogCell } from "@/components/depth-utils";
-import { keyFor } from "@/lib/live-status";
+import { keyFor, resolveCell } from "@/lib/live-status";
 
 /** Overlay types — defined locally; canonical types live in a sibling module. */
 export type Overlay = "links" | "depth" | "health" | "parity" | "docs";
@@ -93,7 +93,45 @@ function DepthLayer({
 
   if (!catalogCell) return null;
 
-  const depth = deriveDepth(catalogCell, ctx.liveStatus);
+  // Derive depth chip DIRECTLY from badge states — no mapping, no maxPossible.
+  // Rules: CV visible → D5, CV hidden → D4. Color from pass/fail counts.
+  const cell = resolveCell(
+    ctx.liveStatus,
+    ctx.integration.slug,
+    ctx.feature.id,
+    { connection: ctx.connection },
+  );
+  const apiGreen = cell.d2.tone === "green";
+  const rtGreen = cell.e2e.tone === "green";
+  const cvVisible = cell.d5.label !== "?";
+  const cvGreen = cvVisible && cell.d5.tone === "green";
+
+  let chipDepth: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  let chipColor: "green" | "amber" | "red" | "gray";
+
+  if (!apiGreen && !rtGreen) {
+    // Nothing passing — use deriveDepth for D0-D3
+    const depth = deriveDepth(catalogCell, ctx.liveStatus);
+    chipDepth = depth.achieved;
+    chipColor = chipDepth === 0 ? "gray" : "red";
+  } else if (cvVisible) {
+    // CV badge exists → D5 scale
+    chipDepth = 5;
+    if (apiGreen && rtGreen && cvGreen) chipColor = "green";
+    else if (apiGreen && rtGreen) chipColor = "amber";
+    else chipColor = "red";
+  } else {
+    // API + RT only → D4 scale
+    chipDepth = 4;
+    if (apiGreen && rtGreen) chipColor = "green";
+    else chipColor = "amber";
+  }
+
+  const colorClass =
+    chipColor === "green" ? "bg-emerald-600 text-white" :
+    chipColor === "amber" ? "bg-[var(--amber)] text-white" :
+    chipColor === "red" ? "bg-[var(--danger)] text-white" :
+    "bg-[var(--text-muted)]/20 text-[var(--text-muted)]";
 
   return (
     <div
@@ -108,10 +146,9 @@ function DepthLayer({
         onClick={() => setDrilldownOpen((prev) => !prev)}
       >
         <DepthChip
-          depth={depth.achieved}
+          depth={chipDepth}
           status={catalogCell.status}
-          regression={depth.isRegression}
-          maxDepth={depth.maxPossible}
+          colorOverride={colorClass}
         />
       </button>
       {drilldownOpen && (

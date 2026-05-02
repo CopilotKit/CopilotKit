@@ -73,8 +73,12 @@ function isD5Green(
   featureId: string,
 ): boolean {
   const d5Keys = CATALOG_TO_D5_KEY[featureId];
-  if (!d5Keys || d5Keys.length === 0) return false;
-  return d5Keys.every((d5Key) => isGreen(live, keyFor("d5", slug, d5Key)));
+  if (d5Keys && d5Keys.length > 0) {
+    return d5Keys.every((d5Key) => isGreen(live, keyFor("d5", slug, d5Key)));
+  }
+  // Fallback: check direct per-feature d5 row. This is NOT a shared key —
+  // it's the probe's own result for this specific feature.
+  return isGreen(live, keyFor("d5", slug, featureId));
 }
 
 /**
