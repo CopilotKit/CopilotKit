@@ -286,7 +286,7 @@ describe("CellMatrix", () => {
   });
 
   it("filters to rows with regressions when filter=regressions", () => {
-    // lgp/agentic-chat has D5 mapping → maxPossible=6, achieved=2 → regression
+    // lgp/agentic-chat has D5 mapping → maxPossible=5, achieved=2 → regression
     // lgp/no-d5-feature has NO D5 mapping → maxPossible=4, achieved=4 → no regression
     const regressCells: CatalogCell[] = [
       {
@@ -333,7 +333,7 @@ describe("CellMatrix", () => {
         referenceSlug="lgp"
       />,
     );
-    // agentic-chat has regression (achieved=2 < maxPossible=6) → visible
+    // agentic-chat has regression (achieved=2 < maxPossible=5) → visible
     expect(queryByText("Agentic Chat")).not.toBeNull();
     // no-d5-feature at ceiling (achieved=4 === maxPossible=4) → hidden
     expect(queryByText("No D5 Feature")).toBeNull();

@@ -110,9 +110,10 @@ function computeMaxPossible(cell: CatalogCell): AchievedDepth {
     return 4;
   }
 
-  // D5 mapping exists: D6 is always structurally possible too
-  // (d6 keys are per-feature, no separate mapping needed).
-  return 6;
+  // D5 mapping exists. D6 is NOT assumed — D6 probes are rare and
+  // only exist for specific features. maxPossible = 5 unless we add
+  // a D6 mapping check in the future.
+  return 5;
 }
 
 /**
