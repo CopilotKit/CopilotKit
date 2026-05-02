@@ -115,17 +115,20 @@ export function keyFor(
  */
 export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "agentic-chat": ["agentic-chat"],
+  "beautiful-chat": ["agentic-chat"],
   "tool-rendering": ["tool-rendering"],
+  "tool-rendering-default-catchall": ["tool-rendering"],
+  "tool-rendering-custom-catchall": ["tool-rendering"],
   "headless-simple": ["gen-ui-headless"],
+  "headless-complete": ["gen-ui-headless"],
   "gen-ui-tool-based": ["gen-ui-custom"],
   "hitl-in-chat": ["hitl-text-input"],
+  "hitl-in-chat-booking": ["hitl-text-input"],
   hitl: ["hitl-steps"],
   "hitl-in-app": ["hitl-approve-deny"],
   "shared-state-read-write": ["shared-state-read", "shared-state-write"],
   "mcp-apps": ["mcp-apps"],
   subagents: ["subagents"],
-  // ── LGP D5 coverage wave (mirrors REGISTRY_TO_D5 in
-  //    harness/src/probes/helpers/d5-feature-mapping.ts) ──
   "chat-slots": ["chat-slots"],
   "chat-customization-css": ["chat-css"],
   "prebuilt-sidebar": ["prebuilt-sidebar"],
@@ -136,6 +139,7 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "frontend-tools": ["frontend-tools"],
   "frontend-tools-async": ["frontend-tools-async"],
   "agentic-chat-reasoning": ["reasoning-display"],
+  "reasoning-default-render": ["reasoning-display"],
   "tool-rendering-reasoning-chain": ["tool-rendering-reasoning-chain"],
   "shared-state-streaming": ["shared-state-streaming"],
   "readonly-state-agent-context": ["readonly-state-context"],
@@ -143,10 +147,13 @@ export const CATALOG_TO_D5_KEY: Readonly<Record<string, readonly string[]>> = {
   "declarative-gen-ui": ["gen-ui-declarative"],
   "a2ui-fixed-schema": ["gen-ui-a2ui-fixed"],
   "open-gen-ui": ["gen-ui-open"],
+  "open-gen-ui-advanced": ["gen-ui-open"],
   "gen-ui-agent": ["gen-ui-agent"],
   "interrupt-headless": ["interrupt-headless"],
   "gen-ui-interrupt": ["gen-ui-interrupt"],
   "byoc-hashbrown": ["byoc"],
+  "byoc-json-render": ["byoc"],
+  voice: ["voice"],
 };
 
 function resolveD5Row(
