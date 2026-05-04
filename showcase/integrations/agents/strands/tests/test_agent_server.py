@@ -9,27 +9,29 @@ import sys
 
 os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
 
-# Modules that the python/ conftest seeds as stubs and that agent_server's
-# OTel guard will reject if they land in sys.modules before the patch runs.
-_STUBS_TO_CLEAR = (
-    "strands",
-    "strands.hooks",
-    "strands.models",
-    "strands.models.openai",
-    "ag_ui_strands",
-    "agent_server",
-)
-
-
 def _fresh_app():
     """Return the FastAPI app from a freshly-imported agent_server.
 
     Clears any cached agent_server + strands stubs from sys.modules so the
     OTel pre-import guard inside agent_server.py passes cleanly regardless of
     which conftest ran before this test module.
+
+    We do a broad prefix-based sweep rather than an explicit list because
+    tests/python/conftest.py installs stub sub-modules (strands.hooks,
+    strands.models.openai, ag_ui_strands, …) and the exact set can grow.
+    Any leftover stub module whose objects lack real attributes (e.g.
+    _Permissive lacking .stateful) will cause AttributeError inside the
+    freshly-imported real strands package.
     """
-    for name in _STUBS_TO_CLEAR:
-        sys.modules.pop(name, None)
+    for name in list(sys.modules.keys()):
+        if (
+            name == "agent_server"
+            or name.startswith("strands")
+            or name.startswith("ag_ui_strands")
+            or name.startswith("agents.")
+            or name == "agents"
+        ):
+            sys.modules.pop(name, None)
     from agent_server import app  # noqa: PLC0415
     return app
 

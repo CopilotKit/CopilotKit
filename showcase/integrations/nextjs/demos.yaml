@@ -138,6 +138,10 @@
   description: Time-picker card rendered inline via useHumanInTheLoop for a booking flow
   tags: [interactivity]
   route_template: /demos/{framework}/hitl-in-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/hitl-in-chat/page.tsx
+    - src/app/demos/[framework]/hitl-in-chat/time-picker-card.tsx
+    - src/app/api/[framework]/hitl-in-chat/[[...slug]]/route.ts
 - id: prebuilt-popup
   name: "Pre-Built: Popup"
   description: Floating popup chat via <CopilotPopup />
