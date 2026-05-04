@@ -1,24 +1,46 @@
 // @ts-nocheck — demo fixture; react-core types are stricter than the stubs need.
-// Demonstrates V2 `useComponent` — convenience wrapper over useFrontendTool
-// that registers a typed React component as the renderer for a tool call.
-// Fixture is a "sunrise/sunset" card driven by a zod-typed schema.
-import { useComponent } from "@copilotkit/react-core/v2";
+// Demonstrates V2 `useFrontendTool` registered as a tool the model can call
+// to fetch sunrise/sunset times for a city. The handler synthesizes plausible
+// times deterministically (real apps would hit a sun-position API); the
+// render parses the handler's result so the model doesn't need to know
+// the actual ISO times — it only passes the city.
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  mockSunTimes,
+  parseToolResult,
+  type SunTimes,
+} from "./shared/mock-weather";
 
 export function WeatherComponent() {
-  useComponent({
-    name: "sunTimes",
-    description: "Displays today's sunrise and sunset for a city",
+  useFrontendTool({
+    name: "displaySunTimes",
+    followUp: false,
+    description:
+      "Render a UI card with today's sunrise and sunset for a city. UI TOOL: this does NOT fetch real sun-position data. If the model knows the times for the date in question, it can pass them in `sunriseISO` / `sunsetISO`; otherwise the renderer fills in a deterministic placeholder so the card always lights up.",
     parameters: z.object({
-      city: z.string(),
-      sunriseISO: z.string(),
-      sunsetISO: z.string(),
+      city: z.string().describe("City name, e.g. 'Reykjavík' or 'Tokyo'"),
+      sunriseISO: z
+        .string()
+        .optional()
+        .describe("ISO timestamp for today's sunrise, if known"),
+      sunsetISO: z
+        .string()
+        .optional()
+        .describe("ISO timestamp for today's sunset, if known"),
     }),
-    // Keep the same render signature as the other render-tool fixtures so the
-    // preview harness can drive it through the shared ActionControls form.
-    render: ({ parameters, status }) => {
-      const city = parameters.city ?? "Reykjavík";
-      const format = (iso?: string) => {
+    handler: async ({ city, sunriseISO, sunsetISO }) => {
+      const base = mockSunTimes(city);
+      return {
+        ...base,
+        ...(sunriseISO ? { sunriseISO } : {}),
+        ...(sunsetISO ? { sunsetISO } : {}),
+      };
+    },
+    render: ({ args, result, status }) => {
+      const data = parseToolResult<SunTimes>(result);
+      const city = data?.city ?? args?.city ?? "Reykjavík";
+      const format = (iso?: string): string => {
         if (!iso) return "--:--";
         try {
           return new Date(iso).toLocaleTimeString(undefined, {
@@ -29,8 +51,9 @@ export function WeatherComponent() {
           return iso;
         }
       };
-      const sunrise = format(parameters.sunriseISO);
-      const sunset = format(parameters.sunsetISO);
+      const sunrise = format(data?.sunriseISO);
+      const sunset = format(data?.sunsetISO);
+      const daylight = data?.daylightLabel ?? "Daylight ~--h --m";
       return (
         <div className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 p-6 text-white shadow-xl">
           <div className="absolute -left-12 -top-12 h-32 w-32 rounded-full bg-yellow-200/40 blur-2xl" />
@@ -63,7 +86,7 @@ export function WeatherComponent() {
             <div className="mt-5 flex items-center justify-between text-[11px] text-white/80">
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-white" />
-                Daylight ~14h 12m
+                {daylight}
               </span>
               <span className="rounded-full bg-black/20 px-2 py-0.5 uppercase tracking-wider">
                 {status}

@@ -7,10 +7,8 @@ import { useDefaultRenderTool } from "@copilotkit/react-core/v2";
 export function DefaultWeatherRender() {
   useDefaultRenderTool({
     name: "defaultWeatherFallback",
-    render: ({ name, parameters, status }) => {
-      const entries = Object.entries(
-        (parameters ?? {}) as Record<string, unknown>,
-      );
+    render: ({ name, args, status }) => {
+      const entries = Object.entries((args ?? {}) as Record<string, unknown>);
       return (
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-neutral-800 to-neutral-900 p-5 shadow-xl">
           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-white/50">

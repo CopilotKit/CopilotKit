@@ -1,8 +1,11 @@
 // Shared render component used by `ImportedAirQuality.tsx`. Kept in a
 // sibling file so the fixture exercises the path where `render` is
 // imported rather than written inline in the hook config.
+import { parseToolResult, type AirQuality } from "./mock-weather";
+
 export interface AirQualityProps {
-  args?: { city?: string; aqi?: number };
+  args?: { city?: string };
+  result?: string;
   status?: string;
 }
 
@@ -28,9 +31,10 @@ const LEVEL = (aqi: number) => {
   return { label: "Hazardous", from: "from-red-700", to: "to-black" };
 };
 
-export function AirQualityBadge({ args, status }: AirQualityProps) {
-  const city = args?.city ?? "—";
-  const aqi = args?.aqi ?? 42;
+export function AirQualityBadge({ args, result, status }: AirQualityProps) {
+  const data = parseToolResult<AirQuality>(result);
+  const city = data?.city ?? args?.city ?? "—";
+  const aqi = data?.aqi ?? 42;
   const level = LEVEL(aqi);
   const pct = Math.min(100, (aqi / 500) * 100);
   return (

@@ -1,7 +1,13 @@
-import { useLangGraphInterrupt } from "@copilotkit/react-core";
+// V2 conversion of the previous v1 `useLangGraphInterrupt`. `useInterrupt`
+// is the v2 equivalent — same render shape `{ event, resolve }`, just under
+// a different name. Real LangGraph apps fire interrupts via the agent's
+// `interrupt()` call; in the playground this is a passive demo that shows
+// what the UI looks like when one is pending.
+import { useInterrupt } from "@copilotkit/react-core/v2";
 
 export function LocationPermissionInterrupt() {
-  useLangGraphInterrupt({
+  // @ts-expect-error – test-workspace only
+  useInterrupt({
     render: ({ event, resolve }) => {
       const e = (event ?? {}) as { value?: { reason?: string } };
       const reason =
@@ -26,14 +32,14 @@ export function LocationPermissionInterrupt() {
           <div className="flex gap-2 border-t border-white/5 bg-black/20 px-5 py-3">
             <button
               type="button"
-              onClick={() => resolve("denied")}
+              onClick={() => resolve?.("denied")}
               className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-white/80 transition hover:bg-white/10"
             >
               Not now
             </button>
             <button
               type="button"
-              onClick={() => resolve("granted")}
+              onClick={() => resolve?.("granted")}
               className="flex-1 rounded-md bg-sky-500 px-3 py-2 text-xs font-semibold text-white shadow-md shadow-sky-500/30 transition hover:bg-sky-400"
             >
               Allow location

@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+/*
+ * Custom theme tokens for the test-workspace, mostly to verify the
+ * playground respects user theme overrides — the renders in `hooks/`
+ * use a mix of vanilla utilities and these branded colors.
+ */
+@theme {
+  --color-brand: oklch(0.7 0.18 38);
+  --color-brand-fg: oklch(0.16 0.04 260);
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}

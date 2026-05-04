@@ -1,23 +1,25 @@
 // @ts-nocheck — demo fixture; react-core types are stricter than the stubs need.
-// Demonstrates V1 `useCopilotAuthenticatedAction_c` — same render shape as
-// useCopilotAction, but only callable by authenticated users. Fixture renders
-// a gated "admin-only" alert publication card.
-import { useCopilotAuthenticatedAction_c } from "@copilotkit/react-core";
+// V2 conversion of the previous v1 `useCopilotAuthenticatedAction_c`. The
+// auth gate isn't represented in the playground (real apps would wrap their
+// own gate around this), so we register it as a plain `useFrontendTool` and
+// keep the "admin only" badge as visual flavor.
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
 
 export function AdminIssueAlert() {
-  useCopilotAuthenticatedAction_c({
+  useFrontendTool({
     name: "publishAlert",
-    description: "(Admin) Publish a severe-weather alert to subscribers",
-    parameters: [
-      { name: "headline", type: "string", required: true },
-      {
-        name: "channel",
-        type: "string",
-        enum: ["sms", "email", "push", "all"],
-        required: true,
-      },
-    ],
-    available: "frontend",
+    description:
+      "(Admin) Publish a severe-weather alert to subscribers via SMS, email, push, or all channels. Use when the user explicitly asks to broadcast a pre-confirmed alert.",
+    parameters: z.object({
+      headline: z.string(),
+      channel: z.enum(["sms", "email", "push", "all"]),
+    }),
+    handler: async ({ headline, channel }) => ({
+      headline,
+      channel,
+      publishedAt: new Date().toISOString(),
+    }),
     render: ({ args, status }) => {
       const channel = (args?.channel as string | undefined) ?? "all";
       return (

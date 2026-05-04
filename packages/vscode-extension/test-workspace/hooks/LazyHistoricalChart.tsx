@@ -1,28 +1,43 @@
 // @ts-nocheck — demo fixture; react-core types are stricter than the stubs need.
-// Demonstrates V2 `useLazyToolRenderer` — a lazy renderer that only loads its
-// heavy payload when the tool call is expanded. Fixture is a historical
-// temperature chart with a skeleton shimmer while "loading".
-import { useLazyToolRenderer } from "@copilotkit/react-core/v2";
+// V2 `useFrontendTool` for "historicalTemperatures" — converted from the
+// previous render-only `useLazyToolRenderer` so the model can actually
+// invoke this tool. Handler returns a 14-bar series; render paints them.
+import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  mockHistoricalTemps,
+  parseToolResult,
+  type HistoricalTemps,
+} from "./shared/mock-weather";
 
 export function LazyHistoricalChart() {
-  useLazyToolRenderer({
-    name: "historicalTemperatures",
+  useFrontendTool({
+    name: "displayHistoricalTemps",
+    followUp: false,
+    description:
+      "Render a historical-temperature bar chart for a city over a window (24h / 7d / 30d / 1y). UI TOOL — paints a deterministic visual; not a live data feed.",
     parameters: z.object({
       city: z.string(),
       range: z.enum(["24h", "7d", "30d", "1y"]).default("7d"),
     }),
-    render: ({ parameters, status }) => {
-      const bars = [32, 48, 60, 74, 82, 71, 55, 44, 52, 68, 80, 77, 63, 49];
+    handler: async ({ city, range }) =>
+      mockHistoricalTemps(city, range ?? "7d"),
+    render: ({ args, result, status }) => {
+      const data = parseToolResult<HistoricalTemps>(result);
+      const city = data?.city ?? args?.city ?? "—";
+      const range = data?.range ?? args?.range ?? "7d";
+      const bars = data?.bars ?? [
+        32, 48, 60, 74, 82, 71, 55, 44, 52, 68, 80, 77, 63, 49,
+      ];
       return (
         <div className="overflow-hidden rounded-2xl border border-violet-400/20 bg-gradient-to-b from-violet-950/40 to-black p-5 text-white shadow-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-widest text-violet-300/80">
-                Historical · {parameters.range ?? "7d"}
+                Historical · {range}
               </div>
               <h3 className="mt-1 text-lg font-semibold">
-                {parameters.city ?? "—"} · Temperatures
+                {city} · Temperatures
               </h3>
             </div>
             {status !== "complete" ? (

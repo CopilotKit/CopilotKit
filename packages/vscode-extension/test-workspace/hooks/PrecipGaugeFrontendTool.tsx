@@ -1,31 +1,49 @@
 // @ts-nocheck — demo fixture; react-core types are stricter than the stubs need.
-// Demonstrates V2 `useFrontendTool` — a frontend-registered tool the agent
-// can call and whose render is controlled by the client. Fixture shows a
-// precipitation gauge with an animated arc.
+// V2 `useFrontendTool` for "precipitationGauge" — registers the tool with
+// the model, supplies a deterministic mock reading via the handler, and
+// renders an animated gauge from the result.
 import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { z } from "zod";
+import {
+  mockPrecipitation,
+  parseToolResult,
+  type PrecipitationReading,
+} from "./shared/mock-weather";
 
 export function PrecipGaugeFrontendTool() {
   useFrontendTool({
-    name: "precipitationGauge",
-    description: "Displays the current precipitation intensity as a gauge",
+    name: "displayPrecipitation",
+    followUp: false,
+    description:
+      "Render a precipitation-intensity gauge (inches per hour) for a city as a half-circle dial. UI TOOL — does not fetch live data. Pass `inchesPerHour` and `rainType` if known, or just the city to use a deterministic fallback.",
     parameters: z.object({
-      inchesPerHour: z.number().min(0).max(5),
-      rainType: z.enum(["drizzle", "rain", "heavy", "storm"]).default("rain"),
+      city: z.string(),
+      inchesPerHour: z.number().min(0).max(5).optional(),
+      rainType: z.enum(["drizzle", "rain", "heavy", "storm"]).optional(),
     }),
-    render: ({ parameters, status }) => {
-      const inches = Math.min(5, Math.max(0, parameters.inchesPerHour ?? 0.3));
+    handler: async ({ city, inchesPerHour, rainType }) => {
+      const base = mockPrecipitation(city);
+      return {
+        ...base,
+        ...(inchesPerHour !== undefined ? { inchesPerHour } : {}),
+        ...(rainType ? { rainType } : {}),
+      };
+    },
+    render: ({ args, result, status }) => {
+      const data = parseToolResult<PrecipitationReading>(result);
+      const inches = Math.min(5, Math.max(0, data?.inchesPerHour ?? 0));
+      const rainType = data?.rainType ?? "rain";
+      const city = data?.city ?? args?.city ?? "—";
       const pct = (inches / 5) * 100;
-      // Semicircle: 180° arc, use conic-gradient hack for the fill.
       return (
         <div className="overflow-hidden rounded-2xl border border-sky-400/20 bg-gradient-to-b from-sky-950/40 to-black p-5 text-white shadow-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-widest text-sky-300/80">
-                Frontend tool · precipitation
+                Precipitation · {city}
               </div>
               <h3 className="mt-1 text-lg font-semibold capitalize">
-                {parameters.rainType ?? "rain"}
+                {rainType}
               </h3>
             </div>
             <span className="rounded-full border border-white/10 bg-black/40 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/70">

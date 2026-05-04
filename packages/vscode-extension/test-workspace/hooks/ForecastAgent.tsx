@@ -1,34 +1,55 @@
-import { useCoAgentStateRender } from "@copilotkit/react-core";
+// @ts-nocheck — demo fixture; react-core types are stricter than the stubs need.
+// V2 conversion of the previous v1 `useCoAgentStateRender` — the playground
+// has no real co-agent backing it, so we expose a multi-day forecast as a
+// proper `useFrontendTool` with mock data instead. The model can call this
+// directly when the user asks for a 5-day forecast for a city.
+import { useFrontendTool } from "@copilotkit/react-core/v2";
+import { z } from "zod";
+import {
+  mockForecast,
+  parseToolResult,
+  type Forecast,
+} from "./shared/mock-weather";
 
 export function ForecastAgent() {
-  useCoAgentStateRender({
-    name: "forecast_agent",
-    render: ({ state, status }) => {
-      const s = (state ?? {}) as {
-        city?: string;
-        days?: Array<{
-          day: string;
-          high: number;
-          low: number;
-          icon?: string;
-        }>;
-      };
-      const city = s.city ?? "San Francisco";
-      const days = s.days?.length
-        ? s.days
-        : [
-            { day: "Mon", high: 72, low: 58, icon: "☀️" },
-            { day: "Tue", high: 69, low: 56, icon: "⛅" },
-            { day: "Wed", high: 66, low: 55, icon: "🌧️" },
-            { day: "Thu", high: 68, low: 57, icon: "⛅" },
-            { day: "Fri", high: 74, low: 60, icon: "☀️" },
-          ];
+  useFrontendTool({
+    name: "displayForecast",
+    followUp: false,
+    description:
+      "Render a multi-day forecast strip for a city (up to 7 days). UI TOOL — does not fetch real forecast data. Pass real values via `days` if you have them; otherwise just the city to use a deterministic placeholder.",
+    parameters: z.object({
+      city: z.string(),
+      days: z.number().int().min(1).max(7).default(5),
+    }),
+    handler: async ({ city, days }) => mockForecast(city, days ?? 5),
+    render: ({ args, result, status }) => {
+      const data = parseToolResult<Forecast>(result);
+      const city = data?.city ?? args?.city ?? "San Francisco";
+      const days = data?.days ?? [
+        { day: "Mon", high: 72, low: 58, icon: "☀️", condition: "sunny" },
+        {
+          day: "Tue",
+          high: 69,
+          low: 56,
+          icon: "⛅",
+          condition: "partly-cloudy",
+        },
+        { day: "Wed", high: 66, low: 55, icon: "🌧️", condition: "rain" },
+        {
+          day: "Thu",
+          high: 68,
+          low: 57,
+          icon: "⛅",
+          condition: "partly-cloudy",
+        },
+        { day: "Fri", high: 74, low: 60, icon: "☀️", condition: "sunny" },
+      ];
       return (
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-slate-800 to-slate-900 p-6 shadow-xl">
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-medium uppercase tracking-widest text-sky-300/80">
-                5-day forecast
+                {days.length}-day forecast
               </div>
               <h3 className="mt-1 text-2xl font-semibold text-white">{city}</h3>
             </div>
@@ -51,7 +72,12 @@ export function ForecastAgent() {
               {status === "complete" ? "Ready" : "Streaming…"}
             </span>
           </div>
-          <div className="mt-6 grid grid-cols-5 gap-2">
+          <div
+            className="mt-6 grid gap-2"
+            style={{
+              gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
+            }}
+          >
             {days.map((d) => (
               <div
                 key={d.day}

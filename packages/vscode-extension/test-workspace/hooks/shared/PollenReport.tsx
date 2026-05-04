@@ -1,11 +1,16 @@
 // Shared component used by `ImportedPollenReport.tsx`. Exercises the V2
-// `useRenderTool` + imported-component path. Also imports from a second
+// `useFrontendTool` + imported-component path. Also imports from a second
 // shared module (`./pollen-copy`) to confirm the bundler walks a multi-hop
 // import graph in preview.
 import { describeSeverity } from "./pollen-copy";
+import {
+  parseToolResult,
+  type PollenReport as PollenData,
+} from "./mock-weather";
 
 export interface PollenReportProps {
-  parameters?: { city?: string; tree?: number; grass?: number; weed?: number };
+  args?: { city?: string };
+  result?: string;
   status?: string;
 }
 
@@ -35,11 +40,12 @@ function Bar({
   );
 }
 
-export function PollenReport({ parameters, status }: PollenReportProps) {
-  const city = parameters?.city ?? "Austin";
-  const tree = parameters?.tree ?? 7;
-  const grass = parameters?.grass ?? 4;
-  const weed = parameters?.weed ?? 2;
+export function PollenReport({ args, result, status }: PollenReportProps) {
+  const data = parseToolResult<PollenData>(result);
+  const city = data?.city ?? args?.city ?? "Austin";
+  const tree = data?.tree ?? 0;
+  const grass = data?.grass ?? 0;
+  const weed = data?.weed ?? 0;
   const max = Math.max(tree, grass, weed);
   return (
     <div className="overflow-hidden rounded-2xl border border-emerald-400/20 bg-gradient-to-b from-emerald-950/50 to-black p-6 text-white shadow-xl">
