@@ -59,8 +59,10 @@ jobs:
       - name: Collect PR-changed files for formatting
         if: github.event_name == 'pull_request'
         id: changed
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
-          base_ref="${{ github.event.pull_request.base.ref }}"
+          base_ref="${PR_BASE_REF}"
           # Fetch the current tip of the base branch so the merge-base tracks
           # main as it advances (using the PR's stored base.sha would pull in
           # every file main has touched since the PR opened).
@@ -228,7 +230,10 @@ jobs:
         id: commitlint
         if: github.event_name == 'pull_request'
         continue-on-error: true
-        run: npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose 2>&1 | tee /tmp/commitlint-output.txt
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: npx commitlint --from "${PR_BASE_SHA}" --to "${PR_HEAD_SHA}" --verbose 2>&1 | tee /tmp/commitlint-output.txt
 
       - name: Post fix suggestion on failure
         if: github.event_name == 'pull_request' && steps.commitlint.outcome == 'failure'

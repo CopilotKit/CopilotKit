@@ -61,6 +61,12 @@ jobs:
         if: failure()
         id: failure-cause
         working-directory: examples/integrations/${{ matrix.starter }}
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_USER_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           {
             echo "summary<<CAUSE_EOF"
@@ -86,10 +92,10 @@ jobs:
             echo ""
 
             # Identify recent changes that may have caused the failure
-            if [ "${{ github.event_name }}" = "pull_request" ]; then
-              echo "Triggered by PR #${{ github.event.pull_request.number }} (${{ github.event.pull_request.user.login }}): ${{ github.event.pull_request.title }}"
-              echo "Head: ${{ github.event.pull_request.head.sha }}"
-            elif [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_run" ]; then
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "Triggered by PR #${PR_NUMBER} (${PR_USER_LOGIN}): ${PR_TITLE}"
+              echo "Head: ${PR_HEAD_SHA}"
+            elif [ "$EVENT_NAME" = "schedule" ] || [ "$EVENT_NAME" = "workflow_run" ]; then
               # Use GitHub API instead of git log (avoids needing deep clone)
               echo "Recent commits touching this starter (last 12h):"
               gh api "repos/${{ github.repository }}/commits?path=examples/integrations/${{ matrix.starter }}&since=$(date -u -d '12 hours ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-12H +%Y-%m-%dT%H:%M:%SZ)&per_page=5" \

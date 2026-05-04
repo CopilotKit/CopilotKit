@@ -26,8 +26,10 @@ jobs:
     steps:
       - name: Extract scope from branch
         id: meta
+        env:
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
+          BRANCH="${PR_HEAD_REF}"
           # Branch format: release/publish/<scope>/v<version>
           SCOPE=$(echo "$BRANCH" | sed 's|release/publish/\([^/]*\)/v.*|\1|')
           echo "scope=$SCOPE" >> $GITHUB_OUTPUT
