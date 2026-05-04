@@ -234,3 +234,43 @@
     - src/app/demos/[framework]/tool-rendering-reasoning-chain/flight-list-card.tsx
     - src/app/demos/[framework]/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
     - src/app/api/[framework]/tool-rendering-reasoning-chain/[[...slug]]/route.ts
+- id: multimodal
+  name: Multimodal Attachments
+  description: Image and PDF uploads via CopilotChat attachments — ask questions about files inline
+  tags: [multimodal]
+  route_template: /demos/{framework}/multimodal
+  frontend_highlight:
+    - src/app/demos/[framework]/multimodal/page.tsx
+    - src/app/demos/[framework]/multimodal/sample-attachment-buttons.tsx
+    - src/app/api/[framework]/multimodal/[[...slug]]/route.ts
+- id: voice
+  name: Voice Input
+  description: Speech-to-text transcription via OpenAI Whisper with mic button in CopilotChat
+  tags: [voice]
+  route_template: /demos/{framework}/voice
+  frontend_highlight:
+    - src/app/demos/[framework]/voice/page.tsx
+    - src/app/demos/[framework]/voice/sample-audio-button.tsx
+    - src/app/api/[framework]/voice/[[...slug]]/route.ts
+- id: auth
+  name: Authentication
+  description: Bearer-token gate via V2 runtime onRequest hook — sign out to exercise the 401 path
+  tags: [auth]
+  route_template: /demos/{framework}/auth
+  frontend_highlight:
+    - src/app/demos/[framework]/auth/page.tsx
+    - src/app/demos/[framework]/auth/auth-banner.tsx
+    - src/app/demos/[framework]/auth/use-demo-auth.ts
+    - src/app/demos/[framework]/auth/demo-token.ts
+    - src/app/api/[framework]/auth/[[...slug]]/route.ts
+- id: agent-config
+  name: Agent Config Object
+  description: Forward a typed config object from the frontend to the agent per turn
+  tags: [agent-state]
+  route_template: /demos/{framework}/agent-config
+  frontend_highlight:
+    - src/app/demos/[framework]/agent-config/page.tsx
+    - src/app/demos/[framework]/agent-config/config-card.tsx
+    - src/app/demos/[framework]/agent-config/use-agent-config.ts
+    - src/app/demos/[framework]/agent-config/config-types.ts
+    - src/app/api/[framework]/agent-config/[[...slug]]/route.ts

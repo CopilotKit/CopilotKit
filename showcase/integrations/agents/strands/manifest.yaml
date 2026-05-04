@@ -102,3 +102,15 @@ demos:
   - id: tool-rendering-reasoning-chain
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: multimodal
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: voice
+    backend_highlight:
+      - src/agents/voice_agent.py
+  - id: auth
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: agent-config
+    backend_highlight:
+      - src/agents/agentic_chat.py

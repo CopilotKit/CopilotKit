@@ -42,6 +42,7 @@ from dotenv import load_dotenv  # noqa: E402
 
 from agents._multi_agent_app import create_multi_agent_strands_app  # noqa: E402
 from agents.agentic_chat import build_agentic_chat_agent  # noqa: E402
+from agents.voice_agent import build_voice_agent  # noqa: E402
 
 load_dotenv()
 
@@ -50,8 +51,10 @@ load_dotenv()
 # agentic-chat; remaining demos added in Task 22 sweep.
 AGENT_FACTORIES = {
     "a2ui-fixed-schema": build_agentic_chat_agent,
+    "agent-config": build_agentic_chat_agent,
     "agentic-chat": build_agentic_chat_agent,
     "agentic-chat-reasoning": build_agentic_chat_agent,
+    "auth": build_agentic_chat_agent,
     "chat-customization-css": build_agentic_chat_agent,
     "chat-slots": build_agentic_chat_agent,
     "declarative-gen-ui": build_agentic_chat_agent,
@@ -65,6 +68,7 @@ AGENT_FACTORIES = {
     "hitl-in-app": build_agentic_chat_agent,
     "hitl-in-chat": build_agentic_chat_agent,
     "hitl-in-chat-booking": build_agentic_chat_agent,
+    "multimodal": build_agentic_chat_agent,
     "prebuilt-popup": build_agentic_chat_agent,
     "prebuilt-sidebar": build_agentic_chat_agent,
     "reasoning-default-render": build_agentic_chat_agent,
@@ -76,6 +80,7 @@ AGENT_FACTORIES = {
     "shared-state-read-write": build_agentic_chat_agent,
     "shared-state-streaming": build_agentic_chat_agent,
     "subagents": build_agentic_chat_agent,
+    "voice": build_voice_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)
