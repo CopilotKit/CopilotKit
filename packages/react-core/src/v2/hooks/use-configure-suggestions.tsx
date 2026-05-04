@@ -51,44 +51,51 @@ export function useConfigureSuggestions(
   });
 
   const { normalizedConfig, serializedConfig } = useMemo(() => {
-    if (!config) {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
-    }
+      if (!config) {
+        normalizationCacheRef.current = { serialized: null, config: null };
+        return { normalizedConfig: null, serializedConfig: null };
+      }
 
-    if (config.available === "disabled") {
-      normalizationCacheRef.current = { serialized: null, config: null };
-      return { normalizedConfig: null, serializedConfig: null };
-    }
+      if (config.available === "disabled") {
+        normalizationCacheRef.current = { serialized: null, config: null };
+        return { normalizedConfig: null, serializedConfig: null };
+      }
 
-    let built: SuggestionsConfig;
-    if (isDynamicConfig(config)) {
-      built = {
-        ...config,
-      } satisfies DynamicSuggestionsConfig;
-    } else {
-      const normalizedSuggestions = normalizeStaticSuggestions(
-        config.suggestions,
-      );
-      const baseConfig: StaticSuggestionsConfig = {
-        ...config,
-        suggestions: normalizedSuggestions,
-      };
-      built = baseConfig;
-    }
+      let built: SuggestionsConfig;
+      if (isDynamicConfig(config)) {
+        built = {
+          ...config,
+        } satisfies DynamicSuggestionsConfig;
+      } else {
+        const normalizedSuggestions = normalizeStaticSuggestions(
+          config.suggestions,
+        );
+        const baseConfig: StaticSuggestionsConfig = {
+          ...config,
+          suggestions: normalizedSuggestions,
+        };
+        built = baseConfig;
+      }
 
-    const serialized = JSON.stringify(built);
-    const cache = normalizationCacheRef.current;
-    if (cache.serialized === serialized && cache.config) {
-      return { normalizedConfig: cache.config, serializedConfig: serialized };
-    }
+      const serialized = JSON.stringify(built);
+      const cache = normalizationCacheRef.current;
+      if (cache.serialized === serialized && cache.config) {
+        return { normalizedConfig: cache.config, serializedConfig: serialized };
+      }
 
-    normalizationCacheRef.current = { serialized, config: built };
-    return { normalizedConfig: built, serializedConfig: serialized };
-  }, [config, resolvedConsumerAgentId, ...extraDeps]);
+      normalizationCacheRef.current = { serialized, config: built };
+      return { normalizedConfig: built, serializedConfig: serialized };
+    },
+    // The hook intentionally mirrors React's dependency-array API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [config, ...extraDeps],
+  );
   const latestConfigRef = useRef<SuggestionsConfig | null>(null);
   latestConfigRef.current = normalizedConfig;
-  const previousSerializedConfigRef = useRef<string | null>(null);
+  const previousExtraDepsRef = useRef<{
+    serializedConfig: string;
+    deps: ReadonlyArray<unknown>;
+  } | null>(null);
 
   const targetAgentId = useMemo(() => {
     if (!normalizedConfig) {
@@ -161,29 +168,41 @@ export function useConfigureSuggestions(
     };
   }, [copilotkit, serializedConfig, requestReload]);
 
-  useEffect(() => {
-    if (!normalizedConfig) {
-      previousSerializedConfigRef.current = null;
-      return;
-    }
-    if (
-      serializedConfig &&
-      previousSerializedConfigRef.current === serializedConfig
-    ) {
-      return;
-    }
-    if (serializedConfig) {
-      previousSerializedConfigRef.current = serializedConfig;
-    }
-    requestReload();
-  }, [normalizedConfig, requestReload, serializedConfig]);
+  useEffect(
+    () => {
+      if (!normalizedConfig || !serializedConfig || extraDeps.length === 0) {
+        previousExtraDepsRef.current = null;
+        return;
+      }
 
-  useEffect(() => {
-    if (!normalizedConfig || extraDeps.length === 0) {
-      return;
-    }
-    requestReload();
-  }, [extraDeps.length, normalizedConfig, requestReload, ...extraDeps]);
+      const previousExtraDeps = previousExtraDepsRef.current;
+      previousExtraDepsRef.current = {
+        serializedConfig,
+        deps: extraDeps,
+      };
+
+      if (
+        !previousExtraDeps ||
+        previousExtraDeps.serializedConfig !== serializedConfig
+      ) {
+        return;
+      }
+
+      const extraDepsUnchanged =
+        previousExtraDeps.deps.length === extraDeps.length &&
+        previousExtraDeps.deps.every((dep, index) =>
+          Object.is(dep, extraDeps[index]),
+        );
+
+      if (extraDepsUnchanged) {
+        return;
+      }
+      requestReload();
+    },
+    // The hook intentionally mirrors React's dependency-array API.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [extraDeps.length, normalizedConfig, requestReload, ...extraDeps],
+  );
 
   // When agents arrive after the initial render (runtime info just landed),
   // re-request a reload so dynamic configs that need a real agent can finally

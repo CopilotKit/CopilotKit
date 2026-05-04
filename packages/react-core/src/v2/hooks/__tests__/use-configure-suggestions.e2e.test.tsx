@@ -9,9 +9,9 @@ import {
 import { useConfigureSuggestions } from "../use-configure-suggestions";
 import { useSuggestions } from "../use-suggestions";
 import { DEFAULT_AGENT_ID, randomUUID } from "@copilotkit/shared";
-import { Suggestion } from "@copilotkit/core";
-import {
-  AbstractAgent,
+import type { Suggestion } from "@copilotkit/core";
+import { AbstractAgent } from "@ag-ui/client";
+import type {
   AgentSubscriber,
   Message,
   RunAgentParameters,
@@ -20,7 +20,10 @@ import {
 import { useCopilotKit } from "../../providers/CopilotKitProvider";
 
 class ImmediateSuggestionsProviderAgent extends AbstractAgent {
-  constructor(private responses: Suggestion[]) {
+  constructor(
+    private responses: Suggestion[],
+    private onRunAgent?: () => void,
+  ) {
     super({ agentId: DEFAULT_AGENT_ID });
   }
 
@@ -33,7 +36,10 @@ class ImmediateSuggestionsProviderAgent extends AbstractAgent {
   }
 
   override clone(): ImmediateSuggestionsProviderAgent {
-    const cloned = new ImmediateSuggestionsProviderAgent(this.responses);
+    const cloned = new ImmediateSuggestionsProviderAgent(
+      this.responses,
+      this.onRunAgent,
+    );
     cloned.threadId = this.threadId;
     cloned.description = this.description;
     cloned.messages = JSON.parse(JSON.stringify(this.messages));
@@ -45,6 +51,8 @@ class ImmediateSuggestionsProviderAgent extends AbstractAgent {
     parameters: RunAgentParameters = {},
     subscriber?: AgentSubscriber,
   ): Promise<RunAgentResult> {
+    this.onRunAgent?.();
+
     const input = this.prepareRunAgentInput(parameters);
     this.isRunning = true;
 
@@ -123,6 +131,36 @@ const TestHarness: React.FC = () => {
       </div>
       <button data-testid="reload-suggestions" onClick={handleReload}>
         Reload
+      </button>
+    </div>
+  );
+};
+
+const InlineDynamicConfigRerenderHarness: React.FC = () => {
+  const [rerenders, setRerenders] = useState(0);
+
+  useConfigureSuggestions(
+    {
+      instructions: "Suggest proofreading, prose, and grammar edits",
+      providerAgentId: DEFAULT_AGENT_ID,
+      available: "always",
+      minSuggestions: 2,
+      maxSuggestions: 4,
+    },
+    [],
+  );
+
+  const { suggestions } = useSuggestions();
+
+  return (
+    <div>
+      <div data-testid="suggestions-count">{suggestions.length}</div>
+      <div data-testid="rerenders">{rerenders}</div>
+      <button
+        data-testid="rerender"
+        onClick={() => setRerenders((count) => count + 1)}
+      >
+        Rerender
       </button>
     </div>
   );
@@ -433,6 +471,38 @@ describe("useConfigureSuggestions", () => {
     const json = screen.getByTestId("suggestions-json").textContent;
     expect(json).toContain("Option A");
     expect(json).toContain("Option B");
+  });
+
+  it("does not regenerate dynamic suggestions when an inline config rerenders unchanged", async () => {
+    let runAgentCalls = 0;
+    const agent = new ImmediateSuggestionsProviderAgent(
+      [
+        { title: "Proofread", message: "Proofread this", isLoading: false },
+        { title: "Tighten", message: "Tighten the prose", isLoading: false },
+      ],
+      () => {
+        runAgentCalls += 1;
+      },
+    );
+
+    renderWithCopilotKit({
+      agent,
+      children: <InlineDynamicConfigRerenderHarness />,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("suggestions-count").textContent).toBe("2");
+      expect(runAgentCalls).toBe(1);
+    });
+
+    fireEvent.click(screen.getByTestId("rerender"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("rerenders").textContent).toBe("1");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(runAgentCalls).toBe(1);
   });
 });
 
