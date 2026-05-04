@@ -299,6 +299,24 @@ body {
   color: var(--vscode-foreground);
 }
 
+.playground-chat-toolcall-error {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  border-left: 2px solid var(--vscode-errorForeground);
+  background: var(--vscode-inputValidation-errorBackground);
+  color: var(--vscode-inputValidation-errorForeground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.playground-chat-toolcall-error code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  background: rgba(0, 0, 0, 0.15);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
 .playground-chat-running {
   align-self: flex-start;
   color: var(--vscode-descriptionForeground);

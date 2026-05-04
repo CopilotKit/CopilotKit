@@ -141,9 +141,16 @@ function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
   const vscodeLmTools = opts.enableVscodeLmTools
     ? Array.from(vscode.lm.tools)
     : [];
-  if (vscodeLmTools.length > 0) {
+  if (opts.enableVscodeLmTools) {
     opts.log(
-      `[runtime-host] vscode.lm tools enabled (${vscodeLmTools.length} available)`,
+      `[runtime-host] vscode.lm tools setting=ON, vscode.lm.tools registry size=${vscodeLmTools.length}` +
+        (vscodeLmTools.length === 0
+          ? " — no LM-tool-providing extensions installed in this dev host (install GitHub Copilot Chat or another LM tool extension to populate this)"
+          : ""),
+    );
+  } else {
+    opts.log(
+      `[runtime-host] vscode.lm tools setting=OFF (set copilotkit.playground.enableVscodeLmTools=true to enable)`,
     );
   }
 

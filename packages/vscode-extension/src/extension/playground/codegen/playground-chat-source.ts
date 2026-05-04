@@ -516,6 +516,54 @@ interface MessageViewProps {
   }) => React.ReactElement | null;
 }
 
+/**
+ * Per-tool-call error boundary. A single user-registered render
+ * component crashing (e.g. destructuring a missing field on the
+ * model's tool args) used to take down the entire chat webview because
+ * React unwound the whole tree. Boundary it locally so the crash is
+ * confined to that one tool card and the rest of the chat keeps
+ * working.
+ */
+interface ToolCallBoundaryProps {
+  toolName: string;
+  children: React.ReactNode;
+}
+
+interface ToolCallBoundaryState {
+  error: Error | null;
+}
+
+class ToolCallErrorBoundary extends React.Component<
+  ToolCallBoundaryProps,
+  ToolCallBoundaryState
+> {
+  state: ToolCallBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): ToolCallBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error): void {
+    // eslint-disable-next-line no-console
+    console.error(
+      \`[playground-chat] tool render \${this.props.toolName} threw\`,
+      error,
+    );
+  }
+
+  render(): React.ReactNode {
+    if (this.state.error) {
+      return (
+        <div className="playground-chat-toolcall-error">
+          <strong>{this.props.toolName}</strong> render threw:{" "}
+          <code>{this.state.error.message}</code>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function MessageView({
   message,
   messages,
@@ -539,17 +587,29 @@ function MessageView({
           const toolMessage = messages.find(
             (m) => m.role === "tool" && m.toolCallId === tc.id,
           );
-          const rendered = renderToolCall({ toolCall: tc, toolMessage });
+          let rendered: React.ReactElement | null = null;
+          try {
+            rendered = renderToolCall({ toolCall: tc, toolMessage });
+          } catch (err) {
+            // eslint-disable-next-line no-console
+            console.error(
+              \`[playground-chat] renderToolCall \${tc.function.name} threw\`,
+              err,
+            );
+            rendered = null;
+          }
           return (
             <div className="playground-chat-toolcall" key={tc.id}>
               <header className="playground-chat-toolcall-header">
                 <code>{tc.function.name}</code>
               </header>
-              {rendered ?? (
-                <pre className="playground-chat-toolcall-args">
-                  {tc.function.arguments}
-                </pre>
-              )}
+              <ToolCallErrorBoundary toolName={tc.function.name}>
+                {rendered ?? (
+                  <pre className="playground-chat-toolcall-args">
+                    {tc.function.arguments}
+                  </pre>
+                )}
+              </ToolCallErrorBoundary>
             </div>
           );
         })}
