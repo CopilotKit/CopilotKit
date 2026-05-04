@@ -5,6 +5,7 @@ import posthog from "posthog-js";
 import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { normalizePathnameForAnalytics } from "@/lib/analytics-utils";
+import { useConsent } from "@/lib/consent/ConsentContext";
 
 const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 // Reverse-proxied via /ingest/* rewrites in next.config.mjs so requests
@@ -17,6 +18,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [sessionId, setSessionId] = useState<string | null>(null);
   const isInitializedRef = useRef(false);
+  const { state, hydrated } = useConsent();
+  const analyticsAllowed = hydrated && state.categories.analytics;
 
   // Read session_id from URL only on client side to avoid hydration mismatch
   useEffect(() => {
@@ -26,7 +29,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Initialize PostHog once (only on mount)
+  // Initialize PostHog once (only on mount). Always init opted-out; toggle below.
   useEffect(() => {
     if (POSTHOG_KEY && !posthog?.__loaded && !isInitializedRef.current) {
       isInitializedRef.current = true;
@@ -104,7 +107,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           capture_pageview: false,
           // Reduce network requests by batching
           request_batching: true,
-          // Don't enable debug mode - it causes too much logging
+          // Don't capture anything until consent is granted
+          opt_out_capturing_by_default: true,
         });
       } catch (error) {
         // Silently fail if PostHog init fails (e.g., network issues, blocked by ad blockers)
@@ -115,9 +119,19 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, []); // Only run once on mount
 
-  // Capture pageview only after PostHog is initialized
+  // Toggle capturing based on consent.
   useEffect(() => {
-    if (POSTHOG_KEY && posthog?.__loaded) {
+    if (!POSTHOG_KEY || !posthog?.__loaded) return;
+    if (analyticsAllowed) {
+      posthog.opt_in_capturing();
+    } else {
+      posthog.opt_out_capturing();
+    }
+  }, [analyticsAllowed]);
+
+  // Capture pageview only after PostHog is initialized AND consent is granted
+  useEffect(() => {
+    if (POSTHOG_KEY && posthog?.__loaded && analyticsAllowed) {
       try {
         const normalizedPathname = normalizePathnameForAnalytics(pathname);
         posthog.capture("$pageview", {
@@ -130,7 +144,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-  }, [pathname]);
+  }, [pathname, analyticsAllowed]);
 
   return <PostHogProviderBase client={posthog}>{children}</PostHogProviderBase>;
 }

@@ -1,11 +1,13 @@
 import "./global.css";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { Plus_Jakarta_Sans, Spline_Sans_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import type { ReactNode } from "react";
 import { ProvidersWrapper } from "@/lib/providers/providers-wrapper";
 import { Banners } from "@/components/layout/banners";
-import Script from "next/script";
 import SearchDialog from "@/components/ui/search-dialog";
+import { ConsentProvider, type Region } from "@/lib/consent/ConsentContext";
+import { ConsentLayer } from "@/lib/consent/ConsentLayer";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
@@ -17,8 +19,8 @@ const splineSansMono = Spline_Sans_Mono({
 });
 
 export default async function Layout({ children }: { children: ReactNode }) {
-  const REB2B_KEY = process.env.NEXT_PUBLIC_REB2B_KEY;
-  const REO_KEY = process.env.NEXT_PUBLIC_REO_KEY;
+  const region = (((await headers()).get("x-cpk-region") as Region) ||
+    "other") as Region;
 
   return (
     <html
@@ -26,52 +28,19 @@ export default async function Layout({ children }: { children: ReactNode }) {
       className={`${plusJakartaSans.className} ${splineSansMono.variable}`}
       suppressHydrationWarning
     >
-      <head>
-        <Script
-          id="hubspot-script"
-          type="text/javascript"
-          src="https://js.hs-scripts.com/45532593.js"
-          async
-          defer
-        />
-        <Script
-          id="reb2b-script"
-          strategy="afterInteractive"
-          src={`https://b2bjsstore.s3.us-west-2.amazonaws.com/b/${REB2B_KEY}/${REB2B_KEY}.js.gz`}
-        />
-        <Script
-          id="reo-init-script"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-                  !function(){
-                    var e, t, n;
-                    e = "${REO_KEY}";
-                    t = function() {
-                      if (window.Reo) {
-                        window.Reo.init({ clientID: "${REO_KEY}" });
-                      }
-                    };
-                    n = document.createElement("script");
-                    n.src = "https://static.reo.dev/" + e + "/reo.js";
-                    n.defer = true;
-                    n.onload = t;
-                    document.head.appendChild(n);
-                  }();
-                `,
-          }}
-        />
-      </head>
       <body>
-        <ProvidersWrapper>
-          <Banners />
-          <RootProvider
-            theme={{ enabled: true, defaultTheme: "system" }}
-            search={{ SearchDialog: SearchDialog }}
-          >
-            {children}
-          </RootProvider>
-        </ProvidersWrapper>
+        <ConsentProvider region={region}>
+          <ProvidersWrapper>
+            <Banners />
+            <RootProvider
+              theme={{ enabled: true, defaultTheme: "system" }}
+              search={{ SearchDialog: SearchDialog }}
+            >
+              {children}
+            </RootProvider>
+            <ConsentLayer />
+          </ProvidersWrapper>
+        </ConsentProvider>
       </body>
     </html>
   );

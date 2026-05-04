@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { useConsent } from "@/lib/consent/ConsentContext";
 
 export function useRB2B() {
+  const { state, hydrated } = useConsent();
+  const allowed = hydrated && state.categories.marketing;
+
   useEffect(() => {
     const RB2B_ID = process.env.NEXT_PUBLIC_RB2B_ID;
-
-    if (!RB2B_ID) {
-      return;
-    }
+    if (!RB2B_ID || !allowed) return;
 
     // @ts-ignore
     !(function () {
@@ -42,5 +43,5 @@ export function useRB2B() {
       reb2b.SNIPPET_VERSION = "1.0.1";
       reb2b.load(RB2B_ID);
     })();
-  }, []);
+  }, [allowed]);
 }

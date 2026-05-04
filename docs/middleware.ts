@@ -19,7 +19,65 @@ const FRAMEWORKS = [
   "built-in-agent",
 ];
 
+const EU_EEA_UK_COUNTRIES = new Set([
+  "AT",
+  "BE",
+  "BG",
+  "HR",
+  "CY",
+  "CZ",
+  "DK",
+  "EE",
+  "FI",
+  "FR",
+  "DE",
+  "GR",
+  "HU",
+  "IE",
+  "IT",
+  "LV",
+  "LT",
+  "LU",
+  "MT",
+  "NL",
+  "PL",
+  "PT",
+  "RO",
+  "SK",
+  "SI",
+  "ES",
+  "SE",
+  "GB",
+  "IS",
+  "LI",
+  "NO",
+  "CH",
+]);
+
+export function computeRegion(
+  country: string | null,
+  region: string | null,
+): "eu" | "us-ca" | "other" {
+  if (country && EU_EEA_UK_COUNTRIES.has(country.toUpperCase())) return "eu";
+  if (country?.toUpperCase() === "US" && region?.toUpperCase() === "CA")
+    return "us-ca";
+  return "other";
+}
+
+function attachRegionCookie(response: NextResponse, region: string) {
+  response.cookies.set("cpk_region", region, {
+    maxAge: 60 * 60 * 24 * 30,
+    sameSite: "lax",
+    path: "/",
+  });
+  return response;
+}
+
 export function middleware(request: NextRequest) {
+  const country = request.headers.get("x-vercel-ip-country");
+  const subRegion = request.headers.get("x-vercel-ip-country-region");
+  const region = computeRegion(country, subRegion);
+
   const { pathname } = request.nextUrl;
 
   // Common redirects for broken links
@@ -82,13 +140,19 @@ export function middleware(request: NextRequest) {
 
   // Check for exact matches
   if (redirects[pathname]) {
-    return NextResponse.redirect(new URL(redirects[pathname], request.url));
+    return attachRegionCookie(
+      NextResponse.redirect(new URL(redirects[pathname], request.url)),
+      region,
+    );
   }
 
   // Check for pattern-based redirects
   if (pathname.startsWith("/coagents/")) {
     const newPath = pathname.replace("/coagents/", "/langgraph/");
-    return NextResponse.redirect(new URL(newPath, request.url));
+    return attachRegionCookie(
+      NextResponse.redirect(new URL(newPath, request.url)),
+      region,
+    );
   }
 
   // Per-framework pattern redirects (docs restructure 2026-02)
@@ -118,14 +182,20 @@ export function middleware(request: NextRequest) {
     };
 
     if (renames[rest]) {
-      return NextResponse.redirect(
-        new URL(`/${fw}/${renames[rest]}`, request.url),
+      return attachRegionCookie(
+        NextResponse.redirect(
+          new URL(`/${fw}/${renames[rest]}`, request.url),
+        ),
+        region,
       );
     }
 
     // Concepts directory → framework root
     if (rest.startsWith("concepts/") || rest === "concepts") {
-      return NextResponse.redirect(new URL(`/${fw}`, request.url));
+      return attachRegionCookie(
+        NextResponse.redirect(new URL(`/${fw}`, request.url)),
+        region,
+      );
     }
 
     break; // Only match one framework
@@ -134,10 +204,19 @@ export function middleware(request: NextRequest) {
   // Handle guide -> guides redirects
   if (pathname.includes("/guide") && !pathname.includes("/guides")) {
     const newPath = pathname.replace("/guide", "/guides");
-    return NextResponse.redirect(new URL(newPath, request.url));
+    return attachRegionCookie(
+      NextResponse.redirect(new URL(newPath, request.url)),
+      region,
+    );
   }
 
-  return NextResponse.next();
+  // No redirect — pass region as a request header so the layout can read it server-side.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-cpk-region", region);
+  return attachRegionCookie(
+    NextResponse.next({ request: { headers: requestHeaders } }),
+    region,
+  );
 }
 
 export const config = {
