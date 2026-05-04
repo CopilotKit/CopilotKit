@@ -16,6 +16,15 @@
     - src/app/demos/[framework]/chat-customization-css/page.tsx
     - src/app/demos/[framework]/chat-customization-css/theme.css
     - src/app/api/[framework]/chat-customization-css/[[...slug]]/route.ts
+- id: chat-slots
+  name: Chat Customization (Slots)
+  description: Customize CopilotChat via its slot system
+  tags: [chat-ui]
+  route_template: /demos/{framework}/chat-slots
+  frontend_highlight:
+    - src/app/demos/[framework]/chat-slots/page.tsx
+    - src/app/demos/[framework]/chat-slots/custom-welcome-screen.tsx
+    - src/app/api/[framework]/chat-slots/[[...slug]]/route.ts
 - id: prebuilt-popup
   name: "Pre-Built: Popup"
   description: Floating popup chat via <CopilotPopup />

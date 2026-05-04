@@ -27,6 +27,9 @@ demos:
   - id: chat-customization-css
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: chat-slots
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: prebuilt-popup
     backend_highlight:
       - src/agents/agentic_chat.py
