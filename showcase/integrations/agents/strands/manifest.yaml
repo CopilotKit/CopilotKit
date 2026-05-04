@@ -21,6 +21,9 @@ auth_pattern: runtime-onrequest
 
 # Phase 1: only agentic-chat. Remaining demos added in Task 22 sweep.
 demos:
+  - id: a2ui-fixed-schema
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: agentic-chat
     backend_highlight:
       - src/agents/agentic_chat.py
@@ -33,10 +36,19 @@ demos:
   - id: chat-slots
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: declarative-gen-ui
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: frontend-tools
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: frontend-tools-async
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-agent
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-tool-based
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: headless-complete

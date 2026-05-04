@@ -1,4 +1,15 @@
 # Populated during Phase 1.
+- id: a2ui-fixed-schema
+  name: A2UI Fixed Schema
+  description: Declarative Generative UI with a fixed component schema — agent streams data into a pre-defined flight card layout
+  tags: [generative-ui]
+  route_template: /demos/{framework}/a2ui-fixed-schema
+  frontend_highlight:
+    - src/app/demos/[framework]/a2ui-fixed-schema/page.tsx
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/catalog.ts
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/definitions.ts
+    - src/app/demos/[framework]/a2ui-fixed-schema/a2ui/renderers.tsx
+    - src/app/api/[framework]/a2ui-fixed-schema/[[...slug]]/route.ts
 - id: agentic-chat
   name: Agentic Chat
   description: Natural conversation with frontend tool execution
@@ -34,6 +45,17 @@
     - src/app/demos/[framework]/chat-slots/page.tsx
     - src/app/demos/[framework]/chat-slots/custom-welcome-screen.tsx
     - src/app/api/[framework]/chat-slots/[[...slug]]/route.ts
+- id: declarative-gen-ui
+  name: Declarative Generative UI
+  description: A2UI BYOC — agent drives a custom component catalog declared on the frontend
+  tags: [generative-ui]
+  route_template: /demos/{framework}/declarative-gen-ui
+  frontend_highlight:
+    - src/app/demos/[framework]/declarative-gen-ui/page.tsx
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/catalog.ts
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/definitions.ts
+    - src/app/demos/[framework]/declarative-gen-ui/a2ui/renderers.tsx
+    - src/app/api/[framework]/declarative-gen-ui/[[...slug]]/route.ts
 - id: frontend-tools
   name: Frontend Tools (In-App Actions)
   description: Agent invokes client-side handlers registered with useFrontendTool
@@ -51,6 +73,22 @@
     - src/app/demos/[framework]/frontend-tools-async/page.tsx
     - src/app/demos/[framework]/frontend-tools-async/notes-card.tsx
     - src/app/api/[framework]/frontend-tools-async/[[...slug]]/route.ts
+- id: gen-ui-agent
+  name: Agentic Generative UI
+  description: Agent streams structured state updates rendered as a live task-progress tracker
+  tags: [generative-ui]
+  route_template: /demos/{framework}/gen-ui-agent
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-agent/page.tsx
+    - src/app/api/[framework]/gen-ui-agent/[[...slug]]/route.ts
+- id: gen-ui-tool-based
+  name: Tool-Based Generative UI
+  description: Agent calls a frontend-registered tool to render haiku cards with images and gradients
+  tags: [generative-ui]
+  route_template: /demos/{framework}/gen-ui-tool-based
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-tool-based/page.tsx
+    - src/app/api/[framework]/gen-ui-tool-based/[[...slug]]/route.ts
 - id: headless-complete
   name: Headless Chat (Complete)
   description: Full chat implementation built from scratch on useAgent

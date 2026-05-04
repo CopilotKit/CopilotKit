@@ -49,12 +49,16 @@ load_dotenv()
 # MUST mirror these keys (CI lint enforces). Phase 1 wires only
 # agentic-chat; remaining demos added in Task 22 sweep.
 AGENT_FACTORIES = {
+    "a2ui-fixed-schema": build_agentic_chat_agent,
     "agentic-chat": build_agentic_chat_agent,
     "agentic-chat-reasoning": build_agentic_chat_agent,
     "chat-customization-css": build_agentic_chat_agent,
     "chat-slots": build_agentic_chat_agent,
+    "declarative-gen-ui": build_agentic_chat_agent,
     "frontend-tools": build_agentic_chat_agent,
     "frontend-tools-async": build_agentic_chat_agent,
+    "gen-ui-agent": build_agentic_chat_agent,
+    "gen-ui-tool-based": build_agentic_chat_agent,
     "headless-complete": build_agentic_chat_agent,
     "headless-simple": build_agentic_chat_agent,
     "hitl": build_agentic_chat_agent,
