@@ -274,3 +274,22 @@
     - src/app/demos/[framework]/agent-config/use-agent-config.ts
     - src/app/demos/[framework]/agent-config/config-types.ts
     - src/app/api/[framework]/agent-config/[[...slug]]/route.ts
+- id: byoc-hashbrown
+  name: "BYOC: Hashbrown"
+  description: Streaming structured output rendered via @hashbrownai/react's useUiKit + useJsonParser
+  tags: [generative-ui]
+  route_template: /demos/{framework}/byoc-hashbrown
+  frontend_highlight:
+    - src/app/demos/[framework]/byoc-hashbrown/page.tsx
+    - src/app/demos/[framework]/byoc-hashbrown/hashbrown-renderer.tsx
+    - src/app/api/[framework]/byoc-hashbrown/[[...slug]]/route.ts
+- id: byoc-json-render
+  name: "BYOC: json-render"
+  description: JSON spec rendered via @json-render/react against a Zod catalog
+  tags: [generative-ui]
+  route_template: /demos/{framework}/byoc-json-render
+  frontend_highlight:
+    - src/app/demos/[framework]/byoc-json-render/page.tsx
+    - src/app/demos/[framework]/byoc-json-render/json-render-renderer.tsx
+    - src/app/demos/[framework]/byoc-json-render/catalog.ts
+    - src/app/api/[framework]/byoc-json-render/[[...slug]]/route.ts

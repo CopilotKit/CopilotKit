@@ -114,3 +114,9 @@ demos:
   - id: agent-config
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: byoc-hashbrown
+    backend_highlight:
+      - src/agents/byoc_hashbrown.py
+  - id: byoc-json-render
+    backend_highlight:
+      - src/agents/byoc_json_render.py

@@ -42,6 +42,8 @@ from dotenv import load_dotenv  # noqa: E402
 
 from agents._multi_agent_app import create_multi_agent_strands_app  # noqa: E402
 from agents.agentic_chat import build_agentic_chat_agent  # noqa: E402
+from agents.byoc_hashbrown import build_byoc_hashbrown_agent  # noqa: E402
+from agents.byoc_json_render import build_byoc_json_render_agent  # noqa: E402
 from agents.voice_agent import build_voice_agent  # noqa: E402
 
 load_dotenv()
@@ -81,6 +83,8 @@ AGENT_FACTORIES = {
     "shared-state-streaming": build_agentic_chat_agent,
     "subagents": build_agentic_chat_agent,
     "voice": build_voice_agent,
+    "byoc-hashbrown": build_byoc_hashbrown_agent,
+    "byoc-json-render": build_byoc_json_render_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)
