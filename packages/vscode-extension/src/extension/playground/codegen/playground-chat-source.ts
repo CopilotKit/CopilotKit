@@ -57,6 +57,11 @@ interface FrontendTool {
   parameters?: unknown;
 }
 
+interface RegisteredTool {
+  name: string;
+  handler?: (args: unknown, ctx: unknown) => Promise<unknown>;
+}
+
 function getFrontendTools(
   copilotkit: unknown,
   agentId: string,
@@ -79,6 +84,16 @@ function getFrontendTools(
   }
   return Array.isArray(c.tools) ? c.tools : [];
 }
+
+function getRegisteredTools(copilotkit: unknown): RegisteredTool[] {
+  // \`copilotkit.tools\` holds the live FrontendTool array, including
+  // each tool's \`handler\` callback. We need this (not buildFrontendTools,
+  // which strips handlers) to run a tool when the model calls it.
+  const c = copilotkit as { tools?: RegisteredTool[] };
+  return Array.isArray(c.tools) ? c.tools : [];
+}
+
+const MAX_TOOL_STEPS = 5;
 
 export function PlaygroundChat(): React.ReactElement {
   const { copilotkit } = useCopilotKit();
@@ -107,61 +122,107 @@ export function PlaygroundChat(): React.ReactElement {
       role: "user",
       content: text,
     };
-    const updatedMessages = [...messagesRef.current, userMsg];
-    setMessages(updatedMessages);
+    let workingMessages: ChatMessage[] = [...messagesRef.current, userMsg];
+    setMessages(workingMessages);
     setInput("");
     setIsRunning(true);
 
-    const runId = uuid();
-    const assistantId = uuid();
-    let assistantBuffer = "";
-    let assistantToolCalls: ToolCall[] = [];
-    let assistantInserted = false;
-
-    function ensureAssistant(): void {
-      if (assistantInserted) return;
-      assistantInserted = true;
-      setMessages((m) => [
-        ...m,
-        {
-          id: assistantId,
-          role: "assistant",
-          content: "",
-          toolCalls: [],
-        },
-      ]);
-    }
-
-    function syncAssistant(): void {
-      ensureAssistant();
-      const snapshotToolCalls = assistantToolCalls.map((tc) => ({
-        ...tc,
-        function: { ...tc.function },
-      }));
-      setMessages((m) =>
-        m.map((msg) =>
-          msg.id === assistantId
-            ? {
-                ...msg,
-                content: assistantBuffer,
-                toolCalls: snapshotToolCalls,
-              }
-            : msg,
-        ),
-      );
-    }
-
     try {
-      // Pull the user's registered frontend tools off the same copilotkit
-      // instance their hooks registered against. The model sees these
-      // (name + description + parameters) and decides when to invoke
-      // them; their corresponding render functions are looked up via
-      // useRenderToolCall when a TOOL_CALL_START arrives.
+      // Tool-calling loop: each iteration POSTs the conversation, streams
+      // back an assistant turn, then if the assistant emitted tool calls
+      // we execute their handlers and feed the results back. Caps at
+      // MAX_TOOL_STEPS so a misbehaving model can't loop forever.
+      for (let step = 0; step < MAX_TOOL_STEPS; step++) {
+        const turn = await runOneTurn(workingMessages);
+        workingMessages = [...workingMessages, turn.assistantMessage];
+        setMessages(workingMessages);
+
+        if (!turn.toolCalls.length) break;
+
+        // Execute every tool call's handler in parallel; append results
+        // as tool messages.
+        const registry = getRegisteredTools(copilotkit);
+        const toolResults = await Promise.all(
+          turn.toolCalls.map(async (tc): Promise<ChatMessage | null> => {
+            const tool = registry.find((t) => t.name === tc.function.name);
+            if (!tool || typeof tool.handler !== "function") {
+              // No frontend handler — could be useHumanInTheLoop awaiting
+              // user action, or a render-only tool. Surface the call but
+              // don't synthesize a result; conversation halts here.
+              return null;
+            }
+            let parsedArgs: unknown = {};
+            try {
+              parsedArgs = tc.function.arguments
+                ? JSON.parse(tc.function.arguments)
+                : {};
+            } catch {
+              parsedArgs = tc.function.arguments;
+            }
+            try {
+              const result = await tool.handler(parsedArgs, {
+                toolCall: tc,
+                agent: null,
+                signal: undefined,
+              });
+              return {
+                id: uuid(),
+                role: "tool",
+                toolCallId: tc.id,
+                content:
+                  typeof result === "string"
+                    ? result
+                    : JSON.stringify(result ?? null),
+              };
+            } catch (err) {
+              return {
+                id: uuid(),
+                role: "tool",
+                toolCallId: tc.id,
+                content: JSON.stringify({
+                  error: err instanceof Error ? err.message : String(err),
+                }),
+              };
+            }
+          }),
+        );
+
+        const filledResults = toolResults.filter(
+          (m): m is ChatMessage => m !== null,
+        );
+        if (filledResults.length === 0) break;
+
+        workingMessages = [...workingMessages, ...filledResults];
+        setMessages(workingMessages);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[playground-chat] send failed", err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsRunning(false);
+    }
+
+    /**
+     * One turn: POST messages, stream the response, return the assistant
+     * message we accumulated. Patches \`workingMessages\` into local state
+     * as we go so deltas appear live.
+     */
+    async function runOneTurn(
+      currentMessages: ChatMessage[],
+    ): Promise<{ assistantMessage: ChatMessage; toolCalls: ToolCall[] }> {
+      const runId = uuid();
+      const assistantId = uuid();
+      let textBuffer = "";
+      const toolCalls: ToolCall[] = [];
+      let inserted = false;
+
       const tools = getFrontendTools(copilotkit, DEFAULT_AGENT_ID);
       // eslint-disable-next-line no-console
       console.log(
-        \`[playground-chat] POST \${runtimeUrl}/agent/\${DEFAULT_AGENT_ID}/run tools=\${tools.length}\`,
+        \`[playground-chat] POST \${runtimeUrl}/agent/\${DEFAULT_AGENT_ID}/run msgs=\${currentMessages.length} tools=\${tools.length}\`,
       );
+
       const res = await fetch(
         \`\${runtimeUrl}/agent/\${encodeURIComponent(DEFAULT_AGENT_ID)}/run\`,
         {
@@ -174,7 +235,7 @@ export function PlaygroundChat(): React.ReactElement {
             threadId,
             runId,
             state: {},
-            messages: updatedMessages.map((m) => ({
+            messages: currentMessages.map((m) => ({
               id: m.id,
               role: m.role,
               content: m.content,
@@ -187,9 +248,74 @@ export function PlaygroundChat(): React.ReactElement {
           }),
         },
       );
-
       if (!res.ok || !res.body) {
         throw new Error(\`runtime returned \${res.status}\`);
+      }
+
+      function ensureAssistant(): void {
+        if (inserted) return;
+        inserted = true;
+        setMessages((m) => [
+          ...m,
+          { id: assistantId, role: "assistant", content: "", toolCalls: [] },
+        ]);
+      }
+
+      function syncAssistant(): void {
+        ensureAssistant();
+        const snapshot = toolCalls.map((tc) => ({
+          ...tc,
+          function: { ...tc.function },
+        }));
+        setMessages((m) =>
+          m.map((msg) =>
+            msg.id === assistantId
+              ? { ...msg, content: textBuffer, toolCalls: snapshot }
+              : msg,
+          ),
+        );
+      }
+
+      function handleEvent(event: Record<string, unknown>): void {
+        const type = event.type as string | undefined;
+        if (
+          type === "TEXT_MESSAGE_CHUNK" ||
+          type === "TEXT_MESSAGE_CONTENT"
+        ) {
+          const delta = event.delta as string | undefined;
+          if (typeof delta === "string") {
+            textBuffer += delta;
+            syncAssistant();
+          }
+          return;
+        }
+        if (type === "TOOL_CALL_START") {
+          toolCalls.push({
+            id: event.toolCallId as string,
+            type: "function",
+            function: {
+              name: event.toolCallName as string,
+              arguments: "",
+            },
+          });
+          syncAssistant();
+          return;
+        }
+        if (type === "TOOL_CALL_ARGS") {
+          const id = event.toolCallId as string;
+          const delta = event.delta as string | undefined;
+          const tc = toolCalls.find((t) => t.id === id);
+          if (tc && typeof delta === "string") {
+            tc.function.arguments += delta;
+            syncAssistant();
+          }
+          return;
+        }
+        if (type === "RUN_ERROR") {
+          const message =
+            (event.message as string | undefined) ?? "RUN_ERROR";
+          throw new Error(message);
+        }
       }
 
       const reader = res.body.getReader();
@@ -210,97 +336,38 @@ export function PlaygroundChat(): React.ReactElement {
           if (!dataLine) continue;
           const payload = dataLine.slice(5).trim();
           if (!payload) continue;
-          let event: Record<string, unknown>;
           try {
-            event = JSON.parse(payload);
-          } catch {
-            continue;
+            handleEvent(JSON.parse(payload));
+          } catch (err) {
+            if (err instanceof Error && err.message !== "RUN_ERROR") {
+              throw err;
+            }
           }
-          handleAgUiEvent(event);
         }
       }
-      // Drain any final buffered frame without trailing blank line.
       if (buf.trim()) {
         const dataLine = buf.split("\\n").find((l) => l.startsWith("data:"));
         if (dataLine) {
           try {
-            handleAgUiEvent(JSON.parse(dataLine.slice(5).trim()));
+            handleEvent(JSON.parse(dataLine.slice(5).trim()));
           } catch {
             /* ignore */
           }
         }
       }
       syncAssistant();
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[playground-chat] send failed", err);
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsRunning(false);
-    }
 
-    function handleAgUiEvent(event: Record<string, unknown>): void {
-      const type = event.type as string | undefined;
-      // Text deltas come as either TEXT_MESSAGE_CHUNK (single events) or
-      // TEXT_MESSAGE_CONTENT (within START/CONTENT/END trios). Both have
-      // \`delta\`. Accumulate.
-      if (
-        type === "TEXT_MESSAGE_CHUNK" ||
-        type === "TEXT_MESSAGE_CONTENT"
-      ) {
-        const delta = event.delta as string | undefined;
-        if (typeof delta === "string") {
-          assistantBuffer += delta;
-          syncAssistant();
-        }
-        return;
-      }
-      if (type === "TOOL_CALL_START") {
-        const id = event.toolCallId as string;
-        const name = event.toolCallName as string;
-        assistantToolCalls.push({
-          id,
-          type: "function",
-          function: { name, arguments: "" },
-        });
-        syncAssistant();
-        return;
-      }
-      if (type === "TOOL_CALL_ARGS") {
-        const id = event.toolCallId as string;
-        const delta = event.delta as string | undefined;
-        const tc = assistantToolCalls.find((t) => t.id === id);
-        if (tc && typeof delta === "string") {
-          tc.function.arguments += delta;
-          syncAssistant();
-        }
-        return;
-      }
-      if (type === "TOOL_CALL_RESULT") {
-        const toolCallId = event.toolCallId as string;
-        const content =
-          typeof event.content === "string"
-            ? (event.content as string)
-            : JSON.stringify(event.content ?? null);
-        setMessages((m) => [
-          ...m,
-          {
-            id: uuid(),
-            role: "tool",
-            content,
-            toolCallId,
-          },
-        ]);
-        return;
-      }
-      // RUN_STARTED, RUN_FINISHED, RUN_ERROR, STATE_*, MESSAGES_*, etc.
-      // are intentionally ignored — they don't drive the chat surface.
-      if (type === "RUN_ERROR") {
-        const message = (event.message as string | undefined) ?? "RUN_ERROR";
-        setError(message);
-      }
+      return {
+        assistantMessage: {
+          id: assistantId,
+          role: "assistant",
+          content: textBuffer,
+          toolCalls,
+        },
+        toolCalls,
+      };
     }
-  }, [input, isRunning, runtimeUrl, threadId]);
+  }, [input, isRunning, runtimeUrl, threadId, copilotkit]);
 
   return (
     <div className="playground-chat-root">
