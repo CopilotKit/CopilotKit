@@ -11,6 +11,7 @@ packages:
   - "showcase/scripts"
   - "showcase/harness"
   - "showcase/eval-webhook"
+  - "showcase/integrations/nextjs"
   # NOTE: `showcase/shell-dashboard` is intentionally NOT part of this
   # pnpm workspace. It's a flat, standalone Next.js app that ships its
   # own package-lock.json and is built with `npm ci` (see its Dockerfile).
