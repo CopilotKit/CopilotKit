@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { render, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useAgentContext, type AgentContextInput } from "../use-agent-context";
+import type { AgentContextInput } from "../use-agent-context";
+import { useAgentContext } from "../use-agent-context";
 import { useCopilotKit } from "@/providers/CopilotKitProvider";
 
 // Mock the CopilotKitProvider
@@ -107,6 +108,37 @@ describe("useAgentContext", () => {
       expect(removeContextMock).toHaveBeenCalledWith(addedContextId);
       expect(queryByTestId("context-user")).toBeNull();
     });
+
+    it("removes all contexts when an array input unmounts", () => {
+      const TestComponent: React.FC = () => {
+        useAgentContext([
+          { description: "first context", value: "first value" },
+          { description: "second context", value: { count: 2 } },
+        ]);
+        return <div>Test</div>;
+      };
+
+      const { unmount } = render(<TestComponent />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(2);
+      expect(addContextMock).toHaveBeenNthCalledWith(1, {
+        description: "first context",
+        value: "first value",
+      });
+      expect(addContextMock).toHaveBeenNthCalledWith(2, {
+        description: "second context",
+        value: '{"count":2}',
+      });
+
+      const firstContextId = addContextMock.mock.results[0]?.value;
+      const secondContextId = addContextMock.mock.results[1]?.value;
+
+      unmount();
+
+      expect(removeContextMock).toHaveBeenCalledTimes(2);
+      expect(removeContextMock).toHaveBeenNthCalledWith(1, firstContextId);
+      expect(removeContextMock).toHaveBeenNthCalledWith(2, secondContextId);
+    });
   });
 
   describe("re-render idempotence", () => {
@@ -190,6 +222,51 @@ describe("useAgentContext", () => {
       expect(removeContextMock).toHaveBeenCalledTimes(0);
     });
 
+    it("does not add additional contexts when parent re-renders with inline array input", () => {
+      const ContextUser: React.FC = () => {
+        useAgentContext([
+          {
+            description: "user context",
+            value: { name: "Alice", role: "admin" },
+          },
+          {
+            description: "workspace context",
+            value: { id: "workspace-1", plan: "pro" },
+          },
+        ]);
+        return <div>Child</div>;
+      };
+
+      const ParentComponent: React.FC = () => {
+        const [counter, setCounter] = useState(0);
+        return (
+          <>
+            <button
+              data-testid="increment"
+              onClick={() => setCounter((c) => c + 1)}
+            >
+              Increment ({counter})
+            </button>
+            <ContextUser />
+          </>
+        );
+      };
+
+      const { getByTestId } = render(<ParentComponent />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(2);
+
+      act(() => {
+        getByTestId("increment").click();
+      });
+      act(() => {
+        getByTestId("increment").click();
+      });
+
+      expect(addContextMock).toHaveBeenCalledTimes(2);
+      expect(removeContextMock).toHaveBeenCalledTimes(0);
+    });
+
     it("re-adds context when description changes", () => {
       const TestComponent: React.FC<{ description: string }> = ({
         description,
@@ -239,6 +316,38 @@ describe("useAgentContext", () => {
       expect(removeContextMock).toHaveBeenCalledTimes(1);
       expect(removeContextMock).toHaveBeenCalledWith(firstContextId);
       expect(addContextMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("re-adds all contexts when one array item changes", () => {
+      const TestComponent: React.FC<{ count: number }> = ({ count }) => {
+        useAgentContext([
+          { description: "stable context", value: "stable value" },
+          { description: "counter context", value: count },
+        ]);
+        return <div>{count}</div>;
+      };
+
+      const { rerender } = render(<TestComponent count={1} />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(2);
+      expect(addContextMock).toHaveBeenNthCalledWith(2, {
+        description: "counter context",
+        value: "1",
+      });
+
+      const firstContextId = addContextMock.mock.results[0]?.value;
+      const secondContextId = addContextMock.mock.results[1]?.value;
+
+      rerender(<TestComponent count={2} />);
+
+      expect(removeContextMock).toHaveBeenCalledTimes(2);
+      expect(removeContextMock).toHaveBeenNthCalledWith(1, firstContextId);
+      expect(removeContextMock).toHaveBeenNthCalledWith(2, secondContextId);
+      expect(addContextMock).toHaveBeenCalledTimes(4);
+      expect(addContextMock).toHaveBeenNthCalledWith(4, {
+        description: "counter context",
+        value: "2",
+      });
     });
   });
 
@@ -371,6 +480,33 @@ describe("useAgentContext", () => {
           '{"user":{"name":"Alice","settings":{"theme":"dark","notifications":true}},"items":[1,2,{"nested":"value"}]}',
       });
     });
+
+    it("serializes each value in an array of context inputs", () => {
+      const TestComponent: React.FC = () => {
+        useAgentContext([
+          { description: "string context", value: "plain string" },
+          { description: "object context", value: { enabled: true } },
+          { description: "array context", value: ["one", 2] },
+        ]);
+        return null;
+      };
+
+      render(<TestComponent />);
+
+      expect(addContextMock).toHaveBeenCalledTimes(3);
+      expect(addContextMock).toHaveBeenNthCalledWith(1, {
+        description: "string context",
+        value: "plain string",
+      });
+      expect(addContextMock).toHaveBeenNthCalledWith(2, {
+        description: "object context",
+        value: '{"enabled":true}',
+      });
+      expect(addContextMock).toHaveBeenNthCalledWith(3, {
+        description: "array context",
+        value: '["one",2]',
+      });
+    });
   });
 
   describe("copilotkit not available", () => {
@@ -395,6 +531,28 @@ describe("useAgentContext", () => {
       unmount();
 
       // Should not call removeContext either
+      expect(removeContextMock).not.toHaveBeenCalled();
+    });
+
+    it("does nothing for array input when copilotkit is null", () => {
+      mockUseCopilotKit.mockReturnValue({
+        copilotkit: null,
+      } as any);
+
+      const TestComponent: React.FC = () => {
+        useAgentContext([
+          { description: "first", value: "first" },
+          { description: "second", value: "second" },
+        ]);
+        return null;
+      };
+
+      const { unmount } = render(<TestComponent />);
+
+      expect(addContextMock).not.toHaveBeenCalled();
+
+      unmount();
+
       expect(removeContextMock).not.toHaveBeenCalled();
     });
   });

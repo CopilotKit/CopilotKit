@@ -23,23 +23,51 @@ export interface AgentContextInput {
   value: JsonSerializable;
 }
 
-export function useAgentContext(context: AgentContextInput) {
-  const { description, value } = context;
-  const { copilotkit } = useCopilotKit();
+interface SerializedAgentContextInput {
+  description: string;
+  value: string;
+}
 
-  const stringValue = useMemo(() => {
-    if (typeof value === "string") {
-      return value;
-    }
-    return JSON.stringify(value);
-  }, [value]);
+function stringify(value: JsonSerializable): string {
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+function serializeContexts(
+  contextOrContexts: AgentContextInput | AgentContextInput[],
+): SerializedAgentContextInput[] {
+  const contexts = Array.isArray(contextOrContexts)
+    ? contextOrContexts
+    : [contextOrContexts];
+
+  return contexts.map(({ description, value }) => ({
+    description,
+    value: stringify(value),
+  }));
+}
+
+export function useAgentContext(context: AgentContextInput): void;
+export function useAgentContext(contexts: AgentContextInput[]): void;
+export function useAgentContext(
+  contextOrContexts: AgentContextInput | AgentContextInput[],
+) {
+  const { copilotkit } = useCopilotKit();
+  const serializedContextsKey = JSON.stringify(
+    serializeContexts(contextOrContexts),
+  );
+  const serializedContexts = useMemo(
+    () => JSON.parse(serializedContextsKey) as SerializedAgentContextInput[],
+    [serializedContextsKey],
+  );
 
   useEffect(() => {
     if (!copilotkit) return;
 
-    const id = copilotkit.addContext({ description, value: stringValue });
+    const ids = serializedContexts.map((context) =>
+      copilotkit.addContext(context),
+    );
+
     return () => {
-      copilotkit.removeContext(id);
+      ids.forEach((id) => copilotkit.removeContext(id));
     };
-  }, [description, stringValue, copilotkit]);
+  }, [serializedContexts, copilotkit]);
 }
