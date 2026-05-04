@@ -1,3 +1,21 @@
+/* VS Code injects a default `body { padding: 0 20px; }` into webviews.
+   That gutter is fine for prose-like panels (Generative UI, A2UI Catalog
+   already override it locally) but completely wrong for a chat surface
+   that needs to fill its sidebar. Reset at root so .playground-layout
+   genuinely owns 100vw/100vh. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
 .playground-layout {
   display: grid;
   grid-template-columns: 200px 1fr 260px;

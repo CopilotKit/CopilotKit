@@ -160,9 +160,13 @@ function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
 
 /**
  * Translates AG-UI tools (`{ name, description, parameters }`) into vscode.lm's
- * `LanguageModelChatTool[]` shape. AG-UI's `parameters` is a JSON Schema object;
- * `LanguageModelChatTool.inputSchema` accepts the same shape, so it passes
- * through unchanged. Tools without a name are skipped (defensive).
+ * `LanguageModelChatTool[]` shape. AG-UI's `parameters` is _supposed_ to be a
+ * JSON Schema object, but in practice playground hooks (especially
+ * `useHumanInTheLoop` and `useFrontendTool` with no params) often leave it
+ * `null`, `undefined`, an array, or a non-object — and vscode.lm rejects the
+ * whole request with `"schema must be a JSON Schema of type: 'object'"`.
+ * Coerce everything to a minimum-viable object schema so a single misshapen
+ * tool can't take down the entire run. Tools without a name are skipped.
  */
 function toLmTools(
   agUiTools: RunAgentInput["tools"] | undefined,
@@ -174,10 +178,25 @@ function toLmTools(
     out.push({
       name: t.name,
       description: typeof t.description === "string" ? t.description : t.name,
-      inputSchema: t.parameters as object,
+      inputSchema: normalizeInputSchema(t.parameters),
     });
   }
   return out;
+}
+
+function normalizeInputSchema(params: unknown): object {
+  // Already a usable object schema with type: "object" — pass through.
+  if (
+    params &&
+    typeof params === "object" &&
+    !Array.isArray(params) &&
+    (params as { type?: unknown }).type === "object"
+  ) {
+    return params as object;
+  }
+  // No params or malformed — emit a no-arg object schema (model still sees
+  // the tool's name + description and can decide whether to call it).
+  return { type: "object", properties: {}, additionalProperties: false };
 }
 
 function* translatePart(part: unknown): Generator<TanStackChunk> {
