@@ -3,8 +3,8 @@ import { describe, it, expect } from "vitest";
 import { frameworks, isReachable } from "../frameworks";
 
 describe("frameworks registry", () => {
-  it("exports an empty registry by default (Phase 0 stub)", () => {
-    expect(frameworks).toEqual({});
+  it("exports a registry with frameworks configured", () => {
+    expect(Object.keys(frameworks).length).toBeGreaterThan(0);
   });
 
   it("isReachable false for empty backendUrl", () => {
@@ -13,5 +13,14 @@ describe("frameworks registry", () => {
 
   it("isReachable true for non-empty backendUrl", () => {
     expect(isReachable({ slug: "x", name: "X", language: "python", backendUrl: "http://localhost:8000" })).toBe(true);
+  });
+});
+
+describe("strands entry", () => {
+  it("strands has slug, name, language", () => {
+    expect(frameworks.strands).toBeDefined();
+    expect(frameworks.strands.slug).toBe("strands");
+    expect(frameworks.strands.name).toBe("AWS Strands");
+    expect(frameworks.strands.language).toBe("python");
   });
 });

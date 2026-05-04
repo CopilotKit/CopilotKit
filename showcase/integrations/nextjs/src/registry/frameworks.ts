@@ -15,7 +15,14 @@ export type FrameworkConfig = {
   backendUrl: string;
 };
 
-export const frameworks: Record<FrameworkSlug, FrameworkConfig> = {};
+export const frameworks: Record<FrameworkSlug, FrameworkConfig> = {
+  strands: {
+    slug: "strands",
+    name: "AWS Strands",
+    language: "python",
+    backendUrl: maybeEnv("STRANDS_BACKEND_URL") ?? "",
+  },
+};
 
 export function isReachable(fw: FrameworkConfig): boolean {
   return fw.backendUrl !== "";
