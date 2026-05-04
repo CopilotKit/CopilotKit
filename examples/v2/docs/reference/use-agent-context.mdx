@@ -38,7 +38,7 @@ function UserPreferences() {
 
 ## Parameters
 
-The hook accepts a single `Context` object with the following properties:
+The hook accepts a single `Context` object, or an array of `Context` objects, with the following properties:
 
 ### description
 
@@ -193,16 +193,17 @@ function MultipleContexts() {
   const userContext = { id: "123", name: "John" };
   const appContext = { version: "1.0.0", features: ["chat", "search"] };
 
-  // Use multiple hooks for different contexts
-  useAgentContext({
-    description: "User information",
-    value: userContext,
-  });
-
-  useAgentContext({
-    description: "Application configuration",
-    value: appContext,
-  });
+  // Register multiple contexts with one hook call
+  useAgentContext([
+    {
+      description: "User information",
+      value: userContext,
+    },
+    {
+      description: "Application configuration",
+      value: appContext,
+    },
+  ]);
 
   return <div>Multiple contexts provided</div>;
 }
