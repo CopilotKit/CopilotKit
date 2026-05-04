@@ -1,0 +1,26 @@
+name: AWS Strands
+slug: strands
+category: emerging
+language: python
+logo: /logos/strands.svg
+description: CopilotKit integration with AWS Strands
+managed_platform:
+  name: AWS Bedrock AgentCore
+  url: https://aws.amazon.com/bedrock/agents/
+partner_docs: null
+repo: https://github.com/CopilotKit/CopilotKit/tree/main/showcase/integrations/agents/strands
+copilotkit_version: 2.0.0
+backend_url: https://showcase-strands-backend.up.railway.app
+deployed: true
+sort_order: 130
+
+a2ui_pattern: llm-driven
+interrupt_pattern: promise-based
+agent_config_pattern: shared-state
+auth_pattern: runtime-onrequest
+
+# Phase 1: only agentic-chat. Remaining demos added in Task 22 sweep.
+demos:
+  - id: agentic-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
