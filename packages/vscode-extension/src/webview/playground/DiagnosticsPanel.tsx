@@ -6,6 +6,7 @@ interface Props {
   runtimeUrl: string | null;
   replayMode: boolean;
   fixtureName: string | null;
+  vscodeLmTools: { enabled: boolean; count: number };
 }
 
 export function DiagnosticsPanel({
@@ -13,6 +14,7 @@ export function DiagnosticsPanel({
   runtimeUrl,
   replayMode,
   fixtureName,
+  vscodeLmTools,
 }: Props): React.JSX.Element {
   return (
     <section className="playground-diagnostics">
@@ -22,6 +24,8 @@ export function DiagnosticsPanel({
         <dd>{runtimeUrl ?? "(not started)"}</dd>
         <dt>Mode</dt>
         <dd>{replayMode ? `Replay (${fixtureName ?? "unknown"})` : "Live"}</dd>
+        <dt>VS Code tools</dt>
+        <dd>{describeVscodeLmTools(vscodeLmTools)}</dd>
         <dt>Mount errors</dt>
         <dd>
           {mountErrors.length === 0
@@ -29,6 +33,13 @@ export function DiagnosticsPanel({
             : `${mountErrors.length} component(s) failed to mount`}
         </dd>
       </dl>
+      {vscodeLmTools.enabled && vscodeLmTools.count === 0 && (
+        <p className="playground-diagnostics-hint">
+          No VS Code language-model tool providers detected. Install the GitHub
+          Copilot Chat extension in this dev host to give the model web search
+          and other system capabilities.
+        </p>
+      )}
       {mountErrors.length > 0 && (
         <ul className="playground-diagnostics-errors">
           {mountErrors.map((e, i) => (
@@ -40,4 +51,13 @@ export function DiagnosticsPanel({
       )}
     </section>
   );
+}
+
+function describeVscodeLmTools(info: {
+  enabled: boolean;
+  count: number;
+}): string {
+  if (!info.enabled) return "off";
+  if (info.count === 0) return "0 (no provider)";
+  return `${info.count} available`;
 }

@@ -43,6 +43,13 @@ export type PlaygroundExtensionToWebviewMessage =
       runtimeUrl: string;
       replayMode: boolean;
       fixtureName: string | null;
+      /**
+       * Snapshot of whether vscode.lm tools were exposed for the model
+       * on this session, plus how many were registered system-wide. The
+       * Diagnostics panel renders this so the user can tell at a glance
+       * whether Copilot Chat (or another LM-tool provider) is installed.
+       */
+      vscodeLmTools: { enabled: boolean; count: number };
     }
   | { type: "fixture-saved"; filePath: string }
   | { type: "diagnostics"; errors: MountErrorPayload[]; tools: unknown[] };

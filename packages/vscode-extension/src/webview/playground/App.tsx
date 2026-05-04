@@ -31,7 +31,13 @@ export function App(): React.JSX.Element {
     runtimeUrl: string;
     replayMode: boolean;
     fixtureName: string | null;
-  }>({ runtimeUrl: "", replayMode: false, fixtureName: null });
+    vscodeLmTools: { enabled: boolean; count: number };
+  }>({
+    runtimeUrl: "",
+    replayMode: false,
+    fixtureName: null,
+    vscodeLmTools: { enabled: false, count: 0 },
+  });
   const [mountErrors, setMountErrors] = React.useState<MountErrorPayload[]>([]);
   const [models, setModels] = React.useState<
     Array<{ id: string; name: string; family: string; vendor: string }>
@@ -86,6 +92,7 @@ export function App(): React.JSX.Element {
           runtimeUrl: msg.runtimeUrl,
           replayMode: msg.replayMode,
           fixtureName: msg.fixtureName,
+          vscodeLmTools: msg.vscodeLmTools,
         });
       } else if (msg.type === "diagnostics") {
         setMountErrors(msg.errors);
@@ -167,6 +174,7 @@ export function App(): React.JSX.Element {
         runtimeUrl={sessionInfo.runtimeUrl || null}
         replayMode={sessionInfo.replayMode}
         fixtureName={sessionInfo.fixtureName}
+        vscodeLmTools={sessionInfo.vscodeLmTools}
       />
     </div>
   );

@@ -519,6 +519,15 @@ body {
   color: var(--vscode-descriptionForeground);
 }
 
+.playground-diagnostics-hint {
+  margin: 8px 0 0;
+  padding: 6px 8px;
+  border-left: 2px solid var(--vscode-textLink-foreground);
+  background: var(--vscode-input-background);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .playground-diagnostics-errors {
   list-style: none;
   padding: 0;

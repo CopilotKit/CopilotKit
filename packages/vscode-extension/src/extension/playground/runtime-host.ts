@@ -10,6 +10,13 @@ import {
 export interface RuntimeHostHandle {
   url: string;
   stop(): Promise<void>;
+  /**
+   * Snapshot of whether vscode.lm tools were exposed to the model on
+   * this session, and how many were registered. Surfaced to the
+   * Diagnostics panel so the user can tell at a glance whether
+   * Copilot Chat (or another LM-tool provider) is installed.
+   */
+  vscodeLmTools: { enabled: boolean; count: number };
 }
 
 export interface StartRuntimeHostOptions {
@@ -49,7 +56,27 @@ export async function startRuntimeHost(
       import("@copilotkit/runtime/v2/node"),
     ]);
 
-  const factory = makeFactory(opts);
+  // Snapshot the vscode.lm tool registry once per session — used both
+  // by the factory and surfaced in the returned handle so the
+  // Diagnostics panel can show whether tool-providing extensions are
+  // installed.
+  const vscodeLmToolsSnapshot = opts.enableVscodeLmTools
+    ? Array.from(vscode.lm.tools)
+    : [];
+  if (opts.enableVscodeLmTools) {
+    opts.log(
+      `[runtime-host] vscode.lm tools setting=ON, vscode.lm.tools registry size=${vscodeLmToolsSnapshot.length}` +
+        (vscodeLmToolsSnapshot.length === 0
+          ? " — no LM-tool-providing extensions installed in this dev host (install GitHub Copilot Chat or another LM tool extension to populate this)"
+          : ""),
+    );
+  } else {
+    opts.log(
+      `[runtime-host] vscode.lm tools setting=OFF (set copilotkit.playground.enableVscodeLmTools=true to enable)`,
+    );
+  }
+
+  const factory = makeFactory(opts, vscodeLmToolsSnapshot);
   const agent = new BuiltInAgent({ type: "tanstack", factory });
   const runtime = new CopilotSseRuntime({ agents: { default: agent } });
 
@@ -124,6 +151,10 @@ export async function startRuntimeHost(
           resolve();
         });
       }),
+    vscodeLmTools: {
+      enabled: !!opts.enableVscodeLmTools,
+      count: vscodeLmToolsSnapshot.length,
+    },
   };
 }
 
@@ -133,27 +164,10 @@ type FactoryFn = (ctx: {
   abortSignal: AbortSignal;
 }) => AsyncIterable<TanStackChunk>;
 
-function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
-  // Snapshot the current vscode.lm tool registry once per session. We
-  // snapshot rather than re-read per call because the tool registry
-  // doesn't churn during a chat — re-reading on every model.sendRequest
-  // would be wasted overhead.
-  const vscodeLmTools = opts.enableVscodeLmTools
-    ? Array.from(vscode.lm.tools)
-    : [];
-  if (opts.enableVscodeLmTools) {
-    opts.log(
-      `[runtime-host] vscode.lm tools setting=ON, vscode.lm.tools registry size=${vscodeLmTools.length}` +
-        (vscodeLmTools.length === 0
-          ? " — no LM-tool-providing extensions installed in this dev host (install GitHub Copilot Chat or another LM tool extension to populate this)"
-          : ""),
-    );
-  } else {
-    opts.log(
-      `[runtime-host] vscode.lm tools setting=OFF (set copilotkit.playground.enableVscodeLmTools=true to enable)`,
-    );
-  }
-
+function makeFactory(
+  opts: StartRuntimeHostOptions,
+  vscodeLmTools: vscode.LanguageModelToolInformation[],
+): FactoryFn {
   if (opts.mode === "live") {
     return vscodeLmFactory({
       model: opts.model,

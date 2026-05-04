@@ -315,6 +315,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         runtimeUrl: runtime.url,
         replayMode: replayFixture !== null,
         fixtureName: this.replayFixtureName,
+        vscodeLmTools: runtime.vscodeLmTools,
       });
       this.post({
         type: "fixtures-list",

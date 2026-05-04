@@ -12,6 +12,7 @@ describe("DiagnosticsPanel", () => {
         runtimeUrl={null}
         replayMode={false}
         fixtureName={null}
+        vscodeLmTools={{ enabled: false, count: 0 }}
       />,
     );
     expect(screen.getByText(/not started/i)).toBeDefined();
@@ -31,6 +32,7 @@ describe("DiagnosticsPanel", () => {
         runtimeUrl="http://127.0.0.1:1234"
         replayMode={false}
         fixtureName={null}
+        vscodeLmTools={{ enabled: true, count: 12 }}
       />,
     );
     expect(screen.getByText(/1 component/)).toBeDefined();
@@ -45,6 +47,7 @@ describe("DiagnosticsPanel", () => {
         runtimeUrl="http://127.0.0.1:1234"
         replayMode={true}
         fixtureName="saved-session"
+        vscodeLmTools={{ enabled: true, count: 12 }}
       />,
     );
     expect(screen.getByText(/Replay \(saved-session\)/)).toBeDefined();
