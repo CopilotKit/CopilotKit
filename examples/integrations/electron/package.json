@@ -1,0 +1,34 @@
+{
+  "name": "copilotkit-electron-starter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal Electron + CopilotKit example. Renderer hosts <CopilotKit>; main process embeds the CopilotRuntime over node:http.",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "check-types": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "1.56.5",
+    "@copilotkit/runtime": "1.56.5",
+    "@ag-ui/client": "0.0.53",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^33.0.0",
+    "electron-vite": "^2.3.0",
+    "typescript": "^5.5.0",
+    "vite": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
