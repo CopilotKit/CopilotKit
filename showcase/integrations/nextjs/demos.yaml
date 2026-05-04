@@ -293,3 +293,20 @@
     - src/app/demos/[framework]/byoc-json-render/json-render-renderer.tsx
     - src/app/demos/[framework]/byoc-json-render/catalog.ts
     - src/app/api/[framework]/byoc-json-render/[[...slug]]/route.ts
+- id: open-gen-ui
+  name: Open Generative UI (Minimal)
+  description: Agent-authored HTML/CSS/SVG streamed into a sandboxed iframe — no host functions
+  tags: [generative-ui]
+  route_template: /demos/{framework}/open-gen-ui
+  frontend_highlight:
+    - src/app/demos/[framework]/open-gen-ui/page.tsx
+    - src/app/api/[framework]/open-gen-ui/[[...slug]]/route.ts
+- id: open-gen-ui-advanced
+  name: Open Generative UI (Advanced)
+  description: Sandboxed iframe with Websandbox.connection.remote host-bridge functions
+  tags: [generative-ui]
+  route_template: /demos/{framework}/open-gen-ui-advanced
+  frontend_highlight:
+    - src/app/demos/[framework]/open-gen-ui-advanced/page.tsx
+    - src/app/demos/[framework]/open-gen-ui-advanced/sandbox-functions.ts
+    - src/app/api/[framework]/open-gen-ui-advanced/[[...slug]]/route.ts
