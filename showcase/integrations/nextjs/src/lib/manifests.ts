@@ -17,13 +17,17 @@ export function loadDemoCatalog(yamlText: string): DemoCatalogEntry[] {
     if (typeof entry !== "object" || entry === null)
       throw new Error(`demos.yaml entry ${idx}: expected object`);
     const o = entry as Record<string, unknown>;
-    if (typeof o.id !== "string" || o.id.length === 0)
+    if (typeof o.id !== "string" || o.id.trim().length === 0)
       throw new Error(`demos.yaml entry ${idx}: missing id`);
     if (typeof o.name !== "string") throw new Error(`demos.yaml ${o.id}: missing name`);
     if (typeof o.description !== "string") throw new Error(`demos.yaml ${o.id}: missing description`);
     if (!Array.isArray(o.tags)) throw new Error(`demos.yaml ${o.id}: tags must be array`);
+    if (!o.tags.every((t) => typeof t === "string"))
+      throw new Error(`demos.yaml ${o.id}: tags must be string[]`);
     if (typeof o.route_template !== "string") throw new Error(`demos.yaml ${o.id}: missing route_template`);
     if (!Array.isArray(o.frontend_highlight)) throw new Error(`demos.yaml ${o.id}: frontend_highlight must be array`);
+    if (!o.frontend_highlight.every((p) => typeof p === "string"))
+      throw new Error(`demos.yaml ${o.id}: frontend_highlight must be string[]`);
     return {
       id: o.id, name: o.name, description: o.description,
       tags: o.tags as string[], route_template: o.route_template,

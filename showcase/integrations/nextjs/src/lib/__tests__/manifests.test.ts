@@ -17,4 +17,19 @@ describe("loadDemoCatalog", () => {
   it("throws on missing id", () => {
     expect(() => loadDemoCatalog("- name: x\n  description: y\n")).toThrow(/id/);
   });
+
+  it("throws on whitespace-only id", () => {
+    const yamlText = `- id: "   "\n  name: x\n  description: y\n  tags: []\n  route_template: /\n  frontend_highlight: []\n`;
+    expect(() => loadDemoCatalog(yamlText)).toThrow(/id/);
+  });
+
+  it("throws on non-string tag element", () => {
+    const yamlText = `- id: x\n  name: y\n  description: z\n  tags: [42]\n  route_template: /\n  frontend_highlight: []\n`;
+    expect(() => loadDemoCatalog(yamlText)).toThrow(/tags must be string/);
+  });
+
+  it("throws on non-string frontend_highlight element", () => {
+    const yamlText = `- id: x\n  name: y\n  description: z\n  tags: []\n  route_template: /\n  frontend_highlight: [true]\n`;
+    expect(() => loadDemoCatalog(yamlText)).toThrow(/frontend_highlight must be string/);
+  });
 });
