@@ -81,11 +81,6 @@ export function useRequestApproval() {
       };
 
       if (args.type === "inventory_reorder") {
-        const formatCurrency = (n: number) =>
-          new Intl.NumberFormat("en-US", {
-            style: "currency",
-            currency: "USD",
-          }).format(n);
         const items = args.items ?? [];
         const estimatedTotal = args.estimatedTotal ?? 0;
         return (
@@ -96,20 +91,10 @@ export function useRequestApproval() {
               estimatedTotal,
               supplier: args.supplier,
             }}
-            respond={async (result) => {
-              if (result === undefined || result === null) {
-                await respond({
-                  approved: false,
-                  message: "Reorder skipped by user",
-                });
-              } else {
-                await respond(result);
-              }
-            }}
+            respond={respond}
             result={undefined}
           />
         );
-        void formatCurrency;
       }
 
       // Default: invoice_payment
