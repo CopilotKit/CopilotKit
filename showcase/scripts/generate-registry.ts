@@ -3,6 +3,9 @@
 // Scans showcase/integrations/*/manifest.yaml, validates each against the
 // manifest JSON schema, and produces showcase/shell/src/data/registry.json.
 //
+// Also scans showcase/integrations/agents/<fw>/manifest.yaml (new-shape) and
+// merges — new-shape wins when both old and new exist for the same slug.
+//
 // Usage: npx tsx showcase/scripts/generate-registry.ts
 
 import fs from "fs";
@@ -12,6 +15,8 @@ import yaml from "yaml";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { validateManifestConstraints } from "./validate-constraints.js";
+import { parseManifestV2 } from "./lib/manifest-v2.js";
+import { parseDemoCatalog } from "./lib/demos-yaml.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,6 +52,10 @@ const OUTPUT_DIRS = [
 const PACKAGES_JSON_PATH = path.join(ROOT, "shared", "packages.json");
 const CONSTRAINTS_PATH = path.join(ROOT, "shared", "constraints.yaml");
 const CONSTRAINTS_OUTPUT_PATH = path.join(SHELL_OUTPUT_DIR, "constraints.json");
+
+const UNIFIED_FRONTEND_URL =
+  process.env.SHOWCASE_INTEGRATIONS_NEXTJS_URL ??
+  "https://showcase-integrations.copilotkit.ai";
 
 function loadSchema() {
   const raw = fs.readFileSync(SCHEMA_PATH, "utf-8");
@@ -121,19 +130,19 @@ function loadDocsLinks(packageDir: string, errors: string[]): DocsLinks {
   }
 }
 
-function findManifests(): string[] {
-  if (!fs.existsSync(PACKAGES_DIR)) {
+function findManifestsIn(packagesDir: string): string[] {
+  if (!fs.existsSync(packagesDir)) {
     return [];
   }
 
   const dirs = fs
-    .readdirSync(PACKAGES_DIR, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
+    .readdirSync(packagesDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory() && d.name !== "agents")
     .map((d) => d.name);
 
   const manifests: string[] = [];
   for (const dir of dirs) {
-    const manifestPath = path.join(PACKAGES_DIR, dir, "manifest.yaml");
+    const manifestPath = path.join(packagesDir, dir, "manifest.yaml");
     if (fs.existsSync(manifestPath)) {
       manifests.push(manifestPath);
     }
@@ -478,8 +487,110 @@ function generateCatalog(
   };
 }
 
-function main() {
-  console.log("Generating integration registry...\n");
+// ---------------------------------------------------------------------------
+// New-shape (agents/<fw>/manifest.yaml) ingestion
+// ---------------------------------------------------------------------------
+
+/**
+ * Load the nextjs/demos.yaml catalog and return a Map keyed by demo id.
+ * Returns an empty Map if the file doesn't exist.
+ */
+function loadDemoCatalogMap(
+  integrationsRoot: string,
+): Map<string, { name: string; description: string; tags: string[] }> {
+  const demosPath = path.join(integrationsRoot, "nextjs", "demos.yaml");
+  if (!fs.existsSync(demosPath)) return new Map();
+  const parsed = parseDemoCatalog(fs.readFileSync(demosPath, "utf-8"));
+  if (parsed.kind !== "ok")
+    throw new Error(`nextjs/demos.yaml malformed: ${parsed.reason}`);
+  return new Map(parsed.entries.map((e) => [e.id, e] as const));
+}
+
+/**
+ * Scan agents/<fw>/manifest.yaml files and produce Integration records
+ * using the new-shape parser. New-shape integrations get:
+ *   - unified: true
+ *   - backend_url: the unified frontend URL
+ *   - agent_backend_url: the original backend_url from the manifest
+ *   - demos synthesized with routes /demos/<slug>/<demo-id>
+ */
+function loadNewShapeIntegrations(
+  integrationsRoot: string,
+  unifiedUrl: string,
+): Record<string, unknown>[] {
+  const agentsDir = path.join(integrationsRoot, "agents");
+  if (!fs.existsSync(agentsDir)) return [];
+  const catalog = loadDemoCatalogMap(integrationsRoot);
+  const out: Record<string, unknown>[] = [];
+  for (const slug of fs.readdirSync(agentsDir)) {
+    const fwRoot = path.join(agentsDir, slug);
+    if (!fs.statSync(fwRoot).isDirectory()) continue;
+    const manifestPath = path.join(fwRoot, "manifest.yaml");
+    if (!fs.existsSync(manifestPath)) continue;
+    const parsed = parseManifestV2(fs.readFileSync(manifestPath, "utf-8"));
+    if (parsed.kind !== "ok")
+      throw new Error(`agents/${slug}/manifest.yaml malformed: ${parsed.reason}`);
+    const m = parsed.manifest;
+    const demos = m.demos.map((d) => {
+      const cat = catalog.get(d.id);
+      return {
+        id: d.id,
+        name: cat?.name ?? d.id,
+        description: cat?.description ?? "",
+        tags: cat?.tags ?? [],
+        route: `/demos/${m.slug}/${d.id}`,
+      };
+    });
+    out.push({
+      name: m.name,
+      slug: m.slug,
+      category: m.category ?? "emerging",
+      language: m.language,
+      logo: m.logo ?? "",
+      description: m.description,
+      repo: m.repo ?? "",
+      backend_url: unifiedUrl,
+      agent_backend_url: m.backend_url,
+      deployed: m.deployed,
+      sort_order: m.sort_order,
+      features: demos.map((d) => d.id),
+      demos,
+      not_supported_features: [],
+      unified: true,
+    });
+    console.log(`  OK (new-shape): ${m.name} (${m.slug})`);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Exported runner (called by main() and by tests with fixture directories)
+// ---------------------------------------------------------------------------
+
+export interface RunGeneratorOptions {
+  /** Override the integrations root directory (default: showcase/integrations). */
+  integrationsRoot?: string;
+  /** Override the unified frontend URL (default: SHOWCASE_INTEGRATIONS_NEXTJS_URL env or hardcoded default). */
+  unifiedFrontendUrl?: string;
+  /** When true, skip writing output files (useful for tests that only care about the registry data). */
+  dryRun?: boolean;
+}
+
+/**
+ * Core registry-generation logic. Extracted from `main()` so tests can call
+ * it directly with fixture directories instead of spawning a subprocess.
+ *
+ * Returns the generated registry object (useful for test assertions).
+ * In non-dry-run mode, also writes registry.json / catalog.json to OUTPUT_DIRS.
+ */
+export function runGenerator(options: RunGeneratorOptions = {}): {
+  feature_registry: unknown;
+  integrations: Record<string, unknown>[];
+  packages: Array<{ slug: string; name: string }>;
+} {
+  const integrationsRoot = options.integrationsRoot ?? PACKAGES_DIR;
+  const unifiedUrl = options.unifiedFrontendUrl ?? UNIFIED_FRONTEND_URL;
+  const isDryRun = options.dryRun ?? false;
 
   const schema = loadSchema();
   const featureRegistry = loadFeatureRegistry();
@@ -491,16 +602,17 @@ function main() {
   addFormats(ajv);
   const validate = ajv.compile(schema);
 
-  const manifestPaths = findManifests();
+  // --- Old-shape manifests: integrations/<fw>/manifest.yaml ---
+  const oldShapeManifestPaths = findManifestsIn(integrationsRoot);
 
-  if (manifestPaths.length === 0) {
+  if (oldShapeManifestPaths.length === 0 && !fs.existsSync(path.join(integrationsRoot, "agents"))) {
     console.log("No integration packages found. Generating empty registry.");
   }
 
-  const integrations: Record<string, unknown>[] = [];
+  const oldShapeIntegrations: Record<string, unknown>[] = [];
   const allErrors: string[] = [];
 
-  for (const manifestPath of manifestPaths) {
+  for (const manifestPath of oldShapeManifestPaths) {
     const raw = fs.readFileSync(manifestPath, "utf-8");
     let manifest: Record<string, unknown>;
 
@@ -511,34 +623,27 @@ function main() {
       continue;
     }
 
-    const errors = validateManifest(
-      manifest,
-      validate,
-      featureIds,
-      manifestPath,
-    );
+    const errors = validateManifest(manifest, validate, featureIds, manifestPath);
     if (errors.length > 0) {
       allErrors.push(...errors);
       continue;
     }
 
-    integrations.push(manifest);
+    oldShapeIntegrations.push(manifest);
     console.log(`  OK: ${manifest.name} (${manifest.slug})`);
   }
 
-  // Merge per-package docs-links.json overrides onto each integration *after*
-  // schema validation, since `docs_links` isn't part of the manifest schema.
-  // Best-effort: missing file or stale shapes are tolerated and don't error.
-  for (const manifest of integrations) {
-    const pkgDir = path.join(PACKAGES_DIR, manifest.slug as string);
+  // Merge per-package docs-links.json overrides
+  for (const manifest of oldShapeIntegrations) {
+    const pkgDir = path.join(integrationsRoot, manifest.slug as string);
     manifest.docs_links = loadDocsLinks(pkgDir, allErrors);
   }
 
-  // Constraint validation
+  // Constraint validation (old-shape only)
   const constraintsRaw = fs.readFileSync(CONSTRAINTS_PATH, "utf-8");
   const constraints = yaml.parse(constraintsRaw);
 
-  for (const manifest of integrations) {
+  for (const manifest of oldShapeIntegrations) {
     const constraintErrors = validateManifestConstraints(
       manifest as {
         slug: string;
@@ -554,12 +659,18 @@ function main() {
   }
 
   if (allErrors.length > 0) {
-    console.error("\nValidation errors:");
-    for (const err of allErrors) {
-      console.error(`  ERROR: ${err}`);
-    }
-    process.exit(1);
+    const message = allErrors.map((e) => `  ERROR: ${e}`).join("\n");
+    throw new Error(`\nValidation errors:\n${message}`);
   }
+
+  // --- New-shape manifests: agents/<fw>/manifest.yaml ---
+  const newShapeIntegrations = loadNewShapeIntegrations(integrationsRoot, unifiedUrl);
+
+  // --- Merge: new-shape wins per slug ---
+  const bySlug = new Map<string, Record<string, unknown>>();
+  for (const i of oldShapeIntegrations) bySlug.set(i.slug as string, i);
+  for (const i of newShapeIntegrations) bySlug.set(i.slug as string, i);
+  const integrations = Array.from(bySlug.values());
 
   // Sort by sort_order (lower = higher priority), then name as tiebreaker
   integrations.sort((a, b) => {
@@ -583,33 +694,52 @@ function main() {
     packages,
   };
 
-  const registryJson = JSON.stringify(registry, null, 2) + "\n";
-  for (const dir of OUTPUT_DIRS) {
-    fs.mkdirSync(dir, { recursive: true });
-    const outputPath = path.join(dir, "registry.json");
-    fs.writeFileSync(outputPath, registryJson);
-    console.log(
-      `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
+  if (!isDryRun) {
+    const registryJson = JSON.stringify(registry, null, 2) + "\n";
+    for (const dir of OUTPUT_DIRS) {
+      fs.mkdirSync(dir, { recursive: true });
+      const outputPath = path.join(dir, "registry.json");
+      fs.writeFileSync(outputPath, registryJson);
+      console.log(
+        `\nRegistry generated: ${outputPath} (${integrations.length} integrations)`,
+      );
+    }
+
+    // Write constraints.json for the shell's client-side filtering
+    fs.writeFileSync(
+      CONSTRAINTS_OUTPUT_PATH,
+      JSON.stringify(constraints, null, 2) + "\n",
     );
+    console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
+
+    // --- Catalog generation (D0-D4 dashboard matrix) ---
+    const catalog = generateCatalog(featureRegistry, integrations);
+    const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
+    for (const dir of OUTPUT_DIRS) {
+      const catalogPath = path.join(dir, "catalog.json");
+      fs.writeFileSync(catalogPath, catalogJson);
+      console.log(
+        `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
+      );
+    }
   }
 
-  // Write constraints.json for the shell's client-side filtering
-  fs.writeFileSync(
-    CONSTRAINTS_OUTPUT_PATH,
-    JSON.stringify(constraints, null, 2) + "\n",
-  );
-  console.log(`Constraints written: ${CONSTRAINTS_OUTPUT_PATH}`);
+  return registry;
+}
 
-  // --- Catalog generation (D0-D4 dashboard matrix) ---
-  const catalog = generateCatalog(featureRegistry, integrations);
-  const catalogJson = JSON.stringify(catalog, null, 2) + "\n";
-  for (const dir of OUTPUT_DIRS) {
-    const catalogPath = path.join(dir, "catalog.json");
-    fs.writeFileSync(catalogPath, catalogJson);
-    console.log(
-      `Catalog generated: ${catalogPath} (${catalog.metadata.total_cells} cells)`,
-    );
+function main() {
+  console.log("Generating integration registry...\n");
+  try {
+    runGenerator();
+  } catch (e) {
+    console.error((e as Error).message);
+    process.exit(1);
   }
 }
 
-main();
+// Guard: only run main() when this file is invoked directly (not when imported
+// by tests or other modules). Matches the pattern used by validate-constraints.ts,
+// deploy-to-railway.ts, and other scripts in this directory.
+if (process.argv[1] === __filename) {
+  main();
+}
