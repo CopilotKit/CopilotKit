@@ -27,3 +27,6 @@ demos:
   - id: chat-customization-css
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: prebuilt-sidebar
+    backend_highlight:
+      - src/agents/agentic_chat.py

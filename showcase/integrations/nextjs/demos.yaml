@@ -16,3 +16,11 @@
     - src/app/demos/[framework]/chat-customization-css/page.tsx
     - src/app/demos/[framework]/chat-customization-css/theme.css
     - src/app/api/[framework]/chat-customization-css/[[...slug]]/route.ts
+- id: prebuilt-sidebar
+  name: "Pre-Built: Sidebar"
+  description: Docked sidebar chat via <CopilotSidebar />
+  tags: [chat-ui]
+  route_template: /demos/{framework}/prebuilt-sidebar
+  frontend_highlight:
+    - src/app/demos/[framework]/prebuilt-sidebar/page.tsx
+    - src/app/api/[framework]/prebuilt-sidebar/[[...slug]]/route.ts
