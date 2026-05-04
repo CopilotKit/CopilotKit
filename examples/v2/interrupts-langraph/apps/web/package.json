@@ -18,6 +18,13 @@
     "shiki": "^3.22.0",
     "zod": "^3.24.4"
   },
+  "nx": {
+    "targets": {
+      "build": {
+        "cache": false
+      }
+    }
+  },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",

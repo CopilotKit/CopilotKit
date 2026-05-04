@@ -1,0 +1,64 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# =============================================================================
+# Terraform Configuration Example
+# =============================================================================
+# Copy this file to terraform.tfvars and customize the values.
+#
+# Region: Set via AWS_REGION environment variable or AWS CLI profile.
+# Tags: Add custom tags via the provider's default_tags block in main.tf.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Required Variables
+# -----------------------------------------------------------------------------
+
+# Base name for all resources
+stack_name_base = "fast-demo-stack"
+
+# -----------------------------------------------------------------------------
+# Optional: Admin User
+# -----------------------------------------------------------------------------
+# Set to automatically create an admin user and email credentials
+# If not provided (null), you'll need to manually create users via AWS Console
+
+admin_user_email = null  # Example: "admin@example.com"
+
+# -----------------------------------------------------------------------------
+# Backend Configuration
+# -----------------------------------------------------------------------------
+
+# Agent pattern to deploy
+# Available patterns: strands-single-agent, langgraph-single-agent, claude-agent-sdk-single-agent, claude-agent-sdk-multi-agent
+backend_pattern = "strands-single-agent"
+
+# Deployment type for AgentCore Runtime
+# "docker" - Container image via ECR (requires Docker + separate build step)
+#   Deployment: terraform apply -> ./scripts/build-and-push-image.sh -> terraform apply
+# "zip" - Python package via S3 (no Docker required, single-step deploy)
+#   Deployment: terraform apply (packages and deploys automatically)
+backend_deployment_type = "docker"
+
+# Network mode for AgentCore Runtime
+# PUBLIC: Runtime is accessible over the public internet (default)
+# VPC: Runtime is deployed into a user-provided VPC for private network isolation
+backend_network_mode = "PUBLIC"
+
+# -----------------------------------------------------------------------------
+# VPC Configuration (Required only if backend_network_mode = "VPC")
+# -----------------------------------------------------------------------------
+# Uncomment and configure if using VPC network mode.
+# Your VPC must have the necessary VPC endpoints for AWS services.
+# See README.md VPC Deployment Mode section for full requirements.
+#
+# Security groups are optional. If omitted, a default security group is created
+# with HTTPS (443) self-referencing ingress and all-traffic egress.
+#
+# IMPORTANT: AgentCore Runtime is only available in specific Availability Zones
+# per region. Ensure your subnets are in supported AZs. See:
+# https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-vpc.html#agentcore-supported-azs
+
+# backend_vpc_id                 = "vpc-xxxxxxxxxxxxxxxxx"
+# backend_vpc_subnet_ids         = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+# backend_vpc_security_group_ids = ["sg-xxxxxxxxxxxxxxxxx"]  # Optional

@@ -34,10 +34,37 @@ Programmatic control lets you run agents outside of a chat UI — trigger agent 
   </Tab>
 </Tabs>
 
+You can also execute individual tools programmatically — no LLM turn needed:
+
+<Tabs items={['tool-button.tsx']}>
+  <Tab value="tool-button.tsx">
+  ```tsx
+  import { useCopilotKit, useFrontendTool } from "@copilotkit/react-core/v2";
+
+  export function ToolButton() {
+    const { copilotkit } = useCopilotKit();
+
+    useFrontendTool({
+      name: "summarize",
+      description: "Summarize the document",
+      handler: async () => { /* ... */ },
+    });
+
+    return (
+      <button onClick={() => copilotkit.runTool({ name: "summarize" })}>
+        Summarize
+      </button>
+    );
+  }
+  ```
+  </Tab>
+</Tabs>
+
 ## When should I use this?
 
 Use programmatic control when you want to:
 - Trigger agent runs from buttons, forms, or other UI elements
+- Execute specific tools directly from UI interactions (without an LLM turn)
 - Build agent features without a chat window
 - Access agent state and results programmatically
 - Create fully custom agent-driven workflows

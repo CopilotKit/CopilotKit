@@ -64,9 +64,9 @@ Service that wraps CopilotKitCore. We **do not** want to extend CopilotKitCore b
 
 ```ts
 import { AbstractAgent } from "@ag-ui/client";
-import { FrontendTool } from "@copilotkitnext/core";
+import { FrontendTool } from "@copilotkit/core";
 import { Injector, Signal, WritableSignal, runInInjectionContext, signal } from "@angular/core";
-import { ClientTool, ToolCallRendererConfig, injectCopilotKitConfig } from "@copilotkitnext/angular";
+import { ClientTool, ToolCallRendererConfig, injectCopilotKitConfig } from "@copilotkit/angular";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -200,7 +200,7 @@ Angular-ified facade around `CopilotKitCore#getAgent`, could maybe subclass `Abs
 ```ts
 import { DestroyRef, Signal, inject, signal } from "@angular/core";
 import { AbstractAgent } from "@ag-ui/client";
-import { CopilotKit } from "@copilotkitnext/angular";
+import { CopilotKit } from "@copilotkit/angular";
 
 @Injectable() // <- not provided at root, this is just a facade
 export class CopilotkitAgentFactory {
@@ -303,8 +303,8 @@ Developers will need to configure a `ClientTool` with this interface:
 
 ```ts
 import { DestroyRef, Injector, Signal, Type, inject } from "@angular/core";
-import { CopilotKit } from "@copilotkitnext/angular";
-import { FrontendTool } from "@copilotkitnext/core";
+import { CopilotKit } from "@copilotkit/angular";
+import { FrontendTool } from "@copilotkit/core";
 import { z } from "zod";
 
 type ClientTool<Args extends Record<string, unknown>> = FrontendTool<Args> & {
@@ -346,8 +346,8 @@ The developer creates their component:
 
 ```ts
 import { Component, input } from "@angular/core";
-import { ToolCallStatus } from "@copilotkitnext/core";
-import { ClientToolCall, ToolCallRenderer } from "@copilotkitnext/angular";
+import { ToolCallStatus } from "@copilotkit/core";
+import { ClientToolCall, ToolCallRenderer } from "@copilotkit/angular";
 
 interface WeatherToolArgs {
   location: string;
@@ -410,8 +410,8 @@ associated tool calls:
 import { NgComponentOutlet } from "@angular/common";
 import { Component, inject, input } from "@angular/core";
 import { AssistantMessage, ToolCall } from "@ag-ui/client";
-import { ClientToolCall, CopilotKit, ToolCallRendererConfig } from "@copilotkitnext/angular";
-import { ToolCallStatus } from "@copilotkitnext/core";
+import { ClientToolCall, CopilotKit, ToolCallRendererConfig } from "@copilotkit/angular";
+import { ToolCallStatus } from "@copilotkit/core";
 
 @Component({
   selector: "copilot-render-tool-calls",

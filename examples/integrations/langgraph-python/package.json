@@ -1,0 +1,23 @@
+{
+  "name": "copilotkit-langgraph-template",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:app": "turbo run dev --filter='app'",
+    "dev:agent": "turbo run dev --filter='agent'",
+    "dev:mcp": "turbo run dev --filter='mcp'",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.4",
+    "concurrently": "^9.1.2"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "pnpm": {
+    "overrides": {
+      "esbuild": "^0.27.3"
+    }
+  }
+}

@@ -53,15 +53,15 @@ At its heart, CopilotKitCore maintains the authoritative state for these critica
 ## Creating a CopilotKitCore Instance
 
 <Info>
-  In most applications, you don’t need to create a `CopilotKitCore` instance yourself—CopilotKit initializes and manages
-  it behind the scenes.
+  In most applications, you don’t need to create a `CopilotKitCore` instance
+  yourself—CopilotKit initializes and manages it behind the scenes.
 </Info>
 
 Instantiate `CopilotKitCore` to initialize the client that manages runtime connections, agents, and tools.
 
 ```typescript
 new CopilotKitCore(config?: CopilotKitCoreConfig)
-````
+```
 
 #### Parameters
 
@@ -506,10 +506,11 @@ setProperties(properties: Record<string, unknown>): void
 ## Managing Local Agents
 
 <Warning>
-  In production applications, agents must be managed through the CopilotRuntime, which provides proper isolation,
-  monitoring, and scalability. The local agent methods below are marked `__unsafe_dev_only` as they're intended solely
-  for rapid prototyping during development. Production deployments require the security and performance guarantees that
-  only the CopilotRuntime can provide.
+  In production applications, agents must be managed through the CopilotRuntime,
+  which provides proper isolation, monitoring, and scalability. The local agent
+  methods below are marked `__unsafe_dev_only` as they're intended solely for
+  rapid prototyping during development. Production deployments require the
+  security and performance guarantees that only the CopilotRuntime can provide.
 </Warning>
 
 Agents are the AI-powered components that process requests and generate responses. CopilotKitCore provides several

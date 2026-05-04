@@ -1,0 +1,15 @@
+[project]
+name = "investment-analyst-agent"
+version = "0.1.0"
+description = "An Agno Agent with Finance tools exposed in an AG-UI compatible way"
+requires-python = ">=3.12"
+dependencies = [
+    "agno>=1.7.8",
+    "openai>=1.88.0",
+    "yfinance>=0.2.63",
+    "fastapi>=0.115.13",
+    "uvicorn>=0.34.3",
+    "ag-ui-protocol>=0.1.8",
+    "packaging>=25.0.0",
+    "python-dotenv>=1.0.0",
+]

@@ -1,0 +1,4 @@
+uvicorn
+pydantic-ai-slim[ag-ui]
+pydantic-ai-slim[openai]
+python-dotenv

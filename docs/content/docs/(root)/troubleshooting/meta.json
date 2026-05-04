@@ -2,6 +2,7 @@
   "pages": [
     "migrate-to-v2",
     "error-debugging",
+    "debug-mode",
     "observability-connectors",
     "common-issues",
     "migrate-to-1.10.X",

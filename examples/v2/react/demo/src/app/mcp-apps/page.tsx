@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotKitProvider, CopilotSidebar } from "@copilotkitnext/react";
+import { CopilotKitProvider, CopilotSidebar } from "@copilotkit/react-core/v2";
 
 export const dynamic = "force-dynamic";
 

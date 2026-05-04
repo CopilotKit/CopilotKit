@@ -1,0 +1,43 @@
+{
+  "name": "a2a-agui-starter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Minimal starter template for building multi-agent applications with A2A Protocol and AG-UI",
+  "scripts": {
+    "dev": "concurrently --names \"UI,Orch,Research,Analysis\" --prefix-colors \"cyan,gray,green,blue\" \"npm run dev:ui\" \"npm run dev:orchestrator\" \"npm run dev:research\" \"npm run dev:analysis\"",
+    "dev:ui": "next dev --turbopack",
+    "dev:orchestrator": "agents/.venv/bin/python agents/orchestrator.py",
+    "dev:research": "agents/.venv/bin/python agents/research_agent.py",
+    "dev:analysis": "agents/.venv/bin/python agents/analysis_agent.py",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@a2a-js/sdk": "latest",
+    "@ag-ui/a2a-middleware": "0.0.2",
+    "@ag-ui/client": "0.0.40",
+    "@copilotkit/react-core": "latest",
+    "@copilotkit/react-ui": "latest",
+    "@copilotkit/runtime": "latest",
+    "next": "15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/typography": "^0.5.16",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "eslint": "^8",
+    "eslint-config-next": "15.1.6",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5"
+  },
+  "overrides": {
+    "@ag-ui/client": "0.0.40"
+  }
+}

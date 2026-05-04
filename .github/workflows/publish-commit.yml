@@ -4,6 +4,11 @@ on: [push, pull_request]
 concurrency:
   group: ${{ github.repository }}-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "Publish Commit"
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,4 +31,4 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - run: npx pkg-pr-new publish  --pnpm --packageManager pnpm "./packages/v1/*" "./packages/v2/*"
+      - run: npx pkg-pr-new publish  --pnpm --packageManager pnpm "./packages/*"

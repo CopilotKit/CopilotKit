@@ -1,0 +1,87 @@
+name: Auto-merge showcase PRs
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "examples/showcases/**"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check author is on Demo team
+        id: check-team
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.teams.getMembershipForUserInOrg({
+                org: 'CopilotKit',
+                team_slug: 'demo',
+                username: context.actor,
+              });
+              core.setOutput('is_demo', 'true');
+            } catch {
+              core.info(`${context.actor} is not a member of CopilotKit/demo`);
+              core.setOutput('is_demo', 'false');
+            }
+
+      - name: Check PR only touches showcases
+        if: steps.check-team.outputs.is_demo == 'true'
+        id: check-files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100,
+            });
+
+            const allShowcases = files.every(f =>
+              f.filename.startsWith('examples/showcases/')
+            );
+
+            if (!allShowcases) {
+              const outside = files
+                .filter(f => !f.filename.startsWith('examples/showcases/'))
+                .map(f => f.filename);
+              core.info(`Files outside showcases: ${outside.join(', ')}`);
+            }
+
+            core.setOutput('only_showcases', allShowcases.toString());
+
+      - name: Approve PR
+        if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.pulls.createReview({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              event: 'APPROVE',
+              body: 'Auto-approved: showcase-only changes from CopilotKit/demo team member.',
+            });
+
+      - name: Enable auto-merge
+        if: steps.check-team.outputs.is_demo == 'true' && steps.check-files.outputs.only_showcases == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.graphql(`
+              mutation($prId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $prId,
+                  mergeMethod: MERGE
+                }) {
+                  clientMutationId
+                }
+              }
+            `, { prId: context.payload.pull_request.node_id });

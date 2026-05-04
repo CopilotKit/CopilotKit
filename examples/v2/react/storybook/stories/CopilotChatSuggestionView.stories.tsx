@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from "@storybook/react";
 import {
   CopilotChatSuggestionView,
   CopilotChatSuggestionPill,
-} from "@copilotkitnext/react";
-import { Suggestion } from "@copilotkitnext/core";
+} from "@copilotkit/react-core/v2";
+import { Suggestion } from "@copilotkit/core";
 import { Sparkles } from "lucide-react";
 
 const suggestions: Suggestion[] = [

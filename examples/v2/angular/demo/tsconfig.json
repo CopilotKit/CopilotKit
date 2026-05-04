@@ -12,21 +12,21 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@copilotkitnext/angular": [
+      "@copilotkit/angular": [
         "../../packages/angular/dist/index.d.ts",
         "../../packages/angular/dist/fesm2022/copilotkit-angular.mjs"
       ],
-      "@copilotkitnext/core": [
+      "@copilotkit/core": [
         "../../packages/core/dist/index.d.ts",
         "../../packages/core/dist/index.mjs",
         "../../packages/core/src/index.ts"
       ],
-      "@copilotkitnext/shared": [
+      "@copilotkit/shared": [
         "../../packages/shared/dist/index.d.ts",
         "../../packages/shared/dist/index.mjs",
         "../../packages/shared/src/index.ts"
       ],
-      "@copilotkitnext/web-inspector": [
+      "@copilotkit/web-inspector": [
         "../../packages/web-inspector/dist/index.d.ts",
         "../../packages/web-inspector/src/index.ts"
       ]

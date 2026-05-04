@@ -1,0 +1,64 @@
+# ============================================================================
+# Python Agent Dependencies
+# ============================================================================
+# This file contains all packages needed to run the multi-agent demo.
+# Install with: pip install -r requirements.txt
+
+# ============================================================================
+# AG-UI Protocol Implementation
+# ============================================================================
+# ag-ui-adk: AG-UI Protocol adapter for Google ADK agents
+# Allows ADK agents to communicate with the frontend using AG-UI Protocol
+ag-ui-adk>=0.0.1
+
+# ============================================================================
+# A2A Protocol Implementation
+# ============================================================================
+# a2a: A2A Protocol SDK for agent-to-agent communication
+# a2a-sdk: Additional utilities including HTTP server support
+# These packages allow agents to communicate with each other via A2A Protocol
+a2a>=0.1.0
+a2a-sdk[http-server]
+
+# ============================================================================
+# Google ADK (Agent Development Kit)
+# ============================================================================
+# google-adk: Google's framework for building AI agents with Gemini models
+# Used by: Orchestrator, Budget Agent, Weather Agent, Restaurant Agent
+# litellm: Unified interface for multiple LLM providers (used by ADK)
+google-adk>=0.1.0
+litellm>=1.0.0
+
+# ============================================================================
+# LangGraph Framework
+# ============================================================================
+# langgraph: LangChain's framework for building stateful agent workflows
+# langchain: Core LangChain library for LLM applications
+# langchain-openai: OpenAI integration for LangChain
+# Used by: Itinerary Agent
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-openai>=0.2.0
+
+# ============================================================================
+# Web Server
+# ============================================================================
+# fastapi: Modern Python web framework for building APIs
+# uvicorn: ASGI server for running FastAPI applications
+# All agents expose HTTP endpoints using FastAPI
+fastapi>=0.115.0
+uvicorn>=0.30.0
+
+# ============================================================================
+# Utilities
+# ============================================================================
+# python-dotenv: Loads environment variables from .env file
+# Used to configure API keys and agent URLs
+python-dotenv>=1.0.0
+
+# ============================================================================
+# LLM Providers
+# ============================================================================
+# openai: OpenAI Python SDK for GPT models
+# Used by LangGraph agents (Itinerary Agent)
+openai>=1.0.0

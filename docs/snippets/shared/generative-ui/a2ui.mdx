@@ -40,6 +40,40 @@ Built with streaming in mind, A2UI enables progressive rendering as the agent ge
 A2UI specifications can be rendered on web, mobile, or any other platform, making your agent's UI truly universal.
 
 
+## Setup with CopilotKit
+
+### Backend
+
+Enable A2UI in `CopilotRuntime` by passing `a2ui: {}`:
+
+```ts title="app/api/copilotkit/route.ts"
+import { CopilotRuntime, ExperimentalEmptyAdapter, copilotRuntimeNextJSAppRouterEndpoint } from "@copilotkit/runtime";
+
+const runtime = new CopilotRuntime({
+  agents: { default: myAgent },
+  a2ui: {},
+});
+```
+
+This automatically applies `A2UIMiddleware` to all registered agents. To scope it to specific agents, you can specify agents with the `agents` property: `a2ui: { agents: ["my-agent"] }`.
+
+Once configured, any A2UI output returned from your agent will automatically be rendered in the chat interface — no additional frontend code required.
+
+### Frontend
+
+The A2UI renderer activates automatically — no extra configuration needed on the frontend. Optionally, pass a custom theme:
+
+```tsx
+import { CopilotKit } from "@copilotkit/react-core";
+import { myCustomTheme } from "@copilotkit/a2ui-renderer";
+
+<CopilotKit runtimeUrl="/api/copilotkit" a2ui={{ theme: myCustomTheme }}>
+  {children}
+</CopilotKit>
+```
+
+The `a2ui` prop on `<CopilotKit>` is only needed if you want to override the default theme provided.
+
 ## Using A2UI with CopilotKit
 
 [Get started with A2UI](/a2a/generative-ui/declarative-a2ui) and A2A with CopilotKit

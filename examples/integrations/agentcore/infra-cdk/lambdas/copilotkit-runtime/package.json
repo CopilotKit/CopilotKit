@@ -1,0 +1,21 @@
+{
+  "name": "copilotkit-runtime-lambda",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ag-ui/client": "^0.0.47",
+    "@ag-ui/mcp-apps-middleware": "^0.0.3",
+    "@copilotkit/runtime": "^1.54.0",
+    "hono": "^4.11.4",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.32",
+    "typescript": "^5.9.3"
+  }
+}

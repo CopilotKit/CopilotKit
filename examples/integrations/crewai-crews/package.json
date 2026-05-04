@@ -1,0 +1,37 @@
+{
+  "name": "crewai-crew-starter",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev:agent": "./scripts/run-agent.sh || scripts\\run-agent.bat",
+    "dev:ui": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "install:agent": "./scripts/setup-agent.sh || scripts\\setup-agent.bat",
+    "postinstall": "npm run install:agent"
+  },
+  "dependencies": {
+    "@ag-ui/crewai": "^0.0.2",
+    "@copilotkit/react-core": "1.9.3",
+    "@copilotkit/react-ui": "1.9.3",
+    "@copilotkit/runtime": "1.9.3",
+    "next": "15.3.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.1.2",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.2",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

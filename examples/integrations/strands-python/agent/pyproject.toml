@@ -1,0 +1,15 @@
+[project]
+name = "aws-strands-server"
+version = "0.1.0"
+description = "Strands integration server for AG-UI using OpenAI models"
+authors = [{ name = "AG-UI Contributors" }]
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "ag-ui-protocol>=0.1.5",
+    "fastapi>=0.115.12",
+    "uvicorn>=0.34.3",
+    "strands-agents[OpenAI]>=1.15.0",
+    "strands-agents-tools>=0.2.14",
+    "ag_ui_strands~=0.1.0",
+]

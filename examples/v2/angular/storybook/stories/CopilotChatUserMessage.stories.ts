@@ -4,7 +4,7 @@ import { CommonModule } from "@angular/common";
 import {
   CopilotChatUserMessage,
   provideCopilotChatLabels,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { UserMessage } from "@ag-ui/client";
 
 // Simple default message
@@ -106,7 +106,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -146,7 +146,7 @@ export const LongMessage: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -196,7 +196,7 @@ export const WithEditButton: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -238,7 +238,7 @@ export const WithoutEditButton: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -276,7 +276,7 @@ export const CodeRelatedMessage: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -335,7 +335,7 @@ export const ShortQuestion: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -404,7 +404,7 @@ export const WithAdditionalToolbarItems: Story = {
       source: {
         type: "code",
         code: `import { Component, ViewChild, TemplateRef } from '@angular/core';
-import { CopilotChatUserMessage, UserMessage } from '@copilotkitnext/angular';
+import { CopilotChatUserMessage, UserMessage } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',

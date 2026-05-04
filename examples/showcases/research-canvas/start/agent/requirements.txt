@@ -1,0 +1,13 @@
+langchain
+langgraph
+langchain-community
+tavily-python
+langchain-core~=0.3.15
+langchain_openai
+langchain_core
+langgraph
+pydantic
+python-dotenv
+json5
+copilotkit==0.1.38
+langgraph-cli==0.1.71

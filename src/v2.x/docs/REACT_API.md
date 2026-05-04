@@ -1,8 +1,8 @@
 # CopilotKit React API
 
-This document describes the public surface exported by `@copilotkitnext/react`. The package bundles React providers,
-hooks, and chat UI components that sit on top of `@copilotkitnext/core` and the AG UI agent runtime. Import UI styles
-from `@copilotkitnext/react/styles.css` when you render the bundled components.
+This document describes the public surface exported by `@copilotkit/react`. The package bundles React providers, hooks,
+and chat UI components that sit on top of `@copilotkit/core` and the AG UI agent runtime. Import UI styles from
+`@copilotkit/react/styles.css` when you render the bundled components.
 
 ## Providers
 
@@ -29,7 +29,7 @@ exposes them through context. Frontend tools added through hooks (`useFrontendTo
 Render your entire Copilot-enabled tree inside this provider:
 
 ```tsx
-import { CopilotKitProvider } from "@copilotkitnext/react";
+import { CopilotKitProvider } from "@copilotkit/react";
 
 <CopilotKitProvider runtimeUrl={process.env.RUNTIME_URL}>
   <App />
@@ -259,8 +259,8 @@ no tool response yet, the renderer is invoked with `ToolCallStatus.InProgress`.
 
 ## Styling
 
-All chat components rely on Tailwind utility classes baked into `@copilotkitnext/react/styles.css`. Import the CSS once
-at the app boundary (after your Tailwind base) to ensure animations, prose styling, and gradients render correctly.
+All chat components rely on Tailwind utility classes baked into `@copilotkit/react/styles.css`. Import the CSS once at
+the app boundary (after your Tailwind base) to ensure animations, prose styling, and gradients render correctly.
 
 ## Usage Checklist
 

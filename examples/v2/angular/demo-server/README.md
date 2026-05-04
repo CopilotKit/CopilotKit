@@ -18,7 +18,7 @@ Minimal Hono server for the Angular CopilotKit demo, matching the React demo beh
 
 3. Start the server:
    ```bash
-   pnpm --filter @copilotkitnext/angular-demo-server dev
+   pnpm --filter @copilotkit/angular-demo-server dev
    ```
 
 The server will be available at http://localhost:3001/api/copilotkit
@@ -38,7 +38,7 @@ You should see JSON with agents and version information.
 1. Start the demo server (Terminal A):
 
    ```bash
-   pnpm --filter @copilotkitnext/angular-demo-server dev
+   pnpm --filter @copilotkit/angular-demo-server dev
    ```
 
 2. Start Angular Storybook (Terminal B):

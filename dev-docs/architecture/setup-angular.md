@@ -39,7 +39,7 @@ graph LR
 ### 1. Install
 
 ```bash
-npm install @copilotkitnext/angular
+npm install @copilotkit/angular
 ```
 
 ### 2. Configure the DI token
@@ -47,7 +47,7 @@ npm install @copilotkitnext/angular
 ```typescript
 // app.config.ts
 import { ApplicationConfig } from "@angular/core";
-import { provideCopilotKit } from "@copilotkitnext/angular";
+import { provideCopilotKit } from "@copilotkit/angular";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -63,7 +63,7 @@ export const appConfig: ApplicationConfig = {
 ```typescript
 // chat.component.ts
 import { Component, inject } from "@angular/core";
-import { CopilotKit } from "@copilotkitnext/angular";
+import { CopilotKit } from "@copilotkit/angular";
 
 @Component({
   selector: "app-chat",
@@ -169,7 +169,7 @@ graph TB
 
 ```typescript
 // In your component or service
-import { CopilotKit } from "@copilotkitnext/angular";
+import { CopilotKit } from "@copilotkit/angular";
 import { z } from "zod";
 
 @Component({
@@ -238,7 +238,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 Angular uses the `AngularToolCall` type for rendering tool calls:
 
 ```typescript
-import { AngularToolCall } from "@copilotkitnext/angular";
+import { AngularToolCall } from "@copilotkit/angular";
 
 // Configure in provideCopilotKit
 provideCopilotKit({
@@ -275,7 +275,7 @@ graph LR
 
 ```typescript
 // app.config.ts
-import { provideCopilotKit } from "@copilotkitnext/angular";
+import { provideCopilotKit } from "@copilotkit/angular";
 
 provideCopilotKit({
   // Required
@@ -350,7 +350,7 @@ graph TB
 ```typescript
 // app.config.ts
 import { ApplicationConfig } from "@angular/core";
-import { provideCopilotKit } from "@copilotkitnext/angular";
+import { provideCopilotKit } from "@copilotkit/angular";
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -365,7 +365,7 @@ export const appConfig: ApplicationConfig = {
 ```typescript
 // dashboard.component.ts
 import { Component, inject, OnInit, OnDestroy } from "@angular/core";
-import { CopilotKit } from "@copilotkitnext/angular";
+import { CopilotKit } from "@copilotkit/angular";
 import { z } from "zod";
 
 @Component({

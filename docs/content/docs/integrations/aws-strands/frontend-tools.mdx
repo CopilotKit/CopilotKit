@@ -100,6 +100,7 @@ Check out the [Frontend Tools overview](/aws-strands/frontend-tools) to understa
         ```tsx title="app/page.tsx"
         "use client";
 
+        import { z } from "zod";
         import { useFrontendTool } from "@copilotkit/react-core/v2"; // [!code highlight]
         import { CopilotSidebar, CopilotKitCSSProperties } from "@copilotkit/react-core/v2";
         import { useState } from "react";
@@ -107,18 +108,13 @@ Check out the [Frontend Tools overview](/aws-strands/frontend-tools) to understa
         export default function Page() {
           const [background, setBackground] = useState("#6366f1");
 
-          // [!code highlight:15]
+          // [!code highlight:12]
           useFrontendTool({
             name: "change_background",
             description: "Change the background color of the chat.",
-            parameters: [
-              {
-                name: "background",
-                type: "string",
-                description: "The background color or gradient. Prefer gradients.",
-                required: true,
-              },
-            ],
+            parameters: z.object({
+              background: z.string().describe("The background color or gradient. Prefer gradients."),
+            }),
             handler: async ({ background }) => {
               setBackground(background);
               return `Background changed to ${background}`;
@@ -167,6 +163,7 @@ have your agent trigger re-renders via the `useFrontendTool` hook.
 ```tsx
 "use client";
 
+import { z } from "zod";
 import { useFrontendTool } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 
@@ -176,14 +173,9 @@ export default function Page() {
   useFrontendTool({
     name: "add_task",
     description: "Add a task to the todo list",
-    parameters: [
-      {
-        name: "task",
-        type: "string",
-        description: "The task to add",
-        required: true,
-      },
-    ],
+    parameters: z.object({
+      task: z.string().describe("The task to add"),
+    }),
     handler: async ({ task }) => {
       setTasks((prev) => [...prev, task]);
       return `Added task: ${task}`;

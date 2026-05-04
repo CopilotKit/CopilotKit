@@ -1,6 +1,5 @@
 packages:
-  - "packages/v1/*"
-  - "packages/v2/*"
+  - "packages/*"
   - "examples/v1/*"
   - "examples/v2/*"
   - "examples/v2/*/apps/*"

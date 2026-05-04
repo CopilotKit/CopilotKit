@@ -1,0 +1,16 @@
+# Python virtual environments
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Deployment
+.vercel
+
+# uv lock file (optional - many projects commit this for reproducibility)
+# uv.lock

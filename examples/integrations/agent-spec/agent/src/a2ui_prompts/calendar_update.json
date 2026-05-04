@@ -1,0 +1,17 @@
+{
+  "dayName": "Friday",
+  "dayNumber": "28",
+  "monthName": "March",
+  "event1": {
+    "title": "Lunch",
+    "time": "12:00 - 12:45 PM"
+  },
+  "event2": {
+    "title": "Q1 roadmap review",
+    "time": "1:00 - 2:00 PM"
+  },
+  "event3": {
+    "title": "Team standup (add more events if needed, e.g. event4, event5, etc.)",
+    "time": "3:30 - 4:00 PM"
+  }
+}

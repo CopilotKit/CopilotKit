@@ -1,0 +1,50 @@
+{
+  "name": "agent-spec-starter",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agentspecagent --prefix-colors blue,green --kill-others",
+    "dev:debug": "LOG_LEVEL=debug npm run dev",
+    "dev:agent": "./scripts/run-agent.sh",
+    "dev:ui": "next dev --turbopack",
+    "patch:ui": "./scripts/apply-ui-patches.sh",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "install:agent": "./scripts/setup-agent.sh",
+    "postinstall": "npm run install:agent"
+  },
+  "dependencies": {
+    "@a2ui/lit": "^0.8.1",
+    "@ag-ui/a2ui-middleware": "^0.0.2",
+    "@ag-ui/core": "^0.0.46",
+    "@ag-ui/client": "^0.0.46",
+    "@ag-ui/encoder": "^0.0.46",
+    "@ag-ui/proto": "^0.0.46",
+    "@copilotkit/a2ui-renderer": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "@copilotkit/react-core": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "@copilotkit/react-ui": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "@copilotkit/runtime": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "@copilotkit/runtime-client-gql": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "@copilotkit/shared": "0.0.0-mme-ag-ui-0-0-46-20260227141603",
+    "hono": "^4.11.4",
+    "next": "16.0.10",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "zod": "^3.25.75"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^22.15.3",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "eslint": "^9.34.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^4.1.13",
+    "typescript": "5.9.2",
+    "concurrently": "^9.2.1",
+    "eslint-config-next": "15.3.2"
+  },
+  "resolutions": {}
+}

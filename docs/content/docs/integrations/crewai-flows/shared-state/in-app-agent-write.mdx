@@ -58,8 +58,8 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
   </Step>
   <Step>
-    ### Call `setAgentState` function from the `useAgent` hook
-    `useAgent` returns a `setAgentState` function that you can use to update the agent state. Calling this
+    ### Call `agent.setState` from the `useAgent` hook
+    `useAgent` returns an `agent` object with a `setState` method that you can use to update the agent state. Calling this
     will update the agent state and trigger a rerender of anything that depends on the agent state.
 
     ```tsx title="ui/app/page.tsx"
@@ -72,15 +72,15 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 
     // Example usage in a pseudo React component
     function YourMainContent() {
-      const { agentState, setAgentState } = useAgent<AgentState>({ // [!code highlight]
-        name: "sample_agent",
+      const { agent } = useAgent({ // [!code highlight]
+        agentId: "sample_agent",
         initialState: { language: "english" }  // optionally provide an initial state
       });
 
       // ...
 
       const toggleLanguage = () => {
-        setAgentState({ language: agentState.language === "english" ? "spanish" : "english" }); // [!code highlight]
+        agent.setState({ language: agent.state?.language === "english" ? "spanish" : "english" }); // [!code highlight]
       };
 
       // ...
@@ -90,7 +90,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:2] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
           <button onClick={toggleLanguage}>Toggle Language</button>
         </div>
       );
@@ -100,7 +100,7 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
   </Step>
   <Step>
     ### Give it a try!
-    You can now use the `setAgentState` function to update the agent state and `agentState` to read it. Try toggling the language button
+    You can now use `agent.setState` to update the agent state and `agent.state` to read it. Try toggling the language button
     and talking to your agent. You'll see the language change to match the agent's state.
   </Step>
 </Steps>
@@ -110,36 +110,34 @@ when your agent is calling tools. CopilotKit allows you to fully customize how t
 ### Re-run the agent with a hint about what's changed
 
 The new agent state will be used next time the agent runs.
-If you want to re-run it manually, use the `run` argument on the `useAgent` hook.
+If you want to re-run it manually, use `copilotkit.runAgent()`.
 
-The agent will be re-run, and it will get not only the latest updated state, but also a **hint** that can depend on the data delta between the previous and the current state.
+The agent will be re-run with the latest updated state. You can also add a hint message before re-running.
 
 ```tsx title="ui/app/page.tsx"
-import { useAgent } from "@copilotkit/react-core/v2";
-import { TextMessage, MessageRole } from "@copilotkit/runtime-client-gql";  // [!code highlight]
+import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
 // ...
 
 function YourMainContent() {
-  // [!code word:run:1]
-  const { agentState, setAgentState, run } = useAgent<AgentState>({
-    name: "sample_agent",
-    initialState: { language: "english" }  // optionally provide an initial state
+  const { agent } = useAgent({
+    agentId: "sample_agent",
   });
+  const { copilotkit } = useCopilotKit(); // [!code highlight]
 
   // setup to be called when some event in the app occurs
-  const toggleLanguage = () => {
-    const newLanguage = agentState.language === "english" ? "spanish" : "english";
-    setAgentState({ language: newLanguage });
+  const toggleLanguage = async () => {
+    const newLanguage = agent.state?.language === "english" ? "spanish" : "english";
+    agent.setState({ language: newLanguage });
 
-    // re-run the agent and provide a hint about what's changed
-    // [!code highlight:6]
-    run(({ previousState, currentState }) => {
-      return new TextMessage({
-        role: MessageRole.User,
-        content: `the language has been updated to ${currentState.language}`,
-      });
+    // add a hint message and re-run the agent
+    // [!code highlight:7]
+    agent.addMessage({
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `the language has been updated to ${newLanguage}`,
     });
+    await copilotkit.runAgent({ agent });
   };
 
   return (

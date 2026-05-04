@@ -100,6 +100,23 @@ import { CopilotKitProvider } from "@copilotkit/react-core/v2";
   Show the CopilotKit developer console for debugging.
 </PropertyReference>
 
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler called when CopilotKit encounters an error. Fires for all error types: runtime connection failures, agent errors, and tool errors.
+
+  Unlike the v1 `onError`, this does **not** require a `publicApiKey` — error handling works with any configuration.
+
+  ```tsx
+  <CopilotKitProvider
+    runtimeUrl="/api/copilotkit"
+    onError={(event) => {
+      console.error(`[${event.code}]`, event.error.message, event.context);
+    }}
+  >
+    <App />
+  </CopilotKitProvider>
+  ```
+</PropertyReference>
+
 </Accordion>
 </Accordions>
 

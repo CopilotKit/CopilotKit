@@ -20,7 +20,7 @@ The useFrontendTool hook:
 ## Basic Usage
 
 ```tsx
-import { useFrontendTool } from "@copilotkitnext/react";
+import { useFrontendTool } from "@copilotkit/react-core";
 import { z } from "zod";
 
 function SearchComponent() {
@@ -71,7 +71,8 @@ decision-making.
 ```tsx
 useFrontendTool({
   name: "fetchUserData",
-  description: "Retrieve detailed user profile information including preferences and history",
+  description:
+    "Retrieve detailed user profile information including preferences and history",
   // ...
 });
 ```
@@ -133,7 +134,7 @@ A React component that renders visual feedback when the tool is executed. This a
 tool execution progress and results.
 
 ```tsx
-import { ToolCallStatus } from "@copilotkitnext/core";
+import { ToolCallStatus } from "@copilotkit/core";
 
 useFrontendTool({
   name: "generateChart",
@@ -148,7 +149,9 @@ useFrontendTool({
     <div className="tool-execution">
       <h3>Generating {args.type} chart...</h3>
       {status === ToolCallStatus.InProgress && <Spinner />}
-      {status === ToolCallStatus.Complete && result && <ChartDisplay data={result} />}
+      {status === ToolCallStatus.Complete && result && (
+        <ChartDisplay data={result} />
+      )}
     </div>
   ),
 });

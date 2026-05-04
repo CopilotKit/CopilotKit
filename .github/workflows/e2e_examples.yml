@@ -20,6 +20,10 @@ on:
         default: "main"
         type: string
 
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "E2E Examples"
+
 jobs:
   examples:
     name: ${{ matrix.example }}
@@ -63,9 +67,6 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

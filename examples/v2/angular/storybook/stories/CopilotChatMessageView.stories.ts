@@ -12,8 +12,8 @@ import {
   RenderToolCallConfig,
   ToolRenderer,
   AngularToolCall,
-} from "@copilotkitnext/angular";
-import { ToolCallStatus } from "@copilotkitnext/core";
+} from "@copilotkit/angular";
+import { ToolCallStatus } from "@copilotkit/core";
 import { z } from "zod"; // Schema validation
 
 const meta: Meta<CopilotChatMessageView> = {
@@ -62,7 +62,7 @@ export const Default: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
+import { CopilotChatMessageView, Message } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -216,7 +216,7 @@ export const ShowCursor: Story = {
       source: {
         type: "code",
         code: `import { Component } from '@angular/core';
-import { CopilotChatMessageView, Message } from '@copilotkitnext/angular';
+import { CopilotChatMessageView, Message } from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat',
@@ -554,8 +554,8 @@ import {
   ToolCall, 
   ToolMessage,
   provideCopilotKit
-} from '@copilotkitnext/angular';
-import { ToolCallStatus } from '@copilotkitnext/core';
+} from '@copilotkit/angular';
+import { ToolCallStatus } from '@copilotkit/core';
 import { z } from 'zod';
 
 // Define Zod schema for search args

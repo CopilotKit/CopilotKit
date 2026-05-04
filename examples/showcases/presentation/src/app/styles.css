@@ -1,0 +1,62 @@
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-weight: bold;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+.markdown h1 {
+  font-size: 1.5em;
+}
+
+.markdown h2 {
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+.markdown h3 {
+  font-size: 1.1em;
+}
+
+.markdown h4 {
+  font-size: 1em;
+}
+
+.markdown h5 {
+  font-size: 0.9em;
+}
+
+.markdown h6 {
+  font-size: 0.8em;
+}
+
+.markdown p {
+  margin-bottom: 1.25em;
+  text-align: left;
+}
+
+.markdown pre {
+  margin-bottom: 1.25em;
+}
+
+.markdown ul {
+  list-style-type: disc;
+  padding-left: 20px;
+  overflow: visible;
+  text-align: left;
+  margin-bottom: 1.25em;
+}
+
+.markdown li {
+  list-style-type: inherit;
+  list-style-position: outside;
+  margin-left: 0;
+  padding-left: 0;
+  position: relative;
+  overflow: visible;
+  text-align: left;
+}

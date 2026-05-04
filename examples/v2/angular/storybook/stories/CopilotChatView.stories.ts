@@ -7,7 +7,7 @@ import {
   CopilotChatInput,
   provideCopilotChatLabels,
   provideCopilotKit,
-} from "@copilotkitnext/angular";
+} from "@copilotkit/angular";
 import { Message } from "@ag-ui/client";
 
 const meta: Meta<CopilotChatView> = {
@@ -53,7 +53,7 @@ import {
   CopilotChatInput,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkitnext/angular';
+} from '@copilotkit/angular';
 import { Message } from '@ag-ui/client';
 
 @Component({
@@ -95,12 +95,12 @@ export class ChatComponent {
 
 1. Install the package:
 \\\`\\\`\\\`bash
-npm install @copilotkitnext/angular
+npm install @copilotkit/angular
 \\\`\\\`\\\`
 
 2. Import and configure in your component:
 \\\`\\\`\\\`typescript
-import { provideCopilotKit } from '@copilotkitnext/angular';
+import { provideCopilotKit } from '@copilotkit/angular';
 
 @Component({
   providers: [provideCopilotKit({})]
@@ -149,12 +149,12 @@ import { provideCopilotKit } from '@copilotkitnext/angular';
 
 1. Install the package:
 \`\`\`bash
-npm install @copilotkitnext/angular
+npm install @copilotkit/angular
 \`\`\`
 
 2. Import and configure in your component:
 \`\`\`typescript
-import { provideCopilotKit } from '@copilotkitnext/angular';
+import { provideCopilotKit } from '@copilotkit/angular';
 
 @Component({
   providers: [provideCopilotKit({})]
@@ -218,7 +218,7 @@ import {
   CopilotChatView,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkitnext/angular';
+} from '@copilotkit/angular';
 import { Message } from '@ag-ui/client';
 
 @Component({
@@ -313,7 +313,7 @@ import {
   CopilotChatView,
   provideCopilotKit,
   provideCopilotChatLabels
-} from '@copilotkitnext/angular';
+} from '@copilotkit/angular';
 
 @Component({
   selector: 'app-chat-empty',

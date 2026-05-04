@@ -1,0 +1,230 @@
+@import "../styles/typography.css";
+
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* CopilotCloud Palette Colors */
+  --color-palette-grey-0: #ffffff;
+  --color-palette-grey-25: #fafcfa;
+  --color-palette-grey-100: #f7f7f9;
+  --color-palette-grey-200: #f0f0f4;
+  --color-palette-grey-300: #e9e9ef;
+  --color-palette-grey-400: #e2e2ea;
+  --color-palette-grey-500: #dbdbe5;
+  --color-palette-grey-600: #afafb7;
+  --color-palette-grey-700: #838389;
+  --color-palette-grey-800: #575758;
+  --color-palette-grey-900: #2b2b2b;
+  --color-palette-grey-1000: #010507;
+
+  --color-palette-mint-40030: rgba(133, 224, 206, 0.3);
+  --color-palette-mint-400: #85e0ce;
+  --color-palette-mint-800: #1b936f;
+
+  --color-palette-lilac-40010: rgba(190, 194, 255, 0.1);
+  --color-palette-lilac-40020: rgba(190, 194, 255, 0.2);
+  --color-palette-lilac-40030: rgba(190, 194, 255, 0.3);
+  --color-palette-lilac-400: #bec2ff;
+
+  --color-palette-yellow-40030: rgba(255, 243, 136, 0.3);
+  --color-palette-yellow-400: #fff388;
+
+  --color-palette-orange-40020: rgba(255, 172, 77, 0.2);
+  --color-palette-orange-400: #ffac4d;
+
+  --color-palette-surface-main: #dedee9;
+  --color-palette-surface-solidEquivalentDefault70: #f8f8fb;
+  --color-palette-surface-default70: rgba(255, 255, 255, 0.7);
+  --color-palette-surface-default50: rgba(255, 255, 255, 0.5);
+  --color-palette-surface-default30: rgba(255, 255, 255, 0.3);
+  --color-palette-surface-container: #ffffff;
+  --color-palette-surface-containerHovered: #fafcfa;
+  --color-palette-surface-containerFocusedPressed: rgba(190, 194, 255, 0.1);
+  --color-palette-surface-containerActive: #bec2ff1a;
+  --color-palette-surface-containerActiveHovered: rgba(190, 194, 255, 0.2);
+  --color-palette-surface-containerActiveFocused: rgba(190, 194, 255, 0.3);
+  --color-palette-surface-containerMint: #b5e0ce;
+  --color-palette-surface-containerMint30: rgba(181, 224, 206, 0.3);
+  --color-palette-surface-containerLilac: #bec2ff;
+  --color-palette-surface-containerInvert: #010507;
+  --color-palette-surface-background: #dbdbe5;
+  --color-palette-surface-progressBarEmpty: #0105071a;
+  --color-palette-surface-progressBarFull: #189370;
+  --color-palette-surface-surfaceActionFilledHoveredAndFocused: #2b2b2b;
+  --color-palette-surface-surfaceActionFilledPressed: #57575b;
+  --color-palette-surface-containerPressed: #bec2ff4d;
+  --color-palette-surface-containerEnabledSolidEquivalent: #f8f9ff;
+  --color-palette-surface-containerPressedHoverSolidEquivalent: #f1f2ff;
+  --color-palette-surface-containerActivePressedSolidEquivalent: #e5e7fd;
+  --color-palette-surface-containerHoveredAndFocused: #f0f0f4;
+  --color-palette-surface-actionGhostHoveredAndFocused: #0105070d;
+
+  --color-palette-text-primary: #010507;
+  --color-palette-text-secondary: #57575b;
+  --color-palette-text-disabled: #838389;
+  --color-palette-text-invert: #ffffff;
+  --color-palette-text-details: #189370;
+  --color-palette-text-title: #3c464a;
+  --color-palette-text-progressBar: #525252;
+  --color-palette-text-link: #0d2e41;
+
+  --color-palette-icon-default: #010507;
+  --color-palette-icon-disabled: #838389;
+  --color-palette-icon-invert: #ffffff;
+
+  --color-palette-border-default: #ffffff;
+  --color-palette-border-container: #dbdbe5;
+  --color-palette-border-actionEnabled: #bec2ff;
+  --color-palette-border-divider: #dbdbe5;
+
+  --color-palette-gradient-primary: linear-gradient(
+    90deg,
+    #85e0ce 0%,
+    #fff388 100%
+  );
+
+  /* CopilotCloud Spacing */
+  --spacing-spacing-1: 4px;
+  --spacing-spacing-2: 8px;
+  --spacing-spacing-3: 12px;
+  --spacing-spacing-4: 16px;
+  --spacing-spacing-5: 20px;
+  --spacing-spacing-6: 24px;
+  --spacing-spacing-7: 28px;
+  --spacing-spacing-8: 32px;
+  --spacing-spacing-9: 36px;
+  --spacing-spacing-10: 40px;
+  --spacing-spacing-11: 44px;
+  --spacing-spacing-12: 48px;
+  --spacing-spacing-13: 52px;
+  --spacing-spacing-14: 56px;
+  --spacing-spacing-15: 60px;
+  --spacing-spacing-16: 64px;
+  --spacing-spacing-17: 68px;
+  --spacing-spacing-18: 72px;
+
+  /* CopilotCloud Border Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-2xl: 48px;
+  --radius-3xl: 200px;
+
+  /* Font Families */
+  --font-family-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-family-mono:
+    "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Elevation/Shadows */
+  --shadow-elevation-sm: 0px 1px 3px 0px rgba(1, 5, 7, 0.08);
+  --shadow-elevation-md: 0px 6px 6px -2px rgba(1, 5, 7, 0.08);
+  --shadow-elevation-lg: 0px 16px 24px -8px rgba(1, 5, 7, 0.12);
+  --shadow-elevation-xl: 0px 24px 32px -12px rgba(1, 5, 7, 0.16);
+
+  /* Shadcn/ui compatibility colors */
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.577 0.245 27.325);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
+  --color-chart-1: oklch(0.646 0.222 41.116);
+  --color-chart-2: oklch(0.6 0.118 184.704);
+  --color-chart-3: oklch(0.398 0.07 227.392);
+  --color-chart-4: oklch(0.828 0.189 84.429);
+  --color-chart-5: oklch(0.769 0.188 70.08);
+  --color-sidebar: oklch(0.985 0 0);
+  --color-sidebar-foreground: oklch(0.145 0 0);
+  --color-sidebar-primary: oklch(0.205 0 0);
+  --color-sidebar-primary-foreground: oklch(0.985 0 0);
+  --color-sidebar-accent: oklch(0.97 0 0);
+  --color-sidebar-accent-foreground: oklch(0.205 0 0);
+  --color-sidebar-border: oklch(0.922 0 0);
+  --color-sidebar-ring: oklch(0.708 0 0);
+
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-family-sans);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .shadow-elevation-sm {
+    box-shadow: var(--shadow-elevation-sm);
+  }
+
+  .shadow-elevation-md {
+    box-shadow: var(--shadow-elevation-md);
+  }
+
+  .shadow-elevation-lg {
+    box-shadow: var(--shadow-elevation-lg);
+  }
+
+  .shadow-elevation-xl {
+    box-shadow: var(--shadow-elevation-xl);
+  }
+}
+
+/* Custom Range Slider Styling */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #bec2ff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid #bec2ff;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}

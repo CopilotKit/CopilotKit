@@ -1,0 +1,7 @@
+cdk.out*/
+infra-cdk/node_modules/
+infra-cdk/cdk.out*/
+frontend/node_modules/
+**/node_modules/
+**/__pycache__/
+**/*.pyc

@@ -14,6 +14,7 @@ node_modules
 cdk_outputs.json
 .nx
 test-run-comment.md
+superpowers/
 
 *.egg-info/
 .installed.cfg
@@ -43,3 +44,18 @@ storybook-static
 coverage
 .turbo
 .langgraph_api
+lefthook-local.yml
+.husky/
+.langgraph_api
+
+# Binary artifacts
+*.dSYM/
+*.exe
+*.dll
+*.so
+*.dylib
+*.o
+*.obj
+*.a
+*.lib
+*.wasm

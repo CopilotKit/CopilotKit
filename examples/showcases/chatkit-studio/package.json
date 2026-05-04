@@ -1,0 +1,25 @@
+{
+  "name": "open-chatkit-studio",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:studio": "pnpm --filter studio dev",
+    "dev:playground": "pnpm --filter playground dev",
+    "dev:world": "pnpm --filter world dev",
+    "build": "turbo run build",
+    "build:studio": "pnpm --filter studio build",
+    "build:playground": "pnpm --filter playground build",
+    "build:world": "pnpm --filter world build",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=9.0.0"
+  }
+}

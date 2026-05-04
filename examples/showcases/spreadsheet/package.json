@@ -1,0 +1,43 @@
+{
+  "name": "spreadsheet-demo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@copilotkit/react-core": "^1.8.12-next.3",
+    "@copilotkit/react-textarea": "^1.8.12-next.3",
+    "@copilotkit/react-ui": "^1.8.12-next.3",
+    "@copilotkit/runtime": "^1.8.12-next.3",
+    "@copilotkit/shared": "^1.8.12-next.3",
+    "@heroicons/react": "^2.2.0",
+    "@langchain/community": "^0.3.17",
+    "@langchain/core": "^0.3.20",
+    "@langchain/langgraph": "^0.2.24",
+    "@langchain/openai": "^0.3.14",
+    "@syncfusion/ej2-react-spreadsheet": "^29.1.39",
+    "langchain": "^0.3.6",
+    "next": "15.0.3",
+    "openai": "^4.96.2",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-spreadsheet": "^0.9.5",
+    "scheduler": "^0.23.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9",
+    "eslint-config-next": "15.0.3",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@10.10.0+sha512.d615db246fe70f25dcfea6d8d73dee782ce23e2245e3c4f6f888249fb568149318637dca73c2c5c8ef2a4ca0d5657fb9567188bfab47f566d1ee6ce987815c39"
+}

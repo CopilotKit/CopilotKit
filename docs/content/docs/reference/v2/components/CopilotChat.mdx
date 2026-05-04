@@ -36,6 +36,21 @@ import "@copilotkit/react-core/v2/styles.css";
   Slot override for the inner `CopilotChatView` component. Accepts a replacement component, a `className` string merged into the default, or a partial props object to extend the default.
 </PropertyReference>
 
+<PropertyReference name="onError" type="(event: { error: Error; code: CopilotKitCoreErrorCode; context: Record<string, any> }) => void | Promise<void>">
+  Error handler scoped to this chat's agent. Fires in addition to the provider-level `onError` (does not suppress it). Only receives errors whose `context.agentId` matches this chat's agent, plus errors without an `agentId` context.
+
+  ```tsx
+  <CopilotChat
+    agentId="my-agent"
+    onError={(event) => {
+      if (event.code === "agent_connect_failed") {
+        showToast("Could not connect to agent. Please retry.");
+      }
+    }}
+  />
+  ```
+</PropertyReference>
+
 <PropertyReference name="isModalDefaultOpen" type="boolean">
   When used inside `CopilotPopup` or `CopilotSidebar`, controls whether the modal starts in the open state. Stored in the chat configuration context so child components can read it.
 </PropertyReference>

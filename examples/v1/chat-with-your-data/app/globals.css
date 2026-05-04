@@ -26,7 +26,7 @@
   --copilot-kit-input-focus-ring-color: rgba(59, 130, 246, 0.5);
   --copilot-kit-font-family: var(--font-sans);
   --copilot-kit-border-radius: 0.5rem;
-  
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
   --card: oklch(1 0 0);
@@ -78,7 +78,7 @@
   --copilot-kit-input-border-color: #334155;
   --copilot-kit-input-focus-border-color: #3b82f6;
   --copilot-kit-input-focus-ring-color: rgba(59, 130, 246, 0.5);
-  
+
   --background: oklch(0.147 0.004 49.25);
   --foreground: oklch(0.985 0.001 106.423);
   --card: oklch(0.147 0.004 49.25);
@@ -167,12 +167,12 @@
 }
 
 .copilotKitButton {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .copilotKitMessage.copilotKitUserMessage {
   margin-bottom: 30px;
   margin-top: 15px;
 }
-
-

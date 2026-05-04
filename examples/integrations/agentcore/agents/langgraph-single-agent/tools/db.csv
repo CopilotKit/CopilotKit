@@ -1,0 +1,16 @@
+date,category,amount,type
+2026-01-05,Food,42.50,expense
+2026-01-10,Transport,15.00,expense
+2026-01-15,Salary,3500.00,income
+2026-01-20,Entertainment,80.00,expense
+2026-01-25,Utilities,120.00,expense
+2026-02-03,Food,55.20,expense
+2026-02-08,Freelance,800.00,income
+2026-02-14,Dining,65.00,expense
+2026-02-20,Transport,22.50,expense
+2026-02-28,Salary,3500.00,income
+2026-03-05,Groceries,95.40,expense
+2026-03-10,Gym,40.00,expense
+2026-03-15,Salary,3500.00,income
+2026-03-18,Coffee,18.75,expense
+2026-03-22,Books,35.00,expense

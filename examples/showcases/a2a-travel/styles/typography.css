@@ -1,0 +1,240 @@
+/* CopilotCloud Typography Components */
+
+/* Headings */
+.H1-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 56px;
+  line-height: 64px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H1-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 56px;
+  line-height: 64px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.H2-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 40px;
+  line-height: 46px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H2-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 40px;
+  line-height: 46px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.H3-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 32px;
+  line-height: 36px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H3-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 32px;
+  line-height: 36px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.H4-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 24px;
+  line-height: 28px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H4-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 24px;
+  line-height: 28px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.H5-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H5-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 20px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.H6-SemiBold {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 18px;
+  line-height: 20px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.H6-Medium {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: 18px;
+  line-height: 20px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+/* Paragraphs */
+.paragraphs-Large-Bold {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 700;
+}
+
+.paragraphs-Large-SemiBold {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.paragraphs-Large-Medium {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.paragraphs-Large-Regular {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+  letter-spacing: 0px;
+  font-weight: 400;
+}
+
+.paragraphs-Medium-SemiBold {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.paragraphs-Medium-Medium {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.paragraphs-Medium-Regular {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 22px;
+  letter-spacing: 0px;
+  font-weight: 400;
+}
+
+.paragraphs-Small-SemiBold {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0px;
+  font-weight: 600;
+}
+
+.paragraphs-Small-Medium {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.paragraphs-Small-Regular {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0px;
+  font-weight: 400;
+}
+
+.paragraphs-Small-Regular-Uppercase {
+  font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0px;
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+/* Details */
+.details-Medium-Medium {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 14px;
+  line-height: 14px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.details-Medium-Medium-Uppercase {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 14px;
+  line-height: 14px;
+  letter-spacing: 0px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.details-Small-Medium {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  line-height: 12px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.details-Small-Medium-Uppercase {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 12px;
+  line-height: 12px;
+  letter-spacing: 0px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.details-ExtraSmall-Medium {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  line-height: 10px;
+  letter-spacing: 0px;
+  font-weight: 500;
+}
+
+.details-ExtraSmall-Medium-Uppercase {
+  font-family: "Spline Sans Mono", ui-monospace, SFMono-Regular, monospace;
+  font-size: 10px;
+  line-height: 10px;
+  letter-spacing: 0px;
+  font-weight: 500;
+  text-transform: uppercase;
+}

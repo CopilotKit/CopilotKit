@@ -1,0 +1,32 @@
+{
+  "name": "fast-cdk",
+  "version": "0.4.0",
+  "bin": {
+    "fast-cdk": "bin/fast-cdk.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "22.7.9",
+    "aws-cdk": "2.1031.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.6.3"
+  },
+  "dependencies": {
+    "@aws-cdk/aws-amplify-alpha": "^2.215.0-alpha.0",
+    "@aws-cdk/aws-bedrock-agentcore-alpha": "^2.233.0-alpha.0",
+    "@aws-cdk/aws-bedrock-alpha": "^2.233.0-alpha.0",
+    "@aws-cdk/aws-lambda-python-alpha": "^2.233.0-alpha.0",
+    "@aws-sdk/client-bedrock-agentcore": "^3.987.0",
+    "aws-cdk-lib": "^2.240.0",
+    "constructs": "^10.0.0",
+    "yaml": "^2.3.4"
+  }
+}

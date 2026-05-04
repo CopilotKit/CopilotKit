@@ -1,0 +1,16 @@
+[project]
+name = "with-a2a-a2ui"
+version = "0.1.0"
+description = "A top-level project to manage python libraries and samples."
+dependencies = []
+
+[tool.uv.workspace]
+members = [
+  "a2ui_extension",
+  "agent",
+]
+
+[tool.uv.sources]
+a2ui = { path = "a2ui_extension", editable = true }
+# The key must match the package name
+a2ui-restaurant-finder = { path = "agent", editable = true }

@@ -1,0 +1,41 @@
+{
+  "name": "world",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:agent\" --names ui,agent --prefix-colors blue,green --kill-others",
+    "dev:ui": "next dev --port 3002",
+    "dev:agent": "cd agent && npx @langchain/langgraph-cli dev --port 8125 --no-browser",
+    "build": "next build",
+    "start": "next start --port 3002",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@ag-ui/langgraph": "0.0.7",
+    "@copilotkit/react-core": "1.9.3",
+    "@copilotkit/react-ui": "1.9.3",
+    "@copilotkit/runtime": "1.9.3",
+    "d3-geo": "^3.1.1",
+    "next": "15.5.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-globe.gl": "^2.36.0",
+    "three": "^0.180.0",
+    "three-globe": "^2.44.0",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/d3-geo": "^3.1.0",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/three": "^0.180.0",
+    "@types/topojson-client": "^3.1.5",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.4",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

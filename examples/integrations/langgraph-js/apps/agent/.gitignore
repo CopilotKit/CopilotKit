@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.vercel
+
+# LangGraph API
+.langgraph_api
+node_modules/

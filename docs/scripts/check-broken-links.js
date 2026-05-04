@@ -10,6 +10,7 @@ const path = require('path');
 
 // Configuration
 const DOCS_DIR = 'content/docs';
+const COMPONENTS_DIR = 'components';
 const EXCLUDE_PATTERNS = ['**/node_modules/**', '**/dist/**', '**/build/**'];
 const NEXT_CONFIG_PATH = 'next.config.mjs';
 
@@ -192,9 +193,9 @@ function isValidLink(url, allPages, sourceFile = null, redirects = []) {
 }
 
 /**
- * Recursively find all .mdx files in a directory
+ * Recursively find all files with given extensions in a directory
  */
-function findMdxFiles(dir) {
+function findFiles(dir, extensions) {
   const files = [];
 
   try {
@@ -206,8 +207,8 @@ function findMdxFiles(dir) {
 
       if (stat.isDirectory()) {
         // Recursively search subdirectories
-        files.push(...findMdxFiles(fullPath));
-      } else if (item.endsWith('.mdx')) {
+        files.push(...findFiles(fullPath, extensions));
+      } else if (extensions.some(ext => item.endsWith(ext))) {
         files.push(fullPath);
       }
     }
@@ -216,6 +217,20 @@ function findMdxFiles(dir) {
   }
 
   return files;
+}
+
+/**
+ * Recursively find all .mdx files in a directory
+ */
+function findMdxFiles(dir) {
+  return findFiles(dir, ['.mdx']);
+}
+
+/**
+ * Find all .tsx and .jsx component files
+ */
+function findComponentFiles(dir) {
+  return findFiles(dir, ['.tsx', '.jsx']);
 }
 
 /**
@@ -258,13 +273,28 @@ async function main() {
   const brokenLinks = [];
 
   // Find all .mdx files
-  const files = findMdxFiles(DOCS_DIR);
+  const mdxFiles = findMdxFiles(DOCS_DIR);
 
-  console.log(`📁 Found ${files.length} documentation files`);
+  // Find all component files (.tsx, .jsx)
+  const componentFiles = findComponentFiles(COMPONENTS_DIR);
+
+  console.log(`📁 Found ${mdxFiles.length} documentation files`);
+  console.log(`🧩 Found ${componentFiles.length} component files`);
   console.log(`📄 Found ${allPages.length} pages\n`);
 
-  // Extract links from all files
-  files.forEach(file => {
+  // Extract links from documentation files
+  mdxFiles.forEach(file => {
+    try {
+      const content = fs.readFileSync(file, 'utf8');
+      const links = extractLinks(file, content);
+      allLinks.push(...links);
+    } catch (error) {
+      console.error(`Error reading ${file}:`, error.message);
+    }
+  });
+
+  // Extract links from component files
+  componentFiles.forEach(file => {
     try {
       const content = fs.readFileSync(file, 'utf8');
       const links = extractLinks(file, content);

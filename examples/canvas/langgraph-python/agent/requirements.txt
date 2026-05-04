@@ -1,0 +1,10 @@
+langchain==0.3.26
+langgraph>=0.4.12,<0.7.0
+langsmith==0.4.4
+openai>=1.68.2,<2.0.0
+fastapi>=0.115.5,<1.0.0
+uvicorn>=0.29.0,<1.0.0
+python-dotenv>=1.0.0,<2.0.0 
+langgraph-cli[inmem]>=0.3.5
+langchain-openai>=0.0.1
+copilotkit>=0.1.0,<0.2.0

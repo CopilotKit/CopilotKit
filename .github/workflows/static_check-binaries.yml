@@ -1,0 +1,87 @@
+name: static / check binaries
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check-binaries:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check for binary and build artifacts
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          VIOLATIONS=0
+
+          # Get list of added/modified files in the PR
+          CHANGED_FILES=$(git diff --name-only "origin/${BASE_REF}...HEAD")
+
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "No changed files detected."
+            exit 0
+          fi
+
+          # Check for binary file extensions
+          BINARY_FILES=$(echo "$CHANGED_FILES" | grep -iE '\.(exe|dll|so|dylib|o|obj|a|lib|wasm)$' || true)
+          if [ -n "$BINARY_FILES" ]; then
+            echo "::error::Binary files detected in PR:"
+            echo "$BINARY_FILES"
+            VIOLATIONS=1
+          fi
+
+          # Check for build directories
+          BUILD_FILES=$(echo "$CHANGED_FILES" | grep -E '/build/' || true)
+          if [ -n "$BUILD_FILES" ]; then
+            echo "::error::Files in build directories detected in PR:"
+            echo "$BUILD_FILES"
+            VIOLATIONS=1
+          fi
+
+          # Check for dSYM directories
+          DSYM_FILES=$(echo "$CHANGED_FILES" | grep -E '\.dSYM/' || true)
+          if [ -n "$DSYM_FILES" ]; then
+            echo "::error::dSYM debug symbol directories detected in PR:"
+            echo "$DSYM_FILES"
+            VIOLATIONS=1
+          fi
+
+          # Check for large files (>1MB) among changed files
+          # Exclude known large files: lockfiles, assets, docs media, bundled actions
+          LARGE_FILES=""
+          while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              case "$file" in
+                pnpm-lock.yaml|*/package-lock.json|*/poetry.lock) continue ;;
+                assets/*|docs/public/*|examples/*/preview.gif|examples/*/assets/*) continue ;;
+                .github/actions/*/dist/*) continue ;;
+              esac
+              SIZE=$(wc -c < "$file" | tr -d ' ')
+              if [ "$SIZE" -gt 1048576 ]; then
+                LARGE_FILES="${LARGE_FILES}${file} ($(( SIZE / 1024 )) KB)\n"
+              fi
+            fi
+          done <<< "$CHANGED_FILES"
+
+          if [ -n "$LARGE_FILES" ]; then
+            echo "::error::Files over 1 MB detected in PR:"
+            echo -e "$LARGE_FILES"
+            VIOLATIONS=1
+          fi
+
+          if [ "$VIOLATIONS" -eq 1 ]; then
+            echo ""
+            echo "This PR contains binary artifacts, build outputs, or oversized files."
+            echo "Please remove them and update your .gitignore if needed."
+            exit 1
+          fi
+
+          echo "No binary artifacts or oversized files detected."

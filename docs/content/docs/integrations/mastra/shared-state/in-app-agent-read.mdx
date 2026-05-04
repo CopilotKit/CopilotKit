@@ -77,7 +77,7 @@ state updates, you can reflect these updates natively in your application.
       model: openai("gpt-5.2"),
       instructions: "Always communicate in the preferred language of the user as defined in your working memory. Do not communicate in any other language.",
       memory: new Memory({
-        storage: new LibSQLStore({ url: "file::memory:" }),
+        storage: new LibSQLStore({ id: "mastra-storage", url: ":memory:" }),
         options: {
           // [!code highlight:4]
           workingMemory: {
@@ -100,8 +100,8 @@ state updates, you can reflect these updates natively in your application.
 
     function YourMainContent() {
       // [!code highlight:5]
-      const { agentState } = useAgent<AgentState>({
-        name: "your-mastra-agent-name",
+      const { agent } = useAgent({
+        agentId: "your-mastra-agent-name",
         // optionally provide a type-safe initial state
         initialState: { language: "english" }
       });
@@ -113,13 +113,13 @@ state updates, you can reflect these updates natively in your application.
         <div>
           <h1>Your main content</h1>
           {/* [!code highlight:1] */}
-          <p>Language: {agentState.language}</p>
+          <p>Language: {agent.state?.language}</p>
         </div>
       );
     }
     ```
     <Callout type="info">
-      The `agentState` in `useAgent` is reactive and will automatically update when the working memory changes.
+      The `agent.state` in `useAgent` is reactive and will automatically update when the working memory changes.
     </Callout>
   </Step>
   <Step>
@@ -145,11 +145,11 @@ type AgentState = {
 function YourMainContent() {
   // ...
   // [!code highlight:7]
-  useAgent<AgentState>({
-    name: "your-mastra-agent-name",
-    render: ({ agentState }) => {
-      if (!agentState.language) return null;
-      return <div>Language: {agentState.language}</div>;
+  useAgent({
+    agentId: "your-mastra-agent-name",
+    render: ({ state }) => {
+      if (!state.language) return null;
+      return <div>Language: {state.language}</div>;
     },
   });
   // ...
@@ -157,5 +157,5 @@ function YourMainContent() {
 ```
 
 <Callout type="info">
-  The `agentState` in `useAgent` is reactive and will automatically update when the working memory changes.
+  The `agent.state` in `useAgent` is reactive and will automatically update when the working memory changes.
 </Callout>

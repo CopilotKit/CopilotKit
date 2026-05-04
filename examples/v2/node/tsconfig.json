@@ -1,5 +1,5 @@
 {
-  "extends": "@copilotkitnext/typescript-config/base.json",
+  "extends": "@copilotkit/typescript-config/base.json",
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",

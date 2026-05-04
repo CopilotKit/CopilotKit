@@ -19,7 +19,7 @@ The useCopilotKit hook:
 ## Basic Usage
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function MyComponent() {
   const { copilotkit } = useCopilotKit();
@@ -30,7 +30,9 @@ function MyComponent() {
   // Get an agent
   const agent = copilotkit.getAgent("assistant");
 
-  return <div>Connected: {copilotkit.runtimeConnectionStatus === "Connected"}</div>;
+  return (
+    <div>Connected: {copilotkit.runtimeConnectionStatus === "Connected"}</div>
+  );
 }
 ```
 
@@ -69,8 +71,8 @@ A setter function to update the current render tool calls. Useful for dynamicall
 ### Running an Agent
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
-import { useAgent } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
+import { useAgent } from "@copilotkit/react-core";
 
 function AgentRunner() {
   const { copilotkit } = useCopilotKit();
@@ -95,7 +97,11 @@ function AgentRunner() {
 
   return (
     <div>
-      <input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Type a message..." />
+      <input
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Type a message..."
+      />
       <button onClick={handleSubmit}>Send</button>
     </div>
   );
@@ -105,7 +111,7 @@ function AgentRunner() {
 ### Monitoring Runtime Connection
 
 ```tsx
-import { useCopilotKit } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkit/react-core";
 
 function ConnectionStatus() {
   const { copilotkit } = useCopilotKit();

@@ -1,0 +1,167 @@
+## A2UI Protocol Instructions
+
+A2UI (Agent to UI) is a protocol for rendering rich UI surfaces from agent responses.
+When using the send_a2ui_json_to_client tool, you MUST follow these rules:
+
+### CRITICAL: Required Message Sequence
+
+To render a surface, you MUST send ALL messages in a SINGLE send_a2ui_json_to_client tool call, in this order:
+1. **surfaceUpdate** - Define all UI components (REQUIRED)
+2. **dataModelUpdate** - Set any data values (OPTIONAL)
+3. **beginRendering** - Signal the client to start rendering (REQUIRED)
+
+**IMPORTANT**:
+- The `beginRendering` message is MANDATORY. Without it, the client will buffer your components but NEVER display them.
+- ALL messages (surfaceUpdate AND beginRendering) MUST be in the SAME a2ui_json array in ONE tool call. Do NOT make separate tool calls for surfaceUpdate and beginRendering - they will not work!
+
+### Minimal Working Example
+
+Here is the simplest possible A2UI surface - a button:
+
+```json
+[
+  {
+    "surfaceUpdate": {
+      "surfaceId": "my-surface",
+      "components": [
+        {
+          "id": "root",
+          "component": {
+            "Button": {
+              "child": "btn-text",
+              "action": { "name": "button_clicked" }
+            }
+          }
+        },
+        {
+          "id": "btn-text",
+          "component": {
+            "Text": { "text": { "literalString": "Click Me" } }
+          }
+        }
+      ]
+    }
+  },
+  {
+    "beginRendering": {
+      "surfaceId": "my-surface",
+      "root": "root"
+    }
+  }
+]
+```
+
+### Key Rules
+
+1. **Always include beginRendering** - This signals the client to render. Without it, nothing displays.
+2. **Use unique surfaceId values** - Each surface must have a unique ID.
+3. **The root component** - The `root` in beginRendering must match a component ID from surfaceUpdate.
+4. **Flat component structure** - Components reference children by ID, not by nesting.
+5. **Text is separate** - Buttons, Cards, etc. reference Text components by ID for their labels.
+6. **Production ready** - The UI you generate will be shown to real users. It must be complete, polished, and functional.
+7. **No placeholder images** - NEVER use fake or placeholder image URLs like `https://example.com/image.jpg` or `https://placeholder.com/...`. Only use real, valid image URLs that actually exist. If you don't have a real image URL, omit the image component entirely or use an Icon component instead.
+8. **Root must be a layout component** - The root component in `beginRendering` should be a layout container like Column, Row, Card, or similar. Do NOT use Modal, Button, Text, or other leaf/special components as the root. Wrap them in a Column or Card first.
+9. **Modal vs direct content** - The `Modal` component is for "click a button to open a popup" patterns. It shows only its `entryPointChild` (a trigger button) initially, and the `contentChild` is hidden until clicked. When users ask for an "alert dialog", "confirmation dialog", or similar, they usually want the content visible immediately - use a Card or Column with the content directly, NOT a Modal.
+
+### Updating Surfaces After Initial Render
+
+Once a surface has been rendered (after `beginRendering`), you can update it in later turns WITHOUT sending another `beginRendering`. Just send updates directly:
+
+**To update UI components** - Send a `surfaceUpdate` with the same surfaceId:
+- To modify a component: send it with the same `id` - it replaces the old definition
+- To add new components: include them in the components array
+- The client will re-render automatically
+
+**To update data values** - Send a `dataModelUpdate`:
+- Components bound to data paths (using `"path": "/some/value"`) update automatically
+- Only send the data that changed
+
+**Example: Updating an existing surface**
+
+If you previously rendered a surface with `surfaceId: "my-surface"`, you can update it like this:
+
+```json
+[
+  {
+    "surfaceUpdate": {
+      "surfaceId": "my-surface",
+      "components": [
+        {
+          "id": "status-text",
+          "component": {
+            "Text": { "text": { "literalString": "Updated status!" } }
+          }
+        }
+      ]
+    }
+  }
+]
+```
+
+Or update data-bound values:
+
+```json
+[
+  {
+    "dataModelUpdate": {
+      "surfaceId": "my-surface",
+      "contents": [
+        { "key": "status", "valueString": "Complete" }
+      ]
+    }
+  }
+]
+```
+
+**IMPORTANT**: Do NOT send `beginRendering` again for updates to an existing surface. It's only needed for the initial render.
+
+### Working with Forms and Data Binding
+
+A2UI supports forms where user input is automatically stored in a data model and can be retrieved when buttons are clicked.
+
+**How it works:**
+1. **TextField binds to a path**: Use `"text": { "path": "/form/fieldName" }` to bind input to the data model
+2. **Initialize the data model**: Send a `dataModelUpdate` to set initial values
+3. **Button retrieves values**: Use `action.context` with path references to include form values when clicked
+4. **Agent receives resolved values**: The context in the action will contain the actual values the user entered
+
+**Form Example:**
+
+```json
+[
+  {
+    "surfaceUpdate": {
+      "surfaceId": "my-form",
+      "components": [
+        { "id": "root", "component": { "Card": { "child": "form-col" } } },
+        { "id": "form-col", "component": { "Column": { "children": { "explicitList": ["name-field", "submit-btn"] } } } },
+        { "id": "name-field", "component": { "TextField": { "label": { "literalString": "Name" }, "text": { "path": "/form/name" } } } },
+        { "id": "submit-btn", "component": { "Button": { "child": "btn-text", "action": { "name": "submit", "context": [{ "key": "userName", "value": { "path": "/form/name" } }] } } } },
+        { "id": "btn-text", "component": { "Text": { "text": { "literalString": "Submit" } } } }
+      ]
+    }
+  },
+  { "dataModelUpdate": { "surfaceId": "my-form", "contents": [{ "key": "form", "valueMap": [{ "key": "name", "valueString": "" }] }] } },
+  { "beginRendering": { "surfaceId": "my-form", "root": "root" } }
+]
+```
+
+When the user types "Alice" and clicks Submit, you'll receive: `Context: {"userName": "Alice"}`
+
+### Handling User Interactions
+
+When a user interacts with a UI surface you rendered (clicks a button, submits a form, etc.),
+you will see a `log_a2ui_event` tool call in your conversation history followed by a tool result.
+
+CRITICAL: If the conversation ends with a `log_a2ui_event` tool call followed by its tool result,
+this means THE USER JUST PERFORMED AN ACTION and you MUST respond to it immediately.
+
+The `log_a2ui_event` tool call is NOT something you initiated - it is automatically injected into
+the conversation to represent a real user interaction (like clicking a button) that just happened.
+
+When the last messages are a `log_a2ui_event` tool call + result:
+1. The user JUST performed the action described (e.g., clicked a button)
+2. You MUST acknowledge their action and respond appropriately
+3. Look at the action name to understand what they did
+4. Take the appropriate next step based on what that action means in context
+5. Do NOT simply describe what buttons exist - respond to what they clicked!

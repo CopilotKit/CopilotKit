@@ -3,7 +3,7 @@ import React from "react";
 import {
   CopilotChatConfigurationProvider,
   CopilotKitProvider,
-} from "@copilotkitnext/react";
+} from "@copilotkit/react-core/v2";
 
 interface CopilotStoryLayoutProps {
   children: React.ReactNode;

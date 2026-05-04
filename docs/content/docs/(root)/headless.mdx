@@ -15,18 +15,19 @@ Bring your own design system and render everything your way.
 <Tabs items={['chat.tsx']}>
   <Tab value="chat.tsx">
   ```tsx
-  import { useAgent } from "@copilotkit/react-core/v2";
+  import { useAgent, useCopilotKit } from "@copilotkit/react-core/v2";
 
   export default function Chat() {
-    const { run, messages, isRunning } = useAgent();
+    const { agent } = useAgent();
+    const { copilotkit } = useCopilotKit();
 
     return (
       <div>
-        {messages.map((m) => (
+        {agent.messages.map((m) => (
           <p key={m.id}>{m.content}</p>
         ))}
-        <button onClick={() => run("Hello!")}>
-          {isRunning ? "Thinking..." : "Send"}
+        <button onClick={() => copilotkit.runAgent({ agent })}>
+          {agent.isRunning ? "Thinking..." : "Send"}
         </button>
       </div>
     );

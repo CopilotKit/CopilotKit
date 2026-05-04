@@ -49,7 +49,7 @@ graph TB
 ### 1. Install
 
 ```bash
-npm install @copilotkitnext/runtime @copilotkitnext/agent express
+npm install @copilotkit/runtime express
 ```
 
 ### 2. Create the runtime
@@ -57,8 +57,8 @@ npm install @copilotkitnext/runtime @copilotkitnext/agent express
 ```typescript
 // server.ts
 import express from "express";
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
 
 const app = express();
 
@@ -109,8 +109,8 @@ sequenceDiagram
 
 ```typescript
 import { Hono } from "hono";
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointHono } from "@copilotkitnext/runtime/hono";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointHono } from "@copilotkit/runtime/hono";
 
 const app = new Hono();
 
@@ -130,8 +130,8 @@ export default app;
 CopilotKit includes a built-in agent powered by the Vercel AI SDK:
 
 ```typescript
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { BuiltInAgent } from "@copilotkitnext/agent";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
 
 const agent = new BuiltInAgent({
   model: "openai/gpt-4o",
@@ -244,7 +244,7 @@ graph TB
 Stores agent threads in memory. Simple, no persistence. Threads are lost on server restart.
 
 ```typescript
-import { InMemoryAgentRunner } from "@copilotkitnext/runtime";
+import { InMemoryAgentRunner } from "@copilotkit/runtime";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -257,7 +257,7 @@ const runtime = new CopilotRuntime({
 Stores agent threads in SQLite. Survives restarts.
 
 ```typescript
-import { SQLiteAgentRunner } from "@copilotkitnext/sqlite-runner";
+import { SQLiteAgentRunner } from "@copilotkit/sqlite-runner";
 
 const runtime = new CopilotRuntime({
   agents: { default: myAgent },
@@ -268,7 +268,7 @@ const runtime = new CopilotRuntime({
 ### Custom Runner
 
 ```typescript
-import { AgentRunner } from "@copilotkitnext/runtime";
+import { AgentRunner } from "@copilotkit/runtime";
 import { Observable } from "rxjs";
 
 class RedisAgentRunner extends AgentRunner {
@@ -364,7 +364,7 @@ sequenceDiagram
 Enable audio-to-text transcription:
 
 ```typescript
-import { TranscriptionService } from "@copilotkitnext/runtime";
+import { TranscriptionService } from "@copilotkit/runtime";
 
 class OpenAITranscription extends TranscriptionService {
   async transcribeFile({ audioFile, mimeType, size }) {
@@ -437,10 +437,10 @@ sequenceDiagram
 
 ```typescript
 import express from "express";
-import { CopilotRuntime } from "@copilotkitnext/runtime";
-import { createCopilotEndpointExpress } from "@copilotkitnext/runtime/express";
-import { BuiltInAgent } from "@copilotkitnext/agent";
-import { SQLiteAgentRunner } from "@copilotkitnext/sqlite-runner";
+import { CopilotRuntime } from "@copilotkit/runtime";
+import { createCopilotEndpointExpress } from "@copilotkit/runtime/express";
+import { BuiltInAgent } from "@copilotkit/runtime/v2";
+import { SQLiteAgentRunner } from "@copilotkit/sqlite-runner";
 
 const app = express();
 

@@ -7,20 +7,20 @@ alwaysApply: false
 
 ## Workspace Setup
 CopilotKit uses a monorepo structure with:
-- **[src/v1.x/package.json](mdc:src/v1.x/package.json)** - Main workspace configuration
-- **[src/v1.x/packages/](mdc:src/v1.x/packages)** - Core library packages
+- **[package.json](mdc:package.json)** - Main workspace configuration
+- **[packages/](mdc:packages)** - Core library packages
 - **[examples/](mdc:examples)** - Example applications
 
 ## Development Scripts
-Located in [src/v1.x/scripts/](mdc:src/v1.x/scripts):
+Located in [scripts/](mdc:scripts):
 
 ### Development Scripts
-- **[develop/](mdc:src/v1.x/scripts/develop)** - Development environment setup
-- **[qa/](mdc:src/v1.x/scripts/qa)** - Quality assurance and testing scripts
-- **[release/](mdc:src/v1.x/scripts/release)** - Release automation scripts
+- **[develop/](mdc:scripts/develop)** - Development environment setup
+- **[qa/](mdc:scripts/qa)** - Quality assurance and testing scripts
+- **[release/](mdc:scripts/release)** - Release automation scripts
 
 ### Documentation Scripts
-- **[docs/](mdc:src/v1.x/scripts/docs)** - Documentation generation and management
+- **[docs/](mdc:scripts/docs)** - Documentation generation and management
 
 ## Package Management
 - Uses pnpm workspaces for package management
@@ -39,11 +39,11 @@ Located in [src/v1.x/scripts/](mdc:src/v1.x/scripts):
 - **[snippets/](mdc:docs/snippets)** - Code snippets for documentation
 
 ## Configuration Files
-- **[CopilotKit.code-workspace](mdc:src/v1.x/CopilotKit.code-workspace)** - VS Code workspace settings
-- **[utilities/](mdc:src/v1.x/utilities)** - Shared utilities:
-  - [eslint-config-custom/](mdc:src/v1.x/utilities/eslint-config-custom) - ESLint configuration
-  - [tailwind-config/](mdc:src/v1.x/utilities/tailwind-config) - Tailwind CSS configuration  
-  - [tsconfig/](mdc:src/v1.x/utilities/tsconfig) - TypeScript configurations
+- **[CopilotKit.code-workspace](mdc:CopilotKit.code-workspace)** - VS Code workspace settings
+- **[utilities/](mdc:utilities)** - Shared utilities:
+  - [eslint-config-custom/](mdc:utilities/eslint-config-custom) - ESLint configuration
+  - [tailwind-config/](mdc:utilities/tailwind-config) - Tailwind CSS configuration  
+  - [tsconfig/](mdc:utilities/tsconfig) - TypeScript configurations
 
 ## Infrastructure
 - **[infra/](mdc:infra)** - AWS CDK infrastructure code

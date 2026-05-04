@@ -29,6 +29,58 @@ export default function App() {
 - **Quick debugging** - No setup required, works out of the box
 - **Testing** - Verify error handling during development
 
+## Programmatic Error Handling (v2)
+
+The v2 API provides an `onError` callback on both `CopilotKitProvider` and `CopilotChat` for programmatic error handling. No `publicApiKey` is required.
+
+### Provider-Level Error Handling
+
+Catches all errors across the entire application:
+
+```tsx
+import { CopilotKitProvider } from "@copilotkit/react-core/v2";
+
+<CopilotKitProvider
+  runtimeUrl="/api/copilotkit"
+  onError={(event) => {
+    // event.code — error type (e.g. "runtime_info_fetch_failed", "agent_run_failed")
+    // event.error — the Error object
+    // event.context — additional context (agentId, toolName, etc.)
+    console.error(`[CopilotKit ${event.code}]`, event.error.message);
+    errorTracker.capture(event);
+  }}
+>
+  <App />
+</CopilotKitProvider>
+```
+
+### Chat-Level Error Handling
+
+Scoped to a specific chat's agent — fires in addition to the provider-level handler:
+
+```tsx
+import { CopilotChat } from "@copilotkit/react-core/v2";
+
+<CopilotChat
+  agentId="my-agent"
+  onError={(event) => {
+    showToast(`Agent error: ${event.error.message}`);
+  }}
+/>
+```
+
+### Error Codes
+
+| Code | Description |
+|------|-------------|
+| `runtime_info_fetch_failed` | Could not reach the runtime `/info` endpoint |
+| `agent_connect_failed` | Agent connection (thread setup) failed |
+| `agent_run_failed` | Agent run rejected (e.g. network error) |
+| `agent_run_failed_event` | Agent's `onRunFailed` subscriber fired |
+| `agent_run_error_event` | Agent sent a `RUN_ERROR` event |
+| `tool_argument_parse_failed` | Tool call arguments were not valid JSON |
+| `tool_handler_failed` | A frontend tool handler threw an error |
+
 ## Troubleshooting
 
 ### Development Debugging Issues

@@ -66,7 +66,7 @@ is a situation where a user and an agent are working together to solve a problem
         query: z.string(),
       }),
       description: "Add a search to the agent's list of searches",
-      execute: async ({ context: { query } }) => {
+      execute: async ({ query }) => {
         // Tool implementation - working memory is automatically updated
         return { success: true, query };
       },
@@ -86,7 +86,7 @@ is a situation where a user and an agent are working together to solve a problem
         addSearch,
       },
       memory: new Memory({
-        storage: new LibSQLStore({ url: "file::memory:" }),
+        storage: new LibSQLStore({ id: "mastra-storage", url: ":memory:" }),
         options: {
           workingMemory: {
             enabled: true,
@@ -120,11 +120,11 @@ is a situation where a user and an agent are working together to solve a problem
 
       // [!code highlight:13]
       // styles omitted for brevity
-      useAgent<AgentState>({
-        name: "searchAgent", // MUST match the agent name in your Mastra instance
-        render: ({ agentState }) => (
+      useAgent({
+        agentId: "searchAgent",
+        render: ({ state }) => (
           <div>
-            {agentState.searches?.map((search, index) => (
+            {state.searches?.map((search, index) => (
               <div key={index}>
                 {search.done ? "✅" : "❌"} {search.query}{search.done ? "" : "..."}
               </div>
@@ -165,8 +165,8 @@ is a situation where a user and an agent are working together to solve a problem
       // ...
 
       // [!code highlight:3]
-      const { agentState } = useAgent<AgentState>({
-        name: "searchAgent", // MUST match the agent name in your Mastra instance
+      const { agent } = useAgent({
+        agentId: "searchAgent",
       })
 
       // ...
@@ -176,7 +176,7 @@ is a situation where a user and an agent are working together to solve a problem
           {/* ... */}
           <div className="flex flex-col gap-2 mt-4">
             {/* [!code highlight:5] */}
-            {agentState.searches?.map((search, index) => (
+            {agent.state?.searches?.map((search, index) => (
               <div key={index} className="flex flex-row">
                 {search.done ? "✅" : "❌"} {search.query}
               </div>

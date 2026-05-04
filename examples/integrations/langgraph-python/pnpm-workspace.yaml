@@ -1,0 +1,3 @@
+packages:
+  - "apps/app"
+  - "apps/agent"

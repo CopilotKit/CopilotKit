@@ -8,7 +8,7 @@ In this step, you'll learn how to provide knowledge to the copilot. In our case,
 
 ## Our App's State
 
-Let's quickly review how our app's state works. Open up the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/example-todos-app/blob/base-start-here/lib/hooks/use-tasks.tsx) file.
+Let's quickly review how our app's state works. Open up the [`lib/hooks/use-tasks.tsx`](https://github.com/CopilotKit/CopilotKit/tree/main/examples/starters/todos-app/start/lib/hooks/use-tasks.tsx) file.
 
 At a glance, we can see that the file exposes a provider (`TasksProvider`), which defines a useful things:
 
@@ -36,11 +36,11 @@ export const TasksProvider = ({ children }: { children: ReactNode }) => {
   // [!code highlight:4]
   useCopilotReadable({
     description: "The state of the todo list",
-    value: JSON.stringify(tasks)
+    value: JSON.stringify(tasks),
   });
 
   // ... the rest of the file
-}
+};
 ```
 
 In this example, we use the `useCopilotReadable` hook to provide the copilot with the state of our tasks.

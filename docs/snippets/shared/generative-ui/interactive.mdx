@@ -2,8 +2,8 @@ import { IframeSwitcher } from "@/components/content"
 
 <IframeSwitcher
   id="frontend-tools-based-hitl-example"
-  exampleUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false"
-  codeUrl="https://feature-viewer.copilotkit.ai/langgraph/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs"
+  exampleUrl={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/human_in_the_loop?sidebar=false&chatDefaultOpen=false`}
+  codeUrl={`https://feature-viewer.copilotkit.ai/${props.framework || "langgraph"}/feature/human_in_the_loop?view=code&sidebar=false&codeLayout=tabs`}
   exampleLabel="Demo"
   codeLabel="Code"
   height="700px"
@@ -37,21 +37,19 @@ import { z } from "zod";
 export function Page() {
   // ...
 
-  // [!code highlight:20]
+  // [!code highlight:16]
   useHumanInTheLoop({
     name: "humanApprovedCommand",
     description: "Ask human for approval to run a command.",
-    parameters: z.object({
-      command: z.string().describe("The command to run"),
-    }),
+    parameters: z.object({ command: z.string().describe("The command to run") }),
     render: ({ args, respond, status }) => {
       if (status !== "executing") return <></>;
       return (
         <div>
           <pre>{args.command}</pre>
           {/* [!code highlight:2] */}
-          <button onClick={() => respond?.(`Command is APPROVED`)}>Approve</button>
-          <button onClick={() => respond?.(`Command is DENIED`)}>Deny</button>
+          <button onClick={() => respond?.(`Tell the user the command ran`)}>Approve</button>
+          <button onClick={() => respond?.(`Tell the user the command wasn't run`)}>Deny</button>
         </div>
       );
     },

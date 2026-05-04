@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  NX_CI_EXECUTION_ID: ${{ github.head_ref }}-${{ github.sha }}-${{ github.run_attempt }}
+  NX_CI_EXECUTION_ENV: "Commitlint"
+
 jobs:
   commitlint:
     runs-on: ubuntu-latest
@@ -19,9 +23,6 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: "10.13.1"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
 
       - name: Use Node.js 20
         uses: actions/setup-node@v4

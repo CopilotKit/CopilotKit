@@ -1,0 +1,9 @@
+{
+  "from": "alex@acme.com",
+  "to": "jordan@acme.com",
+  "subject": "Q4 Revenue Forecast",
+  "greeting": "Hi Jordan,",
+  "body": "Following up on our call. Please review the attached Q4 forecast and let me know if you have questions before the board meeting.",
+  "closing": "Best,",
+  "signature": "Alex"
+}

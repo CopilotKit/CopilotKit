@@ -1,0 +1,25 @@
+[project]
+name = "ui-protocols-a2a-agent"
+version = "0.1.0"
+description = "A2A agent with A2UI support for the UI Protocols Demo - general-purpose UI generator using Google ADK"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "a2a-sdk>=0.3.0",
+    "click>=8.1.8",
+    "google-adk>=1.8.0",
+    "google-genai>=1.27.0",
+    "python-dotenv>=1.1.0",
+    "litellm>=1.0.0",
+    "jsonschema>=4.0.0",
+    "starlette>=0.27.0",
+    "uvicorn>=0.23.0",
+    "httpx>=0.24.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["agent"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
