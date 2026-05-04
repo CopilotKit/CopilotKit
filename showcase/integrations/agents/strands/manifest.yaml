@@ -75,7 +75,19 @@ demos:
   - id: prebuilt-sidebar
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: readonly-state-agent-context
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: reasoning-default-render
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: shared-state-read-write
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: shared-state-streaming
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: subagents
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: tool-rendering

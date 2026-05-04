@@ -154,6 +154,14 @@
   frontend_highlight:
     - src/app/demos/[framework]/prebuilt-sidebar/page.tsx
     - src/app/api/[framework]/prebuilt-sidebar/[[...slug]]/route.ts
+- id: readonly-state-agent-context
+  name: Readonly State (Agent Context)
+  description: Frontend provides read-only context to the agent via useAgentContext
+  tags: [agent-state]
+  route_template: /demos/{framework}/readonly-state-agent-context
+  frontend_highlight:
+    - src/app/demos/[framework]/readonly-state-agent-context/page.tsx
+    - src/app/api/[framework]/readonly-state-agent-context/[[...slug]]/route.ts
 - id: reasoning-default-render
   name: Reasoning (Default Render)
   description: Built-in CopilotChatReasoningMessage renders without a custom slot
@@ -162,6 +170,33 @@
   frontend_highlight:
     - src/app/demos/[framework]/reasoning-default-render/page.tsx
     - src/app/api/[framework]/reasoning-default-render/[[...slug]]/route.ts
+- id: shared-state-read-write
+  name: Shared State (Read + Write)
+  description: Bidirectional agent state — UI writes preferences, agent writes notes back
+  tags: [agent-state]
+  route_template: /demos/{framework}/shared-state-read-write
+  frontend_highlight:
+    - src/app/demos/[framework]/shared-state-read-write/page.tsx
+    - src/app/demos/[framework]/shared-state-read-write/preferences-card.tsx
+    - src/app/demos/[framework]/shared-state-read-write/notes-card.tsx
+    - src/app/api/[framework]/shared-state-read-write/[[...slug]]/route.ts
+- id: shared-state-streaming
+  name: State Streaming
+  description: Per-token state delta streaming from agent to UI
+  tags: [agent-state]
+  route_template: /demos/{framework}/shared-state-streaming
+  frontend_highlight:
+    - src/app/demos/[framework]/shared-state-streaming/page.tsx
+    - src/app/api/[framework]/shared-state-streaming/[[...slug]]/route.ts
+- id: subagents
+  name: Sub-Agents
+  description: Multiple agents with visible task delegation
+  tags: [multi-agent]
+  route_template: /demos/{framework}/subagents
+  frontend_highlight:
+    - src/app/demos/[framework]/subagents/page.tsx
+    - src/app/demos/[framework]/subagents/delegation-log.tsx
+    - src/app/api/[framework]/subagents/[[...slug]]/route.ts
 - id: tool-rendering
   name: Tool Rendering
   description: Custom render for tool calls inline in the chat stream
