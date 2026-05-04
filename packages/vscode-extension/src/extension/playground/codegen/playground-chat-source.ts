@@ -132,8 +132,12 @@ export function PlaygroundChat(): React.ReactElement {
       // back an assistant turn, then if the assistant emitted tool calls
       // we execute their handlers and feed the results back. Caps at
       // MAX_TOOL_STEPS so a misbehaving model can't loop forever.
+      let lastTurn: { assistantMessage: ChatMessage; toolCalls: ToolCall[] } | null = null;
+      let stepCount = 0;
       for (let step = 0; step < MAX_TOOL_STEPS; step++) {
+        stepCount = step + 1;
         const turn = await runOneTurn(workingMessages);
+        lastTurn = turn;
         workingMessages = [...workingMessages, turn.assistantMessage];
         setMessages(workingMessages);
 
@@ -194,6 +198,21 @@ export function PlaygroundChat(): React.ReactElement {
 
         workingMessages = [...workingMessages, ...filledResults];
         setMessages(workingMessages);
+      }
+
+      // If we exited the loop because we hit the cap and the final
+      // assistant message has no text — the model just kept calling
+      // tools and never spoke — surface that to the user instead of
+      // leaving the chat dead-silent.
+      if (
+        lastTurn &&
+        lastTurn.toolCalls.length > 0 &&
+        !lastTurn.assistantMessage.content &&
+        stepCount >= MAX_TOOL_STEPS
+      ) {
+        setError(
+          \`Tool-calling loop hit the \${MAX_TOOL_STEPS}-step cap without a text reply. The model kept calling tools and their handlers returned values it couldn't use. Check the handlers (often returning "" / null) on your useFrontendTool / useCopilotAction registrations.\`,
+        );
       }
     } catch (err) {
       // eslint-disable-next-line no-console
