@@ -132,22 +132,36 @@ export function PlaygroundChat(): React.ReactElement {
       // back an assistant turn, then if the assistant emitted tool calls
       // we execute their handlers and feed the results back. Caps at
       // MAX_TOOL_STEPS so a misbehaving model can't loop forever.
-      let lastTurn: { assistantMessage: ChatMessage; toolCalls: ToolCall[] } | null = null;
+      let lastTurn: {
+        assistantMessage: ChatMessage;
+        toolCalls: ToolCall[];
+        serverHandledToolCallIds: Set<string>;
+        serverToolMessages: ChatMessage[];
+      } | null = null;
       let stepCount = 0;
       for (let step = 0; step < MAX_TOOL_STEPS; step++) {
         stepCount = step + 1;
         const turn = await runOneTurn(workingMessages);
         lastTurn = turn;
-        workingMessages = [...workingMessages, turn.assistantMessage];
+        workingMessages = [
+          ...workingMessages,
+          turn.assistantMessage,
+          // Server-handled tools (e.g. vscode.lm) had their results
+          // streamed back; record them in the conversation history so
+          // the next POST sees them.
+          ...turn.serverToolMessages,
+        ];
         setMessages(workingMessages);
 
         if (!turn.toolCalls.length) break;
 
         // Execute every tool call's handler in parallel; append results
-        // as tool messages.
+        // as tool messages. Skip tools the runtime already executed
+        // server-side (vscode.lm tools).
         const registry = getRegisteredTools(copilotkit);
         const toolResults = await Promise.all(
           turn.toolCalls.map(async (tc): Promise<ChatMessage | null> => {
+            if (turn.serverHandledToolCallIds.has(tc.id)) return null;
             const tool = registry.find((t) => t.name === tc.function.name);
             if (!tool || typeof tool.handler !== "function") {
               // No frontend handler — could be useHumanInTheLoop awaiting
@@ -194,10 +208,25 @@ export function PlaygroundChat(): React.ReactElement {
         const filledResults = toolResults.filter(
           (m): m is ChatMessage => m !== null,
         );
-        if (filledResults.length === 0) break;
 
-        workingMessages = [...workingMessages, ...filledResults];
-        setMessages(workingMessages);
+        // Decide whether to continue. We do another turn iff at least
+        // one tool result will reach the model on the next POST —
+        // either a local handler we just executed, OR a server-side
+        // tool the runtime handled (its result is already appended
+        // to workingMessages above via serverToolMessages). If neither
+        // applies, every tool call was render-only / human-in-the-loop
+        // and the conversation is parked here.
+        if (
+          filledResults.length === 0 &&
+          turn.serverToolMessages.length === 0
+        ) {
+          break;
+        }
+
+        if (filledResults.length > 0) {
+          workingMessages = [...workingMessages, ...filledResults];
+          setMessages(workingMessages);
+        }
       }
 
       // If we exited the loop because we hit the cap and the final
@@ -227,13 +256,23 @@ export function PlaygroundChat(): React.ReactElement {
      * message we accumulated. Patches \`workingMessages\` into local state
      * as we go so deltas appear live.
      */
-    async function runOneTurn(
-      currentMessages: ChatMessage[],
-    ): Promise<{ assistantMessage: ChatMessage; toolCalls: ToolCall[] }> {
+    async function runOneTurn(currentMessages: ChatMessage[]): Promise<{
+      assistantMessage: ChatMessage;
+      toolCalls: ToolCall[];
+      /** Tool call IDs whose results were already produced server-side
+       *  (e.g. vscode.lm tools invoked in the runtime). The outer loop
+       *  must not try to execute their handlers locally. */
+      serverHandledToolCallIds: Set<string>;
+      /** Tool result messages produced server-side, to be appended to
+       *  the conversation history for the next turn. */
+      serverToolMessages: ChatMessage[];
+    }> {
       const runId = uuid();
       const assistantId = uuid();
       let textBuffer = "";
       const toolCalls: ToolCall[] = [];
+      const serverHandledToolCallIds = new Set<string>();
+      const serverToolMessages: ChatMessage[] = [];
       let inserted = false;
 
       const tools = getFrontendTools(copilotkit, DEFAULT_AGENT_ID);
@@ -330,6 +369,27 @@ export function PlaygroundChat(): React.ReactElement {
           }
           return;
         }
+        if (type === "TOOL_CALL_RESULT") {
+          // The runtime invoked a vscode.lm tool server-side and is
+          // shipping the result back. Record it so we both display the
+          // result in the chat AND avoid trying to call a local handler
+          // for this id in the outer loop.
+          const id = event.toolCallId as string;
+          const content =
+            typeof event.content === "string"
+              ? (event.content as string)
+              : JSON.stringify(event.content ?? null);
+          const toolMsg: ChatMessage = {
+            id: uuid(),
+            role: "tool",
+            toolCallId: id,
+            content,
+          };
+          serverHandledToolCallIds.add(id);
+          serverToolMessages.push(toolMsg);
+          setMessages((m) => [...m, toolMsg]);
+          return;
+        }
         if (type === "RUN_ERROR") {
           const message =
             (event.message as string | undefined) ?? "RUN_ERROR";
@@ -384,6 +444,8 @@ export function PlaygroundChat(): React.ReactElement {
           toolCalls,
         },
         toolCalls,
+        serverHandledToolCallIds,
+        serverToolMessages,
       };
     }
   }, [input, isRunning, runtimeUrl, threadId, copilotkit]);

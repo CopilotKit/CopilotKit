@@ -39,6 +39,7 @@ function makeDeps(overrides: Partial<PlaygroundDeps> = {}): PlaygroundDeps {
     },
     readPreferredModelId: vi.fn().mockReturnValue(""),
     writePreferredModelId: vi.fn().mockResolvedValue(undefined),
+    readEnableVscodeLmTools: vi.fn().mockReturnValue(false),
     ...overrides,
   };
 }

@@ -11,7 +11,8 @@ export type TanStackChunk =
   | { type: "TEXT_MESSAGE_CONTENT"; delta: string }
   | { type: "TOOL_CALL_START"; toolCallId: string; toolCallName: string }
   | { type: "TOOL_CALL_ARGS"; toolCallId: string; delta: string }
-  | { type: "TOOL_CALL_END"; toolCallId: string };
+  | { type: "TOOL_CALL_END"; toolCallId: string }
+  | { type: "TOOL_CALL_RESULT"; toolCallId: string; content: string };
 
 export interface AgentFactoryContext {
   input: RunAgentInput;
@@ -29,6 +30,17 @@ export interface RecordedCall {
 type CommonOpts = {
   /** Optional sink for diagnostic events (sends, errors, replay misses). */
   log?: (line: string) => void;
+  /**
+   * VS Code Language-Model tools (from `vscode.lm.tools`) to expose to the
+   * model alongside the user's registered tools. When the model emits a
+   * tool call for one of these names, the factory invokes it via
+   * `vscode.lm.invokeTool` server-side and emits a `TOOL_CALL_RESULT`
+   * chunk so the chat history stays consistent without the consumer
+   * needing to know about VS Code's tool surface.
+   *
+   * Empty/undefined means "expose only the user's tools" (the default).
+   */
+  vscodeLmTools?: vscode.LanguageModelToolInformation[];
 };
 
 export type VscodeLmFactoryOptions =
@@ -88,11 +100,20 @@ export function vscodeLmFactory(
 
     const recordedChunks: TanStackChunk[] = [];
 
-    const tools = toLmTools(ctx.input.tools);
+    const userTools = toLmTools(ctx.input.tools);
+    const vscodeLmTools = (opts.vscodeLmTools ?? []).map(
+      (t): vscode.LanguageModelChatTool => ({
+        name: t.name,
+        description: t.description,
+        inputSchema: normalizeInputSchema(t.inputSchema),
+      }),
+    );
+    const vscodeLmToolNames = new Set(vscodeLmTools.map((t) => t.name));
+    const tools = [...userTools, ...vscodeLmTools];
 
     try {
       log(
-        `[vscode-lm-factory] sendRequest model=${opts.model.id} tools=${tools.length}`,
+        `[vscode-lm-factory] sendRequest model=${opts.model.id} userTools=${userTools.length} vscodeLmTools=${vscodeLmTools.length}`,
       );
       const response = await opts.model.sendRequest(
         messages,
@@ -106,6 +127,22 @@ export function vscodeLmFactory(
           chunkCount++;
           if (opts.mode === "record") recordedChunks.push(chunk);
           yield chunk;
+        }
+        // For vscode.lm tool calls, also invoke server-side and emit a
+        // TOOL_CALL_RESULT chunk so the chat history records the result
+        // without the consumer needing to execute the tool itself.
+        if (
+          part instanceof vscode.LanguageModelToolCallPart &&
+          vscodeLmToolNames.has(part.name)
+        ) {
+          const resultChunk = await invokeVscodeLmTool(
+            part,
+            tokenSource.token,
+            log,
+          );
+          chunkCount++;
+          if (opts.mode === "record") recordedChunks.push(resultChunk);
+          yield resultChunk;
         }
       }
       log(`[vscode-lm-factory] stream complete chunks=${chunkCount}`);
@@ -197,6 +234,51 @@ function normalizeInputSchema(params: unknown): object {
   // No params or malformed — emit a no-arg object schema (model still sees
   // the tool's name + description and can decide whether to call it).
   return { type: "object", properties: {}, additionalProperties: false };
+}
+
+/**
+ * Invokes a system tool via `vscode.lm.invokeTool`, flattens the
+ * `LanguageModelToolResult` content into a single text payload, and
+ * wraps it as a TanStack `TOOL_CALL_RESULT` chunk. Errors are surfaced
+ * as a JSON-stringified error result so the model can keep going.
+ */
+async function invokeVscodeLmTool(
+  part: vscode.LanguageModelToolCallPart,
+  token: vscode.CancellationToken,
+  log: (line: string) => void,
+): Promise<TanStackChunk> {
+  log(`[vscode-lm-factory] invokeTool ${part.name} (callId=${part.callId})`);
+  try {
+    const result = await vscode.lm.invokeTool(
+      part.name,
+      { input: (part.input ?? {}) as Record<string, unknown> },
+      token,
+    );
+    const content = result.content
+      .map((p) => {
+        if (p instanceof vscode.LanguageModelTextPart) return p.value;
+        // Other content types (LanguageModelPromptTsxPart) are stringified
+        // best-effort — the model only sees text in the result.
+        try {
+          return JSON.stringify(p);
+        } catch {
+          return "";
+        }
+      })
+      .join("");
+    log(
+      `[vscode-lm-factory] invokeTool ${part.name} ok (${content.length} chars)`,
+    );
+    return { type: "TOOL_CALL_RESULT", toolCallId: part.callId, content };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    log(`[vscode-lm-factory] invokeTool ${part.name} threw: ${message}`);
+    return {
+      type: "TOOL_CALL_RESULT",
+      toolCallId: part.callId,
+      content: JSON.stringify({ error: message }),
+    };
+  }
 }
 
 function* translatePart(part: unknown): Generator<TanStackChunk> {

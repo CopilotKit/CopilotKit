@@ -187,6 +187,11 @@
           "type": "string",
           "default": "",
           "description": "Preferred model id for the CopilotKit playground chat. Leave empty to use the first available model from VS Code's Language Model API."
+        },
+        "copilotkit.playground.enableVscodeLmTools": {
+          "type": "boolean",
+          "default": false,
+          "description": "Expose VS Code's Language Model tools (e.g. GitHub Copilot's fetch_webpage, search_workspace) to the playground model alongside your registered tools. The model can call them; they execute in the extension host via vscode.lm.invokeTool and the results feed back into the conversation. Off by default so the playground reflects only your own tool surface."
         }
       }
     }

@@ -13,32 +13,13 @@ import {
 import { useDefaultTool, useLazyToolRenderer } from "@copilotkit/react-core";
 
 export function Tools() {
-  // V2 render: frontend-callable tool that searches the web. Handler
-  // returns realistic mock results so the model has something to
-  // summarise — otherwise it loops calling the same tool repeatedly.
+  // V2 render: frontend-callable tool that searches the web
   // @ts-expect-error – test-workspace only
   useFrontendTool({
     name: "search_web",
     description: "Search the web for a given query",
     parameters: [{ name: "q", type: "string" }],
-    handler: async ({ q }: { q?: string } = {}) =>
-      JSON.stringify({
-        query: q ?? "",
-        results: [
-          {
-            title: `Top result for "${q ?? ""}"`,
-            snippet:
-              "Mock weather snippet: Berlin is currently 18°C, partly cloudy, light breeze from the west.",
-            url: "https://example.test/weather/berlin",
-          },
-          {
-            title: "Wikipedia — Climate of Berlin",
-            snippet:
-              "Mock encyclopedic summary stub returned by the playground test fixture.",
-            url: "https://example.test/wiki/berlin-climate",
-          },
-        ],
-      }),
+    handler: async () => "",
   });
 
   // V2 render: render component shown while / after a tool result arrives

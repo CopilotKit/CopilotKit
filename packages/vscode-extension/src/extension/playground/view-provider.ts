@@ -44,6 +44,7 @@ export interface PlaygroundDeps {
     fixtureCalls?: RecordedCall[];
     onCallRecorded?: (call: RecordedCall) => void;
     log: (line: string) => void;
+    enableVscodeLmTools?: boolean;
   }) => Promise<RuntimeHostHandle>;
   fixtureStore: {
     list(): FixtureListEntry[];
@@ -55,6 +56,8 @@ export interface PlaygroundDeps {
   readPreferredModelId: () => string;
   /** Persists the user's model selection (workspace-scoped). */
   writePreferredModelId: (id: string) => Promise<void>;
+  /** Reads the `copilotkit.playground.enableVscodeLmTools` setting. */
+  readEnableVscodeLmTools: () => boolean;
 }
 
 export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
@@ -268,6 +271,7 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         fixtureCalls: replayFixture?.calls,
         onCallRecorded: (call) => recordedCalls.push(call),
         log: (line) => this.log(line),
+        enableVscodeLmTools: this.deps.readEnableVscodeLmTools(),
       });
       session = { runtime, recordedCalls, model };
 
@@ -439,5 +443,9 @@ export function createPlaygroundDeps(
           vscode.ConfigurationTarget.Workspace,
         );
     },
+    readEnableVscodeLmTools: () =>
+      vscode.workspace
+        .getConfiguration()
+        .get<boolean>("copilotkit.playground.enableVscodeLmTools", false),
   };
 }

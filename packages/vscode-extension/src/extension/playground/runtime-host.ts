@@ -1,4 +1,5 @@
 import * as http from "node:http";
+import * as vscode from "vscode";
 import type { LanguageModelChat } from "vscode";
 import {
   vscodeLmFactory,
@@ -17,6 +18,14 @@ export interface StartRuntimeHostOptions {
   fixtureCalls?: RecordedCall[];
   onCallRecorded?: (call: RecordedCall) => void;
   log: (line: string) => void;
+  /**
+   * Expose `vscode.lm.tools` (system-wide tools registered by GitHub
+   * Copilot, etc.) to the model alongside the user's registered tools.
+   * Off by default — the playground reflects only the user's tool
+   * surface. Toggled via the `copilotkit.playground.enableVscodeLmTools`
+   * setting.
+   */
+  enableVscodeLmTools?: boolean;
 }
 
 /**
@@ -125,11 +134,25 @@ type FactoryFn = (ctx: {
 }) => AsyncIterable<TanStackChunk>;
 
 function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
+  // Snapshot the current vscode.lm tool registry once per session. We
+  // snapshot rather than re-read per call because the tool registry
+  // doesn't churn during a chat — re-reading on every model.sendRequest
+  // would be wasted overhead.
+  const vscodeLmTools = opts.enableVscodeLmTools
+    ? Array.from(vscode.lm.tools)
+    : [];
+  if (vscodeLmTools.length > 0) {
+    opts.log(
+      `[runtime-host] vscode.lm tools enabled (${vscodeLmTools.length} available)`,
+    );
+  }
+
   if (opts.mode === "live") {
     return vscodeLmFactory({
       model: opts.model,
       mode: "live",
       log: opts.log,
+      vscodeLmTools,
     }) as FactoryFn;
   }
   if (opts.mode === "record") {
@@ -141,6 +164,7 @@ function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
       mode: "record",
       onCallRecorded: opts.onCallRecorded,
       log: opts.log,
+      vscodeLmTools,
     }) as FactoryFn;
   }
   return vscodeLmFactory({
@@ -148,5 +172,6 @@ function makeFactory(opts: StartRuntimeHostOptions): FactoryFn {
     mode: "replay",
     fixtureCalls: opts.fixtureCalls ?? [],
     log: opts.log,
+    vscodeLmTools,
   }) as FactoryFn;
 }
