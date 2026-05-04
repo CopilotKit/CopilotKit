@@ -50,6 +50,7 @@ load_dotenv()
 # agentic-chat; remaining demos added in Task 22 sweep.
 AGENT_FACTORIES = {
     "agentic-chat": build_agentic_chat_agent,
+    "chat-customization-css": build_agentic_chat_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)

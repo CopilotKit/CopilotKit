@@ -7,3 +7,12 @@
   frontend_highlight:
     - src/app/demos/[framework]/agentic-chat/page.tsx
     - src/app/api/[framework]/agentic-chat/[[...slug]]/route.ts
+- id: chat-customization-css
+  name: Chat Customization (CSS)
+  description: Default CopilotChat re-themed via CopilotKitCSSProperties
+  tags: [chat-ui]
+  route_template: /demos/{framework}/chat-customization-css
+  frontend_highlight:
+    - src/app/demos/[framework]/chat-customization-css/page.tsx
+    - src/app/demos/[framework]/chat-customization-css/theme.css
+    - src/app/api/[framework]/chat-customization-css/[[...slug]]/route.ts

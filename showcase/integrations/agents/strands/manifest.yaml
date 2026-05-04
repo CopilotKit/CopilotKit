@@ -24,3 +24,6 @@ demos:
   - id: agentic-chat
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: chat-customization-css
+    backend_highlight:
+      - src/agents/agentic_chat.py
