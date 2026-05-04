@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rimraf .turbo node_modules dist .next"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
+    "rimraf": "^5.0.5",
     "@typescript-eslint/eslint-plugin": "7.2.0",
     "@typescript-eslint/parser": "7.2.0",
     "@types/node": "^20",

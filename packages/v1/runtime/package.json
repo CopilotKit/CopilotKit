@@ -41,7 +41,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check-types": "tsc --noEmit",
-    "generate-graphql-schema": "rm -rf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
+    "generate-graphql-schema": "rimraf __snapshots__ && ts-node ./scripts/generate-gql-schema.ts",
     "link:global": "pnpm link --global",
     "unlink:global": "pnpm unlink --global",
     "publint": "publint .",
@@ -49,6 +49,7 @@
   },
   "devDependencies": {
     "@swc/core": "1.5.28",
+    "rimraf": "^5.0.5",
     "@types/node": "^18.11.17",
     "@whatwg-node/server": "^0.9.34",
     "eslint": "^8.56.0",

@@ -7,7 +7,7 @@
     "example-build": "next build",
     "example-start": "next start",
     "lint": "next lint",
-    "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist && rm -rf .next"
+    "clean": "rimraf .turbo node_modules dist .next"
   },
   "dependencies": {
     "@copilotkit/react-core": "workspace:*",
@@ -35,6 +35,7 @@
   "devDependencies": {
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^18.11.17",
+    "rimraf": "^5.0.5",
     "@types/react": "^18.2.5",
     "@types/react-dom": "^18.2.4",
     "autoprefixer": "^10.4.13",
