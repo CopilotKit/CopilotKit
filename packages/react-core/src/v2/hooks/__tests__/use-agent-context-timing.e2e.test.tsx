@@ -42,15 +42,7 @@ describe("useAgentContext timing - follow-up run sees updated context", () => {
      * with no new messages — which is fine; we only need to capture context.
      */
     class ContextCapturingAgent extends MockStepwiseAgent {
-      // Shared so the clone and original both see the captured contexts
       public contextPerRun: Context[][] = [];
-
-      clone(): this {
-        const cloned = super.clone();
-        (cloned as unknown as ContextCapturingAgent).contextPerRun =
-          this.contextPerRun;
-        return cloned;
-      }
 
       async runAgent(
         parameters?: RunAgentParameters,

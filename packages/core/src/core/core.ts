@@ -321,13 +321,6 @@ export interface CopilotKitCoreFriendsAccess {
    * See CopilotKitCore.waitForPendingFrameworkUpdates for details.
    */
   waitForPendingFrameworkUpdates(): Promise<void>;
-
-  /**
-   * Subscribe the state manager to an agent (including per-thread clones).
-   * Called by RunHandler before executing an agent so that events from
-   * clones are tracked in stateByRun/messageToRun.
-   */
-  subscribeAgentToStateManager(agent: AbstractAgent): void;
 }
 
 export class CopilotKitCore {
@@ -1007,12 +1000,6 @@ export class CopilotKitCore {
 
   getRunIdsForThread(agentId: string, threadId: string): string[] {
     return this.stateManager.getRunIdsForThread(agentId, threadId);
-  }
-
-  subscribeAgentToStateManager(agent: AbstractAgent): void {
-    // isClone: true — use composite agentId:threadId key, keeping the clone's
-    // subscription independent of the registry agent's bare-agentId subscription.
-    this.stateManager.subscribeToAgent(agent, { isClone: true });
   }
 
   /**

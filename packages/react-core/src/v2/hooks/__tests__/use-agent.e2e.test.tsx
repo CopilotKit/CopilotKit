@@ -19,21 +19,10 @@ import { CopilotChat } from "../../components/chat/CopilotChat";
  * Mock agent that captures RunAgentInput to verify state is passed correctly
  */
 class StateCapturingMockAgent extends MockStepwiseAgent {
-  // Shared via a container so the clone and original both see the same value
-  private _capture: { lastRunInput?: RunAgentInput } = {};
-
-  get lastRunInput(): RunAgentInput | undefined {
-    return this._capture.lastRunInput;
-  }
-
-  clone(): this {
-    const cloned = super.clone();
-    (cloned as unknown as StateCapturingMockAgent)._capture = this._capture;
-    return cloned;
-  }
+  public lastRunInput?: RunAgentInput;
 
   run(input: RunAgentInput): Observable<BaseEvent> {
-    this._capture.lastRunInput = input;
+    this.lastRunInput = input;
     return super.run(input);
   }
 }

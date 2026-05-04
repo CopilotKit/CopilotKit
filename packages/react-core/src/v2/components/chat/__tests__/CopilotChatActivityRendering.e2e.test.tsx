@@ -17,9 +17,7 @@ import {
   CopilotKitProvider,
   useCopilotKit,
 } from "../../../providers";
-import type { AbstractAgent } from "@ag-ui/client";
 import { IntelligenceAgent } from "@copilotkit/core";
-import { getThreadClone } from "../../../hooks/use-agent";
 import { createA2UIMessageRenderer } from "../../../a2ui/A2UIMessageRenderer";
 import type { Theme } from "@copilotkit/a2ui-renderer";
 import { CopilotChat } from "..";
@@ -304,65 +302,6 @@ describe("CopilotChat activity message rendering", () => {
     // Verify context is properly propagated - copilotkit should NOT be null
     expect(capturedCopilotkit).not.toBeNull();
     expect(capturedCopilotkit).toBeDefined();
-  });
-
-  it("passes the per-thread clone (not the registry agent) to activity message renderers", async () => {
-    // Regression test for: A2UI button clicks firing runAgent on the registry
-    // agent instead of the per-thread clone that CopilotChat renders from.
-    // Caused by useRenderActivityMessage calling copilotkit.getAgent() directly
-    // instead of getThreadClone(registryAgent, threadId) ?? registryAgent.
-    const agent = new MockStepwiseAgent();
-    const agentId = "action-agent";
-    agent.agentId = agentId;
-    const threadId = "thread-for-action-test";
-
-    let capturedAgent: AbstractAgent | undefined;
-
-    const activityRenderer: ReactActivityMessageRenderer<{ label: string }> = {
-      activityType: "button-action",
-      content: z.object({ label: z.string() }),
-      render: ({ content, agent: renderedAgent }) => {
-        capturedAgent = renderedAgent;
-        return <button data-testid="action-button">{content.label}</button>;
-      },
-    };
-
-    renderWithCopilotKit({
-      agents: { [agentId]: agent },
-      agentId,
-      threadId,
-      renderActivityMessages: [activityRenderer],
-    });
-
-    const input = await screen.findByRole("textbox");
-    fireEvent.change(input, { target: { value: "show me buttons" } });
-    fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
-
-    await waitFor(() => {
-      expect(screen.getByText("show me buttons")).toBeDefined();
-    });
-
-    agent.emit(runStartedEvent());
-    agent.emit(
-      activitySnapshotEvent({
-        messageId: testId("activity-action"),
-        activityType: "button-action",
-        content: { label: "Click Me" },
-      }),
-    );
-    agent.emit(runFinishedEvent());
-
-    await waitFor(() => {
-      expect(screen.getByTestId("action-button")).toBeDefined();
-    });
-
-    // CopilotChat creates a per-thread clone via useAgent. The activity renderer
-    // must receive that clone so that handleAction → runAgent targets the same
-    // instance chat is rendering from.
-    const clone = getThreadClone(agent, threadId);
-    expect(clone).toBeDefined();
-    expect(capturedAgent).toBe(clone);
-    expect(capturedAgent).not.toBe(agent); // must NOT be the registry agent
   });
 
   it("restores a completed A2UI surface after reconnect from an event-native baseline", async () => {

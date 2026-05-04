@@ -502,24 +502,13 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
   describe("Agent input plumbing", () => {
     it("forwards registered frontend tools to runAgent input", async () => {
       class InstrumentedMockAgent extends MockStepwiseAgent {
-        // Shared so the clone and original both see the captured parameters
-        private _capture: { lastRunParameters?: RunAgentParameters } = {};
-
-        get lastRunParameters(): RunAgentParameters | undefined {
-          return this._capture.lastRunParameters;
-        }
-
-        clone(): this {
-          const cloned = super.clone();
-          (cloned as unknown as InstrumentedMockAgent)._capture = this._capture;
-          return cloned;
-        }
+        public lastRunParameters?: RunAgentParameters;
 
         async runAgent(
           parameters?: RunAgentParameters,
           subscriber?: AgentSubscriber,
         ) {
-          this._capture.lastRunParameters = parameters;
+          this.lastRunParameters = parameters;
           return super.runAgent(parameters, subscriber);
         }
       }
@@ -579,16 +568,8 @@ describe("useFrontendTool E2E - Dynamic Registration", () => {
       class OneShotToolCallAgent extends AbstractAgent {
         private runCount = 0;
         clone(): OneShotToolCallAgent {
-          const cloned = new OneShotToolCallAgent();
-          cloned.agentId = this.agentId;
-          // Share runCount via reference so the second run emits different args
-          Object.defineProperty(cloned, "runCount", {
-            get: () => this.runCount,
-            set: (v: number) => {
-              this.runCount = v;
-            },
-          });
-          return cloned;
+          // Keep state across runs so the second run emits different args
+          return this;
         }
         async detachActiveRun(): Promise<void> {}
         run(_input: RunAgentInput): Observable<BaseEvent> {
