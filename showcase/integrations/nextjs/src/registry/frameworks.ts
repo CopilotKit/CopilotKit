@@ -1,6 +1,6 @@
 // showcase/integrations/nextjs/src/registry/frameworks.ts
 
-function maybeEnv(name: string): string | undefined {
+export function maybeEnv(name: string): string | undefined {
   const v = process.env[name];
   return v && v.length > 0 ? v : undefined;
 }
@@ -15,10 +15,8 @@ export type FrameworkConfig = {
   backendUrl: string;
 };
 
-export const frameworks: Record<string, FrameworkConfig> = {};
+export const frameworks: Record<FrameworkSlug, FrameworkConfig> = {};
 
 export function isReachable(fw: FrameworkConfig): boolean {
   return fw.backendUrl !== "";
 }
-
-export { maybeEnv };

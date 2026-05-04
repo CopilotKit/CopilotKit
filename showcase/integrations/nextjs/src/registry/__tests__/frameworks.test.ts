@@ -3,8 +3,8 @@ import { describe, it, expect } from "vitest";
 import { frameworks, isReachable } from "../frameworks";
 
 describe("frameworks registry", () => {
-  it("exports an object", () => {
-    expect(typeof frameworks).toBe("object");
+  it("exports an empty registry by default (Phase 0 stub)", () => {
+    expect(frameworks).toEqual({});
   });
 
   it("isReachable false for empty backendUrl", () => {
