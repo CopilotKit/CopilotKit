@@ -91,3 +91,18 @@ safety net, not the primary deploy path.
   `serviceInstanceRedeploy` after GHCR push so the health-check step
   can verify the exact deployment it triggered. Auto-updates are the
   fallback, not a replacement for CI-driven deploy verification.
+
+## Phase 1 backend path migration (strands)
+
+The strands agent backend now lives at `showcase/integrations/agents/strands/`
+(Python-only image). Legacy `showcase/integrations/strands/` (combined
+Next.js + Python image) remains deployable until Phase 4.
+
+Railway services after Phase 1:
+- `showcase-strands-backend` — root `showcase/integrations/agents/strands`,
+  Dockerfile `Dockerfile`, env: `OPENAI_API_KEY`, `PORT=8000`.
+- `showcase-integrations-nextjs` — root `showcase/integrations/nextjs`,
+  Dockerfile `Dockerfile`, env: `STRANDS_BACKEND_URL=https://showcase-strands-backend.up.railway.app`.
+- `showcase-strands` (legacy combined image) — unchanged.
+
+The actual Railway dashboard updates are a manual ops step (off-PR).
