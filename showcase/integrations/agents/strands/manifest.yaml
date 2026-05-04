@@ -30,6 +30,9 @@ demos:
   - id: chat-slots
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: headless-simple
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: prebuilt-popup
     backend_highlight:
       - src/agents/agentic_chat.py
