@@ -45,6 +45,18 @@ demos:
   - id: headless-simple
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: hitl
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-app
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: hitl-in-chat-booking
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: prebuilt-popup
     backend_highlight:
       - src/agents/agentic_chat.py
