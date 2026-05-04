@@ -51,6 +51,7 @@ load_dotenv()
 AGENT_FACTORIES = {
     "agentic-chat": build_agentic_chat_agent,
     "chat-customization-css": build_agentic_chat_agent,
+    "prebuilt-popup": build_agentic_chat_agent,
     "prebuilt-sidebar": build_agentic_chat_agent,
 }
 

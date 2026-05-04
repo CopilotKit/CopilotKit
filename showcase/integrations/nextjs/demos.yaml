@@ -16,6 +16,14 @@
     - src/app/demos/[framework]/chat-customization-css/page.tsx
     - src/app/demos/[framework]/chat-customization-css/theme.css
     - src/app/api/[framework]/chat-customization-css/[[...slug]]/route.ts
+- id: prebuilt-popup
+  name: "Pre-Built: Popup"
+  description: Floating popup chat via <CopilotPopup />
+  tags: [chat-ui]
+  route_template: /demos/{framework}/prebuilt-popup
+  frontend_highlight:
+    - src/app/demos/[framework]/prebuilt-popup/page.tsx
+    - src/app/api/[framework]/prebuilt-popup/[[...slug]]/route.ts
 - id: prebuilt-sidebar
   name: "Pre-Built: Sidebar"
   description: Docked sidebar chat via <CopilotSidebar />
