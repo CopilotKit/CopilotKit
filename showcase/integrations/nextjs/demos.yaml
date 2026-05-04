@@ -1,2 +1,9 @@
 # Populated during Phase 1.
-[]
+- id: agentic-chat
+  name: Agentic Chat
+  description: Natural conversation with frontend tool execution
+  tags: [chat-ui]
+  route_template: /demos/{framework}/agentic-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/agentic-chat/page.tsx
+    - src/app/api/[framework]/agentic-chat/[[...slug]]/route.ts
