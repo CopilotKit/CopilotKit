@@ -64,6 +64,10 @@ AGENT_FACTORIES = {
     "prebuilt-popup": build_agentic_chat_agent,
     "prebuilt-sidebar": build_agentic_chat_agent,
     "reasoning-default-render": build_agentic_chat_agent,
+    "tool-rendering": build_agentic_chat_agent,
+    "tool-rendering-custom-catchall": build_agentic_chat_agent,
+    "tool-rendering-default-catchall": build_agentic_chat_agent,
+    "tool-rendering-reasoning-chain": build_agentic_chat_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)

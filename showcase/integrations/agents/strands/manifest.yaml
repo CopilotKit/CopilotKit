@@ -66,3 +66,15 @@ demos:
   - id: reasoning-default-render
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: tool-rendering
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-custom-catchall
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-default-catchall
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: tool-rendering-reasoning-chain
+    backend_highlight:
+      - src/agents/agentic_chat.py

@@ -124,3 +124,40 @@
   frontend_highlight:
     - src/app/demos/[framework]/reasoning-default-render/page.tsx
     - src/app/api/[framework]/reasoning-default-render/[[...slug]]/route.ts
+- id: tool-rendering
+  name: Tool Rendering
+  description: Custom render for tool calls inline in the chat stream
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering/page.tsx
+    - src/app/api/[framework]/tool-rendering/[[...slug]]/route.ts
+- id: tool-rendering-custom-catchall
+  name: Tool Rendering (Custom Catch-all)
+  description: Single branded wildcard renderer via useDefaultRenderTool — the same app-designed card paints every tool call
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-custom-catchall
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-custom-catchall/page.tsx
+    - src/app/demos/[framework]/tool-rendering-custom-catchall/custom-catchall-renderer.tsx
+    - src/app/api/[framework]/tool-rendering-custom-catchall/[[...slug]]/route.ts
+- id: tool-rendering-default-catchall
+  name: Tool Rendering (Default Catch-all)
+  description: Out-of-the-box tool rendering — backend defines the tools; the frontend adds zero custom renderers and relies on CopilotKit's built-in default UI
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-default-catchall
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-default-catchall/page.tsx
+    - src/app/api/[framework]/tool-rendering-default-catchall/[[...slug]]/route.ts
+- id: tool-rendering-reasoning-chain
+  name: Tool Rendering + Reasoning Chain
+  description: Sequential tool calls with reasoning tokens rendered side-by-side
+  tags: [generative-ui]
+  route_template: /demos/{framework}/tool-rendering-reasoning-chain
+  frontend_highlight:
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/page.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/reasoning-block.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/weather-card.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/flight-list-card.tsx
+    - src/app/demos/[framework]/tool-rendering-reasoning-chain/custom-catchall-renderer.tsx
+    - src/app/api/[framework]/tool-rendering-reasoning-chain/[[...slug]]/route.ts
