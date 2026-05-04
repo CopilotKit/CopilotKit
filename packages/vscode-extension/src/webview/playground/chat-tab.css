@@ -140,11 +140,10 @@
 }
 
 /* Make the bundle's `<ChatPlayground />` (and the user's intermediate
-   provider divs) stretch to fill the grid cell, with no horizontal
-   padding from CopilotChat's default `max-w-3xl mx-auto px-4` Tailwind
-   layout. The chat needs the full panel width inside the playground;
-   max-width centring is for full-page consumer apps, not a side panel. */
-.playground-chat > * {
+   provider divs) stretch to fill the grid cell. Excluded for status
+   states (spinner / banner) so the spinner doesn't get flex-stretched
+   into a giant tilted line. */
+.playground-chat:not(.playground-chat-status) > * {
   flex: 1;
   min-height: 0;
   min-width: 0;
@@ -195,7 +194,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px 14px;
+  padding: 12px 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -304,7 +303,7 @@
 .playground-chat-input-row {
   display: flex;
   gap: 6px;
-  padding: 10px 14px;
+  padding: 10px 0;
   border-top: 1px solid var(--vscode-panel-border);
   background: var(--vscode-editor-background);
 }

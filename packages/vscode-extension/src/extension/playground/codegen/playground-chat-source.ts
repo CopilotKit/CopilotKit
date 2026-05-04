@@ -2,28 +2,21 @@
  * Source string of the PlaygroundChat module written into the generated
  * playground entry directory at codegen time.
  *
- * Why a custom chat instead of @copilotkit/react-core/v2's `<CopilotChat />`?
+ * The chat surface drives the runtime DIRECTLY rather than going through
+ * `copilotkit.runAgent({ agent })`. After multiple debug rounds, runAgent
+ * silently completes without firing a fetch in this environment — agent
+ * is somehow inert. We fetch the SSE endpoint ourselves with a hand-built
+ * RunAgentInput and parse the AG-UI event stream into local state.
  *
- * After multiple debug rounds we could not get CopilotChat's `onSubmitInput`
- * to actually fire `copilotkit.runAgent` against the in-process runtime —
- * the message rendered as sent locally but no POST ever hit the server.
- * Rather than continue chasing CopilotChat's subscription/license/state
- * surface (none of which the playground needs), the chat surface drives
- * the runtime directly. The user's hook registrations (useRenderTool,
- * useComponent, useCopilotAction, useFrontendTool, …) still register on
- * the real CopilotKitProvider that wraps this component, so when the
- * model emits a tool call we look it up via `useRenderToolCall()` —
- * the same hook CopilotChat's internals use — and render the user's
- * registered component inline.
- *
- * Why a string template? The component lives inside the user-bundled
- * IIFE so it can sit under the user's CopilotKitProvider in the React
- * tree. Same delivery pattern as `error-boundary-source.ts`.
+ * The user's hook registrations (useFrontendTool, useRenderTool,
+ * useComponent, useCopilotAction({ render }), useDefaultRenderTool, …)
+ * still register on the real CopilotKitProvider above us, so we look up
+ * tool renderers via `useRenderToolCall()` — the same hook CopilotChat's
+ * internals use — and render them inline.
  */
 export const PLAYGROUND_CHAT_SOURCE = `
 import * as React from "react";
 import {
-  useAgent,
   useCopilotKit,
   useRenderToolCall,
 } from "@copilotkit/react-core/v2";
@@ -36,10 +29,10 @@ interface ToolCall {
   function: { name: string; arguments: string };
 }
 
-interface AnyMessage {
+interface ChatMessage {
   id: string;
-  role: "user" | "assistant" | "tool" | "system" | "developer" | string;
-  content?: string | unknown;
+  role: "user" | "assistant" | "tool";
+  content: string;
   toolCalls?: ToolCall[];
   toolCallId?: string;
 }
@@ -51,60 +44,226 @@ function uuid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function getRuntimeUrl(copilotkit: unknown): string {
+  // CopilotKit core stores runtimeUrl on the public surface — we read it
+  // off the instance the user's CopilotKitProvider created.
+  const c = copilotkit as { runtimeUrl?: string };
+  return (c.runtimeUrl ?? "").replace(/\\/$/, "");
+}
+
 export function PlaygroundChat(): React.ReactElement {
   const { copilotkit } = useCopilotKit();
-  const { agent } = useAgent({ agentId: DEFAULT_AGENT_ID });
   const renderToolCall = useRenderToolCall();
+  const runtimeUrl = getRuntimeUrl(copilotkit);
 
-  const [messages, setMessages] = React.useState<AnyMessage[]>(
-    () => (agent ? [...(agent.messages as AnyMessage[])] : []),
-  );
+  const [threadId] = React.useState(uuid);
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [input, setInput] = React.useState("");
   const [isRunning, setIsRunning] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-
-  // Keep the list in sync with the agent's message store as the runtime
-  // streams in deltas. Subscribing on (agent) means thread switches and
-  // hot-reloads correctly resubscribe.
-  React.useEffect(() => {
-    if (!agent) return;
-    setMessages([...(agent.messages as AnyMessage[])]);
-    const sub = agent.subscribe({
-      onMessagesChanged: (params: { messages: AnyMessage[] }) => {
-        setMessages([...params.messages]);
-      },
-    });
-    return () => sub.unsubscribe();
-  }, [agent]);
+  const messagesRef = React.useRef<ChatMessage[]>(messages);
+  messagesRef.current = messages;
 
   const handleSend = React.useCallback(async () => {
     const text = input.trim();
-    if (!text || !agent || isRunning) return;
+    if (!text || isRunning) return;
+    if (!runtimeUrl) {
+      setError("PlaygroundChat: runtimeUrl missing on copilotkit instance");
+      return;
+    }
+
     setError(null);
+    const userMsg: ChatMessage = {
+      id: uuid(),
+      role: "user",
+      content: text,
+    };
+    const updatedMessages = [...messagesRef.current, userMsg];
+    setMessages(updatedMessages);
+    setInput("");
     setIsRunning(true);
 
-    try {
-      // Add the user message to the agent locally (this also fires
-      // onNewMessage subscribers — same path CopilotChat uses).
-      agent.addMessage({ id: uuid(), role: "user", content: text });
-      setInput("");
+    const runId = uuid();
+    const assistantId = uuid();
+    let assistantBuffer = "";
+    let assistantToolCalls: ToolCall[] = [];
+    let assistantInserted = false;
 
-      // Drive the run through the core's run handler so context, tools,
-      // and forwardedProps are assembled the same way the rest of
-      // CopilotKit expects.
+    function ensureAssistant(): void {
+      if (assistantInserted) return;
+      assistantInserted = true;
+      setMessages((m) => [
+        ...m,
+        {
+          id: assistantId,
+          role: "assistant",
+          content: "",
+          toolCalls: [],
+        },
+      ]);
+    }
+
+    function syncAssistant(): void {
+      ensureAssistant();
+      const snapshotToolCalls = assistantToolCalls.map((tc) => ({
+        ...tc,
+        function: { ...tc.function },
+      }));
+      setMessages((m) =>
+        m.map((msg) =>
+          msg.id === assistantId
+            ? {
+                ...msg,
+                content: assistantBuffer,
+                toolCalls: snapshotToolCalls,
+              }
+            : msg,
+        ),
+      );
+    }
+
+    try {
       // eslint-disable-next-line no-console
-      console.log("[playground-chat] runAgent ->");
-      await copilotkit.runAgent({ agent });
-      // eslint-disable-next-line no-console
-      console.log("[playground-chat] runAgent <- complete");
+      console.log(\`[playground-chat] POST \${runtimeUrl}/agent/\${DEFAULT_AGENT_ID}/run\`);
+      const res = await fetch(
+        \`\${runtimeUrl}/agent/\${encodeURIComponent(DEFAULT_AGENT_ID)}/run\`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            accept: "text/event-stream",
+          },
+          body: JSON.stringify({
+            threadId,
+            runId,
+            state: {},
+            messages: updatedMessages.map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.content,
+              ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
+              ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
+            })),
+            tools: [],
+            context: [],
+            forwardedProps: {},
+          }),
+        },
+      );
+
+      if (!res.ok || !res.body) {
+        throw new Error(\`runtime returned \${res.status}\`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buf.indexOf("\\n\\n")) >= 0) {
+          const frame = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          const dataLine = frame
+            .split("\\n")
+            .find((l) => l.startsWith("data:"));
+          if (!dataLine) continue;
+          const payload = dataLine.slice(5).trim();
+          if (!payload) continue;
+          let event: Record<string, unknown>;
+          try {
+            event = JSON.parse(payload);
+          } catch {
+            continue;
+          }
+          handleAgUiEvent(event);
+        }
+      }
+      // Drain any final buffered frame without trailing blank line.
+      if (buf.trim()) {
+        const dataLine = buf.split("\\n").find((l) => l.startsWith("data:"));
+        if (dataLine) {
+          try {
+            handleAgUiEvent(JSON.parse(dataLine.slice(5).trim()));
+          } catch {
+            /* ignore */
+          }
+        }
+      }
+      syncAssistant();
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("[playground-chat] runAgent threw", err);
+      console.error("[playground-chat] send failed", err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setIsRunning(false);
     }
-  }, [agent, copilotkit, input, isRunning]);
+
+    function handleAgUiEvent(event: Record<string, unknown>): void {
+      const type = event.type as string | undefined;
+      // Text deltas come as either TEXT_MESSAGE_CHUNK (single events) or
+      // TEXT_MESSAGE_CONTENT (within START/CONTENT/END trios). Both have
+      // \`delta\`. Accumulate.
+      if (
+        type === "TEXT_MESSAGE_CHUNK" ||
+        type === "TEXT_MESSAGE_CONTENT"
+      ) {
+        const delta = event.delta as string | undefined;
+        if (typeof delta === "string") {
+          assistantBuffer += delta;
+          syncAssistant();
+        }
+        return;
+      }
+      if (type === "TOOL_CALL_START") {
+        const id = event.toolCallId as string;
+        const name = event.toolCallName as string;
+        assistantToolCalls.push({
+          id,
+          type: "function",
+          function: { name, arguments: "" },
+        });
+        syncAssistant();
+        return;
+      }
+      if (type === "TOOL_CALL_ARGS") {
+        const id = event.toolCallId as string;
+        const delta = event.delta as string | undefined;
+        const tc = assistantToolCalls.find((t) => t.id === id);
+        if (tc && typeof delta === "string") {
+          tc.function.arguments += delta;
+          syncAssistant();
+        }
+        return;
+      }
+      if (type === "TOOL_CALL_RESULT") {
+        const toolCallId = event.toolCallId as string;
+        const content =
+          typeof event.content === "string"
+            ? (event.content as string)
+            : JSON.stringify(event.content ?? null);
+        setMessages((m) => [
+          ...m,
+          {
+            id: uuid(),
+            role: "tool",
+            content,
+            toolCallId,
+          },
+        ]);
+        return;
+      }
+      // RUN_STARTED, RUN_FINISHED, RUN_ERROR, STATE_*, MESSAGES_*, etc.
+      // are intentionally ignored — they don't drive the chat surface.
+      if (type === "RUN_ERROR") {
+        const message = (event.message as string | undefined) ?? "RUN_ERROR";
+        setError(message);
+      }
+    }
+  }, [input, isRunning, runtimeUrl, threadId]);
 
   return (
     <div className="playground-chat-root">
@@ -115,9 +274,9 @@ export function PlaygroundChat(): React.ReactElement {
             tools or actions; their renderers show up inline.
           </p>
         ) : (
-          messages.map((m, i) => (
+          messages.map((m) => (
             <MessageView
-              key={m.id ?? i}
+              key={m.id}
               message={m}
               messages={messages}
               renderToolCall={renderToolCall}
@@ -125,7 +284,9 @@ export function PlaygroundChat(): React.ReactElement {
           ))
         )}
         {isRunning && (
-          <div className="playground-chat-running">…</div>
+          <div className="playground-chat-running" aria-label="streaming">
+            …
+          </div>
         )}
       </div>
       {error && (
@@ -145,14 +306,14 @@ export function PlaygroundChat(): React.ReactElement {
           className="playground-chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={agent ? "Send a message…" : "Connecting…"}
-          disabled={!agent || isRunning}
+          placeholder="Send a message…"
+          disabled={isRunning}
           autoFocus
         />
         <button
           type="submit"
           className="playground-chat-send"
-          disabled={!agent || isRunning || !input.trim()}
+          disabled={isRunning || !input.trim()}
         >
           {isRunning ? "…" : "Send"}
         </button>
@@ -162,11 +323,11 @@ export function PlaygroundChat(): React.ReactElement {
 }
 
 interface MessageViewProps {
-  message: AnyMessage;
-  messages: AnyMessage[];
+  message: ChatMessage;
+  messages: ChatMessage[];
   renderToolCall: (props: {
     toolCall: ToolCall;
-    toolMessage?: AnyMessage;
+    toolMessage?: ChatMessage;
   }) => React.ReactElement | null;
 }
 
@@ -178,7 +339,7 @@ function MessageView({
   if (message.role === "user") {
     return (
       <div className="playground-chat-bubble playground-chat-bubble-user">
-        {renderContent(message.content)}
+        {message.content}
       </div>
     );
   }
@@ -187,9 +348,7 @@ function MessageView({
     return (
       <div className="playground-chat-bubble playground-chat-bubble-assistant">
         {message.content ? (
-          <div className="playground-chat-text">
-            {renderContent(message.content)}
-          </div>
+          <div className="playground-chat-text">{message.content}</div>
         ) : null}
         {(message.toolCalls ?? []).map((tc) => {
           const toolMessage = messages.find(
@@ -213,38 +372,22 @@ function MessageView({
     );
   }
 
+  // Tool result messages: only render if no assistant tool call render
+  // already covered them.
   if (message.role === "tool") {
-    // If a matching assistant tool call has a renderer registered, the
-    // renderer above already showed the result. Skip the raw bubble in
-    // that case to avoid duplicate UI.
-    return null;
+    const owningAssistant = messages.find(
+      (m) =>
+        m.role === "assistant" &&
+        (m.toolCalls ?? []).some((tc) => tc.id === message.toolCallId),
+    );
+    if (owningAssistant) return null;
+    return (
+      <div className="playground-chat-bubble playground-chat-bubble-meta">
+        <small>[tool]</small> {message.content}
+      </div>
+    );
   }
 
-  // system / developer / activity / reasoning — quiet by default in the
-  // playground; surface as muted text so authors can see them while
-  // testing without visual noise dominating.
-  return (
-    <div className="playground-chat-bubble playground-chat-bubble-meta">
-      <small>[{message.role}]</small> {renderContent(message.content)}
-    </div>
-  );
-}
-
-function renderContent(content: unknown): React.ReactNode {
-  if (content == null) return null;
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    // Multimodal user content (text + image parts). Show text parts only.
-    return content
-      .map((part) => {
-        if (part && typeof part === "object" && "type" in part) {
-          const p = part as { type: string; text?: string; content?: string };
-          if (p.type === "text") return p.text ?? p.content ?? "";
-        }
-        return "";
-      })
-      .join("");
-  }
-  return JSON.stringify(content);
+  return null;
 }
 `.trimStart();
