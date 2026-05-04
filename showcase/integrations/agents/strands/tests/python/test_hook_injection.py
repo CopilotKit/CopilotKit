@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import pytest
-pytestmark = pytest.mark.skip(reason="legacy API replaced by AGENT_FACTORIES — port in Task 22 sweep")
-# fmt: skip
 
 
 class _FakeHookRegistry:

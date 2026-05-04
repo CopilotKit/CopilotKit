@@ -125,7 +125,7 @@ def test_agent_server_guards_use_if_raise_not_assert():
     )
 
 
-@pytest.mark.skip(reason="legacy API replaced by AGENT_FACTORIES — stub setup does not cover new agentic_chat imports; port in Task 22 sweep")
+@pytest.mark.skip(reason="stub setup requires all AGENT_FACTORIES imports (agentic_chat, byoc_*, open_gen_ui, voice_agent) to be mocked — too tangled to exec agent_server.py safely in unit-test venv")
 def test_agent_server_module_installs_patch():
     """Importing ``agent_server`` must leave the instrumentor patched.
 
