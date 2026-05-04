@@ -88,6 +88,10 @@ AGENT_FACTORIES = {
     "byoc-json-render": build_byoc_json_render_agent,
     "open-gen-ui": build_open_gen_ui_agent,
     "open-gen-ui-advanced": build_open_gen_ui_agent,
+    "mcp-apps": build_agentic_chat_agent,
+    "beautiful-chat": build_agentic_chat_agent,
+    "gen-ui-interrupt": build_agentic_chat_agent,
+    "interrupt-headless": build_agentic_chat_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)

@@ -310,3 +310,36 @@
     - src/app/demos/[framework]/open-gen-ui-advanced/page.tsx
     - src/app/demos/[framework]/open-gen-ui-advanced/sandbox-functions.ts
     - src/app/api/[framework]/open-gen-ui-advanced/[[...slug]]/route.ts
+- id: mcp-apps
+  name: MCP Apps
+  description: MCP server-driven UI via activity renderers — agent calls MCP tools; CopilotKit renders sandboxed iframes inline
+  tags: [generative-ui]
+  route_template: /demos/{framework}/mcp-apps
+  frontend_highlight:
+    - src/app/demos/[framework]/mcp-apps/page.tsx
+    - src/app/api/[framework]/mcp-apps/[[...slug]]/route.ts
+- id: beautiful-chat
+  name: Beautiful Chat
+  description: Polished landing-style chat surface with brand theming and seeded suggestions
+  tags: [chat-ui]
+  route_template: /demos/{framework}/beautiful-chat
+  frontend_highlight:
+    - src/app/demos/[framework]/beautiful-chat/page.tsx
+    - src/app/api/[framework]/beautiful-chat/[[...slug]]/route.ts
+- id: gen-ui-interrupt
+  name: In-Chat HITL via useInterrupt
+  description: Agent-driven time-picker card rendered inline via a promise-based frontend tool — agent blocks until the user picks a slot
+  tags: [interactivity]
+  route_template: /demos/{framework}/gen-ui-interrupt
+  frontend_highlight:
+    - src/app/demos/[framework]/gen-ui-interrupt/page.tsx
+    - src/app/demos/[framework]/gen-ui-interrupt/time-picker-card.tsx
+    - src/app/api/[framework]/gen-ui-interrupt/[[...slug]]/route.ts
+- id: interrupt-headless
+  name: Headless Interrupt Resolution
+  description: Picker popup in the app surface (outside chat) via a headless promise-based frontend tool
+  tags: [interactivity]
+  route_template: /demos/{framework}/interrupt-headless
+  frontend_highlight:
+    - src/app/demos/[framework]/interrupt-headless/page.tsx
+    - src/app/api/[framework]/interrupt-headless/[[...slug]]/route.ts

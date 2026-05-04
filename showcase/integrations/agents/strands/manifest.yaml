@@ -126,3 +126,15 @@ demos:
   - id: open-gen-ui-advanced
     backend_highlight:
       - src/agents/open_gen_ui.py
+  - id: mcp-apps
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: beautiful-chat
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: gen-ui-interrupt
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: interrupt-headless
+    backend_highlight:
+      - src/agents/agentic_chat.py
