@@ -7,6 +7,15 @@
   frontend_highlight:
     - src/app/demos/[framework]/agentic-chat/page.tsx
     - src/app/api/[framework]/agentic-chat/[[...slug]]/route.ts
+- id: agentic-chat-reasoning
+  name: Reasoning
+  description: Visible reasoning/thinking chain alongside the final answer
+  tags: [generative-ui]
+  route_template: /demos/{framework}/agentic-chat-reasoning
+  frontend_highlight:
+    - src/app/demos/[framework]/agentic-chat-reasoning/page.tsx
+    - src/app/demos/[framework]/agentic-chat-reasoning/reasoning-block.tsx
+    - src/app/api/[framework]/agentic-chat-reasoning/[[...slug]]/route.ts
 - id: chat-customization-css
   name: Chat Customization (CSS)
   description: Default CopilotChat re-themed via CopilotKitCSSProperties
@@ -25,6 +34,23 @@
     - src/app/demos/[framework]/chat-slots/page.tsx
     - src/app/demos/[framework]/chat-slots/custom-welcome-screen.tsx
     - src/app/api/[framework]/chat-slots/[[...slug]]/route.ts
+- id: frontend-tools
+  name: Frontend Tools (In-App Actions)
+  description: Agent invokes client-side handlers registered with useFrontendTool
+  tags: [interactivity]
+  route_template: /demos/{framework}/frontend-tools
+  frontend_highlight:
+    - src/app/demos/[framework]/frontend-tools/page.tsx
+    - src/app/api/[framework]/frontend-tools/[[...slug]]/route.ts
+- id: frontend-tools-async
+  name: Frontend Tools (Async)
+  description: useFrontendTool with an async handler
+  tags: [interactivity]
+  route_template: /demos/{framework}/frontend-tools-async
+  frontend_highlight:
+    - src/app/demos/[framework]/frontend-tools-async/page.tsx
+    - src/app/demos/[framework]/frontend-tools-async/notes-card.tsx
+    - src/app/api/[framework]/frontend-tools-async/[[...slug]]/route.ts
 - id: headless-complete
   name: Headless Chat (Complete)
   description: Full chat implementation built from scratch on useAgent
@@ -59,3 +85,11 @@
   frontend_highlight:
     - src/app/demos/[framework]/prebuilt-sidebar/page.tsx
     - src/app/api/[framework]/prebuilt-sidebar/[[...slug]]/route.ts
+- id: reasoning-default-render
+  name: Reasoning (Default Render)
+  description: Built-in CopilotChatReasoningMessage renders without a custom slot
+  tags: [generative-ui]
+  route_template: /demos/{framework}/reasoning-default-render
+  frontend_highlight:
+    - src/app/demos/[framework]/reasoning-default-render/page.tsx
+    - src/app/api/[framework]/reasoning-default-render/[[...slug]]/route.ts

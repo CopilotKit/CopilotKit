@@ -50,12 +50,16 @@ load_dotenv()
 # agentic-chat; remaining demos added in Task 22 sweep.
 AGENT_FACTORIES = {
     "agentic-chat": build_agentic_chat_agent,
+    "agentic-chat-reasoning": build_agentic_chat_agent,
     "chat-customization-css": build_agentic_chat_agent,
     "chat-slots": build_agentic_chat_agent,
+    "frontend-tools": build_agentic_chat_agent,
+    "frontend-tools-async": build_agentic_chat_agent,
     "headless-complete": build_agentic_chat_agent,
     "headless-simple": build_agentic_chat_agent,
     "prebuilt-popup": build_agentic_chat_agent,
     "prebuilt-sidebar": build_agentic_chat_agent,
+    "reasoning-default-render": build_agentic_chat_agent,
 }
 
 app = create_multi_agent_strands_app(AGENT_FACTORIES)

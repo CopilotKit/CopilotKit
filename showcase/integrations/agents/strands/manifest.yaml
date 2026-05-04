@@ -24,10 +24,19 @@ demos:
   - id: agentic-chat
     backend_highlight:
       - src/agents/agentic_chat.py
+  - id: agentic-chat-reasoning
+    backend_highlight:
+      - src/agents/agentic_chat.py
   - id: chat-customization-css
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: chat-slots
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: frontend-tools
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: frontend-tools-async
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: headless-complete
@@ -40,5 +49,8 @@ demos:
     backend_highlight:
       - src/agents/agentic_chat.py
   - id: prebuilt-sidebar
+    backend_highlight:
+      - src/agents/agentic_chat.py
+  - id: reasoning-default-render
     backend_highlight:
       - src/agents/agentic_chat.py
