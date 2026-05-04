@@ -51,6 +51,35 @@ function getRuntimeUrl(copilotkit: unknown): string {
   return (c.runtimeUrl ?? "").replace(/\\/$/, "");
 }
 
+interface FrontendTool {
+  name: string;
+  description?: string;
+  parameters?: unknown;
+}
+
+function getFrontendTools(
+  copilotkit: unknown,
+  agentId: string,
+): FrontendTool[] {
+  // \`copilotkit.buildFrontendTools(agentId)\` is the same call CopilotKit's
+  // run-handler uses to assemble the tool list it sends with each run.
+  // It collects everything registered via useCopilotAction, useFrontendTool,
+  // useHumanInTheLoop, etc. and converts to the AG-UI Tool shape. Without
+  // this the model has no idea any of the user's hooks exist.
+  const c = copilotkit as {
+    buildFrontendTools?: (agentId?: string) => FrontendTool[];
+    tools?: FrontendTool[];
+  };
+  if (typeof c.buildFrontendTools === "function") {
+    try {
+      return c.buildFrontendTools(agentId) ?? [];
+    } catch {
+      /* fall through */
+    }
+  }
+  return Array.isArray(c.tools) ? c.tools : [];
+}
+
 export function PlaygroundChat(): React.ReactElement {
   const { copilotkit } = useCopilotKit();
   const renderToolCall = useRenderToolCall();
@@ -123,8 +152,16 @@ export function PlaygroundChat(): React.ReactElement {
     }
 
     try {
+      // Pull the user's registered frontend tools off the same copilotkit
+      // instance their hooks registered against. The model sees these
+      // (name + description + parameters) and decides when to invoke
+      // them; their corresponding render functions are looked up via
+      // useRenderToolCall when a TOOL_CALL_START arrives.
+      const tools = getFrontendTools(copilotkit, DEFAULT_AGENT_ID);
       // eslint-disable-next-line no-console
-      console.log(\`[playground-chat] POST \${runtimeUrl}/agent/\${DEFAULT_AGENT_ID}/run\`);
+      console.log(
+        \`[playground-chat] POST \${runtimeUrl}/agent/\${DEFAULT_AGENT_ID}/run tools=\${tools.length}\`,
+      );
       const res = await fetch(
         \`\${runtimeUrl}/agent/\${encodeURIComponent(DEFAULT_AGENT_ID)}/run\`,
         {
@@ -144,7 +181,7 @@ export function PlaygroundChat(): React.ReactElement {
               ...(m.toolCalls ? { toolCalls: m.toolCalls } : {}),
               ...(m.toolCallId ? { toolCallId: m.toolCallId } : {}),
             })),
-            tools: [],
+            tools,
             context: [],
             forwardedProps: {},
           }),
