@@ -23,8 +23,8 @@ async function handle(
     );
 
   const runtime = new CopilotRuntime({
-    // @ts-ignore -- agents type wraps Record in MaybePromise<NonEmptyRecord<...>>; fixed pending release
     agents: {
+      // @ts-ignore -- HttpAgent satisfies the agent contract at runtime; type mismatch fixed pending release
       "prebuilt-sidebar": new HttpAgent({
         url: `${fw.backendUrl}/prebuilt-sidebar/`,
       }),

@@ -1,4 +1,3 @@
-// showcase/integrations/nextjs/src/app/api/[framework]/agentic-chat/[[...slug]]/route.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import {
@@ -26,13 +25,15 @@ async function handle(
   const runtime = new CopilotRuntime({
     agents: {
       // @ts-ignore -- HttpAgent satisfies the agent contract at runtime; type mismatch fixed pending release
-      "agentic-chat": new HttpAgent({ url: `${fw.backendUrl}/agentic-chat/` }),
+      "headless-complete": new HttpAgent({
+        url: `${fw.backendUrl}/headless-complete/`,
+      }),
     },
   });
 
   return createCopilotRuntimeHandler({
     runtime,
-    basePath: `/api/${fwSlug}/agentic-chat`,
+    basePath: `/api/${fwSlug}/headless-complete`,
   })(req);
 }
 

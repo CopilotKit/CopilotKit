@@ -52,6 +52,7 @@ AGENT_FACTORIES = {
     "agentic-chat": build_agentic_chat_agent,
     "chat-customization-css": build_agentic_chat_agent,
     "chat-slots": build_agentic_chat_agent,
+    "headless-complete": build_agentic_chat_agent,
     "headless-simple": build_agentic_chat_agent,
     "prebuilt-popup": build_agentic_chat_agent,
     "prebuilt-sidebar": build_agentic_chat_agent,

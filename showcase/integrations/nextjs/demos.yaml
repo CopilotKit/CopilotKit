@@ -25,6 +25,16 @@
     - src/app/demos/[framework]/chat-slots/page.tsx
     - src/app/demos/[framework]/chat-slots/custom-welcome-screen.tsx
     - src/app/api/[framework]/chat-slots/[[...slug]]/route.ts
+- id: headless-complete
+  name: Headless Chat (Complete)
+  description: Full chat implementation built from scratch on useAgent
+  tags: [chat-ui]
+  route_template: /demos/{framework}/headless-complete
+  frontend_highlight:
+    - src/app/demos/[framework]/headless-complete/page.tsx
+    - src/app/demos/[framework]/headless-complete/message-list.tsx
+    - src/app/demos/[framework]/headless-complete/use-rendered-messages.tsx
+    - src/app/api/[framework]/headless-complete/[[...slug]]/route.ts
 - id: headless-simple
   name: Headless Chat (Simple)
   description: Minimal custom chat surface built on useAgent
