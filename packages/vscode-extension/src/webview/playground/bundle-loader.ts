@@ -166,7 +166,8 @@ function instrumentFetch(): void {
         : input instanceof Request
           ? input.url
           : String(input);
-    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    const method =
+      init?.method ?? (input instanceof Request ? input.method : "GET");
     // eslint-disable-next-line no-console
     console.log(`[playground-fetch] -> ${method} ${url}`);
     return original(input as RequestInfo, init).then(

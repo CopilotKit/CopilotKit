@@ -18,7 +18,15 @@ body {
 
 .playground-layout {
   display: grid;
-  grid-template-columns: 200px 1fr 260px;
+  /* Both side columns are driven by CSS vars so the resize handles
+     and collapse toggles can write new values live. The vars fall
+     back to 200/260px when unset; the collapsed-state classes below
+     set the corresponding var to 0 and `display: none` the panel,
+     so the grid template itself stays constant. */
+  grid-template-columns:
+    var(--playground-sidebar-w, 200px)
+    1fr
+    var(--playground-mounted-w, 260px);
   grid-template-rows: auto 1fr auto;
   grid-template-areas:
     "banner  banner  banner"
@@ -29,6 +37,8 @@ body {
   font-size: 12px;
   color: var(--vscode-foreground);
   background: var(--vscode-editor-background);
+  /* Anchor for the absolutely-positioned floating collapse toggles. */
+  position: relative;
 }
 
 .playground-state-banner {
@@ -44,8 +54,21 @@ body {
 
 .playground-sidebar {
   grid-area: sidebar;
-  overflow-y: auto;
+  /* Visible-overflow outer + scroll-overflow inner mirrors the right
+     panel's setup — the resize handle on the right edge would get
+     clipped by `overflow-y: auto`, so the scroll lives on an inner
+     wrapper. */
+  overflow: visible;
   border-right: 1px solid var(--vscode-panel-border);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.playground-sidebar-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   padding: 12px 10px;
 }
 
@@ -121,10 +144,153 @@ body {
   font-size: 11px;
 }
 
+/* Three top-level sections in the sidebar: Model, Recording, Saved.
+   Visually separated by a 1px divider so the model picker doesn't
+   read as part of the recording controls — that distinction was
+   missing from the previous flat layout. */
+.playground-sidebar-section {
+  padding: 12px 0;
+  border-top: 1px solid var(--vscode-panel-border);
+}
+.playground-sidebar-section:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
+
+.playground-sidebar-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Help / explainer copy under each section title. Smaller, dimmed
+   so the section's actual controls remain the focal point. */
+.playground-sidebar-help {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--vscode-descriptionForeground);
+}
+.playground-sidebar-help code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+  background: rgba(127, 127, 127, 0.12);
+  padding: 0 3px;
+  border-radius: 2px;
+  color: var(--vscode-foreground);
+}
+
+/* Save form: full-width input above a full-width primary button.
+   The previous side-by-side layout truncated the input on narrow
+   sidebars, hiding the actual fixture name as the user typed. */
 .playground-sidebar-save {
   display: flex;
+  flex-direction: column;
   gap: 4px;
-  margin-top: 6px;
+  margin-bottom: 8px;
+}
+
+.playground-sidebar button.playground-sidebar-save-button {
+  width: 100%;
+  padding: 5px 8px;
+  font-weight: 500;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: 1px solid transparent;
+}
+.playground-sidebar button.playground-sidebar-save-button:not(:disabled):hover {
+  background: var(
+    --vscode-button-hoverBackground,
+    var(--vscode-button-background)
+  );
+}
+.playground-sidebar button.playground-sidebar-save-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.playground-sidebar button.playground-sidebar-newchat {
+  width: 100%;
+  margin-top: 2px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.playground-sidebar button.playground-sidebar-newchat:hover {
+  color: var(--vscode-foreground);
+}
+
+.playground-sidebar-fixtures {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.playground-sidebar-fixture {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.playground-sidebar-fixture-name {
+  flex: 1 1 auto;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Higher specificity (button + class) needed to override the generic
+   `.playground-sidebar button` rule above which sets color/border. */
+.playground-sidebar button.playground-sidebar-fixture-action {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  font-size: 11px;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.playground-sidebar button.playground-sidebar-fixture-action:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+/* Replay (▶) — green icon, no border, no background. The icon IS the
+   button. Color uses the theme's chart-green when present, else a
+   neutral green that reads on both light and dark themes. */
+.playground-sidebar button.playground-sidebar-fixture-action-play {
+  color: var(--vscode-charts-green, #4caf50);
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.playground-sidebar button.playground-sidebar-fixture-action-play:hover {
+  color: var(--vscode-charts-green, #4caf50);
+  background: rgba(76, 175, 80, 0.18);
+}
+
+.playground-sidebar button.playground-sidebar-fixture-action.danger {
+  color: var(--vscode-errorForeground);
+}
+
+.playground-sidebar button.playground-sidebar-fixture-action.confirming {
+  background: var(--vscode-inputValidation-warningBackground);
+  color: var(
+    --vscode-inputValidation-warningForeground,
+    var(--vscode-foreground)
+  );
+  font-weight: bold;
 }
 
 .badge {
@@ -262,32 +428,122 @@ body {
   margin: 0;
 }
 
-.playground-chat-toolcall {
-  margin-top: 6px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: var(--vscode-editor-background);
-  border: 1px dashed var(--vscode-panel-border);
+/* An assistant turn that mixes text + tool cards renders them as
+   sibling boxes inside this group; the group keeps them visually
+   tied together without imposing its own background. */
+.playground-chat-message-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: flex-start;
+  max-width: 100%;
 }
 
-.playground-chat-toolcall:first-child {
+/* Markdown content inside the assistant bubble — keep tight margins so
+   short replies don't balloon the bubble height, and constrain code
+   blocks so wide outputs scroll instead of breaking the layout. */
+.playground-chat-md > *:first-child {
   margin-top: 0;
 }
-
-.playground-chat-toolcall-header {
-  font-size: 10px;
+.playground-chat-md > *:last-child {
+  margin-bottom: 0;
+}
+.playground-chat-md p {
+  margin: 0 0 6px;
+}
+.playground-chat-md h2,
+.playground-chat-md h3,
+.playground-chat-md h4 {
+  margin: 8px 0 4px;
   font-weight: 600;
-  color: var(--vscode-descriptionForeground);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
+}
+.playground-chat-md h2 {
+  font-size: 14px;
+}
+.playground-chat-md h3 {
+  font-size: 13px;
+}
+.playground-chat-md h4 {
+  font-size: 12px;
+}
+.playground-chat-md ul,
+.playground-chat-md ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+.playground-chat-md li {
+  margin: 2px 0;
+}
+.playground-chat-md code {
+  font-family: var(--vscode-editor-font-family, monospace);
+  background: var(
+    --vscode-textBlockQuote-background,
+    rgba(127, 127, 127, 0.15)
+  );
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 11px;
+}
+.playground-chat-md pre {
+  background: var(--vscode-textCodeBlock-background, rgba(0, 0, 0, 0.2));
+  padding: 8px 10px;
+  border-radius: 4px;
+  margin: 6px 0;
+  overflow-x: auto;
+}
+.playground-chat-md pre code {
+  background: transparent;
+  padding: 0;
+}
+.playground-chat-md a {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: underline;
+}
+.playground-chat-md strong {
+  font-weight: 600;
 }
 
-.playground-chat-toolcall-header code {
-  text-transform: none;
-  letter-spacing: 0;
+/* Tool-call card sits as a sibling to text bubbles — no outer wrapper,
+   no dashed border. The tool render owns its own visual; we just
+   prefix it with a slim, subtle name pill. */
+.playground-chat-toolcall {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 100%;
+}
+
+/* Tool-name pill is a button — clicking it asks the extension to open
+   the file that registered the hook. Styled to look like a subtle
+   link/badge, not a chunky button. */
+button.playground-chat-toolcall-name {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
   font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
   color: var(--vscode-textLink-foreground);
+  background: rgba(127, 127, 127, 0.08);
+  padding: 1px 6px;
+  border: none;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  text-decoration: none;
+}
+button.playground-chat-toolcall-name:hover {
+  background: rgba(127, 127, 127, 0.18);
+  color: var(
+    --vscode-textLink-activeForeground,
+    var(--vscode-textLink-foreground)
+  );
+  text-decoration: underline;
+}
+button.playground-chat-toolcall-name::before {
+  content: "▸ ";
+  margin-right: 2px;
+  opacity: 0.6;
 }
 
 .playground-chat-toolcall-args {
@@ -384,10 +640,213 @@ body {
 
 .playground-mounted {
   grid-area: mounted;
-  overflow-y: auto;
+  /* The OUTER panel is overflow:visible so the resize handle's
+     negative-left strip (sitting on top of the column edge) doesn't
+     get clipped. The inner scroll wrapper handles overflow. */
+  overflow: visible;
   border-left: 1px solid var(--vscode-panel-border);
-  padding: 12px 10px;
   min-height: 0;
+  /* Anchor for the absolutely-positioned resize handle. */
+  position: relative;
+  /* Flex column so the header is fixed-height and the scroll wrapper
+     fills the remaining space with its own scrollbar. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Inner scroll container — owns padding + scroll behavior so the
+   outer panel can stay overflow:visible for the resize affordance. */
+.playground-mounted-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 10px 12px;
+}
+
+/* Collapsed states: zero out the column via the CSS var and hide the
+   panel(s) that lived there. The grid template stays untouched, which
+   means diagnostics continues to live in the right column under
+   components — when components is hidden, diagnostics goes with it
+   (the user can re-open both with one chevron click). */
+.playground-layout.is-mounted-collapsed {
+  --playground-mounted-w: 0px;
+}
+
+.playground-layout.is-mounted-collapsed .playground-mounted,
+.playground-layout.is-mounted-collapsed .playground-diagnostics {
+  display: none;
+}
+
+.playground-layout.is-sidebar-collapsed {
+  --playground-sidebar-w: 0px;
+}
+
+.playground-layout.is-sidebar-collapsed .playground-sidebar {
+  display: none;
+}
+
+/* Resize handle for the right sidebar. Sits on top of the panel's
+   left border so the user can grab it without aiming. Wider hit zone
+   (8px) than the visible strip so hover succeeds even when the
+   pointer is a few pixels off-target. The visible band stays slim
+   on hover via padding. */
+.playground-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 5;
+  background: transparent;
+  user-select: none;
+  touch-action: none;
+}
+
+.playground-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 100ms ease-in;
+}
+
+.playground-resize-handle:hover::after,
+.playground-resize-handle.is-dragging::after {
+  background: var(--vscode-focusBorder, #007acc);
+}
+
+/* Header row inside the panel — just the title now. Owns the panel's
+   top padding so it sits at the visual edge while the scroll wrapper
+   handles the rest. */
+.playground-mounted-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 0;
+  flex: 0 0 auto;
+}
+
+.playground-mounted-header h3 {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* Floating collapse / expand toggle. Lives at the layout root, NOT
+   inside the panel — that way it stays visible whether the panel is
+   showing or fully hidden, and sits just outside the panel's left
+   edge so it reads as the "handle" for showing/hiding. */
+.playground-mounted-toggle {
+  position: absolute;
+  top: 10px;
+  /* Sits just to the left of the mounted panel's left border. When
+     the panel is hidden the rule below pins it to the right edge. */
+  right: calc(var(--playground-mounted-w, 260px) + 4px);
+  z-index: 20;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(
+    --vscode-editorWidget-background,
+    var(--vscode-editor-background)
+  );
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    right 80ms ease,
+    background 80ms ease;
+}
+.playground-mounted-toggle:hover {
+  background: var(--vscode-list-hoverBackground);
+  color: var(--vscode-foreground);
+}
+.playground-layout.is-mounted-collapsed .playground-mounted-toggle {
+  right: 6px;
+}
+
+/* Mirror of the mounted toggle, anchored to the LEFT sidebar's right
+   edge. Tracks `--playground-sidebar-w` so it follows resizing live
+   and pins to the screen edge when the sidebar is collapsed. */
+.playground-sidebar-toggle {
+  position: absolute;
+  top: 10px;
+  left: calc(var(--playground-sidebar-w, 200px) + 4px);
+  z-index: 20;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(
+    --vscode-editorWidget-background,
+    var(--vscode-editor-background)
+  );
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 3px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition:
+    left 80ms ease,
+    background 80ms ease;
+}
+.playground-sidebar-toggle:hover {
+  background: var(--vscode-list-hoverBackground);
+  color: var(--vscode-foreground);
+}
+.playground-layout.is-sidebar-collapsed .playground-sidebar-toggle {
+  left: 6px;
+}
+
+/* Resize handle on the right edge of the LEFT sidebar — mirror of
+   the mounted handle. Wider hit zone, slim visible band on hover. */
+.playground-sidebar-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 5;
+  background: transparent;
+  user-select: none;
+  touch-action: none;
+}
+
+.playground-sidebar-resize::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 3px;
+  width: 2px;
+  background: transparent;
+  transition: background 100ms ease-in;
+}
+
+.playground-sidebar-resize:hover::after,
+.playground-sidebar-resize.is-dragging::after {
+  background: var(--vscode-focusBorder, #007acc);
+}
+
+.playground-layout.is-sidebar-collapsed .playground-sidebar-resize {
+  display: none;
 }
 
 .playground-mounted h3 {
@@ -406,16 +865,43 @@ body {
 }
 
 .playground-mounted-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 6px;
+  display: block;
   padding: 4px 0;
   border-top: 1px solid var(--vscode-panel-border);
 }
 
 .playground-mounted-row:first-child {
   border-top: none;
+}
+
+/* Header subrow: twisty + component name + status dot. Grid keeps the
+   dot pinned right while the name flexes and ellipsis-truncates. */
+.playground-mounted-row-header {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Twisty / chevron — a tiny button that expands/collapses the hook
+   sublist. Spacer variant keeps grid alignment when a component has
+   zero hooks (no toggle to show). */
+.playground-mounted-twisty {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  line-height: 1;
+  width: 14px;
+  text-align: center;
+}
+.playground-mounted-twisty:hover {
+  color: var(--vscode-foreground);
+}
+.playground-mounted-twisty-spacer {
+  cursor: default;
 }
 
 .playground-mounted-row .link {
@@ -427,14 +913,77 @@ body {
   padding: 0;
   font-size: 12px;
   font-family: var(--vscode-editor-font-family, monospace);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* Allow long names (esp. monospace tool identifiers like
+     `useFrontendTool · displayCurrentWeather`) to wrap to a second line
+     instead of being truncated with ellipsis. The mounted panel is only
+     260px wide; an ellipsis hides the actual answer. */
+  white-space: normal;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .playground-mounted-row .link:hover {
   color: var(--vscode-textLink-activeForeground);
   text-decoration: underline;
+}
+
+.playground-mounted-component-name {
+  font-weight: 500;
+  /* Component names can wrap, but anchor them to the start of the grid
+     cell so wrapping doesn't visually drift. */
+  align-self: start;
+  line-height: 1.3;
+}
+
+/* Hook sublist — indented under the component name, no list bullets,
+   each entry is a clickable button that opens the hook's exact line. */
+.playground-mounted-hooks {
+  list-style: none;
+  margin: 4px 0 4px 14px;
+  padding: 0 0 0 8px;
+  border-left: 1px solid var(--vscode-panel-border);
+}
+
+.playground-mounted-hook {
+  padding: 2px 0;
+}
+
+/* Hook button: block layout (not inline-flex) so its child spans wrap
+   naturally at the ` · ` separator when the panel is too narrow to
+   show the full `useFrontendTool · displayCurrentWeather` on one
+   line. Still reads as a single click target. */
+.playground-mounted-hook-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 11px;
+  padding: 1px 4px !important;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace) !important;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.playground-mounted-hook-button:hover {
+  background: var(--vscode-list-hoverBackground);
+  text-decoration: none !important;
+}
+
+.playground-mounted-hook-name {
+  color: var(
+    --vscode-symbolIcon-functionForeground,
+    var(--vscode-textLink-foreground)
+  );
+}
+
+.playground-mounted-hook-sep {
+  color: var(--vscode-descriptionForeground);
+  margin: 0 2px;
+}
+
+.playground-mounted-hook-tool {
+  color: var(--vscode-symbolIcon-stringForeground, var(--vscode-foreground));
 }
 
 .status-dot {
@@ -556,7 +1105,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 12px;
 }
 
 .playground-model-picker label {
@@ -567,11 +1115,19 @@ body {
   color: var(--vscode-descriptionForeground);
 }
 
+/* Inside the sidebar's Model section the section's own title
+   ("Model") already provides the label, so suppress the picker's
+   inline `<label>` to avoid the duplicate. */
+.playground-sidebar-section-model .playground-model-picker label {
+  display: none;
+}
+
 .playground-model-picker select {
   background: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
   border-radius: 3px;
-  padding: 3px 6px;
+  padding: 4px 6px;
   font-size: 11px;
+  width: 100%;
 }

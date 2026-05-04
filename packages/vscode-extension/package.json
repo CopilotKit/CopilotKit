@@ -43,9 +43,12 @@
   "dependencies": {
     "@ag-ui/client": "0.0.52",
     "@copilotkit/runtime": "workspace:*",
+    "@tailwindcss/node": "^4.1.0",
+    "@tailwindcss/oxide": "^4.1.0",
     "ignore": "^7.0.5",
     "oxc-parser": "^0.72.0",
     "rolldown": "^1.0.0-rc.15",
+    "tailwindcss": "^4.1.0",
     "zod": "^3.21.0",
     "zod-to-json-schema": "^3.25.2"
   },
@@ -192,6 +195,11 @@
           "type": "boolean",
           "default": true,
           "description": "Expose VS Code's Language Model tools (e.g. GitHub Copilot's fetch_webpage, search_workspace) to the playground model alongside your registered tools. The model can call them; they execute in the extension host via vscode.lm.invokeTool and the results feed back into the conversation. On by default so the playground model can reach the web and other system capabilities; set to false to mirror only your own tool surface."
+        },
+        "copilotkit.playground.tailwindEntryCss": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path (absolute, or relative to the workspace root) to the CSS file the playground should pass to Tailwind v4 when compiling per-app utility styles. Leave empty to auto-detect common locations like src/app/globals.css. Set this only if your entry CSS lives somewhere non-standard."
         }
       }
     }

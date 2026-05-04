@@ -20,6 +20,7 @@ import {
   createPlaygroundDeps,
 } from "./playground/view-provider";
 import { scanPlayground } from "./playground/scanner";
+import { PlaygroundFileWatcher } from "./playground/file-watcher";
 
 let activePlaygroundProvider: PlaygroundViewProvider | null = null;
 
@@ -326,6 +327,20 @@ export function activate(context: vscode.ExtensionContext): void {
       runPlaygroundScan,
     ),
   );
+
+  // Hot-reload: rescan + rebundle whenever the user touches a TS/TSX/CSS
+  // file in their workspace. Without this, edits to hooks, providers, or
+  // the Tailwind entry CSS only show up in the chat after a manual
+  // `CopilotKit: Refresh` (or full extension reload).
+  if (workspaceRoot) {
+    const playgroundFileWatcher = new PlaygroundFileWatcher(() => {
+      playgroundOutputChannel.appendLine(
+        "[playground] file change detected — rescanning",
+      );
+      runPlaygroundScan();
+    });
+    context.subscriptions.push(playgroundFileWatcher);
+  }
 
   runPlaygroundScan();
 

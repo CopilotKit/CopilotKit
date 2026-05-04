@@ -32,6 +32,7 @@ export function App(): React.JSX.Element {
     replayMode: boolean;
     fixtureName: string | null;
     vscodeLmTools: { enabled: boolean; count: number };
+    tailwind?: { entryCss?: string; skipped?: string; error?: string };
   }>({
     runtimeUrl: "",
     replayMode: false,
@@ -43,6 +44,33 @@ export function App(): React.JSX.Element {
     Array<{ id: string; name: string; family: string; vendor: string }>
   >([]);
   const [selectedModelId, setSelectedModelId] = React.useState("");
+
+  // Collapse state for the side panels — persisted so users who don't
+  // need them keep their full chat width across reloads. The classes
+  // applied to .playground-layout drive the CSS that hides each panel
+  // and zeroes its column width.
+  const MOUNTED_COLLAPSED_KEY = "copilotkit.playground.mounted-collapsed";
+  const SIDEBAR_COLLAPSED_KEY = "copilotkit.playground.sidebar-collapsed";
+  const [mountedCollapsed, setMountedCollapsed] = React.useState<boolean>(
+    () => window.localStorage.getItem(MOUNTED_COLLAPSED_KEY) === "1",
+  );
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState<boolean>(
+    () => window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1",
+  );
+  const toggleMountedCollapsed = React.useCallback(() => {
+    setMountedCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(MOUNTED_COLLAPSED_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
+  const toggleSidebarCollapsed = React.useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+      return next;
+    });
+  }, []);
 
   React.useEffect(() => {
     const unsubscribe = onExtensionMessage((msg) => {
@@ -93,13 +121,41 @@ export function App(): React.JSX.Element {
           replayMode: msg.replayMode,
           fixtureName: msg.fixtureName,
           vscodeLmTools: msg.vscodeLmTools,
+          tailwind: msg.tailwind,
         });
       } else if (msg.type === "diagnostics") {
         setMountErrors(msg.errors);
+      } else if (msg.type === "play-fixture") {
+        // Forward the recorded conversation to the bundled chat surface.
+        // We use a window CustomEvent because PlaygroundChat is generated
+        // into the rolldown'd bundle and doesn't share a React context with
+        // this shell — a global event bus is the simplest cross-bundle
+        // wiring.
+        window.dispatchEvent(
+          new CustomEvent("copilotkit-playground-replay", {
+            detail: { messages: msg.messages },
+          }),
+        );
       }
     });
     sendToExtension({ type: "ready" });
     return unsubscribe;
+  }, []);
+
+  // Forward "click tool name" events from the bundled chat surface to
+  // the extension. The chat lives inside the rolldown'd bundle and
+  // dispatches a CustomEvent on window since it can't postMessage to
+  // the extension itself.
+  React.useEffect(() => {
+    const onOpenTool = (ev: Event): void => {
+      const detail = (ev as CustomEvent<{ name: string }>).detail;
+      if (detail?.name) {
+        sendToExtension({ type: "open-tool-source", name: detail.name });
+      }
+    };
+    window.addEventListener("copilotkit-playground-open-tool", onOpenTool);
+    return () =>
+      window.removeEventListener("copilotkit-playground-open-tool", onOpenTool);
   }, []);
 
   // Poll window.__copilotkit_playground_errors so the diagnostics panel
@@ -120,7 +176,13 @@ export function App(): React.JSX.Element {
   }, [mountErrors.length]);
 
   return (
-    <div className="playground-layout">
+    <div
+      className={
+        "playground-layout" +
+        (mountedCollapsed ? " is-mounted-collapsed" : "") +
+        (sidebarCollapsed ? " is-sidebar-collapsed" : "")
+      }
+    >
       {stateBanner && (
         <div role="alert" className="playground-state-banner">
           {stateBanner.message}
@@ -132,6 +194,7 @@ export function App(): React.JSX.Element {
         replayMode={sessionInfo.replayMode}
         models={models}
         selectedModelId={selectedModelId}
+        collapsed={sidebarCollapsed}
         onSelectModel={(id) => {
           setSelectedModelId(id);
           sendToExtension({ type: "select-model", id });
@@ -165,16 +228,44 @@ export function App(): React.JSX.Element {
         bundleError={bundleError}
         scan={result}
         mountErrors={mountErrors}
+        collapsed={mountedCollapsed}
         onOpenSource={(filePath, line) =>
           sendToExtension({ type: "open-source", filePath, line })
         }
       />
+      <button
+        type="button"
+        className="playground-sidebar-toggle"
+        aria-label={
+          sidebarCollapsed
+            ? "Show conversations panel"
+            : "Hide conversations panel"
+        }
+        aria-expanded={!sidebarCollapsed}
+        title={sidebarCollapsed ? "Show conversations" : "Hide conversations"}
+        onClick={toggleSidebarCollapsed}
+      >
+        {sidebarCollapsed ? "▸" : "◂"}
+      </button>
+      <button
+        type="button"
+        className="playground-mounted-toggle"
+        aria-label={
+          mountedCollapsed ? "Show components panel" : "Hide components panel"
+        }
+        aria-expanded={!mountedCollapsed}
+        title={mountedCollapsed ? "Show components" : "Hide components"}
+        onClick={toggleMountedCollapsed}
+      >
+        {mountedCollapsed ? "◂" : "▸"}
+      </button>
       <DiagnosticsPanel
         mountErrors={mountErrors}
         runtimeUrl={sessionInfo.runtimeUrl || null}
         replayMode={sessionInfo.replayMode}
         fixtureName={sessionInfo.fixtureName}
         vscodeLmTools={sessionInfo.vscodeLmTools}
+        tailwind={sessionInfo.tailwind}
       />
     </div>
   );

@@ -24,6 +24,7 @@ describe("MountedComponentsPanel", () => {
         bundleError={null}
         scan={emptyScan}
         mountErrors={[]}
+        collapsed={false}
         onOpenSource={vi.fn()}
       />,
     );
@@ -37,6 +38,7 @@ describe("MountedComponentsPanel", () => {
         bundleError="rolldown broke"
         scan={emptyScan}
         mountErrors={[]}
+        collapsed={false}
         onOpenSource={vi.fn()}
       />,
     );
@@ -61,6 +63,7 @@ describe("MountedComponentsPanel", () => {
           },
         ])}
         mountErrors={[]}
+        collapsed={false}
         onOpenSource={onOpenSource}
       />,
     );
@@ -93,6 +96,7 @@ describe("MountedComponentsPanel", () => {
             error: { message: "boom" },
           },
         ]}
+        collapsed={false}
         onOpenSource={vi.fn()}
       />,
     );

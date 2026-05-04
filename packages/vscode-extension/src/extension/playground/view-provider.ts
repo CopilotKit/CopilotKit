@@ -21,6 +21,7 @@ import {
   type SavedFixture,
 } from "./fixture-store";
 import type { RecordedCall } from "./vscode-lm-factory";
+import { buildReplayMessages } from "./fixture-replay";
 
 export interface PlaygroundCallbacks {
   onRefresh(): void | Promise<void>;
@@ -190,6 +191,24 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
               });
               return;
             }
+            case "open-tool-source": {
+              // Resolve the tool's name to the hook site that registered
+              // it (the latest scan keeps name + filePath + line on each
+              // hookSite) and open the source at that location. If we
+              // can't find a match (e.g. it's a server-handled vscode.lm
+              // tool not in the user's tree), surface a notification
+              // instead of failing silently.
+              const sites = this.latestResult?.hookSites ?? [];
+              const hit = sites.find((s) => s.name === msg.name);
+              if (!hit) {
+                void vscode.window.showInformationMessage(
+                  `No registered hook found for tool '${msg.name}' in this workspace. It may be provided by VS Code itself (e.g. a copilot tool).`,
+                );
+                return;
+              }
+              await this.callbacks.onOpenSource(hit.filePath, hit.loc.line);
+              return;
+            }
           }
         } catch (err) {
           this.post({
@@ -316,11 +335,22 @@ export class PlaygroundViewProvider implements vscode.WebviewViewProvider {
         replayMode: replayFixture !== null,
         fixtureName: this.replayFixtureName,
         vscodeLmTools: runtime.vscodeLmTools,
+        tailwind: bundle.tailwind,
       });
       this.post({
         type: "fixtures-list",
         fixtures: this.deps.fixtureStore.list(),
       });
+      // If the user clicked ▶ on a saved fixture, animate the recorded
+      // conversation into the chat surface now that the bundle is mounted.
+      // The runtime is also in replay mode for this session, so if the
+      // user keeps typing afterwards the recorded calls take over.
+      if (replayFixture) {
+        this.post({
+          type: "play-fixture",
+          messages: buildReplayMessages(replayFixture),
+        });
+      }
     } catch (err) {
       if (seq !== this.bundleSeq) return;
       this.emitBundle({
@@ -425,7 +455,16 @@ export function createPlaygroundDeps(
 ): PlaygroundDeps {
   return {
     writeSources: writePlaygroundSources,
-    bundle: bundlePlayground,
+    bundle: (entryPath) =>
+      bundlePlayground(entryPath, {
+        workspaceRoot,
+        tailwindEntryCss:
+          vscode.workspace
+            .getConfiguration()
+            .get<string>("copilotkit.playground.tailwindEntryCss", "")
+            .trim() || undefined,
+        log,
+      }),
     detectMode,
     pickModel,
     listModels,

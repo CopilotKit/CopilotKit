@@ -70,6 +70,13 @@ export async function startRuntimeHost(
           ? " — no LM-tool-providing extensions installed in this dev host (install GitHub Copilot Chat or another LM tool extension to populate this)"
           : ""),
     );
+    if (vscodeLmToolsSnapshot.length > 0) {
+      opts.log(
+        `[runtime-host] vscode.lm.tools available: ${vscodeLmToolsSnapshot
+          .map((t) => t.name)
+          .join(", ")}`,
+      );
+    }
   } else {
     opts.log(
       `[runtime-host] vscode.lm tools setting=OFF (set copilotkit.playground.enableVscodeLmTools=true to enable)`,

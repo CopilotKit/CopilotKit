@@ -182,6 +182,22 @@ function computeMatchKey(input: RunAgentInput, modelId: string): string {
     .digest("hex");
 }
 
+/**
+ * Converts AG-UI conversation messages to vscode.lm's `LanguageModelChatMessage`
+ * format.
+ *
+ * The non-obvious bits:
+ *   - Assistant turns with tool calls go in as `Assistant([textPart, …,
+ *     toolCallParts])` — VS Code's API expects an array of parts when an
+ *     assistant turn has tool calls, not a bare string.
+ *   - Tool RESULT messages (role "tool") go in as `User([toolResultPart])`.
+ *     VS Code's chat API doesn't have a dedicated "tool" role; tool
+ *     results are user-role messages whose content is a
+ *     `LanguageModelToolResultPart` keyed by the tool call id. Without
+ *     this, the runtime drops every result and the model loops thinking
+ *     its previous tool calls produced no output (e.g. firing
+ *     `copilot_fetchWebPage` 5×).
+ */
 function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
   const out: vscode.LanguageModelChatMessage[] = [];
   for (const m of input.messages) {
@@ -189,7 +205,46 @@ function toLmMessages(input: RunAgentInput): vscode.LanguageModelChatMessage[] {
     if (m.role === "user") {
       out.push(vscode.LanguageModelChatMessage.User(text));
     } else if (m.role === "assistant") {
-      out.push(vscode.LanguageModelChatMessage.Assistant(text));
+      const parts: Array<
+        vscode.LanguageModelTextPart | vscode.LanguageModelToolCallPart
+      > = [];
+      if (text) parts.push(new vscode.LanguageModelTextPart(text));
+      const toolCalls = (m as { toolCalls?: unknown }).toolCalls;
+      if (Array.isArray(toolCalls)) {
+        for (const tc of toolCalls) {
+          const id = (tc as { id?: unknown })?.id;
+          const fn = (
+            tc as { function?: { name?: unknown; arguments?: unknown } }
+          )?.function;
+          if (typeof id !== "string" || typeof fn?.name !== "string") continue;
+          let parsedArgs: object = {};
+          if (typeof fn.arguments === "string" && fn.arguments.length > 0) {
+            try {
+              const v = JSON.parse(fn.arguments);
+              if (v && typeof v === "object" && !Array.isArray(v)) {
+                parsedArgs = v as object;
+              }
+            } catch {
+              /* leave empty — a malformed args blob shouldn't kill the run */
+            }
+          }
+          parts.push(
+            new vscode.LanguageModelToolCallPart(id, fn.name, parsedArgs),
+          );
+        }
+      }
+      // Assistant turns are required to have non-empty content. Skip
+      // entirely if both text and tool calls are missing (corrupt history).
+      if (parts.length > 0) {
+        out.push(vscode.LanguageModelChatMessage.Assistant(parts));
+      }
+    } else if (m.role === "tool") {
+      const toolCallId = (m as { toolCallId?: unknown }).toolCallId;
+      if (typeof toolCallId !== "string") continue;
+      const resultPart = new vscode.LanguageModelToolResultPart(toolCallId, [
+        new vscode.LanguageModelTextPart(text),
+      ]);
+      out.push(vscode.LanguageModelChatMessage.User([resultPart]));
     }
   }
   return out;

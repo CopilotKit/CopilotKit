@@ -44,6 +44,177 @@ function uuid(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Lightweight markdown renderer for assistant text. The LLM streams
+ * markdown (\`**bold**\`, headings, lists, fenced code, inline code,
+ * links), and rendering it as raw text leaves visible asterisks /
+ * underscores in the output. Pulling in a full markdown library
+ * inflates the playground bundle by ~150 KB and we only need a small
+ * subset of CommonMark for chat replies, so a focused parser lives
+ * here instead.
+ *
+ * Returns React elements directly (no \`dangerouslySetInnerHTML\` →
+ * no XSS surface, no need to maintain an escape pass).
+ */
+function MarkdownText({ text }: { text: string }): React.ReactElement {
+  const blocks = React.useMemo(() => parseMarkdown(text), [text]);
+  return <div className="playground-chat-md">{blocks}</div>;
+}
+
+function parseMarkdown(md: string): React.ReactNode[] {
+  const lines = md.split("\\n");
+  const out: React.ReactNode[] = [];
+  let i = 0;
+  let key = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith("\`\`\`")) {
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("\`\`\`")) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++;
+      out.push(
+        <pre key={key++}>
+          <code>{codeLines.join("\\n")}</code>
+        </pre>,
+      );
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\\s+(.+)$/);
+    if (heading) {
+      const level = Math.min(heading[1].length + 1, 4);
+      const tag = ("h" + level) as "h2" | "h3" | "h4";
+      out.push(
+        React.createElement(tag, { key: key++ }, parseInline(heading[2])),
+      );
+      i++;
+      continue;
+    }
+
+    if (line.match(/^[-*]\\s+/)) {
+      const items: React.ReactNode[] = [];
+      let liKey = 0;
+      while (i < lines.length && lines[i].match(/^[-*]\\s+/)) {
+        const text = lines[i].replace(/^[-*]\\s+/, "");
+        items.push(<li key={liKey++}>{parseInline(text)}</li>);
+        i++;
+      }
+      out.push(<ul key={key++}>{items}</ul>);
+      continue;
+    }
+
+    if (line.match(/^\\d+\\.\\s+/)) {
+      const items: React.ReactNode[] = [];
+      let liKey = 0;
+      while (i < lines.length && lines[i].match(/^\\d+\\.\\s+/)) {
+        const text = lines[i].replace(/^\\d+\\.\\s+/, "");
+        items.push(<li key={liKey++}>{parseInline(text)}</li>);
+        i++;
+      }
+      out.push(<ol key={key++}>{items}</ol>);
+      continue;
+    }
+
+    if (line === "") {
+      i++;
+      continue;
+    }
+
+    // Paragraph: gather consecutive non-empty, non-block-prefix lines.
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i] !== "" &&
+      !lines[i].match(/^(#{1,3}\\s+|[-*]\\s+|\\d+\\.\\s+|\`\`\`)/)
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    const paraNodes: React.ReactNode[] = [];
+    let nodeKey = 0;
+    paraLines.forEach((l, idx) => {
+      if (idx > 0) paraNodes.push(<br key={"br" + nodeKey++} />);
+      const inline = parseInline(l);
+      for (const n of inline) paraNodes.push(n);
+    });
+    out.push(<p key={key++}>{paraNodes}</p>);
+  }
+
+  return out;
+}
+
+/**
+ * Inline markdown → React nodes. Handles \`***x***\`, \`**x**\`, \`*x*\`,
+ * \`_x_\`, \`\\\`x\\\`\`, and \`[text](url)\` in a single tokenizer pass so
+ * nested cases (\`***bold italic***\` → \`<strong><em>...\` ) work.
+ */
+function parseInline(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let key = 0;
+  // One regex with alternative groups; \`matchAll\` returns indexed
+  // matches we walk in order. The capture-group indices are stable so
+  // we can dispatch per pattern.
+  const re =
+    /(\\*\\*\\*([^*]+?)\\*\\*\\*)|(\\*\\*([^*]+?)\\*\\*)|(\\*([^*\\n]+?)\\*)|(_([^_\\n]+?)_)|(\`([^\`]+?)\`)|(\\[([^\\]]+?)\\]\\(([^)]+?)\\))/g;
+  let last = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > last) out.push(text.slice(last, idx));
+    if (match[2] !== undefined) {
+      out.push(
+        <strong key={key++}>
+          <em>{match[2]}</em>
+        </strong>,
+      );
+    } else if (match[4] !== undefined) {
+      out.push(<strong key={key++}>{match[4]}</strong>);
+    } else if (match[6] !== undefined) {
+      out.push(<em key={key++}>{match[6]}</em>);
+    } else if (match[8] !== undefined) {
+      out.push(<em key={key++}>{match[8]}</em>);
+    } else if (match[10] !== undefined) {
+      out.push(<code key={key++}>{match[10]}</code>);
+    } else if (match[12] !== undefined && match[13] !== undefined) {
+      const href = sanitizeHref(match[13]);
+      out.push(
+        <a
+          key={key++}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {match[12]}
+        </a>,
+      );
+    }
+    last = idx + match[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/**
+ * Allow only http(s) and mailto links. Everything else (javascript:,
+ * data:, vbscript:, …) collapses to "#" so a maliciously-crafted
+ * model output can't smuggle a script-URL through.
+ */
+function sanitizeHref(href: string): string {
+  const trimmed = href.trim();
+  if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("/") || trimmed.startsWith("#")) return trimmed;
+  return "#";
+}
+
 function getRuntimeUrl(copilotkit: unknown): string {
   // CopilotKit core stores runtimeUrl on the public surface — we read it
   // off the instance the user's CopilotKitProvider created.
@@ -60,6 +231,13 @@ interface FrontendTool {
 interface RegisteredTool {
   name: string;
   handler?: (args: unknown, ctx: unknown) => Promise<unknown>;
+  /**
+   * V2 frontend-tool flag. \`false\` means "after this tool runs, do NOT
+   * loop the model for another reply" — the rendered card IS the answer.
+   * Defaults to \`true\` (loop, i.e. ask the model what to say next), to
+   * match the runtime's default behavior.
+   */
+  followUp?: boolean;
 }
 
 function getFrontendTools(
@@ -107,6 +285,56 @@ export function PlaygroundChat(): React.ReactElement {
   const [error, setError] = React.useState<string | null>(null);
   const messagesRef = React.useRef<ChatMessage[]>(messages);
   messagesRef.current = messages;
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Re-focus the input after a turn completes. The input is disabled
+  // while \`isRunning\` is true (so the browser blurs it on entry), and
+  // we want the user to keep typing without re-clicking.
+  React.useEffect(() => {
+    if (!isRunning) {
+      inputRef.current?.focus();
+    }
+  }, [isRunning]);
+
+  // Replay listener: when the user clicks ▶ on a saved fixture, the
+  // extension shell dispatches a window event with the reconstructed
+  // conversation. We animate the messages in one at a time so the user
+  // can watch the saved chat play back. Inputs are blocked while
+  // \`isReplaying\` is true so the user can't double-drive the chat.
+  const [isReplaying, setIsReplaying] = React.useState(false);
+  React.useEffect(() => {
+    function onReplay(ev: Event): void {
+      const detail = (ev as CustomEvent<{ messages: ChatMessage[] }>).detail;
+      const queue = detail?.messages ?? [];
+      if (queue.length === 0) return;
+      setError(null);
+      setMessages([]);
+      setIsReplaying(true);
+      let cancelled = false;
+      void (async () => {
+        for (let i = 0; i < queue.length && !cancelled; i++) {
+          const m = queue[i];
+          // Pause is shorter for tool messages (visually they cluster
+          // with their preceding assistant message), longer between
+          // user/assistant turns so the playback feels paced.
+          const delay = m.role === "tool" ? 250 : 700;
+          setMessages((prev) => [...prev, m]);
+          await sleep(delay);
+        }
+        if (!cancelled) setIsReplaying(false);
+      })();
+      // Cancel an in-flight replay if a new one starts.
+      const cancelHandler = (): void => {
+        cancelled = true;
+      };
+      window.addEventListener("copilotkit-playground-replay", cancelHandler, {
+        once: true,
+      });
+    }
+    window.addEventListener("copilotkit-playground-replay", onReplay);
+    return () =>
+      window.removeEventListener("copilotkit-playground-replay", onReplay);
+  }, []);
 
   const handleSend = React.useCallback(async () => {
     const text = input.trim();
@@ -227,6 +455,21 @@ export function PlaygroundChat(): React.ReactElement {
           workingMessages = [...workingMessages, ...filledResults];
           setMessages(workingMessages);
         }
+
+        // Respect \`followUp: false\` on registered tools. When every tool
+        // the assistant just called is display-only (the rendered card IS
+        // the answer), looping again just asks the model to either repeat
+        // the call or summarize its own UI — neither is useful and both
+        // burn turns toward the MAX_TOOL_STEPS cap. Bail out so the chat
+        // ends here and the user sees the rendered card(s) as the reply.
+        const allDisplayOnly =
+          turn.toolCalls.length > 0 &&
+          turn.toolCalls.every((tc) => {
+            if (turn.serverHandledToolCallIds.has(tc.id)) return false;
+            const t = registry.find((reg) => reg.name === tc.function.name);
+            return t?.followUp === false;
+          });
+        if (allDisplayOnly) break;
       }
 
       // If we exited the loop because we hit the cap and the final
@@ -488,17 +731,23 @@ export function PlaygroundChat(): React.ReactElement {
       >
         <input
           type="text"
+          ref={inputRef}
           className="playground-chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Send a message…"
-          disabled={isRunning}
+          placeholder={
+            isReplaying
+              ? "Replaying…"
+              : isRunning
+                ? "Type your next message…"
+                : "Send a message…"
+          }
           autoFocus
         />
         <button
           type="submit"
           className="playground-chat-send"
-          disabled={isRunning || !input.trim()}
+          disabled={isRunning || isReplaying || !input.trim()}
         >
           {isRunning ? "…" : "Send"}
         </button>
@@ -578,10 +827,15 @@ function MessageView({
   }
 
   if (message.role === "assistant") {
+    // Text bubble and tool cards are rendered as SIBLINGS (not nested)
+    // so the assistant bubble's background/border doesn't double up on
+    // top of each tool card. The tool's own render owns its visual.
     return (
-      <div className="playground-chat-bubble playground-chat-bubble-assistant">
+      <div className="playground-chat-message-group">
         {message.content ? (
-          <div className="playground-chat-text">{message.content}</div>
+          <div className="playground-chat-bubble playground-chat-bubble-assistant">
+            <MarkdownText text={message.content} />
+          </div>
         ) : null}
         {(message.toolCalls ?? []).map((tc) => {
           const toolMessage = messages.find(
@@ -600,9 +854,24 @@ function MessageView({
           }
           return (
             <div className="playground-chat-toolcall" key={tc.id}>
-              <header className="playground-chat-toolcall-header">
-                <code>{tc.function.name}</code>
-              </header>
+              <button
+                type="button"
+                className="playground-chat-toolcall-name"
+                title={\`Open \${tc.function.name} in editor\`}
+                onClick={() => {
+                  // Bubble up to the webview shell, which posts to the
+                  // extension. The shell owns the vscode.postMessage
+                  // handle; the chat lives in the rolldown'd bundle and
+                  // can't acquire its own.
+                  window.dispatchEvent(
+                    new CustomEvent("copilotkit-playground-open-tool", {
+                      detail: { name: tc.function.name },
+                    }),
+                  );
+                }}
+              >
+                {tc.function.name}
+              </button>
               <ToolCallErrorBoundary toolName={tc.function.name}>
                 {rendered ?? (
                   <pre className="playground-chat-toolcall-args">
