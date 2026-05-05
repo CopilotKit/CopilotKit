@@ -64,8 +64,8 @@ function findSandboxContextCall(
   const addContext = copilotKit.core.addContext as unknown as {
     mock: { calls: [{ description: string; value: string }][] };
   };
-  const call = addContext.mock.calls.find(
-    ([ctx]) => ctx?.description?.includes("Sandbox functions"),
+  const call = addContext.mock.calls.find(([ctx]) =>
+    ctx?.description?.includes("Sandbox functions"),
   );
   return call?.[0];
 }
@@ -114,9 +114,7 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
 
     it("returns empty array when sandboxFunctions is not set", () => {
       TestBed.configureTestingModule({
-        providers: [
-          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
-        ],
+        providers: [provideCopilotKit({ licenseKey, openGenerativeUI: {} })],
       });
 
       const result = TestBed.runInInjectionContext(() =>
@@ -160,10 +158,7 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
 
   describe("CopilotKit.sandboxFunctions signal", () => {
     it("exposes the same signal via the CopilotKit service", () => {
-      const fns = [
-        makeSandboxFunction("fnA"),
-        makeSandboxFunction("fnB"),
-      ];
+      const fns = [makeSandboxFunction("fnA"), makeSandboxFunction("fnB")];
 
       TestBed.configureTestingModule({
         providers: [
