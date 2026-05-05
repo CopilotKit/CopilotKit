@@ -78,15 +78,21 @@ export interface IntelligenceIndicatorProps {
  *      again here as a defence)
  *   2. The message is an assistant message with at least one tool call
  *      whose name matches {@link DEFAULT_TOOL_PATTERNS}
- *   3. The message's run is the latest run on the thread
- *   4. The message is the *latest* such matching-assistant message in
- *      its run — i.e. no later assistant-with-matching-tool-call
- *      message exists in the same run. Tool result messages
+ *   3. The message is the *latest* such matching-assistant message
+ *      anywhere in `agent.messages` — i.e. no later assistant-with-
+ *      matching-tool-call message exists. Tool result messages
  *      (`role: "tool"`) and prose-only assistant messages do NOT
  *      invalidate this slot, so the pill stays continuously through a
- *      multi-step bash chain instead of flickering off every time a
- *      tool result arrives.
- *   5. The phase machine is not yet `hidden`
+ *      multi-step tool chain instead of flickering off every time a
+ *      tool reply arrives.
+ *   4. The phase machine is not yet `hidden` — once a pill has faded
+ *      out it stays gone; a subsequent run on the same chat mounts a
+ *      fresh pill on its own assistant message rather than resurrecting
+ *      this one.
+ *   5. (Run scoping comes for free from `phase === "hidden"` being
+ *      sticky after the previous run's fade-out — no `getRunIdForMessage`
+ *      lookup is needed, and the indicator stays robust against gaps
+ *      in the SDK's run-tracking map.)
  *
  * Phase machine (per-instance, all timers local):
  *   - `spinner` while `agent.isRunning`
@@ -145,14 +151,20 @@ export function IntelligenceIndicator(
   // (isRunning → true) snap to spinner immediately; falling edges
   // schedule a transition to check after RUN_IDLE_DEBOUNCE_MS, which
   // can be cancelled by another rising edge inside the window.
+  //
+  // Once `phase` reaches `"hidden"` it stays there: a subsequent run on
+  // the same chat must NOT resurrect a finished pill. New pills mount
+  // on new assistant messages emitted by the new run; this instance's
+  // job is done.
   useEffect(() => {
+    if (phase === "hidden") return undefined;
     if (agent.isRunning) {
       setPhase("spinner");
       return undefined;
     }
     const t = setTimeout(() => setPhase("check"), RUN_IDLE_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [agent.isRunning]);
+  }, [agent.isRunning, phase]);
 
   // check → fading after the hold.
   useEffect(() => {
@@ -190,55 +202,43 @@ export function IntelligenceIndicator(
   });
   if (!hasMatch) return null;
 
-  // The message must belong to the latest run on the thread, AND must
-  // be the latest assistant-with-matching-tool-call message in its
-  // run. We derive both by walking `agent.messages` from the end:
-  //   - the most recent run-associated message defines the latest run
-  //   - the first match-eligible assistant message we hit (walking
-  //     backwards) within `messageRunId` is the canonical pill slot
+  // Walk `agent.messages` from the end and find the latest assistant
+  // message that itself has a matching tool call. If that's not us,
+  // we're not the canonical slot — return `null`.
   //
-  // Tool result messages (`role: "tool"`) and prose-only assistant
-  // messages are skipped during the walk: they don't invalidate an
-  // earlier matching-assistant message's claim on the slot. This is
-  // what keeps the pill continuously visible through a multi-step
-  // tool chain (each MCP tool reply is a `role: "tool"` message that
-  // would otherwise become "the last message in the run" and suppress
-  // the pill on every cycle).
-  const messageRunId = copilotkit.getRunIdForMessage(
-    agentId,
-    config.threadId,
-    message.id,
-  );
-  if (!messageRunId) return null;
-  let latestRunId: string | undefined;
-  let latestMatchingAssistantIdInRun: string | undefined;
+  // Earlier revisions also asked `copilotkit.getRunIdForMessage(...)`
+  // to scope the walk to the current run, but the SDK's run-tracking
+  // map doesn't reliably contain every assistant-with-tool-call
+  // message (the bash-issuing assistant in a real MCP recall flow is
+  // commonly missing) and its threadId key can drift out of sync with
+  // the chat configuration. Both gaps would suppress the pill before
+  // any of the slot logic ran. The walk below stays at the message
+  // layer — it only needs `agent.messages` and `message.role` /
+  // `message.toolCalls`, both of which the runtime always populates
+  // correctly.
+  //
+  // Cross-run isolation: once a pill enters `phase === "hidden"` it
+  // stays there (see the run-state effect above), so a finished pill
+  // can't re-spawn when a later run emits new messages — the new run
+  // mounts new indicator instances on its own assistant messages.
+  let latestMatchingAssistantId: string | undefined;
   for (let i = agent.messages.length - 1; i >= 0; i -= 1) {
     const m = agent.messages[i]!;
-    const r = copilotkit.getRunIdForMessage(agentId, config.threadId, m.id);
-    if (latestRunId === undefined && r) latestRunId = r;
-    if (
-      latestMatchingAssistantIdInRun === undefined &&
-      r === messageRunId &&
-      m.role === "assistant"
-    ) {
-      const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
-      const isMatch = tcs.some((tc) => {
-        const name = tc?.function?.name;
-        return (
-          typeof name === "string" &&
-          DEFAULT_TOOL_PATTERNS.some((p) => p.test(name))
-        );
-      });
-      if (isMatch) latestMatchingAssistantIdInRun = m.id;
-    }
-    if (
-      latestRunId !== undefined &&
-      latestMatchingAssistantIdInRun !== undefined
-    )
+    if (m.role !== "assistant") continue;
+    const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
+    const isMatch = tcs.some((tc) => {
+      const name = tc?.function?.name;
+      return (
+        typeof name === "string" &&
+        DEFAULT_TOOL_PATTERNS.some((p) => p.test(name))
+      );
+    });
+    if (isMatch) {
+      latestMatchingAssistantId = m.id;
       break;
+    }
   }
-  if (latestRunId !== messageRunId) return null;
-  if (latestMatchingAssistantIdInRun !== message.id) return null;
+  if (latestMatchingAssistantId !== message.id) return null;
 
   // ─── Visual ──────────────────────────────────────────────────────────
 
