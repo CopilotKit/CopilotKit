@@ -1,10 +1,11 @@
 import {
   EnvironmentInjector,
+  createEnvironmentInjector,
   runInInjectionContext,
   signal,
 } from "@angular/core";
 import { TestBed } from "@angular/core/testing";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@ag-ui/core";
 import {
   CopilotChatReasoningMessage,
@@ -225,6 +226,40 @@ describe("CopilotChatReasoningMessage", () => {
 
     const toggleCtx = component.toggleContext();
     expect(toggleCtx.isOpen).toBe(true);
+  });
+
+  it("clears the elapsed-time interval when destroyed mid-stream", () => {
+    const message = makeReasoning("streaming...");
+    const parentInjector = TestBed.inject(EnvironmentInjector);
+    const childInjector = createEnvironmentInjector([], parentInjector);
+
+    const component = runInInjectionContext(
+      childInjector,
+      () => new CopilotChatReasoningMessage(),
+    );
+    (component as unknown as { message: () => ReasoningMessage }).message =
+      () => message;
+    (component as unknown as { messages: () => Message[] }).messages = () => [
+      message,
+    ];
+    (component as unknown as { isRunning: () => boolean }).isRunning = () =>
+      true;
+
+    component.onStreamingChange();
+    expect(component.isStreaming()).toBe(true);
+    expect(
+      (component as unknown as { tickInterval: unknown }).tickInterval,
+    ).not.toBeNull();
+
+    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+
+    childInjector.destroy();
+
+    expect(clearIntervalSpy).toHaveBeenCalled();
+    expect(
+      (component as unknown as { tickInterval: unknown }).tickInterval,
+    ).toBeNull();
+    clearIntervalSpy.mockRestore();
   });
 });
 

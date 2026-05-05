@@ -1,12 +1,14 @@
 import {
   Component,
   ChangeDetectionStrategy,
+  DestroyRef,
   ViewEncapsulation,
   ContentChild,
   TemplateRef,
   Type,
   computed,
   effect,
+  inject,
   input,
   signal,
 } from "@angular/core";
@@ -305,6 +307,8 @@ export class CopilotChatReasoningMessage {
   }));
 
   constructor() {
+    const destroyRef = inject(DestroyRef);
+    destroyRef.onDestroy(() => this.stopTick());
     effect(() => this.onStreamingChange(), { allowSignalWrites: true });
   }
 
