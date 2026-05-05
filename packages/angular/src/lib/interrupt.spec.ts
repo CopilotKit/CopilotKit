@@ -123,8 +123,7 @@ class CopilotKitStub {
   core = {
     runtimeUrl: undefined as string | undefined,
     runtimeTransport: "auto" as "rest" | "single" | "auto",
-    runtimeConnectionStatus:
-      CopilotKitCoreRuntimeConnectionStatus.Disconnected,
+    runtimeConnectionStatus: CopilotKitCoreRuntimeConnectionStatus.Disconnected,
     headers: {} as Record<string, string>,
     subscribeToAgentWithOptions:
       this.#coreInstance.subscribeToAgentWithOptions.bind(this.#coreInstance),

@@ -126,9 +126,7 @@ export class CopilotkitInterruptFactory {
     const agentStoreSignal: Signal<AgentStore> = runInInjectionContext(
       injector,
       () =>
-        injectAgentStore(
-          computed(() => input.agentId() ?? DEFAULT_AGENT_ID),
-        ),
+        injectAgentStore(computed(() => input.agentId() ?? DEFAULT_AGENT_ID)),
     );
 
     // Local buffer that mirrors the React hook: a custom `on_interrupt`
