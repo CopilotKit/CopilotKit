@@ -4,9 +4,13 @@ import { z } from "zod";
 import { CopilotKit } from "./copilotkit";
 import { provideCopilotKit } from "./config";
 import {
+  DEFAULT_DESIGN_SKILL,
+  GENERATE_SANDBOXED_UI_DESCRIPTION,
+  OpenGenerativeUIActivityType,
   injectSandboxFunctions,
   type SandboxFunction,
 } from "./sandbox-functions";
+import { CopilotOpenGenerativeUIRenderer } from "./components/copilot-open-generative-ui-renderer";
 
 const licenseKey = "ck_pub_" + "a".repeat(32);
 
@@ -67,6 +71,29 @@ function findSandboxContextCall(
   const call = addContext.mock.calls.find(([ctx]) =>
     ctx?.description?.includes("Sandbox functions"),
   );
+  return call?.[0];
+}
+
+function findDesignSkillContextCall(
+  copilotKit: CopilotKit,
+): { description: string; value: string } | undefined {
+  const addContext = copilotKit.core.addContext as unknown as {
+    mock: { calls: [{ description: string; value: string }][] };
+  };
+  const call = addContext.mock.calls.find(([ctx]) =>
+    ctx?.description?.includes("Design guidelines for the generateSandboxedUi"),
+  );
+  return call?.[0];
+}
+
+function findToolRegistration(
+  copilotKit: CopilotKit,
+  name: string,
+): { name: string; description: string } | undefined {
+  const addTool = copilotKit.core.addTool as unknown as {
+    mock: { calls: [{ name: string; description: string }][] };
+  };
+  const call = addTool.mock.calls.find(([tool]) => tool?.name === name);
   return call?.[0];
 }
 
@@ -259,6 +286,104 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
       ]);
     });
 
+    it("registers default design skill agent context when openGenerativeUI is configured", () => {
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
+        ],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      const designCtx = findDesignSkillContextCall(copilotKit);
+      expect(designCtx).toBeDefined();
+      expect(designCtx!.value).toBe(DEFAULT_DESIGN_SKILL);
+    });
+
+    it("uses custom designSkill override when provided", () => {
+      const customSkill = "Use bright neon colors. Reject minimalism.";
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({
+            licenseKey,
+            openGenerativeUI: { designSkill: customSkill },
+          }),
+        ],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      const designCtx = findDesignSkillContextCall(copilotKit);
+      expect(designCtx).toBeDefined();
+      expect(designCtx!.value).toBe(customSkill);
+    });
+
+    it("does not register design skill context when openGenerativeUI is omitted", () => {
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      expect(findDesignSkillContextCall(copilotKit)).toBeUndefined();
+    });
+  });
+
+  describe("generateSandboxedUi tool registration", () => {
+    it("auto-registers the generateSandboxedUi frontend tool when openGenerativeUI is configured", () => {
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
+        ],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      const tool = findToolRegistration(copilotKit, "generateSandboxedUi");
+      expect(tool).toBeDefined();
+      expect(tool!.description).toBe(GENERATE_SANDBOXED_UI_DESCRIPTION);
+    });
+
+    it("does not register the tool when openGenerativeUI is omitted", () => {
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+
+      expect(
+        findToolRegistration(copilotKit, "generateSandboxedUi"),
+      ).toBeUndefined();
+    });
+  });
+
+  describe("builtInActivityRenderers", () => {
+    it("registers the OpenGenerativeUI renderer when openGenerativeUI is configured", () => {
+      TestBed.configureTestingModule({
+        providers: [
+          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
+        ],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+      const renderers = copilotKit.builtInActivityRenderers();
+
+      expect(renderers).toHaveLength(1);
+      expect(renderers[0].activityType).toBe(OpenGenerativeUIActivityType);
+      expect(renderers[0].component).toBe(CopilotOpenGenerativeUIRenderer);
+    });
+
+    it("returns empty when openGenerativeUI is not configured", () => {
+      TestBed.configureTestingModule({
+        providers: [provideCopilotKit({ licenseKey })],
+      });
+
+      const copilotKit = TestBed.inject(CopilotKit);
+      expect(copilotKit.builtInActivityRenderers()).toHaveLength(0);
+    });
+  });
+
+  describe("agent context — additional", () => {
     it("converts parameters to JSON Schema in agent context", () => {
       const fns = [
         makeSandboxFunction("myFn", {

@@ -9,6 +9,7 @@ import {
   Injectable,
   Injector,
   Signal,
+  Type,
   WritableSignal,
   runInInjectionContext,
   signal,
@@ -25,7 +26,20 @@ import {
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
-import type { SandboxFunction } from "./sandbox-functions";
+import {
+  DEFAULT_DESIGN_SKILL,
+  GENERATE_SANDBOXED_UI_DESCRIPTION,
+  GenerateSandboxedUiArgsSchema,
+  OpenGenerativeUIActivityType,
+  type SandboxFunction,
+} from "./sandbox-functions";
+import { CopilotOpenGenerativeUIToolRenderer } from "./components/copilot-open-generative-ui-tool-renderer";
+import { CopilotOpenGenerativeUIRenderer } from "./components/copilot-open-generative-ui-renderer";
+
+export interface BuiltInActivityRendererConfig {
+  activityType: string;
+  component: Type<unknown>;
+}
 
 const zodToJsonSchemaAdapter: NonNullable<
   SchemaToJsonSchemaOptions["zodToJsonSchema"]
@@ -94,6 +108,19 @@ export class CopilotKit {
   readonly sandboxFunctions: Signal<readonly SandboxFunction[]> =
     this.#sandboxFunctions.asReadonly();
 
+  readonly #builtInActivityRenderers: WritableSignal<
+    BuiltInActivityRendererConfig[]
+  > = signal([]);
+  /**
+   * Built-in activity-message renderers contributed by configured features
+   * (e.g. `openGenerativeUI` registers the `OpenGenerativeUIRenderer` for
+   * activity type `"open-generative-ui"`). Consumers — typically a chat
+   * view — read this to look up the component to mount for an incoming
+   * activity message.
+   */
+  readonly builtInActivityRenderers: Signal<BuiltInActivityRendererConfig[]> =
+    this.#builtInActivityRenderers.asReadonly();
+
   constructor() {
     ensureLicenseWatermark(this.#config.headers);
 
@@ -144,6 +171,45 @@ export class CopilotKit {
           })),
         ),
       });
+    }
+
+    // openGenerativeUI is "active" whenever the config key is present —
+    // consumers expect the built-in tool, renderer, and design-skill
+    // context to wire up automatically once they opt in.
+    const openGenUIActive = !!this.#config.openGenerativeUI;
+    if (openGenUIActive) {
+      // Built-in `generateSandboxedUi` frontend tool. Mirrors the React
+      // provider's auto-registration. The handler is a no-op string —
+      // execution happens in the sandboxed iframe rendered by the
+      // activity renderer.
+      this.addFrontendTool({
+        name: "generateSandboxedUi",
+        description: GENERATE_SANDBOXED_UI_DESCRIPTION,
+        parameters: GenerateSandboxedUiArgsSchema,
+        component: CopilotOpenGenerativeUIToolRenderer,
+        handler: async () => "UI generated",
+        injector: this.#rootInjector,
+      });
+
+      // Design-skill agent context — overridable via
+      // `openGenerativeUI.designSkill`. Same description string as React.
+      const designSkill =
+        this.#config.openGenerativeUI?.designSkill ?? DEFAULT_DESIGN_SKILL;
+      this.core.addContext({
+        description:
+          "Design guidelines for the generateSandboxedUi tool. Follow these when building UI.",
+        value: designSkill,
+      });
+
+      // Built-in activity renderer for the open-generative-ui activity
+      // type. A chat view (or follow-on renderer registry) reads
+      // `builtInActivityRenderers` to look up the component.
+      this.#builtInActivityRenderers.set([
+        {
+          activityType: OpenGenerativeUIActivityType,
+          component: CopilotOpenGenerativeUIRenderer,
+        },
+      ]);
     }
 
     this.core.subscribe({
