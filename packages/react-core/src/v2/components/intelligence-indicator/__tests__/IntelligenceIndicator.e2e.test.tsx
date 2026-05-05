@@ -1,16 +1,20 @@
 import React from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { EventType, type BaseEvent, type RunAgentInput } from "@ag-ui/client";
-import { Observable, type Subject } from "rxjs";
+import { EventType } from "@ag-ui/client";
+import type { BaseEvent, RunAgentInput } from "@ag-ui/client";
+import type { Observable } from "rxjs";
+import { type Subject } from "rxjs";
 import { takeWhile } from "rxjs/operators";
 import {
   MockStepwiseAgent,
   runStartedEvent,
   runFinishedEvent,
   textMessageStartEvent,
+  textMessageContentEvent,
   textMessageEndEvent,
   toolCallChunkEvent,
+  toolCallResultEvent,
 } from "../../../__tests__/utils/test-helpers";
 import { CopilotChat } from "../../chat/CopilotChat";
 import { CopilotKitProvider } from "../../../providers/CopilotKitProvider";
@@ -54,9 +58,7 @@ const expectPillOn = (messageId: string): void => {
 };
 
 const expectNoPillOn = (messageId: string): void => {
-  expect(
-    screen.queryByTestId(`cpk-intelligence-pill-${messageId}`),
-  ).toBeNull();
+  expect(screen.queryByTestId(`cpk-intelligence-pill-${messageId}`)).toBeNull();
 };
 
 const expectNoPillAnywhere = (): void => {
@@ -80,6 +82,27 @@ const emitAssistantMessageWithToolCalls = (
       }),
     );
   }
+};
+
+const emitToolResult = (
+  agent: MockStepwiseAgent,
+  toolCallId: string,
+  resultMessageId: string,
+  content = "ok",
+): void => {
+  agent.emit(
+    toolCallResultEvent({ toolCallId, messageId: resultMessageId, content }),
+  );
+};
+
+const emitAssistantProse = (
+  agent: MockStepwiseAgent,
+  messageId: string,
+  text: string,
+): void => {
+  agent.emit(textMessageStartEvent(messageId));
+  agent.emit(textMessageContentEvent(messageId, text));
+  agent.emit(textMessageEndEvent(messageId));
 };
 
 const startRun = (agent: MockStepwiseAgent): void => {
@@ -358,5 +381,84 @@ describe('IntelligenceIndicator — "Using CopilotKit Intelligence" (auto-mounte
 
     await waitFor(() => expectPillOn("m1"));
     expectPillCount(1);
+  });
+
+  // ─── New gate: tool-call pending past grace window ──────────────────
+
+  it("replay-flash suppression: no pill when tool result arrives within the grace window", async () => {
+    // Models a `connectAgent` history replay: the tool call and its
+    // matching `tool`-role result arrive in the same tick, well below
+    // PENDING_THRESHOLD_MS. The pill timer should be cancelled before
+    // it fires, so nothing renders.
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_replay", [
+      { id: "tc_replay", arg: '{"cmd":"ls"}' },
+    ]);
+    emitToolResult(agent, "tc_replay", "tr_replay");
+
+    // Wait past the grace window — pill should never appear.
+    await new Promise((r) => setTimeout(r, 200));
+    expectNoPillAnywhere();
+  });
+
+  it("multi-step: pill stays continuously across tool-result interleaving", async () => {
+    // Tool result arrives, then a second assistant message with bash.
+    // The pill must not show the completed/fade animation between
+    // calls — it stays on m_step1 until m_step2 takes over the slot.
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_step1", [
+      { id: "tc_step1", arg: '{"cmd":"ls"}' },
+    ]);
+    await waitFor(() => expectPillOn("m_step1"));
+
+    // Tool result lands. agent.isRunning is still true, no real
+    // follow-up yet → pill stays on m_step1 in spinner.
+    emitToolResult(agent, "tc_step1", "tr_step1");
+    await new Promise((r) => setTimeout(r, 150));
+    expectPillOn("m_step1");
+    expectPillCount(1);
+
+    // Second assistant message with bash arrives. Slot moves; old
+    // instance returns null without a fade animation.
+    emitAssistantMessageWithToolCalls(agent, "m_step2", [
+      { id: "tc_step2", arg: '{"cmd":"pwd"}' },
+    ]);
+    await waitFor(() => expectPillOn("m_step2"));
+    expectNoPillOn("m_step1");
+    expectPillCount(1);
+  });
+
+  it("real-followup exit: prose assistant message after the tool flow clears the pill", async () => {
+    // After the tool result the agent emits a final prose message —
+    // that's a "real follow-up" and should immediately exit the
+    // spinner (without waiting on isRunning), advancing to check
+    // → fading → hidden.
+    const agent = makeAgent();
+    renderForIndicator(agent);
+    await screen.findByTestId("trigger-run");
+
+    await triggerRun(agent);
+    startRun(agent);
+    emitAssistantMessageWithToolCalls(agent, "m_tool", [
+      { id: "tc_only", arg: '{"cmd":"ls"}' },
+    ]);
+    await waitFor(() => expectPillOn("m_tool"));
+
+    emitToolResult(agent, "tc_only", "tr_only");
+    emitAssistantProse(agent, "m_prose", "All done.");
+
+    await waitFor(() => expectNoPillAnywhere(), {
+      timeout: FADE_OUT_TIMEOUT_MS,
+    });
   });
 });
