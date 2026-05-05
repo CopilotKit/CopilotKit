@@ -87,7 +87,10 @@ describe("CopilotChatReasoningMessage", () => {
 
   it("isStreaming is true only when running and latest", () => {
     const message = makeReasoning("hi");
-    const { component, bindings } = buildComponent({ message, isRunning: true });
+    const { component, bindings } = buildComponent({
+      message,
+      isRunning: true,
+    });
 
     expect(component.isStreaming()).toBe(true);
 

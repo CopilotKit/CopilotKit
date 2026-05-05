@@ -137,9 +137,7 @@ export class CopilotChatReasoningMessageContent {
     () => this.hasContent() || this.isStreaming(),
   );
 
-  readonly computedClass = computed(() =>
-    cn("pb-2 pt-1", this.inputClass()),
-  );
+  readonly computedClass = computed(() => cn("pb-2 pt-1", this.inputClass()));
 }
 
 @Component({
@@ -261,7 +259,9 @@ export class CopilotChatReasoningMessage {
     return msgs[msgs.length - 1]?.id === this.message().id;
   });
 
-  readonly isStreaming = computed(() => !!(this.isRunning() && this.isLatest()));
+  readonly isStreaming = computed(
+    () => !!(this.isRunning() && this.isLatest()),
+  );
 
   readonly messageContent = computed(() => this.message().content ?? "");
 
