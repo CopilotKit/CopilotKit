@@ -46,7 +46,9 @@ export async function mountWebInspector(
   const mod = await loader();
   mod.defineWebInspector?.();
 
-  const element = document.createElement(mod.WEB_INSPECTOR_TAG) as HTMLElement & {
+  const element = document.createElement(
+    mod.WEB_INSPECTOR_TAG,
+  ) as HTMLElement & {
     core?: CopilotKitCore | null;
   };
   element.core = core;
