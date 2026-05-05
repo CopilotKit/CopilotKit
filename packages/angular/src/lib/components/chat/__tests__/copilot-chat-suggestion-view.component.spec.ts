@@ -19,9 +19,7 @@ function makeSuggestions(): Suggestion[] {
 
 interface ViewBindings {
   suggestions: ReturnType<typeof signal<Suggestion[]>>;
-  loadingIndexes: ReturnType<
-    typeof signal<ReadonlyArray<number> | undefined>
-  >;
+  loadingIndexes: ReturnType<typeof signal<ReadonlyArray<number> | undefined>>;
   inputClass: ReturnType<typeof signal<string | undefined>>;
 }
 
@@ -49,8 +47,9 @@ function buildView(initial: {
       loadingIndexes: () => ReadonlyArray<number> | undefined;
     }
   ).loadingIndexes = () => bindings.loadingIndexes();
-  (component as unknown as { inputClass: () => string | undefined }).inputClass =
-    () => bindings.inputClass();
+  (
+    component as unknown as { inputClass: () => string | undefined }
+  ).inputClass = () => bindings.inputClass();
 
   return { component, bindings };
 }
@@ -81,7 +80,11 @@ describe("CopilotChatSuggestionView", () => {
     const suggestions = makeSuggestions();
     const { component } = buildView({ suggestions });
     const keys = component.pillEntries().map((p) => p.key);
-    expect(keys).toEqual(["Suggestion 1-0", "Suggestion 2-1", "Suggestion 3-2"]);
+    expect(keys).toEqual([
+      "Suggestion 1-0",
+      "Suggestion 2-1",
+      "Suggestion 3-2",
+    ]);
   });
 
   it("defaults pill type to 'button'", () => {

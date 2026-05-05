@@ -74,9 +74,7 @@ export class CopilotChatSuggestionPill {
 
   readonly showIcon = computed(() => !this.isLoading() && !!this.icon());
 
-  readonly computedClass = computed(() =>
-    cn(baseClasses, this.inputClass()),
-  );
+  readonly computedClass = computed(() => cn(baseClasses, this.inputClass()));
 
   handleClick(event: Event): void {
     if (this.isDisabled()) return;
