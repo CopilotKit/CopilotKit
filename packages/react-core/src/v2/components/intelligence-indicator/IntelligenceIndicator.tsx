@@ -76,10 +76,16 @@ export interface IntelligenceIndicatorProps {
  *   1. `copilotkit.intelligence !== undefined` (Intelligence runtime
  *      is configured; checked by the parent before mounting, and
  *      again here as a defence)
- *   2. The message is the last message of its run
+ *   2. The message is an assistant message with at least one tool call
+ *      whose name matches {@link DEFAULT_TOOL_PATTERNS}
  *   3. The message's run is the latest run on the thread
- *   4. The message has at least one tool call whose name matches
- *      {@link DEFAULT_TOOL_PATTERNS}
+ *   4. The message is the *latest* such matching-assistant message in
+ *      its run — i.e. no later assistant-with-matching-tool-call
+ *      message exists in the same run. Tool result messages
+ *      (`role: "tool"`) and prose-only assistant messages do NOT
+ *      invalidate this slot, so the pill stays continuously through a
+ *      multi-step bash chain instead of flickering off every time a
+ *      tool result arrives.
  *   5. The phase machine is not yet `hidden`
  *
  * Phase machine (per-instance, all timers local):
@@ -185,11 +191,19 @@ export function IntelligenceIndicator(
   if (!hasMatch) return null;
 
   // The message must belong to the latest run on the thread, AND must
-  // be the LAST message in its run. We derive both by walking
-  // `agent.messages` from the end:
+  // be the latest assistant-with-matching-tool-call message in its
+  // run. We derive both by walking `agent.messages` from the end:
   //   - the most recent run-associated message defines the latest run
-  //   - if `message` is the last message in `agent.messages` whose
-  //     runId matches `messageRunId`, it's the last in its run
+  //   - the first match-eligible assistant message we hit (walking
+  //     backwards) within `messageRunId` is the canonical pill slot
+  //
+  // Tool result messages (`role: "tool"`) and prose-only assistant
+  // messages are skipped during the walk: they don't invalidate an
+  // earlier matching-assistant message's claim on the slot. This is
+  // what keeps the pill continuously visible through a multi-step
+  // tool chain (each MCP tool reply is a `role: "tool"` message that
+  // would otherwise become "the last message in the run" and suppress
+  // the pill on every cycle).
   const messageRunId = copilotkit.getRunIdForMessage(
     agentId,
     config.threadId,
@@ -197,19 +211,34 @@ export function IntelligenceIndicator(
   );
   if (!messageRunId) return null;
   let latestRunId: string | undefined;
-  let lastMessageIdInThisRun: string | undefined;
+  let latestMatchingAssistantIdInRun: string | undefined;
   for (let i = agent.messages.length - 1; i >= 0; i -= 1) {
     const m = agent.messages[i]!;
     const r = copilotkit.getRunIdForMessage(agentId, config.threadId, m.id);
     if (latestRunId === undefined && r) latestRunId = r;
-    if (lastMessageIdInThisRun === undefined && r === messageRunId) {
-      lastMessageIdInThisRun = m.id;
+    if (
+      latestMatchingAssistantIdInRun === undefined &&
+      r === messageRunId &&
+      m.role === "assistant"
+    ) {
+      const tcs = Array.isArray(m.toolCalls) ? m.toolCalls : [];
+      const isMatch = tcs.some((tc) => {
+        const name = tc?.function?.name;
+        return (
+          typeof name === "string" &&
+          DEFAULT_TOOL_PATTERNS.some((p) => p.test(name))
+        );
+      });
+      if (isMatch) latestMatchingAssistantIdInRun = m.id;
     }
-    if (latestRunId !== undefined && lastMessageIdInThisRun !== undefined)
+    if (
+      latestRunId !== undefined &&
+      latestMatchingAssistantIdInRun !== undefined
+    )
       break;
   }
   if (latestRunId !== messageRunId) return null;
-  if (lastMessageIdInThisRun !== message.id) return null;
+  if (latestMatchingAssistantIdInRun !== message.id) return null;
 
   // ─── Visual ──────────────────────────────────────────────────────────
 
