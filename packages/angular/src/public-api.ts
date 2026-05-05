@@ -13,6 +13,8 @@ export * from "./lib/agent-context";
 export * from "./lib/slots";
 
 export * from "./lib/directives/copilotkit-agent-context";
+export * from "./lib/directives/copilotkit-agent";
+export * from "./lib/directives/copilotkit-config";
 export * from "./lib/directives/stick-to-bottom";
 export * from "./lib/directives/tooltip";
 
