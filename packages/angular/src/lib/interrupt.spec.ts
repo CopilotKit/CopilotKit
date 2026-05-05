@@ -385,6 +385,33 @@ describe("injectInterrupt", () => {
     expect(interrupt.result()).toBe("handled:second");
   });
 
+  it("discards async handler result when resolve was called before it settled", async () => {
+    let settleHandler: ((value: string) => void) | null = null;
+    const { interrupt } = setUp<string, string>({
+      handler: () =>
+        new Promise<string>((r) => {
+          settleHandler = r;
+        }),
+    });
+
+    agent.emitCustomEvent("on_interrupt", "pending");
+    agent.emitRunFinalized();
+    expect(interrupt.event()?.value).toBe("pending");
+    expect(interrupt.result()).toBeNull();
+
+    // User resolves before the handler promise settles.
+    interrupt.resolve("user-response");
+    expect(interrupt.event()).toBeNull();
+    expect(interrupt.result()).toBeNull();
+
+    // Now the handler's promise settles — its result should be discarded.
+    settleHandler?.("late-handler-result");
+    await flushMicrotasks();
+
+    expect(interrupt.result()).toBeNull();
+    expect(interrupt.event()).toBeNull();
+  });
+
   it("resolve passes the interrupt's value (not the response) as interruptEvent", () => {
     const payload = { question: "approve?", id: 42 };
     const { interrupt } = setUp<typeof payload>();

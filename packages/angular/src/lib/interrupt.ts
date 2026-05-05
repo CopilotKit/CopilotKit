@@ -146,6 +146,10 @@ export class CopilotkitInterruptFactory {
     const resolve = (response: unknown): void => {
       const interruptEvent = eventState();
       if (!interruptEvent) return;
+      // Bump the token so any in-flight handler promise that settles after
+      // this point is discarded — otherwise its `.then` callback would
+      // repopulate `resultState` with a stale value the user just cleared.
+      resultRunToken++;
       eventState.set(null);
       resultState.set(null);
       pendingBuffer = null;
