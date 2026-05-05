@@ -308,7 +308,9 @@ describe("injectRenderCustomMessages", () => {
 
   it("ignores renderers whose component is null and falls through to next", () => {
     const agent = new MockAgent("agent-a");
-    agent.setMessages([{ id: "m1", role: "assistant", content: "Hi" } as Message]);
+    agent.setMessages([
+      { id: "m1", role: "assistant", content: "Hi" } as Message,
+    ]);
 
     @Component({ standalone: true, template: "" })
     class Host {
@@ -334,7 +336,9 @@ describe("injectRenderCustomMessages", () => {
 
   it("prioritises agent-scoped renderer over a global one", () => {
     const agent = new MockAgent("agent-a");
-    agent.setMessages([{ id: "m1", role: "assistant", content: "Hi" } as Message]);
+    agent.setMessages([
+      { id: "m1", role: "assistant", content: "Hi" } as Message,
+    ]);
 
     @Component({ standalone: true, template: "" })
     class Host {
@@ -363,7 +367,9 @@ describe("injectRenderCustomMessages", () => {
 
   it("filters out renderers whose agentId does not match the active agent", () => {
     const agent = new MockAgent("agent-a");
-    agent.setMessages([{ id: "m1", role: "assistant", content: "Hi" } as Message]);
+    agent.setMessages([
+      { id: "m1", role: "assistant", content: "Hi" } as Message,
+    ]);
 
     @Component({ standalone: true, template: "" })
     class Host {
@@ -457,9 +463,7 @@ describe("CopilotKit.getThreadClone", () => {
     const clone = new MockAgent("a");
 
     TestBed.configureTestingModule({
-      providers: [
-        provideCopilotKit({ licenseKey, agents: { a: registry } }),
-      ],
+      providers: [provideCopilotKit({ licenseKey, agents: { a: registry } })],
     });
     const copilotkit = TestBed.inject(CopilotKit);
     expect(copilotkit.getThreadClone(registry, "t")).toBeUndefined();

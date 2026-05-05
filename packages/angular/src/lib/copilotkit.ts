@@ -265,10 +265,7 @@ export class CopilotKit {
   }
 
   /** Remove a previously-associated thread clone, if any. */
-  clearThreadClone(
-    registryAgent: AbstractAgent,
-    threadId: string,
-  ): void {
+  clearThreadClone(registryAgent: AbstractAgent, threadId: string): void {
     this.#threadClones.get(registryAgent)?.delete(threadId);
   }
 

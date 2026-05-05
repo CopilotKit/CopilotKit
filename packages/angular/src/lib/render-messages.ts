@@ -143,9 +143,7 @@ export function injectRenderActivityMessage(input?: {
     message: ActivityMessage,
   ) => ResolvedActivityMessageRender | null;
   /** Find the registered renderer config for an activity type. */
-  findRenderer: (
-    activityType: string,
-  ) => ActivityMessageRendererConfig | null;
+  findRenderer: (activityType: string) => ActivityMessageRendererConfig | null;
 } {
   const copilotkit = inject(CopilotKit);
   const agentIdSignal = toSignal(input?.agentId);
@@ -276,7 +274,9 @@ export function injectRenderCustomMessages(input?: {
           .map((m) => m.id)
       : [message.id];
 
-    const rawMessageIndex = agent.messages.findIndex((m) => m.id === message.id);
+    const rawMessageIndex = agent.messages.findIndex(
+      (m) => m.id === message.id,
+    );
     const messageIndex = rawMessageIndex >= 0 ? rawMessageIndex : 0;
     const messageIndexInRun = resolvedRunId
       ? Math.max(messageIdsInRun.indexOf(message.id), 0)
@@ -351,9 +351,7 @@ export function registerRenderCustomMessage(
   });
 }
 
-function toSignal<T>(
-  value: T | Signal<T> | undefined,
-): Signal<T | undefined> {
+function toSignal<T>(value: T | Signal<T> | undefined): Signal<T | undefined> {
   if (value === undefined) {
     return computed(() => undefined);
   }
@@ -362,4 +360,3 @@ function toSignal<T>(
   }
   return computed(() => value);
 }
-
