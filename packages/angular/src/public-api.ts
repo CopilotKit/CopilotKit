@@ -30,6 +30,8 @@ export * from "./lib/components/chat/copilot-chat-input.types";
 export * from "./lib/components/chat/copilot-chat-message-view";
 export * from "./lib/components/chat/copilot-chat-message-view-cursor";
 export * from "./lib/components/chat/copilot-chat-message-view.types";
+export * from "./lib/components/chat/copilot-chat-reasoning-message";
+export * from "./lib/components/chat/copilot-chat-reasoning-message.types";
 export * from "./lib/components/chat/copilot-chat-textarea";
 export * from "./lib/components/chat/copilot-chat-tool-calls-view";
 export * from "./lib/components/chat/copilot-chat-toolbar";
