@@ -130,6 +130,99 @@ describe("render-messages registry", () => {
     fixture.destroy();
     expect(copilotkit.renderCustomMessageConfigs().length).toBe(0);
   });
+
+  it("provideCopilotKit({ renderActivityMessages }) seeds the registry signal", () => {
+    const a: ActivityMessageRendererConfig = {
+      activityType: "search",
+      content: z.object({}),
+      component: TestRenderer,
+    };
+    const b: ActivityMessageRendererConfig = {
+      activityType: "*",
+      content: z.any(),
+      component: WildcardRenderer,
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, renderActivityMessages: [a, b] }),
+      ],
+    });
+
+    const copilotkit = TestBed.inject(CopilotKit);
+    expect(copilotkit.renderActivityMessageConfigs()).toEqual([a, b]);
+  });
+
+  it("provideCopilotKit({ renderCustomMessages }) seeds the registry signal", () => {
+    const c1: CustomMessageRendererConfig = { component: TestRenderer };
+    const c2: CustomMessageRendererConfig = {
+      agentId: "agent-a",
+      component: OtherRenderer,
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({ licenseKey, renderCustomMessages: [c1, c2] }),
+      ],
+    });
+
+    const copilotkit = TestBed.inject(CopilotKit);
+    expect(copilotkit.renderCustomMessageConfigs()).toEqual([c1, c2]);
+  });
+
+  it("imperative add* coexists with declarative provider config without clobbering", () => {
+    const seededActivity: ActivityMessageRendererConfig = {
+      activityType: "search",
+      content: z.object({}),
+      component: TestRenderer,
+    };
+    const seededCustom: CustomMessageRendererConfig = {
+      component: TestRenderer,
+    };
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideCopilotKit({
+          licenseKey,
+          renderActivityMessages: [seededActivity],
+          renderCustomMessages: [seededCustom],
+        }),
+      ],
+    });
+
+    const copilotkit = TestBed.inject(CopilotKit);
+    expect(copilotkit.renderActivityMessageConfigs()).toEqual([seededActivity]);
+    expect(copilotkit.renderCustomMessageConfigs()).toEqual([seededCustom]);
+
+    const addedActivity: ActivityMessageRendererConfig = {
+      activityType: "*",
+      content: z.any(),
+      component: WildcardRenderer,
+    };
+    const addedCustom: CustomMessageRendererConfig = {
+      agentId: "agent-a",
+      component: OtherRenderer,
+    };
+    copilotkit.addRenderActivityMessage(addedActivity);
+    copilotkit.addRenderCustomMessage(addedCustom);
+
+    expect(copilotkit.renderActivityMessageConfigs()).toEqual([
+      seededActivity,
+      addedActivity,
+    ]);
+    expect(copilotkit.renderCustomMessageConfigs()).toEqual([
+      seededCustom,
+      addedCustom,
+    ]);
+
+    copilotkit.removeRenderActivityMessage(addedActivity);
+    copilotkit.removeRenderCustomMessage(addedCustom);
+
+    // The seeded entries from provideCopilotKit must remain after the
+    // imperatively-added ones are removed.
+    expect(copilotkit.renderActivityMessageConfigs()).toEqual([seededActivity]);
+    expect(copilotkit.renderCustomMessageConfigs()).toEqual([seededCustom]);
+  });
 });
 
 describe("injectRenderActivityMessage", () => {

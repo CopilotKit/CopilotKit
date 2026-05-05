@@ -136,6 +136,14 @@ export class CopilotKit {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
 
+    this.#config.renderActivityMessages?.forEach((renderConfig) => {
+      this.addRenderActivityMessage(renderConfig);
+    });
+
+    this.#config.renderCustomMessages?.forEach((renderConfig) => {
+      this.addRenderCustomMessage(renderConfig);
+    });
+
     this.core.subscribe({
       onAgentsChanged: () => {
         this.#agents.set(this.core.agents);
