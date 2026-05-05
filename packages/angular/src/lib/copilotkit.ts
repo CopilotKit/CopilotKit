@@ -8,6 +8,7 @@ import {
 import {
   Injectable,
   Injector,
+  OnDestroy,
   Signal,
   WritableSignal,
   runInInjectionContext,
@@ -22,12 +23,24 @@ import {
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
+import {
+  COPILOT_KIT_INSPECTOR_LOADER,
+  type InspectorLoader,
+  type InspectorMount,
+  mountWebInspector,
+  shouldMountInspector,
+} from "./web-inspector";
 
 @Injectable({ providedIn: "root" })
-export class CopilotKit {
+export class CopilotKit implements OnDestroy {
   readonly #config = injectCopilotKitConfig();
   readonly #hitl = inject(HumanInTheLoop);
   readonly #rootInjector = inject(Injector);
+  readonly #inspectorLoader = inject<InspectorLoader>(
+    COPILOT_KIT_INSPECTOR_LOADER,
+  );
+  #inspectorMount: InspectorMount | null = null;
+  #inspectorMountPromise: Promise<void> | null = null;
   readonly #agents = signal<Record<string, AbstractAgent>>(
     this.#config.agents ?? {},
   );
@@ -111,6 +124,26 @@ export class CopilotKit {
         this.#headers.set(headers);
       },
     });
+
+    if (shouldMountInspector(this.#config.showDevConsole ?? false)) {
+      this.#inspectorMountPromise = mountWebInspector(
+        this.core,
+        this.#inspectorLoader,
+      ).then((mount) => {
+        if (mount === null) return;
+        if (this.#inspectorMountPromise === null) {
+          mount.unmount();
+          return;
+        }
+        this.#inspectorMount = mount;
+      });
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.#inspectorMountPromise = null;
+    this.#inspectorMount?.unmount();
+    this.#inspectorMount = null;
   }
 
   #bindClientTool(

@@ -9,6 +9,7 @@
     "@ag-ui/core",
     "@copilotkit/shared",
     "@copilotkit/core",
+    "@copilotkit/web-inspector",
     "rxjs",
     "zod",
     "lucide-angular",

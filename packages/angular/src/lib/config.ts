@@ -6,6 +6,7 @@ import {
   HumanInTheLoopConfig,
   RenderToolCallConfig,
 } from "./tools";
+import type { ShowDevConsole } from "./web-inspector";
 
 export interface CopilotKitConfig {
   runtimeUrl?: string;
@@ -18,6 +19,16 @@ export interface CopilotKitConfig {
   renderToolCalls?: RenderToolCallConfig[];
   frontendTools?: FrontendToolConfig[];
   humanInTheLoop?: HumanInTheLoopConfig[];
+  /**
+   * Controls the CopilotKit dev console / web inspector overlay.
+   *
+   * - `true`: always mount the inspector.
+   * - `"auto"`: mount only on `localhost` / `127.0.0.1`.
+   * - `false` / undefined: never mount (default).
+   *
+   * Mirrors the `showDevConsole` prop on the React `CopilotKitProvider`.
+   */
+  showDevConsole?: ShowDevConsole;
 }
 
 const COPILOT_CLOUD_PUBLIC_API_KEY_HEADER = "X-CopilotCloud-Public-Api-Key";
