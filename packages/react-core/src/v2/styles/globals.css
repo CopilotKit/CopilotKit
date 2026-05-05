@@ -238,6 +238,12 @@
  */
 .cpk-intelligence-pill {
   display: inline-flex;
+  /* Opt out of the parent flex-column's default `align-items: stretch`
+     (the auto-mount lives inside `CopilotChatMessageView`'s
+     `cpk:flex cpk:flex-col` container). Without this the pill would
+     stretch to the full chat width even though `inline-flex` is
+     supposed to shrink to its content. */
+  align-self: flex-start;
   align-items: center;
   gap: 0.55rem;
   margin: 0.4rem 0;
