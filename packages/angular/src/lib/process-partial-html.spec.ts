@@ -11,7 +11,9 @@ describe("extractCompleteStyles", () => {
 
   it("returns concatenated complete <style> blocks", () => {
     const input = "<style>a {}</style><p>x</p><style>b {}</style>";
-    expect(extractCompleteStyles(input)).toBe("<style>a {}</style><style>b {}</style>");
+    expect(extractCompleteStyles(input)).toBe(
+      "<style>a {}</style><style>b {}</style>",
+    );
   });
 
   it("ignores incomplete <style> blocks", () => {
@@ -21,7 +23,7 @@ describe("extractCompleteStyles", () => {
 
 describe("processPartialHtml", () => {
   it("strips an incomplete trailing tag", () => {
-    expect(processPartialHtml("<div>hi</div><span class=\"fo")).toBe(
+    expect(processPartialHtml('<div>hi</div><span class="fo')).toBe(
       "<div>hi</div>",
     );
   });

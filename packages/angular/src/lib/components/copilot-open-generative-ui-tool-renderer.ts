@@ -30,7 +30,7 @@ const CYCLE_INTERVAL_MS = 5000;
   template: `
     @if (visibleMessage(); as message) {
       <div
-        style="padding: 8px 12px; color: #999; font-size: 14px;"
+        style="padding: 8px 12px; color: #999; font-size: 14px"
         data-slot="open-generative-ui-tool-renderer"
       >
         {{ message }}

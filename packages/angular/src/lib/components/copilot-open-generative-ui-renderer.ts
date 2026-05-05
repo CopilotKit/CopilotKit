@@ -86,9 +86,7 @@ function injectCssIntoHtml(html: string, css: string): string {
       [style.width.%]="100"
       [style.height.px]="height()"
       [style.borderRadius.px]="8"
-      [style.backgroundColor]="
-        hasVisibleSandbox() ? 'transparent' : '#f5f5f5'
-      "
+      [style.backgroundColor]="hasVisibleSandbox() ? 'transparent' : '#f5f5f5'"
       [style.border]="hasVisibleSandbox() ? 'none' : '1px solid #e0e0e0'"
       [style.display]="hasVisibleSandbox() ? 'block' : 'flex'"
       [style.alignItems]="hasVisibleSandbox() ? null : 'center'"
@@ -97,22 +95,25 @@ function injectCssIntoHtml(html: string, css: string): string {
     >
       @if (isGenerating()) {
         <div
-          style="position: absolute; inset: 0; z-index: 10; pointer-events: all; background-color: rgba(255, 255, 255, 0.5); display: flex; align-items: center; justify-content: center;"
+          style="
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: all;
+            background-color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          "
         >
           <svg
             width="48"
             height="48"
             viewBox="0 0 24 24"
             fill="none"
-            style="animation: ck-spin 1s linear infinite;"
+            style="animation: ck-spin 1s linear infinite"
           >
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="#e0e0e0"
-              stroke-width="3"
-            />
+            <circle cx="12" cy="12" r="10" stroke="#e0e0e0" stroke-width="3" />
             <path
               d="M12 2a10 10 0 0 1 10 10"
               stroke="#999"
@@ -266,7 +267,12 @@ export class CopilotOpenGenerativeUIRenderer {
       }
 
       if (!this.previewSandboxRef) {
-        this.mountPreviewSandbox(container, v.css, v.previewStyles, v.previewBody);
+        this.mountPreviewSandbox(
+          container,
+          v.css,
+          v.previewStyles,
+          v.previewBody,
+        );
         this.currentPreviewKey = key;
       } else if (this.previewReady) {
         this.applyPreviewContent(v.css, v.previewStyles, v.previewBody);
@@ -387,10 +393,7 @@ export class CopilotOpenGenerativeUIRenderer {
       })
       .catch((err: unknown) => {
         // eslint-disable-next-line no-console
-        console.error(
-          "[OpenGenerativeUI] Failed to load sandbox module:",
-          err,
-        );
+        console.error("[OpenGenerativeUI] Failed to load sandbox module:", err);
       });
   }
 
@@ -466,10 +469,7 @@ export class CopilotOpenGenerativeUIRenderer {
       })
       .catch((err: unknown) => {
         // eslint-disable-next-line no-console
-        console.error(
-          "[OpenGenerativeUI] Failed to load sandbox module:",
-          err,
-        );
+        console.error("[OpenGenerativeUI] Failed to load sandbox module:", err);
       });
   }
 

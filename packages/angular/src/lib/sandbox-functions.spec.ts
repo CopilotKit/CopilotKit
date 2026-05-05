@@ -288,9 +288,7 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
 
     it("registers default design skill agent context when openGenerativeUI is configured", () => {
       TestBed.configureTestingModule({
-        providers: [
-          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
-        ],
+        providers: [provideCopilotKit({ licenseKey, openGenerativeUI: {} })],
       });
 
       const copilotKit = TestBed.inject(CopilotKit);
@@ -332,9 +330,7 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
   describe("generateSandboxedUi tool registration", () => {
     it("auto-registers the generateSandboxedUi frontend tool when openGenerativeUI is configured", () => {
       TestBed.configureTestingModule({
-        providers: [
-          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
-        ],
+        providers: [provideCopilotKit({ licenseKey, openGenerativeUI: {} })],
       });
 
       const copilotKit = TestBed.inject(CopilotKit);
@@ -360,9 +356,7 @@ describe("CopilotKit — openGenerativeUI.sandboxFunctions", () => {
   describe("builtInActivityRenderers", () => {
     it("registers the OpenGenerativeUI renderer when openGenerativeUI is configured", () => {
       TestBed.configureTestingModule({
-        providers: [
-          provideCopilotKit({ licenseKey, openGenerativeUI: {} }),
-        ],
+        providers: [provideCopilotKit({ licenseKey, openGenerativeUI: {} })],
       });
 
       const copilotKit = TestBed.inject(CopilotKit);
