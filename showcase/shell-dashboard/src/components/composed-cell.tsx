@@ -110,7 +110,6 @@ function DepthLayer({
         <DepthChip
           depth={depth.achieved}
           status={catalogCell.status}
-          regression={depth.isRegression}
           maxDepth={depth.maxPossible}
         />
       </button>

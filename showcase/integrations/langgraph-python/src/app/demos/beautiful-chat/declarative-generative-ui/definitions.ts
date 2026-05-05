@@ -27,35 +27,31 @@ export const demonstrationCatalogDefinitions = {
     }),
   },
 
-  // Text: removed — the basic catalog's Text uses DynamicStringSchema
-  // which supports path bindings (e.g. { path: "flights[*].airline" }).
-  // Overriding it with z.string() breaks fixed-schema data binding.
-
+  // Custom Row/Column: override the basic catalog's versions so we can
+  // honour `gap` (basic Row/Column from web_core ignores it). We accept
+  // children as a literal-string array only — the agent
+  // (`src/agents/beautiful_chat.py` + the dashboard fixture) expands any
+  // per-item iteration server-side, so we don't need the binder's
+  // structural-children form here. `Text` is still provided by the basic
+  // catalog (path-binding support there is non-trivial to replicate).
   Row: {
-    description: "Horizontal layout container.",
+    description:
+      "Horizontal layout container. Children must be an array of component IDs.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
       justify: z.string().optional(),
-      // Union with { componentId, path } so GenericBinder treats this as
-      // STRUCTURAL and resolves template children from the data model.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.array(z.string()),
     }),
   },
 
   Column: {
-    description: "Vertical layout container.",
+    description:
+      "Vertical layout container. Children must be an array of component IDs.",
     props: z.object({
       gap: z.number().optional(),
       align: z.string().optional(),
-      // Same union as Row — required for template children support.
-      children: z.union([
-        z.array(z.string()),
-        z.object({ componentId: z.string(), path: z.string() }),
-      ]),
+      children: z.array(z.string()),
     }),
   },
 

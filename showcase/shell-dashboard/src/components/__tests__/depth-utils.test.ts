@@ -204,7 +204,7 @@ describe("deriveDepth", () => {
   // ── isRegression now compares against maxPossible, not historical max_depth ──
 
   it("isRegression is true when achieved < maxPossible (D5 mapping exists, CV red)", () => {
-    // "agentic-chat" has D5 mapping → maxPossible=6, achieved=4 → regression
+    // "agentic-chat" has D5 mapping → maxPossible=5, achieved=4 → regression
     const c = cell("lgp", "agentic-chat", "wired", 4);
     const live = mapOf([
       row("health:lgp", "health", "green"),
@@ -215,7 +215,7 @@ describe("deriveDepth", () => {
     ]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(4);
-    expect(result.maxPossible).toBe(6);
+    expect(result.maxPossible).toBe(5);
     expect(result.isRegression).toBe(true);
   });
 
@@ -235,12 +235,12 @@ describe("deriveDepth", () => {
   });
 
   it("isRegression is true when health drops (maxPossible > 0)", () => {
-    // "agentic-chat" has D5 mapping → maxPossible=6, health red → achieved=0
+    // "agentic-chat" has D5 mapping → maxPossible=5, health red → achieved=0
     const c = cell("lgp", "agentic-chat", "wired", 1);
     const live = mapOf([row("health:lgp", "health", "red")]);
     const result = deriveDepth(c, live);
     expect(result.achieved).toBe(0);
-    expect(result.maxPossible).toBe(6);
+    expect(result.maxPossible).toBe(5);
     expect(result.isRegression).toBe(true);
   });
 
@@ -339,7 +339,7 @@ describe("deriveDepth", () => {
   // ── maxPossible computation ──
 
   describe("maxPossible", () => {
-    it("(a) D5 mapping exists, all green → achieved=5, maxPossible=6, chip=GREEN territory", () => {
+    it("(a) D5 mapping exists, all green → achieved=5, maxPossible=5, chip=GREEN territory", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -350,12 +350,12 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(5);
-      expect(result.maxPossible).toBe(6);
-      // achieved < maxPossible → regression (D6 is possible but not achieved)
-      expect(result.isRegression).toBe(true);
+      expect(result.maxPossible).toBe(5);
+      // achieved === maxPossible → at ceiling, no regression
+      expect(result.isRegression).toBe(false);
     });
 
-    it("(a-full) D5+D6 mapping exists, all green → achieved=6, maxPossible=6", () => {
+    it("(a-full) D5+D6 green → achieved=6, maxPossible=5 (D6 is stretch, still at-ceiling)", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -367,11 +367,13 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(6);
-      expect(result.maxPossible).toBe(6);
+      expect(result.maxPossible).toBe(5);
+      // depthColorClass treats `depth >= maxDepth` as at-ceiling, so D6
+      // still renders green even though it exceeds the structural cap.
       expect(result.isRegression).toBe(false);
     });
 
-    it("(b) D5 mapping exists, CV red → achieved=4, maxPossible=6, chip=AMBER territory", () => {
+    it("(b) D5 mapping exists, CV red → achieved=4, maxPossible=5, chip=AMBER territory", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -382,11 +384,11 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(4);
-      expect(result.maxPossible).toBe(6);
+      expect(result.maxPossible).toBe(5);
       expect(result.isRegression).toBe(true);
     });
 
-    it("(c) D5 mapping exists, CV no data → achieved=4, maxPossible=6, chip=AMBER territory", () => {
+    it("(c) D5 mapping exists, CV no data → achieved=4, maxPossible=5, chip=AMBER territory", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -397,7 +399,7 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(4);
-      expect(result.maxPossible).toBe(6);
+      expect(result.maxPossible).toBe(5);
       expect(result.isRegression).toBe(true);
     });
 
@@ -429,7 +431,7 @@ describe("deriveDepth", () => {
       expect(result.isRegression).toBe(true);
     });
 
-    it("(f) D2 with maxPossible=6 → chip=RED territory (4 levels below)", () => {
+    it("(f) D2 with maxPossible=5 → chip=RED territory (3 levels below)", () => {
       const c = cell("lgp", "agentic-chat");
       const live = mapOf([
         row("health:lgp", "health", "green"),
@@ -438,8 +440,8 @@ describe("deriveDepth", () => {
       ]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(2);
-      expect(result.maxPossible).toBe(6);
-      // 6 - 2 = 4, which is > 2 → RED territory
+      expect(result.maxPossible).toBe(5);
+      // 5 - 2 = 3, which is > 2 → RED territory
       expect(result.isRegression).toBe(true);
     });
 
@@ -448,15 +450,13 @@ describe("deriveDepth", () => {
       const live = mapOf([]); // no live data
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);
-      expect(result.maxPossible).toBe(6); // D5 mapping exists
+      expect(result.maxPossible).toBe(5); // D5 mapping exists
       expect(result.isRegression).toBe(true);
     });
 
     it("(h) unsupported → unsupported=true, maxPossible=0, no regression", () => {
       const c = cell("lgp", "agentic-chat", "unsupported");
-      const live = mapOf([
-        row("health:lgp", "health", "green"),
-      ]);
+      const live = mapOf([row("health:lgp", "health", "green")]);
       const result = deriveDepth(c, live);
       expect(result.achieved).toBe(0);
       expect(result.maxPossible).toBe(0);

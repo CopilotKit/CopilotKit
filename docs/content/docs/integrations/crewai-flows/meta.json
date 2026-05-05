@@ -16,6 +16,7 @@
     "---App Control---",
     "frontend-tools",
     "shared-state",
+    "threads",
     "---CrewAI Flows---",
     "persistence",
     "advanced",

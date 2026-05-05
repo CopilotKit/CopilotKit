@@ -171,10 +171,7 @@ function DepthDistributionSection({
   ];
 
   return (
-    <div
-      data-testid="depth-distribution"
-      className="flex items-center gap-2"
-    >
+    <div data-testid="depth-distribution" className="flex items-center gap-2">
       {levels.map(({ key, label }) => (
         <span key={key} className="flex items-center gap-0.5">
           <span className="text-[10px] font-semibold text-[var(--accent)] tabular-nums">

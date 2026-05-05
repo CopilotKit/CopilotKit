@@ -141,15 +141,13 @@ describe("CellDrilldown", () => {
       />,
     );
     // Extracted fields should be visible without expanding raw signal
-    expect(
-      getByTestId("signal-field-error").textContent,
-    ).toBe("Agent returned empty response");
-    expect(
-      getByTestId("signal-field-backend-url").textContent,
-    ).toBe("https://lgp.example.com");
-    expect(
-      getByTestId("signal-field-api-requests").textContent,
-    ).toBe("3");
+    expect(getByTestId("signal-field-error").textContent).toBe(
+      "Agent returned empty response",
+    );
+    expect(getByTestId("signal-field-backend-url").textContent).toBe(
+      "https://lgp.example.com",
+    );
+    expect(getByTestId("signal-field-api-requests").textContent).toBe("3");
   });
 
   it("shows raw signal payload behind collapsible toggle", () => {
@@ -255,9 +253,9 @@ describe("CellDrilldown", () => {
       />,
     );
     // errorDesc wins — only one "Error:" line
-    expect(
-      getByTestId("signal-field-error").textContent,
-    ).toBe("Agent timed out");
+    expect(getByTestId("signal-field-error").textContent).toBe(
+      "Agent timed out",
+    );
     // Should not have a second error field
     expect(queryAllByTestId("signal-field-error").length).toBe(1);
   });

@@ -102,13 +102,13 @@ jobs:
               echo "No formattable files changed in this PR — skipping oxfmt."
               exit 0
             fi
-            if ! xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --write; then
+            if ! xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --no-error-on-unmatched-pattern --write; then
               echo "::warning::Formatter exited with error — auto-fix may be incomplete"
             fi
             if [ -n "$(git diff --name-only)" ]; then
               echo "format_fixed=true" >> $GITHUB_ENV
             fi
-            xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --check
+            xargs -a .pr-format-files.existing.txt pnpm exec oxfmt --no-error-on-unmatched-pattern --check
           else
             pnpm run check-format
           fi

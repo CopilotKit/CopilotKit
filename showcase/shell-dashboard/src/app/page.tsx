@@ -94,11 +94,9 @@ export default function Page() {
       if (cell.status !== "wired" || cell.feature === null) continue;
       const result = deriveDepth(cell as CatalogCell, liveStatus);
       if (result.unsupported) continue;
-      const { achieved, maxPossible, isRegression } = result;
+      const { achieved, maxPossible } = result;
       if (achieved === 0) {
         green++; // D0 = no probe data yet, not a failure
-      } else if (isRegression) {
-        red++;
       } else if (achieved >= maxPossible) {
         green++; // At ceiling — same as green chip
       } else if (maxPossible - achieved <= 2) {

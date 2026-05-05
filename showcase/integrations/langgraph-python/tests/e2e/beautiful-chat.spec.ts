@@ -3,6 +3,11 @@ import { test, expect } from "@playwright/test";
 test.describe("Beautiful Chat", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/demos/beautiful-chat");
+    // The chat client (CopilotKit v2) needs a moment to attach its provider
+    // before suggestion clicks dispatch reliably. Without this the click can
+    // race the hydration and silently no-op. Existing pill tests above were
+    // tolerant of this — the A2UI tests need the round-trip to succeed.
+    await page.waitForTimeout(3000);
   });
 
   test("page loads with logo, mode toggle, and chat input", async ({
@@ -116,5 +121,71 @@ test.describe("Beautiful Chat", () => {
     await expect
       .poll(async () => await bars.count(), { timeout: 15000 })
       .toBeGreaterThanOrEqual(2);
+  });
+
+  test("Search Flights pill renders FlightCard surface from A2UI fixed schema", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    // Backend: search_flights tool emits an a2ui_operations container with one
+    // FlightCard component per flight. The agent (`src/agents/beautiful_chat.py`
+    // `_build_flight_components`) emits literal-children components rather than
+    // the structural-children template form, because the binder's structural
+    // expansion isn't reliably exercised by sibling demos. Aimock returns 2
+    // flights — United at $349 and Delta at $289.
+    //
+    // Visual fingerprint: the airline names and prices are inlined into each
+    // FlightCard so they appear as literal text.
+    const pill = page.getByRole("button", {
+      name: "Search Flights (A2UI Fixed Schema)",
+    });
+    await expect(pill).toBeVisible({ timeout: 15_000 });
+    await pill.click();
+
+    // 60s budget: tool call + a2ui_operations round-trip can be slow on cold
+    // starts. Assertion targets are aimock-fixture text, not LLM output, so
+    // they're stable across runs.
+    await expect(page.getByText("United Airlines").first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByText("Delta").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText("$349").first()).toBeVisible({
+      timeout: 5_000,
+    });
+    await expect(page.getByText("$289").first()).toBeVisible({
+      timeout: 5_000,
+    });
+  });
+
+  test("Sales Dashboard pill renders A2UI dashboard surface", async ({
+    page,
+  }) => {
+    test.setTimeout(180_000);
+    // Backend: generate_a2ui tool calls a secondary LLM bound to render_a2ui;
+    // both calls hit aimock fixtures
+    // (showcase/aimock/feature-parity.json — userMessage + toolName matchers
+    // differentiate primary vs secondary calls; a toolCallId match breaks the
+    // post-tool loop). The render_a2ui fixture ships a 3-metric + 2-chart
+    // dashboard tree against `copilotkit://app-dashboard-catalog`.
+    //
+    // Visual fingerprint: a Metric label "Total Revenue", plus a recharts
+    // ResponsiveContainer (the Pie/BarChart custom renderers wrap their
+    // recharts content in one).
+    const pill = page.getByRole("button", {
+      name: "Sales Dashboard (A2UI Dynamic)",
+    });
+    await expect(pill).toBeVisible({ timeout: 15_000 });
+    await pill.click();
+
+    // 90s budget: secondary-LLM stage inside generate_a2ui can stall on cold
+    // starts.
+    await expect(page.getByText(/Total Revenue/i).first()).toBeVisible({
+      timeout: 90_000,
+    });
+
+    const chartRoot = page.locator(".recharts-responsive-container").first();
+    await expect(chartRoot).toBeVisible({ timeout: 15_000 });
   });
 });

@@ -27,7 +27,9 @@ describe("DepthChip", () => {
   });
 
   it("renders D0 with gray even when maxDepth=0", () => {
-    const { getByTestId } = render(<DepthChip depth={0} status="wired" maxDepth={0} />);
+    const { getByTestId } = render(
+      <DepthChip depth={0} status="wired" maxDepth={0} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("text-muted");
   });
@@ -35,19 +37,25 @@ describe("DepthChip", () => {
   // ── Relative color: depth >= maxDepth = green ──
 
   it("renders D4 green when maxDepth=4 (at ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={4} status="wired" maxDepth={4} />);
+    const { getByTestId } = render(
+      <DepthChip depth={4} status="wired" maxDepth={4} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("emerald");
   });
 
   it("renders D5 green when maxDepth=5 (at ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={5} status="wired" maxDepth={5} />);
+    const { getByTestId } = render(
+      <DepthChip depth={5} status="wired" maxDepth={5} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("emerald");
   });
 
   it("renders D6 green when maxDepth=6 (at ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={6} status="wired" maxDepth={6} />);
+    const { getByTestId } = render(
+      <DepthChip depth={6} status="wired" maxDepth={6} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("emerald");
   });
@@ -55,19 +63,25 @@ describe("DepthChip", () => {
   // ── Relative color: 1-2 levels below maxDepth = amber ──
 
   it("renders D4 amber when maxDepth=5 (1 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={4} status="wired" maxDepth={5} />);
+    const { getByTestId } = render(
+      <DepthChip depth={4} status="wired" maxDepth={5} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("amber");
   });
 
   it("renders D3 amber when maxDepth=5 (2 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={3} status="wired" maxDepth={5} />);
+    const { getByTestId } = render(
+      <DepthChip depth={3} status="wired" maxDepth={5} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("amber");
   });
 
   it("renders D4 amber when maxDepth=6 (2 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={4} status="wired" maxDepth={6} />);
+    const { getByTestId } = render(
+      <DepthChip depth={4} status="wired" maxDepth={6} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("amber");
   });
@@ -75,19 +89,25 @@ describe("DepthChip", () => {
   // ── Relative color: 3+ levels below maxDepth = red ──
 
   it("renders D1 red when maxDepth=5 (4 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={1} status="wired" maxDepth={5} />);
+    const { getByTestId } = render(
+      <DepthChip depth={1} status="wired" maxDepth={5} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("danger");
   });
 
   it("renders D2 red when maxDepth=5 (3 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={2} status="wired" maxDepth={5} />);
+    const { getByTestId } = render(
+      <DepthChip depth={2} status="wired" maxDepth={5} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("danger");
   });
 
   it("renders D1 red when maxDepth=6 (5 below ceiling)", () => {
-    const { getByTestId } = render(<DepthChip depth={1} status="wired" maxDepth={6} />);
+    const { getByTestId } = render(
+      <DepthChip depth={1} status="wired" maxDepth={6} />,
+    );
     const chip = getByTestId("depth-chip");
     expect(chip.className).toContain("danger");
   });

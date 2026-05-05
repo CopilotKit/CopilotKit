@@ -116,7 +116,5 @@ function Chat() {
   });
   // @endregion[frontend-promise-handler]
 
-  return (
-    <CopilotChat className="h-full rounded-2xl" />
-  );
+  return <CopilotChat className="h-full rounded-2xl" />;
 }

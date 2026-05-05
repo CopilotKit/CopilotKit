@@ -36,7 +36,11 @@ export interface DepthChipProps {
  * amber within 2 levels, red otherwise. Without `maxDepth` the fallback
  * heuristic is: D4+ green, D2-D3 amber, D0-D1 red.
  */
-export function depthColorClass(depth: number, regression?: boolean, maxDepth?: number): string {
+export function depthColorClass(
+  depth: number,
+  regression?: boolean,
+  maxDepth?: number,
+): string {
   if (regression) {
     return "bg-[var(--danger)] text-white";
   }
@@ -54,7 +58,12 @@ export function depthColorClass(depth: number, regression?: boolean, maxDepth?: 
   return "bg-[var(--danger)] text-white";
 }
 
-export function DepthChip({ depth, status, regression, maxDepth }: DepthChipProps) {
+export function DepthChip({
+  depth,
+  status,
+  regression,
+  maxDepth,
+}: DepthChipProps) {
   if (status === "unshipped") {
     return (
       <span

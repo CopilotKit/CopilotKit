@@ -104,6 +104,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           capture_pageview: false,
           // Reduce network requests by batching
           request_batching: true,
+          capture_dead_clicks: false,
           // Don't enable debug mode - it causes too much logging
         });
       } catch (error) {

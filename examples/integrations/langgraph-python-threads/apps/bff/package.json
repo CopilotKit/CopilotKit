@@ -9,7 +9,7 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@copilotkit/runtime": "1.56.5-canary.1777671752",
+    "@copilotkit/runtime": "1.57.0",
     "@hono/node-server": "^1.13.6",
     "express": "5.2.1",
     "hono": "^4.7.11",

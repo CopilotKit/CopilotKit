@@ -8,12 +8,12 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "npx @langchain/langgraph-cli dev --port 8123 --no-browser"
+    "dev": "npx @langchain/langgraph-cli@1.2.1 dev --port 8123 --no-browser"
   },
   "dependencies": {
     "@copilotkit/sdk-js": "1.56.5",
-    "@langchain/core": "1.1.41",
-    "@langchain/langgraph": "1.2.9",
+    "@langchain/core": "1.1.44",
+    "@langchain/langgraph": "1.3.0",
     "@langchain/openai": "1.4.4",
     "langchain": "1.3.4"
   },

@@ -15,6 +15,7 @@
     "...generative-ui",
     "---App Control---",
     "frontend-tools",
+    "threads",
     "---Backend---",
     "copilot-runtime",
     "ag-ui",

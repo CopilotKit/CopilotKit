@@ -2,6 +2,44 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "call_fp_generate_a2ui_sales_dashboard_001"
+      },
+      "response": {
+        "content": "Here's your sales dashboard \u2014 total revenue is $1.2M (+12% MoM), 342 new customers, and 4.2% conversion. The pie shows revenue split by category and the bar chart tracks monthly sales."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "render_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_render_a2ui_sales_dashboard_001",
+            "name": "render_a2ui",
+            "arguments": "{\"surfaceId\":\"beautiful-chat-sales-dashboard\",\"catalogId\":\"copilotkit://app-dashboard-catalog\",\"components\":[{\"id\":\"root\",\"component\":\"Column\",\"children\":[\"row-metrics\",\"row-charts\"],\"gap\":16},{\"id\":\"row-metrics\",\"component\":\"Row\",\"children\":[\"card-revenue\",\"card-customers\",\"card-conversion\"],\"gap\":16},{\"id\":\"card-revenue\",\"component\":\"DashboardCard\",\"title\":\"Total Revenue\",\"child\":\"metric-revenue\"},{\"id\":\"metric-revenue\",\"component\":\"Metric\",\"label\":\"Total Revenue\",\"value\":\"$1.2M\",\"trend\":\"up\",\"trendValue\":\"+12% MoM\"},{\"id\":\"card-customers\",\"component\":\"DashboardCard\",\"title\":\"New Customers\",\"child\":\"metric-customers\"},{\"id\":\"metric-customers\",\"component\":\"Metric\",\"label\":\"New Customers\",\"value\":\"342\",\"trend\":\"up\",\"trendValue\":\"+8% MoM\"},{\"id\":\"card-conversion\",\"component\":\"DashboardCard\",\"title\":\"Conversion Rate\",\"child\":\"metric-conversion\"},{\"id\":\"metric-conversion\",\"component\":\"Metric\",\"label\":\"Conversion Rate\",\"value\":\"4.2%\",\"trend\":\"neutral\"},{\"id\":\"row-charts\",\"component\":\"Row\",\"children\":[\"card-pie\",\"card-bar\"],\"gap\":16},{\"id\":\"card-pie\",\"component\":\"DashboardCard\",\"title\":\"Revenue by Category\",\"child\":\"pie-revenue\"},{\"id\":\"pie-revenue\",\"component\":\"PieChart\",\"data\":[{\"label\":\"Electronics\",\"value\":42000},{\"label\":\"Clothing\",\"value\":28000},{\"label\":\"Food\",\"value\":18000},{\"label\":\"Books\",\"value\":12000}]},{\"id\":\"card-bar\",\"component\":\"DashboardCard\",\"title\":\"Monthly Sales\",\"child\":\"bar-monthly\"},{\"id\":\"bar-monthly\",\"component\":\"BarChart\",\"data\":[{\"label\":\"Jan\",\"value\":50000},{\"label\":\"Feb\",\"value\":62000},{\"label\":\"Mar\",\"value\":58000},{\"label\":\"Apr\",\"value\":71000},{\"label\":\"May\",\"value\":80000},{\"label\":\"Jun\",\"value\":92000}]}]}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "with total revenue, new customers, and conversion rate metrics",
+        "toolName": "generate_a2ui"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "call_fp_generate_a2ui_sales_dashboard_001",
+            "name": "generate_a2ui",
+            "arguments": "{}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "toolCallId": "call_fp_get_weather_001"
       },
       "response": {

@@ -14,7 +14,7 @@
     "---Generative UI---",
     "...generative-ui",
     "---App Control---",
-    "frontend-tools", "shared-state", "agent-app-context",
+    "frontend-tools", "shared-state", "threads", "agent-app-context",
     "---Mastra---",
     "...human-in-the-loop",
     "---Backend---",

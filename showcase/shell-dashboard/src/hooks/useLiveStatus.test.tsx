@@ -51,16 +51,18 @@ vi.mock("../lib/pb", () => {
       collection: (_name: string) => ({
         // getFullList is used by the initial fetch (replaces paginated getList).
         // Returns a plain array, respecting the `batch` option as a cap.
-        getFullList: vi.fn(async (opts?: { batch?: number; filter?: string }) => {
-          mockState.getListCalls += 1;
-          mockState.lastInitialGetListOpts = opts;
-          if (mockState.failRemaining > 0) {
-            mockState.failRemaining -= 1;
-            throw new Error("pb-unreachable");
-          }
-          const cap = opts?.batch ?? Infinity;
-          return mockState.initial.slice(0, cap);
-        }),
+        getFullList: vi.fn(
+          async (opts?: { batch?: number; filter?: string }) => {
+            mockState.getListCalls += 1;
+            mockState.lastInitialGetListOpts = opts;
+            if (mockState.failRemaining > 0) {
+              mockState.failRemaining -= 1;
+              throw new Error("pb-unreachable");
+            }
+            const cap = opts?.batch ?? Infinity;
+            return mockState.initial.slice(0, cap);
+          },
+        ),
         // getList is still used for heartbeat pings (getList(1, 1)).
         getList: vi.fn(
           async (_page: number, _perPage: number, _opts?: unknown) => {

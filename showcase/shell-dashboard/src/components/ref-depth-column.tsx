@@ -31,17 +31,17 @@ export function RefDepthHeader() {
 export interface RefDepthCellProps {
   depth: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   status: "wired" | "stub" | "unshipped" | "unsupported";
-  /** When true, chip renders in red regardless of depth. */
-  regression?: boolean;
+  /** Structural ceiling for this cell — drives graduated chip coloring. */
+  maxDepth?: number;
 }
 
-export function RefDepthCell({ depth, status, regression }: RefDepthCellProps) {
+export function RefDepthCell({ depth, status, maxDepth }: RefDepthCellProps) {
   return (
     <td
       className="sticky left-[160px] z-10 px-1.5 py-1 border-r-2 border-r-[#c4b5fd] border-l border-[var(--border)] align-top"
       style={{ backgroundColor: "#f5f0ff" }}
     >
-      <DepthChip depth={depth} status={status} regression={regression} />
+      <DepthChip depth={depth} status={status} maxDepth={maxDepth} />
     </td>
   );
 }
