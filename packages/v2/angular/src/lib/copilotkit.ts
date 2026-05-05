@@ -14,6 +14,9 @@ import {
   signal,
   inject,
 } from "@angular/core";
+import { schemaToJsonSchema } from "@copilotkit/shared";
+import type { SchemaToJsonSchemaOptions } from "@copilotkit/shared";
+import { zodToJsonSchema } from "zod-to-json-schema";
 import {
   FrontendToolConfig,
   HumanInTheLoopConfig,
@@ -22,6 +25,15 @@ import {
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
+import type { SandboxFunction } from "./sandbox-functions";
+
+const zodToJsonSchemaAdapter: NonNullable<
+  SchemaToJsonSchemaOptions["zodToJsonSchema"]
+> = (schema, options) =>
+  zodToJsonSchema(
+    schema as Parameters<typeof zodToJsonSchema>[0],
+    options as Parameters<typeof zodToJsonSchema>[1],
+  ) as Record<string, unknown>;
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -70,6 +82,18 @@ export class CopilotKit {
   readonly humanInTheLoopToolRenderConfigs: Signal<HumanInTheLoopConfig[]> =
     this.#humanInTheLoopToolRenderConfigs.asReadonly();
 
+  readonly #sandboxFunctions: WritableSignal<readonly SandboxFunction[]> =
+    signal(
+      Object.freeze(this.#config.openGenerativeUI?.sandboxFunctions ?? []),
+    );
+  /**
+   * Sandbox functions configured for `openGenerativeUI`. Stays in sync with
+   * the value provided to {@link provideCopilotKit}. Returns an empty array
+   * when no sandbox functions are configured.
+   */
+  readonly sandboxFunctions: Signal<readonly SandboxFunction[]> =
+    this.#sandboxFunctions.asReadonly();
+
   constructor() {
     ensureLicenseWatermark(this.#config.headers);
 
@@ -99,6 +123,28 @@ export class CopilotKit {
     this.#config.humanInTheLoop?.forEach((humanInTheLoopTool) => {
       this.addHumanInTheLoop(humanInTheLoopTool);
     });
+
+    // Register sandbox functions as agent context so the LLM knows how to
+    // call them from generated sandboxed UI. Mirrors React's
+    // `CopilotKitProvider` behavior — the context is only registered when
+    // at least one sandbox function is configured.
+    const sandboxFunctions = this.#config.openGenerativeUI?.sandboxFunctions;
+    if (sandboxFunctions && sandboxFunctions.length > 0) {
+      this.core.addContext({
+        description:
+          "Sandbox functions available in generated sandboxed UI code. " +
+          "Call via: await Websandbox.connection.remote.<functionName>(args)",
+        value: JSON.stringify(
+          sandboxFunctions.map((fn) => ({
+            name: fn.name,
+            description: fn.description,
+            parameters: schemaToJsonSchema(fn.parameters, {
+              zodToJsonSchema: zodToJsonSchemaAdapter,
+            }),
+          })),
+        ),
+      });
+    }
 
     this.core.subscribe({
       onAgentsChanged: () => {
