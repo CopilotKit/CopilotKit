@@ -22,6 +22,10 @@ import {
 import { injectCopilotKitConfig } from "./config";
 import { HumanInTheLoop } from "./human-in-the-loop";
 import { ensureLicenseWatermark } from "./license-watermark";
+import type {
+  ActivityMessageRendererConfig,
+  CustomMessageRendererConfig,
+} from "./render-messages";
 
 @Injectable({ providedIn: "root" })
 export class CopilotKit {
@@ -69,6 +73,38 @@ export class CopilotKit {
     this.#clientToolCallRenderConfigs.asReadonly();
   readonly humanInTheLoopToolRenderConfigs: Signal<HumanInTheLoopConfig[]> =
     this.#humanInTheLoopToolRenderConfigs.asReadonly();
+
+  readonly #renderActivityMessageConfigs: WritableSignal<
+    ActivityMessageRendererConfig[]
+  > = signal([]);
+  readonly #renderCustomMessageConfigs: WritableSignal<
+    CustomMessageRendererConfig[]
+  > = signal([]);
+
+  /**
+   * Activity message renderers registered with the registry. Mirrors React's
+   * `copilotkit.renderActivityMessages`.
+   */
+  readonly renderActivityMessageConfigs: Signal<
+    ActivityMessageRendererConfig[]
+  > = this.#renderActivityMessageConfigs.asReadonly();
+
+  /**
+   * Custom message renderers registered with the registry. Mirrors React's
+   * `copilotkit.renderCustomMessages`.
+   */
+  readonly renderCustomMessageConfigs: Signal<CustomMessageRendererConfig[]> =
+    this.#renderCustomMessageConfigs.asReadonly();
+
+  /**
+   * Per-(registry-agent, threadId) clones used by the chat view. Activity and
+   * custom-message renderers prefer the clone over the registry agent so
+   * `runAgent`/`messages` reads stay consistent with the visible chat.
+   */
+  readonly #threadClones = new WeakMap<
+    AbstractAgent,
+    Map<string, AbstractAgent>
+  >();
 
   constructor() {
     ensureLicenseWatermark(this.#config.headers);
@@ -195,6 +231,72 @@ export class CopilotKit {
 
   getAgent(agentId: string): AbstractAgent | undefined {
     return this.core.getAgent(agentId);
+  }
+
+  /**
+   * Look up an existing per-thread agent clone, when one has been associated
+   * with this registry agent + thread. Returns `undefined` when no clone has
+   * been registered. Mirrors `getThreadClone` from React's `use-agent`.
+   */
+  getThreadClone(
+    registryAgent: AbstractAgent | undefined | null,
+    threadId: string | undefined | null,
+  ): AbstractAgent | undefined {
+    if (!registryAgent || !threadId) return undefined;
+    return this.#threadClones.get(registryAgent)?.get(threadId);
+  }
+
+  /**
+   * Associate a per-thread clone with the given registry agent + thread.
+   * Used by chat views that maintain their own per-thread agent so renderer
+   * resolution can hand the matching clone to user components.
+   */
+  setThreadClone(
+    registryAgent: AbstractAgent,
+    threadId: string,
+    clone: AbstractAgent,
+  ): void {
+    let byThread = this.#threadClones.get(registryAgent);
+    if (!byThread) {
+      byThread = new Map();
+      this.#threadClones.set(registryAgent, byThread);
+    }
+    byThread.set(threadId, clone);
+  }
+
+  /** Remove a previously-associated thread clone, if any. */
+  clearThreadClone(
+    registryAgent: AbstractAgent,
+    threadId: string,
+  ): void {
+    this.#threadClones.get(registryAgent)?.delete(threadId);
+  }
+
+  addRenderActivityMessage(
+    config: ActivityMessageRendererConfig<unknown>,
+  ): void {
+    this.#renderActivityMessageConfigs.update((current) => [
+      ...current,
+      config,
+    ]);
+  }
+
+  removeRenderActivityMessage(
+    config: ActivityMessageRendererConfig<unknown>,
+  ): void {
+    this.#renderActivityMessageConfigs.update((current) =>
+      current.filter((c) => c !== config),
+    );
+  }
+
+  addRenderCustomMessage(config: CustomMessageRendererConfig): void {
+    this.#renderCustomMessageConfigs.update((current) => [...current, config]);
+  }
+
+  removeRenderCustomMessage(config: CustomMessageRendererConfig): void {
+    this.#renderCustomMessageConfigs.update((current) =>
+      current.filter((c) => c !== config),
+    );
   }
 
   updateRuntime(options: {

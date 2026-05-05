@@ -2,6 +2,7 @@ export * from "./lib/config";
 export * from "./lib/copilotkit";
 export * from "./lib/tools";
 export * from "./lib/render-tool-calls";
+export * from "./lib/render-messages";
 export * from "./lib/agent";
 export * from "./lib/chat-config";
 export * from "./lib/chat-state";
